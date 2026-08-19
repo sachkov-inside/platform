@@ -13,6 +13,8 @@ This repository uses the versioned Sachkov Inside product harness.
   every workflow mandatory for every request.
 - Keep this repository autonomous: build, test, run, and deploy must not depend on the Workspace
   repository or on machine-local paths.
+- Treat user-level skills, MCP, plugins and hooks as unavailable. Declare every recurring
+  capability in this repository's harness and keep credentials in native auth or environment.
 - Do not edit `.inside-harness/` manually. Use the Workspace lifecycle commands and review the Git
   diff they produce.
 <!-- inside-product-harness:end -->
