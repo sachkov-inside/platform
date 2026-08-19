@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "package": "inside-engineering",
+  "version": "0.2.0",
+  "managedSkills": [
+    "ask-matt",
+    "code-review",
+    "codebase-design",
+    "diagnosing-bugs",
+    "domain-modeling",
+    "frontend-design",
+    "grill-me",
+    "grill-with-docs",
+    "grilling",
+    "handoff",
+    "impeccable",
+    "implement",
+    "improve-codebase-architecture",
+    "karpathy-guidelines",
+    "modern-web-guidance",
+    "playwright-cli",
+    "prototype",
+    "research",
+    "resolving-merge-conflicts",
+    "setup-matt-pocock-skills",
+    "tdd",
+    "teach",
+    "to-questionnaire",
+    "to-spec",
+    "to-tickets",
+    "triage",
+    "vercel-react-best-practices",
+    "wait-what",
+    "wayfinder",
+    "web-design-guidelines",
+    "wizard",
+    "writing-for-agents"
+  ],
+  "targets": {
+    "portable": ".agents/skills",
+    "claude": ".claude/skills"
+  }
+}
