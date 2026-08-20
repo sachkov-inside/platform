@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "package": "inside-engineering",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "managedSkills": [
     "ask-matt",
     "code-review",
@@ -35,6 +35,10 @@
     "web-design-guidelines",
     "wizard",
     "writing-for-agents"
+  ],
+  "managedFiles": [
+    "WORKFLOW.md",
+    "docs/agents/triage-labels.md"
   ],
   "targets": {
     "portable": ".agents/skills",
