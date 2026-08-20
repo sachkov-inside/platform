@@ -18,15 +18,16 @@ jobs:
         with:
           project-url: https://github.com/orgs/sachkov-inside/projects/1
           github-token: ${{ secrets.INSIDE_PROJECT_TOKEN }}
-      - name: Set the project item to Inbox
+      - name: Set the initial project status
         env:
           GH_TOKEN: ${{ secrets.INSIDE_PROJECT_TOKEN }}
+          STATUS_OPTION_ID: ${{ github.event_name == 'pull_request' && 'f61aa86e' || 'a2cf7574' }}
         run: >-
           gh project item-edit
           --id "${{ steps.add-to-project.outputs.itemId }}"
           --project-id PVT_kwDOEviKY84Bg8D6
           --field-id PVTSSF_lADOEviKY84Bg8D6zhf5tfs
-          --single-select-option-id a2cf7574
+          --single-select-option-id "$STATUS_OPTION_ID"
 
   mark-done:
     if: >-
