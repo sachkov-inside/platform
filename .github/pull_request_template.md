@@ -4,7 +4,7 @@
 
 ## Related issue
 
-Closes #
+<!-- Use "Closes #<issue>" for tracked work. Use "N/A — trivial docs/chore" otherwise. -->
 
 ## Verification
 
@@ -13,10 +13,6 @@ Closes #
 ## Not tested
 
 <!-- State what was not checked. Use "None" when everything relevant was checked. -->
-
-## UI evidence
-
-<!-- For UI changes: mobile and desktop screenshots or recordings. Otherwise: N/A. -->
 
 ## Owner decisions
 
