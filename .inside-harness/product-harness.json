@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "package": "inside-engineering",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "managedSkills": [
     "ask-matt",
     "code-review",
@@ -36,6 +36,7 @@
     "wizard",
     "writing-for-agents"
   ],
+  "snapshot": ".inside-harness/skills",
   "managedFiles": [
     "WORKFLOW.md",
     "docs/agents/triage-labels.md"
