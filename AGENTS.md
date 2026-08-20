@@ -1,5 +1,24 @@
 # platform
 
+## Repository role
+
+Platform owns the future Membership application, its implementation issues and application-specific
+ADRs. Product and cross-repository decisions are resolved in Workspace and arrive here through an
+explicit issue or versioned artifact, never a machine-local dependency.
+
+## Working agreements
+
+- For GitHub triage or Wayfinder operations, read `docs/agents/issue-tracker.md` and
+  `docs/agents/triage-labels.md`.
+- For product context, terminology or ADR placement, read `docs/agents/domain.md`.
+- For tracked work, branch from current `main` as `<type>/<issue>-<slug>`. Trivial docs/chore may
+  use `<type>/<slug>`. Merge by squash only after explicit owner GO.
+
+## Commands
+
+The application toolchain has not been selected. Add install, run, build, test and deploy commands
+after the owner approves the corresponding workflow.
+
 <!-- inside-product-harness:start -->
 ## Inside product harness
 
