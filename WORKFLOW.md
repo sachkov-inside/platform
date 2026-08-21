@@ -38,9 +38,20 @@ issue.
 `Operations`. Triage and Wayfinder labels describe readiness and work shape; they do not duplicate
 delivery state or priority.
 
+`Level` records delivery hierarchy:
+
+- `Initiative`: a root effort such as a Wayfinder map;
+- `Specification`: a parent specification that owns implementation tickets;
+- `Ticket`: a concrete decision, research, or implementation task.
+
+Use the native `Parent issue` relation for the actual hierarchy; `Level` controls presentation and
+does not replace that relation. The `Current` view contains issues only and shows pull requests
+through `Linked pull requests`. Within each status column, keep the manual order `Initiative`,
+`Specification`, then `Ticket`.
+
 Repository workflows add new and reopened issues and pull requests to the Project. Set `Area` and
-`Priority` during triage, move `Status` with the work, and treat the repository issue or pull
-request state as authoritative when it conflicts with the Project.
+`Priority` and `Level` during triage, move `Status` with the work, and treat the repository issue or
+pull request state as authoritative when it conflicts with the Project.
 
 ## Issues, branches, and pull requests
 
@@ -59,16 +70,22 @@ after merge.
 
 ### Agent worktrees
 
-Every agent that changes repository files works in a dedicated Git worktree for its task branch,
-created from the current `main`. One worktree has one active writing agent, one task branch, and one
-meaningful scope. Parallel agents use separate worktrees and separate branches, including when they
-work in the same repository. Read-only agents may inspect an existing worktree without changing
-files or switching its branch.
+The repository's primary local checkout is the owner's workspace. Treat its checked-out branch,
+index, and files as owner-controlled state: inspect it read-only, and let the owner decide when it
+advances after a merge. An explicit owner request concerning that checkout is the only authority to
+change its branch or files.
 
-Treat another session's worktree and branch as owned live state. Synchronize `main` in its own
-worktree, integrate updates inside the task worktree, and keep worktree paths out of committed
-configuration and documentation. After merge, verify that the task worktree has no uncommitted or
-unpushed work before removing it and its local branch.
+Every agent that changes repository files works in a dedicated Git worktree for its task branch.
+Fetch refs without changing the primary checkout, then create the task worktree from the current
+`origin/main`. One worktree has one active writing agent, one task branch, and one meaningful scope.
+Parallel agents use separate worktrees and separate branches, including when they work in the same
+repository. Read-only agents may inspect an existing worktree without changing its branch, index,
+or files.
+
+Treat another session's worktree and branch as owned live state. Integrate upstream changes inside
+the task worktree, and keep worktree paths out of committed configuration and documentation. After
+merge, verify that the task worktree has no uncommitted or unpushed work before removing it and its
+local branch.
 
 ### Long-lived branches and deployment
 
