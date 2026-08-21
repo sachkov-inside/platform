@@ -1,0 +1,27 @@
+{
+  "name": "@inside/platform",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.22.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @inside/web --filter @inside/backend dev",
+    "dev:web": "pnpm --filter @inside/web dev",
+    "dev:api": "pnpm --filter @inside/backend dev:api",
+    "dev:worker": "pnpm --filter @inside/backend dev:worker",
+    "dev:mcp": "pnpm --filter @inside/backend dev:mcp",
+    "build": "pnpm --recursive --if-present build",
+    "lint": "eslint .",
+    "typecheck": "pnpm --recursive --if-present typecheck",
+    "test": "pnpm --recursive --if-present test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "infra:up": "docker compose up -d --wait postgres",
+    "infra:down": "docker compose down",
+    "smoke:health": "pnpm --filter @inside/backend smoke:health"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.8.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.67.0"
+  }
+}

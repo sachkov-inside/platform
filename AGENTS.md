@@ -15,8 +15,19 @@ machine-local dependency.
 
 ## Commands
 
-The application toolchain has not been selected. Add install, run, build, test and deploy commands
-after the owner approves the corresponding workflow.
+Use Node.js and pnpm versions pinned in `.node-version` and `packageManager`.
+
+```bash
+pnpm install --frozen-lockfile
+pnpm check
+pnpm infra:up
+pnpm smoke:health
+pnpm infra:down
+```
+
+Run individual process adapters through the root `dev:web`, `dev:api`,
+`dev:worker` and `dev:mcp` scripts. Keep infrastructure shutdown in the
+verification path after a successful or failed smoke.
 
 <!-- inside-product-harness:start -->
 ## Inside product harness

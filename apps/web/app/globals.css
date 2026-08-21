@@ -1,0 +1,113 @@
+:root {
+  color-scheme: light dark;
+  --background: #f6f4ef;
+  --surface: #ffffff;
+  --text: #1d1d1b;
+  --muted: #625f59;
+  --accent: #8f3f25;
+  --border: #d6d0c5;
+}
+
+html {
+  box-sizing: border-box;
+  background: var(--background);
+}
+
+body {
+  min-block-size: 100dvh;
+  margin: 0;
+  color: var(--text);
+  background: var(--background);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  line-height: 1.5;
+}
+
+main {
+  inline-size: min(100% - 2rem, 52rem);
+  margin-inline: auto;
+  padding-block: clamp(4rem, 12dvh, 8rem);
+}
+
+.eyebrow {
+  margin: 0 0 1rem;
+  color: var(--accent);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  text-wrap: pretty;
+}
+
+h1 {
+  max-inline-size: 14ch;
+  margin: 0;
+  font-size: clamp(2.5rem, 8vw, 5.5rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.summary {
+  max-inline-size: 54ch;
+  margin-block: 1.5rem 4rem;
+  color: var(--muted);
+  font-size: clamp(1.125rem, 2vw, 1.35rem);
+}
+
+section {
+  padding: clamp(1.25rem, 4vw, 2rem);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+}
+
+h2 {
+  margin-block: 0 1.5rem;
+  font-size: 1rem;
+}
+
+dl {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+}
+
+dl div {
+  display: grid;
+  grid-template-columns: minmax(5rem, 0.5fr) 1.5fr;
+  gap: 1rem;
+}
+
+dt {
+  font-weight: 700;
+}
+
+dd {
+  margin: 0;
+  color: var(--muted);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #171715;
+    --surface: #22221f;
+    --text: #f4f0e8;
+    --muted: #bcb6aa;
+    --accent: #f19b78;
+    --border: #49463f;
+  }
+}
+
+@media (max-width: 32rem) {
+  dl div {
+    grid-template-columns: 1fr;
+    gap: 0.125rem;
+  }
+}

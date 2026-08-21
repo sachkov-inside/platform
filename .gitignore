@@ -1,0 +1,10 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.next/
+.playwright-cli/
+coverage/
+dist/
+node_modules/
+*.tsbuildinfo
