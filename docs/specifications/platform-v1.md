@@ -34,7 +34,9 @@ consequences:
 - admin, REST и MCP используют одни commands, validation, conflicts и publish policy;
 - один provider-neutral `ContentAccess` решает read, preview, asset/download и video access;
 - PostgreSQL projections обеспечивают Library, Topic/Series navigation, search и related Materials;
-- ReadingState не участвует в access decision и сохраняется при окончании Membership.
+- ReadingState не участвует в access decision и сохраняется при окончании Membership;
+- owner-controlled Tribute URL является только outbound acquisition destination: Platform не
+  интегрируется с Tribute API/webhooks и не использует click/payment state как MembershipEvidence.
 
 Identity provider, отдельная Telegram application и Kinescope являются внешними seams Platform;
 их provider types и credentials не входят в application modules. Final information architecture,
@@ -165,7 +167,8 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 
 ### Membership linking и refresh
 
-1. Signed-in Principal начинает short-lived link transaction через Platform.
+1. После email-code sign-in Platform предлагает skippable linking; signed-in Principal начинает
+   short-lived link transaction сразу, позже из account или из closed-Material recovery flow.
 2. Отдельная Telegram application проверяет Telegram identity, uniqueness и Membership в
    каноническом закрытом chat.
 3. Platform принимает normalized MembershipEvidence без raw Telegram model и строит собственный

@@ -1,0 +1,882 @@
+# Sachkov Inside Platform v1 — UX brief
+
+Статус: owner-approved UX input от 2026-08-21 для
+[Platform issue #20](https://github.com/sachkov-inside/platform/issues/20). Документ фиксирует
+подтверждённую UX-границу, трассировку требований, state/action matrices и low-fidelity
+wireframes. Fixture corpus, IA и coarse copy приняты owner в working session; документ не выбирает
+visual language и сохраняет implementation decisions, перечисленные в конце.
+
+Snapshot источников: 2026-08-21. Repository-owned product/application contract и glossary
+ссылаются на current relative files и синхронизируются этим change; cross-repository provenance
+привязан к merge commit
+[`ed5b555a`](https://github.com/sachkov-inside/workspace/commit/ed5b555a0171a53ab17a5ed388d80575c8025f03)
+Workspace [PR #61](https://github.com/sachkov-inside/workspace/pull/61).
+
+## 1. Purpose и граница
+
+Platform v1 должна стать каноническим домом полноценных материалов Inside. Участник Membership
+должен удобно находить и читать доступный контент, а публичный посетитель — видеть реальный состав
+и ценность Membership до покупки. Telegram остаётся местом community, коротких анонсов и внешнего
+Membership lifecycle. ([Platform MVP brief][platform-brief-outcome],
+[Workspace v1 specification][workspace-v1-result])
+
+Этот brief отвечает только на структурные UX-вопросы:
+
+- какие actors должны пройти какие journeys;
+- какие product surfaces нужны v1 и как они связаны;
+- где отображаются подтверждённые domain и access states;
+- какое UI-следствие имеет каждое требование v1, либо почему UI для него не нужен;
+- какие решения нельзя принимать без owner input.
+
+В этот документ намеренно не входят palette, typeface, icon style, visual density, component
+library, motion language и иные styling decisions. Они принадлежат последующим #21–#23; production
+frontend implementation начинается только после принятого UI gate.
+([Workspace v1 scope][workspace-v1-scope], [Workspace UI gate][workspace-ui-gate])
+
+Также не проектируются billing, subscription management, тарифы, trial, promo/gifts, comments или
+community внутри Platform, notification center/email notifications, AI search, multi-author review,
+UGC, achievements/gamification, Telegram import/migration и bot messaging/admin workflows.
+([Workspace v1 scope][workspace-v1-scope])
+
+### Product context, который ограничивает UX
+
+- Основная аудитория — разработчик, который уже умеет программировать и выбирает релевантные
+  направления самостоятельно; Platform не должна притворяться обязательным линейным курсом.
+  ([Inside audience][product-audience])
+- Ценность строится на реальной инженерной практике, контексте решений и связанных коде, схемах,
+  документах, дизайне и других artifacts, а не только на готовом ответе.
+  ([Inside product value][product-value])
+- Build-series — флагманская линия, но не весь Membership. IA должна сохранять несколько Topic и
+  Series trajectories и не сводить Home/Library к одному course progress.
+  ([Inside build-series][product-build-series])
+
+### Порядок authority
+
+1. Platform repository владеет product/application contract и glossary, а Workspace — shared
+   product и cross-repository решения. Более позднее явное owner decision имеет приоритет, после
+   чего owning document должен быть синхронизирован. ([Platform brief authority][platform-brief-authority],
+   [Platform specification authority][platform-spec-authority],
+   [Workspace authority rule][workspace-v1-authority])
+2. Repository-local MVP brief и application specification уже синхронизировали более поздние
+   owner decisions: Materials создаются вручную без import/migration, а individual discussion
+   relation не входит в обязательный v1 scope. UX не проектирует соответствующие surfaces;
+   Workspace links ниже остаются provenance, а не runtime/agent dependency.
+   ([Platform application boundaries][platform-spec-boundaries],
+   [publishing audit decisions][audit-decisions])
+3. Конкретная taxonomy и sanitized content fixture не выводятся из общих продуктовых формулировок:
+   они должны опираться на реальный контент и отдельное owner approval. Для этого brief owner
+   делегировал выбор representative sanitized corpus и утвердил bounded F1–F3 ниже; эти values не
+   становятся seed ontology.
+   ([Publishing audit boundary][audit-boundary])
+
+### Owner decisions этой UX-сессии
+
+- Public landing и Platform application — разные surfaces: landing объясняет предложение и ведёт
+  в application/Мастерскую; application владеет content discovery/reading/account. `sachkov.dev` и
+  `app.sachkov.dev` — рабочие примеры, не production domain commitment этой UX-задачи.
+- Free content доступен без account. Email-code sign-in одновременно создаёт или открывает
+  account; отдельной registration form нет.
+- После первого sign-in Platform сразу предлагает связать Telegram, но шаг можно пропустить.
+  Linking также доступен в Account и повторяется контекстно при открытии closed Material.
+- Closed Material остаётся addressable public page с teaser и inline Membership offer. Primary CTA
+  `Вступить в Мастерскую` ведёт по внешней ссылке в Tribute; это outbound acquisition link, не
+  billing/Tribute integration и не источник Membership state.
+- Top-level navigation: `Главная`, `Библиотека`, `Карта`. Темы и Серии открываются контекстно из
+  Home, cards и Materials.
+- Signed-in Home: conditional `Продолжить`, затем лента новых материалов, Темы, активные Серии и
+  entry в Карту. Короткая history живёт на Home, полная — в Account.
+- Library filters: `Тема`, `Формат`, `Серия`; multiple values работают как OR внутри facet и AND
+  между facets. Tags остаются visible/searchable links без отдельной filter panel.
+- `Topic` отображается как `Тема`. `ReadingState` меняется только явным user action, без scroll,
+  time или video-completion heuristics.
+- Authoring полностью доступен на narrow mobile, а не ограничен preview/publish режимом.
+- Owner делегировал selection материалов; F1–F3 ниже утверждены как sanitized prototype corpus.
+
+## 2. Подтверждённые actors
+
+Названия ниже описывают UX-персоны, а не новые authorization roles. Доступ всегда определяется
+центральным `ContentAccess`; UI только отображает coarse outcome и не воспроизводит Membership rules.
+([ContentAccess decision][access-decision])
+
+| Actor | Подтверждённое состояние | Основная v1 job | Важная граница |
+|---|---|---|---|
+| Public visitor | Anonymous Subject, Platform account не требуется | Понять состав Membership, найти материал, прочитать free Material, увидеть teaser закрытого Material | Видит public projection, но closed body/assets/video не загружаются |
+| Authenticated non-member | Enabled Principal без активного entitlement: Telegram ещё не связан, Membership не найден либо evidence недоступно/устарело | Связать Telegram, проверить Membership, продолжать пользоваться public/free content | Сам факт login или Telegram link не даёт Membership |
+| Active member | Enabled Principal с current bounded `MembershipEntitlement` | Найти, прочитать, скачать и посмотреть доступный closed content; управлять read status/history | Каждая новая protected operation повторно проверяет доступ |
+| Expired member | Principal и Telegram link/history сохранены, но entitlement не активен | Понять причину закрытого состояния, проверить Membership после rejoin, продолжать читать free content | Потеря Membership не удаляет account, link, history или read states |
+| Author | Enabled Principal с explicit content permission; в v1 фактически Кирилл | Создать/revise Material, управлять metadata/resources, validate, preview, получить owner GO и publish | Author permission не является `MembershipEntitlement`; preview не означает publish authority |
+| Admin | Principal с explicit Platform administration permission; может совпадать с автором | Выполнять только подтверждённые privileged Platform operations | Policy tests различают author и admin, даже если обе permissions выданы Кириллу |
+| Owner agent | Service Principal через MCP с explicit permissions | Выполнить те же semantic authoring commands и получить те же validation/conflict outcomes | Не наследует browser session или human Membership; autonomous publish запрещён |
+
+Access distinctions подтверждены общей matrix для anonymous, authenticated, active, expired,
+author и admin. ([ContentAccess matrix][access-matrix]) Email login, явное Telegram linking и
+сохранение account/history после окончания Membership заданы продуктовым brief.
+([Platform actors][platform-brief-actors])
+
+## 3. Канонический UX vocabulary
+
+### Identity и access
+
+| Термин | Подтверждённое значение | Не называть/не моделировать как |
+|---|---|---|
+| `Principal` | Person или machine identity, распознанная Inside application | универсальный «user», если важно различать человека и service Principal |
+| `Subject` | Anonymous visitor или authenticated Principal, для которого принимается access decision | Telegram user или browser session |
+| Membership signal | Наличие связанной Telegram identity в одном canonical closed Inside chat | Tribute subscription или payment status |
+| `MembershipEvidence` | Нормализованное наблюдение Membership signal с конечным сроком действия | raw Telegram status или permanent member flag |
+| `MembershipEntitlement` | Ограниченный по времени Platform grant для closed content | IdP/Telegram role или subscription |
+| `Resource` | Material body, Asset или Video с publication state и access class | URL, S3 key или Kinescope object |
+| `ContentAccess` | Platform capability, принимающая allow/deny decision для Subject × Action × Resource | route-local paywall check или Membership middleware |
+| Access decision | Outcome для одной операции `read`, `preview`, `download` или `play`, с reason и validity | долгоживущий boolean доступа |
+
+Эти определения принадлежат repository-local glossary и owner-confirmed ContentAccess design.
+([Platform glossary][platform-context], [ContentAccess vocabulary][access-vocabulary])
+
+UI показывает только coarse user-facing states: «Войдите», «Membership не активен», «Временно
+недоступно» и contextual recovery action. Internal reason codes, provider details, identity
+mapping и resource mismatch пользователю не раскрываются. ([Access copy boundary][access-copy])
+
+### Content и navigation
+
+| Термин | Подтверждённое правило v1 | UX-следствие |
+|---|---|---|
+| `Material` | Stable library/search/read identity со slug, current draft и optional published revision | Карточка и страница относятся к Material, не к Telegram message или отдельному Asset |
+| `MaterialRevision` | Immutable full snapshot document + metadata + resource refs | Preview выбирает exact revision; restore/history не переписывают опубликованную историю |
+| `Topic` / «Тема» | Ровно одна на Material; managed, одноуровневый dictionary | Topic page — generated view; owner утвердил UI label «Тема» |
+| `Format` | Ровно один на Material; primary consumption mode, независимо от Topic и Asset kind | `video`, `guide` и будущие подтверждённые values не смешиваются с file/image/link |
+| `Tag` | 0..N на Material; managed dictionary с rename/merge без duplicate synonyms | Tags видимы, searchable и ведут к похожему content; отдельной tag filter panel в v1 нет |
+| `Series` | 0..N ordered memberships; ordinal принадлежит membership, Material может быть в нескольких Series | Series page показывает description и ordered episodes без копирования Material data |
+| `Asset` | Platform-owned image/downloadable file; revision ссылается по local ID | Asset наследует access Material/revision и имеет loading/processing/error/ready delivery states |
+| `Video` | Local identity с Kinescope mapping; revision ссылается по local ID | Provider status не заменяет publication/access state |
+| `ExternalLink` | Typed label + normalized URL, 0..N на revision | Link — часть Material, не отдельный Format и не entity by URL |
+| `NavigationPage` | Editorial title/body + curated/query links | Roadmap — editorial/navigation page, а не Material, Topic или duplicated library table |
+| `ReadingState` | Не более одного current state на Principal/Material | Только `прочитано / не прочитано`; history — отдельный bounded personal projection |
+
+Cardinalities и roles закреплены repository-local application specification.
+([Platform logical model][platform-spec-logical-model]) «Создание Platform Inside» подтверждена как
+ordered Series, Roadmap — как `NavigationPage`, Library/material index — как generated view; concrete
+Topic/Format/Tag dictionaries остаются evolving fixtures, а не seed ontology.
+([Workspace navigation roles][workspace-navigation-roles])
+
+Canonical Material document — versioned ProseMirror JSON; Tiptap является authoring adapter.
+Issue #20 требует, чтобы UX fixture проверял структурированный body, code, table, callout, image,
+file и Kinescope video. Authoring research предлагает соответствующие typed node families через
+local IDs и исключает raw HTML/MDX, iframe markup, provider tokens и arbitrary layout blocks;
+точные limits проверяются content-schema implementation на approved corpus. ([Workspace stack contract][workspace-stack],
+[Platform issue #20](https://github.com/sachkov-inside/platform/issues/20),
+[authoring schema][authoring-schema])
+
+## 4. Information architecture без visual styling
+
+### Surface model
+
+| Surface | Audience | Job | Content authority / relation |
+|---|---|---|---|
+| Global navigation | Все browser actors | Перейти к основным public destinations и account context | Top-level: Главная, Библиотека, Карта; Темы/Серии contextual; Account/Author — actor utilities |
+| Home | Все; после login добавляется personal layer | Увидеть новое, Темы, active Series и Карту; после login — последний просмотренный и короткую history | Order для signed-in: conditional Продолжить → новое → Темы → active Series → Карта |
+| Library / search | Все | Найти published Material через full-text search и filters Тема/Формат/Серия | Multiple values: OR внутри facet, AND между facets; Tags visible/searchable without filter panel; closed body отсутствует в public results |
+| Topic | Все | Понять направление и перейти к связанным Series/Materials | Generated view по exactly-one Topic |
+| Series | Все | Понять series и пройти ordered episodes; public visitor видит карточки и порядок даже closed Series | Ordered `SeriesMembership`; Material data не копируется |
+| Roadmap | Все | Понять направления продукта и перейти к Topics/Series/Materials | Editorial `NavigationPage` с curated/query links |
+| Material | Все с actor-dependent body state | Прочитать teaser/free/closed body, использовать image/file/video, related Materials и read status | Всегда exact published revision; public projection отделена от protected body |
+| Sign-in handoff | Anonymous | Создать или открыть account одним email-code flow | После успеха — skippable Telegram-link prompt, затем return destination; separate sign-up form отсутствует |
+| Account | Authenticated human | Видеть account, Telegram link и coarse Membership state; запускать link/check-again/recovery-supported actions | Account не управляет billing/subscription и не хранит Membership rule в UI |
+| Telegram link callback/result | Authenticated human | Завершить OIDC link, увидеть linked-member / linked-not-member / denied / conflict / unavailable outcome | Linking не является login и само по себе не даёт access |
+| Recent history / reading state | Authenticated human | Вернуться к недавно просмотренному, вручную mark read/unread | Последний/короткий список на Home, полная bounded history в Account; auto-mark отсутствует |
+| Author material list | Author/admin | Найти draft/published Materials, создать Material, открыть editor/revision | Private, noindex; list не становится second content authority |
+| Author editor | Author/admin | Изменить document/metadata/series/assets/video; видеть save, validation, upload и conflict states | Один application command contract с MCP; каждый save создаёт immutable revision |
+| Author preview | Author/admin | Проверить exact revision тем же renderer/access behavior до publish | Private/no-store/noindex; preview не меняет publication state |
+| Owner publish confirmation | Owner-author | Дать explicit GO после final validation | Может быть bounded state/step editor/preview; autonomous publish отсутствует |
+| MCP | Owner agent, не browser actor | Выполнить semantic create/edit/validate/preview/prepare/execute commands | UI surface не требуется; browser admin должен показывать тот же canonical outcome |
+
+Public surfaces, account/admin boundaries и SEO rules закреплены в local specification.
+([Platform application boundaries][platform-spec-boundaries], [Platform NFR][platform-spec-nfr]) Home/Library/Topic/Series
+roles и personal layer подтверждены Platform brief.
+([Platform navigation][platform-brief-navigation]) Roadmap и generated view semantics уточнены более
+поздним Workspace contract. ([Workspace navigation roles][workspace-navigation-roles])
+
+### Navigation relationships
+
+- Home даёт editorial/query entry points в Library, Topic, Series, Roadmap и Material.
+- Library, Topic и Series являются разными generated views одной content model: они ведут к одному
+  Material identity и не хранят собственные копии title/summary/access state.
+- Roadmap является editorial `NavigationPage`: её body объясняет направления, а links ведут в
+  generated views или конкретные Materials.
+- Material возвращает пользователя к своей Topic, всем Series memberships и related Materials;
+  related выдача сочетает metadata score и explicit author pins без AI dependency.
+- Account и author surfaces — отдельные private branches; они не должны попадать в public sitemap.
+
+Эти relations следуют logical model и search/navigation flow.
+([Workspace logical model][workspace-logical-model], [Workspace search flow][workspace-search-flow])
+Top-level order и history placement подтверждены выше. Для #22 открыты только visual/mobile
+disclosure pattern и exact composition внутри секций, а не состав IA.
+
+### Critical journeys
+
+1. **Discover and read free.** Public visitor lands on Home or an indexed card, moves through
+   Library/Topic/Series/Roadmap, opens F1 and reads body/Resources without creating an account.
+2. **Understand a closed Material.** Public visitor opens F2/F3, receives the complete public
+   projection and teaser, but no closed bytes; inline offer gives `Вступить в Мастерскую` → Tribute
+   and `Войти` for an existing participant, preserving the Material return destination.
+3. **Link and unlock.** After email-code sign-in, Principal sees a skippable Telegram-link prompt.
+   Linking remains in Account and the closed-Material flow; callback keeps link and Membership as
+   separate states, then retries the original operation. Only current `ContentAccess` allow opens
+   the body.
+4. **Lose and restore access.** Expired member sees closed teaser plus preserved history/read state,
+   rejoins externally, chooses `Проверить снова`, and regains new protected operations after fresh
+   evidence without relinking or recreating the account.
+5. **Find across language and metadata.** Any actor searches a RU/EN or typo probe, narrows results
+   with only actually populated facets, opens one canonical Material, then follows its Topic,
+   Series or related links without encountering duplicated copies.
+6. **Author and preview.** Author creates a draft, sets Topic/Format/Tags/Series/access, builds the
+   structured body, uploads Resources to `ready`, fixes validation, and previews an exact revision
+   through the production renderer contract.
+7. **Recover from concurrent editing.** Editor save with stale base receives `409`; the author
+   compares current and intended changes, explicitly reloads/reapplies, and creates a new revision
+   without silent overwrite.
+8. **Publish with owner GO.** Admin or MCP prepares a validated revision; owner reviews exact
+   Preview and gives recorded GO; publish moves the pointer atomically, refreshes generated/search
+   views, and exposes only the published projection/resources.
+
+## 5. V1 requirements → surface/journey traceability
+
+Таблица покрывает подтверждённый v1 product/application contract. `No UI` означает осознанное
+отсутствие отдельной Platform surface, а не потерянное требование.
+
+| ID | Requirement / invariant | Actor journey | Surface или `No UI` | Обязательные observable states/actions | Source |
+|---|---|---|---|---|---|
+| R01 | Public home с editorial discovery | Visitor/member открывает Platform и выбирает направление | Home | New feed, Topics, active Series, Карта; after login conditional Продолжить + short history | [Platform navigation][platform-brief-navigation] |
+| R02 | Полный published catalog | Любой actor просматривает все карточки | Library | loading, populated, empty; card free/closed status; pagination/continuation contract ещё открыт | [Workspace v1 scope][workspace-v1-scope] |
+| R03 | Full-text search | Любой actor ищет RU/EN terms | Library/search | query, loading, results, no results, controlled failure; typo/normalization fixture | [Workspace search flow][workspace-search-flow] |
+| R04 | Filters только из real metadata | Любой actor уточняет выдачу | Library/search | Тема/Формат/Серия; multi-select OR within facet, AND across facets; Tags visible/searchable | [Publishing audit navigation][audit-navigation] |
+| R05 | Topic navigation | Любой actor открывает направление | Topic | description/context, Series и Material cards, empty/partial | [Platform navigation][platform-brief-navigation] |
+| R06 | Ordered Series, включая closed Series visibility | Visitor видит description/order/cards; member читает episodes | Series | ordered episodes, free/closed/read status, empty/partial; no invented overall progress percent | [Platform actors][platform-brief-actors] |
+| R07 | Editorial Roadmap | Любой actor понимает product directions и переходит к content | Roadmap | editorial body + curated/query links; partial links fail independently | [Workspace navigation roles][workspace-navigation-roles] |
+| R08 | Public card/teaser каждого published Material | Visitor оценивает состав до покупки | Cards на Home/Library/Topic/Series/Roadmap и Material | free/closed label, title, summary, taxonomy/series, safe media metadata; no closed body bytes | [Workspace public projection][workspace-public-projection] |
+| R09 | Полное чтение free Material без account | Visitor открывает free card | Material | body, code/table/callout/media/file/video as present; loading/error; related content | [ContentAccess matrix][access-matrix] |
+| R10 | Closed Material deny без утечки | Anonymous открывает closed card | Material | teaser + inline offer: `Вступить в Мастерскую` → Tribute and `Войти`; protected bytes absent | [Access copy boundary][access-copy] |
+| R11 | Authenticated non-member closed state | Signed-in non-member открывает closed Material | Material + Account | Membership required/not active, Link Telegram или Check again; free content remains available | [Membership UX][membership-ux] |
+| R12 | Active-member protected reading | Active member opens body/image/file/video | Material | allow exact published revision; read/download/play; independent resource unavailable state | [ContentAccess matrix][access-matrix] |
+| R13 | Expiry/removal preserves account context | Expired member returns to Platform | Material + Home/history + Account | closed access denied; account, Telegram link, history/read state preserved; Check again after rejoin | [Membership return flow][membership-return] |
+| R14 | One closed access tier | Visitor/member crosses access boundary | Material/Account | only free vs Membership; no plan selector, upsell matrix or per-series purchase state | [Workspace v1 scope][workspace-v1-scope] |
+| R15 | Email registration/sign-in | Visitor creates/resumes Platform identity | Sign-in handoff | one email-code flow creates/opens account; delivery/input/resend/rate/error/success; then skippable linking prompt | [Identity UX proof][identity-flow] |
+| R16 | Explicit Telegram link after login | Authenticated human links identity | Account → Telegram OIDC → callback/result | never linked, pending redirect, linked+member, linked+not-member, consent denied/expired, replay/invalid callback, conflict, unavailable | [Membership UX][membership-ux], [membership failures][membership-failures] |
+| R17 | Membership refresh/rejoin | Linked non-member/expired member requests new evidence | Account and protected Material | rate-limited Check again, checking, member restored, not member, fresh prior evidence, stale/unavailable fail-closed | [Membership states][membership-states] |
+| R18 | Secure unlink/recovery boundary | Authenticated human handles exceptional link problem | Account/support handoff | no casual replace; explicit confirmation/recent re-auth where allowed; conflict requires audited owner recovery | [Telegram link invariants][membership-link-invariants] |
+| R19 | Read/unread state | Member explicitly toggles status for a Material | Material card/page; personal history | manual read/unread with mutation feedback; no auto-scroll/time/video trigger, percent, position or achievements | [Platform navigation][platform-brief-navigation] |
+| R20 | Minimal recent history | Member returns to recently viewed content | Short Home layer + full Account history | empty/populated; survives Membership expiry; length/retention and unpublish behavior remain implementation inputs | [Platform actors][platform-brief-actors] |
+| R21 | Related Materials | Reader continues to relevant content | Material | metadata-generated links + explicit author pins; empty/partial | [Workspace search flow][workspace-search-flow] |
+| R22 | Text/guides/images/links/files/video | Reader consumes all v1 content shapes | Material | long-form body; code/table bounded overflow; callout; image alt/caption; file label/download; video caption/player | [Authoring schema][authoring-schema] |
+| R23 | Kinescope playback | Free/active/author actor plays allowed Video | Material/Preview | placeholder/loading, ready/play, access denied, unsupported/error, provider unavailable; no public fallback | [Kinescope player contract][kinescope-player] |
+| R24 | Author Material management | Author creates/finds draft or published Material | Author material list | loading, empty, filters/status if evidence proves need, create/open, draft/published distinction | [Workspace modules][workspace-modules] |
+| R25 | Structured editor and metadata | Author edits body, Topic, Format, Tags, Series and relations | Author editor | dirty/saving/saved, validation warnings/errors, exact current revision, long content | [Authoring UX][authoring-ux] |
+| R26 | Image/file upload and attach | Author uploads resource, finalizes, attaches | Author editor/resource picker | pending, uploading/progress, processing/finalizing, ready, failed/retry, invalid type/size, unavailable | [Workspace asset flow][workspace-resource-flow] |
+| R27 | Kinescope upload/process/attach | Author uploads Video and waits for readiness | Author editor/video picker | upload created/uploading/paused/processing/ready/failed/retry; only ready attaches/publishes | [Kinescope lifecycle][kinescope-lifecycle] |
+| R28 | Validation and exact revision preview | Author checks publishability and rendered result | Editor + Preview | valid, warnings, structured errors, dependency unavailable; preview exact revision, no-store | [Workspace authoring flow][workspace-authoring-flow] |
+| R29 | Optimistic conflict | Author/MCP edits stale base revision | Editor conflict state; MCP structured outcome | `409`, current revision, no last-write-wins; recover/reapply decision without silent overwrite | [Workspace authoring flow][workspace-authoring-flow] |
+| R30 | Revisions, restore, publish/unpublish | Author manages lifecycle | Editor/revision history + Preview + publish confirmation | compare/select/restore, final validation, explicit owner GO, success/failure; draft remains private | [Workspace authoring flow][workspace-authoring-flow], [Stage 1 contract][workspace-stage1] |
+| R31 | MCP parity | Owner agent creates/edits/validates/previews/prepares content | `No UI` for MCP; outcomes visible in Author surfaces | same semantic commands, validation and `409`; separate service Principal; recorded owner GO for publish | [Workspace MCP flow][workspace-mcp-flow] |
+| R32 | Manual recreation, no Telegram import | Author recreates current content in target structure | Author editor only; `No UI` for importer/migration | no import wizard, mapping report, dedupe or migration progress | [Workspace v1 scope][workspace-v1-scope] |
+| R33 | Telegram announcements/community remain external | Reader follows existing community lifecycle outside Platform | `No UI` required for messaging/comments; optional external link only after separate decision | no Platform comments, notification center, bot commands or mandatory per-Material discussion link | [Workspace v1 scope][workspace-v1-scope] |
+| R34 | Platform does not bill/manage subscription | Visitor sees inline Membership offer and completes acquisition externally | Closed Material offer; `No UI` for checkout/subscription management | `Вступить в Мастерскую` opens Tribute; no prices/plans/payment history/cancel controls or Tribute integration | [Platform actors][platform-brief-actors] |
+| R35 | Single author, no editorial team/UGC | Кирилл completes whole publish flow | Author surfaces | no role assignment, review queue, collaborative cursors/comments or contributor onboarding | [Platform author][platform-brief-author] |
+| R36 | Safe public/protected separation | Any actor opens cached/public/protected path | All public/Material surfaces | public projection survives; protected content is private/no-store; dependency failure never falls back open | [Workspace read flow][workspace-read-flow] |
+| R37 | SEO for discoverable public value | Search crawler/public visitor reaches content | Home/Library/Topic/Series/Roadmap/cards/free Material | SSR, stable canonical URLs, metadata, sitemap, crawlable links; private surfaces noindex | [Workspace SEO][workspace-seo] |
+| R38 | Accessible responsive critical journeys | Keyboard/screen-reader/mobile user navigates/reads/links/plays/authors | All browser surfaces | semantic headings/landmarks, visible focus, names, announced errors; non-pointer alternatives; zoom/narrow/reduced motion safe | [Workspace accessibility][workspace-accessibility] |
+| R39 | Measured performance budgets | Visitor uses public/search/protected non-video pages | Home/Library/Topic/Series/Roadmap/Material | loading/partial UI must not hide failures; budgets verified on fixed corpus, not designed visually here | [Workspace performance][workspace-performance] |
+| R40 | Deferred capabilities stay absent | Any actor uses v1 | `No UI` | no AI search, notifications/email center, advanced progress, assignments, achievements, gamification, multi-tier/billing, comments/community | [Workspace v1 scope][workspace-v1-scope] |
+
+## 6. Confirmed state rules across surfaces
+
+Эти правила ограничивают будущую actor × surface × state matrix; они не задают layout.
+
+1. Public/free content остаётся доступным при identity, Membership, storage или video dependency
+   failures настолько, насколько его isolated public projection/resource не зависит от упавшей
+   системы. Closed content всегда fails closed. ([ContentAccess outage matrix][access-outages])
+2. Deny закрытого Material показывает только public teaser и coarse recovery state. Closed body,
+   draft, private locator, signed URL и playback token не должны попасть в HTML, RSC, search или
+   shared cache. ([Workspace public projection][workspace-public-projection],
+   [Workspace read flow][workspace-read-flow])
+3. Resource failures локальны, когда это безопасно: недоступный video не делает недоступным уже
+   разрешённый text body; страница сохраняет title/poster и controlled unavailable message.
+   ([Kinescope outage][kinescope-outage])
+4. Linking и Membership независимы. Возможны linked + not member, linked + unavailable и linked +
+   expired; removal не удаляет link/account/history. ([Membership UX][membership-ux],
+   [Membership states][membership-states])
+5. Draft и published revision независимы. Обычный read/download/play никогда не открывает draft;
+   author preview выбирает exact revision и не публикует её. ([ContentAccess matrix][access-matrix])
+6. Save conflict — first-class state: stale `baseRevisionId` возвращает `409` и current revision,
+   не выполняя last-write-wins. ([Workspace authoring flow][workspace-authoring-flow])
+7. Asset/Video может быть опубликован только в `ready` state. Unknown provider status, processing,
+   mismatch или outage не превращаются в optimistic ready. ([Workspace resource flow][workspace-resource-flow],
+   [Kinescope lifecycle][kinescope-lifecycle])
+8. Error/validation status должен быть programmatically announced; upload, player, table, code,
+   editor and access-state controls имеют keyboard/non-pointer path. ([Workspace accessibility][workspace-accessibility])
+
+## 7. Actor × surface × state × allowed action
+
+Матрицы ниже описывают observable UX contract. Они не являются authorization policy: browser
+получает coarse outcome от application layer, а не вычисляет Membership по actor name.
+
+### Public, discovery и reading surfaces
+
+| Surface | Actor | Observable state | Разрешённые действия | Запрещённое следствие |
+|---|---|---|---|---|
+| Home | Public visitor | Public composition: ready / loading / partial / empty | Открыть Library, Roadmap, Topic, Series или Material | Не показывать fake personal progress |
+| Home | Any authenticated human Principal | Public composition + empty/populated recent/read layer | Открыть доступный Material, вручную mark read/unread, открыть Account; author area только при permission | History/permission не grant-ят closed access и не создают общий course percentage |
+| Library/search | Все | Initial / searching / results / no results / controlled failure | Ввести query, применить/сбросить доступные real-data filters, открыть card | Не искать client-side по закрытому body и не выдумывать facets |
+| Topic | Все | Ready / empty / partial | Открыть Series или Material, перейти в Library с Topic context | Не хранить отдельную копию Material metadata |
+| Series | Все | Ready / empty / partial / long ordered list | Открыть episode; authenticated actor видит read/unread | Не скрывать порядок closed Series и не вычислять percent complete |
+| Roadmap | Все | Ready / partial links / editorial empty | Следовать curated/query links в generated views и Materials | Не превращать Roadmap в Topic, Series или duplicated catalog |
+| Free Material | Все | Body ready / loading / long / resource partial | Read, play/download free Resources, открыть related; authenticated — mark read/unread | Не требовать account или Membership |
+| Closed Material | Public visitor | Public teaser + `membership_offer` | `Вступить в Мастерскую` → Tribute; `Войти` для existing participant | Не fetch/render closed body, Asset URL или Video token |
+| Closed Material | Authenticated unlinked Principal | Public teaser + `link_required` | Связать Telegram, пропустить и продолжить free content, либо открыть Membership offer | Не считать login активным Membership |
+| Closed Material | Linked non-member | Public teaser + `membership_inactive` | Проверить снова; `Вступить в Мастерскую` → Tribute | Не показывать billing/subscription controls Platform |
+| Closed Material | Expired member | Public teaser + `membership_expired` | Проверить снова после rejoin; открыть history/free content | Не удалять account, Telegram link, history или read state |
+| Closed Material | Active member | `allowed`, exact published revision | Read body; отдельно authorize image/download/video; mark read/unread | Не reuse одного allow для другой Resource/Action |
+| Closed Material | Author/admin | `allowed_by_permission` для read/preview | Read published или открыть explicit Preview revision | Не превращать permission в fake `MembershipEntitlement` |
+| Closed Material | Любой protected actor | `temporarily_unavailable` после stale/outage | Retry/Check again; продолжить public/free navigation | Не fail open и не раскрывать provider/internal reason |
+| Resource внутри allowed Material | Allowed actor | Loading / ready / unavailable; Video также processing/unsupported | Read/download/play только конкретную Resource; retry bounded failure | Не делать весь text body недоступным из-за одного Video/Asset |
+| Related Materials | Все | Populated / empty / partial | Открыть public card | Не объяснять internal score и не обещать AI recommendations |
+
+### Account, linking и authoring surfaces
+
+| Surface | Actor | Observable state | Разрешённые действия | Запрещённое следствие |
+|---|---|---|---|---|
+| Sign-in handoff | Public visitor | Start / code sent / input / rate-limited / failed / success | Ввести email/code, resend when allowed; после success связать Telegram или пропустить; return | Не принимать Membership решение внутри identity UI |
+| Account | Authenticated unlinked Principal | `telegram_not_linked` | Start Telegram link, sign out | Не предлагать заменить уже связанную identity без recovery policy |
+| Account | Linked non-member / expired | Linked identity + inactive/expired/unavailable coarse state | Check again, открыть approved recovery destination | Не показывать raw Telegram status/evidence timestamps как authority |
+| Account | Active member | Linked + active coarse state | Check again when allowed, open Library/history | Не давать Platform subscription management |
+| Telegram callback/result | Authenticated human | Pending / linked-active / linked-inactive / denied / expired / replay / conflict / unavailable | Finish, retry safe step, return to Account; conflict — support/owner recovery | Не auto-merge two Principals или silently replace link |
+| Recent history | Authenticated human | Empty / populated / referenced Material unpublished | Open still-visible Material, mark read/unread, return to Library | Не grant closed access from historical presence |
+| Author material list | Author/admin | Loading / empty / populated / controlled failure | Create Material, open draft/published item | Не показывать author actions обычному member |
+| Author editor | Author/admin | Clean / dirty / saving / saved | Edit document/metadata; validate; attach ready Resources; open Preview | Не save/publish invalid or processing Resource optimistically |
+| Author editor | Author/admin | Validation warning/error | Navigate to field/block, fix, validate again | Не сводить structured errors к одному toast |
+| Author editor | Author/admin | Uploading / processing / failed / ready | Pause/retry where supported, edit metadata, attach only when ready | Не сохранять blob/provider URL в canonical document |
+| Author editor | Author/admin | `409 conflict` | Compare current/base, copy/reapply intended change, reload exact current revision | Не last-write-wins и не overwrite молча |
+| Author preview | Author/admin | Loading / exact revision / resource unavailable / validation blocked | Inspect responsive reading, return to same revision, request final validation | Не mutate draft или published pointer |
+| Publish confirmation | Owner-author | Prepared / validation failed / awaiting explicit GO / publishing / published / failed | Give explicit GO, cancel, retry safe failure | Не публиковать autonomous MCP/admin action |
+| MCP | Owner agent | Same validation/conflict/lifecycle outcomes, structured | Semantic create/edit/validate/preview/prepare; execute only with recorded GO | Не borrow human session/Membership и не access SQL directly |
+
+### Обязательный state inventory
+
+| State class | Где минимум проверяется | Recovery / announcement contract |
+|---|---|---|
+| Loading | Home, Library, Material, Account, author list, Preview | Сохранять page landmark/title; status объявляется без focus theft |
+| Empty | Library before content, no search results, Topic/Series, history, author list | Объяснить, что отсутствует, и дать один contextual next action |
+| Partial | Home/Roadmap links, cards without optional media, Material with failed Resource | Сохранить доступную часть; локально назвать недоступную часть |
+| Validation | Account identity/link inputs; editor metadata/document/resources | Связать summary с конкретными fields/blocks; focus first error по action |
+| Conflict | Editor/MCP stale base revision | Показать обе revision identities и safe reapply/reload path |
+| Access denied / expired | Closed Material, Asset, file, Video | Только public teaser + coarse state + actor-specific recovery action |
+| Dependency unavailable | Identity, Telegram evidence, search, storage, Kinescope | Public/free independent content остаётся; protected operation fails closed |
+| Upload / processing | Image, file, Video in editor | Programmatic progress/status; cancel/retry если adapter поддерживает; publish blocked до `ready` |
+| Long content | Material, Series, editor/Preview | Heading navigation, stable reading order, bounded horizontal overflow code/table |
+| Success | Link, save, restore, publish, read-state mutation | Название action совпадает с result copy; success не скрывает new current state |
+
+## 8. Owner-approved fixture corpus
+
+Статус corpus: **owner делегировал selection и утвердил F1–F3 как representative input**. Это
+sanitized composite из типов контента, подтверждённых publishing audit; он не является verbatim
+копией Telegram и не утверждает seed taxonomy. Один и тот же corpus без переписывания copy
+используется в #22 visual concepts, #23 component proof и content-schema tests.
+
+### F1 — free long-form guide
+
+| Field | Value |
+|---|---|
+| Fixture ID | `material-public-agent-skills` |
+| Title | Публичные skills для agent-first setup |
+| Summary | Как превратить повторяемый инженерный процесс в короткую repository-owned инструкцию, которую человек и агент выполняют одинаково. |
+| Access / status | `free`, `published` |
+| Topic / Format | Candidate Topic `AI-first engineering`; candidate Format `Guide` |
+| Tags | Candidate values `agent skills`, `harness`, `engineering workflow` |
+| Series | Нет |
+| Search probes | `agent skills`, `скиллы для агента`, `harness workflow`, `repository instructions` |
+
+Canonical copy sheet для body:
+
+> Хороший skill начинается не с большого prompt, а с повторяемого решения. Он объясняет, когда
+> workflow нужен, какие факты считать authority, где проходит owner gate и чем доказать результат.
+
+#### Сначала найдите устойчивый seam
+
+Берите процесс, который уже несколько раз прошёл руками: review, release preparation или
+диагностику сложной ошибки. Запишите вход, observable result и границу ответственности. Общие
+советы без конкретного consumer не становятся отдельным skill.
+
+> **Важно.** Skill дополняет project rules, но не отменяет их. Repository-owned `AGENTS.md`,
+> product contract и tests остаются authority для конкретной работы.
+
+```ts
+type SkillCheck = Readonly<{
+  trigger: string
+  ownerGate: string | null
+  evidence: readonly string[]
+}>
+
+export const isReady = (check: SkillCheck) =>
+  check.trigger.length > 0 && check.evidence.length > 0
+```
+
+| Signal | Хороший контракт | Плохой контракт | Evidence |
+|---|---|---|---|
+| Trigger | Называет наблюдаемую ситуацию | «Используй всегда» | Запрос однозначно маршрутизируется |
+| Authority | Ссылается на owning source | Копирует устаревающий документ | Изменение проверяется по canonical file |
+| Gate | Говорит, где нужен owner | Молча принимает product decision | Decision остаётся audit-able |
+| Done | Называет проверку результата | Заканчивается после генерации текста | Test, diff или rendered evidence зелёные |
+
+Следующий шаг — проверить instruction на двух разных задачах. Если обе требуют длинных исключений,
+граница выбрана плохо: сузьте trigger или разделите workflow по разным outcomes.
+
+Resources внутри F1:
+
+| Kind | Local fixture ref | Public metadata / stress role |
+|---|---|---|
+| Image | `asset-skill-routing-map` | Alt: «Маршрут запроса от project rules через skill к проверяемому результату»; caption: «Один authority, один workflow, одна проверка»; aspect ratios 16:9 и 4:3 renditions |
+| File | `asset-agent-skill-checklist` | Label: «Чек-лист проверки repository-owned skill перед публикацией»; filename stress: `agent-first-skill-review-checklist-public-v1.md`; 48 KB |
+| External link | `link-skill-example-repository` | Label: «Пример repository-owned workflow»; sanitized placeholder destination заменяется approved public URL до production |
+
+### F2 — closed flagship Series episode
+
+| Field | Value |
+|---|---|
+| Fixture ID | `material-platform-build-05` |
+| Title | Создание Platform Inside — 5. Developer Pipeline и owner-controlled delivery |
+| Summary | Разбираем, как связать issue, task branch, evidence, pull request и явный owner GO в один проверяемый delivery flow. |
+| Access / status | `membership`, `published` |
+| Topic / Format | Candidate Topic `Product engineering`; candidate Format `Video` |
+| Tags | Candidate values `platform build`, `developer pipeline`, `harness` |
+| Series | Candidate Series `Создание Platform Inside`, ordinal `5`; предыдущий/следующий episode нужны как cards, а не copied content |
+| Search probes | `developer pipeline`, `owner go`, `ветка задачи`, `platform build harness` |
+
+Canonical copy sheet для body:
+
+> Developer Pipeline связывает работу с одним observable outcome: issue хранит intent, task branch
+> изолирует изменение, evidence доказывает результат, а pull request делает решение проверяемым.
+
+#### От ready issue к task branch
+
+Перед изменениями проверьте owning repository, acceptance criteria и blockers. Ветка начинается от
+актуального `main`, а worktree не меняет checkout владельца. Если задача затрагивает несколько
+repositories, каждый implementation outcome получает собственный child issue и PR.
+
+> **Owner gate.** Статус Review означает, что implementation и evidence готовы к решению. Merge
+> всё равно выполняется только после явного owner GO.
+
+```text
+issue Ready
+  -> task worktree
+  -> focused change
+  -> verification evidence
+  -> Standards + Spec review
+  -> pull request Review
+  -> owner GO
+```
+
+| Stage | Authority | Required evidence | Owner action |
+|---|---|---|---|
+| Ready | Issue | Result, scope, acceptance, blockers | Уточнить только open product decisions |
+| In progress | Task branch | Focused diff и local checks | Не требуется для reversible implementation |
+| Review | Pull request | Verification, Not tested, open decisions | Проверить outcome and evidence |
+| Merge | `main` | Green required checks and resolved review | Дать explicit GO |
+
+Для этого выпуска smoke-команда выглядит коротко, но результат фиксируется полностью:
+
+```bash
+pnpm check
+git diff origin/main...HEAD --check
+```
+
+Diagram ниже показывает не Git internals, а ownership: discussion остаётся в issue, durable
+decision — в owning document, code — в application repository. Excalidraw source приложен, чтобы
+автор мог обновить схему вместе с process contract. Видео проходит тот же closed access decision,
+что body и file; отсутствие playback не скрывает доступный текст.
+
+| Resource | Local fixture ref | Metadata / state coverage |
+|---|---|---|
+| Image | `asset-pipeline-stage-map` | Alt: «Пять стадий delivery от ready issue до owner-approved merge»; wide 21:9 stress + mobile rendition |
+| File | `asset-pipeline-stage-map-source` | Label: «Исходная схема Developer Pipeline»; filename `inside-platform-developer-pipeline-stage-map.excalidraw`; 2.4 MB |
+| Video | `video-platform-build-05` | Caption: «Создание Platform Inside, выпуск 5»; duration `38:42`; poster ref `asset-platform-build-05-poster`; states loading/ready/denied/unavailable/unsupported |
+
+F2 является одним end-to-end representative Material: его title/summary/body, code, table,
+callout, image, file, Video и Series metadata используются вместе в reader, editor, Preview,
+search and access prototypes.
+
+### F3 — closed search/card diversity
+
+| Field | Value |
+|---|---|
+| Fixture ID | `material-career-resume` |
+| Title | Гайд на поиск работы и резюме в IT |
+| Summary | Практический разбор воронки поиска, структуры резюме и проверки гипотез без массовых безадресных откликов. |
+| Access / status | `membership`, `published` |
+| Topic / Format | Candidate Topic `Карьера`; candidate Format `Video` |
+| Tags | Candidate values `job search`, `resume` |
+| Series | Нет |
+| Resource | File `find_job.excalidraw` с label «Карта поиска работы» и Video `video-career-resume` |
+| Search probes | `поиск работы резюме`, `job search`, `резюмэ`, `карта поиска работы` |
+
+### Corpus stress profile и sanitation
+
+| Dimension | Fixture evidence |
+|---|---|
+| Typography/density | F1 long title/summary, paragraphs, headings, blockquote/callout, four-column table and code; F2 wide table and 21:9 image |
+| Search | RU/EN mixed queries, typo `резюмэ`, exact title/summary/body/taxonomy/asset-label matches |
+| Free/closed access | F1 free Resources; F2/F3 Membership body/Asset/download/Video with all coarse deny states |
+| Authoring | Every v1 node family appears across F1/F2; metadata, multi-Series-capable model, upload/processing, validation and conflict cases |
+| Long/mobile | 80+ character title, long filename, wide table/code, portrait/narrow and desktop media cases |
+| Sanitation | Fictional local IDs; no emails, Telegram handles, tokens, secrets, private URLs, provider IDs, personal documents or real participant data |
+
+## 9. Low-fidelity responsive wireframes
+
+Wireframes encode hierarchy and reading/keyboard order only. Brackets mean a semantic region or
+control, not a component, border, color, spacing token or visual style. Owner-approved compact IA:
+top-level `Главная`, `Библиотека`, `Карта`; Topic/Series are contextual; Account/Author are actor
+utilities.
+
+### Mobile: global shell, Home и Library
+
+```text
+[skip to content]
+[Inside]                         [Menu] [Account/Sign in]
+
+HOME                              LIBRARY
+[h1: Главная]                     [h1: Библиотека]
+[Continue reading — if history]   [search input] [Search]
+[short recent history]            [Filters: Тема / Формат / Серия]
+[h2: Новые материалы]             [active filter summary] [Clear]
+[Material card]
+[Material card]                   [result count / status]
+[h2: Темы]                        [Material result card]
+[Topic links]
+[h2: Активные серии]              [Material result card]
+[Series link + ordered context]   [pagination / Load more if chosen]
+[Roadmap entry]
+
+[footer navigation]
+```
+
+Home content priority after sign-in: page purpose → continuation when present → short history → new
+feed → Topics → active Series → Карта. Anonymous Home omits personal regions. Library priority:
+query → multi-select filter state → result status → results. Empty/no-results replaces only the
+result region and keeps query/clear action.
+
+### Desktop Home and responsive Topic / Series / Roadmap
+
+```text
+DESKTOP HOME
+[Inside] [Главная] [Библиотека] [Карта]                         [Account]
+[h1 Главная]
+[Continue reading + short history — conditional]
+[h2 Новые материалы] [feed card] [feed card] [feed card]
+[h2 Темы]            [Topic link] [Topic link] [Topic link]
+[h2 Активные серии]  [Series summary + current ordered entries]
+[Карта entry]
+
+NARROW TOPIC               NARROW SERIES              NARROW ROADMAP
+[context: Библиотека]      [context: Topic]           [h1 Карта]
+[h1 Topic]                 [h1 Series]                [editorial intro/body]
+[description]              [description]              [direction heading]
+[related Series]           [ordered episode card]     [Topic/Series/Material links]
+[Material card]            [ordered episode card]     [direction heading]
+[Material card]            [empty/partial status]     [links / partial status]
+[Library with Topic]       [related Topic]            [Library entry]
+
+DESKTOP GENERATED/EDITORIAL VIEW
+[breadcrumb/context] [h1 + description]
+[optional related navigation]
+[generated Material/Series region OR Roadmap editorial body + curated/query links]
+[empty/partial status local to the affected region]
+```
+
+Keyboard order for Home and these destinations is header → `h1`/description → contextual links →
+main generated/editorial regions in document order → continuation/footer. Desktop placement does
+not move Topics/Series/Roadmap links ahead of their headings or change mobile reading order.
+
+### Desktop: Library/search
+
+```text
+[skip]
+[Inside] [Главная] [Библиотека] [Карта]                    [Account]
+
+[h1 Библиотека]                         [search________________] [Найти]
+[result status / error announcement]
+
+[filters landmark]                      [results landmark]
+ Тема [multi-select]                     [card: title, summary, Topic/Format]
+ Формат [multi-select]                   [free/closed + Series/read state]
+ Серия [multi-select]                    [card]
+ [Сбросить]                              [card]
+
+                                         [continuation control]
+```
+
+DOM/keyboard order remains: skip → header/nav → `h1` → search → filters → result status → cards →
+continuation → footer. Desktop columns must not reorder focus relative to mobile.
+
+### Mobile: Material in allowed and denied states
+
+```text
+[back/context: Topic / Series]
+[access + Format metadata]
+[h1 Material title]
+[summary]
+[series position + read/unread action when authenticated]
+
+ALLOWED                            DENIED / OFFER
+[body heading navigation]          [public teaser]
+[paragraph/callout/code/table]      [coarse state heading]
+[image + alt/caption]               [state explanation]
+[file label + Download]             [Вступить в Мастерскую -> Tribute]
+[video caption + player/status]     [Войти | Связать Telegram |
+                                     Проверить снова — by outcome]
+[related Materials]                [public related Materials]
+```
+
+Denied DOM contains no hidden closed body or Resource locators. In allowed state, code/table may
+scroll horizontally inside their own labelled region; page itself does not acquire horizontal
+scroll. A failed Video leaves text, caption/poster and a local retry/unavailable message.
+
+```text
+DESKTOP MATERIAL
+[global nav] [breadcrumb: Topic / Series]
+[main reading column: metadata -> h1 -> summary -> body/resources]
+[context region: series position -> manual read state -> heading navigation]
+[inline Membership offer replaces body when denied]
+[related Materials after main reading region]
+```
+
+Desktop keyboard order stays breadcrumb → title/summary → read-state action → heading navigation →
+body/resources → related Materials. A side context region is visually repositioned only; its DOM
+order does not interrupt heading/body sequence.
+
+### Mobile: Account / Telegram linking
+
+```text
+[h1 Аккаунт]
+[email identity]
+[h2 Telegram]
+[link state: not linked | checking | linked]
+[Membership coarse state]
+[primary recovery action]
+[safe explanation: what linking does / does not do]
+[sign out]
+
+first sign-in prompt:
+[Связать Telegram] [Пропустить]
+[why: unlock current Membership; free content remains available]
+
+callback result:
+[h1 result]
+[linked identity summary when safe]
+[active | inactive | conflict | unavailable]
+[Continue to Material | Return to Account | Recovery handoff]
+```
+
+The first action is derived from coarse outcome. Link status and Membership status stay separate
+lines so `linked + inactive` cannot read as a broken login.
+
+```text
+DESKTOP ACCOUNT
+[Account nav] [h1 Аккаунт]
+[identity and Telegram/link state]     [full recent history]
+[Membership coarse state/actions]      [Material history row + manual read state]
+[sign out]                             [empty/unpublished row state]
+```
+
+Account keyboard order is identity → Telegram linking → Membership recovery → history → sign out,
+even if desktop columns place sign out visually on the left.
+
+### Author material list: desktop and narrow mobile
+
+```text
+DESKTOP
+[Author nav] [h1 Материалы] [Создать материал]
+[search/status controls]
+[list row: title | draft/published | updated | validation | Open]
+[list row]
+[empty/error/continuation state]
+
+NARROW MOBILE
+[Author nav]
+[h1 Материалы]
+[Создать материал]
+[search/status disclosure]
+[Material row: title]
+[draft/published + updated + validation]
+[Open]
+[next row / empty / error]
+```
+
+Keyboard order is nav → `h1` → create → list search/status controls → rows/actions → continuation.
+The status controls are optional until real list size proves them; loading/empty/error regions keep
+the Create action available.
+
+### Desktop and narrow mobile: Author editor / Preview
+
+```text
+DESKTOP
+[Author nav] [Material title/status] [saved state] [Preview] [Prepare publish]
+[metadata: Topic / Format / Tags / Series / access]
+[document outline] [editor document: text + block insert/reorder] [validation panel]
+[resource status: upload / processing / ready / failed]
+[revision identity / history]
+
+NARROW MOBILE
+[Back] [Material status]
+[h1 Edit Material]
+[saved/conflict status]
+[Metadata disclosure]
+[Document toolbar]
+[editor in document order]
+[Resources]
+[Validation summary]
+[Preview]
+[Prepare publish]
+```
+
+Keyboard order follows document meaning, not desktop columns: header actions → metadata → editor
+toolbar/document → resources → validation → revision actions. Validation summary links to exact
+field/block. On `409`, editing pauses behind an inline conflict region with `Compare`, `Reload
+current` and `Copy my changes`; default action never overwrites.
+
+### Preview and publish confirmation
+
+```text
+[Preview banner: exact revision ID + access mode]
+[viewport switch is optional test utility, not content control]
+[rendered Material in the same reading order]
+[resource unavailable states]
+[Back to editor] [Run validation]
+
+[publish confirmation]
+[revision + changed fields/resources]
+[validation result]
+[explicit owner GO control] [Cancel]
+[publishing status -> published canonical link]
+```
+
+Preview uses the production renderer contract but remains private/noindex/no-store. Viewport proof
+must additionally test a real narrow browser; a visual frame switch alone is not responsive evidence.
+
+## 10. Owner-approved coarse UX copy contract
+
+| Outcome | Heading | Explanation | Primary action |
+|---|---|---|---|
+| Anonymous closed Material | Материал доступен в Мастерской | Вступите в Мастерскую, чтобы открыть этот и другие закрытые материалы. Уже участвуете — войдите и свяжите Telegram. | Вступить в Мастерскую → Tribute; secondary Войти |
+| Signed in, Telegram unlinked | Свяжите Telegram | Связь с Telegram нужна, чтобы Platform могла проверить участие в закрытом чате Inside. | Связать Telegram |
+| Linked, Membership inactive | Membership не активен | Сейчас Platform не может подтвердить доступ к закрытым материалам. | Проверить снова; secondary Вступить в Мастерскую |
+| Historical entitlement expired | Доступ закончился | Аккаунт, история и отметки прочитанного сохранены. После возвращения в Inside проверьте доступ снова. | Проверить снова |
+| Protected dependency unavailable | Временно недоступно | Не удалось безопасно проверить доступ. Закрытый материал пока не открыт. | Повторить |
+| Video unavailable inside allowed body | Видео временно недоступно | Текст материала и другие доступные файлы остаются на странице. | Повторить |
+| Search no results | Ничего не найдено | Измените запрос или сбросьте фильтры. | Сбросить фильтры |
+| Empty history | Здесь появятся недавние материалы | Откройте материал, чтобы быстро вернуться к нему позже. | Открыть Библиотеку |
+| Editor validation failed | Материал пока нельзя опубликовать | Исправьте отмеченные поля и blocks, затем повторите проверку. | К первой ошибке |
+| Editor conflict | Материал изменился в другой сессии | Сравните текущую revision со своими изменениями. Ничего не перезаписано. | Сравнить |
+
+Controls use the same verb as their result: `Сохранить` → `Сохранено`, `Опубликовать` →
+`Опубликовано`, `Связать Telegram` → `Telegram связан`. Copy never claims payment/subscription
+state, provider failure or permanent access. `Вступить в Мастерскую` is an ordinary outbound link
+to the owner-controlled Tribute URL; Platform does not consume Tribute API/webhooks and never uses
+the click or payment page as `MembershipEvidence`.
+
+## 11. Remaining implementation and design inputs
+
+Owner-approved UX structure is complete. Ни один оставшийся пункт ниже не блокирует #20, но его
+нельзя тихо превратить в product promise во время visual или component implementation.
+
+| Input | Что уже подтверждено | Что решается позже | Owner stage |
+|---|---|---|---|
+| Exact v1 formatting limits | F1/F2 establish headings, paragraph, blockquote/callout, code, table, image, file and video minimum | Strike/nested-list need, heading levels, table/code/document size limits from real corpus and schema tests | Content-schema implementation |
+| Concrete taxonomy values | F1–F3 labels are approved prototype fixtures only; Material has one Topic/Format and 0..N Tags/Series | Production dictionaries and reviewed RU/EN synonyms emerge during manual authoring | Content filling / search proof |
+| Home composition details | Conditional Продолжить, short history, new feed, Темы, active Серии and Карта are fixed | Curated/query source per block, item counts and exact responsive composition | #22 visual concepts |
+| Identity provider mechanics | One email-code UX creates/opens account; post-login linking is immediate but skippable | Redirect/inline mechanics, provider/fallback and Yandex horizon after identity proof | Stage 3 identity proof |
+| Account linking/recovery | Telegram linking только после login; no auto-merge/transfer; Membership не unlink-ит identity | Разрешён ли self-service unlink, exceptional relink/recovery policy, confirmation/re-auth copy and support owner | Account journey |
+| Telegram bot public identity | Dedicated branded bot and OIDC flow confirmed | Username, display name/avatar, owner/recovery account; confirm no self-service replacement | Telegram handoff screens |
+| Related Materials presentation | Metadata score + author pins confirmed | Count/order labels, distinction between pinned/generated if any, empty state | Material wireframe |
+| Long-content and resource limits | Corpus names current stress cases: 80+ character title, four-column table, code, long filename, 21:9 image | Add measured document/table/code/file limits after schema implementation evidence | Implementation, not #22 structure |
+| Video unavailable/unsupported behavior | Text remains; no public fallback; controlled retry copy accepted | Choose supported-browser help destination; acceptable continued-play window comes from integration proof | Player implementation |
+| Tribute destination operations | Inline offer and `Вступить в Мастерскую` outbound action are fixed; no integration or access inference | Exact owner-controlled URL, link health/content ownership and safe operational update path | Production content/config |
+
+Источник unresolved identity и UI decisions — merged specification и owning identity research.
+([Workspace owner decisions][workspace-owner-decisions], [Identity open decisions][identity-open])
+Taxonomy/formatting gaps явно сохранены research inputs. ([Authoring open decisions][authoring-open],
+[Publishing audit boundary][audit-boundary])
+
+## 12. Completion boundary
+
+Документ содержит owner-approved actors/journeys/IA, R01–R40 traceability, actor × surface × state ×
+allowed-action matrices, full state inventory, sanitized corpus, coarse copy и
+mobile/desktop/keyboard-order wireframes. Он остаётся structural artifact: palette, typeface,
+components, exact layout metrics, motion and visual signature принадлежат #21–#23.
+
+Open inputs из раздела 11 принадлежат своим later proof/implementation stages и не отменяют UX
+contract #20. Screenshots из audit остаются bounded evidence и не объявляются полным catalog или
+seed taxonomy. ([Platform issue #20](https://github.com/sachkov-inside/platform/issues/20),
+[Publishing audit limitations][audit-limitations])
+
+## Source index
+
+Platform-owned canonical sources use repository-relative links to their current version. External
+Workspace provenance is pinned to exact commits. GitHub issues remain the primary task record.
+
+[platform-brief-authority]: platform-mvp-brief.md
+[platform-brief-outcome]: platform-mvp-brief.md#результат-первой-версии
+[platform-brief-actors]: platform-mvp-brief.md#пользователи-и-доступ
+[platform-brief-author]: platform-mvp-brief.md#автор
+[platform-brief-navigation]: platform-mvp-brief.md#поиск-и-навигация
+[platform-context]: ../../CONTEXT.md
+[platform-spec-authority]: ../specifications/platform-v1.md#результат-и-authority
+[platform-spec-boundaries]: ../specifications/platform-v1.md#application-boundaries
+[platform-spec-logical-model]: ../specifications/platform-v1.md#logical-model-и-cardinalities
+[platform-spec-nfr]: ../specifications/platform-v1.md#application-nfr
+
+[product-value]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/product/README.md#L25-L46
+[product-audience]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/product/README.md#L48-L66
+[product-build-series]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/product/README.md#L82-L102
+
+[workspace-v1-result]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L8-L34
+[workspace-v1-authority]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L14-L34
+[workspace-v1-scope]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L36-L68
+[workspace-stack]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L96-L132
+[workspace-modules]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L181-L212
+[workspace-logical-model]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L214-L239
+[workspace-navigation-roles]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L241-L247
+[workspace-public-projection]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L249-L252
+[workspace-authoring-flow]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L254-L265
+[workspace-read-flow]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L267-L274
+[workspace-resource-flow]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L286-L295
+[workspace-search-flow]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L297-L304
+[workspace-mcp-flow]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L306-L313
+[workspace-seo]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L328-L335
+[workspace-accessibility]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L337-L344
+[workspace-performance]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L346-L360
+[workspace-stage1]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L396-L404
+[workspace-ui-gate]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L406-L434
+[workspace-owner-decisions]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L549-L562
+[workspace-context]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/CONTEXT.md#L1-L40
+
+[access-decision]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-content-access.md#L11-L31
+[access-vocabulary]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-content-access.md#L93-L161
+[access-matrix]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-content-access.md#L247-L277
+[access-copy]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-content-access.md#L279-L314
+[access-outages]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-content-access.md#L456-L469
+
+[membership-ux]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-telegram-tribute-membership.md#L110-L124
+[membership-return]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-telegram-tribute-membership.md#L126-L137
+[membership-link-invariants]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-telegram-tribute-membership.md#L191-L205
+[membership-states]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-telegram-tribute-membership.md#L495-L527
+[membership-failures]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-telegram-tribute-membership.md#L570-L592
+[identity-flow]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-identity-architecture.md#L292-L319
+[identity-open]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-identity-architecture.md#L344-L355
+
+[authoring-schema]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-content-authoring-model.md#L98-L130
+[authoring-ux]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-content-authoring-model.md#L169-L186
+[authoring-open]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-content-authoring-model.md#L500-L517
+[kinescope-lifecycle]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-kinescope-video-lifecycle.md#L30-L77
+[kinescope-player]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-kinescope-video-lifecycle.md#L305-L352
+[kinescope-outage]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-kinescope-video-lifecycle.md#L354-L381
+
+[audit-decisions]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-current-publishing-audit.md#L23-L38
+[audit-boundary]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-current-publishing-audit.md#L274-L290
+[audit-navigation]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-current-publishing-audit.md#L211-L237
+[audit-limitations]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-current-publishing-audit.md#L292-L312
