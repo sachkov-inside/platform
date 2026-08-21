@@ -75,17 +75,23 @@ index, and files as owner-controlled state: inspect it read-only, and let the ow
 advances after a merge. An explicit owner request concerning that checkout is the only authority to
 change its branch or files.
 
-Every agent that changes repository files works in a dedicated Git worktree for its task branch.
-Fetch refs without changing the primary checkout, then create the task worktree from the current
-`origin/main`. One worktree has one active writing agent, one task branch, and one meaningful scope.
-Parallel agents use separate worktrees and separate branches, including when they work in the same
-repository. Read-only agents may inspect an existing worktree without changing its branch, index,
-or files.
+Every tracked task has one writing worktree by default, regardless of how many agents help with it.
+Fetch refs without changing the primary checkout, then create that worktree for the task branch
+from the current `origin/main`. One worktree has one active writing agent, one task branch, and one
+meaningful scope. Supporting agents gather evidence read-only and return it to the writing agent.
+Create another writing worktree only for an independently mergeable child task with its own branch
+and pull request. Parallel independently mergeable tasks use separate worktrees and branches.
 
 Treat another session's worktree and branch as owned live state. Integrate upstream changes inside
-the task worktree, and keep worktree paths out of committed configuration and documentation. After
-merge, verify that the task worktree has no uncommitted or unpushed work before removing it and its
-local branch.
+the task worktree, and keep worktree paths out of committed configuration and documentation.
+
+Worktree cleanup is the owning writing agent's final task step. After the pull request is merged, or
+the issue is closed without a pull request, verify that the worktree has no uncommitted changes and
+that every commit is preserved by a remote branch or the merged pull request. Then remove the task
+worktree and delete its local task branch. Commits represented by a squash-merged pull request are
+preserved even when they are not ancestors of `main`. If unpublished work remains, keep the
+worktree and report the exact blocker. Remove another session's worktree only after confirming that
+its task is terminal and its state is preserved.
 
 ### Long-lived branches and deployment
 
@@ -118,6 +124,10 @@ Work is ready for owner merge when:
 Implementation, specification, and architecture changes run Standards and Spec `code-review` from
 an agreed fixed point. Trivial docs or chore work needs only a bounded diff review and relevant
 verification.
+
+Every completed agent session ends with a decision handoff in chat: the outcome, recommendation or
+decision needed, material caveats, verification performed, and direct links to the durable document,
+issue, and pull request when they exist. A file path is supporting detail, not the handoff itself.
 
 ## Owner gates
 
