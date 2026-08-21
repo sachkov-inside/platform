@@ -2,9 +2,10 @@
 
 ## Repository role
 
-Platform owns the future Membership application, its implementation issues and application-specific
-ADRs. Product and cross-repository decisions are resolved in Workspace and arrive here through an
-explicit issue or versioned artifact, never a machine-local dependency.
+Platform owns its product brief, Membership application, implementation issues and
+application-specific ADRs. Shared product and cross-repository decisions are resolved in Workspace
+and arrive through linked issues; Platform work uses repository-local canonical documents, never a
+machine-local dependency.
 
 ## Working agreements
 
