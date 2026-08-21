@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+engineStrict: true
+saveExact: true
+strictPeerDependencies: true
+minimumReleaseAge: 1440
+allowBuilds:
+  '@scarf/scarf': false
+  esbuild: true
