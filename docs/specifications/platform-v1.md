@@ -64,8 +64,12 @@ throwaway prototype:
 | Video | Kinescope за application-owned authorization adapter |
 
 [Platform #17](https://github.com/sachkov-inside/platform/issues/17) и
-[#18](https://github.com/sachkov-inside/platform/issues/18) сразу реализуют retained production
-modules с обычными focused integration tests. Отдельных Kysely/Drizzle и
+[#18](https://github.com/sachkov-inside/platform/issues/18) закрыты как superseded horizontal
+foundations. Их scope и acceptance распределены по vertical capability tickets
+[#30](https://github.com/sachkov-inside/platform/issues/30),
+[#31](https://github.com/sachkov-inside/platform/issues/31),
+[#28](https://github.com/sachkov-inside/platform/issues/28) и
+[#29](https://github.com/sachkov-inside/platform/issues/29). Отдельных Kysely/Drizzle и
 ProseMirror/Portable Text comparison stages нет. Если implementation выявляет конкретный blocker,
 owning PR фиксирует evidence и migration impact и предлагает smallest production change; два
 параллельных data или document path не поддерживаются.
@@ -247,23 +251,38 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 ## Production foundation order
 
 1. **Local contract:** этот документ, синхронизированный brief и glossary закрывают Platform #16.
-2. **Headless production foundations:** #17 реализует PostgreSQL/Kysely data path, #18 —
-   ProseMirror/Tiptap document и semantic command path. Они идут параллельно и сохраняются в
-   production codebase.
-3. **Content application core:** author/MCP/API create, revise, validate, preview, publish,
-   unpublish и restore representative Material; public/search projections и conflicts проверяются
-   через application interfaces.
-4. **UI gate:** #20 и #21 дают UX/content и owner-taste inputs, #22 получает explicit owner visual
+2. **Engineering contract:** [#27](https://github.com/sachkov-inside/platform/issues/27) исследует
+   применение выбранного stack, сравнивает FSD и route/capability organization для Next.js,
+   проектирует backend modular monolith через vertical slices и deep modules и возвращает owner
+   decision о validation, business rules, transactions и testing seams. Research не меняет
+   harness, agent instructions или production code.
+3. **Create и revise draft:** [#30](https://github.com/sachkov-inside/platform/issues/30) одним
+   production slice добавляет create/load/revise Material, минимальные PostgreSQL/Kysely migrations,
+   versioned ProseMirror/Tiptap document path, immutable revisions, metadata, idempotency и conflicts.
+   До кода owner утверждает implementation brief с modules/interfaces, file layout, validation flow,
+   transaction boundary и tests. До этого решения ticket имеет `ready-for-human`; после approval
+   его переводят в `ready-for-agent` перед production implementation.
+4. **Validate, preview, publish и read:**
+   [#31](https://github.com/sachkov-inside/platform/issues/31) проводит exact revision через safe
+   validation/renderer и private preview к owner-approved publish, public/free read, unpublish и
+   restore. До кода owner отдельно утверждает lifecycle, projection, transaction и security design;
+   readiness так же меняется с `ready-for-human` на `ready-for-agent` только после approval.
+5. **Parallel headless consumers:** после #31
+   [#28](https://github.com/sachkov-inside/platform/issues/28) поставляет Library/search/navigation,
+   а [#29](https://github.com/sachkov-inside/platform/issues/29) — safe agent authoring через thin
+   MCP adapter. Они используют принятый engineering contract; новый owner gate нужен только при
+   материальном отклонении.
+6. **UI gate:** #20 и #21 дают UX/content и owner-taste inputs, #22 получает explicit owner visual
    selection, #23 доказывает bounded component/primitives strategy. Это единственная source of
    visual/UI decisions.
-5. **Public experience:** accepted UI foundation применяется к home, Library, Topic, Series,
+7. **Public experience:** accepted UI foundation применяется к home, Library, Topic, Series,
    Roadmap, free Material и minimal author surface после готовности content core и UI gate.
-6. **Identity и protected content:** identity application proof и единый `ContentAccess` покрывают
+8. **Identity и protected content:** identity application proof и единый `ContentAccess` покрывают
    closed body, assets, downloads и video через test Membership adapter.
-7. **Real Membership:** отдельная Telegram application подключается только после стабилизации
+9. **Real Membership:** отдельная Telegram application подключается только после стабилизации
    versioned MembershipEvidence port; Platform сохраняет ownership entitlement и final access
    decision.
-8. **Feature-complete candidate:** author/MCP, content, Kinescope, private resources, Membership,
+10. **Feature-complete candidate:** author/MCP, content, Kinescope, private resources, Membership,
    reading activity и UI journeys проходят end-to-end application verification; актуальные
    Materials вручную созданы без import pipeline.
 
