@@ -57,6 +57,19 @@ includes `Closes #<issue>`. Every pull request states the result, verification, 
 open owner decisions. Add UI evidence only for interface changes. GitHub deletes the head branch
 after merge.
 
+### Agent worktrees
+
+Every agent that changes repository files works in a dedicated Git worktree for its task branch,
+created from the current `main`. One worktree has one active writing agent, one task branch, and one
+meaningful scope. Parallel agents use separate worktrees and separate branches, including when they
+work in the same repository. Read-only agents may inspect an existing worktree without changing
+files or switching its branch.
+
+Treat another session's worktree and branch as owned live state. Synchronize `main` in its own
+worktree, integrate updates inside the task worktree, and keep worktree paths out of committed
+configuration and documentation. After merge, verify that the task worktree has no uncommitted or
+unpushed work before removing it and its local branch.
+
 ### Long-lived branches and deployment
 
 `main` is the only long-lived integration branch. Preview, staging, and production are deployment
