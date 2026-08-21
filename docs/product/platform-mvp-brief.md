@@ -22,27 +22,38 @@ Authority этого brief находится в этом Platform repository. �
 
 ## Пользователи и доступ
 
+Public landing и Platform application являются разными surfaces. Landing объясняет предложение
+Inside и ведёт в application/Мастерскую; application владеет discovery, free/closed Materials,
+account и reading experience. `sachkov.dev` и `app.sachkov.dev` являются рабочими примерами этой
+границы, а exact production domains определяются будущей release specification.
+
 ### Публичный посетитель
 
 - без регистрации просматривает главную, темы, серии и Библиотеку;
 - использует полнотекстовый поиск и фильтры;
 - полностью читает выбранные бесплатные материалы;
 - видит карточку и описание каждого закрытого материала;
-- видит описание, порядок и карточки всех выпусков закрытой серии.
+- видит описание, порядок и карточки всех выпусков закрытой серии;
+- на закрытом материале видит предложение вступить в Мастерскую и external CTA на
+  owner-controlled Tribute page.
 
 ### Участник Membership
 
-- регистрируется и входит по email;
-- связывает аккаунт платформы с Telegram;
+- создаёт или открывает account одним email-code sign-in flow без отдельной registration form;
+- после первого входа получает предложение связать account с Telegram, но может пропустить шаг и
+  продолжить с бесплатным контентом;
+- может позже связать Telegram из account или закрытого Material;
 - получает доступ на основании внешнего признака активного Membership;
 - имеет один уровень закрытого доступа без тарифной матрицы;
 - после окончания Membership сохраняет аккаунт, историю и статусы прочтения, но теряет доступ к
   закрытым материалам до возобновления Membership.
 
-Платформа не принимает оплату и не управляет подпиской. Trial, промокоды, подарки, временные
-доступы и продажа отдельных серий не входят в первую версию. Внешним признаком Membership является
-участие в единственном каноническом закрытом Telegram chat. Platform не выдаёт доступ по данным
-Tribute или другого payment/roster operator; technical integration boundary описана в
+Платформа не принимает оплату и не управляет подпиской. Outbound link на Tribute является только
+acquisition destination: Platform не читает Tribute API/webhooks и не делает access decision по
+клику или payment state. Trial, промокоды, подарки, временные доступы и продажа отдельных серий не
+входят в первую версию. Внешним признаком Membership является участие в единственном каноническом
+закрытом Telegram chat. Platform не выдаёт доступ по данным Tribute или другого payment/roster
+operator; technical integration boundary описана в
 [application specification](../specifications/platform-v1.md).
 
 ### Автор
