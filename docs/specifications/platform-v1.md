@@ -1,9 +1,10 @@
 # Platform v1 application specification
 
 Статус: подтверждённый repository-local contract для
-[Platform #16](https://github.com/sachkov-inside/platform/issues/16).
+[Platform #16](https://github.com/sachkov-inside/platform/issues/16), дополненный принятыми
+[Platform #27](https://github.com/sachkov-inside/platform/issues/27) engineering decisions.
 
-Дата: 2026-08-21.
+Дата: 2026-08-22.
 
 ## Результат и authority
 
@@ -80,6 +81,70 @@ Provider не считается принятым только на основа
 proof и отдельное owner decision, а hard-to-reverse trade-off при необходимости фиксируется в
 Platform ADR.
 
+## Engineering organization and write contract
+
+[Platform #27 owner decision](https://github.com/sachkov-inside/platform/issues/27#issuecomment-5378336463)
+зафиксировал следующие normative implementation decisions. Их primary-source evidence, comparison
+и rationale находятся в [#27 research artifact](../research/platform-v1-engineering-contract.md),
+но authority остаётся в этой specification.
+
+### Frontend organization
+
+- Next.js-owned `app/` остаётся единственным App Router route/runtime tree.
+- Full Feature-Sliced Design адаптируется под App Router в `src/_app`, `src/_pages`, `src/widgets`,
+  `src/features`, `src/entities` и `src/shared`.
+- Layer или slice создаётся только вместе с реальным code; пустой speculative scaffold не нужен.
+- Imports следуют FSD layer direction и slice public interfaces. Server-only и client-safe public
+  interfaces разделены; client graph не импортирует server-only implementation.
+- FSD применяется только на frontend. Backend не копирует FSD layers.
+
+### Backend modules и application interface
+
+- Один `apps/backend` остаётся modular monolith. Capability modules имеют малые public interfaces,
+  internal implementations и явно объявленные dependencies; entrypoints остаются thin adapters.
+- Platform-owned PostgreSQL pool/Kysely composition, generated types и один migration authority
+  принадлежат `infrastructure/postgres`; capability persistence остаётся internal.
+- Новый workspace package, process или separately deployable module допустим только после доказанной
+  operational/domain seam. Speculative packages и generic layer folders запрещены.
+- `ContentAuthoring` предоставляет explicit `createDraft`, `loadDraft` и `reviseDraft` operations;
+  generic command bus не вводится. Cross-module calls используют capability public interfaces.
+
+### Validation, results and write atomicity
+
+- Transport adapter проверяет protocol и input shape и сопоставляет trusted identity с
+  `PrincipalId`; он не владеет business rules.
+- `ContentAuthoring` владеет permissions, author workflow, metadata policy и координацией reference
+  preconditions через public interfaces `IdentityPrincipals`, `Assets` и `Videos`.
+- `ContentSchema` владеет versioned document schema, validation, migration, safe render и extraction.
+- PostgreSQL constraints владеют durable uniqueness, foreign keys, revision consistency и финальным
+  race arbitration.
+- Application operations возвращают discriminated transport-neutral results со stable codes.
+  REST отображает их в RFC 9457 Problem Details; MCP использует те же codes без HTTP vocabulary.
+- Application operation владеет Kysely transaction. `baseRevisionId` реализует optimistic
+  compare-and-set; stale base возвращает conflict, blind partial retry и last-write-wins запрещены.
+- Idempotency scope — Principal + operation + key. Request fingerprint, stable result/effect и write
+  сохраняются в одной transaction; повтор с тем же payload воспроизводит result, другой payload с
+  тем же key возвращает mismatch. Caller повторяет uncertain request с тем же key.
+
+### Testing, enforcement and ADR timing
+
+- Pure Material и `ContentSchema` rules покрываются unit tests. Application integration tests идут
+  через capability public interface и real PostgreSQL; отдельно проверяются migrations,
+  constraints, transaction rollback, idempotency и concurrency. Transport adapters имеют thin
+  mapping tests; journey E2E добавляются с реальными surfaces.
+- По мере появления owning capabilities membership refresh и provider callbacks получают
+  concurrency, idempotency, stale-state и failure-path tests в том же repeatable setup.
+- Testcontainers PostgreSQL принят как future test lifecycle direction: один container на
+  integration run с isolation, сохраняющей real commit/rollback и multiple-connection semantics.
+  Exact dependency version и isolation mechanics принадлежат #30 implementation brief.
+- Platform-local shared strict TypeScript base, type-aware typescript-eslint, frontend/backend
+  import rules и generated DB type drift checks приняты как future enforcement. #27 не добавляет
+  dependencies, lint/config/CI rules и не меняет shared harness.
+- #27 не создаёт ADR и отдельные prototype/proof tickets. #30 фиксирует exact versions, types, SQL
+  и test isolation в required implementation brief и доказывает их retained vertical slice и
+  tests. Focused ADR добавляется в тот же PR только при реально обнаруженном hard-to-reverse,
+  non-obvious trade-off.
+
 ## Processes и capability modules
 
 | Process | Responsibility | Не владеет |
@@ -103,9 +168,10 @@ Entry points вызывают одни application use cases и не созда�
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
 | `ReadingActivity` | idempotently mark read/unread и вернуть recent history | Principal-to-Material reading state; не content access |
 
-Application use case владеет transaction boundary. PostgreSQL contracts проверяются на real
-PostgreSQL; in-memory repository не доказывает migrations, FTS, constraints или transaction
-semantics. External systems получают narrow internal ports и test adapters. Generic
+Transaction semantics принадлежат единому
+[write atomicity contract](#validation-results-and-write-atomicity), а verification seams —
+[testing contract](#testing-enforcement-and-adr-timing). External systems получают narrow internal
+ports и test adapters. Generic
 multi-provider abstraction появляется только со вторым реальным adapter; `ContentAccess` является
 provider-neutral потому, что его policy используют несколько delivery callers.
 
@@ -151,15 +217,17 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 
 ### Authoring и publish
 
-1. Admin или MCP отправляет semantic application command с `materialId`, `baseRevisionId` и
-   idempotency key.
-2. `ContentAuthoring` проверяет permissions, references и limits через `ContentSchema` и сохраняет
-   immutable revision в одной transaction.
+1. Admin или MCP вызывает explicit application operation с identifiers, concurrency и idempotency
+   inputs из [write atomicity contract](#validation-results-and-write-atomicity).
+2. `ContentAuthoring` проверяет permissions через `IdentityPrincipals`, владеет workflow/metadata
+   policy, координирует reference preconditions через `Assets`/`Videos`, делегирует document
+   validation/migration в `ContentSchema` и сохраняет immutable revision в одной transaction.
 3. Preview читает explicit revision и использует тот же safe renderer и `ContentAccess`, что
    published delivery.
 4. Publish только после recorded owner GO повторяет validation и atomically меняет published
    revision вместе с public/search projections и необходимым durable job fact.
-5. Stale base возвращает `409`; admin и MCP не используют last-write-wins.
+5. Concurrency, idempotency и transport outcomes следуют единому
+   [write atomicity contract](#validation-results-and-write-atomicity).
 
 ### Public и closed read
 
@@ -245,17 +313,16 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 - Library search p95 не выше 300 ms на 10 000 Material projections и representative RU/EN set;
 - public critical pages укладываются в LCP 2.5 s, INP 200 ms и CLS 0.1 на согласованном mobile profile;
 - query plans, pool limits и payload/document limits измеряются до добавления cache/service;
-- publish, semantic commands, membership refresh и provider callbacks имеют concurrency,
-  idempotency, stale-write и failure-path tests.
+- correctness scenarios из [testing contract](#testing-enforcement-and-adr-timing) входят в
+  согласованный fixture corpus и repeatable setup.
 
 ## Production foundation order
 
 1. **Local contract:** этот документ, синхронизированный brief и glossary закрывают Platform #16.
-2. **Engineering contract:** [#27](https://github.com/sachkov-inside/platform/issues/27) исследует
-   применение выбранного stack, сравнивает FSD и route/capability organization для Next.js,
-   проектирует backend modular monolith через vertical slices и deep modules и возвращает owner
-   decision о validation, business rules, transactions и testing seams. Research не меняет
-   harness, agent instructions или production code.
+2. **Engineering contract:** [#27](https://github.com/sachkov-inside/platform/issues/27) сравнил
+   варианты и зафиксировал [engineering organization and write contract](#engineering-organization-and-write-contract).
+   [Research artifact](../research/platform-v1-engineering-contract.md) сохраняет evidence и
+   rationale; #27 не меняет harness, agent instructions или production code.
 3. **Create и revise draft:** [#30](https://github.com/sachkov-inside/platform/issues/30) одним
    production slice добавляет create/load/revise Material, минимальные PostgreSQL/Kysely migrations,
    versioned ProseMirror/Tiptap document path, immutable revisions, metadata, idempotency и conflicts.
@@ -307,6 +374,7 @@ choice, неочевидный контекст и реальный trade-off. �
 
 ## Provenance
 
+- [Platform #27 owner architecture decisions](https://github.com/sachkov-inside/platform/issues/27#issuecomment-5378336463)
 - [Workspace Platform v1 specification](https://github.com/sachkov-inside/workspace/blob/main/docs/specifications/platform-v1.md)
 - [Workspace #39: current publishing audit decisions](https://github.com/sachkov-inside/workspace/issues/39)
 - [Workspace #41: Telegram Membership boundary](https://github.com/sachkov-inside/workspace/issues/41)
