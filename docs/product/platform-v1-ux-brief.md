@@ -4,7 +4,9 @@
 [Platform issue #20](https://github.com/sachkov-inside/platform/issues/20). Документ фиксирует
 подтверждённую UX-границу, трассировку требований, state/action matrices и low-fidelity
 wireframes. Fixture corpus, IA и coarse copy приняты owner в working session; документ не выбирает
-visual language и сохраняет implementation decisions, перечисленные в конце.
+visual language и сохраняет implementation decisions, перечисленные в конце. Provisional
+owner-taste constraints и incremental visual delivery contract записаны отдельно в
+[Platform v1 visual brief](platform-v1-visual-brief.md).
 
 Snapshot источников: 2026-08-21. Repository-owned product/application contract и glossary
 ссылаются на current relative files и синхронизируются этим change; cross-repository provenance
@@ -810,8 +812,11 @@ mobile/desktop/keyboard-order wireframes. Он остаётся structural artif
 components, exact layout metrics, motion and visual signature принадлежат #21–#23.
 
 Open inputs из раздела 11 принадлежат своим later proof/implementation stages и не отменяют UX
-contract #20. Screenshots из audit остаются bounded evidence и не объявляются полным catalog или
-seed taxonomy. ([Platform issue #20](https://github.com/sachkov-inside/platform/issues/20),
+contract #20. Visual brief #21 фиксирует direction hypotheses и owner-control boundary, но не
+объявляет generated mockups pixel authority. Screenshots из audit остаются bounded evidence и не
+объявляются полным catalog или seed taxonomy.
+([Platform issue #20](https://github.com/sachkov-inside/platform/issues/20),
+[Platform visual brief](platform-v1-visual-brief.md),
 [Publishing audit limitations][audit-limitations])
 
 ## Source index
