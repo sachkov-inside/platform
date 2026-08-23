@@ -230,16 +230,6 @@ export type UnpublishMaterialError =
   | IdempotencyError
   | SystemError;
 
-export type MaterialAuthoringError =
-  | CreateDraftError
-  | LoadDraftError
-  | ReviseDraftError
-  | ValidateRevisionError
-  | PreviewRevisionError
-  | PublishRevisionError
-  | RestoreRevisionError
-  | UnpublishMaterialError;
-
 export type ValidateRevisionResult = Result<
   ValidatedRevisionDto,
   ValidateRevisionError

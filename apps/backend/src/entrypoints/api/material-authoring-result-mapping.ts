@@ -1,9 +1,22 @@
-import type { MaterialAuthoringError } from "../../modules/materials/index.js";
+import type {
+  MaterialAuthoring,
+  Result,
+} from "../../modules/materials/index.js";
+
+type OperationError<Operation> = Operation extends (
+  ...arguments_: never[]
+) => Promise<Result<unknown, infer Error>>
+  ? Error
+  : never;
+
+type MaterialAuthoringTransportError = OperationError<
+  MaterialAuthoring[keyof MaterialAuthoring]
+>;
 
 export type MaterialAuthoringErrorStatus = 403 | 404 | 409 | 422 | 500 | 503;
 
 export function statusForMaterialAuthoringError(
-  error: MaterialAuthoringError,
+  error: MaterialAuthoringTransportError,
 ): MaterialAuthoringErrorStatus {
   switch (error.code) {
     case "forbidden":
