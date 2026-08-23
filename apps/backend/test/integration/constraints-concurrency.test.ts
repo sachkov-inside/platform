@@ -1,8 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { createContentAuthoring } from "../../src/modules/content-authoring/index.js";
-import { createContentSchema } from "../../src/modules/content-schema/index.js";
-import { representativeDocument } from "../fixtures/content-schema/representative.js";
+import { createContentAuthoring } from "../../src/modules/materials/index.js";
+import { representativeDocument } from "../fixtures/material-document/representative.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -48,7 +47,6 @@ describe("content authoring integrity contract", () => {
   test("rolls back invalid references including the idempotency claim", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const idempotencyKey = "a0000000-0000-4000-8000-000000000010";
@@ -102,7 +100,6 @@ describe("content authoring integrity contract", () => {
   test("maps unique slug, duplicate Tag and occupied Series ordinal consistently", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const metadata = {
@@ -190,7 +187,6 @@ describe("content authoring integrity contract", () => {
   test("arbitrates a concurrent Series ordinal race with stable conflict details", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const create = (side: "left" | "right", key: string) =>
@@ -227,7 +223,6 @@ describe("content authoring integrity contract", () => {
   test("keeps persisted MaterialRevision snapshots immutable", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const created = await authoring.createDraft({

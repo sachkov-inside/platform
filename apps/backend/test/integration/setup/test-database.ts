@@ -5,9 +5,9 @@ import { inject } from "vitest";
 
 import {
   createPlatformDatabase,
-  migrateToLatest,
   type PlatformDatabase,
 } from "../../../src/infrastructure/postgres/index.js";
+import { migrateToLatest } from "../../../src/migrations/index.js";
 
 export interface TestDatabase {
   readonly database: PlatformDatabase;

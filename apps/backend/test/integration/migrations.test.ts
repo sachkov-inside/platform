@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { migrateToLatest } from "../../src/infrastructure/postgres/index.js";
+import { migrateToLatest } from "../../src/migrations/index.js";
 import {
   createTestDatabase,
   type TestDatabase,

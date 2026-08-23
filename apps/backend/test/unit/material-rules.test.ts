@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { validateMetadata } from "../../src/modules/content-authoring/internal/shared/material-rules.js";
+import { validateMetadata } from "../../src/modules/materials/domain/material-rules.js";
 
 const topicId = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA";
 const formatId = "93000000-0000-4000-8000-000000000002";

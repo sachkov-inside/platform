@@ -1,4 +1,4 @@
-import type { ContentAuthoringError } from "../../modules/content-authoring/index.js";
+import type { ContentAuthoringError } from "../../modules/materials/index.js";
 
 export type ContentAuthoringErrorStatus = 403 | 404 | 409 | 422 | 500 | 503;
 

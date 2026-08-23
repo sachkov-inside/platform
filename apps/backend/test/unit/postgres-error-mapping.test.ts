@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { mapPostgresError } from "../../src/modules/content-authoring/internal/shared/postgres-error-mapping.js";
+import { mapPostgresError } from "../../src/modules/materials/infrastructure/postgres/postgres-error-mapping.js";
 
 describe("ContentAuthoring PostgreSQL error mapping", () => {
   test("maps only allowlisted reference constraints", () => {

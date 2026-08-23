@@ -5,12 +5,11 @@ import {
   type CreateDraftCommand,
   type LoadDraftQuery,
   type ReviseDraftCommand,
-} from "../../src/modules/content-authoring/index.js";
-import { createContentSchema } from "../../src/modules/content-schema/index.js";
+} from "../../src/modules/materials/index.js";
 import {
   fullRepresentativeDocument,
   representativeDocument,
-} from "../fixtures/content-schema/representative.js";
+} from "../fixtures/material-document/representative.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -57,7 +56,6 @@ describe("ContentAuthoring", () => {
     let policyCalled = false;
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: {
         canAuthor: () => {
           policyCalled = true;
@@ -139,7 +137,6 @@ describe("ContentAuthoring", () => {
   test("creates, loads and revises a representative draft through one interface", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: (principalId) => principalId === actor },
     });
     const initialBody = fullRepresentativeDocument();
@@ -215,7 +212,6 @@ describe("ContentAuthoring", () => {
   test("replays the original effect and rejects reuse of a key for another payload", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const command = {
@@ -247,7 +243,6 @@ describe("ContentAuthoring", () => {
   test("assigns stable block IDs for create and replace-document inputs", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const created = await authoring.createDraft({
@@ -339,7 +334,6 @@ describe("ContentAuthoring", () => {
   test("treats different semantic requests with the same result as idempotency reuse", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const body = representativeDocument();
@@ -384,7 +378,6 @@ describe("ContentAuthoring", () => {
   test("allows one concurrent revision and returns the winner for the stale base", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const created = await authoring.createDraft({
@@ -441,7 +434,6 @@ describe("ContentAuthoring", () => {
   test("collapses concurrent retries with the same idempotency key to one effect", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const command = {
@@ -470,7 +462,6 @@ describe("ContentAuthoring", () => {
   test("rolls back an invalid revision and allows a corrected retry with the same key", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const created = await authoring.createDraft({
