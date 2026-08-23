@@ -3,58 +3,62 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type {
-  ContentAuthoring,
+  MaterialAuthoring,
   LoadDraftQuery,
-} from "../content-authoring.interface.js";
-import { canAuthor } from "../ports/author-policy.js";
-import type { ContentAuthoringDependencies } from "../content-authoring.dependencies.js";
+} from "../material-authoring.interface.js";
+import { authorizeAuthor } from "../ports/author-policy.js";
+import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
 import { failure } from "../shared/application-result.js";
 import {
-  entityId,
+  materialIdSchema,
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
 import { toMaterialRevisionDto } from "../shared/material-revision-dto.js";
-import { mapPostgresError } from "../shared/postgres-error-mapping.js";
-import { loadCurrentMaterial } from "../../infrastructure/postgres/material-persistence.js";
+import { mapPostgresReadError } from "../shared/postgres-error-mapping.js";
+import { loadCurrentDraftRevision } from "../../infrastructure/postgres/material-persistence.js";
 
 const loadDraftQuery = z
   .object({
     actor: principalId,
-    materialId: entityId,
+    materialId: materialIdSchema,
   })
   .strict();
 
 export function createLoadDraft(
-  dependencies: ContentAuthoringDependencies,
-): ContentAuthoring["loadDraft"] {
+  dependencies: MaterialAuthoringDependencies,
+): MaterialAuthoring["loadDraft"] {
   return async (input: LoadDraftQuery) => {
     const parsedQuery = parseCommand(loadDraftQuery, input);
     if (!parsedQuery.ok) {
       return failure(parsedQuery.error);
     }
     const query = parsedQuery.value;
-    if (!(await canAuthor(dependencies.authorPolicy, query.actor))) {
-      return failure({ code: "forbidden" });
+    const authorization = await authorizeAuthor(
+      dependencies.authorPolicy,
+      query.actor,
+    );
+    if (!authorization.ok) {
+      return failure(authorization.error);
     }
 
     try {
-      const material = await loadCurrentMaterial(
+      const revision = await loadCurrentDraftRevision(
         dependencies.database,
         dependencies.materialDocumentOperations,
         query.materialId,
       );
-      if (material === undefined) {
+      if (revision === undefined) {
         return failure({ code: "material_not_found" });
       }
-      return material.ok
+      return revision.ok
         ? {
             ok: true,
-            value: toMaterialRevisionDto(material.value.currentDraft),
+            value: toMaterialRevisionDto(revision.value),
           }
         : failure({ code: "internal_error", correlationId: randomUUID() });
     } catch (error) {
-      return failure(mapPostgresError(error));
+      return failure(mapPostgresReadError(error));
     }
   };
 }

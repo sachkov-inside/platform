@@ -1,10 +1,3 @@
-import { acceptDocument } from "./accept-document.js";
-import { applyDocumentChanges } from "./apply-document-changes.js";
-import {
-  extractMaterialDocument,
-  renderMaterialDocument,
-} from "./render-document.js";
-
 export type JsonPrimitive = boolean | null | number | string;
 
 export type JsonValue =
@@ -16,10 +9,16 @@ export interface JsonObject {
   readonly [key: string]: JsonValue;
 }
 
-export interface MaterialDocumentV1 {
+export interface MaterialBodySnapshot {
   readonly schemaVersion: 1;
   readonly doc: JsonObject;
 }
+
+declare const validatedMaterialBody: unique symbol;
+
+export type MaterialBody = MaterialBodySnapshot & {
+  readonly [validatedMaterialBody]: true;
+};
 
 export interface ValidationIssue {
   readonly code: string;
@@ -76,12 +75,12 @@ export type RenderedBlock =
   | { readonly kind: "file"; readonly assetId: string; readonly label: string }
   | { readonly kind: "video"; readonly videoId: string; readonly caption?: string };
 
-export interface RenderedMaterialDocumentV1 {
+export interface RenderedMaterialBody {
   readonly schemaVersion: 1;
   readonly blocks: readonly RenderedBlock[];
 }
 
-export type MaterialDocumentResource =
+export type MaterialBodyResourceSummary =
   | {
       readonly kind: "image";
       readonly alt: string;
@@ -90,16 +89,16 @@ export type MaterialDocumentResource =
   | { readonly kind: "file"; readonly label: string }
   | { readonly kind: "video"; readonly caption?: string };
 
-export interface MaterialDocumentExtraction {
+export interface MaterialBodyExtraction {
   readonly plainText: string;
   readonly headings: readonly {
     readonly level: 2 | 3 | 4;
     readonly text: string;
   }[];
-  readonly resources: readonly MaterialDocumentResource[];
+  readonly resources: readonly MaterialBodyResourceSummary[];
 }
 
-export type MaterialDocumentResult<Value> =
+export type MaterialBodyResult<Value> =
   | { readonly ok: true; readonly value: Value }
   | {
       readonly ok: false;
@@ -109,7 +108,7 @@ export type MaterialDocumentResult<Value> =
       };
     };
 
-export type DocumentChange =
+export type MaterialBodyChange =
   | { readonly kind: "replace_document"; readonly document: unknown }
   | {
       readonly kind: "insert_blocks";
@@ -130,49 +129,19 @@ export type DocumentChange =
       readonly text: string;
     };
 
-export interface MaterialDocumentOperations {
+export interface MaterialBodyOperations {
   accept(
     input: unknown,
     options?: { readonly assignMissingNodeIds?: boolean },
-  ): MaterialDocumentResult<MaterialDocumentV1>;
+  ): MaterialBodyResult<MaterialBody>;
   applyChanges(
-    document: MaterialDocumentV1,
-    changes: readonly DocumentChange[],
-  ): MaterialDocumentResult<MaterialDocumentV1>;
+    document: MaterialBodySnapshot,
+    changes: readonly MaterialBodyChange[],
+  ): MaterialBodyResult<MaterialBody>;
   render(
-    document: MaterialDocumentV1,
-  ): MaterialDocumentResult<RenderedMaterialDocumentV1>;
+    document: MaterialBodySnapshot,
+  ): MaterialBodyResult<RenderedMaterialBody>;
   extract(
-    document: MaterialDocumentV1,
-  ): MaterialDocumentResult<MaterialDocumentExtraction>;
-}
-
-export type MaterialDocumentRoundTrip = (document: JsonObject) => JsonObject;
-
-export function createMaterialDocumentOperations(
-  roundTrip: MaterialDocumentRoundTrip,
-): MaterialDocumentOperations {
-  const accept: MaterialDocumentOperations["accept"] = (input, options) =>
-    acceptDocument(input, roundTrip, options);
-
-  return {
-    accept,
-    applyChanges: (document, changes) =>
-      applyDocumentChanges(document, changes, accept),
-    render: (document) => {
-      const accepted = accept(document);
-      return accepted.ok
-        ? { ok: true, value: renderMaterialDocument(accepted.value) }
-        : accepted;
-    },
-    extract: (document) => {
-      const rendered = accept(document);
-      return rendered.ok
-        ? {
-            ok: true,
-            value: extractMaterialDocument(renderMaterialDocument(rendered.value)),
-          }
-        : rendered;
-    },
-  };
+    document: MaterialBodySnapshot,
+  ): MaterialBodyResult<MaterialBodyExtraction>;
 }

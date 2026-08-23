@@ -3,15 +3,14 @@ import { z } from "zod";
 import type {
   JsonObject,
   JsonValue,
-  MaterialDocumentResult,
-  MaterialDocumentRoundTrip,
-  MaterialDocumentV1,
+  MaterialBodyResult,
+  MaterialBody,
   ValidationIssue,
-} from "./material-document.js";
+} from "./material-body.js";
 import { assignMissingNodeIds } from "./assign-missing-node-ids.js";
 import { DOCUMENT_LIMITS } from "./document-limits.js";
 import { addressableBlockTypes } from "./document-rules.js";
-import { migrateDocumentV1 } from "./migrate-document.js";
+import { restoreStoredMaterialBodyV1 } from "./stored-material-body-v1.js";
 import { validationIssuePath } from "./validation-issue-path.js";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -44,7 +43,7 @@ const envelopeSchema = z
   })
   .strict();
 
-function invalid(issues: readonly ValidationIssue[]): MaterialDocumentResult<never> {
+function invalid(issues: readonly ValidationIssue[]): MaterialBodyResult<never> {
   return {
     ok: false,
     error: {
@@ -214,9 +213,9 @@ function canonicalize(value: JsonValue): JsonValue {
 
 export function acceptDocument(
   input: unknown,
-  roundTrip: MaterialDocumentRoundTrip,
+  roundTrip: (document: JsonObject) => JsonObject,
   options?: { readonly assignMissingNodeIds?: boolean },
-): MaterialDocumentResult<MaterialDocumentV1> {
+): MaterialBodyResult<MaterialBody> {
   let serialized: string | undefined;
   try {
     serialized = JSON.stringify(input);
@@ -274,7 +273,10 @@ export function acceptDocument(
     }
     return {
       ok: true,
-      value: migrateDocumentV1({ schemaVersion: 1, doc: canonicalRoundTrip }),
+      value: restoreStoredMaterialBodyV1({
+        schemaVersion: 1,
+        doc: canonicalRoundTrip,
+      }),
     };
   } catch {
     return invalid([{ code: "invalid_prosemirror_document", path: "/doc" }]);

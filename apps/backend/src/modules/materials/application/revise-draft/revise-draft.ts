@@ -3,21 +3,24 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type {
-  ContentAuthoring,
+  MaterialAuthoring,
   ReviseDraftCommand,
-} from "../content-authoring.interface.js";
-import { canAuthor } from "../ports/author-policy.js";
-import type { ContentAuthoringDependencies } from "../content-authoring.dependencies.js";
+  ReviseDraftError,
+} from "../material-authoring.interface.js";
+import { authorizeAuthor } from "../ports/author-policy.js";
+import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
 import {
-  AuthoringRollback,
   failure,
+  failureFromTransaction,
   rollback,
 } from "../shared/application-result.js";
 import { claimOrReplay } from "../shared/claim-or-replay.js";
 import { fingerprintCommand } from "../shared/canonical-command-fingerprint.js";
 import {
   entityId,
-  idempotencyKey,
+  idempotencyKeySchema,
+  materialIdSchema,
+  materialRevisionIdSchema,
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
@@ -25,8 +28,14 @@ import { toMaterialRevisionDto } from "../shared/material-revision-dto.js";
 import { mapPostgresError } from "../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
 import { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
+import {
+  materialRevisionId,
+  type MaterialId,
+  type MaterialRevisionId,
+} from "../../domain/material-identifiers.js";
 import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
 import {
+  lockMaterialForLifecycleChange,
   loadCurrentRevisionId,
   loadMaterialRevision,
 } from "../../infrastructure/postgres/material-persistence.js";
@@ -67,9 +76,9 @@ const documentChange = z.discriminatedUnion("kind", [
 const reviseDraftCommand = z
   .object({
     actor: principalId,
-    idempotencyKey,
-    materialId: entityId,
-    baseRevisionId: entityId,
+    idempotencyKey: idempotencyKeySchema,
+    materialId: materialIdSchema,
+    baseRevisionId: materialRevisionIdSchema,
     changes: z
       .object({
         metadata: z.unknown().optional(),
@@ -82,9 +91,9 @@ const reviseDraftCommand = z
 async function advanceCurrentRevision(
   transaction: AuthoringTransaction,
   values: {
-    readonly materialId: string;
-    readonly baseRevisionId: string;
-    readonly revisionId: string;
+    readonly materialId: MaterialId;
+    readonly baseRevisionId: MaterialRevisionId;
+    readonly revisionId: MaterialRevisionId;
     readonly slug: string;
   },
 ): Promise<boolean> {
@@ -103,8 +112,8 @@ async function advanceCurrentRevision(
 }
 
 export function createReviseDraft(
-  dependencies: ContentAuthoringDependencies,
-): ContentAuthoring["reviseDraft"] {
+  dependencies: MaterialAuthoringDependencies,
+): MaterialAuthoring["reviseDraft"] {
   return async (input: ReviseDraftCommand) => {
     const parsedCommand = parseCommand(reviseDraftCommand, input);
     if (!parsedCommand.ok) {
@@ -117,8 +126,12 @@ export function createReviseDraft(
     if (!metadataChanges.ok) {
       return failure(metadataChanges.error);
     }
-    if (!(await canAuthor(dependencies.authorPolicy, command.actor))) {
-      return failure({ code: "forbidden" });
+    const authorization = await authorizeAuthor(
+      dependencies.authorPolicy,
+      command.actor,
+    );
+    if (!authorization.ok) {
+      return failure(authorization.error);
     }
 
     let persistedBase;
@@ -183,31 +196,30 @@ export function createReviseDraft(
             return replay;
           }
 
-          const material = await transaction
-            .selectFrom("materials")
-            .select("current_draft_revision_id")
-            .where("id", "=", command.materialId)
-            .forUpdate()
-            .executeTakeFirst();
+          const material = await lockMaterialForLifecycleChange(
+            transaction,
+            command.materialId,
+          );
           if (material === undefined) {
             rollback({ code: "material_not_found" });
           }
-          if (material.current_draft_revision_id !== command.baseRevisionId) {
-            rollback({
-              code: "stale_revision",
-              currentRevisionId: material.current_draft_revision_id,
-            });
+          const revisionId = materialRevisionId(randomUUID());
+          const transition = material.advanceDraft(
+            command.baseRevisionId,
+            revisionId,
+          );
+          if (!transition.ok) {
+            rollback(transition.error);
           }
           await requireReferenceIntegrity(
             transaction,
             command.materialId,
             metadata.value,
           );
-          const revisionId = randomUUID();
           await insertRevision(transaction, {
             actor: command.actor,
             materialId: command.materialId,
-            revisionId,
+            revisionId: transition.value.currentDraftRevisionId,
             metadata: metadata.value,
             schemaVersion: body.value.schemaVersion,
             body: body.value.doc,
@@ -215,7 +227,7 @@ export function createReviseDraft(
           const advanced = await advanceCurrentRevision(transaction, {
             materialId: command.materialId,
             baseRevisionId: command.baseRevisionId,
-            revisionId,
+            revisionId: transition.value.currentDraftRevisionId,
             slug: metadata.value.slug,
           });
           if (!advanced) {
@@ -238,13 +250,13 @@ export function createReviseDraft(
             operation: "revise_draft",
             key: command.idempotencyKey,
             materialId: command.materialId,
-            revisionId,
+            revisionId: transition.value.currentDraftRevisionId,
           });
           const revision = await loadMaterialRevision(
             transaction,
             dependencies.materialDocumentOperations,
             command.materialId,
-            revisionId,
+            transition.value.currentDraftRevisionId,
           );
           if (revision === undefined || !revision.ok) {
             rollback({ code: "internal_error", correlationId: randomUUID() });
@@ -253,10 +265,9 @@ export function createReviseDraft(
         });
       return { ok: true, value: toMaterialRevisionDto(value) };
     } catch (error) {
-      return failure(
-        error instanceof AuthoringRollback
-          ? error.applicationError
-          : mapPostgresError(error, metadata.value),
+      return failureFromTransaction<ReviseDraftError>(
+        error,
+        (unexpected) => mapPostgresError(unexpected, metadata.value),
       );
     }
   };

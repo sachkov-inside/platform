@@ -1,5 +1,5 @@
 import type { MaterialAccess } from "../../domain/material-revision-metadata.js";
-import { canAuthor, type AuthorPolicy } from "./author-policy.js";
+import { authorizeAuthor, type AuthorPolicy } from "./author-policy.js";
 
 export type Subject =
   | { readonly kind: "anonymous" }
@@ -36,11 +36,17 @@ export function createBaselineContentAccess(authorPolicy: AuthorPolicy): Content
       if (action === "read" && resource.publication === "published" && resource.access === "free") {
         return { allowed: true, reason: "public" };
       }
-      if (
-        subject.kind === "principal" &&
-        (await canAuthor(authorPolicy, subject.principalId))
-      ) {
-        return { allowed: true, reason: "author" };
+      if (subject.kind === "principal") {
+        const authorization = await authorizeAuthor(
+          authorPolicy,
+          subject.principalId,
+        );
+        if (authorization.ok) {
+          return { allowed: true, reason: "author" };
+        }
+        if (authorization.error.code === "dependency_unavailable") {
+          return { allowed: false, reason: "temporarily_unavailable" };
+        }
       }
       return {
         allowed: false,

@@ -1,14 +1,14 @@
 import type {
   JsonObject,
   JsonValue,
-  MaterialDocumentExtraction,
-  MaterialDocumentResource,
-  MaterialDocumentV1,
+  MaterialBodyExtraction,
+  MaterialBodyResourceSummary,
+  MaterialBody,
   RenderedBlock,
   RenderedMark,
-  RenderedMaterialDocumentV1,
+  RenderedMaterialBody,
   RenderedText,
-} from "./material-document.js";
+} from "./material-body.js";
 
 function isObject(value: JsonValue): value is JsonObject {
   return value !== null && !Array.isArray(value) && typeof value === "object";
@@ -189,8 +189,8 @@ function renderBlock(value: JsonValue): RenderedBlock {
 }
 
 export function renderMaterialDocument(
-  document: MaterialDocumentV1,
-): RenderedMaterialDocumentV1 {
+  document: MaterialBody,
+): RenderedMaterialBody {
   if (document.doc.type !== "doc") {
     throw new TypeError("Expected document root");
   }
@@ -243,7 +243,7 @@ function blockText(block: RenderedBlock): string {
 function collect(
   block: RenderedBlock,
   headings: { level: 2 | 3 | 4; text: string }[],
-  resources: MaterialDocumentResource[],
+  resources: MaterialBodyResourceSummary[],
 ): void {
   switch (block.kind) {
     case "heading":
@@ -288,10 +288,10 @@ function collect(
 }
 
 export function extractMaterialDocument(
-  document: RenderedMaterialDocumentV1,
-): MaterialDocumentExtraction {
+  document: RenderedMaterialBody,
+): MaterialBodyExtraction {
   const headings: { level: 2 | 3 | 4; text: string }[] = [];
-  const resources: MaterialDocumentResource[] = [];
+  const resources: MaterialBodyResourceSummary[] = [];
   document.blocks.forEach((block) => collect(block, headings, resources));
   return {
     plainText: document.blocks.map(blockText).filter(Boolean).join("\n\n"),

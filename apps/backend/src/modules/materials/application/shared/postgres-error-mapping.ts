@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import type { ContentAuthoringError } from "../content-authoring.interface.js";
+import type {
+  InvalidReferenceError,
+  PostgresOperationError,
+  SystemError,
+} from "../material-authoring.interface.js";
 import type { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
 
 interface PostgreSqlErrorShape {
@@ -72,12 +76,11 @@ const retryablePgClientMessages = new Set([
 export function mapPostgresError(
   error: unknown,
   metadata?: MaterialRevisionMetadata,
-): ContentAuthoringError {
+): PostgresOperationError {
   const shape = errorShape(error);
   const code = typeof shape.code === "string" ? shape.code : undefined;
   const constraint =
     typeof shape.constraint === "string" ? shape.constraint : undefined;
-  const signals = errorSignals(error);
 
   if (
     code === "23505" &&
@@ -119,6 +122,11 @@ export function mapPostgresError(
       issues: [{ code: "reference_not_found", path: referencePath }],
     };
   }
+  return mapPostgresReadError(error);
+}
+
+export function mapPostgresReadError(error: unknown): SystemError {
+  const signals = errorSignals(error);
   if (
     signals.codes.some(
       (candidate) =>
@@ -129,4 +137,23 @@ export function mapPostgresError(
     return { code: "dependency_unavailable", retryable: true };
   }
   return { code: "internal_error", correlationId: randomUUID() };
+}
+
+export function mapPostgresValidationError(
+  error: unknown,
+): InvalidReferenceError | SystemError {
+  const shape = errorShape(error);
+  const code = typeof shape.code === "string" ? shape.code : undefined;
+  const constraint =
+    typeof shape.constraint === "string" ? shape.constraint : undefined;
+  const referencePath =
+    code === "23503" && constraint !== undefined
+      ? referenceConstraints.get(constraint)
+      : undefined;
+  return referencePath === undefined
+    ? mapPostgresReadError(error)
+    : {
+        code: "invalid_reference",
+        issues: [{ code: "reference_not_found", path: referencePath }],
+      };
 }

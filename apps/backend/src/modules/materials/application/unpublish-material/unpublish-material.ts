@@ -2,18 +2,26 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import type { ContentAuthoring } from "../content-authoring.interface.js";
-import type { ContentAuthoringDependencies } from "../content-authoring.dependencies.js";
-import { canPublish } from "../ports/author-policy.js";
-import { AuthoringRollback, failure, rollback } from "../shared/application-result.js";
+import type {
+  MaterialAuthoring,
+  UnpublishMaterialError,
+} from "../material-authoring.interface.js";
+import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
+import { authorizePublish } from "../ports/author-policy.js";
+import {
+  failure,
+  failureFromTransaction,
+  rollback,
+} from "../shared/application-result.js";
 import { fingerprintCommand } from "../shared/canonical-command-fingerprint.js";
 import {
-  entityId,
-  idempotencyKey,
+  idempotencyKeySchema,
+  materialIdSchema,
+  materialRevisionIdSchema,
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
-import { mapPostgresError } from "../shared/postgres-error-mapping.js";
+import { mapPostgresReadError } from "../shared/postgres-error-mapping.js";
 import {
   claimIdempotency,
   completeIdempotency,
@@ -22,27 +30,32 @@ import {
   loadPublicationEvent,
   unpublishMaterialProjection,
 } from "../../infrastructure/postgres/lifecycle-persistence.js";
+import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-persistence.js";
 
 const unpublishMaterialCommand = z
   .object({
     actor: principalId,
-    idempotencyKey,
-    materialId: entityId,
-    expectedPublishedRevisionId: entityId,
+    idempotencyKey: idempotencyKeySchema,
+    materialId: materialIdSchema,
+    expectedPublishedRevisionId: materialRevisionIdSchema,
   })
   .strict();
 
 export function createUnpublishMaterial(
-  dependencies: ContentAuthoringDependencies,
-): ContentAuthoring["unpublishMaterial"] {
+  dependencies: MaterialAuthoringDependencies,
+): MaterialAuthoring["unpublishMaterial"] {
   return async (input) => {
     const parsed = parseCommand(unpublishMaterialCommand, input);
     if (!parsed.ok) {
       return failure(parsed.error);
     }
     const command = parsed.value;
-    if (!(await canPublish(dependencies.authorPolicy, command.actor))) {
-      return failure({ code: "forbidden" });
+    const authorization = await authorizePublish(
+      dependencies.authorPolicy,
+      command.actor,
+    );
+    if (!authorization.ok) {
+      return failure(authorization.error);
     }
     const fingerprint = fingerprintCommand({ operation: "unpublish_material", ...command });
     try {
@@ -70,16 +83,14 @@ export function createUnpublishMaterial(
           return replay;
         }
 
-        const material = await transaction
-          .selectFrom("materials")
-          .select("current_published_revision_id")
-          .where("id", "=", command.materialId)
-          .forUpdate()
-          .executeTakeFirst();
+        const material = await lockMaterialForLifecycleChange(
+          transaction,
+          command.materialId,
+        );
         if (material === undefined) {
           rollback({ code: "material_not_found" });
         }
-        if (material.current_published_revision_id === null) {
+        if (material.currentPublishedRevisionId === null) {
           const priorPublication = await transaction
             .selectFrom("material_publication_events")
             .select("id")
@@ -91,14 +102,11 @@ export function createUnpublishMaterial(
             rollback({ code: "publication_not_found" });
           }
         }
-        if (
-          material.current_published_revision_id !==
-          command.expectedPublishedRevisionId
-        ) {
-          rollback({
-            code: "stale_publication",
-            currentPublishedRevisionId: material.current_published_revision_id,
-          });
+        const transition = material.unpublish(
+          command.expectedPublishedRevisionId,
+        );
+        if (!transition.ok) {
+          rollback(transition.error);
         }
         const eventId = randomUUID();
         const publication = await unpublishMaterialProjection(transaction, {
@@ -127,10 +135,9 @@ export function createUnpublishMaterial(
         },
       };
     } catch (error) {
-      return failure(
-        error instanceof AuthoringRollback
-          ? error.applicationError
-          : mapPostgresError(error),
+      return failureFromTransaction<UnpublishMaterialError>(
+        error,
+        mapPostgresReadError,
       );
     }
   };

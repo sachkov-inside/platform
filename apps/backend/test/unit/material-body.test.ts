@@ -6,12 +6,12 @@ import { materialDocumentOperations } from "../../src/modules/materials/infrastr
 import {
   fullRepresentativeDocument,
   representativeDocument,
-} from "../fixtures/material-document/representative.js";
+} from "../fixtures/material-body/representative.js";
 
 function invalidFixture(name: string): unknown {
   return JSON.parse(
     readFileSync(
-      new URL(`../fixtures/material-document/invalid/${name}.json`, import.meta.url),
+      new URL(`../fixtures/material-body/invalid/${name}.json`, import.meta.url),
       "utf8",
     ),
   ) as unknown;
@@ -21,7 +21,7 @@ function testNodeId(index: number): string {
   return `92000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
 }
 
-describe("MaterialDocumentOperations", () => {
+describe("MaterialBodyOperations", () => {
   test("accepts a representative v1 document without semantic drift", () => {
     const documentOperations = materialDocumentOperations;
     const input = {

@@ -3,20 +3,21 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type {
-  ContentAuthoring,
+  MaterialAuthoring,
   CreateDraftCommand,
-} from "../content-authoring.interface.js";
-import { canAuthor } from "../ports/author-policy.js";
-import type { ContentAuthoringDependencies } from "../content-authoring.dependencies.js";
+  CreateDraftError,
+} from "../material-authoring.interface.js";
+import { authorizeAuthor } from "../ports/author-policy.js";
+import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
 import {
-  AuthoringRollback,
   failure,
+  failureFromTransaction,
   rollback,
 } from "../shared/application-result.js";
 import { fingerprintCommand } from "../shared/canonical-command-fingerprint.js";
 import { claimOrReplay } from "../shared/claim-or-replay.js";
 import {
-  idempotencyKey,
+  idempotencyKeySchema,
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
@@ -24,6 +25,10 @@ import { toMaterialRevisionDto } from "../shared/material-revision-dto.js";
 import { mapPostgresError } from "../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
 import { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
+import {
+  materialId,
+  materialRevisionId,
+} from "../../domain/material-identifiers.js";
 import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
 import { completeIdempotency } from "../../infrastructure/postgres/idempotency.js";
 import { loadMaterialRevision } from "../../infrastructure/postgres/material-persistence.js";
@@ -35,7 +40,7 @@ import {
 const createDraftCommand = z
   .object({
     actor: principalId,
-    idempotencyKey,
+    idempotencyKey: idempotencyKeySchema,
     metadata: z.unknown(),
     body: z.unknown(),
   })
@@ -60,8 +65,8 @@ async function insertMaterial(
 }
 
 export function createCreateDraft(
-  dependencies: ContentAuthoringDependencies,
-): ContentAuthoring["createDraft"] {
+  dependencies: MaterialAuthoringDependencies,
+): MaterialAuthoring["createDraft"] {
   return async (input: CreateDraftCommand) => {
     const parsedCommand = parseCommand(createDraftCommand, input);
     if (!parsedCommand.ok) {
@@ -72,8 +77,12 @@ export function createCreateDraft(
     if (!metadata.ok) {
       return failure(metadata.error);
     }
-    if (!(await canAuthor(dependencies.authorPolicy, command.actor))) {
-      return failure({ code: "forbidden" });
+    const authorization = await authorizeAuthor(
+      dependencies.authorPolicy,
+      command.actor,
+    );
+    if (!authorization.ok) {
+      return failure(authorization.error);
     }
     const body = dependencies.materialDocumentOperations.accept(command.body, {
       assignMissingNodeIds: true,
@@ -103,34 +112,34 @@ export function createCreateDraft(
             return replay;
           }
 
-          const materialId = randomUUID();
-          const revisionId = randomUUID();
-          await requireReferenceIntegrity(transaction, materialId, metadata.value);
+          const newMaterialId = materialId(randomUUID());
+          const revisionId = materialRevisionId(randomUUID());
+          await requireReferenceIntegrity(transaction, newMaterialId, metadata.value);
           await insertMaterial(transaction, {
-            materialId,
+            materialId: newMaterialId,
             revisionId,
             slug: metadata.value.slug,
           });
           await insertRevision(transaction, {
             actor: command.actor,
-            materialId,
+            materialId: newMaterialId,
             revisionId,
             metadata: metadata.value,
             schemaVersion: body.value.schemaVersion,
             body: body.value.doc,
           });
-          await replaceCurrentRelations(transaction, materialId, metadata.value);
+          await replaceCurrentRelations(transaction, newMaterialId, metadata.value);
           await completeIdempotency(transaction, {
             actor: command.actor,
             operation: "create_draft",
             key: command.idempotencyKey,
-            materialId,
+            materialId: newMaterialId,
             revisionId,
           });
           const revision = await loadMaterialRevision(
             transaction,
             dependencies.materialDocumentOperations,
-            materialId,
+            newMaterialId,
             revisionId,
           );
           if (revision === undefined || !revision.ok) {
@@ -140,10 +149,9 @@ export function createCreateDraft(
         });
       return { ok: true, value: toMaterialRevisionDto(value) };
     } catch (error) {
-      return failure(
-        error instanceof AuthoringRollback
-          ? error.applicationError
-          : mapPostgresError(error, metadata.value),
+      return failureFromTransaction<CreateDraftError>(
+        error,
+        (unexpected) => mapPostgresError(unexpected, metadata.value),
       );
     }
   };

@@ -1,5 +1,5 @@
 import type { MaterialAccess } from "../domain/material-revision-metadata.js";
-import type { RenderedMaterialDocumentV1 } from "../domain/material-document/material-document.js";
+import type { RenderedMaterialBody } from "../domain/material-body/material-body.js";
 import type { AccessDecision, Subject } from "./ports/content-access.js";
 
 export interface PublicMaterialProjectionDto {
@@ -23,7 +23,7 @@ export type PublishedMaterialReadDto =
       readonly kind: "available";
       readonly cacheScope: "private-no-store" | "public";
       readonly projection: PublicMaterialProjectionDto;
-      readonly body: RenderedMaterialDocumentV1;
+      readonly body: RenderedMaterialBody;
     }
   | {
       readonly kind: "teaser";
@@ -42,11 +42,11 @@ export type PublishedMaterialReadResult =
         | { readonly code: "internal_error"; readonly correlationId: string };
     };
 
-export interface PublishedMaterials {
+export interface PublishedMaterialReader {
   read(query: {
     readonly subject: Subject;
     readonly slug: string;
   }): Promise<PublishedMaterialReadResult>;
 }
 
-export const PUBLISHED_MATERIALS = Symbol("PUBLISHED_MATERIALS");
+export const PUBLISHED_MATERIAL_READER = Symbol("PUBLISHED_MATERIAL_READER");

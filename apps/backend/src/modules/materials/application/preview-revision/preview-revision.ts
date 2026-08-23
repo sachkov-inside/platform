@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import type { ContentAuthoring } from "../content-authoring.interface.js";
-import type { ContentAuthoringDependencies } from "../content-authoring.dependencies.js";
+import type { MaterialAuthoring } from "../material-authoring.interface.js";
+import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
 import { failure } from "../shared/application-result.js";
 import { toMaterialRevisionDto } from "../shared/material-revision-dto.js";
-import { mapPostgresError } from "../shared/postgres-error-mapping.js";
+import { mapPostgresReadError } from "../shared/postgres-error-mapping.js";
 import { validateRevisionQuery } from "../validate-revision/validate-revision.js";
 import { parseCommand } from "../shared/command-validation.js";
 import {
@@ -14,8 +14,8 @@ import {
 } from "../../infrastructure/postgres/material-persistence.js";
 
 export function createPreviewRevision(
-  dependencies: ContentAuthoringDependencies,
-): ContentAuthoring["previewRevision"] {
+  dependencies: MaterialAuthoringDependencies,
+): MaterialAuthoring["previewRevision"] {
   return async (input) => {
     const parsed = parseCommand(validateRevisionQuery, input);
     if (!parsed.ok) {
@@ -49,7 +49,11 @@ export function createPreviewRevision(
         },
       });
       if (!decision.allowed) {
-        return failure({ code: "forbidden" });
+        return failure(
+          decision.reason === "temporarily_unavailable"
+            ? { code: "dependency_unavailable", retryable: true }
+            : { code: "forbidden" },
+        );
       }
       const revision = await loadMaterialRevision(
         dependencies.database,
@@ -75,7 +79,7 @@ export function createPreviewRevision(
         },
       };
     } catch (error) {
-      return failure(mapPostgresError(error));
+      return failure(mapPostgresReadError(error));
     }
   };
 }

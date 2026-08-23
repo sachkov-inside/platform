@@ -6,7 +6,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
-describe("content authoring migrations", () => {
+describe("material authoring migrations", () => {
   let testDatabase: TestDatabase;
 
   beforeAll(async () => {

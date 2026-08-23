@@ -12,16 +12,16 @@ import {
   type ContentAccess,
 } from "./application/ports/content-access.js";
 import {
-  CONTENT_AUTHORING,
-  type ContentAuthoring,
-} from "./application/content-authoring.interface.js";
-import { createContentAuthoringImplementation } from "./application/create-content-authoring.js";
-import { createPublishedMaterialsImplementation } from "./application/create-published-materials.js";
+  MATERIAL_AUTHORING,
+  type MaterialAuthoring,
+} from "./application/material-authoring.interface.js";
 import {
-  PUBLISHED_MATERIALS,
-  type PublishedMaterials,
-} from "./application/published-materials.interface.js";
-import { materialDocumentOperations } from "./infrastructure/tiptap/index.js";
+  PUBLISHED_MATERIAL_READER,
+  type PublishedMaterialReader,
+} from "./application/published-material-reader.interface.js";
+import { createMaterials, type Materials } from "./create-materials.js";
+
+const MATERIALS = Symbol("MATERIALS");
 
 @Module({})
 export class MaterialsModule {
@@ -38,35 +38,33 @@ export class MaterialsModule {
             createBaselineContentAccess(policy),
         },
         {
-          provide: CONTENT_AUTHORING,
+          provide: MATERIALS,
           inject: [PLATFORM_DATABASE, AUTHOR_POLICY, CONTENT_ACCESS],
           useFactory: (
             database: PlatformDatabase,
             policy: AuthorPolicy,
             contentAccess: ContentAccess,
-          ): ContentAuthoring =>
-            createContentAuthoringImplementation({
+          ): Materials =>
+            createMaterials({
               database,
-              materialDocumentOperations,
               authorPolicy: policy,
               contentAccess,
             }),
         },
         {
-          provide: PUBLISHED_MATERIALS,
-          inject: [PLATFORM_DATABASE, CONTENT_ACCESS],
-          useFactory: (
-            database: PlatformDatabase,
-            contentAccess: ContentAccess,
-          ): PublishedMaterials =>
-            createPublishedMaterialsImplementation({
-              database,
-              contentAccess,
-              materialDocumentOperations,
-            }),
+          provide: MATERIAL_AUTHORING,
+          inject: [MATERIALS],
+          useFactory: (materials: Materials): MaterialAuthoring =>
+            materials.authoring,
+        },
+        {
+          provide: PUBLISHED_MATERIAL_READER,
+          inject: [MATERIALS],
+          useFactory: (materials: Materials): PublishedMaterialReader =>
+            materials.publishedMaterialReader,
         },
       ],
-      exports: [CONTENT_AUTHORING, PUBLISHED_MATERIALS],
+      exports: [MATERIAL_AUTHORING, PUBLISHED_MATERIAL_READER],
     };
   }
 }

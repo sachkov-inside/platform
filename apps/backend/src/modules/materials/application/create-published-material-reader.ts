@@ -1,17 +1,21 @@
 import { randomUUID } from "node:crypto";
 
-import type { MaterialDocumentOperations } from "../domain/material-document/material-document.js";
+import type { MaterialBodyOperations } from "../domain/material-body/material-body.js";
 import { loadPublicMaterialProjection } from "../infrastructure/postgres/lifecycle-persistence.js";
 import { loadCurrentPublishedMaterialRevision } from "../infrastructure/postgres/material-persistence.js";
+import {
+  materialId,
+  materialRevisionId,
+} from "../domain/material-identifiers.js";
 import type { PlatformDatabase } from "../../../infrastructure/postgres/index.js";
 import type { ContentAccess } from "./ports/content-access.js";
-import type { PublishedMaterials } from "./published-materials.interface.js";
+import type { PublishedMaterialReader } from "./published-material-reader.interface.js";
 
-export function createPublishedMaterialsImplementation(dependencies: {
+export function createPublishedMaterialReaderImplementation(dependencies: {
   readonly database: PlatformDatabase;
   readonly contentAccess: ContentAccess;
-  readonly materialDocumentOperations: MaterialDocumentOperations;
-}): PublishedMaterials {
+  readonly materialDocumentOperations: MaterialBodyOperations;
+}): PublishedMaterialReader {
   return {
     async read({ subject, slug }) {
       try {
@@ -52,8 +56,8 @@ export function createPublishedMaterialsImplementation(dependencies: {
         const revision = await loadCurrentPublishedMaterialRevision(
           dependencies.database,
           dependencies.materialDocumentOperations,
-          projection.materialId,
-          projection.revisionId,
+          materialId(projection.materialId),
+          materialRevisionId(projection.revisionId),
         );
         if (revision === undefined || !revision.ok) {
           return {

@@ -1,18 +1,19 @@
 import type {
-  DocumentChange,
+  MaterialBodyChange,
   JsonObject,
   JsonValue,
-  MaterialDocumentOperations,
-  MaterialDocumentResult,
-  MaterialDocumentV1,
-} from "./material-document.js";
+  MaterialBodyOperations,
+  MaterialBodyResult,
+  MaterialBody,
+  MaterialBodySnapshot,
+} from "./material-body.js";
 import { assignMissingNodeIds } from "./assign-missing-node-ids.js";
 
 function isJsonObject(value: unknown): value is JsonObject {
   return value !== null && value !== undefined && !Array.isArray(value) && typeof value === "object";
 }
 
-function fail(index: number, code: string): MaterialDocumentResult<never> {
+function fail(index: number, code: string): MaterialBodyResult<never> {
   return {
     ok: false,
     error: {
@@ -85,7 +86,7 @@ function findNode(root: unknown, targetNodeId: string): LocatedNode | undefined 
 
 function replaceText(
   block: JsonValue,
-  change: Extract<DocumentChange, { readonly kind: "replace_text" }>,
+  change: Extract<MaterialBodyChange, { readonly kind: "replace_text" }>,
 ): JsonObject | undefined {
   if (!isJsonObject(block)) {
     return undefined;
@@ -181,11 +182,15 @@ function replaceText(
 }
 
 export function applyDocumentChanges(
-  document: MaterialDocumentV1,
-  changes: readonly DocumentChange[],
-  acceptDocument: MaterialDocumentOperations["accept"],
-): MaterialDocumentResult<MaterialDocumentV1> {
-  let current = document;
+  document: MaterialBodySnapshot,
+  changes: readonly MaterialBodyChange[],
+  acceptDocument: MaterialBodyOperations["accept"],
+): MaterialBodyResult<MaterialBody> {
+  const accepted = acceptDocument(document);
+  if (!accepted.ok) {
+    return accepted;
+  }
+  let current = accepted.value;
 
   for (const [index, change] of changes.entries()) {
     if (change.kind === "replace_document") {

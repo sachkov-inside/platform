@@ -1,6 +1,6 @@
-import type { MaterialDocumentV1 } from "../../../src/modules/materials/index.js";
+import type { MaterialBodySnapshot } from "../../../src/modules/materials/index.js";
 
-export function representativeDocument(text = "Issue хранит intent."): MaterialDocumentV1 {
+export function representativeDocument(text = "Issue хранит intent."): MaterialBodySnapshot {
   return {
     schemaVersion: 1,
     doc: {
@@ -24,7 +24,7 @@ export function representativeDocument(text = "Issue хранит intent."): Mat
   };
 }
 
-export function fullRepresentativeDocument(): MaterialDocumentV1 {
+export function fullRepresentativeDocument(): MaterialBodySnapshot {
   return {
     schemaVersion: 1,
     doc: {

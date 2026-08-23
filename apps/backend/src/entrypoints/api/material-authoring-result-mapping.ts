@@ -1,10 +1,10 @@
-import type { ContentAuthoringError } from "../../modules/materials/index.js";
+import type { MaterialAuthoringError } from "../../modules/materials/index.js";
 
-export type ContentAuthoringErrorStatus = 403 | 404 | 409 | 422 | 500 | 503;
+export type MaterialAuthoringErrorStatus = 403 | 404 | 409 | 422 | 500 | 503;
 
-export function statusForContentAuthoringError(
-  error: ContentAuthoringError,
-): ContentAuthoringErrorStatus {
+export function statusForMaterialAuthoringError(
+  error: MaterialAuthoringError,
+): MaterialAuthoringErrorStatus {
   switch (error.code) {
     case "forbidden":
       return 403;

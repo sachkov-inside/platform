@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { createContentAuthoring } from "../../src/modules/materials/index.js";
-import { representativeDocument } from "../fixtures/material-document/representative.js";
+import { createMaterials } from "../../src/modules/materials/index.js";
+import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -14,7 +14,7 @@ const tagId = "a0000000-0000-4000-8000-000000000004";
 const seriesId = "a0000000-0000-4000-8000-000000000005";
 const secondSeriesId = "a0000000-0000-4000-8000-000000000006";
 
-describe("content authoring integrity contract", () => {
+describe("material authoring integrity contract", () => {
   let testDatabase: TestDatabase;
 
   beforeAll(async () => {
@@ -45,9 +45,9 @@ describe("content authoring integrity contract", () => {
   });
 
   test("rolls back invalid references including the idempotency claim", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
-      authorPolicy: { canAuthor: () => true },
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const idempotencyKey = "a0000000-0000-4000-8000-000000000010";
     const base = {
@@ -99,9 +99,9 @@ describe("content authoring integrity contract", () => {
   });
 
   test("maps unique slug, duplicate Tag and occupied Series ordinal consistently", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
-      authorPolicy: { canAuthor: () => true },
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const metadata = {
       title: "Constraint owner",
@@ -187,9 +187,9 @@ describe("content authoring integrity contract", () => {
   });
 
   test("arbitrates a concurrent Series ordinal race with stable conflict details", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
-      authorPolicy: { canAuthor: () => true },
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const create = (side: "left" | "right", key: string) =>
       authoring.createDraft({
@@ -224,9 +224,9 @@ describe("content authoring integrity contract", () => {
   });
 
   test("keeps persisted MaterialRevision snapshots immutable", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
-      authorPolicy: { canAuthor: () => true },
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const created = await authoring.createDraft({
       actor,

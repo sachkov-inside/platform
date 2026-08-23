@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 
-import type { PublicMaterialProjectionDto } from "../../application/published-materials.interface.js";
-import type { MaterialDocumentExtraction } from "../../domain/material-document/material-document.js";
+import type { PublicMaterialProjectionDto } from "../../application/published-material-reader.interface.js";
+import type { MaterialBodyExtraction } from "../../domain/material-body/material-body.js";
 import type { MaterialRevision } from "../../domain/material.js";
 import type { AuthoringDatabase, AuthoringTransaction } from "./database.js";
 
@@ -36,7 +36,7 @@ export async function publishRevisionProjection(
   values: {
     readonly actor: string;
     readonly eventId: string;
-    readonly extraction: MaterialDocumentExtraction;
+    readonly extraction: MaterialBodyExtraction;
     readonly revision: MaterialRevision;
   },
 ): Promise<PublicationEvent> {

@@ -2,14 +2,22 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import type { ContentAuthoring } from "../content-authoring.interface.js";
-import type { ContentAuthoringDependencies } from "../content-authoring.dependencies.js";
-import { canAuthor } from "../ports/author-policy.js";
-import { AuthoringRollback, failure, rollback } from "../shared/application-result.js";
+import type {
+  MaterialAuthoring,
+  RestoreRevisionError,
+} from "../material-authoring.interface.js";
+import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
+import { authorizeAuthor } from "../ports/author-policy.js";
+import {
+  failure,
+  failureFromTransaction,
+  rollback,
+} from "../shared/application-result.js";
 import { fingerprintCommand } from "../shared/canonical-command-fingerprint.js";
 import {
-  entityId,
-  idempotencyKey,
+  idempotencyKeySchema,
+  materialIdSchema,
+  materialRevisionIdSchema,
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
@@ -21,34 +29,43 @@ import {
   completeIdempotency,
 } from "../../infrastructure/postgres/idempotency.js";
 import {
+  lockMaterialForLifecycleChange,
   loadMaterialRevision,
 } from "../../infrastructure/postgres/material-persistence.js";
 import {
   insertRevision,
   replaceCurrentRelations,
 } from "../../infrastructure/postgres/revision-persistence.js";
+import {
+  materialId,
+  materialRevisionId,
+} from "../../domain/material-identifiers.js";
 
 const restoreRevisionCommand = z
   .object({
     actor: principalId,
-    idempotencyKey,
-    materialId: entityId,
-    revisionId: entityId,
-    baseRevisionId: entityId,
+    idempotencyKey: idempotencyKeySchema,
+    materialId: materialIdSchema,
+    revisionId: materialRevisionIdSchema,
+    baseRevisionId: materialRevisionIdSchema,
   })
   .strict();
 
 export function createRestoreRevision(
-  dependencies: ContentAuthoringDependencies,
-): ContentAuthoring["restoreRevision"] {
+  dependencies: MaterialAuthoringDependencies,
+): MaterialAuthoring["restoreRevision"] {
   return async (input) => {
     const parsed = parseCommand(restoreRevisionCommand, input);
     if (!parsed.ok) {
       return failure(parsed.error);
     }
     const command = parsed.value;
-    if (!(await canAuthor(dependencies.authorPolicy, command.actor))) {
-      return failure({ code: "forbidden" });
+    const authorization = await authorizeAuthor(
+      dependencies.authorPolicy,
+      command.actor,
+    );
+    if (!authorization.ok) {
+      return failure(authorization.error);
     }
     const fingerprint = fingerprintCommand({ operation: "restore_revision", ...command });
     try {
@@ -69,8 +86,8 @@ export function createRestoreRevision(
           const replay = await loadMaterialRevision(
             transaction,
             dependencies.materialDocumentOperations,
-            claim.materialId,
-            claim.revisionId,
+            materialId(claim.materialId),
+            materialRevisionId(claim.revisionId),
           );
           if (replay === undefined || !replay.ok) {
             rollback({ code: "internal_error", correlationId: randomUUID() });
@@ -78,20 +95,20 @@ export function createRestoreRevision(
           return replay.value;
         }
 
-        const material = await transaction
-          .selectFrom("materials")
-          .select("current_draft_revision_id")
-          .where("id", "=", command.materialId)
-          .forUpdate()
-          .executeTakeFirst();
+        const material = await lockMaterialForLifecycleChange(
+          transaction,
+          command.materialId,
+        );
         if (material === undefined) {
           rollback({ code: "material_not_found" });
         }
-        if (material.current_draft_revision_id !== command.baseRevisionId) {
-          rollback({
-            code: "stale_revision",
-            currentRevisionId: material.current_draft_revision_id,
-          });
+        const revisionId = materialRevisionId(randomUUID());
+        const transition = material.advanceDraft(
+          command.baseRevisionId,
+          revisionId,
+        );
+        if (!transition.ok) {
+          rollback(transition.error);
         }
         const source = await loadMaterialRevision(
           transaction,
@@ -110,21 +127,23 @@ export function createRestoreRevision(
           command.materialId,
           source.value.metadata,
         );
-        const revisionId = randomUUID();
+        const restoredRevision = source.value.restoreAs(
+          transition.value.currentDraftRevisionId,
+        );
         await insertRevision(transaction, {
           actor: command.actor,
-          materialId: command.materialId,
-          revisionId,
-          restoredFromRevisionId: source.value.id,
-          metadata: source.value.metadata,
-          schemaVersion: source.value.body.schemaVersion,
-          body: source.value.body.doc,
+          materialId: restoredRevision.materialId,
+          revisionId: restoredRevision.id,
+          restoredFromRevisionId: restoredRevision.restoredFromRevisionId,
+          metadata: restoredRevision.metadata,
+          schemaVersion: restoredRevision.body.schemaVersion,
+          body: restoredRevision.body.doc,
         });
         await transaction
           .updateTable("materials")
           .set({
-            current_draft_revision_id: revisionId,
-            slug: source.value.metadata.slug,
+            current_draft_revision_id: transition.value.currentDraftRevisionId,
+            slug: restoredRevision.metadata.slug,
             updated_at: new Date(),
           })
           .where("id", "=", command.materialId)
@@ -133,20 +152,20 @@ export function createRestoreRevision(
         await replaceCurrentRelations(
           transaction,
           command.materialId,
-          source.value.metadata,
+          restoredRevision.metadata,
         );
         await completeIdempotency(transaction, {
           actor: command.actor,
           operation: "restore_revision",
           key: command.idempotencyKey,
           materialId: command.materialId,
-          revisionId,
+          revisionId: restoredRevision.id,
         });
         const restored = await loadMaterialRevision(
           transaction,
           dependencies.materialDocumentOperations,
           command.materialId,
-          revisionId,
+          restoredRevision.id,
         );
         if (restored === undefined || !restored.ok) {
           rollback({ code: "internal_error", correlationId: randomUUID() });
@@ -155,10 +174,9 @@ export function createRestoreRevision(
       });
       return { ok: true, value: toMaterialRevisionDto(revision) };
     } catch (error) {
-      return failure(
-        error instanceof AuthoringRollback
-          ? error.applicationError
-          : mapPostgresError(error),
+      return failureFromTransaction<RestoreRevisionError>(
+        error,
+        mapPostgresError,
       );
     }
   };

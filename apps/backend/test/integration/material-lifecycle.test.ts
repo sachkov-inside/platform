@@ -3,13 +3,12 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
   anonymousSubject,
   createBaselineContentAccess,
-  createContentAuthoring,
-  createPublishedMaterials,
+  createMaterials,
 } from "../../src/modules/materials/index.js";
 import {
   fullRepresentativeDocument,
   representativeDocument,
-} from "../fixtures/material-document/representative.js";
+} from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -18,6 +17,10 @@ import {
 const ownerId = "71000000-0000-4000-8000-000000000001";
 const topicId = "71000000-0000-4000-8000-000000000002";
 const formatId = "71000000-0000-4000-8000-000000000003";
+const denyAllAuthorPolicy = {
+  canAuthor: () => false,
+  canPublish: () => false,
+};
 
 describe("Material lifecycle", () => {
   let testDatabase: TestDatabase;
@@ -44,14 +47,15 @@ describe("Material lifecycle", () => {
       canPublish: (principalId: string) => principalId === ownerId,
     };
     const contentAccess = createBaselineContentAccess(authorPolicy);
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
       authorPolicy,
       contentAccess,
     });
     let readAuthorizationCalls = 0;
-    const publishedMaterials = createPublishedMaterials({
+    const { publishedMaterialReader: publishedMaterials } = createMaterials({
       database: testDatabase.database,
+      authorPolicy: denyAllAuthorPolicy,
       contentAccess: {
         authorize: (request) => {
           readAuthorizationCalls += 1;
@@ -201,13 +205,14 @@ describe("Material lifecycle", () => {
       canPublish: (principalId: string) => principalId === ownerId,
     };
     const contentAccess = createBaselineContentAccess(authorPolicy);
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
       authorPolicy,
       contentAccess,
     });
-    const publishedMaterials = createPublishedMaterials({
+    const { publishedMaterialReader: publishedMaterials } = createMaterials({
       database: testDatabase.database,
+      authorPolicy: denyAllAuthorPolicy,
       contentAccess,
     });
     const original = await authoring.createDraft({
@@ -421,8 +426,9 @@ describe("Material lifecycle", () => {
         .where("id", "=", materialId)
         .execute();
     });
-    const publishedMaterials = createPublishedMaterials({
+    const { publishedMaterialReader: publishedMaterials } = createMaterials({
       database: testDatabase.database,
+      authorPolicy: denyAllAuthorPolicy,
       contentAccess: {
         authorize: () => {
           throw new Error("Membership dependency unavailable");
@@ -458,7 +464,7 @@ describe("Material lifecycle", () => {
   });
 
   test("loads an exact membership body only after an explicit allow decision", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
@@ -491,8 +497,9 @@ describe("Material lifecycle", () => {
       throw new Error(published.error.code);
     }
     const decisions: unknown[] = [];
-    const publishedMaterials = createPublishedMaterials({
+    const { publishedMaterialReader: publishedMaterials } = createMaterials({
       database: testDatabase.database,
+      authorPolicy: denyAllAuthorPolicy,
       contentAccess: {
         authorize: (request) => {
           decisions.push(request);
@@ -539,7 +546,7 @@ describe("Material lifecycle", () => {
   });
 
   test("requires a distinct owner permission before recording publication GO", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
       authorPolicy: {
         canAuthor: (principalId: string) => principalId === ownerId,
@@ -584,7 +591,7 @@ describe("Material lifecycle", () => {
   });
 
   test("serializes concurrent publish commands and rejects the stale contender", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
@@ -637,7 +644,7 @@ describe("Material lifecycle", () => {
   });
 
   test("rolls back every publication fact when a projection constraint fails", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });

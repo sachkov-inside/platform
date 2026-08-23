@@ -2,31 +2,52 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import type { ContentAuthoring } from "../content-authoring.interface.js";
-import type { ContentAuthoringDependencies } from "../content-authoring.dependencies.js";
-import { canAuthor } from "../ports/author-policy.js";
-import { AuthoringRollback, failure, rollback } from "../shared/application-result.js";
+import type {
+  MaterialAuthoring,
+  ValidateRevisionError,
+} from "../material-authoring.interface.js";
+import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
+import { authorizeAuthor } from "../ports/author-policy.js";
+import {
+  failure,
+  failureFromTransaction,
+  rollback,
+} from "../shared/application-result.js";
 import { fingerprintCommand } from "../shared/canonical-command-fingerprint.js";
-import { entityId, parseCommand, principalId } from "../shared/command-validation.js";
-import { mapPostgresError } from "../shared/postgres-error-mapping.js";
+import {
+  materialIdSchema,
+  materialRevisionIdSchema,
+  parseCommand,
+  principalId,
+} from "../shared/command-validation.js";
+import { mapPostgresValidationError } from "../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
 import { loadMaterialRevision } from "../../infrastructure/postgres/material-persistence.js";
+import { materialRevisionId } from "../../domain/material-identifiers.js";
 
 export const validateRevisionQuery = z
-  .object({ actor: principalId, materialId: entityId, revisionId: entityId })
+  .object({
+    actor: principalId,
+    materialId: materialIdSchema,
+    revisionId: materialRevisionIdSchema,
+  })
   .strict();
 
 export function createValidateRevision(
-  dependencies: ContentAuthoringDependencies,
-): ContentAuthoring["validateRevision"] {
+  dependencies: MaterialAuthoringDependencies,
+): MaterialAuthoring["validateRevision"] {
   return async (input) => {
     const parsed = parseCommand(validateRevisionQuery, input);
     if (!parsed.ok) {
       return failure(parsed.error);
     }
     const query = parsed.value;
-    if (!(await canAuthor(dependencies.authorPolicy, query.actor))) {
-      return failure({ code: "forbidden" });
+    const authorization = await authorizeAuthor(
+      dependencies.authorPolicy,
+      query.actor,
+    );
+    if (!authorization.ok) {
+      return failure(authorization.error);
     }
     try {
       const validated = await dependencies.database.transaction().execute(
@@ -60,7 +81,9 @@ export function createValidateRevision(
           if (material.current_draft_revision_id !== query.revisionId) {
             rollback({
               code: "stale_revision",
-              currentRevisionId: material.current_draft_revision_id,
+              currentRevisionId: materialRevisionId(
+                material.current_draft_revision_id,
+              ),
             });
           }
           const extraction = dependencies.materialDocumentOperations.extract(
@@ -82,10 +105,9 @@ export function createValidateRevision(
       );
       return { ok: true, value: validated };
     } catch (error) {
-      return failure(
-        error instanceof AuthoringRollback
-          ? error.applicationError
-          : mapPostgresError(error),
+      return failureFromTransaction<ValidateRevisionError>(
+        error,
+        mapPostgresValidationError,
       );
     }
   };

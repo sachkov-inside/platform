@@ -1,30 +1,44 @@
 export interface AuthorPolicy {
   canAuthor(principalId: string): boolean | Promise<boolean>;
-  canPublish?(principalId: string): boolean | Promise<boolean>;
+  canPublish(principalId: string): boolean | Promise<boolean>;
 }
 
-export async function canPublish(
-  policy: AuthorPolicy,
-  principalId: string,
-): Promise<boolean> {
+export type AuthorAuthorization =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly error:
+        | { readonly code: "forbidden" }
+        | { readonly code: "dependency_unavailable"; readonly retryable: true };
+    };
+
+async function authorize(
+  check: () => boolean | Promise<boolean>,
+): Promise<AuthorAuthorization> {
   try {
-    return policy.canPublish === undefined
-      ? false
-      : await policy.canPublish(principalId);
+    return (await check())
+      ? { ok: true }
+      : { ok: false, error: { code: "forbidden" } };
   } catch {
-    return false;
+    return {
+      ok: false,
+      error: { code: "dependency_unavailable", retryable: true },
+    };
   }
 }
 
-export async function canAuthor(
+export function authorizePublish(
   policy: AuthorPolicy,
   principalId: string,
-): Promise<boolean> {
-  try {
-    return await policy.canAuthor(principalId);
-  } catch {
-    return false;
-  }
+): Promise<AuthorAuthorization> {
+  return authorize(() => policy.canPublish(principalId));
+}
+
+export function authorizeAuthor(
+  policy: AuthorPolicy,
+  principalId: string,
+): Promise<AuthorAuthorization> {
+  return authorize(() => policy.canAuthor(principalId));
 }
 
 export const AUTHOR_POLICY = Symbol("AUTHOR_POLICY");

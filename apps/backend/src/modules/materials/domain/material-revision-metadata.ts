@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { ValidationIssue } from "./material-document/material-document.js";
+import type { ValidationIssue } from "./material-body/material-body.js";
 
 export interface SeriesMembership {
   readonly seriesId: string;
