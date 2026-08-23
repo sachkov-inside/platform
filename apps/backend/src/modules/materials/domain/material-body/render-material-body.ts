@@ -188,7 +188,7 @@ function renderBlock(value: JsonValue): RenderedBlock {
   }
 }
 
-export function renderMaterialDocument(
+export function renderMaterialBody(
   document: MaterialBody,
 ): RenderedMaterialBody {
   if (document.doc.type !== "doc") {
@@ -287,7 +287,7 @@ function collect(
   }
 }
 
-export function extractMaterialDocument(
+export function extractMaterialBody(
   document: RenderedMaterialBody,
 ): MaterialBodyExtraction {
   const headings: { level: 2 | 3 | 4; text: string }[] = [];

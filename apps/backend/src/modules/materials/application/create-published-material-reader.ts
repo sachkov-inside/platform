@@ -14,7 +14,7 @@ import type { PublishedMaterialReader } from "./published-material-reader.interf
 export function createPublishedMaterialReaderImplementation(dependencies: {
   readonly database: PlatformDatabase;
   readonly contentAccess: ContentAccess;
-  readonly materialDocumentOperations: MaterialBodyOperations;
+  readonly materialBodyOperations: MaterialBodyOperations;
 }): PublishedMaterialReader {
   return {
     async read({ subject, slug }) {
@@ -55,7 +55,7 @@ export function createPublishedMaterialReaderImplementation(dependencies: {
         }
         const revision = await loadCurrentPublishedMaterialRevision(
           dependencies.database,
-          dependencies.materialDocumentOperations,
+          dependencies.materialBodyOperations,
           materialId(projection.materialId),
           materialRevisionId(projection.revisionId),
         );
@@ -65,7 +65,7 @@ export function createPublishedMaterialReaderImplementation(dependencies: {
             error: { code: "internal_error", correlationId: randomUUID() },
           };
         }
-        const rendered = dependencies.materialDocumentOperations.render(revision.value.body);
+        const rendered = dependencies.materialBodyOperations.render(revision.value.body);
         if (!rendered.ok) {
           return {
             ok: false,

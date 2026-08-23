@@ -3,6 +3,7 @@
 Статус: подтверждённый repository-local contract для
 [Platform #16](https://github.com/sachkov-inside/platform/issues/16), дополненный принятыми
 [Platform #27](https://github.com/sachkov-inside/platform/issues/27) engineering decisions и
+[Platform #58](https://github.com/sachkov-inside/platform/issues/58) Materials boundary decision,
 [Platform #19](https://github.com/sachkov-inside/platform/issues/19) parallel UI laboratory и
 production frontend integration, а также отдельным
 [Platform #48](https://github.com/sachkov-inside/platform/issues/48) Identity, Platform Account и
@@ -143,19 +144,26 @@ Platform ADR.
   принадлежат `infrastructure/postgres`; capability persistence остаётся internal.
 - Новый workspace package, process или separately deployable module допустим только после доказанной
   operational/domain seam. Speculative packages и generic layer folders запрещены.
-- `ContentAuthoring` предоставляет explicit `createDraft`, `loadDraft` и `reviseDraft` operations;
-  generic command bus не вводится. Cross-module calls используют capability public interfaces.
+- Один глубокий `Materials` module предоставляет caller-oriented facets `MaterialAuthoring` и
+  `PublishedMaterialReader`; generic command bus не вводится. `createMaterials` является одной
+  canonical assembly для Nest adapter и acceptance tests.
+- Public interface использует domain names без storage suffix: `MaterialBodySnapshot` и
+  `RenderedMaterialBody`. Persisted body сохраняет явный schema discriminator, а exact codec names
+  могут содержать `V1` внутри implementation.
 
 ### Validation, results and write atomicity
 
 - Transport adapter проверяет protocol и input shape и сопоставляет trusted identity с
   `PrincipalId`; он не владеет business rules.
-- `ContentAuthoring` владеет permissions, author workflow, metadata policy и координацией reference
+- `MaterialAuthoring` владеет permissions, author workflow, metadata policy и координацией reference
   preconditions через public interfaces `IdentityPrincipals`, `Assets` и `Videos`.
-- `ContentSchema` владеет versioned document schema, validation, migration, safe render и extraction.
+- Internal `MaterialBody` module владеет versioned document schema, validation, migration, safe
+  render и extraction. Отдельный public `ContentSchema` capability появляется только вместе с
+  независимым caller; единственная Tiptap implementation не оборачивается в speculative port.
 - PostgreSQL constraints владеют durable uniqueness, foreign keys, revision consistency и финальным
   race arbitration.
 - Application operations возвращают discriminated transport-neutral results со stable codes.
+  Каждая operation экспортирует только собственный error union.
   REST отображает их в RFC 9457 Problem Details; MCP использует те же codes без HTTP vocabulary.
 - Application operation владеет Kysely transaction. `baseRevisionId` реализует optimistic
   compare-and-set; stale base возвращает conflict, blind partial retry и last-write-wins запрещены.
@@ -165,7 +173,7 @@ Platform ADR.
 
 ### Testing, enforcement and ADR timing
 
-- Pure Material и `ContentSchema` rules покрываются unit tests. Application integration tests идут
+- Pure Material и internal `MaterialBody` rules покрываются unit tests. Application integration tests идут
   через capability public interface и real PostgreSQL; отдельно проверяются migrations,
   constraints, transaction rollback, idempotency и concurrency. Transport adapters имеют thin
   mapping tests; journey E2E добавляются с реальными surfaces.
@@ -197,8 +205,7 @@ Entry points вызывают одни application use cases и не созда�
 |---|---|---|
 | `IdentityPrincipals` | сопоставить trusted external identity/session с local Principal, Subject и permissions | Principal, identity/session mapping, security status и permissions |
 | `AccountProfiles` | предоставить private Platform Account и управлять отдельной member-visible Member Profile projection | owner Platform Account projection, Member Profile visibility/content/version |
-| `ContentAuthoring` | create, revise, validate, preview, publish и restore Material | revision pointers, author policy, publish preconditions |
-| `ContentSchema` | validate, migrate, safely render и extract projection из versioned document | schema versions, allowlist, fixture corpus |
+| `Materials` | `MaterialAuthoring` создаёт, изменяет, проверяет, preview/publish/restore-ит Material; `PublishedMaterialReader` читает exact published revision | revision/publication pointers, author policy, internal body schemas, safe public/search projections |
 | `ContentLibrary` | читать projections, search и навигацию, находить related Materials | published projections, ranking и explicit related pins |
 | `ContentAccess` | `authorize(Subject, Resource, Action) -> AccessDecision` | provider-neutral policy и reason codes |
 | `MembershipEntitlements` | принять MembershipEvidence и построить Platform-owned entitlement | state, validity и refresh coordination |
@@ -263,9 +270,10 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 
 1. Admin или MCP вызывает explicit application operation с identifiers, concurrency и idempotency
    inputs из [write atomicity contract](#validation-results-and-write-atomicity).
-2. `ContentAuthoring` проверяет permissions через `IdentityPrincipals`, владеет workflow/metadata
+2. `MaterialAuthoring` проверяет permissions через `IdentityPrincipals`, владеет workflow/metadata
    policy, координирует reference preconditions через `Assets`/`Videos`, делегирует document
-   validation/migration в `ContentSchema` и сохраняет immutable revision в одной transaction.
+   validation/migration во внутренний `MaterialBody` module и сохраняет immutable revision в одной
+   transaction.
 3. Preview читает explicit revision и использует тот же safe renderer и `ContentAccess`, что
    published delivery.
 4. Publish только после recorded owner GO повторяет validation и atomically меняет published

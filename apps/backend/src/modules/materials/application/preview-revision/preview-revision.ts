@@ -57,14 +57,14 @@ export function createPreviewRevision(
       }
       const revision = await loadMaterialRevision(
         dependencies.database,
-        dependencies.materialDocumentOperations,
+        dependencies.materialBodyOperations,
         query.materialId,
         query.revisionId,
       );
       if (revision === undefined || !revision.ok) {
         return failure({ code: "internal_error", correlationId: randomUUID() });
       }
-      const rendered = dependencies.materialDocumentOperations.render(revision.value.body);
+      const rendered = dependencies.materialBodyOperations.render(revision.value.body);
       if (!rendered.ok) {
         return failure(rendered.error);
       }

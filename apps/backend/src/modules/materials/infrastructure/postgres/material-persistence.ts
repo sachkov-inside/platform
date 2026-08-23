@@ -190,11 +190,11 @@ async function loadPersistedMaterialRevision(
 }
 
 export function hydratePersistedMaterialRevision(
-  materialDocumentOperations: MaterialBodyOperations,
+  materialBodyOperations: MaterialBodyOperations,
   persisted: PersistedMaterialRevision,
 ): MaterialRevisionHydration {
   const metadata = MaterialRevisionMetadata.create(persisted.metadata);
-  const body = materialDocumentOperations.accept({
+  const body = materialBodyOperations.accept({
     schemaVersion: persisted.schemaVersion,
     doc: persisted.body,
   });
@@ -217,7 +217,7 @@ export function hydratePersistedMaterialRevision(
 
 export async function loadMaterialRevision(
   database: AuthoringDatabase,
-  materialDocumentOperations: MaterialBodyOperations,
+  materialBodyOperations: MaterialBodyOperations,
   materialId: MaterialId,
   revisionId: MaterialRevisionId,
 ): Promise<MaterialRevisionHydration | undefined> {
@@ -228,12 +228,12 @@ export async function loadMaterialRevision(
   );
   return persisted === undefined
     ? undefined
-    : hydratePersistedMaterialRevision(materialDocumentOperations, persisted);
+    : hydratePersistedMaterialRevision(materialBodyOperations, persisted);
 }
 
 export async function loadCurrentPublishedMaterialRevision(
   database: AuthoringDatabase,
-  materialDocumentOperations: MaterialBodyOperations,
+  materialBodyOperations: MaterialBodyOperations,
   materialId: MaterialId,
   revisionId: MaterialRevisionId,
 ): Promise<MaterialRevisionHydration | undefined> {
@@ -244,12 +244,12 @@ export async function loadCurrentPublishedMaterialRevision(
   );
   return persisted === undefined
     ? undefined
-    : hydratePersistedMaterialRevision(materialDocumentOperations, persisted);
+    : hydratePersistedMaterialRevision(materialBodyOperations, persisted);
 }
 
 export async function loadCurrentDraftRevision(
   database: AuthoringDatabase,
-  materialDocumentOperations: MaterialBodyOperations,
+  materialBodyOperations: MaterialBodyOperations,
   materialId: MaterialId,
 ): Promise<MaterialRevisionHydration | undefined> {
   const persisted = await loadPersistedMaterialRevision(database, materialId, {
@@ -259,7 +259,7 @@ export async function loadCurrentDraftRevision(
     return undefined;
   }
   const revision = hydratePersistedMaterialRevision(
-    materialDocumentOperations,
+    materialBodyOperations,
     persisted,
   );
   return revision;

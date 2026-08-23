@@ -107,7 +107,7 @@ export function createPublishRevision(
 
         const revision = await loadMaterialRevision(
           transaction,
-          dependencies.materialDocumentOperations,
+          dependencies.materialBodyOperations,
           command.materialId,
           command.revisionId,
         );
@@ -120,7 +120,7 @@ export function createPublishRevision(
           command.materialId,
           revision.value.metadata,
         );
-        const extraction = dependencies.materialDocumentOperations.extract(revision.value.body);
+        const extraction = dependencies.materialBodyOperations.extract(revision.value.body);
         if (!extraction.ok) {
           rollback(extraction.error);
         }

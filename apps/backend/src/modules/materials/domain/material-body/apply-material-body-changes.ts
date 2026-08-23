@@ -181,12 +181,12 @@ function replaceText(
     : { ...blockWithoutContent, content: nextContent };
 }
 
-export function applyDocumentChanges(
+export function applyMaterialBodyChanges(
   document: MaterialBodySnapshot,
   changes: readonly MaterialBodyChange[],
-  acceptDocument: MaterialBodyOperations["accept"],
+  acceptMaterialBody: MaterialBodyOperations["accept"],
 ): MaterialBodyResult<MaterialBody> {
-  const accepted = acceptDocument(document);
+  const accepted = acceptMaterialBody(document);
   if (!accepted.ok) {
     return accepted;
   }
@@ -194,7 +194,7 @@ export function applyDocumentChanges(
 
   for (const [index, change] of changes.entries()) {
     if (change.kind === "replace_document") {
-      const replacement = acceptDocument(change.document, { assignMissingNodeIds: true });
+      const replacement = acceptMaterialBody(change.document, { assignMissingNodeIds: true });
       if (!replacement.ok) {
         return replacement;
       }
@@ -242,7 +242,7 @@ export function applyDocumentChanges(
       }
     }
 
-    const accepted = acceptDocument({
+    const accepted = acceptMaterialBody({
       schemaVersion: 1,
       doc: document,
     });

@@ -3,12 +3,18 @@ import { sql } from "kysely";
 import type { PublicMaterialProjectionDto } from "../../application/published-material-reader.interface.js";
 import type { MaterialBodyExtraction } from "../../domain/material-body/material-body.js";
 import type { MaterialRevision } from "../../domain/material.js";
+import {
+  materialId,
+  materialRevisionId,
+  type MaterialId,
+  type MaterialRevisionId,
+} from "../../domain/material-identifiers.js";
 import type { AuthoringDatabase, AuthoringTransaction } from "./database.js";
 
 export interface PublicationEvent {
   readonly id: string;
-  readonly materialId: string;
-  readonly revisionId: string;
+  readonly materialId: MaterialId;
+  readonly revisionId: MaterialRevisionId;
   readonly createdAt: Date;
 }
 
@@ -25,8 +31,8 @@ export async function loadPublicationEvent(
     ? undefined
     : {
         id: event.id,
-        materialId: event.material_id,
-        revisionId: event.revision_id,
+        materialId: materialId(event.material_id),
+        revisionId: materialRevisionId(event.revision_id),
         createdAt: event.created_at,
       };
 }
@@ -138,8 +144,8 @@ export async function publishRevisionProjection(
 
   return {
     id: event.id,
-    materialId: event.material_id,
-    revisionId: event.revision_id,
+    materialId: materialId(event.material_id),
+    revisionId: materialRevisionId(event.revision_id),
     createdAt: event.created_at,
   };
 }
@@ -149,8 +155,8 @@ export async function unpublishMaterialProjection(
   values: {
     readonly actor: string;
     readonly eventId: string;
-    readonly materialId: string;
-    readonly revisionId: string;
+    readonly materialId: MaterialId;
+    readonly revisionId: MaterialRevisionId;
   },
 ): Promise<PublicationEvent> {
   const event = await transaction
@@ -175,8 +181,8 @@ export async function unpublishMaterialProjection(
     .executeTakeFirstOrThrow();
   return {
     id: event.id,
-    materialId: event.material_id,
-    revisionId: event.revision_id,
+    materialId: materialId(event.material_id),
+    revisionId: materialRevisionId(event.revision_id),
     createdAt: event.created_at,
   };
 }

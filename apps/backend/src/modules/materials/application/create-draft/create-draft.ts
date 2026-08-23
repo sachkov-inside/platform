@@ -84,7 +84,7 @@ export function createCreateDraft(
     if (!authorization.ok) {
       return failure(authorization.error);
     }
-    const body = dependencies.materialDocumentOperations.accept(command.body, {
+    const body = dependencies.materialBodyOperations.accept(command.body, {
       assignMissingNodeIds: true,
     });
     if (!body.ok) {
@@ -138,7 +138,7 @@ export function createCreateDraft(
           });
           const revision = await loadMaterialRevision(
             transaction,
-            dependencies.materialDocumentOperations,
+            dependencies.materialBodyOperations,
             newMaterialId,
             revisionId,
           );

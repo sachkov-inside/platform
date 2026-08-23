@@ -85,7 +85,7 @@ export function createRestoreRevision(
         if (claim.kind === "replay") {
           const replay = await loadMaterialRevision(
             transaction,
-            dependencies.materialDocumentOperations,
+            dependencies.materialBodyOperations,
             materialId(claim.materialId),
             materialRevisionId(claim.revisionId),
           );
@@ -112,7 +112,7 @@ export function createRestoreRevision(
         }
         const source = await loadMaterialRevision(
           transaction,
-          dependencies.materialDocumentOperations,
+          dependencies.materialBodyOperations,
           command.materialId,
           command.revisionId,
         );
@@ -163,7 +163,7 @@ export function createRestoreRevision(
         });
         const restored = await loadMaterialRevision(
           transaction,
-          dependencies.materialDocumentOperations,
+          dependencies.materialBodyOperations,
           command.materialId,
           restoredRevision.id,
         );

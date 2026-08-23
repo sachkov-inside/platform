@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, test } from "vitest";
 
-import { materialDocumentOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
+import { materialBodyOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
 import {
   fullRepresentativeDocument,
   representativeDocument,
@@ -23,7 +23,7 @@ function testNodeId(index: number): string {
 
 describe("MaterialBodyOperations", () => {
   test("accepts a representative v1 document without semantic drift", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const input = {
       schemaVersion: 1,
       doc: {
@@ -86,14 +86,14 @@ describe("MaterialBodyOperations", () => {
   });
 
   test("round-trips every retained v1 body shape through the Tiptap schema", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const document = fullRepresentativeDocument();
 
     expect(documentOperations.accept(document)).toEqual({ ok: true, value: document });
   });
 
   test("renders and extracts the representative document without executable or private data", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const document = fullRepresentativeDocument();
 
     const rendered = documentOperations.render(document);
@@ -112,7 +112,9 @@ describe("MaterialBodyOperations", () => {
             kind: "paragraph",
             content: [
               { kind: "text", text: "Issue", marks: [{ kind: "bold" }] },
-              { kind: "text", text: " хранит intent и ", marks: [] },
+              { kind: "text", text: " хранит ", marks: [{ kind: "italic" }] },
+              { kind: "text", text: "intent", marks: [{ kind: "code" }] },
+              { kind: "text", text: " и ", marks: [{ kind: "strike" }] },
               {
                 kind: "text",
                 text: "evidence",
@@ -127,7 +129,7 @@ describe("MaterialBodyOperations", () => {
       ok: true,
       value: {
         plainText:
-          "Developer Pipeline\n\nIssue хранит intent и evidence.\n\nIssue\n\nOwner gate.\n\npnpm check\n\nStage\tEvidence\nReview\tChecks\n\nPublish requires owner GO.\n\nDelivery stages\nOne retained path\n\nPipeline checklist\n\nPlatform build episode",
+          "Developer Pipeline\n\nIssue хранит intent и evidence.\n\nDecision\n\nIssue\n\nOwner gate.\n\npnpm check\n\nStage\tEvidence\nReview\tChecks\n\nPublish requires owner GO.\n\nDelivery stages\nOne retained path\n\nPipeline checklist\n\nPlatform build episode",
         headings: [{ level: 2, text: "Developer Pipeline" }],
         resources: [
           {
@@ -149,7 +151,7 @@ describe("MaterialBodyOperations", () => {
   });
 
   test("canonicalizes accepted content and rejects non-JSON or duplicate nested node IDs", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const canonicalized = documentOperations.accept({
       schemaVersion: 1,
       doc: {
@@ -258,7 +260,7 @@ describe("MaterialBodyOperations", () => {
   });
 
   test("replaces text across marked text nodes without dropping unaffected marks", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const result = documentOperations.applyChanges(fullRepresentativeDocument(), [
       {
         kind: "replace_text",
@@ -280,7 +282,9 @@ describe("MaterialBodyOperations", () => {
     expect(blocks[1]).toMatchObject({
       content: [
         { type: "text", text: "Issue", marks: [{ type: "bold" }] },
-        { type: "text", text: " сохраняет intent и " },
+        { type: "text", text: " сохраняет ", marks: [{ type: "italic" }] },
+        { type: "text", text: "intent", marks: [{ type: "code" }] },
+        { type: "text", text: " и ", marks: [{ type: "strike" }] },
         {
           type: "text",
           text: "evidence",
@@ -328,7 +332,7 @@ describe("MaterialBodyOperations", () => {
   });
 
   test("applies semantic block and text changes while preserving stable node IDs", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const result = documentOperations.applyChanges(representativeDocument(), [
       {
         kind: "replace_text",
@@ -386,7 +390,7 @@ describe("MaterialBodyOperations", () => {
   });
 
   test("addresses insert, replace, delete and text changes in nested blocks", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const result = documentOperations.applyChanges(
       {
         schemaVersion: 1,
@@ -472,7 +476,7 @@ describe("MaterialBodyOperations", () => {
   });
 
   test("assigns missing IDs only when accepting a new document", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const document = {
       schemaVersion: 1,
       doc: {
@@ -519,7 +523,7 @@ describe("MaterialBodyOperations", () => {
   });
 
   test("fails closed for duplicate IDs, unsafe links, unknown nodes and document limits", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const duplicateId = representativeDocument();
     const duplicateBlocks = duplicateId.doc.content;
     if (!Array.isArray(duplicateBlocks)) {
@@ -616,7 +620,7 @@ describe("MaterialBodyOperations", () => {
   });
 
   test("enforces depth, node, text and bounded-issue limits", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     let nested: unknown = {
       type: "paragraph",
       attrs: { nodeId: testNodeId(100) },
@@ -700,7 +704,7 @@ describe("MaterialBodyOperations", () => {
     ["unknown-mark", "invalid_prosemirror_document"],
     ["unknown-node", "invalid_prosemirror_document"],
   ])("rejects negative JSON fixture %s", (fixture, code) => {
-    expect(materialDocumentOperations.accept(invalidFixture(fixture))).toMatchObject({
+    expect(materialBodyOperations.accept(invalidFixture(fixture))).toMatchObject({
       ok: false,
       error: { issues: [{ code }] },
     });

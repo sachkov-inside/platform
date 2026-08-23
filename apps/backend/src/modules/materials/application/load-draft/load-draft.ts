@@ -45,7 +45,7 @@ export function createLoadDraft(
     try {
       const revision = await loadCurrentDraftRevision(
         dependencies.database,
-        dependencies.materialDocumentOperations,
+        dependencies.materialBodyOperations,
         query.materialId,
       );
       if (revision === undefined) {

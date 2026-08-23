@@ -16,7 +16,7 @@ import { rollback } from "./application-result.js";
 
 export async function claimOrReplay(
   transaction: AuthoringTransaction,
-  dependencies: Pick<MaterialAuthoringDependencies, "materialDocumentOperations">,
+  dependencies: Pick<MaterialAuthoringDependencies, "materialBodyOperations">,
   values: {
     readonly actor: string;
     readonly operation: AuthoringOperation;
@@ -36,7 +36,7 @@ export async function claimOrReplay(
   }
   const revision = await loadMaterialRevision(
     transaction,
-    dependencies.materialDocumentOperations,
+    dependencies.materialBodyOperations,
     materialId(claim.materialId),
     materialRevisionId(claim.revisionId),
   );

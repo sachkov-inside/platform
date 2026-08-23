@@ -63,7 +63,7 @@ export function createValidateRevision(
           }
           const revision = await loadMaterialRevision(
             transaction,
-            dependencies.materialDocumentOperations,
+            dependencies.materialBodyOperations,
             query.materialId,
             query.revisionId,
           );
@@ -86,7 +86,7 @@ export function createValidateRevision(
               ),
             });
           }
-          const extraction = dependencies.materialDocumentOperations.extract(
+          const extraction = dependencies.materialBodyOperations.extract(
             revision.value.body,
           );
           if (!extraction.ok) {

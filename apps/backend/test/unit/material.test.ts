@@ -9,7 +9,7 @@ import {
   materialId,
   materialRevisionId,
 } from "../../src/modules/materials/domain/material-identifiers.js";
-import { materialDocumentOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
+import { materialBodyOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 
 function revisionValues() {
@@ -26,7 +26,7 @@ function revisionValues() {
   if (!metadata.ok) {
     throw new Error(metadata.error.code);
   }
-  const body = materialDocumentOperations.accept(representativeDocument());
+  const body = materialBodyOperations.accept(representativeDocument());
   if (!body.ok) {
     throw new Error(body.error.code);
   }

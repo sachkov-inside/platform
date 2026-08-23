@@ -211,7 +211,7 @@ function canonicalize(value: JsonValue): JsonValue {
   return Object.fromEntries(entries);
 }
 
-export function acceptDocument(
+export function acceptMaterialBody(
   input: unknown,
   roundTrip: (document: JsonObject) => JsonObject,
   options?: { readonly assignMissingNodeIds?: boolean },

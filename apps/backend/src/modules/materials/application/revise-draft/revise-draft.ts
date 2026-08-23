@@ -138,7 +138,7 @@ export function createReviseDraft(
     try {
       persistedBase = await loadMaterialRevision(
         dependencies.database,
-        dependencies.materialDocumentOperations,
+        dependencies.materialBodyOperations,
         command.materialId,
         command.baseRevisionId,
       );
@@ -166,7 +166,7 @@ export function createReviseDraft(
     const body =
       command.changes.body === undefined
         ? { ok: true as const, value: base.body }
-        : dependencies.materialDocumentOperations.applyChanges(
+        : dependencies.materialBodyOperations.applyChanges(
             base.body,
             command.changes.body,
           );
@@ -254,7 +254,7 @@ export function createReviseDraft(
           });
           const revision = await loadMaterialRevision(
             transaction,
-            dependencies.materialDocumentOperations,
+            dependencies.materialBodyOperations,
             command.materialId,
             transition.value.currentDraftRevisionId,
           );

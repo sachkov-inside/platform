@@ -5,7 +5,7 @@ import type { ContentAccess } from "./ports/content-access.js";
 
 export interface MaterialAuthoringDependencies {
   readonly database: PlatformDatabase;
-  readonly materialDocumentOperations: MaterialBodyOperations;
+  readonly materialBodyOperations: MaterialBodyOperations;
   readonly authorPolicy: AuthorPolicy;
   readonly contentAccess: ContentAccess;
 }

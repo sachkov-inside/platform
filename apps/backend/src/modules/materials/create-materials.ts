@@ -8,7 +8,7 @@ import {
   type ContentAccess,
 } from "./application/ports/content-access.js";
 import type { PublishedMaterialReader } from "./application/published-material-reader.interface.js";
-import { materialDocumentOperations } from "./infrastructure/tiptap/index.js";
+import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 
 export interface Materials {
   readonly authoring: MaterialAuthoring;
@@ -27,7 +27,7 @@ export function createMaterials(dependencies: {
     database: dependencies.database,
     authorPolicy: dependencies.authorPolicy,
     contentAccess,
-    materialDocumentOperations,
+    materialBodyOperations,
   };
   return Object.freeze({
     authoring: createMaterialAuthoringImplementation(shared),

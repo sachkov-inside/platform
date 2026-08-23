@@ -21,6 +21,18 @@ The MaterialRevision selected for continued editorial work on one Material. In R
 language: «Текущая черновая редакция».
 _Avoid_: Mutable draft entity, отдельный черновик
 
+**PublishedMaterial**:
+The read-only projection of the exact MaterialRevision currently selected for delivery. It may
+expose a safe teaser without exposing a protected body. In Russian product language:
+«Опубликованный материал».
+_Avoid_: Publication entity, mutable published copy
+
+**MaterialBody**:
+The validated structured content snapshot owned by a MaterialRevision. Its persisted schema is
+versioned, while the domain term itself is not version-suffixed. In Russian product language:
+«Содержимое редакции материала».
+_Avoid_: MaterialDocumentV1, HTML blob, editor state
+
 **Topic**:
 The single subject area to which a Material belongs. Topics are one level deep in v1.
 _Avoid_: Category, section
