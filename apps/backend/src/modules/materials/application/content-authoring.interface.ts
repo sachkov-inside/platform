@@ -1,9 +1,9 @@
 import type {
   DocumentChange,
+  MaterialDocumentV1,
   ValidationIssue,
 } from "../domain/material-document/material-document.js";
 import type { MaterialMetadataValidationError } from "../domain/material-metadata.js";
-import type { Material } from "../domain/material.js";
 
 export interface SeriesMembershipInput {
   readonly seriesId: string;
@@ -28,6 +28,15 @@ export interface MaterialMetadataChanges {
   readonly formatId?: string;
   readonly tagIds?: readonly string[];
   readonly seriesMemberships?: readonly SeriesMembershipInput[];
+}
+
+export type MaterialMetadataDto = MaterialMetadataInput;
+
+export interface MaterialDraftDto {
+  readonly materialId: string;
+  readonly revisionId: string;
+  readonly metadata: MaterialMetadataDto;
+  readonly body: MaterialDocumentV1;
 }
 
 export interface CreateDraftCommand {
@@ -73,9 +82,9 @@ export type ApplicationResult<Value> =
   | { readonly ok: true; readonly value: Value }
   | { readonly ok: false; readonly error: ContentAuthoringError };
 
-export type CreateDraftResult = ApplicationResult<Material>;
-export type LoadDraftResult = ApplicationResult<Material>;
-export type ReviseDraftResult = ApplicationResult<Material>;
+export type CreateDraftResult = ApplicationResult<MaterialDraftDto>;
+export type LoadDraftResult = ApplicationResult<MaterialDraftDto>;
+export type ReviseDraftResult = ApplicationResult<MaterialDraftDto>;
 
 export interface ContentAuthoring {
   createDraft(command: CreateDraftCommand): Promise<CreateDraftResult>;

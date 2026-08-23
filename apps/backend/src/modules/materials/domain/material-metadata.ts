@@ -17,6 +17,8 @@ export interface MaterialMetadataValues {
   readonly seriesMemberships: readonly SeriesMembership[];
 }
 
+export type MaterialMetadataChangeValues = Partial<MaterialMetadataValues>;
+
 export type MaterialMetadataValidationError =
   | {
       readonly code: "invalid_content";
@@ -26,6 +28,10 @@ export type MaterialMetadataValidationError =
 
 export type MaterialMetadataResult =
   | { readonly ok: true; readonly value: MaterialMetadata }
+  | { readonly ok: false; readonly error: MaterialMetadataValidationError };
+
+export type MaterialMetadataChangesResult =
+  | { readonly ok: true; readonly value: MaterialMetadataChangeValues }
   | { readonly ok: false; readonly error: MaterialMetadataValidationError };
 
 const uuid = z.uuid().transform((value) => value.toLowerCase());
@@ -48,7 +54,10 @@ const metadataSchema = z
   .strict();
 const metadataChangesSchema = metadataSchema.partial().strict();
 
-function invalidMetadata(error: z.ZodError): MaterialMetadataResult {
+function invalidMetadata(error: z.ZodError): {
+  readonly ok: false;
+  readonly error: MaterialMetadataValidationError;
+} {
   return {
     ok: false,
     error: {
@@ -124,14 +133,21 @@ export class MaterialMetadata {
     };
   }
 
+  static validateChanges(input: unknown): MaterialMetadataChangesResult {
+    const parsed = metadataChangesSchema.safeParse(input);
+    return parsed.success
+      ? { ok: true, value: parsed.data }
+      : invalidMetadata(parsed.error);
+  }
+
   revise(changes: unknown): MaterialMetadataResult {
-    const parsedChanges = metadataChangesSchema.safeParse(changes);
-    if (!parsedChanges.success) {
-      return invalidMetadata(parsedChanges.error);
+    const parsedChanges = MaterialMetadata.validateChanges(changes);
+    if (!parsedChanges.ok) {
+      return parsedChanges;
     }
     return MaterialMetadata.create({
       ...this.toValues(),
-      ...parsedChanges.data,
+      ...parsedChanges.value,
     });
   }
 

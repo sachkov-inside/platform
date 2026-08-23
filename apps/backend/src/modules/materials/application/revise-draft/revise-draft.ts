@@ -21,12 +21,14 @@ import {
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
+import { toMaterialDraftDto } from "../shared/material-draft-dto.js";
 import { mapPostgresError } from "../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
+import { MaterialMetadata } from "../../domain/material-metadata.js";
 import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
 import {
   loadCurrentRevisionId,
-  loadMaterial,
+  loadMaterialRevision,
 } from "../../infrastructure/postgres/material-persistence.js";
 import { completeIdempotency } from "../../infrastructure/postgres/idempotency.js";
 import {
@@ -109,13 +111,19 @@ export function createReviseDraft(
       return failure(parsedCommand.error);
     }
     const command = parsedCommand.value;
+    const metadataChanges = MaterialMetadata.validateChanges(
+      command.changes.metadata ?? {},
+    );
+    if (!metadataChanges.ok) {
+      return failure(metadataChanges.error);
+    }
     if (!(await canAuthor(dependencies.authorPolicy, command.actor))) {
       return failure({ code: "forbidden" });
     }
 
     let persistedBase;
     try {
-      persistedBase = await loadMaterial(
+      persistedBase = await loadMaterialRevision(
         dependencies.database,
         dependencies.materialDocument,
         command.materialId,
@@ -138,17 +146,15 @@ export function createReviseDraft(
       return failure({ code: "internal_error", correlationId: randomUUID() });
     }
     const base = persistedBase.value;
-    const metadata = base.currentDraft.metadata.revise(
-      command.changes.metadata ?? {},
-    );
+    const metadata = base.metadata.revise(metadataChanges.value);
     if (!metadata.ok) {
       return failure(metadata.error);
     }
     const body =
       command.changes.body === undefined
-        ? { ok: true as const, value: base.currentDraft.body }
+        ? { ok: true as const, value: base.body }
         : dependencies.materialDocument.applyChanges(
-            base.currentDraft.body,
+            base.body,
             command.changes.body,
           );
     if (!body.ok) {
@@ -159,7 +165,7 @@ export function createReviseDraft(
       actor: command.actor,
       materialId: command.materialId,
       baseRevisionId: command.baseRevisionId,
-      contentSchemaVersion: base.currentDraft.body.schemaVersion,
+      contentSchemaVersion: base.body.schemaVersion,
       changes: command.changes,
     });
 
@@ -219,18 +225,18 @@ export function createReviseDraft(
             materialId: command.materialId,
             revisionId,
           });
-          const material = await loadMaterial(
+          const revision = await loadMaterialRevision(
             transaction,
             dependencies.materialDocument,
             command.materialId,
             revisionId,
           );
-          if (material === undefined || !material.ok) {
+          if (revision === undefined || !revision.ok) {
             rollback({ code: "internal_error", correlationId: randomUUID() });
           }
-          return material.value;
+          return revision.value;
         });
-      return { ok: true, value };
+      return { ok: true, value: toMaterialDraftDto(value) };
     } catch (error) {
       return failure(
         error instanceof AuthoringRollback

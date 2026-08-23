@@ -107,6 +107,28 @@ describe("ContentAuthoring", () => {
       },
     });
     expect(
+      await authoring.createDraft({
+        actor,
+        idempotencyKey: "bounded-metadata",
+        metadata: {
+          title: "",
+          summary: "Summary",
+          slug: "title",
+          topicId,
+          formatId,
+          tagIds: [],
+          seriesMemberships: [],
+        },
+        body: {},
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid_content",
+        issues: [{ code: "invalid_metadata", path: "/title" }],
+      },
+    });
+    expect(
       await authoring.reviseDraft({
         actor,
         idempotencyKey: "bounded",
@@ -129,6 +151,21 @@ describe("ContentAuthoring", () => {
       error: {
         code: "invalid_content",
         issues: [{ code: "invalid_command", path: "/changes/body/0/to" }],
+      },
+    });
+    expect(
+      await authoring.reviseDraft({
+        actor,
+        idempotencyKey: "bounded-metadata-change",
+        materialId: "94000000-0000-4000-8000-000000000002",
+        baseRevisionId: "94000000-0000-4000-8000-000000000003",
+        changes: { metadata: { title: "x".repeat(161) } },
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid_content",
+        issues: [{ code: "invalid_metadata", path: "/title" }],
       },
     });
     expect(policyCalled).toBe(false);
@@ -160,19 +197,17 @@ describe("ContentAuthoring", () => {
       throw new Error(created.error.code);
     }
     expect(created.value).toMatchObject({
-      currentDraft: {
-        metadata: {
-          title: "Developer Pipeline",
-          tagIds: [firstTagId],
-          seriesMemberships: [{ seriesId, ordinal: 5 }],
-        },
-        body: initialBody,
+      metadata: {
+        title: "Developer Pipeline",
+        tagIds: [firstTagId],
+        seriesMemberships: [{ seriesId, ordinal: 5 }],
       },
+      body: initialBody,
     });
 
     const loaded = await authoring.loadDraft({
       actor: actor.toUpperCase(),
-      materialId: created.value.id.toUpperCase(),
+      materialId: created.value.materialId.toUpperCase(),
     });
     expect(loaded).toEqual({ ok: true, value: created.value });
 
@@ -180,8 +215,8 @@ describe("ContentAuthoring", () => {
     const revised = await authoring.reviseDraft({
       actor,
       idempotencyKey: "10000000-0000-4000-8000-000000000002",
-      materialId: created.value.id,
-      baseRevisionId: created.value.currentDraft.id,
+      materialId: created.value.materialId,
+      baseRevisionId: created.value.revisionId,
       changes: {
         metadata: {
           title: "Developer Pipeline: от issue до merge",
@@ -196,20 +231,18 @@ describe("ContentAuthoring", () => {
     if (!revised.ok) {
       throw new Error(revised.error.code);
     }
-    expect(revised.value.currentDraft.id).not.toBe(created.value.currentDraft.id);
+    expect(revised.value.revisionId).not.toBe(created.value.revisionId);
     expect(revised.value).toMatchObject({
-      currentDraft: {
-        metadata: {
-          title: "Developer Pipeline: от issue до merge",
-          tagIds: [firstTagId, secondTagId],
-          seriesMemberships: [{ seriesId, ordinal: 6 }],
-        },
-        body: revisedBody,
+      metadata: {
+        title: "Developer Pipeline: от issue до merge",
+        tagIds: [firstTagId, secondTagId],
+        seriesMemberships: [{ seriesId, ordinal: 6 }],
       },
+      body: revisedBody,
     });
 
     expect(
-      await authoring.loadDraft({ actor, materialId: created.value.id }),
+      await authoring.loadDraft({ actor, materialId: created.value.materialId }),
     ).toEqual({ ok: true, value: revised.value });
   });
 
@@ -236,6 +269,19 @@ describe("ContentAuthoring", () => {
     const first = await authoring.createDraft(command);
     const replay = await authoring.createDraft(command);
     expect(replay).toEqual(first);
+
+    if (!first.ok) {
+      throw new Error(first.error.code);
+    }
+    const revised = await authoring.reviseDraft({
+      actor,
+      idempotencyKey: "10000000-0000-4000-8000-000000000015",
+      materialId: first.value.materialId,
+      baseRevisionId: first.value.revisionId,
+      changes: { metadata: { title: "A later revision" } },
+    });
+    expect(revised.ok).toBe(true);
+    expect(await authoring.createDraft(command)).toEqual(first);
 
     const reused = await authoring.createDraft({
       ...command,
@@ -275,7 +321,7 @@ describe("ContentAuthoring", () => {
     if (!created.ok) {
       throw new Error(created.error.code);
     }
-    expect(created.value.currentDraft.body).toMatchObject({
+    expect(created.value.body).toMatchObject({
       doc: {
         content: [
           {
@@ -288,8 +334,8 @@ describe("ContentAuthoring", () => {
     const revised = await authoring.reviseDraft({
       actor,
       idempotencyKey: "10000000-0000-4000-8000-000000000012",
-      materialId: created.value.id,
-      baseRevisionId: created.value.currentDraft.id,
+      materialId: created.value.materialId,
+      baseRevisionId: created.value.revisionId,
       changes: {
         body: [
           {
@@ -319,7 +365,7 @@ describe("ContentAuthoring", () => {
     if (!revised.ok) {
       throw new Error(revised.error.code);
     }
-    expect(revised.value.currentDraft.body).toMatchObject({
+    expect(revised.value.body).toMatchObject({
       doc: {
         content: [
           {
@@ -362,8 +408,8 @@ describe("ContentAuthoring", () => {
     const first = await authoring.reviseDraft({
       actor,
       idempotencyKey,
-      materialId: created.value.id,
-      baseRevisionId: created.value.currentDraft.id,
+      materialId: created.value.materialId,
+      baseRevisionId: created.value.revisionId,
       changes: { body: [{ kind: "replace_document", document: body }] },
     });
     expect(first.ok).toBe(true);
@@ -372,8 +418,8 @@ describe("ContentAuthoring", () => {
       await authoring.reviseDraft({
         actor,
         idempotencyKey,
-        materialId: created.value.id,
-        baseRevisionId: created.value.currentDraft.id,
+        materialId: created.value.materialId,
+        baseRevisionId: created.value.revisionId,
         changes: { body: [] },
       }),
     ).toEqual({ ok: false, error: { code: "idempotency_key_reused" } });
@@ -406,15 +452,15 @@ describe("ContentAuthoring", () => {
       authoring.reviseDraft({
         actor,
         idempotencyKey: "10000000-0000-4000-8000-000000000021",
-        materialId: created.value.id,
-        baseRevisionId: created.value.currentDraft.id,
+        materialId: created.value.materialId,
+        baseRevisionId: created.value.revisionId,
         changes: { metadata: { title: "Left revision" } },
       }),
       authoring.reviseDraft({
         actor,
         idempotencyKey: "10000000-0000-4000-8000-000000000022",
-        materialId: created.value.id,
-        baseRevisionId: created.value.currentDraft.id,
+        materialId: created.value.materialId,
+        baseRevisionId: created.value.revisionId,
         changes: { metadata: { title: "Right revision" } },
       }),
     ]);
@@ -425,12 +471,12 @@ describe("ContentAuthoring", () => {
       ok: false,
       error: {
         code: "stale_revision",
-        currentRevisionId: winner?.ok ? winner.value.currentDraft.id : "missing",
+        currentRevisionId: winner?.ok ? winner.value.revisionId : "missing",
       },
     });
     if (winner?.ok) {
       expect(
-        await authoring.loadDraft({ actor, materialId: created.value.id }),
+        await authoring.loadDraft({ actor, materialId: created.value.materialId }),
       ).toEqual({ ok: true, value: winner.value });
     }
   });
@@ -490,8 +536,8 @@ describe("ContentAuthoring", () => {
     const invalid = await authoring.reviseDraft({
       actor,
       idempotencyKey,
-      materialId: created.value.id,
-      baseRevisionId: created.value.currentDraft.id,
+      materialId: created.value.materialId,
+      baseRevisionId: created.value.revisionId,
       changes: {
         body: [
           {
@@ -520,14 +566,14 @@ describe("ContentAuthoring", () => {
       error: { code: "invalid_content" },
     });
     expect(
-      await authoring.loadDraft({ actor, materialId: created.value.id }),
+      await authoring.loadDraft({ actor, materialId: created.value.materialId }),
     ).toEqual({ ok: true, value: created.value });
 
     const corrected = await authoring.reviseDraft({
       actor,
       idempotencyKey,
-      materialId: created.value.id,
-      baseRevisionId: created.value.currentDraft.id,
+      materialId: created.value.materialId,
+      baseRevisionId: created.value.revisionId,
       changes: { metadata: { title: "Corrected revision" } },
     });
     expect(corrected.ok).toBe(true);

@@ -20,12 +20,13 @@ import {
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
+import { toMaterialDraftDto } from "../shared/material-draft-dto.js";
 import { mapPostgresError } from "../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
 import { MaterialMetadata } from "../../domain/material-metadata.js";
 import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
 import { completeIdempotency } from "../../infrastructure/postgres/idempotency.js";
-import { loadMaterial } from "../../infrastructure/postgres/material-persistence.js";
+import { loadMaterialRevision } from "../../infrastructure/postgres/material-persistence.js";
 import {
   insertRevision,
   replaceCurrentRelations,
@@ -67,12 +68,12 @@ export function createCreateDraft(
       return failure(parsedCommand.error);
     }
     const command = parsedCommand.value;
-    if (!(await canAuthor(dependencies.authorPolicy, command.actor))) {
-      return failure({ code: "forbidden" });
-    }
     const metadata = MaterialMetadata.create(command.metadata);
     if (!metadata.ok) {
       return failure(metadata.error);
+    }
+    if (!(await canAuthor(dependencies.authorPolicy, command.actor))) {
+      return failure({ code: "forbidden" });
     }
     const body = dependencies.materialDocument.accept(command.body, {
       assignMissingNodeIds: true,
@@ -126,18 +127,18 @@ export function createCreateDraft(
             materialId,
             revisionId,
           });
-          const material = await loadMaterial(
+          const revision = await loadMaterialRevision(
             transaction,
             dependencies.materialDocument,
             materialId,
             revisionId,
           );
-          if (material === undefined || !material.ok) {
+          if (revision === undefined || !revision.ok) {
             rollback({ code: "internal_error", correlationId: randomUUID() });
           }
-          return material.value;
+          return revision.value;
         });
-      return { ok: true, value };
+      return { ok: true, value: toMaterialDraftDto(value) };
     } catch (error) {
       return failure(
         error instanceof AuthoringRollback

@@ -1,32 +1,29 @@
 import { sql } from "kysely";
 
 import type { MaterialDocument } from "../../domain/material-document/material-document.js";
-import { MaterialMetadata } from "../../domain/material-metadata.js";
+import {
+  MaterialMetadata,
+  type MaterialMetadataValues,
+} from "../../domain/material-metadata.js";
 import {
   createMaterial,
   createMaterialRevision,
   type Material,
+  type MaterialRevision,
 } from "../../domain/material.js";
 import type { AuthoringDatabase } from "./database.js";
 
 export interface PersistedMaterialRevision {
   readonly materialId: string;
   readonly revisionId: string;
-  readonly metadata: {
-    readonly title: string;
-    readonly summary: string;
-    readonly slug: string;
-    readonly topicId: string;
-    readonly formatId: string;
-    readonly tagIds: readonly string[];
-    readonly seriesMemberships: readonly {
-      readonly seriesId: string;
-      readonly ordinal: number;
-    }[];
-  };
+  readonly metadata: MaterialMetadataValues;
   readonly schemaVersion: number;
   readonly body: unknown;
 }
+
+export type MaterialRevisionHydration =
+  | { readonly ok: true; readonly value: MaterialRevision }
+  | { readonly ok: false };
 
 export type MaterialHydration =
   | { readonly ok: true; readonly value: Material }
@@ -118,10 +115,10 @@ export async function loadPersistedMaterialRevision(
   };
 }
 
-export function hydratePersistedMaterial(
+export function hydratePersistedMaterialRevision(
   materialDocument: MaterialDocument,
   persisted: PersistedMaterialRevision,
-): MaterialHydration {
+): MaterialRevisionHydration {
   const metadata = MaterialMetadata.create(persisted.metadata);
   const body = materialDocument.accept({
     schemaVersion: persisted.schemaVersion,
@@ -130,21 +127,23 @@ export function hydratePersistedMaterial(
   if (!metadata.ok || !body.ok) {
     return { ok: false };
   }
-  const revision = createMaterialRevision({
-    id: persisted.revisionId,
-    materialId: persisted.materialId,
-    metadata: metadata.value,
-    body: body.value,
-  });
-  return { ok: true, value: createMaterial(revision) };
+  return {
+    ok: true,
+    value: createMaterialRevision({
+      id: persisted.revisionId,
+      materialId: persisted.materialId,
+      metadata: metadata.value,
+      body: body.value,
+    }),
+  };
 }
 
-export async function loadMaterial(
+export async function loadMaterialRevision(
   database: AuthoringDatabase,
   materialDocument: MaterialDocument,
   materialId: string,
-  revisionId?: string,
-): Promise<MaterialHydration | undefined> {
+  revisionId: string,
+): Promise<MaterialRevisionHydration | undefined> {
   const persisted = await loadPersistedMaterialRevision(
     database,
     materialId,
@@ -152,5 +151,23 @@ export async function loadMaterial(
   );
   return persisted === undefined
     ? undefined
-    : hydratePersistedMaterial(materialDocument, persisted);
+    : hydratePersistedMaterialRevision(materialDocument, persisted);
+}
+
+export async function loadCurrentMaterial(
+  database: AuthoringDatabase,
+  materialDocument: MaterialDocument,
+  materialId: string,
+): Promise<MaterialHydration | undefined> {
+  const persisted = await loadPersistedMaterialRevision(database, materialId);
+  if (persisted === undefined) {
+    return undefined;
+  }
+  const revision = hydratePersistedMaterialRevision(
+    materialDocument,
+    persisted,
+  );
+  return revision.ok
+    ? { ok: true, value: createMaterial(revision.value) }
+    : revision;
 }

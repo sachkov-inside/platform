@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import type { Material } from "../../domain/material.js";
+import type { MaterialRevision } from "../../domain/material.js";
 import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
 import {
   claimIdempotency,
   type AuthoringOperation,
 } from "../../infrastructure/postgres/idempotency.js";
-import { loadMaterial } from "../../infrastructure/postgres/material-persistence.js";
+import { loadMaterialRevision } from "../../infrastructure/postgres/material-persistence.js";
 import type { ContentAuthoringDependencies } from "../content-authoring.dependencies.js";
 import { rollback } from "./application-result.js";
 
@@ -19,7 +19,7 @@ export async function claimOrReplay(
     readonly key: string;
     readonly fingerprint: string;
   },
-): Promise<Material | undefined> {
+): Promise<MaterialRevision | undefined> {
   const claim = await claimIdempotency(transaction, values);
   if (claim.kind === "claimed") {
     return undefined;
@@ -30,14 +30,14 @@ export async function claimOrReplay(
   if (claim.kind === "incomplete") {
     rollback({ code: "internal_error", correlationId: randomUUID() });
   }
-  const material = await loadMaterial(
+  const revision = await loadMaterialRevision(
     transaction,
     dependencies.materialDocument,
     claim.materialId,
     claim.revisionId,
   );
-  if (material === undefined || !material.ok) {
+  if (revision === undefined || !revision.ok) {
     rollback({ code: "internal_error", correlationId: randomUUID() });
   }
-  return material.value;
+  return revision.value;
 }

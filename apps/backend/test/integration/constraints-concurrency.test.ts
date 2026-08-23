@@ -247,11 +247,11 @@ describe("content authoring integrity contract", () => {
       testDatabase.database
         .updateTable("material_revisions")
         .set({ title: "Mutated" })
-        .where("id", "=", created.value.currentDraft.id)
+        .where("id", "=", created.value.revisionId)
         .execute(),
     ).rejects.toMatchObject({ code: "55000" });
     expect(
-      await authoring.loadDraft({ actor, materialId: created.value.id }),
+      await authoring.loadDraft({ actor, materialId: created.value.materialId }),
     ).toEqual({ ok: true, value: created.value });
   });
 });
