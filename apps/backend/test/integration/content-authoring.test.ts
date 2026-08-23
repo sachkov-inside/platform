@@ -5,12 +5,11 @@ import {
   type CreateDraftCommand,
   type LoadDraftQuery,
   type ReviseDraftCommand,
-} from "../../src/modules/content-authoring/index.js";
-import { createContentSchema } from "../../src/modules/content-schema/index.js";
+} from "../../src/modules/materials/index.js";
 import {
   fullRepresentativeDocument,
   representativeDocument,
-} from "../fixtures/content-schema/representative.js";
+} from "../fixtures/material-document/representative.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -57,7 +56,6 @@ describe("ContentAuthoring", () => {
     let policyCalled = false;
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: {
         canAuthor: () => {
           policyCalled = true;
@@ -109,6 +107,28 @@ describe("ContentAuthoring", () => {
       },
     });
     expect(
+      await authoring.createDraft({
+        actor,
+        idempotencyKey: "bounded-metadata",
+        metadata: {
+          title: "",
+          summary: "Summary",
+          slug: "title",
+          topicId,
+          formatId,
+          tagIds: [],
+          seriesMemberships: [],
+        },
+        body: {},
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid_content",
+        issues: [{ code: "invalid_metadata", path: "/title" }],
+      },
+    });
+    expect(
       await authoring.reviseDraft({
         actor,
         idempotencyKey: "bounded",
@@ -133,13 +153,27 @@ describe("ContentAuthoring", () => {
         issues: [{ code: "invalid_command", path: "/changes/body/0/to" }],
       },
     });
+    expect(
+      await authoring.reviseDraft({
+        actor,
+        idempotencyKey: "bounded-metadata-change",
+        materialId: "94000000-0000-4000-8000-000000000002",
+        baseRevisionId: "94000000-0000-4000-8000-000000000003",
+        changes: { metadata: { title: "x".repeat(161) } },
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid_content",
+        issues: [{ code: "invalid_metadata", path: "/title" }],
+      },
+    });
     expect(policyCalled).toBe(false);
   });
 
   test("creates, loads and revises a representative draft through one interface", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: (principalId) => principalId === actor },
     });
     const initialBody = fullRepresentativeDocument();
@@ -162,7 +196,7 @@ describe("ContentAuthoring", () => {
     if (!created.ok) {
       throw new Error(created.error.code);
     }
-    expect(created.value.draft).toMatchObject({
+    expect(created.value).toMatchObject({
       metadata: {
         title: "Developer Pipeline",
         tagIds: [firstTagId],
@@ -175,7 +209,7 @@ describe("ContentAuthoring", () => {
       actor: actor.toUpperCase(),
       materialId: created.value.materialId.toUpperCase(),
     });
-    expect(loaded).toEqual({ ok: true, value: created.value.draft });
+    expect(loaded).toEqual({ ok: true, value: created.value });
 
     const revisedBody = representativeDocument("Issue хранит intent, revision хранит content.");
     const revised = await authoring.reviseDraft({
@@ -198,7 +232,7 @@ describe("ContentAuthoring", () => {
       throw new Error(revised.error.code);
     }
     expect(revised.value.revisionId).not.toBe(created.value.revisionId);
-    expect(revised.value.draft).toMatchObject({
+    expect(revised.value).toMatchObject({
       metadata: {
         title: "Developer Pipeline: от issue до merge",
         tagIds: [firstTagId, secondTagId],
@@ -209,13 +243,12 @@ describe("ContentAuthoring", () => {
 
     expect(
       await authoring.loadDraft({ actor, materialId: created.value.materialId }),
-    ).toEqual({ ok: true, value: revised.value.draft });
+    ).toEqual({ ok: true, value: revised.value });
   });
 
   test("replays the original effect and rejects reuse of a key for another payload", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const command = {
@@ -237,6 +270,19 @@ describe("ContentAuthoring", () => {
     const replay = await authoring.createDraft(command);
     expect(replay).toEqual(first);
 
+    if (!first.ok) {
+      throw new Error(first.error.code);
+    }
+    const revised = await authoring.reviseDraft({
+      actor,
+      idempotencyKey: "10000000-0000-4000-8000-000000000015",
+      materialId: first.value.materialId,
+      baseRevisionId: first.value.revisionId,
+      changes: { metadata: { title: "A later revision" } },
+    });
+    expect(revised.ok).toBe(true);
+    expect(await authoring.createDraft(command)).toEqual(first);
+
     const reused = await authoring.createDraft({
       ...command,
       metadata: { ...command.metadata, title: "Другой payload" },
@@ -247,7 +293,6 @@ describe("ContentAuthoring", () => {
   test("assigns stable block IDs for create and replace-document inputs", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const created = await authoring.createDraft({
@@ -276,7 +321,7 @@ describe("ContentAuthoring", () => {
     if (!created.ok) {
       throw new Error(created.error.code);
     }
-    expect(created.value.draft.body).toMatchObject({
+    expect(created.value.body).toMatchObject({
       doc: {
         content: [
           {
@@ -320,7 +365,7 @@ describe("ContentAuthoring", () => {
     if (!revised.ok) {
       throw new Error(revised.error.code);
     }
-    expect(revised.value.draft.body).toMatchObject({
+    expect(revised.value.body).toMatchObject({
       doc: {
         content: [
           {
@@ -339,7 +384,6 @@ describe("ContentAuthoring", () => {
   test("treats different semantic requests with the same result as idempotency reuse", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const body = representativeDocument();
@@ -384,7 +428,6 @@ describe("ContentAuthoring", () => {
   test("allows one concurrent revision and returns the winner for the stale base", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const created = await authoring.createDraft({
@@ -434,14 +477,13 @@ describe("ContentAuthoring", () => {
     if (winner?.ok) {
       expect(
         await authoring.loadDraft({ actor, materialId: created.value.materialId }),
-      ).toEqual({ ok: true, value: winner.value.draft });
+      ).toEqual({ ok: true, value: winner.value });
     }
   });
 
   test("collapses concurrent retries with the same idempotency key to one effect", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const command = {
@@ -470,7 +512,6 @@ describe("ContentAuthoring", () => {
   test("rolls back an invalid revision and allows a corrected retry with the same key", async () => {
     const authoring = createContentAuthoring({
       database: testDatabase.database,
-      contentSchema: createContentSchema(),
       authorPolicy: { canAuthor: () => true },
     });
     const created = await authoring.createDraft({
@@ -526,7 +567,7 @@ describe("ContentAuthoring", () => {
     });
     expect(
       await authoring.loadDraft({ actor, materialId: created.value.materialId }),
-    ).toEqual({ ok: true, value: created.value.draft });
+    ).toEqual({ ok: true, value: created.value });
 
     const corrected = await authoring.reviseDraft({
       actor,

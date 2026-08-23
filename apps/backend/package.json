@@ -12,7 +12,7 @@
     "start:api": "node dist/entrypoints/api.js",
     "start:worker": "node dist/entrypoints/worker.js",
     "start:mcp": "node dist/entrypoints/mcp.js",
-    "db:migrate": "tsx src/infrastructure/postgres/migrate.ts",
+    "db:migrate": "tsx src/migrations/migrate.ts",
     "db:types:generate": "kysely-codegen --dialect postgres --exclude-pattern 'kysely_*' --out-file src/infrastructure/postgres/generated/database.ts",
     "db:types:check": "kysely-codegen --dialect postgres --exclude-pattern 'kysely_*' --out-file src/infrastructure/postgres/generated/database.ts --verify",
     "typecheck": "tsc -p tsconfig.json --noEmit",
