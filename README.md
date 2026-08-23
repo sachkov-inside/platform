@@ -69,3 +69,6 @@ instance. The named volume is preserved by `infra:down`; use
 
 The worker starts and stops `pg-boss` with its process lifecycle. This provisions only
 `pg-boss`'s library-owned PostgreSQL schema; product queues and jobs are intentionally absent.
+
+For migrations, integration tests, manual database inspection and reset procedures, see the
+[local development runbook](docs/runbooks/local-development.md).
