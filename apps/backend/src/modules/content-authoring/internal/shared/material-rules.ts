@@ -3,7 +3,7 @@ import { z } from "zod";
 import type {
   ContentAuthoringError,
   DraftMetadata,
-} from "../content-authoring.interface.js";
+} from "../../content-authoring.interface.js";
 
 const uuid = z.uuid().transform((value) => value.toLowerCase());
 export const materialMetadataFields = {

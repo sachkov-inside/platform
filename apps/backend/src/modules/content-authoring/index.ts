@@ -19,13 +19,11 @@ export { ContentAuthoringModule } from "./content-authoring.module.js";
 export type { AuthorPolicy } from "./internal/author-policy.js";
 
 import type { ContentAuthoring } from "./content-authoring.interface.js";
-import {
-  ContentAuthoringImplementation,
-  type ContentAuthoringDependencies,
-} from "./internal/content-authoring.implementation.js";
+import type { ContentAuthoringDependencies } from "./internal/content-authoring.dependencies.js";
+import { createContentAuthoringImplementation } from "./internal/create-content-authoring.js";
 
 export function createContentAuthoring(
   dependencies: ContentAuthoringDependencies,
 ): ContentAuthoring {
-  return new ContentAuthoringImplementation(dependencies);
+  return createContentAuthoringImplementation(dependencies);
 }

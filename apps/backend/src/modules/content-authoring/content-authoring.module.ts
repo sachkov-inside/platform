@@ -12,7 +12,7 @@ import {
 } from "../content-schema/index.js";
 import { CONTENT_AUTHORING, type ContentAuthoring } from "./content-authoring.interface.js";
 import { AUTHOR_POLICY, type AuthorPolicy } from "./internal/author-policy.js";
-import { ContentAuthoringImplementation } from "./internal/content-authoring.implementation.js";
+import { createContentAuthoringImplementation } from "./internal/create-content-authoring.js";
 
 @Module({})
 export class ContentAuthoringModule {
@@ -30,7 +30,7 @@ export class ContentAuthoringModule {
             contentSchema: ContentSchema,
             policy: AuthorPolicy,
           ): ContentAuthoring =>
-            new ContentAuthoringImplementation({
+            createContentAuthoringImplementation({
               database,
               contentSchema,
               authorPolicy: policy,

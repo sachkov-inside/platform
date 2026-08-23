@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type {
   ContentAuthoringError,
   DraftMetadata,
-} from "../content-authoring.interface.js";
+} from "../../content-authoring.interface.js";
 
 interface PostgreSqlErrorShape {
   readonly code?: unknown;

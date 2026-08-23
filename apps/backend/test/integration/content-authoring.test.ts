@@ -3,6 +3,8 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
   createContentAuthoring,
   type CreateDraftCommand,
+  type LoadDraftQuery,
+  type ReviseDraftCommand,
 } from "../../src/modules/content-authoring/index.js";
 import { createContentSchema } from "../../src/modules/content-schema/index.js";
 import {
@@ -73,6 +75,64 @@ describe("ContentAuthoring", () => {
         issues: [{ code: "invalid_command", path: "" }],
       },
     });
+    expect(
+      await authoring.createDraft({
+        actor: "not-a-principal",
+        idempotencyKey: "x".repeat(201),
+        metadata: {
+          title: "Title",
+          summary: "Summary",
+          slug: "title",
+          topicId: "94000000-0000-4000-8000-000000000010",
+          formatId: "94000000-0000-4000-8000-000000000011",
+          tagIds: [],
+          seriesMemberships: [],
+        },
+        body: {},
+      } as CreateDraftCommand),
+    ).toMatchObject({
+      ok: false,
+      error: {
+        issues: [
+          { code: "invalid_command", path: "/actor" },
+          { code: "invalid_command", path: "/idempotencyKey" },
+        ],
+      },
+    });
+    expect(
+      await authoring.loadDraft(null as unknown as LoadDraftQuery),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "invalid_content",
+        issues: [{ code: "invalid_command", path: "" }],
+      },
+    });
+    expect(
+      await authoring.reviseDraft({
+        actor,
+        idempotencyKey: "bounded",
+        materialId: "94000000-0000-4000-8000-000000000002",
+        baseRevisionId: "94000000-0000-4000-8000-000000000003",
+        changes: {
+          body: [
+            {
+              kind: "replace_text",
+              nodeId: "94000000-0000-4000-8000-000000000004",
+              from: 0,
+              to: 500_001,
+              text: "bounded",
+            },
+          ],
+        },
+      } as ReviseDraftCommand),
+    ).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid_content",
+        issues: [{ code: "invalid_command", path: "/changes/body/0/to" }],
+      },
+    });
     expect(policyCalled).toBe(false);
   });
 
@@ -111,7 +171,10 @@ describe("ContentAuthoring", () => {
       body: initialBody,
     });
 
-    const loaded = await authoring.loadDraft({ actor, materialId: created.value.materialId });
+    const loaded = await authoring.loadDraft({
+      actor: actor.toUpperCase(),
+      materialId: created.value.materialId.toUpperCase(),
+    });
     expect(loaded).toEqual({ ok: true, value: created.value.draft });
 
     const revisedBody = representativeDocument("Issue хранит intent, revision хранит content.");
