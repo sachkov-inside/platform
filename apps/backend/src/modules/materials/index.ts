@@ -1,6 +1,5 @@
 export {
   MATERIAL_AUTHORING,
-  type Result,
   type MaterialAuthoring,
   type CreateDraftError,
   type LoadDraftError,

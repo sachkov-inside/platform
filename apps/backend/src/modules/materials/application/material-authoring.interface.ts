@@ -88,10 +88,6 @@ export type PersistenceConflictError =
 export type SystemError =
   | { readonly code: "dependency_unavailable"; readonly retryable: true }
   | { readonly code: "internal_error"; readonly correlationId: string };
-export type PostgresOperationError =
-  | InvalidReferenceError
-  | PersistenceConflictError
-  | SystemError;
 export type IdempotencyError = { readonly code: "idempotency_key_reused" };
 export type ForbiddenError = { readonly code: "forbidden" };
 export type MaterialNotFoundError = { readonly code: "material_not_found" };

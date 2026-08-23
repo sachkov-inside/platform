@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type {
   InvalidReferenceError,
-  PostgresOperationError,
+  PersistenceConflictError,
   SystemError,
 } from "../material-authoring.interface.js";
 import type { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
@@ -14,6 +14,11 @@ interface PostgreSqlErrorShape {
   readonly errors?: unknown;
   readonly message?: unknown;
 }
+
+type PostgresOperationError =
+  | InvalidReferenceError
+  | PersistenceConflictError
+  | SystemError;
 
 function errorShape(error: unknown): PostgreSqlErrorShape {
   return typeof error === "object" && error !== null ? error : {};

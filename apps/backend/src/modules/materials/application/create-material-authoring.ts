@@ -1,6 +1,6 @@
 import type { MaterialAuthoring } from "./material-authoring.interface.js";
 import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
-import { createCreateDraft } from "./create-draft.js";
+import { createDraftOperation } from "./create-draft.js";
 import { createLoadDraft } from "./load-draft.js";
 import { createReviseDraft } from "./revise-draft.js";
 import { createValidateRevision } from "./validate-revision.js";
@@ -13,7 +13,7 @@ export function createMaterialAuthoringImplementation(
   dependencies: MaterialAuthoringDependencies,
 ): MaterialAuthoring {
   return {
-    createDraft: createCreateDraft(dependencies),
+    createDraft: createDraftOperation(dependencies),
     loadDraft: createLoadDraft(dependencies),
     previewRevision: createPreviewRevision(dependencies),
     publishRevision: createPublishRevision(dependencies),

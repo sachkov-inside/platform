@@ -63,7 +63,7 @@ async function insertMaterial(
     .executeTakeFirstOrThrow();
 }
 
-export function createCreateDraft(
+export function createDraftOperation(
   dependencies: MaterialAuthoringDependencies,
 ): CreateDraftOperation {
   return async (input) => {
