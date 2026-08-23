@@ -1,7 +1,7 @@
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createApiApplication } from "../src/entrypoints/api/create-api-application";
+import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
 
 describe("API health smoke", () => {
   let app: NestFastifyApplication | undefined;

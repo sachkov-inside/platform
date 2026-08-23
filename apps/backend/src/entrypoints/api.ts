@@ -1,7 +1,7 @@
 import "reflect-metadata";
 
-import { readApiListenConfig } from "../config/api-listen";
-import { createApiApplication } from "./api/create-api-application";
+import { readApiListenConfig } from "../config/api-listen.js";
+import { createApiApplication } from "./api/create-api-application.js";
 
 async function bootstrap(): Promise<void> {
   const config = readApiListenConfig();

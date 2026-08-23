@@ -1,7 +1,7 @@
 import "reflect-metadata";
 
-import { readDatabaseConfig } from "../config/database";
-import { runRuntimeProcess } from "./run-runtime-process";
+import { readDatabaseConfig } from "../config/database.js";
+import { runRuntimeProcess } from "./run-runtime-process.js";
 
 async function bootstrap(): Promise<void> {
   const { PgBoss } = await import("pg-boss");

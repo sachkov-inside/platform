@@ -1,9 +1,9 @@
 import { Module } from "@nestjs/common";
 
-import { readDatabaseConfig } from "../../config/database";
-import { DATABASE_PROBE } from "./database-probe";
-import { PostgresProbe } from "./postgres-probe";
-import { ReadinessService } from "./readiness.service";
+import { readDatabaseConfig } from "../../config/database.js";
+import { DATABASE_PROBE } from "./database-probe.js";
+import { PostgresProbe } from "./postgres-probe.js";
+import { ReadinessService } from "./readiness.service.js";
 
 @Module({
   providers: [

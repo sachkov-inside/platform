@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 
-import { ReadinessModule } from "../../modules/readiness/readiness.module";
-import { HealthController } from "./health.controller";
+import { ReadinessModule } from "../../modules/readiness/readiness.module.js";
+import { HealthController } from "./health.controller.js";
 
 @Module({
   imports: [ReadinessModule],

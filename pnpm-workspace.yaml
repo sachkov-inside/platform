@@ -6,4 +6,7 @@ strictPeerDependencies: true
 minimumReleaseAge: 1440
 allowBuilds:
   '@scarf/scarf': false
+  cpu-features: false
   esbuild: true
+  protobufjs: false
+  ssh2: false

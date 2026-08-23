@@ -1,4 +1,4 @@
-import { loadRepositoryEnvironment } from "./load-repository-environment";
+import { loadRepositoryEnvironment } from "./load-repository-environment.js";
 
 export interface ApiListenConfig {
   readonly host: string;

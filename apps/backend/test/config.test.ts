@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { readApiListenConfig } from "../src/config/api-listen";
-import { readDatabaseConfig } from "../src/config/database";
+import { readApiListenConfig } from "../src/config/api-listen.js";
+import { readDatabaseConfig } from "../src/config/database.js";
 
 describe("process configuration", () => {
   it("does not parse API-only values for database consumers", () => {
