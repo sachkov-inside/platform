@@ -1,10 +1,10 @@
-import type { MaterialMetadata } from "../../domain/material-metadata.js";
+import type { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
 import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
 import { rollback } from "./application-result.js";
 
 async function findReferenceIssues(
   transaction: AuthoringTransaction,
-  metadata: MaterialMetadata,
+  metadata: MaterialRevisionMetadata,
 ): Promise<readonly { readonly code: string; readonly path: string }[]> {
   const issues: { code: string; path: string }[] = [];
   const topic = await transaction
@@ -59,7 +59,7 @@ async function findReferenceIssues(
 async function findSeriesOrdinalConflict(
   transaction: AuthoringTransaction,
   materialId: string,
-  metadata: MaterialMetadata,
+  metadata: MaterialRevisionMetadata,
 ): Promise<{ readonly seriesId: string; readonly ordinal: number } | undefined> {
   if (metadata.seriesMemberships.length === 0) {
     return undefined;
@@ -95,7 +95,7 @@ async function findSeriesOrdinalConflict(
 export async function requireReferenceIntegrity(
   transaction: AuthoringTransaction,
   materialId: string,
-  metadata: MaterialMetadata,
+  metadata: MaterialRevisionMetadata,
 ): Promise<void> {
   const issues = await findReferenceIssues(transaction, metadata);
   if (issues.length > 0) {

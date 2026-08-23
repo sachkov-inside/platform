@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { ContentAuthoringError } from "../content-authoring.interface.js";
-import type { MaterialMetadata } from "../../domain/material-metadata.js";
+import type { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
 
 interface PostgreSqlErrorShape {
   readonly code?: unknown;
@@ -71,7 +71,7 @@ const retryablePgClientMessages = new Set([
 
 export function mapPostgresError(
   error: unknown,
-  metadata?: MaterialMetadata,
+  metadata?: MaterialRevisionMetadata,
 ): ContentAuthoringError {
   const shape = errorShape(error);
   const code = typeof shape.code === "string" ? shape.code : undefined;

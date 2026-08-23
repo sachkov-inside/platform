@@ -12,7 +12,7 @@ import { rollback } from "./application-result.js";
 
 export async function claimOrReplay(
   transaction: AuthoringTransaction,
-  dependencies: Pick<ContentAuthoringDependencies, "materialDocument">,
+  dependencies: Pick<ContentAuthoringDependencies, "materialDocumentOperations">,
   values: {
     readonly actor: string;
     readonly operation: AuthoringOperation;
@@ -32,7 +32,7 @@ export async function claimOrReplay(
   }
   const revision = await loadMaterialRevision(
     transaction,
-    dependencies.materialDocument,
+    dependencies.materialDocumentOperations,
     claim.materialId,
     claim.revisionId,
   );

@@ -2,7 +2,7 @@ import type {
   DocumentChange,
   JsonObject,
   JsonValue,
-  MaterialDocument,
+  MaterialDocumentOperations,
   MaterialDocumentResult,
   MaterialDocumentV1,
 } from "./material-document.js";
@@ -183,7 +183,7 @@ function replaceText(
 export function applyDocumentChanges(
   document: MaterialDocumentV1,
   changes: readonly DocumentChange[],
-  acceptDocument: MaterialDocument["accept"],
+  acceptDocument: MaterialDocumentOperations["accept"],
 ): MaterialDocumentResult<MaterialDocumentV1> {
   let current = document;
 

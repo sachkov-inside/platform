@@ -20,10 +20,10 @@ import {
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
-import { toMaterialDraftDto } from "../shared/material-draft-dto.js";
+import { toMaterialRevisionDto } from "../shared/material-revision-dto.js";
 import { mapPostgresError } from "../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
-import { MaterialMetadata } from "../../domain/material-metadata.js";
+import { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
 import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
 import { completeIdempotency } from "../../infrastructure/postgres/idempotency.js";
 import { loadMaterialRevision } from "../../infrastructure/postgres/material-persistence.js";
@@ -68,14 +68,14 @@ export function createCreateDraft(
       return failure(parsedCommand.error);
     }
     const command = parsedCommand.value;
-    const metadata = MaterialMetadata.create(command.metadata);
+    const metadata = MaterialRevisionMetadata.create(command.metadata);
     if (!metadata.ok) {
       return failure(metadata.error);
     }
     if (!(await canAuthor(dependencies.authorPolicy, command.actor))) {
       return failure({ code: "forbidden" });
     }
-    const body = dependencies.materialDocument.accept(command.body, {
+    const body = dependencies.materialDocumentOperations.accept(command.body, {
       assignMissingNodeIds: true,
     });
     if (!body.ok) {
@@ -129,7 +129,7 @@ export function createCreateDraft(
           });
           const revision = await loadMaterialRevision(
             transaction,
-            dependencies.materialDocument,
+            dependencies.materialDocumentOperations,
             materialId,
             revisionId,
           );
@@ -138,7 +138,7 @@ export function createCreateDraft(
           }
           return revision.value;
         });
-      return { ok: true, value: toMaterialDraftDto(value) };
+      return { ok: true, value: toMaterialRevisionDto(value) };
     } catch (error) {
       return failure(
         error instanceof AuthoringRollback

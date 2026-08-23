@@ -1,9 +1,9 @@
-import type { MaterialDraftDto } from "../content-authoring.interface.js";
+import type { MaterialRevisionDto } from "../content-authoring.interface.js";
 import type { MaterialRevision } from "../../domain/material.js";
 
-export function toMaterialDraftDto(
+export function toMaterialRevisionDto(
   revision: MaterialRevision,
-): MaterialDraftDto {
+): MaterialRevisionDto {
   return {
     materialId: revision.materialId,
     revisionId: revision.id,

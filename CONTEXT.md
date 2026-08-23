@@ -7,12 +7,19 @@ product and application work.
 ## Language
 
 **Material**:
-A durable, independently discoverable unit of Inside content.
-_Avoid_: Post, publication, lesson
+A durable, independently discoverable unit of Inside content. In Russian product language:
+«Материал».
+_Avoid_: Post, publication, lesson, публикация
 
 **MaterialRevision**:
-A complete state of one Material's content and metadata at a point in its editorial history.
-_Avoid_: Edit, versioned post
+A complete state of one Material's content and metadata at a point in its editorial history. In
+Russian product language: «Редакция материала».
+_Avoid_: Edit, versioned post, ревизия материала, версия материала
+
+**CurrentDraft**:
+The MaterialRevision selected for continued editorial work on one Material. In Russian product
+language: «Текущая черновая редакция».
+_Avoid_: Mutable draft entity, отдельный черновик
 
 **Topic**:
 The single subject area to which a Material belongs. Topics are one level deep in v1.

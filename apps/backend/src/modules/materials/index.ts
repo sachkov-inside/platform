@@ -5,10 +5,10 @@ export {
   type ContentAuthoringError,
   type CreateDraftCommand,
   type CreateDraftResult,
-  type MaterialMetadataChanges,
-  type MaterialMetadataDto,
-  type MaterialMetadataInput,
-  type MaterialDraftDto,
+  type MaterialRevisionMetadataChanges,
+  type MaterialRevisionMetadataDto,
+  type MaterialRevisionMetadataInput,
+  type MaterialRevisionDto,
   type LoadDraftQuery,
   type LoadDraftResult,
   type ReviseDraftCommand,
@@ -29,7 +29,7 @@ import type { PlatformDatabase } from "../../infrastructure/postgres/index.js";
 import type { AuthorPolicy } from "./application/ports/author-policy.js";
 import type { ContentAuthoring } from "./application/content-authoring.interface.js";
 import { createContentAuthoringImplementation } from "./application/create-content-authoring.js";
-import { materialDocument } from "./infrastructure/tiptap/index.js";
+import { materialDocumentOperations } from "./infrastructure/tiptap/index.js";
 
 export function createContentAuthoring(dependencies: {
   readonly database: PlatformDatabase;
@@ -37,6 +37,6 @@ export function createContentAuthoring(dependencies: {
 }): ContentAuthoring {
   return createContentAuthoringImplementation({
     ...dependencies,
-    materialDocument,
+    materialDocumentOperations,
   });
 }

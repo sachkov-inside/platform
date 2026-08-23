@@ -11,7 +11,7 @@ import {
   type ContentAuthoring,
 } from "./application/content-authoring.interface.js";
 import { createContentAuthoringImplementation } from "./application/create-content-authoring.js";
-import { materialDocument } from "./infrastructure/tiptap/index.js";
+import { materialDocumentOperations } from "./infrastructure/tiptap/index.js";
 
 @Module({})
 export class MaterialsModule {
@@ -30,7 +30,7 @@ export class MaterialsModule {
           ): ContentAuthoring =>
             createContentAuthoringImplementation({
               database,
-              materialDocument,
+              materialDocumentOperations,
               authorPolicy: policy,
             }),
         },

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, test } from "vitest";
 
-import { materialDocument } from "../../src/modules/materials/infrastructure/tiptap/index.js";
+import { materialDocumentOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
 import {
   fullRepresentativeDocument,
   representativeDocument,
@@ -21,9 +21,9 @@ function testNodeId(index: number): string {
   return `92000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
 }
 
-describe("MaterialDocument", () => {
+describe("MaterialDocumentOperations", () => {
   test("accepts a representative v1 document without semantic drift", () => {
-    const contentSchema = materialDocument;
+    const documentOperations = materialDocumentOperations;
     const input = {
       schemaVersion: 1,
       doc: {
@@ -79,22 +79,22 @@ describe("MaterialDocument", () => {
       },
     } as const;
 
-    expect(contentSchema.accept(input)).toEqual({
+    expect(documentOperations.accept(input)).toEqual({
       ok: true,
       value: input,
     });
   });
 
   test("round-trips every retained v1 body shape through the Tiptap schema", () => {
-    const contentSchema = materialDocument;
+    const documentOperations = materialDocumentOperations;
     const document = fullRepresentativeDocument();
 
-    expect(contentSchema.accept(document)).toEqual({ ok: true, value: document });
+    expect(documentOperations.accept(document)).toEqual({ ok: true, value: document });
   });
 
   test("canonicalizes accepted content and rejects non-JSON or duplicate nested node IDs", () => {
-    const contentSchema = materialDocument;
-    const canonicalized = contentSchema.accept({
+    const documentOperations = materialDocumentOperations;
+    const canonicalized = documentOperations.accept({
       schemaVersion: 1,
       doc: {
         type: "doc",
@@ -131,7 +131,7 @@ describe("MaterialDocument", () => {
         },
       },
     });
-    expect(contentSchema.accept(undefined)).toEqual({
+    expect(documentOperations.accept(undefined)).toEqual({
       ok: false,
       error: {
         code: "invalid_content",
@@ -168,7 +168,7 @@ describe("MaterialDocument", () => {
     }
     paragraph.attrs = { nodeId: "01000000-0000-4000-8000-000000000001" };
 
-    expect(contentSchema.accept(nestedDuplicate)).toMatchObject({
+    expect(documentOperations.accept(nestedDuplicate)).toMatchObject({
       ok: false,
       error: { issues: [{ code: "duplicate_node_id" }] },
     });
@@ -179,7 +179,7 @@ describe("MaterialDocument", () => {
       throw new Error("Expected document blocks");
     }
     expect(
-      contentSchema.accept({
+      documentOperations.accept({
         ...caseInsensitiveDuplicate,
         doc: {
           ...caseInsensitiveDuplicate.doc,
@@ -202,8 +202,8 @@ describe("MaterialDocument", () => {
   });
 
   test("replaces text across marked text nodes without dropping unaffected marks", () => {
-    const contentSchema = materialDocument;
-    const result = contentSchema.applyChanges(fullRepresentativeDocument(), [
+    const documentOperations = materialDocumentOperations;
+    const result = documentOperations.applyChanges(fullRepresentativeDocument(), [
       {
         kind: "replace_text",
         nodeId: "01000000-0000-4000-8000-000000000002",
@@ -234,7 +234,7 @@ describe("MaterialDocument", () => {
       ],
     });
 
-    const insertedIntoEmptyBlock = contentSchema.applyChanges(
+    const insertedIntoEmptyBlock = documentOperations.applyChanges(
       {
         schemaVersion: 1,
         doc: {
@@ -272,8 +272,8 @@ describe("MaterialDocument", () => {
   });
 
   test("applies semantic block and text changes while preserving stable node IDs", () => {
-    const contentSchema = materialDocument;
-    const result = contentSchema.applyChanges(representativeDocument(), [
+    const documentOperations = materialDocumentOperations;
+    const result = documentOperations.applyChanges(representativeDocument(), [
       {
         kind: "replace_text",
         nodeId: "22222222-2222-4222-8222-222222222222",
@@ -330,8 +330,8 @@ describe("MaterialDocument", () => {
   });
 
   test("addresses insert, replace, delete and text changes in nested blocks", () => {
-    const contentSchema = materialDocument;
-    const result = contentSchema.applyChanges(
+    const documentOperations = materialDocumentOperations;
+    const result = documentOperations.applyChanges(
       {
         schemaVersion: 1,
         doc: {
@@ -416,7 +416,7 @@ describe("MaterialDocument", () => {
   });
 
   test("assigns missing IDs only when accepting a new document", () => {
-    const contentSchema = materialDocument;
+    const documentOperations = materialDocumentOperations;
     const document = {
       schemaVersion: 1,
       doc: {
@@ -432,7 +432,7 @@ describe("MaterialDocument", () => {
       },
     };
 
-    const existingDocument = contentSchema.accept(document);
+    const existingDocument = documentOperations.accept(document);
     expect(existingDocument.ok).toBe(false);
     if (existingDocument.ok) {
       throw new Error("Expected missing node IDs to fail");
@@ -441,7 +441,7 @@ describe("MaterialDocument", () => {
       true,
     );
     expect(
-      contentSchema.accept(document, { assignMissingNodeIds: true }),
+      documentOperations.accept(document, { assignMissingNodeIds: true }),
     ).toMatchObject({
       ok: true,
       value: {
@@ -463,7 +463,7 @@ describe("MaterialDocument", () => {
   });
 
   test("fails closed for duplicate IDs, unsafe links, unknown nodes and document limits", () => {
-    const contentSchema = materialDocument;
+    const documentOperations = materialDocumentOperations;
     const duplicateId = representativeDocument();
     const duplicateBlocks = duplicateId.doc.content;
     if (!Array.isArray(duplicateBlocks)) {
@@ -518,7 +518,7 @@ describe("MaterialDocument", () => {
     };
 
     expect(
-      contentSchema.accept({
+      documentOperations.accept({
         ...duplicateId,
         doc: {
           ...duplicateId.doc,
@@ -537,30 +537,30 @@ describe("MaterialDocument", () => {
       ok: false,
       error: { issues: [{ code: "duplicate_node_id" }] },
     });
-    expect(contentSchema.accept(unsafeLink)).toMatchObject({
+    expect(documentOperations.accept(unsafeLink)).toMatchObject({
       ok: false,
       error: { issues: [{ code: "unsafe_link" }] },
     });
-    expect(contentSchema.accept(unknownNode)).toMatchObject({
+    expect(documentOperations.accept(unknownNode)).toMatchObject({
       ok: false,
       error: { issues: [{ code: "invalid_prosemirror_document" }] },
     });
-    expect(contentSchema.accept(oversized)).toEqual({
+    expect(documentOperations.accept(oversized)).toEqual({
       ok: false,
       error: {
         code: "invalid_content",
         issues: [{ code: "document_too_large", path: "" }],
       },
     });
-    const migrated = contentSchema.accept(representativeDocument());
+    const migrated = documentOperations.accept(representativeDocument());
     if (!migrated.ok) {
       throw new Error(migrated.error.issues[0]?.code);
     }
-    expect(contentSchema.accept(migrated.value)).toEqual(migrated);
+    expect(documentOperations.accept(migrated.value)).toEqual(migrated);
   });
 
   test("enforces depth, node, text and bounded-issue limits", () => {
-    const contentSchema = materialDocument;
+    const documentOperations = materialDocumentOperations;
     let nested: unknown = {
       type: "paragraph",
       attrs: { nodeId: testNodeId(100) },
@@ -574,7 +574,7 @@ describe("MaterialDocument", () => {
       };
     }
     expect(
-      contentSchema.accept({
+      documentOperations.accept({
         schemaVersion: 1,
         doc: { type: "doc", content: [nested] },
       }),
@@ -583,7 +583,7 @@ describe("MaterialDocument", () => {
       error: { issues: [{ code: "document_too_deep" }] },
     });
 
-    const tooManyNodes = contentSchema.accept({
+    const tooManyNodes = documentOperations.accept({
         schemaVersion: 1,
         doc: {
           type: "doc",
@@ -602,7 +602,7 @@ describe("MaterialDocument", () => {
     ).toBe(true);
 
     expect(
-      contentSchema.accept({
+      documentOperations.accept({
         schemaVersion: 1,
         doc: {
           type: "doc",
@@ -620,7 +620,7 @@ describe("MaterialDocument", () => {
       error: { issues: [{ code: "document_has_too_much_text" }] },
     });
 
-    const bounded = contentSchema.accept({
+    const bounded = documentOperations.accept({
       schemaVersion: 1,
       doc: {
         type: "doc",
@@ -640,7 +640,7 @@ describe("MaterialDocument", () => {
     ["unsafe-link", "unsafe_link"],
     ["unknown-node", "invalid_prosemirror_document"],
   ])("rejects negative JSON fixture %s", (fixture, code) => {
-    expect(materialDocument.accept(invalidFixture(fixture))).toMatchObject({
+    expect(materialDocumentOperations.accept(invalidFixture(fixture))).toMatchObject({
       ok: false,
       error: { issues: [{ code }] },
     });

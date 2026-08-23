@@ -3,14 +3,14 @@ import type {
   MaterialDocumentV1,
   ValidationIssue,
 } from "../domain/material-document/material-document.js";
-import type { MaterialMetadataValidationError } from "../domain/material-metadata.js";
+import type { MaterialRevisionMetadataValidationError } from "../domain/material-revision-metadata.js";
 
 export interface SeriesMembershipInput {
   readonly seriesId: string;
   readonly ordinal: number;
 }
 
-export interface MaterialMetadataInput {
+export interface MaterialRevisionMetadataInput {
   readonly title: string;
   readonly summary: string;
   readonly slug: string;
@@ -20,7 +20,7 @@ export interface MaterialMetadataInput {
   readonly seriesMemberships: readonly SeriesMembershipInput[];
 }
 
-export interface MaterialMetadataChanges {
+export interface MaterialRevisionMetadataChanges {
   readonly title?: string;
   readonly summary?: string;
   readonly slug?: string;
@@ -30,19 +30,19 @@ export interface MaterialMetadataChanges {
   readonly seriesMemberships?: readonly SeriesMembershipInput[];
 }
 
-export type MaterialMetadataDto = MaterialMetadataInput;
+export type MaterialRevisionMetadataDto = MaterialRevisionMetadataInput;
 
-export interface MaterialDraftDto {
+export interface MaterialRevisionDto {
   readonly materialId: string;
   readonly revisionId: string;
-  readonly metadata: MaterialMetadataDto;
+  readonly metadata: MaterialRevisionMetadataDto;
   readonly body: MaterialDocumentV1;
 }
 
 export interface CreateDraftCommand {
   readonly actor: string;
   readonly idempotencyKey: string;
-  readonly metadata: MaterialMetadataInput;
+  readonly metadata: MaterialRevisionMetadataInput;
   readonly body: unknown;
 }
 
@@ -57,13 +57,13 @@ export interface ReviseDraftCommand {
   readonly materialId: string;
   readonly baseRevisionId: string;
   readonly changes: {
-    readonly metadata?: MaterialMetadataChanges;
+    readonly metadata?: MaterialRevisionMetadataChanges;
     readonly body?: readonly DocumentChange[];
   };
 }
 
 export type ContentAuthoringError =
-  | MaterialMetadataValidationError
+  | MaterialRevisionMetadataValidationError
   | { readonly code: "forbidden" }
   | { readonly code: "material_not_found" }
   | { readonly code: "invalid_reference"; readonly issues: readonly ValidationIssue[] }
@@ -82,9 +82,9 @@ export type ApplicationResult<Value> =
   | { readonly ok: true; readonly value: Value }
   | { readonly ok: false; readonly error: ContentAuthoringError };
 
-export type CreateDraftResult = ApplicationResult<MaterialDraftDto>;
-export type LoadDraftResult = ApplicationResult<MaterialDraftDto>;
-export type ReviseDraftResult = ApplicationResult<MaterialDraftDto>;
+export type CreateDraftResult = ApplicationResult<MaterialRevisionDto>;
+export type LoadDraftResult = ApplicationResult<MaterialRevisionDto>;
+export type ReviseDraftResult = ApplicationResult<MaterialRevisionDto>;
 
 export interface ContentAuthoring {
   createDraft(command: CreateDraftCommand): Promise<CreateDraftResult>;

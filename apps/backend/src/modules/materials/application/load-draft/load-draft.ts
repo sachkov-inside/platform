@@ -14,7 +14,7 @@ import {
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
-import { toMaterialDraftDto } from "../shared/material-draft-dto.js";
+import { toMaterialRevisionDto } from "../shared/material-revision-dto.js";
 import { mapPostgresError } from "../shared/postgres-error-mapping.js";
 import { loadCurrentMaterial } from "../../infrastructure/postgres/material-persistence.js";
 
@@ -41,7 +41,7 @@ export function createLoadDraft(
     try {
       const material = await loadCurrentMaterial(
         dependencies.database,
-        dependencies.materialDocument,
+        dependencies.materialDocumentOperations,
         query.materialId,
       );
       if (material === undefined) {
@@ -50,7 +50,7 @@ export function createLoadDraft(
       return material.ok
         ? {
             ok: true,
-            value: toMaterialDraftDto(material.value.currentDraft),
+            value: toMaterialRevisionDto(material.value.currentDraft),
           }
         : failure({ code: "internal_error", correlationId: randomUUID() });
     } catch (error) {

@@ -53,7 +53,7 @@ export type DocumentChange =
       readonly text: string;
     };
 
-export interface MaterialDocument {
+export interface MaterialDocumentOperations {
   accept(
     input: unknown,
     options?: { readonly assignMissingNodeIds?: boolean },
@@ -66,10 +66,10 @@ export interface MaterialDocument {
 
 export type MaterialDocumentRoundTrip = (document: JsonObject) => JsonObject;
 
-export function createMaterialDocument(
+export function createMaterialDocumentOperations(
   roundTrip: MaterialDocumentRoundTrip,
-): MaterialDocument {
-  const accept: MaterialDocument["accept"] = (input, options) =>
+): MaterialDocumentOperations {
+  const accept: MaterialDocumentOperations["accept"] = (input, options) =>
     acceptDocument(input, roundTrip, options);
 
   return {

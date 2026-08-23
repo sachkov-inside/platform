@@ -21,10 +21,10 @@ import {
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
-import { toMaterialDraftDto } from "../shared/material-draft-dto.js";
+import { toMaterialRevisionDto } from "../shared/material-revision-dto.js";
 import { mapPostgresError } from "../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
-import { MaterialMetadata } from "../../domain/material-metadata.js";
+import { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
 import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
 import {
   loadCurrentRevisionId,
@@ -111,7 +111,7 @@ export function createReviseDraft(
       return failure(parsedCommand.error);
     }
     const command = parsedCommand.value;
-    const metadataChanges = MaterialMetadata.validateChanges(
+    const metadataChanges = MaterialRevisionMetadata.validateChanges(
       command.changes.metadata ?? {},
     );
     if (!metadataChanges.ok) {
@@ -125,7 +125,7 @@ export function createReviseDraft(
     try {
       persistedBase = await loadMaterialRevision(
         dependencies.database,
-        dependencies.materialDocument,
+        dependencies.materialDocumentOperations,
         command.materialId,
         command.baseRevisionId,
       );
@@ -153,7 +153,7 @@ export function createReviseDraft(
     const body =
       command.changes.body === undefined
         ? { ok: true as const, value: base.body }
-        : dependencies.materialDocument.applyChanges(
+        : dependencies.materialDocumentOperations.applyChanges(
             base.body,
             command.changes.body,
           );
@@ -227,7 +227,7 @@ export function createReviseDraft(
           });
           const revision = await loadMaterialRevision(
             transaction,
-            dependencies.materialDocument,
+            dependencies.materialDocumentOperations,
             command.materialId,
             revisionId,
           );
@@ -236,7 +236,7 @@ export function createReviseDraft(
           }
           return revision.value;
         });
-      return { ok: true, value: toMaterialDraftDto(value) };
+      return { ok: true, value: toMaterialRevisionDto(value) };
     } catch (error) {
       return failure(
         error instanceof AuthoringRollback

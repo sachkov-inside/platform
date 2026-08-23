@@ -1,13 +1,13 @@
 import { sql } from "kysely";
 
-import type { MaterialDocument } from "../../domain/material-document/material-document.js";
+import type { MaterialDocumentOperations } from "../../domain/material-document/material-document.js";
 import {
-  MaterialMetadata,
-  type MaterialMetadataValues,
-} from "../../domain/material-metadata.js";
+  MaterialRevisionMetadata,
+  type MaterialRevisionMetadataValues,
+} from "../../domain/material-revision-metadata.js";
 import {
-  createMaterial,
-  createMaterialRevision,
+  restoreMaterial,
+  restoreMaterialRevision,
   type Material,
   type MaterialRevision,
 } from "../../domain/material.js";
@@ -16,7 +16,7 @@ import type { AuthoringDatabase } from "./database.js";
 export interface PersistedMaterialRevision {
   readonly materialId: string;
   readonly revisionId: string;
-  readonly metadata: MaterialMetadataValues;
+  readonly metadata: MaterialRevisionMetadataValues;
   readonly schemaVersion: number;
   readonly body: unknown;
 }
@@ -116,11 +116,11 @@ export async function loadPersistedMaterialRevision(
 }
 
 export function hydratePersistedMaterialRevision(
-  materialDocument: MaterialDocument,
+  materialDocumentOperations: MaterialDocumentOperations,
   persisted: PersistedMaterialRevision,
 ): MaterialRevisionHydration {
-  const metadata = MaterialMetadata.create(persisted.metadata);
-  const body = materialDocument.accept({
+  const metadata = MaterialRevisionMetadata.create(persisted.metadata);
+  const body = materialDocumentOperations.accept({
     schemaVersion: persisted.schemaVersion,
     doc: persisted.body,
   });
@@ -129,7 +129,7 @@ export function hydratePersistedMaterialRevision(
   }
   return {
     ok: true,
-    value: createMaterialRevision({
+    value: restoreMaterialRevision({
       id: persisted.revisionId,
       materialId: persisted.materialId,
       metadata: metadata.value,
@@ -140,7 +140,7 @@ export function hydratePersistedMaterialRevision(
 
 export async function loadMaterialRevision(
   database: AuthoringDatabase,
-  materialDocument: MaterialDocument,
+  materialDocumentOperations: MaterialDocumentOperations,
   materialId: string,
   revisionId: string,
 ): Promise<MaterialRevisionHydration | undefined> {
@@ -151,12 +151,12 @@ export async function loadMaterialRevision(
   );
   return persisted === undefined
     ? undefined
-    : hydratePersistedMaterialRevision(materialDocument, persisted);
+    : hydratePersistedMaterialRevision(materialDocumentOperations, persisted);
 }
 
 export async function loadCurrentMaterial(
   database: AuthoringDatabase,
-  materialDocument: MaterialDocument,
+  materialDocumentOperations: MaterialDocumentOperations,
   materialId: string,
 ): Promise<MaterialHydration | undefined> {
   const persisted = await loadPersistedMaterialRevision(database, materialId);
@@ -164,10 +164,10 @@ export async function loadCurrentMaterial(
     return undefined;
   }
   const revision = hydratePersistedMaterialRevision(
-    materialDocument,
+    materialDocumentOperations,
     persisted,
   );
   return revision.ok
-    ? { ok: true, value: createMaterial(revision.value) }
+    ? { ok: true, value: restoreMaterial(revision.value) }
     : revision;
 }

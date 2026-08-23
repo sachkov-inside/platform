@@ -7,7 +7,7 @@ export interface SeriesMembership {
   readonly ordinal: number;
 }
 
-export interface MaterialMetadataValues {
+export interface MaterialRevisionMetadataValues {
   readonly title: string;
   readonly summary: string;
   readonly slug: string;
@@ -17,22 +17,22 @@ export interface MaterialMetadataValues {
   readonly seriesMemberships: readonly SeriesMembership[];
 }
 
-export type MaterialMetadataChangeValues = Partial<MaterialMetadataValues>;
+export type MaterialRevisionMetadataChangeValues = Partial<MaterialRevisionMetadataValues>;
 
-export type MaterialMetadataValidationError =
+export type MaterialRevisionMetadataValidationError =
   | {
       readonly code: "invalid_content";
       readonly issues: readonly ValidationIssue[];
     }
   | { readonly code: "duplicate_tag"; readonly tagId: string };
 
-export type MaterialMetadataResult =
-  | { readonly ok: true; readonly value: MaterialMetadata }
-  | { readonly ok: false; readonly error: MaterialMetadataValidationError };
+export type MaterialRevisionMetadataResult =
+  | { readonly ok: true; readonly value: MaterialRevisionMetadata }
+  | { readonly ok: false; readonly error: MaterialRevisionMetadataValidationError };
 
-export type MaterialMetadataChangesResult =
-  | { readonly ok: true; readonly value: MaterialMetadataChangeValues }
-  | { readonly ok: false; readonly error: MaterialMetadataValidationError };
+export type MaterialRevisionMetadataChangesResult =
+  | { readonly ok: true; readonly value: MaterialRevisionMetadataChangeValues }
+  | { readonly ok: false; readonly error: MaterialRevisionMetadataValidationError };
 
 const uuid = z.uuid().transform((value) => value.toLowerCase());
 const metadataSchema = z
@@ -56,7 +56,7 @@ const metadataChangesSchema = metadataSchema.partial().strict();
 
 function invalidMetadata(error: z.ZodError): {
   readonly ok: false;
-  readonly error: MaterialMetadataValidationError;
+  readonly error: MaterialRevisionMetadataValidationError;
 } {
   return {
     ok: false,
@@ -73,7 +73,7 @@ function invalidMetadata(error: z.ZodError): {
   };
 }
 
-export class MaterialMetadata {
+export class MaterialRevisionMetadata {
   private constructor(
     readonly title: string,
     readonly summary: string,
@@ -89,7 +89,7 @@ export class MaterialMetadata {
     Object.freeze(this);
   }
 
-  static create(input: unknown): MaterialMetadataResult {
+  static create(input: unknown): MaterialRevisionMetadataResult {
     const parsed = metadataSchema.safeParse(input);
     if (!parsed.success) {
       return invalidMetadata(parsed.error);
@@ -119,7 +119,7 @@ export class MaterialMetadata {
 
     return {
       ok: true,
-      value: new MaterialMetadata(
+      value: new MaterialRevisionMetadata(
         parsed.data.title,
         parsed.data.summary,
         parsed.data.slug,
@@ -133,25 +133,25 @@ export class MaterialMetadata {
     };
   }
 
-  static validateChanges(input: unknown): MaterialMetadataChangesResult {
+  static validateChanges(input: unknown): MaterialRevisionMetadataChangesResult {
     const parsed = metadataChangesSchema.safeParse(input);
     return parsed.success
       ? { ok: true, value: parsed.data }
       : invalidMetadata(parsed.error);
   }
 
-  revise(changes: unknown): MaterialMetadataResult {
-    const parsedChanges = MaterialMetadata.validateChanges(changes);
+  revise(changes: unknown): MaterialRevisionMetadataResult {
+    const parsedChanges = MaterialRevisionMetadata.validateChanges(changes);
     if (!parsedChanges.ok) {
       return parsedChanges;
     }
-    return MaterialMetadata.create({
+    return MaterialRevisionMetadata.create({
       ...this.toValues(),
       ...parsedChanges.value,
     });
   }
 
-  toValues(): MaterialMetadataValues {
+  toValues(): MaterialRevisionMetadataValues {
     return {
       title: this.title,
       summary: this.summary,

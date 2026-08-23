@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { MaterialMetadata } from "../../src/modules/materials/domain/material-metadata.js";
+import { MaterialRevisionMetadata } from "../../src/modules/materials/domain/material-revision-metadata.js";
 
 const topicId = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA";
 const formatId = "93000000-0000-4000-8000-000000000002";
@@ -24,9 +24,9 @@ function validMetadata() {
   };
 }
 
-describe("Material metadata rules", () => {
+describe("Material revision metadata rules", () => {
   test("bounds, normalizes and deterministically orders accepted metadata", () => {
-    const result = MaterialMetadata.create(validMetadata());
+    const result = MaterialRevisionMetadata.create(validMetadata());
     expect(result.ok).toBe(true);
     if (!result.ok) {
       throw new Error(result.error.code);
@@ -46,15 +46,15 @@ describe("Material metadata rules", () => {
   });
 
   test("returns stable errors for invalid scalars, duplicate Tags and duplicate Series", () => {
-    expect(MaterialMetadata.create({ ...validMetadata(), title: "" })).toMatchObject({
+    expect(MaterialRevisionMetadata.create({ ...validMetadata(), title: "" })).toMatchObject({
       ok: false,
       error: { code: "invalid_content", issues: [{ code: "invalid_metadata", path: "/title" }] },
     });
     expect(
-      MaterialMetadata.create({ ...validMetadata(), tagIds: [firstTagId, firstTagId] }),
+      MaterialRevisionMetadata.create({ ...validMetadata(), tagIds: [firstTagId, firstTagId] }),
     ).toEqual({ ok: false, error: { code: "duplicate_tag", tagId: firstTagId } });
     expect(
-      MaterialMetadata.create({
+      MaterialRevisionMetadata.create({
         ...validMetadata(),
         seriesMemberships: [
           { seriesId: firstSeriesId, ordinal: 1 },
@@ -71,7 +71,7 @@ describe("Material metadata rules", () => {
   });
 
   test("revises immutably and preserves a valid original value", () => {
-    const created = MaterialMetadata.create(validMetadata());
+    const created = MaterialRevisionMetadata.create(validMetadata());
     if (!created.ok) {
       throw new Error(created.error.code);
     }
