@@ -1,14 +1,21 @@
 # Backend architecture audit
 
-Статус: decision proposal и research evidence для
+Статус: принятое архитектурное направление и research evidence для
 [Platform #58](https://github.com/sachkov-inside/platform/issues/58), 2026-08-23.
+
+Владелец подтвердил направление в обсуждении #58. Material-specific implementation и
+синхронизация durable contract находятся в
+[PR #57](https://github.com/sachkov-inside/platform/pull/57); repository-wide guardrails и единый
+config/database lifecycle вынесены в [#60](https://github.com/sachkov-inside/platform/issues/60) и
+[#61](https://github.com/sachkov-inside/platform/issues/61), чтобы не смешивать независимые
+delivery scopes.
 
 Этот документ исследует backend `origin/main` на commit
 `1d099a0842077319b9b23e91ed5b0ce1858b0c82` и незамерженный candidate
 [PR #57](https://github.com/sachkov-inside/platform/pull/57) на commit
-`121c71211692ad2fc091a20210e9b1975fc5addf`. Он не является final architecture, ADR или
-разрешением менять production code. Все target shapes и backlog ниже — **proposals для owner
-decision в Platform #58**.
+`121c71211692ad2fc091a20210e9b1975fc5addf`. Exact file map ниже остаётся историческим snapshot
+до принятого refactor; normative architecture находится в specification и ADR, а backlog — в
+tracked issues.
 
 ## 1. Рекомендуемый вывод
 
