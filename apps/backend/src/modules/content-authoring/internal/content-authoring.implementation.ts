@@ -21,10 +21,16 @@ import type {
 import type { AuthorPolicy } from "./author-policy.js";
 import { fingerprintCommand } from "./canonical-command-fingerprint.js";
 import {
+  parseCreateDraftCommand,
+  parseLoadDraftQuery,
+  parseReviseDraftCommand,
+} from "./command-rules.js";
+import {
   advanceCurrentRevision,
   claimIdempotency,
   completeIdempotency,
   findReferenceIssues,
+  findSeriesOrdinalConflict,
   insertMaterial,
   insertRevision,
   loadCurrentRevisionId,
@@ -60,7 +66,12 @@ export interface ContentAuthoringDependencies {
 export class ContentAuthoringImplementation implements ContentAuthoring {
   constructor(private readonly dependencies: ContentAuthoringDependencies) {}
 
-  async createDraft(command: CreateDraftCommand): Promise<CreateDraftResult> {
+  async createDraft(input: CreateDraftCommand): Promise<CreateDraftResult> {
+    const parsedCommand = parseCreateDraftCommand(input);
+    if (!parsedCommand.ok) {
+      return failure(parsedCommand.error);
+    }
+    const command = parsedCommand.value;
     if (!(await this.canAuthor(command.actor))) {
       return failure({ code: "forbidden" });
     }
@@ -68,7 +79,9 @@ export class ContentAuthoringImplementation implements ContentAuthoring {
     if (!metadata.ok) {
       return failure(metadata.error);
     }
-    const body = this.dependencies.contentSchema.acceptDocument(command.body);
+    const body = this.dependencies.contentSchema.acceptDocument(command.body, {
+      assignMissingNodeIds: true,
+    });
     if (!body.ok) {
       return failure(body.error);
     }
@@ -77,7 +90,7 @@ export class ContentAuthoringImplementation implements ContentAuthoring {
       operation: "create_draft",
       actor: command.actor,
       metadata: metadata.value,
-      body: body.value,
+      body: command.body,
     });
     try {
       const value = await this.dependencies.database.transaction().execute(async (transaction) => {
@@ -92,9 +105,14 @@ export class ContentAuthoringImplementation implements ContentAuthoring {
           return replay;
         }
 
-        await this.requireReferences(transaction, metadata.value);
         const materialId = randomUUID();
         const revisionId = randomUUID();
+        await this.requireReferences(transaction, metadata.value);
+        await this.requireAvailableSeriesOrdinals(
+          transaction,
+          materialId,
+          metadata.value,
+        );
         await insertMaterial(transaction, {
           materialId,
           revisionId,
@@ -128,7 +146,12 @@ export class ContentAuthoringImplementation implements ContentAuthoring {
     }
   }
 
-  async loadDraft(query: LoadDraftQuery): Promise<LoadDraftResult> {
+  async loadDraft(input: LoadDraftQuery): Promise<LoadDraftResult> {
+    const parsedQuery = parseLoadDraftQuery(input);
+    if (!parsedQuery.ok) {
+      return failure(parsedQuery.error);
+    }
+    const query = parsedQuery.value;
     if (!(await this.canAuthor(query.actor))) {
       return failure({ code: "forbidden" });
     }
@@ -144,7 +167,12 @@ export class ContentAuthoringImplementation implements ContentAuthoring {
     }
   }
 
-  async reviseDraft(command: ReviseDraftCommand): Promise<ReviseDraftResult> {
+  async reviseDraft(input: ReviseDraftCommand): Promise<ReviseDraftResult> {
+    const parsedCommand = parseReviseDraftCommand(input);
+    if (!parsedCommand.ok) {
+      return failure(parsedCommand.error);
+    }
+    const command = parsedCommand.value;
     if (!(await this.canAuthor(command.actor))) {
       return failure({ code: "forbidden" });
     }
@@ -195,8 +223,8 @@ export class ContentAuthoringImplementation implements ContentAuthoring {
       actor: command.actor,
       materialId: command.materialId,
       baseRevisionId: command.baseRevisionId,
-      metadata: metadata.value,
-      body: body.value,
+      contentSchemaVersion: base.value.body.schemaVersion,
+      changes: command.changes,
     });
 
     try {
@@ -213,6 +241,11 @@ export class ContentAuthoringImplementation implements ContentAuthoring {
         }
 
         await this.requireReferences(transaction, metadata.value);
+        await this.requireAvailableSeriesOrdinals(
+          transaction,
+          command.materialId,
+          metadata.value,
+        );
 
         const revisionId = randomUUID();
         await insertRevision(transaction, {
@@ -274,6 +307,21 @@ export class ContentAuthoringImplementation implements ContentAuthoring {
     const issues = await findReferenceIssues(transaction, metadata);
     if (issues.length > 0) {
       rollback({ code: "invalid_reference", issues });
+    }
+  }
+
+  private async requireAvailableSeriesOrdinals(
+    transaction: AuthoringTransaction,
+    materialId: string,
+    metadata: DraftMetadata,
+  ): Promise<void> {
+    const conflict = await findSeriesOrdinalConflict(
+      transaction,
+      materialId,
+      metadata,
+    );
+    if (conflict !== undefined) {
+      rollback({ code: "series_ordinal_conflict", ...conflict });
     }
   }
 

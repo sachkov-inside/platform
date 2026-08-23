@@ -8,12 +8,68 @@ import type {
 interface PostgreSqlErrorShape {
   readonly code?: unknown;
   readonly constraint?: unknown;
-  readonly detail?: unknown;
+  readonly cause?: unknown;
+  readonly errors?: unknown;
+  readonly message?: unknown;
 }
 
 function errorShape(error: unknown): PostgreSqlErrorShape {
   return typeof error === "object" && error !== null ? error : {};
 }
+
+interface ErrorSignals {
+  readonly codes: readonly string[];
+  readonly messages: readonly string[];
+}
+
+function errorSignals(error: unknown, depth = 0): ErrorSignals {
+  if (depth > 3) {
+    return { codes: [], messages: [] };
+  }
+  const shape = errorShape(error);
+  const codes = typeof shape.code === "string" ? [shape.code] : [];
+  const messages = typeof shape.message === "string" ? [shape.message] : [];
+  const children = [
+    ...(shape.cause === undefined ? [] : [shape.cause]),
+    ...(Array.isArray(shape.errors) ? shape.errors : []),
+  ].map((child) => errorSignals(child, depth + 1));
+  return {
+    codes: [...codes, ...children.flatMap((child) => child.codes)],
+    messages: [...messages, ...children.flatMap((child) => child.messages)],
+  };
+}
+
+const referenceConstraints = new Map<string, string>([
+  ["material_revisions_topic_fk", "/metadata/topicId"],
+  ["material_revisions_format_fk", "/metadata/formatId"],
+  ["material_tags_tag_fk", "/metadata/tagIds"],
+  ["material_revision_tags_tag_fk", "/metadata/tagIds"],
+  ["series_memberships_series_fk", "/metadata/seriesMemberships"],
+  ["material_revision_series_series_fk", "/metadata/seriesMemberships"],
+]);
+
+const retryableConnectionCodes = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETDOWN",
+  "ENETUNREACH",
+  "EPIPE",
+  "ETIMEDOUT",
+  "40001",
+  "40P01",
+  "53300",
+  "57P01",
+  "57P02",
+  "57P03",
+]);
+
+const retryablePgClientMessages = new Set([
+  "Connection terminated",
+  "Connection terminated unexpectedly",
+  "Connection terminated due to connection timeout",
+  "timeout exceeded when trying to connect",
+]);
 
 export function mapPostgresError(
   error: unknown,
@@ -23,7 +79,7 @@ export function mapPostgresError(
   const code = typeof shape.code === "string" ? shape.code : undefined;
   const constraint =
     typeof shape.constraint === "string" ? shape.constraint : undefined;
-  const detail = typeof shape.detail === "string" ? shape.detail : undefined;
+  const signals = errorSignals(error);
 
   if (code === "23505" && constraint === "materials_slug_unique" && metadata !== undefined) {
     return { code: "slug_conflict", slug: metadata.slug };
@@ -39,18 +95,9 @@ export function mapPostgresError(
   if (
     code === "23505" &&
     constraint === "series_memberships_ordinal_unique" &&
-    metadata !== undefined
+    metadata?.seriesMemberships.length === 1
   ) {
-    const conflictingKey = detail?.match(
-      /\(series_id, ordinal\)=\(([0-9a-f-]{36}),\s*(-?\d+)\)/i,
-    );
-    const seriesId = conflictingKey?.[1];
-    const ordinal = Number(conflictingKey?.[2]);
-    const membership = metadata.seriesMemberships.find(
-      (candidate) =>
-        candidate.seriesId.toLowerCase() === seriesId?.toLowerCase() &&
-        candidate.ordinal === ordinal,
-    );
+    const membership = metadata.seriesMemberships[0];
     if (membership !== undefined) {
       return {
         code: "series_ordinal_conflict",
@@ -59,13 +106,23 @@ export function mapPostgresError(
       };
     }
   }
-  if (code === "23503") {
+  const referencePath =
+    code === "23503" && constraint !== undefined
+      ? referenceConstraints.get(constraint)
+      : undefined;
+  if (referencePath !== undefined) {
     return {
       code: "invalid_reference",
-      issues: [{ code: "reference_not_found", path: "/metadata" }],
+      issues: [{ code: "reference_not_found", path: referencePath }],
     };
   }
-  if (["40001", "40P01", "53300", "57P01"].includes(code ?? "")) {
+  if (
+    signals.codes.some(
+      (candidate) =>
+        retryableConnectionCodes.has(candidate) || candidate.startsWith("08"),
+    ) ||
+    signals.messages.some((message) => retryablePgClientMessages.has(message))
+  ) {
     return { code: "dependency_unavailable", retryable: true };
   }
   return { code: "internal_error", correlationId: randomUUID() };

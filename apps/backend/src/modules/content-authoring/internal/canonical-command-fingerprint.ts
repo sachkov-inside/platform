@@ -16,5 +16,14 @@ function canonicalize(value: unknown): unknown {
 }
 
 export function fingerprintCommand(value: unknown): string {
-  return createHash("sha256").update(JSON.stringify(canonicalize(value))).digest("hex");
+  return createHash("sha256")
+    .update(
+      JSON.stringify(
+        canonicalize({
+          fingerprintVersion: 1,
+          request: value,
+        }),
+      ),
+    )
+    .digest("hex");
 }

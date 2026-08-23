@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import type {
   ContentSchemaResult,
   DocumentChange,
@@ -8,11 +6,9 @@ import type {
   MaterialDocumentV1,
 } from "../content-schema.interface.js";
 import { acceptDocument } from "./accept-document.js";
-import { addressableBlockTypes } from "./schema-v1.js";
+import { assignMissingNodeIds } from "./assign-missing-node-ids.js";
 
-const addressableBlockTypeSet = new Set<string>(addressableBlockTypes);
-
-function isJsonObject(value: JsonValue | undefined): value is JsonObject {
+function isJsonObject(value: unknown): value is JsonObject {
   return value !== null && value !== undefined && !Array.isArray(value) && typeof value === "object";
 }
 
@@ -26,7 +22,7 @@ function fail(index: number, code: string): ContentSchemaResult<never> {
   };
 }
 
-function nodeId(block: JsonValue): string | undefined {
+function nodeId(block: unknown): string | undefined {
   if (!isJsonObject(block) || !isJsonObject(block.attrs)) {
     return undefined;
   }
@@ -40,46 +36,51 @@ function withNodeId(
   if (block === null || Array.isArray(block) || typeof block !== "object") {
     return undefined;
   }
-  const candidate = structuredClone(block) as Record<string, unknown>;
+  let candidate: Record<string, unknown>;
+  try {
+    candidate = structuredClone(block) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
   if (
     candidate.attrs !== undefined &&
     (candidate.attrs === null || Array.isArray(candidate.attrs) || typeof candidate.attrs !== "object")
   ) {
     return undefined;
   }
-  function assignMissingNodeIds(value: unknown, rootNodeId?: string): void {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-      if (Array.isArray(value)) {
-        value.forEach((child) => assignMissingNodeIds(child));
-      }
-      return;
-    }
-    const node = value as Record<string, unknown>;
-    if (typeof node.type === "string" && addressableBlockTypeSet.has(node.type)) {
-      if (
-        node.attrs !== undefined &&
-        (node.attrs === null || Array.isArray(node.attrs) || typeof node.attrs !== "object")
-      ) {
-        return;
-      }
-      const attributes = { ...(node.attrs ?? {}) } as Record<string, unknown>;
-      if (rootNodeId !== undefined || typeof attributes.nodeId !== "string") {
-        attributes.nodeId = rootNodeId ?? randomUUID();
-      }
-      node.attrs = attributes;
-    }
-    if (Array.isArray(node.content)) {
-      node.content.forEach((child) => assignMissingNodeIds(child));
-    }
-  }
-
   assignMissingNodeIds(candidate, stableNodeId);
   return candidate as JsonObject;
 }
 
-function contentBlocks(document: MaterialDocumentV1): JsonValue[] | undefined {
-  const content = document.doc.content;
-  return Array.isArray(content) ? structuredClone(content) : undefined;
+interface LocatedNode {
+  readonly node: JsonObject;
+  readonly siblings: unknown[];
+  readonly index: number;
+}
+
+function mutableContent(node: unknown): unknown[] | undefined {
+  if (node === null || Array.isArray(node) || typeof node !== "object") {
+    return undefined;
+  }
+  const content = (node as Record<string, unknown>).content;
+  return Array.isArray(content) ? content : undefined;
+}
+
+function findNode(root: unknown, targetNodeId: string): LocatedNode | undefined {
+  const content = mutableContent(root);
+  if (content === undefined) {
+    return undefined;
+  }
+  for (const [index, child] of content.entries()) {
+    if (nodeId(child) === targetNodeId && isJsonObject(child)) {
+      return { node: child, siblings: content, index };
+    }
+    const nested = findNode(child, targetNodeId);
+    if (nested !== undefined) {
+      return nested;
+    }
+  }
+  return undefined;
 }
 
 function replaceText(
@@ -187,7 +188,7 @@ export function applyDocumentChanges(
 
   for (const [index, change] of changes.entries()) {
     if (change.kind === "replace_document") {
-      const replacement = acceptDocument(change.document);
+      const replacement = acceptDocument(change.document, { assignMissingNodeIds: true });
       if (!replacement.ok) {
         return replacement;
       }
@@ -195,49 +196,49 @@ export function applyDocumentChanges(
       continue;
     }
 
-    const blocks = contentBlocks(current);
-    if (blocks === undefined) {
-      return fail(index, "invalid_document_structure");
-    }
+    const document = structuredClone(current.doc) as Record<string, unknown>;
 
     if (change.kind === "insert_blocks") {
-      const insertionIndex =
-        change.afterNodeId === null
-          ? 0
-          : blocks.findIndex((block) => nodeId(block) === change.afterNodeId) + 1;
-      if (insertionIndex === 0 && change.afterNodeId !== null) {
+      const location =
+        change.afterNodeId === null ? undefined : findNode(document, change.afterNodeId);
+      if (change.afterNodeId !== null && location === undefined) {
         return fail(index, "node_not_found");
       }
+      const siblings = location?.siblings ?? mutableContent(document);
+      if (siblings === undefined) {
+        return fail(index, "invalid_document_structure");
+      }
+      const insertionIndex = location === undefined ? 0 : location.index + 1;
       const inserted = change.blocks.map((block) => withNodeId(block));
       if (inserted.some((block) => block === undefined)) {
         return fail(index, "invalid_block");
       }
-      blocks.splice(insertionIndex, 0, ...(inserted as JsonObject[]));
+      siblings.splice(insertionIndex, 0, ...(inserted as JsonObject[]));
     } else {
-      const targetIndex = blocks.findIndex((block) => nodeId(block) === change.nodeId);
-      if (targetIndex < 0) {
+      const location = findNode(document, change.nodeId);
+      if (location === undefined) {
         return fail(index, "node_not_found");
       }
       if (change.kind === "delete_block") {
-        blocks.splice(targetIndex, 1);
+        location.siblings.splice(location.index, 1);
       } else if (change.kind === "replace_block") {
         const replacement = withNodeId(change.block, change.nodeId);
         if (replacement === undefined) {
           return fail(index, "invalid_block");
         }
-        blocks[targetIndex] = replacement;
+        location.siblings[location.index] = replacement;
       } else {
-        const replacement = replaceText(blocks[targetIndex] as JsonValue, change);
+        const replacement = replaceText(location.node, change);
         if (replacement === undefined) {
           return fail(index, "invalid_text_range");
         }
-        blocks[targetIndex] = replacement;
+        location.siblings[location.index] = replacement;
       }
     }
 
     const accepted = acceptDocument({
       schemaVersion: 1,
-      doc: { ...current.doc, content: blocks },
+      doc: document,
     });
     if (!accepted.ok) {
       return accepted;

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, test } from "vitest";
 
 import { createContentSchema } from "../../src/modules/content-schema/index.js";
@@ -5,6 +7,19 @@ import {
   fullRepresentativeDocument,
   representativeDocument,
 } from "../fixtures/content-schema/representative.js";
+
+function invalidFixture(name: string): unknown {
+  return JSON.parse(
+    readFileSync(
+      new URL(`../fixtures/content-schema/invalid/${name}.json`, import.meta.url),
+      "utf8",
+    ),
+  ) as unknown;
+}
+
+function testNodeId(index: number): string {
+  return `92000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+}
 
 describe("ContentSchema", () => {
   test("accepts a representative v1 document without semantic drift", () => {
@@ -87,8 +102,8 @@ describe("ContentSchema", () => {
           {
             type: "assetImage",
             attrs: {
-              nodeId: "89000000-0000-4000-8000-000000000001",
-              assetId: "89000000-0000-4000-8000-000000000002",
+              nodeId: "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+              assetId: "BBBBBBBB-BBBB-4BBB-8BBB-BBBBBBBBBBBB",
               alt: "Diagram",
               caption: null,
             },
@@ -106,8 +121,8 @@ describe("ContentSchema", () => {
             {
               attrs: {
                 alt: "Diagram",
-                assetId: "89000000-0000-4000-8000-000000000002",
-                nodeId: "89000000-0000-4000-8000-000000000001",
+                assetId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                nodeId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
               },
               type: "assetImage",
             },
@@ -154,6 +169,33 @@ describe("ContentSchema", () => {
     paragraph.attrs = { nodeId: "01000000-0000-4000-8000-000000000001" };
 
     expect(contentSchema.acceptDocument(nestedDuplicate)).toMatchObject({
+      ok: false,
+      error: { issues: [{ code: "duplicate_node_id" }] },
+    });
+
+    const caseInsensitiveDuplicate = representativeDocument();
+    const caseInsensitiveBlocks = caseInsensitiveDuplicate.doc.content;
+    if (!Array.isArray(caseInsensitiveBlocks)) {
+      throw new Error("Expected document blocks");
+    }
+    expect(
+      contentSchema.acceptDocument({
+        ...caseInsensitiveDuplicate,
+        doc: {
+          ...caseInsensitiveDuplicate.doc,
+          content: [
+            {
+              ...caseInsensitiveBlocks[0],
+              attrs: { level: 2, nodeId: "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA" },
+            },
+            {
+              ...caseInsensitiveBlocks[1],
+              attrs: { nodeId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+            },
+          ],
+        },
+      }),
+    ).toMatchObject({
       ok: false,
       error: { issues: [{ code: "duplicate_node_id" }] },
     });
@@ -287,6 +329,139 @@ describe("ContentSchema", () => {
     });
   });
 
+  test("addresses insert, replace, delete and text changes in nested blocks", () => {
+    const contentSchema = createContentSchema();
+    const result = contentSchema.applyChanges(
+      {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            {
+              type: "bulletList",
+              attrs: { nodeId: testNodeId(1) },
+              content: [
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      attrs: { nodeId: testNodeId(2) },
+                      content: [{ type: "text", text: "First" }],
+                    },
+                    {
+                      type: "paragraph",
+                      attrs: { nodeId: testNodeId(3) },
+                      content: [{ type: "text", text: "Second" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+      [
+        { kind: "replace_text", nodeId: testNodeId(2), from: 0, to: 5, text: "Primary" },
+        {
+          kind: "insert_blocks",
+          afterNodeId: testNodeId(2),
+          blocks: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "Inserted" }],
+            },
+          ],
+        },
+        {
+          kind: "replace_block",
+          nodeId: testNodeId(3),
+          block: {
+            type: "paragraph",
+            content: [{ type: "text", text: "Replaced" }],
+          },
+        },
+        { kind: "delete_block", nodeId: testNodeId(3) },
+      ],
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(result.error.issues[0]?.code);
+    }
+    const content = result.value.doc.content;
+    if (!Array.isArray(content)) {
+      throw new Error("Expected document content");
+    }
+    const list = content[0];
+    const item =
+      list !== null &&
+      typeof list === "object" &&
+      !Array.isArray(list) &&
+      Array.isArray(list.content)
+        ? list.content[0]
+        : undefined;
+    expect(item).toMatchObject({
+      content: [
+        {
+          attrs: { nodeId: testNodeId(2) },
+          content: [{ type: "text", text: "Primary" }],
+        },
+        {
+          attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+          content: [{ type: "text", text: "Inserted" }],
+        },
+      ],
+    });
+  });
+
+  test("assigns missing IDs only when accepting a new document", () => {
+    const contentSchema = createContentSchema();
+    const document = {
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "blockquote",
+            content: [
+              { type: "paragraph", content: [{ type: "text", text: "New" }] },
+            ],
+          },
+        ],
+      },
+    };
+
+    const existingDocument = contentSchema.acceptDocument(document);
+    expect(existingDocument.ok).toBe(false);
+    if (existingDocument.ok) {
+      throw new Error("Expected missing node IDs to fail");
+    }
+    expect(existingDocument.error.issues.every(({ code }) => code === "invalid_node_id")).toBe(
+      true,
+    );
+    expect(
+      contentSchema.acceptDocument(document, { assignMissingNodeIds: true }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        doc: {
+          content: [
+            {
+              attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+              content: [
+                {
+                  attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    expect(document.doc.content[0]).not.toHaveProperty("attrs");
+  });
+
   test("fails closed for duplicate IDs, unsafe links, unknown nodes and document limits", () => {
     const contentSchema = createContentSchema();
     const duplicateId = representativeDocument();
@@ -382,5 +557,92 @@ describe("ContentSchema", () => {
       throw new Error(migrated.error.issues[0]?.code);
     }
     expect(contentSchema.acceptDocument(migrated.value)).toEqual(migrated);
+  });
+
+  test("enforces depth, node, text and bounded-issue limits", () => {
+    const contentSchema = createContentSchema();
+    let nested: unknown = {
+      type: "paragraph",
+      attrs: { nodeId: testNodeId(100) },
+      content: [{ type: "text", text: "Deep" }],
+    };
+    for (let index = 0; index < 33; index += 1) {
+      nested = {
+        type: "blockquote",
+        attrs: { nodeId: testNodeId(101 + index) },
+        content: [nested],
+      };
+    }
+    expect(
+      contentSchema.acceptDocument({
+        schemaVersion: 1,
+        doc: { type: "doc", content: [nested] },
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { issues: [{ code: "document_too_deep" }] },
+    });
+
+    const tooManyNodes = contentSchema.acceptDocument({
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: Array.from({ length: 10_001 }, (_, index) => ({
+            type: "horizontalRule",
+            attrs: { nodeId: testNodeId(1_000 + index) },
+          })),
+        },
+      });
+    expect(tooManyNodes.ok).toBe(false);
+    if (tooManyNodes.ok) {
+      throw new Error("Expected node limit failure");
+    }
+    expect(
+      tooManyNodes.error.issues.every(({ code }) => code === "document_has_too_many_nodes"),
+    ).toBe(true);
+
+    expect(
+      contentSchema.acceptDocument({
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              attrs: { nodeId: testNodeId(20_000) },
+              content: [{ type: "text", text: "x".repeat(500_001) }],
+            },
+          ],
+        },
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { issues: [{ code: "document_has_too_much_text" }] },
+    });
+
+    const bounded = contentSchema.acceptDocument({
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: Array.from({ length: 150 }, () => ({ type: "horizontalRule" })),
+      },
+    });
+    expect(bounded.ok).toBe(false);
+    if (bounded.ok) {
+      throw new Error("Expected bounded validation failure");
+    }
+    expect(bounded.error.issues).toHaveLength(100);
+  });
+
+  test.each([
+    ["duplicate-node-id", "duplicate_node_id"],
+    ["external-backslash-link", "unsafe_link"],
+    ["unsafe-link", "unsafe_link"],
+    ["unknown-node", "invalid_prosemirror_document"],
+  ])("rejects negative JSON fixture %s", (fixture, code) => {
+    expect(createContentSchema().acceptDocument(invalidFixture(fixture))).toMatchObject({
+      ok: false,
+      error: { issues: [{ code }] },
+    });
   });
 });

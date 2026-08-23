@@ -75,9 +75,26 @@ describe("content authoring integrity contract", () => {
       },
     });
 
+    expect(
+      await authoring.createDraft({
+        ...base,
+        metadata: {
+          ...base.metadata,
+          topicId,
+          formatId: "a0000000-0000-4000-8000-999999999998",
+        },
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "invalid_reference",
+        issues: [{ code: "format_not_found", path: "/metadata/formatId" }],
+      },
+    });
+
     const corrected = await authoring.createDraft({
       ...base,
-      metadata: { ...base.metadata, topicId },
+      metadata: { ...base.metadata, topicId, formatId },
     });
     expect(corrected.ok).toBe(true);
   });
@@ -167,6 +184,43 @@ describe("content authoring integrity contract", () => {
     ).toEqual({
       ok: false,
       error: { code: "series_ordinal_conflict", seriesId, ordinal: 7 },
+    });
+  });
+
+  test("arbitrates a concurrent Series ordinal race with stable conflict details", async () => {
+    const authoring = createContentAuthoring({
+      database: testDatabase.database,
+      contentSchema: createContentSchema(),
+      authorPolicy: { canAuthor: () => true },
+    });
+    const create = (side: "left" | "right", key: string) =>
+      authoring.createDraft({
+        actor,
+        idempotencyKey: key,
+        metadata: {
+          title: `${side} ordinal contender`,
+          summary: "The Series row lock selects one winner.",
+          slug: `${side}-ordinal-contender`,
+          topicId,
+          formatId,
+          tagIds: [],
+          seriesMemberships: [{ seriesId: secondSeriesId, ordinal: 11 }],
+        },
+        body: representativeDocument(),
+      });
+
+    const [left, right] = await Promise.all([
+      create("left", "a0000000-0000-4000-8000-000000000025"),
+      create("right", "a0000000-0000-4000-8000-000000000026"),
+    ]);
+    expect([left, right].filter((result) => result.ok)).toHaveLength(1);
+    expect([left, right].find((result) => !result.ok)).toEqual({
+      ok: false,
+      error: {
+        code: "series_ordinal_conflict",
+        seriesId: secondSeriesId,
+        ordinal: 11,
+      },
     });
   });
 

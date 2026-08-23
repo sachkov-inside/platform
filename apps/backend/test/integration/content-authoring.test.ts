@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { createContentAuthoring } from "../../src/modules/content-authoring/index.js";
+import {
+  createContentAuthoring,
+  type CreateDraftCommand,
+} from "../../src/modules/content-authoring/index.js";
 import { createContentSchema } from "../../src/modules/content-schema/index.js";
 import {
   fullRepresentativeDocument,
@@ -46,6 +49,31 @@ describe("ContentAuthoring", () => {
 
   afterAll(async () => {
     await testDatabase.dispose();
+  });
+
+  test("rejects a malformed runtime command before policy or database work", async () => {
+    let policyCalled = false;
+    const authoring = createContentAuthoring({
+      database: testDatabase.database,
+      contentSchema: createContentSchema(),
+      authorPolicy: {
+        canAuthor: () => {
+          policyCalled = true;
+          return true;
+        },
+      },
+    });
+
+    expect(
+      await authoring.createDraft(null as unknown as CreateDraftCommand),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "invalid_content",
+        issues: [{ code: "invalid_command", path: "" }],
+      },
+    });
+    expect(policyCalled).toBe(false);
   });
 
   test("creates, loads and revises a representative draft through one interface", async () => {
@@ -151,6 +179,143 @@ describe("ContentAuthoring", () => {
       metadata: { ...command.metadata, title: "Другой payload" },
     });
     expect(reused).toEqual({ ok: false, error: { code: "idempotency_key_reused" } });
+  });
+
+  test("assigns stable block IDs for create and replace-document inputs", async () => {
+    const authoring = createContentAuthoring({
+      database: testDatabase.database,
+      contentSchema: createContentSchema(),
+      authorPolicy: { canAuthor: () => true },
+    });
+    const created = await authoring.createDraft({
+      actor,
+      idempotencyKey: "10000000-0000-4000-8000-000000000011",
+      metadata: {
+        title: "Assigned IDs",
+        summary: "New server-side blocks receive stable IDs.",
+        slug: "assigned-ids",
+        topicId,
+        formatId,
+        tagIds: [],
+        seriesMemberships: [],
+      },
+      body: {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "Created" }] },
+          ],
+        },
+      },
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) {
+      throw new Error(created.error.code);
+    }
+    expect(created.value.draft.body).toMatchObject({
+      doc: {
+        content: [
+          {
+            attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+          },
+        ],
+      },
+    });
+
+    const revised = await authoring.reviseDraft({
+      actor,
+      idempotencyKey: "10000000-0000-4000-8000-000000000012",
+      materialId: created.value.materialId,
+      baseRevisionId: created.value.revisionId,
+      changes: {
+        body: [
+          {
+            kind: "replace_document",
+            document: {
+              schemaVersion: 1,
+              doc: {
+                type: "doc",
+                content: [
+                  {
+                    type: "blockquote",
+                    content: [
+                      {
+                        type: "paragraph",
+                        content: [{ type: "text", text: "Replaced" }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    });
+    expect(revised.ok).toBe(true);
+    if (!revised.ok) {
+      throw new Error(revised.error.code);
+    }
+    expect(revised.value.draft.body).toMatchObject({
+      doc: {
+        content: [
+          {
+            attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+            content: [
+              {
+                attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+              },
+            ],
+          },
+        ],
+      },
+    });
+  });
+
+  test("treats different semantic requests with the same result as idempotency reuse", async () => {
+    const authoring = createContentAuthoring({
+      database: testDatabase.database,
+      contentSchema: createContentSchema(),
+      authorPolicy: { canAuthor: () => true },
+    });
+    const body = representativeDocument();
+    const created = await authoring.createDraft({
+      actor,
+      idempotencyKey: "10000000-0000-4000-8000-000000000013",
+      metadata: {
+        title: "Request fingerprint",
+        summary: "The semantic request, not only its result, is fingerprinted.",
+        slug: "request-fingerprint",
+        topicId,
+        formatId,
+        tagIds: [],
+        seriesMemberships: [],
+      },
+      body,
+    });
+    if (!created.ok) {
+      throw new Error(created.error.code);
+    }
+    const idempotencyKey = "10000000-0000-4000-8000-000000000014";
+    const first = await authoring.reviseDraft({
+      actor,
+      idempotencyKey,
+      materialId: created.value.materialId,
+      baseRevisionId: created.value.revisionId,
+      changes: { body: [{ kind: "replace_document", document: body }] },
+    });
+    expect(first.ok).toBe(true);
+
+    expect(
+      await authoring.reviseDraft({
+        actor,
+        idempotencyKey,
+        materialId: created.value.materialId,
+        baseRevisionId: created.value.revisionId,
+        changes: { body: [] },
+      }),
+    ).toEqual({ ok: false, error: { code: "idempotency_key_reused" } });
   });
 
   test("allows one concurrent revision and returns the winner for the stale base", async () => {

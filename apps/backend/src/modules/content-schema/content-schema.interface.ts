@@ -51,7 +51,10 @@ export type DocumentChange =
     };
 
 export interface ContentSchema {
-  acceptDocument(input: unknown): ContentSchemaResult<MaterialDocumentV1>;
+  acceptDocument(
+    input: unknown,
+    options?: { readonly assignMissingNodeIds?: boolean },
+  ): ContentSchemaResult<MaterialDocumentV1>;
   applyChanges(
     document: MaterialDocumentV1,
     changes: readonly DocumentChange[],

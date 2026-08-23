@@ -376,6 +376,42 @@ export async function findReferenceIssues(
   return issues.sort((left, right) => left.path.localeCompare(right.path));
 }
 
+export async function findSeriesOrdinalConflict(
+  transaction: AuthoringTransaction,
+  materialId: string,
+  metadata: DraftMetadata,
+): Promise<{ readonly seriesId: string; readonly ordinal: number } | undefined> {
+  if (metadata.seriesMemberships.length === 0) {
+    return undefined;
+  }
+  const seriesIds = metadata.seriesMemberships.map(({ seriesId }) => seriesId);
+  await transaction
+    .selectFrom("series")
+    .select("id")
+    .where("id", "in", seriesIds)
+    .orderBy("id")
+    .forUpdate()
+    .execute();
+
+  const occupied = await transaction
+    .selectFrom("series_memberships")
+    .select(["series_id", "ordinal"])
+    .where("series_id", "in", seriesIds)
+    .where(
+      "ordinal",
+      "in",
+      metadata.seriesMemberships.map(({ ordinal }) => ordinal),
+    )
+    .where("material_id", "!=", materialId)
+    .execute();
+  const occupiedKeys = new Set(
+    occupied.map(({ series_id, ordinal }) => `${series_id}:${ordinal}`),
+  );
+  return metadata.seriesMemberships.find(({ seriesId, ordinal }) =>
+    occupiedKeys.has(`${seriesId}:${ordinal}`),
+  );
+}
+
 export function toDraftSnapshot(
   persisted: PersistedDraftInput,
   body: DraftSnapshot["body"],

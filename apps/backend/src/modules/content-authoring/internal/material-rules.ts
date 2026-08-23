@@ -5,8 +5,8 @@ import type {
   DraftMetadata,
 } from "../content-authoring.interface.js";
 
-const uuid = z.uuid();
-const metadataSchema = z.object({
+const uuid = z.uuid().transform((value) => value.toLowerCase());
+export const materialMetadataFields = {
   title: z.string().trim().min(1).max(160),
   summary: z.string().trim().min(1).max(500),
   slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120),
@@ -14,9 +14,10 @@ const metadataSchema = z.object({
   formatId: uuid,
   tagIds: z.array(uuid).max(100),
   seriesMemberships: z
-    .array(z.object({ seriesId: uuid, ordinal: z.number().int().positive() }))
+    .array(z.object({ seriesId: uuid, ordinal: z.number().int().positive() }).strict())
     .max(100),
-});
+} as const;
+const metadataSchema = z.object(materialMetadataFields).strict();
 
 export type MetadataValidation =
   | { readonly ok: true; readonly value: DraftMetadata }

@@ -8,8 +8,11 @@ import { acceptDocument } from "./accept-document.js";
 import { applyDocumentChanges } from "./apply-document-changes.js";
 
 export class ContentSchemaImplementation implements ContentSchema {
-  acceptDocument(input: unknown): ContentSchemaResult<MaterialDocumentV1> {
-    return acceptDocument(input);
+  acceptDocument(
+    input: unknown,
+    options?: { readonly assignMissingNodeIds?: boolean },
+  ): ContentSchemaResult<MaterialDocumentV1> {
+    return acceptDocument(input, options);
   }
 
   applyChanges(
