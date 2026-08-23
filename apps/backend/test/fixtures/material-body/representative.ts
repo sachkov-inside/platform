@@ -1,6 +1,6 @@
-import type { MaterialDocumentV1 } from "../../../src/modules/materials/index.js";
+import type { MaterialBodySnapshot } from "../../../src/modules/materials/index.js";
 
-export function representativeDocument(text = "Issue хранит intent."): MaterialDocumentV1 {
+export function representativeDocument(text = "Issue хранит intent."): MaterialBodySnapshot {
   return {
     schemaVersion: 1,
     doc: {
@@ -24,7 +24,7 @@ export function representativeDocument(text = "Issue хранит intent."): Mat
   };
 }
 
-export function fullRepresentativeDocument(): MaterialDocumentV1 {
+export function fullRepresentativeDocument(): MaterialBodySnapshot {
   return {
     schemaVersion: 1,
     doc: {
@@ -40,13 +40,34 @@ export function fullRepresentativeDocument(): MaterialDocumentV1 {
           attrs: { nodeId: "01000000-0000-4000-8000-000000000002" },
           content: [
             { type: "text", text: "Issue", marks: [{ type: "bold" }] },
-            { type: "text", text: " хранит intent и " },
+            { type: "text", text: " хранит ", marks: [{ type: "italic" }] },
+            { type: "text", text: "intent", marks: [{ type: "code" }] },
+            { type: "text", text: " и ", marks: [{ type: "strike" }] },
             {
               type: "text",
               text: "evidence",
               marks: [{ type: "link", attrs: { href: "https://example.com/evidence" } }],
             },
             { type: "text", text: "." },
+          ],
+        },
+        {
+          type: "orderedList",
+          attrs: {
+            nodeId: "01000000-0000-4000-8000-000000000018",
+            start: 1,
+          },
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { nodeId: "01000000-0000-4000-8000-000000000019" },
+                  content: [{ type: "text", text: "Decision" }],
+                },
+              ],
+            },
           ],
         },
         {
@@ -80,6 +101,10 @@ export function fullRepresentativeDocument(): MaterialDocumentV1 {
           type: "codeBlock",
           attrs: { nodeId: "01000000-0000-4000-8000-000000000005" },
           content: [{ type: "text", text: "pnpm check" }],
+        },
+        {
+          type: "horizontalRule",
+          attrs: { nodeId: "01000000-0000-4000-8000-000000000020" },
         },
         {
           type: "table",

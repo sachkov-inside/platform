@@ -1,8 +1,14 @@
 export {
-  CONTENT_AUTHORING,
-  type ApplicationResult,
-  type ContentAuthoring,
-  type ContentAuthoringError,
+  MATERIAL_AUTHORING,
+  type MaterialAuthoring,
+  type CreateDraftError,
+  type LoadDraftError,
+  type PreviewRevisionError,
+  type PublishRevisionError,
+  type RestoreRevisionError,
+  type ReviseDraftError,
+  type UnpublishMaterialError,
+  type ValidateRevisionError,
   type CreateDraftCommand,
   type CreateDraftResult,
   type MaterialRevisionMetadataChanges,
@@ -11,32 +17,51 @@ export {
   type MaterialRevisionDto,
   type LoadDraftQuery,
   type LoadDraftResult,
+  type PreviewRevisionDto,
+  type PreviewRevisionResult,
+  type PublicationLifecycleEventDto,
+  type PublishRevisionCommand,
+  type PublishRevisionResult,
   type ReviseDraftCommand,
   type ReviseDraftResult,
+  type RestoreRevisionCommand,
+  type RestoreRevisionResult,
   type SeriesMembershipInput,
-} from "./application/content-authoring.interface.js";
+  type ValidateRevisionQuery,
+  type ValidateRevisionResult,
+  type ValidatedRevisionDto,
+  type UnpublishMaterialCommand,
+  type UnpublishMaterialResult,
+} from "./application/material-authoring.interface.js";
 export type { AuthorPolicy } from "./application/ports/author-policy.js";
+export {
+  anonymousSubject,
+  createBaselineContentAccess,
+  type AccessDecision,
+  type ContentAccess,
+  type MaterialBodyResource,
+  type Subject,
+} from "./application/ports/content-access.js";
+export {
+  PUBLISHED_MATERIAL_READER,
+  type PublishedMaterialReadDto,
+  type PublishedMaterialReadError,
+  type PublishedMaterialReadResult,
+  type PublishedMaterialReader,
+  type PublicMaterialProjectionDto,
+} from "./application/published-material-reader.interface.js";
 export type {
-  DocumentChange,
+  MaterialBodyChange,
   JsonObject,
   JsonValue,
-  MaterialDocumentV1,
+  MaterialBodyExtraction,
+  MaterialBodyResourceSummary,
+  MaterialBodySnapshot,
+  RenderedBlock,
+  RenderedMark,
+  RenderedMaterialBody,
+  RenderedText,
   ValidationIssue,
-} from "./domain/material-document/material-document.js";
+} from "./domain/material-body/material-body.js";
 export { MaterialsModule } from "./materials.module.js";
-
-import type { PlatformDatabase } from "../../infrastructure/postgres/index.js";
-import type { AuthorPolicy } from "./application/ports/author-policy.js";
-import type { ContentAuthoring } from "./application/content-authoring.interface.js";
-import { createContentAuthoringImplementation } from "./application/create-content-authoring.js";
-import { materialDocumentOperations } from "./infrastructure/tiptap/index.js";
-
-export function createContentAuthoring(dependencies: {
-  readonly database: PlatformDatabase;
-  readonly authorPolicy: AuthorPolicy;
-}): ContentAuthoring {
-  return createContentAuthoringImplementation({
-    ...dependencies,
-    materialDocumentOperations,
-  });
-}
+export { createMaterials, type Materials } from "./create-materials.js";

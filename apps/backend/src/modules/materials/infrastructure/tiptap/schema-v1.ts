@@ -4,7 +4,7 @@ import UniqueID from "@tiptap/extension-unique-id";
 import type { Schema } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 
-import { addressableBlockTypes } from "../../domain/material-document/document-rules.js";
+import { addressableBlockTypes } from "../../domain/material-body/document-rules.js";
 
 const Callout = Node.create({
   name: "callout",

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import {
-  createContentAuthoring,
+  createMaterials,
   type CreateDraftCommand,
   type LoadDraftQuery,
   type ReviseDraftCommand,
@@ -9,7 +9,7 @@ import {
 import {
   fullRepresentativeDocument,
   representativeDocument,
-} from "../fixtures/material-document/representative.js";
+} from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -22,7 +22,7 @@ const firstTagId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const secondTagId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const seriesId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 
-describe("ContentAuthoring", () => {
+describe("MaterialAuthoring", () => {
   let testDatabase: TestDatabase;
 
   beforeAll(async () => {
@@ -54,13 +54,14 @@ describe("ContentAuthoring", () => {
 
   test("rejects a malformed runtime command before policy or database work", async () => {
     let policyCalled = false;
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
       authorPolicy: {
         canAuthor: () => {
           policyCalled = true;
           return true;
         },
+        canPublish: () => false,
       },
     });
 
@@ -81,6 +82,7 @@ describe("ContentAuthoring", () => {
           title: "Title",
           summary: "Summary",
           slug: "title",
+          access: "free",
           topicId: "94000000-0000-4000-8000-000000000010",
           formatId: "94000000-0000-4000-8000-000000000011",
           tagIds: [],
@@ -114,6 +116,7 @@ describe("ContentAuthoring", () => {
           title: "",
           summary: "Summary",
           slug: "title",
+          access: "free",
           topicId,
           formatId,
           tagIds: [],
@@ -172,9 +175,9 @@ describe("ContentAuthoring", () => {
   });
 
   test("creates, loads and revises a representative draft through one interface", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
-      authorPolicy: { canAuthor: (principalId) => principalId === actor },
+      authorPolicy: { canAuthor: (principalId) => principalId === actor, canPublish: () => false },
     });
     const initialBody = fullRepresentativeDocument();
     const created = await authoring.createDraft({
@@ -184,6 +187,7 @@ describe("ContentAuthoring", () => {
         title: "Developer Pipeline",
         summary: "Один проверяемый delivery path.",
         slug: "developer-pipeline",
+        access: "free",
         topicId,
         formatId,
         tagIds: [firstTagId],
@@ -199,6 +203,7 @@ describe("ContentAuthoring", () => {
     expect(created.value).toMatchObject({
       metadata: {
         title: "Developer Pipeline",
+        access: "free",
         tagIds: [firstTagId],
         seriesMemberships: [{ seriesId, ordinal: 5 }],
       },
@@ -235,6 +240,7 @@ describe("ContentAuthoring", () => {
     expect(revised.value).toMatchObject({
       metadata: {
         title: "Developer Pipeline: от issue до merge",
+        access: "free",
         tagIds: [firstTagId, secondTagId],
         seriesMemberships: [{ seriesId, ordinal: 6 }],
       },
@@ -247,9 +253,9 @@ describe("ContentAuthoring", () => {
   });
 
   test("replays the original effect and rejects reuse of a key for another payload", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
-      authorPolicy: { canAuthor: () => true },
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const command = {
       actor,
@@ -258,6 +264,7 @@ describe("ContentAuthoring", () => {
         title: "Idempotent draft",
         summary: "Повтор не создаёт второй effect.",
         slug: "idempotent-draft",
+        access: "free",
         topicId,
         formatId,
         tagIds: [],
@@ -291,9 +298,9 @@ describe("ContentAuthoring", () => {
   });
 
   test("assigns stable block IDs for create and replace-document inputs", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
-      authorPolicy: { canAuthor: () => true },
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const created = await authoring.createDraft({
       actor,
@@ -302,6 +309,7 @@ describe("ContentAuthoring", () => {
         title: "Assigned IDs",
         summary: "New server-side blocks receive stable IDs.",
         slug: "assigned-ids",
+        access: "free",
         topicId,
         formatId,
         tagIds: [],
@@ -382,9 +390,9 @@ describe("ContentAuthoring", () => {
   });
 
   test("treats different semantic requests with the same result as idempotency reuse", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
-      authorPolicy: { canAuthor: () => true },
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const body = representativeDocument();
     const created = await authoring.createDraft({
@@ -394,6 +402,7 @@ describe("ContentAuthoring", () => {
         title: "Request fingerprint",
         summary: "The semantic request, not only its result, is fingerprinted.",
         slug: "request-fingerprint",
+        access: "free",
         topicId,
         formatId,
         tagIds: [],
@@ -426,9 +435,9 @@ describe("ContentAuthoring", () => {
   });
 
   test("allows one concurrent revision and returns the winner for the stale base", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
-      authorPolicy: { canAuthor: () => true },
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const created = await authoring.createDraft({
       actor,
@@ -437,6 +446,7 @@ describe("ContentAuthoring", () => {
         title: "Concurrent draft",
         summary: "Только один base может победить.",
         slug: "concurrent-draft",
+        access: "free",
         topicId,
         formatId,
         tagIds: [],
@@ -482,9 +492,9 @@ describe("ContentAuthoring", () => {
   });
 
   test("collapses concurrent retries with the same idempotency key to one effect", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
-      authorPolicy: { canAuthor: () => true },
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const command = {
       actor,
@@ -493,6 +503,7 @@ describe("ContentAuthoring", () => {
         title: "Concurrent retry",
         summary: "Один key — один effect.",
         slug: "concurrent-retry",
+        access: "free",
         topicId,
         formatId,
         tagIds: [],
@@ -510,9 +521,9 @@ describe("ContentAuthoring", () => {
   });
 
   test("rolls back an invalid revision and allows a corrected retry with the same key", async () => {
-    const authoring = createContentAuthoring({
+    const { authoring } = createMaterials({
       database: testDatabase.database,
-      authorPolicy: { canAuthor: () => true },
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const created = await authoring.createDraft({
       actor,
@@ -521,6 +532,7 @@ describe("ContentAuthoring", () => {
         title: "Rollback draft",
         summary: "Invalid change leaves current intact.",
         slug: "rollback-draft",
+        access: "free",
         topicId,
         formatId,
         tagIds: [],

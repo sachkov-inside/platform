@@ -7,11 +7,21 @@ import {
 } from "../../infrastructure/postgres/index.js";
 import { AUTHOR_POLICY, type AuthorPolicy } from "./application/ports/author-policy.js";
 import {
-  CONTENT_AUTHORING,
-  type ContentAuthoring,
-} from "./application/content-authoring.interface.js";
-import { createContentAuthoringImplementation } from "./application/create-content-authoring.js";
-import { materialDocumentOperations } from "./infrastructure/tiptap/index.js";
+  CONTENT_ACCESS,
+  createBaselineContentAccess,
+  type ContentAccess,
+} from "./application/ports/content-access.js";
+import {
+  MATERIAL_AUTHORING,
+  type MaterialAuthoring,
+} from "./application/material-authoring.interface.js";
+import {
+  PUBLISHED_MATERIAL_READER,
+  type PublishedMaterialReader,
+} from "./application/published-material-reader.interface.js";
+import { createMaterials, type Materials } from "./create-materials.js";
+
+const MATERIALS = Symbol("MATERIALS");
 
 @Module({})
 export class MaterialsModule {
@@ -22,20 +32,39 @@ export class MaterialsModule {
       providers: [
         { provide: AUTHOR_POLICY, useValue: authorPolicy },
         {
-          provide: CONTENT_AUTHORING,
-          inject: [PLATFORM_DATABASE, AUTHOR_POLICY],
+          provide: CONTENT_ACCESS,
+          inject: [AUTHOR_POLICY],
+          useFactory: (policy: AuthorPolicy): ContentAccess =>
+            createBaselineContentAccess(policy),
+        },
+        {
+          provide: MATERIALS,
+          inject: [PLATFORM_DATABASE, AUTHOR_POLICY, CONTENT_ACCESS],
           useFactory: (
             database: PlatformDatabase,
             policy: AuthorPolicy,
-          ): ContentAuthoring =>
-            createContentAuthoringImplementation({
+            contentAccess: ContentAccess,
+          ): Materials =>
+            createMaterials({
               database,
-              materialDocumentOperations,
               authorPolicy: policy,
+              contentAccess,
             }),
         },
+        {
+          provide: MATERIAL_AUTHORING,
+          inject: [MATERIALS],
+          useFactory: (materials: Materials): MaterialAuthoring =>
+            materials.authoring,
+        },
+        {
+          provide: PUBLISHED_MATERIAL_READER,
+          inject: [MATERIALS],
+          useFactory: (materials: Materials): PublishedMaterialReader =>
+            materials.publishedMaterialReader,
+        },
       ],
-      exports: [CONTENT_AUTHORING],
+      exports: [MATERIAL_AUTHORING, PUBLISHED_MATERIAL_READER],
     };
   }
 }

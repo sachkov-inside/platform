@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { mapPostgresError } from "../../src/modules/materials/application/shared/postgres-error-mapping.js";
 
-describe("ContentAuthoring PostgreSQL error mapping", () => {
+describe("MaterialAuthoring PostgreSQL error mapping", () => {
   test("maps only allowlisted reference constraints", () => {
     expect(
       mapPostgresError({ code: "23503", constraint: "material_revisions_topic_fk" }),
