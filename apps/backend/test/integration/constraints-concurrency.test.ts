@@ -13,6 +13,7 @@ const topicId = "a0000000-0000-4000-8000-000000000002";
 const formatId = "a0000000-0000-4000-8000-000000000003";
 const tagId = "a0000000-0000-4000-8000-000000000004";
 const seriesId = "a0000000-0000-4000-8000-000000000005";
+const secondSeriesId = "a0000000-0000-4000-8000-000000000006";
 
 describe("content authoring integrity contract", () => {
   let testDatabase: TestDatabase;
@@ -33,7 +34,10 @@ describe("content authoring integrity contract", () => {
       .execute();
     await testDatabase.database
       .insertInto("series")
-      .values({ id: seriesId, slug: "build", name: "Build" })
+      .values([
+        { id: seriesId, slug: "build", name: "Build" },
+        { id: secondSeriesId, slug: "operate", name: "Operate" },
+      ])
       .execute();
   });
 
@@ -136,6 +140,27 @@ describe("content authoring integrity contract", () => {
           title: "Ordinal contender",
           slug: "ordinal-contender",
           tagIds: [],
+        },
+        body: representativeDocument(),
+      }),
+    ).toEqual({
+      ok: false,
+      error: { code: "series_ordinal_conflict", seriesId, ordinal: 7 },
+    });
+
+    expect(
+      await authoring.createDraft({
+        actor,
+        idempotencyKey: "a0000000-0000-4000-8000-000000000024",
+        metadata: {
+          ...metadata,
+          title: "Later ordinal contender",
+          slug: "later-ordinal-contender",
+          tagIds: [],
+          seriesMemberships: [
+            { seriesId: secondSeriesId, ordinal: 1 },
+            { seriesId, ordinal: 7 },
+          ],
         },
         body: representativeDocument(),
       }),

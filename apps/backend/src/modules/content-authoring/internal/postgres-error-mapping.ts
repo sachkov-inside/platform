@@ -8,6 +8,7 @@ import type {
 interface PostgreSqlErrorShape {
   readonly code?: unknown;
   readonly constraint?: unknown;
+  readonly detail?: unknown;
 }
 
 function errorShape(error: unknown): PostgreSqlErrorShape {
@@ -22,6 +23,7 @@ export function mapPostgresError(
   const code = typeof shape.code === "string" ? shape.code : undefined;
   const constraint =
     typeof shape.constraint === "string" ? shape.constraint : undefined;
+  const detail = typeof shape.detail === "string" ? shape.detail : undefined;
 
   if (code === "23505" && constraint === "materials_slug_unique" && metadata !== undefined) {
     return { code: "slug_conflict", slug: metadata.slug };
@@ -37,13 +39,24 @@ export function mapPostgresError(
   if (
     code === "23505" &&
     constraint === "series_memberships_ordinal_unique" &&
-    metadata?.seriesMemberships[0] !== undefined
+    metadata !== undefined
   ) {
-    return {
-      code: "series_ordinal_conflict",
-      seriesId: metadata.seriesMemberships[0].seriesId,
-      ordinal: metadata.seriesMemberships[0].ordinal,
-    };
+    const conflictingKey = detail?.match(
+      /\(series_id, ordinal\)=\(([0-9a-f-]{36}),\s*(-?\d+)\)/i,
+    );
+    const seriesId = conflictingKey?.[1];
+    const ordinal = Number(conflictingKey?.[2]);
+    const membership = metadata.seriesMemberships.find(
+      (candidate) =>
+        candidate.seriesId === seriesId && candidate.ordinal === ordinal,
+    );
+    if (membership !== undefined) {
+      return {
+        code: "series_ordinal_conflict",
+        seriesId: membership.seriesId,
+        ordinal: membership.ordinal,
+      };
+    }
   }
   if (code === "23503") {
     return {

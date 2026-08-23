@@ -58,6 +58,7 @@ export function fullRepresentativeDocument(): MaterialDocumentV1 {
               content: [
                 {
                   type: "paragraph",
+                  attrs: { nodeId: "01000000-0000-4000-8000-000000000011" },
                   content: [{ type: "text", text: "Issue" }],
                 },
               ],
@@ -70,6 +71,7 @@ export function fullRepresentativeDocument(): MaterialDocumentV1 {
           content: [
             {
               type: "paragraph",
+              attrs: { nodeId: "01000000-0000-4000-8000-000000000012" },
               content: [{ type: "text", text: "Owner gate." }],
             },
           ],
@@ -89,13 +91,21 @@ export function fullRepresentativeDocument(): MaterialDocumentV1 {
                 {
                   type: "tableHeader",
                   content: [
-                    { type: "paragraph", content: [{ type: "text", text: "Stage" }] },
+                    {
+                      type: "paragraph",
+                      attrs: { nodeId: "01000000-0000-4000-8000-000000000013" },
+                      content: [{ type: "text", text: "Stage" }],
+                    },
                   ],
                 },
                 {
                   type: "tableHeader",
                   content: [
-                    { type: "paragraph", content: [{ type: "text", text: "Evidence" }] },
+                    {
+                      type: "paragraph",
+                      attrs: { nodeId: "01000000-0000-4000-8000-000000000014" },
+                      content: [{ type: "text", text: "Evidence" }],
+                    },
                   ],
                 },
               ],
@@ -106,13 +116,21 @@ export function fullRepresentativeDocument(): MaterialDocumentV1 {
                 {
                   type: "tableCell",
                   content: [
-                    { type: "paragraph", content: [{ type: "text", text: "Review" }] },
+                    {
+                      type: "paragraph",
+                      attrs: { nodeId: "01000000-0000-4000-8000-000000000015" },
+                      content: [{ type: "text", text: "Review" }],
+                    },
                   ],
                 },
                 {
                   type: "tableCell",
                   content: [
-                    { type: "paragraph", content: [{ type: "text", text: "Checks" }] },
+                    {
+                      type: "paragraph",
+                      attrs: { nodeId: "01000000-0000-4000-8000-000000000016" },
+                      content: [{ type: "text", text: "Checks" }],
+                    },
                   ],
                 },
               ],
@@ -128,6 +146,7 @@ export function fullRepresentativeDocument(): MaterialDocumentV1 {
           content: [
             {
               type: "paragraph",
+              attrs: { nodeId: "01000000-0000-4000-8000-000000000017" },
               content: [{ type: "text", text: "Publish requires owner GO." }],
             },
           ],

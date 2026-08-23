@@ -8,6 +8,9 @@ import type {
   MaterialDocumentV1,
 } from "../content-schema.interface.js";
 import { acceptDocument } from "./accept-document.js";
+import { addressableBlockTypes } from "./schema-v1.js";
+
+const addressableBlockTypeSet = new Set<string>(addressableBlockTypes);
 
 function isJsonObject(value: JsonValue | undefined): value is JsonObject {
   return value !== null && value !== undefined && !Array.isArray(value) && typeof value === "object";
@@ -32,7 +35,7 @@ function nodeId(block: JsonValue): string | undefined {
 
 function withNodeId(
   block: unknown,
-  stableNodeId: string = randomUUID(),
+  stableNodeId?: string,
 ): JsonObject | undefined {
   if (block === null || Array.isArray(block) || typeof block !== "object") {
     return undefined;
@@ -44,7 +47,33 @@ function withNodeId(
   ) {
     return undefined;
   }
-  candidate.attrs = { ...(candidate.attrs ?? {}), nodeId: stableNodeId };
+  function assignMissingNodeIds(value: unknown, rootNodeId?: string): void {
+    if (value === null || Array.isArray(value) || typeof value !== "object") {
+      if (Array.isArray(value)) {
+        value.forEach((child) => assignMissingNodeIds(child));
+      }
+      return;
+    }
+    const node = value as Record<string, unknown>;
+    if (typeof node.type === "string" && addressableBlockTypeSet.has(node.type)) {
+      if (
+        node.attrs !== undefined &&
+        (node.attrs === null || Array.isArray(node.attrs) || typeof node.attrs !== "object")
+      ) {
+        return;
+      }
+      const attributes = { ...(node.attrs ?? {}) } as Record<string, unknown>;
+      if (rootNodeId !== undefined || typeof attributes.nodeId !== "string") {
+        attributes.nodeId = rootNodeId ?? randomUUID();
+      }
+      node.attrs = attributes;
+    }
+    if (Array.isArray(node.content)) {
+      node.content.forEach((child) => assignMissingNodeIds(child));
+    }
+  }
+
+  assignMissingNodeIds(candidate, stableNodeId);
   return candidate as JsonObject;
 }
 
@@ -57,32 +86,90 @@ function replaceText(
   block: JsonValue,
   change: Extract<DocumentChange, { readonly kind: "replace_text" }>,
 ): JsonObject | undefined {
-  if (!isJsonObject(block) || !Array.isArray(block.content) || block.content.length !== 1) {
+  if (!isJsonObject(block) || !Array.isArray(block.content)) {
     return undefined;
   }
-  const textNode = block.content[0];
-  if (!isJsonObject(textNode) || textNode.type !== "text" || typeof textNode.text !== "string") {
+  const textNodes = block.content;
+  if (
+    textNodes.length === 0 ||
+    textNodes.some(
+      (node) => !isJsonObject(node) || node.type !== "text" || typeof node.text !== "string",
+    )
+  ) {
     return undefined;
   }
-  const codePoints = [...textNode.text];
+  const lengths = textNodes.map((node) =>
+    isJsonObject(node) && typeof node.text === "string" ? [...node.text].length : 0,
+  );
+  const totalLength = lengths.reduce((total, length) => total + length, 0);
   if (
     !Number.isInteger(change.from) ||
     !Number.isInteger(change.to) ||
     change.from < 0 ||
     change.to < change.from ||
-    change.to > codePoints.length
+    change.to > totalLength
   ) {
     return undefined;
   }
-  const nextText = [
-    ...codePoints.slice(0, change.from),
-    ...change.text,
-    ...codePoints.slice(change.to),
-  ].join("");
-  return {
-    ...block,
-    content: [{ ...textNode, text: nextText }],
-  };
+
+  const nextContent: JsonObject[] = [];
+  function append(node: JsonObject, text: string): void {
+    if (text.length === 0) {
+      return;
+    }
+    const candidate = { ...node, text };
+    const previous = nextContent.at(-1);
+    if (previous !== undefined) {
+      const previousShape = { ...previous, text: "" };
+      const candidateShape = { ...candidate, text: "" };
+      if (JSON.stringify(previousShape) === JSON.stringify(candidateShape)) {
+        nextContent[nextContent.length - 1] = {
+          ...previous,
+          text: `${String(previous.text)}${text}`,
+        };
+        return;
+      }
+    }
+    nextContent.push(candidate);
+  }
+
+  let offset = 0;
+  let insertionTemplate: JsonObject | undefined;
+  for (const [index, value] of textNodes.entries()) {
+    const textNode = value as JsonObject;
+    const text = [...String(textNode.text)];
+    const end = offset + text.length;
+    if (change.from < end || (change.from === totalLength && index === textNodes.length - 1)) {
+      insertionTemplate ??= textNode;
+    }
+    if (offset < change.from) {
+      append(textNode, text.slice(0, Math.min(text.length, change.from - offset)).join(""));
+    }
+    offset = end;
+  }
+
+  if (insertionTemplate === undefined) {
+    return undefined;
+  }
+  append(insertionTemplate, change.text);
+
+  offset = 0;
+  for (const value of textNodes) {
+    const textNode = value as JsonObject;
+    const text = [...String(textNode.text)];
+    const end = offset + text.length;
+    if (end > change.to) {
+      append(textNode, text.slice(Math.max(0, change.to - offset)).join(""));
+    }
+    offset = end;
+  }
+
+  const blockWithoutContent = Object.fromEntries(
+    Object.entries(block).filter(([key]) => key !== "content"),
+  );
+  return nextContent.length === 0
+    ? blockWithoutContent
+    : { ...blockWithoutContent, content: nextContent };
 }
 
 export function applyDocumentChanges(

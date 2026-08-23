@@ -4,7 +4,7 @@ import UniqueID from "@tiptap/extension-unique-id";
 import type { Schema } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 
-const addressableBlockTypes = [
+export const addressableBlockTypes: string[] = [
   "paragraph",
   "heading",
   "bulletList",

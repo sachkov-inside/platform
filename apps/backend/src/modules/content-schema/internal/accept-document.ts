@@ -9,9 +9,11 @@ import type {
 } from "../content-schema.interface.js";
 import { DOCUMENT_LIMITS } from "./document-limits.js";
 import { migrateDocumentV1 } from "./migrate-document.js";
+import { addressableBlockTypes } from "./schema-v1.js";
 import { roundTripTiptapDocument } from "./tiptap-adapter.js";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const addressableBlockTypeSet = new Set<string>(addressableBlockTypes);
 
 function isJsonValue(value: unknown): value is JsonValue {
   if (value === null || typeof value === "boolean" || typeof value === "string") {
@@ -88,7 +90,7 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
   let nodes = 0;
   let textCodePoints = 0;
 
-  function walk(value: JsonValue, path: readonly PropertyKey[], depth: number, topLevel: boolean): void {
+  function walk(value: JsonValue, path: readonly PropertyKey[], depth: number): void {
     if (issues.length >= DOCUMENT_LIMITS.issues) {
       return;
     }
@@ -97,7 +99,7 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
       return;
     }
     if (Array.isArray(value)) {
-      value.forEach((child, index) => walk(child, [...path, index], depth, topLevel));
+      value.forEach((child, index) => walk(child, [...path, index], depth));
       return;
     }
     if (!isJsonObject(value)) {
@@ -118,7 +120,7 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
         }
       }
 
-      if (topLevel) {
+      if (addressableBlockTypeSet.has(type)) {
         const nodeId = stringAttribute(value, "nodeId");
         if (nodeId === undefined || !uuidPattern.test(nodeId)) {
           issues.push({ code: "invalid_node_id", path: pointer([...path, "attrs", "nodeId"]) });
@@ -171,13 +173,11 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
 
     const content = value.content;
     if (Array.isArray(content)) {
-      content.forEach((child, index) =>
-        walk(child, [...path, "content", index], depth + 1, type === "doc"),
-      );
+      content.forEach((child, index) => walk(child, [...path, "content", index], depth + 1));
     }
   }
 
-  walk(doc, ["doc"], 1, false);
+  walk(doc, ["doc"], 1);
   return issues;
 }
 
@@ -214,14 +214,14 @@ function canonicalize(value: JsonValue): JsonValue {
 }
 
 export function acceptDocument(input: unknown): ContentSchemaResult<MaterialDocumentV1> {
-  let serialized: string;
+  let serialized: string | undefined;
   try {
     serialized = JSON.stringify(input);
   } catch {
     return invalid([{ code: "document_is_not_json", path: "" }]);
   }
-  if (Buffer.byteLength(serialized, "utf8") > DOCUMENT_LIMITS.bytes) {
-    return invalid([{ code: "document_too_large", path: "" }]);
+  if (serialized === undefined) {
+    return invalid([{ code: "document_is_not_json", path: "" }]);
   }
 
   const envelope = envelopeSchema.safeParse(input);
@@ -241,15 +241,23 @@ export function acceptDocument(input: unknown): ContentSchemaResult<MaterialDocu
 
   try {
     const roundTripped = roundTripTiptapDocument(envelope.data.doc);
-    if (
-      JSON.stringify(canonicalize(roundTripped)) !==
-      JSON.stringify(canonicalize(envelope.data.doc))
-    ) {
+    const canonicalRoundTrip = canonicalize(roundTripped);
+    const canonicalInput = canonicalize(envelope.data.doc);
+    if (JSON.stringify(canonicalRoundTrip) !== JSON.stringify(canonicalInput)) {
       return invalid([{ code: "document_would_be_normalized", path: "/doc" }]);
     }
+    const canonicalSerialized = JSON.stringify(canonicalRoundTrip);
+    if (Buffer.byteLength(canonicalSerialized, "utf8") > DOCUMENT_LIMITS.bytes) {
+      return invalid([{ code: "document_too_large", path: "" }]);
+    }
+    if (!isJsonObject(canonicalRoundTrip)) {
+      return invalid([{ code: "invalid_prosemirror_document", path: "/doc" }]);
+    }
+    return {
+      ok: true,
+      value: migrateDocumentV1({ schemaVersion: 1, doc: canonicalRoundTrip }),
+    };
   } catch {
     return invalid([{ code: "invalid_prosemirror_document", path: "/doc" }]);
   }
-
-  return { ok: true, value: migrateDocumentV1(envelope.data) };
 }

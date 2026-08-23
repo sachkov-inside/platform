@@ -38,6 +38,7 @@ describe("ContentSchema", () => {
             content: [
               {
                 type: "paragraph",
+                attrs: { nodeId: "88888888-8888-4888-8888-888888888880" },
                 content: [{ type: "text", text: "Publish требует owner GO." }],
               },
             ],
@@ -74,6 +75,122 @@ describe("ContentSchema", () => {
     const document = fullRepresentativeDocument();
 
     expect(contentSchema.acceptDocument(document)).toEqual({ ok: true, value: document });
+  });
+
+  test("canonicalizes accepted content and rejects non-JSON or duplicate nested node IDs", () => {
+    const contentSchema = createContentSchema();
+    const canonicalized = contentSchema.acceptDocument({
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "assetImage",
+            attrs: {
+              nodeId: "89000000-0000-4000-8000-000000000001",
+              assetId: "89000000-0000-4000-8000-000000000002",
+              alt: "Diagram",
+              caption: null,
+            },
+          },
+        ],
+      },
+    });
+
+    expect(canonicalized).toEqual({
+      ok: true,
+      value: {
+        schemaVersion: 1,
+        doc: {
+          content: [
+            {
+              attrs: {
+                alt: "Diagram",
+                assetId: "89000000-0000-4000-8000-000000000002",
+                nodeId: "89000000-0000-4000-8000-000000000001",
+              },
+              type: "assetImage",
+            },
+          ],
+          type: "doc",
+        },
+      },
+    });
+    expect(contentSchema.acceptDocument(undefined)).toEqual({
+      ok: false,
+      error: {
+        code: "invalid_content",
+        issues: [{ code: "document_is_not_json", path: "" }],
+      },
+    });
+
+    const nestedDuplicate = fullRepresentativeDocument();
+    const blocks = nestedDuplicate.doc.content;
+    if (!Array.isArray(blocks)) {
+      throw new Error("Expected document blocks");
+    }
+    const list = blocks[2];
+    if (
+      list === null ||
+      Array.isArray(list) ||
+      typeof list !== "object" ||
+      !Array.isArray(list.content)
+    ) {
+      throw new Error("Expected list content");
+    }
+    const item = list.content[0];
+    if (
+      item === null ||
+      Array.isArray(item) ||
+      typeof item !== "object" ||
+      !Array.isArray(item.content)
+    ) {
+      throw new Error("Expected list item content");
+    }
+    const paragraph = item.content[0];
+    if (paragraph === null || Array.isArray(paragraph) || typeof paragraph !== "object") {
+      throw new Error("Expected nested paragraph");
+    }
+    paragraph.attrs = { nodeId: "01000000-0000-4000-8000-000000000001" };
+
+    expect(contentSchema.acceptDocument(nestedDuplicate)).toMatchObject({
+      ok: false,
+      error: { issues: [{ code: "duplicate_node_id" }] },
+    });
+  });
+
+  test("replaces text across marked text nodes without dropping unaffected marks", () => {
+    const contentSchema = createContentSchema();
+    const result = contentSchema.applyChanges(fullRepresentativeDocument(), [
+      {
+        kind: "replace_text",
+        nodeId: "01000000-0000-4000-8000-000000000002",
+        from: 6,
+        to: 12,
+        text: "сохраняет",
+      },
+    ]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(result.error.issues[0]?.code);
+    }
+    const blocks = result.value.doc.content;
+    if (!Array.isArray(blocks)) {
+      throw new Error("Expected document blocks");
+    }
+    expect(blocks[1]).toMatchObject({
+      content: [
+        { type: "text", text: "Issue", marks: [{ type: "bold" }] },
+        { type: "text", text: " сохраняет intent и " },
+        {
+          type: "text",
+          text: "evidence",
+          marks: [{ type: "link", attrs: { href: "https://example.com/evidence" } }],
+        },
+        { type: "text", text: "." },
+      ],
+    });
   });
 
   test("applies semantic block and text changes while preserving stable node IDs", () => {
@@ -183,7 +300,7 @@ describe("ContentSchema", () => {
           {
             type: "paragraph",
             attrs: { nodeId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
-            content: [{ type: "text", text: "x".repeat(1_048_576) }],
+            content: [{ type: "text", text: "😀".repeat(300_000) }],
           },
         ],
       },

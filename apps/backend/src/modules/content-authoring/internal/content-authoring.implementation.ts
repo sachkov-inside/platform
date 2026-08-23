@@ -148,14 +148,56 @@ export class ContentAuthoringImplementation implements ContentAuthoring {
     if (!(await this.canAuthor(command.actor))) {
       return failure({ code: "forbidden" });
     }
+
+    let persistedBase: PersistedDraftInput | undefined;
+    try {
+      persistedBase = await loadPersistedDraft(
+        this.dependencies.database,
+        command.materialId,
+        command.baseRevisionId,
+      );
+      if (persistedBase === undefined) {
+        const currentRevisionId = await loadCurrentRevisionId(
+          this.dependencies.database,
+          command.materialId,
+        );
+        return currentRevisionId === undefined
+          ? failure({ code: "material_not_found" })
+          : failure({ code: "stale_revision", currentRevisionId });
+      }
+    } catch (error) {
+      return failure(mapPostgresError(error));
+    }
+
+    const base = this.hydratePersistedDraft(persistedBase);
+    if (!base.ok) {
+      return failure(base.error);
+    }
+    const metadata = validateMetadata({
+      ...base.value.metadata,
+      ...command.changes.metadata,
+    });
+    if (!metadata.ok) {
+      return failure(metadata.error);
+    }
+    const body =
+      command.changes.body === undefined
+        ? { ok: true as const, value: base.value.body }
+        : this.dependencies.contentSchema.applyChanges(
+            base.value.body,
+            command.changes.body,
+          );
+    if (!body.ok) {
+      return failure(body.error);
+    }
     const fingerprint = fingerprintCommand({
       operation: "revise_draft",
       actor: command.actor,
       materialId: command.materialId,
       baseRevisionId: command.baseRevisionId,
-      changes: command.changes,
+      metadata: metadata.value,
+      body: body.value,
     });
-    let acceptedMetadata: DraftMetadata | undefined;
 
     try {
       const value = await this.dependencies.database.transaction().execute(async (transaction) => {
@@ -170,40 +212,6 @@ export class ContentAuthoringImplementation implements ContentAuthoring {
           return replay;
         }
 
-        const persisted = await loadPersistedDraft(transaction, command.materialId);
-        if (persisted === undefined) {
-          rollback({ code: "material_not_found" });
-        }
-        if (persisted.revisionId !== command.baseRevisionId) {
-          rollback({
-            code: "stale_revision",
-            currentRevisionId: persisted.revisionId,
-          });
-        }
-        const current = this.hydratePersistedDraft(persisted);
-        if (!current.ok) {
-          rollback(current.error);
-        }
-
-        const metadata = validateMetadata({
-          ...current.value.metadata,
-          ...command.changes.metadata,
-        });
-        if (!metadata.ok) {
-          rollback(metadata.error);
-        }
-        acceptedMetadata = metadata.value;
-
-        const body =
-          command.changes.body === undefined
-            ? { ok: true as const, value: current.value.body }
-            : this.dependencies.contentSchema.applyChanges(
-                current.value.body,
-                command.changes.body,
-              );
-        if (!body.ok) {
-          rollback(body.error);
-        }
         await this.requireReferences(transaction, metadata.value);
 
         const revisionId = randomUUID();
@@ -246,7 +254,7 @@ export class ContentAuthoringImplementation implements ContentAuthoring {
       return failure(
         error instanceof AuthoringRollback
           ? error.applicationError
-          : mapPostgresError(error, acceptedMetadata),
+          : mapPostgresError(error, metadata.value),
       );
     }
   }

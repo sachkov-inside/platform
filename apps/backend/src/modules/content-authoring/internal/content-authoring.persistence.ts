@@ -1,4 +1,4 @@
-import type { Kysely, Transaction } from "kysely";
+import { sql, type Kysely, type Transaction } from "kysely";
 
 import type { DB, Json, JsonObject } from "../../../infrastructure/postgres/generated/database.js";
 import type {
@@ -266,6 +266,30 @@ export async function loadPersistedDraft(
       "revision.format_id",
       "revision.schema_version",
       "revision.body",
+      sql<readonly string[]>`coalesce(
+        (
+          select jsonb_agg(revision_tag.tag_id order by revision_tag.tag_id)
+          from material_revision_tags as revision_tag
+          where revision_tag.material_id = material.id
+            and revision_tag.revision_id = revision.id
+        ),
+        '[]'::jsonb
+      )`.as("tag_ids"),
+      sql<readonly { readonly series_id: string; readonly ordinal: number }[]>`coalesce(
+        (
+          select jsonb_agg(
+            jsonb_build_object(
+              'series_id', revision_series.series_id,
+              'ordinal', revision_series.ordinal
+            )
+            order by revision_series.series_id
+          )
+          from material_revision_series_memberships as revision_series
+          where revision_series.material_id = material.id
+            and revision_series.revision_id = revision.id
+        ),
+        '[]'::jsonb
+      )`.as("series_memberships"),
     ])
     .where("material.id", "=", materialId);
 
@@ -278,21 +302,6 @@ export async function loadPersistedDraft(
     return undefined;
   }
 
-  const tags = await executor
-    .selectFrom("material_revision_tags")
-    .select("tag_id")
-    .where("material_id", "=", row.material_id)
-    .where("revision_id", "=", row.revision_id)
-    .orderBy("tag_id")
-    .execute();
-  const memberships = await executor
-    .selectFrom("material_revision_series_memberships")
-    .select(["series_id", "ordinal"])
-    .where("material_id", "=", row.material_id)
-    .where("revision_id", "=", row.revision_id)
-    .orderBy("series_id")
-    .execute();
-
   return {
     materialId: row.material_id,
     revisionId: row.revision_id,
@@ -302,8 +311,8 @@ export async function loadPersistedDraft(
       slug: row.slug,
       topicId: row.topic_id,
       formatId: row.format_id,
-      tagIds: tags.map(({ tag_id }) => tag_id),
-      seriesMemberships: memberships.map(({ series_id, ordinal }) => ({
+      tagIds: row.tag_ids,
+      seriesMemberships: row.series_memberships.map(({ series_id, ordinal }) => ({
         seriesId: series_id,
         ordinal,
       })),
