@@ -86,12 +86,12 @@ function replaceText(
   block: JsonValue,
   change: Extract<DocumentChange, { readonly kind: "replace_text" }>,
 ): JsonObject | undefined {
-  if (!isJsonObject(block) || !Array.isArray(block.content)) {
+  if (!isJsonObject(block)) {
     return undefined;
   }
-  const textNodes = block.content;
+  const textNodes = block.content === undefined ? [] : block.content;
   if (
-    textNodes.length === 0 ||
+    !Array.isArray(textNodes) ||
     textNodes.some(
       (node) => !isJsonObject(node) || node.type !== "text" || typeof node.text !== "string",
     )
@@ -148,6 +148,13 @@ function replaceText(
     offset = end;
   }
 
+  if (
+    insertionTemplate === undefined &&
+    textNodes.length === 0 &&
+    ["paragraph", "heading", "codeBlock"].includes(String(block.type))
+  ) {
+    insertionTemplate = { type: "text" };
+  }
   if (insertionTemplate === undefined) {
     return undefined;
   }

@@ -48,7 +48,8 @@ export function mapPostgresError(
     const ordinal = Number(conflictingKey?.[2]);
     const membership = metadata.seriesMemberships.find(
       (candidate) =>
-        candidate.seriesId === seriesId && candidate.ordinal === ordinal,
+        candidate.seriesId.toLowerCase() === seriesId?.toLowerCase() &&
+        candidate.ordinal === ordinal,
     );
     if (membership !== undefined) {
       return {

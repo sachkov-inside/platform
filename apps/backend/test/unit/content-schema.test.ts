@@ -191,6 +191,42 @@ describe("ContentSchema", () => {
         { type: "text", text: "." },
       ],
     });
+
+    const insertedIntoEmptyBlock = contentSchema.applyChanges(
+      {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              attrs: { nodeId: "01000000-0000-4000-8000-000000000018" },
+            },
+          ],
+        },
+      },
+      [
+        {
+          kind: "replace_text",
+          nodeId: "01000000-0000-4000-8000-000000000018",
+          from: 0,
+          to: 0,
+          text: "First text",
+        },
+      ],
+    );
+    expect(insertedIntoEmptyBlock).toMatchObject({
+      ok: true,
+      value: {
+        doc: {
+          content: [
+            {
+              content: [{ type: "text", text: "First text" }],
+            },
+          ],
+        },
+      },
+    });
   });
 
   test("applies semantic block and text changes while preserving stable node IDs", () => {
