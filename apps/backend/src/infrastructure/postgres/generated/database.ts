@@ -29,6 +29,7 @@ export interface AuthoringIdempotency {
   idempotency_key: string;
   material_id: string | null;
   operation: string;
+  publication_event_id: string | null;
   request_fingerprint: string;
   revision_id: string | null;
 }
@@ -39,13 +40,24 @@ export interface Formats {
   slug: string;
 }
 
+export interface MaterialPublicationEvents {
+  actor_id: string;
+  created_at: Generated<Timestamp>;
+  id: string;
+  kind: string;
+  material_id: string;
+  revision_id: string;
+}
+
 export interface MaterialRevisions {
+  access: string;
   body: Json;
   created_at: Generated<Timestamp>;
   created_by: string;
   format_id: string;
   id: string;
   material_id: string;
+  restored_from_revision_id: string | null;
   schema_version: number;
   slug: string;
   summary: string;
@@ -69,12 +81,43 @@ export interface MaterialRevisionTags {
 export interface Materials {
   created_at: Generated<Timestamp>;
   current_draft_revision_id: string;
+  current_published_revision_id: string | null;
   id: string;
   slug: string;
   updated_at: Generated<Timestamp>;
 }
 
+export interface MaterialSearchDocuments {
+  material_id: string;
+  plain_text: string;
+  revision_id: string;
+}
+
 export interface MaterialTags {
+  material_id: string;
+  tag_id: string;
+}
+
+export interface PublishedMaterials {
+  access: string;
+  format_id: string;
+  material_id: string;
+  published_at: Generated<Timestamp>;
+  published_by: string;
+  revision_id: string;
+  slug: string;
+  summary: string;
+  title: string;
+  topic_id: string;
+}
+
+export interface PublishedMaterialSeriesMemberships {
+  material_id: string;
+  ordinal: number;
+  series_id: string;
+}
+
+export interface PublishedMaterialTags {
   material_id: string;
   tag_id: string;
 }
@@ -106,11 +149,16 @@ export interface Topics {
 export interface DB {
   authoring_idempotency: AuthoringIdempotency;
   formats: Formats;
+  material_publication_events: MaterialPublicationEvents;
   material_revision_series_memberships: MaterialRevisionSeriesMemberships;
   material_revision_tags: MaterialRevisionTags;
   material_revisions: MaterialRevisions;
+  material_search_documents: MaterialSearchDocuments;
   material_tags: MaterialTags;
   materials: Materials;
+  published_material_series_memberships: PublishedMaterialSeriesMemberships;
+  published_material_tags: PublishedMaterialTags;
+  published_materials: PublishedMaterials;
   series: Series;
   series_memberships: SeriesMemberships;
   tags: Tags;

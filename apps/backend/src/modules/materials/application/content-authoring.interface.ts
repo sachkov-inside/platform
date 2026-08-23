@@ -1,9 +1,14 @@
 import type {
   DocumentChange,
   MaterialDocumentV1,
+  MaterialDocumentExtraction,
+  RenderedMaterialDocumentV1,
   ValidationIssue,
 } from "../domain/material-document/material-document.js";
-import type { MaterialRevisionMetadataValidationError } from "../domain/material-revision-metadata.js";
+import type {
+  MaterialAccess,
+  MaterialRevisionMetadataValidationError,
+} from "../domain/material-revision-metadata.js";
 
 export interface SeriesMembershipInput {
   readonly seriesId: string;
@@ -14,6 +19,7 @@ export interface MaterialRevisionMetadataInput {
   readonly title: string;
   readonly summary: string;
   readonly slug: string;
+  readonly access: MaterialAccess;
   readonly topicId: string;
   readonly formatId: string;
   readonly tagIds: readonly string[];
@@ -24,6 +30,7 @@ export interface MaterialRevisionMetadataChanges {
   readonly title?: string;
   readonly summary?: string;
   readonly slug?: string;
+  readonly access?: MaterialAccess;
   readonly topicId?: string;
   readonly formatId?: string;
   readonly tagIds?: readonly string[];
@@ -66,6 +73,7 @@ export type ContentAuthoringError =
   | MaterialRevisionMetadataValidationError
   | { readonly code: "forbidden" }
   | { readonly code: "material_not_found" }
+  | { readonly code: "revision_not_found" }
   | { readonly code: "invalid_reference"; readonly issues: readonly ValidationIssue[] }
   | { readonly code: "slug_conflict"; readonly slug: string }
   | {
@@ -74,6 +82,11 @@ export type ContentAuthoringError =
       readonly ordinal: number;
     }
   | { readonly code: "stale_revision"; readonly currentRevisionId: string }
+  | {
+      readonly code: "stale_publication";
+      readonly currentPublishedRevisionId: string | null;
+    }
+  | { readonly code: "publication_not_found" }
   | { readonly code: "idempotency_key_reused" }
   | { readonly code: "dependency_unavailable"; readonly retryable: true }
   | { readonly code: "internal_error"; readonly correlationId: string };
@@ -86,10 +99,72 @@ export type CreateDraftResult = ApplicationResult<MaterialRevisionDto>;
 export type LoadDraftResult = ApplicationResult<MaterialRevisionDto>;
 export type ReviseDraftResult = ApplicationResult<MaterialRevisionDto>;
 
+export interface ValidateRevisionQuery {
+  readonly actor: string;
+  readonly materialId: string;
+  readonly revisionId: string;
+}
+
+export interface ValidatedRevisionDto {
+  readonly materialId: string;
+  readonly revisionId: string;
+  readonly projectionDigest: string;
+  readonly extraction: MaterialDocumentExtraction;
+}
+
+export interface PreviewRevisionDto {
+  readonly materialId: string;
+  readonly revisionId: string;
+  readonly metadata: MaterialRevisionMetadataDto;
+  readonly cacheScope: "private-no-store";
+  readonly body: RenderedMaterialDocumentV1;
+}
+
+export interface PublishRevisionCommand {
+  readonly actor: string;
+  readonly idempotencyKey: string;
+  readonly materialId: string;
+  readonly revisionId: string;
+  readonly expectedPublishedRevisionId: string | null;
+}
+
+export interface RestoreRevisionCommand {
+  readonly actor: string;
+  readonly idempotencyKey: string;
+  readonly materialId: string;
+  readonly revisionId: string;
+  readonly baseRevisionId: string;
+}
+
+export interface UnpublishMaterialCommand {
+  readonly actor: string;
+  readonly idempotencyKey: string;
+  readonly materialId: string;
+  readonly expectedPublishedRevisionId: string;
+}
+
+export interface PublicationDto {
+  readonly materialId: string;
+  readonly revisionId: string;
+  readonly publicationEventId: string;
+  readonly recordedAt: Date;
+}
+
+export type ValidateRevisionResult = ApplicationResult<ValidatedRevisionDto>;
+export type PreviewRevisionResult = ApplicationResult<PreviewRevisionDto>;
+export type PublishRevisionResult = ApplicationResult<PublicationDto>;
+export type RestoreRevisionResult = ApplicationResult<MaterialRevisionDto>;
+export type UnpublishMaterialResult = ApplicationResult<PublicationDto>;
+
 export interface ContentAuthoring {
   createDraft(command: CreateDraftCommand): Promise<CreateDraftResult>;
   loadDraft(query: LoadDraftQuery): Promise<LoadDraftResult>;
   reviseDraft(command: ReviseDraftCommand): Promise<ReviseDraftResult>;
+  validateRevision(query: ValidateRevisionQuery): Promise<ValidateRevisionResult>;
+  previewRevision(query: ValidateRevisionQuery): Promise<PreviewRevisionResult>;
+  publishRevision(command: PublishRevisionCommand): Promise<PublishRevisionResult>;
+  restoreRevision(command: RestoreRevisionCommand): Promise<RestoreRevisionResult>;
+  unpublishMaterial(command: UnpublishMaterialCommand): Promise<UnpublishMaterialResult>;
 }
 
 export const CONTENT_AUTHORING = Symbol("CONTENT_AUTHORING");

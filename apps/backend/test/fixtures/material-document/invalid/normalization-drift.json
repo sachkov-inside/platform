@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "doc": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 2,
+          "nodeId": "91000000-0000-4000-8000-000000000007",
+          "privateLocator": "must-not-survive"
+        },
+        "content": [{ "type": "text", "text": "Normalization drift" }]
+      }
+    ]
+  }
+}

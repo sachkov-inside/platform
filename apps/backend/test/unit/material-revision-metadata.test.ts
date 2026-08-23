@@ -14,6 +14,7 @@ function validMetadata() {
     title: "  Material title  ",
     summary: "  Material summary  ",
     slug: "material-title",
+    access: "membership",
     topicId,
     formatId,
     tagIds: [secondTagId, firstTagId],
@@ -35,6 +36,7 @@ describe("Material revision metadata rules", () => {
       title: "Material title",
       summary: "Material summary",
       slug: "material-title",
+      access: "membership",
       topicId: topicId.toLowerCase(),
       formatId,
       tagIds: [firstTagId, secondTagId],
@@ -49,6 +51,10 @@ describe("Material revision metadata rules", () => {
     expect(MaterialRevisionMetadata.create({ ...validMetadata(), title: "" })).toMatchObject({
       ok: false,
       error: { code: "invalid_content", issues: [{ code: "invalid_metadata", path: "/title" }] },
+    });
+    expect(MaterialRevisionMetadata.create({ ...validMetadata(), access: "private" })).toMatchObject({
+      ok: false,
+      error: { code: "invalid_content", issues: [{ code: "invalid_metadata", path: "/access" }] },
     });
     expect(
       MaterialRevisionMetadata.create({ ...validMetadata(), tagIds: [firstTagId, firstTagId] }),

@@ -6,6 +6,7 @@ import {
   type PlatformDatabase,
 } from "../../infrastructure/postgres/index.js";
 import { AUTHOR_POLICY, type AuthorPolicy } from "./application/ports/author-policy.js";
+import { createBaselineContentAccess } from "./application/ports/content-access.js";
 import {
   CONTENT_AUTHORING,
   type ContentAuthoring,
@@ -32,6 +33,7 @@ export class MaterialsModule {
               database,
               materialDocumentOperations,
               authorPolicy: policy,
+              contentAccess: createBaselineContentAccess(policy),
             }),
         },
       ],

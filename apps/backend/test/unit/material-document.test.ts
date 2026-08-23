@@ -92,6 +92,62 @@ describe("MaterialDocumentOperations", () => {
     expect(documentOperations.accept(document)).toEqual({ ok: true, value: document });
   });
 
+  test("renders and extracts the representative document without executable or private data", () => {
+    const documentOperations = materialDocumentOperations;
+    const document = fullRepresentativeDocument();
+
+    const rendered = documentOperations.render(document);
+    expect(rendered.ok).toBe(true);
+    if (!rendered.ok) {
+      throw new Error(rendered.error.issues[0]?.code);
+    }
+    expect(rendered.value.schemaVersion).toBe(1);
+    expect(rendered.value.blocks.slice(0, 2)).toEqual([
+          {
+            kind: "heading",
+            level: 2,
+            content: [{ kind: "text", text: "Developer Pipeline", marks: [] }],
+          },
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "Issue", marks: [{ kind: "bold" }] },
+              { kind: "text", text: " хранит intent и ", marks: [] },
+              {
+                kind: "text",
+                text: "evidence",
+                marks: [{ kind: "link", href: "https://example.com/evidence" }],
+              },
+              { kind: "text", text: ".", marks: [] },
+            ],
+          },
+        ]);
+
+    expect(documentOperations.extract(document)).toEqual({
+      ok: true,
+      value: {
+        plainText:
+          "Developer Pipeline\n\nIssue хранит intent и evidence.\n\nIssue\n\nOwner gate.\n\npnpm check\n\nStage\tEvidence\nReview\tChecks\n\nPublish requires owner GO.\n\nDelivery stages\nOne retained path\n\nPipeline checklist\n\nPlatform build episode",
+        headings: [{ level: 2, text: "Developer Pipeline" }],
+        resources: [
+          {
+            kind: "image",
+            alt: "Delivery stages",
+            caption: "One retained path",
+          },
+          {
+            kind: "file",
+            label: "Pipeline checklist",
+          },
+          {
+            kind: "video",
+            caption: "Platform build episode",
+          },
+        ],
+      },
+    });
+  });
+
   test("canonicalizes accepted content and rejects non-JSON or duplicate nested node IDs", () => {
     const documentOperations = materialDocumentOperations;
     const canonicalized = documentOperations.accept({
@@ -637,7 +693,10 @@ describe("MaterialDocumentOperations", () => {
   test.each([
     ["duplicate-node-id", "duplicate_node_id"],
     ["external-backslash-link", "unsafe_link"],
+    ["invalid-nesting", "invalid_prosemirror_document"],
+    ["normalization-drift", "document_would_be_normalized"],
     ["unsafe-link", "unsafe_link"],
+    ["unknown-mark", "invalid_prosemirror_document"],
     ["unknown-node", "invalid_prosemirror_document"],
   ])("rejects negative JSON fixture %s", (fixture, code) => {
     expect(materialDocumentOperations.accept(invalidFixture(fixture))).toMatchObject({

@@ -79,7 +79,12 @@ export function mapPostgresError(
     typeof shape.constraint === "string" ? shape.constraint : undefined;
   const signals = errorSignals(error);
 
-  if (code === "23505" && constraint === "materials_slug_unique" && metadata !== undefined) {
+  if (
+    code === "23505" &&
+    (constraint === "materials_slug_unique" ||
+      constraint === "published_materials_slug_unique") &&
+    metadata !== undefined
+  ) {
     return { code: "slug_conflict", slug: metadata.slug };
   }
   if (

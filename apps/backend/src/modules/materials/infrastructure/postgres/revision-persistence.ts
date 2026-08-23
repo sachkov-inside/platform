@@ -29,6 +29,7 @@ export async function insertRevision(
   values: {
     readonly actor: string;
     readonly materialId: string;
+    readonly restoredFromRevisionId?: string;
     readonly revisionId: string;
     readonly metadata: MaterialRevisionMetadata;
     readonly schemaVersion: number;
@@ -40,9 +41,11 @@ export async function insertRevision(
     .values({
       id: values.revisionId,
       material_id: values.materialId,
+      restored_from_revision_id: values.restoredFromRevisionId ?? null,
       title: values.metadata.title,
       summary: values.metadata.summary,
       slug: values.metadata.slug,
+      access: values.metadata.access,
       topic_id: values.metadata.topicId,
       format_id: values.metadata.formatId,
       schema_version: values.schemaVersion,

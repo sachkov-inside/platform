@@ -7,10 +7,13 @@ export interface SeriesMembership {
   readonly ordinal: number;
 }
 
+export type MaterialAccess = "free" | "membership";
+
 export interface MaterialRevisionMetadataValues {
   readonly title: string;
   readonly summary: string;
   readonly slug: string;
+  readonly access: MaterialAccess;
   readonly topicId: string;
   readonly formatId: string;
   readonly tagIds: readonly string[];
@@ -40,6 +43,7 @@ const metadataSchema = z
     title: z.string().trim().min(1).max(160),
     summary: z.string().trim().min(1).max(500),
     slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120),
+    access: z.enum(["free", "membership"]),
     topicId: uuid,
     formatId: uuid,
     tagIds: z.array(uuid).max(100),
@@ -78,6 +82,7 @@ export class MaterialRevisionMetadata {
     readonly title: string,
     readonly summary: string,
     readonly slug: string,
+    readonly access: MaterialAccess,
     readonly topicId: string,
     readonly formatId: string,
     readonly tagIds: readonly string[],
@@ -123,6 +128,7 @@ export class MaterialRevisionMetadata {
         parsed.data.title,
         parsed.data.summary,
         parsed.data.slug,
+        parsed.data.access,
         parsed.data.topicId,
         parsed.data.formatId,
         [...parsed.data.tagIds].sort(),
@@ -156,6 +162,7 @@ export class MaterialRevisionMetadata {
       title: this.title,
       summary: this.summary,
       slug: this.slug,
+      access: this.access,
       topicId: this.topicId,
       formatId: this.formatId,
       tagIds: this.tagIds,

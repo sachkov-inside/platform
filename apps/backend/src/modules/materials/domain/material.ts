@@ -4,6 +4,7 @@ import type { MaterialRevisionMetadata } from "./material-revision-metadata.js";
 export interface MaterialRevision {
   readonly id: string;
   readonly materialId: string;
+  readonly restoredFromRevisionId?: string;
   readonly metadata: MaterialRevisionMetadata;
   readonly body: MaterialDocumentV1;
 }
