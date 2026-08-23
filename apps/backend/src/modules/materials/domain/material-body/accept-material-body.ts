@@ -12,8 +12,8 @@ import { DOCUMENT_LIMITS } from "./document-limits.js";
 import { addressableBlockTypes } from "./document-rules.js";
 import { restoreStoredMaterialBodyV1 } from "./stored-material-body-v1.js";
 import { validationIssuePath } from "./validation-issue-path.js";
+import { isUuid } from "../uuid.js";
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const addressableBlockTypeSet = new Set<string>(addressableBlockTypes);
 
 function isJsonValue(value: unknown): value is JsonValue {
@@ -113,7 +113,7 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
 
       if (addressableBlockTypeSet.has(type)) {
         const nodeId = stringAttribute(value, "nodeId");
-        if (nodeId === undefined || !uuidPattern.test(nodeId)) {
+        if (nodeId === undefined || !isUuid(nodeId)) {
           issues.push({ code: "invalid_node_id", path: validationIssuePath([...path, "attrs", "nodeId"]) });
         } else if (nodeIds.has(nodeId.toLowerCase())) {
           issues.push({ code: "duplicate_node_id", path: validationIssuePath([...path, "attrs", "nodeId"]) });
@@ -127,7 +127,7 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
       }
       if (type === "assetImage" || type === "assetFile") {
         const assetId = stringAttribute(value, "assetId");
-        if (assetId === undefined || !uuidPattern.test(assetId)) {
+        if (assetId === undefined || !isUuid(assetId)) {
           issues.push({ code: "invalid_asset_id", path: validationIssuePath([...path, "attrs", "assetId"]) });
         }
         const label = stringAttribute(value, type === "assetImage" ? "alt" : "label");
@@ -144,7 +144,7 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
       }
       if (type === "video") {
         const videoId = stringAttribute(value, "videoId");
-        if (videoId === undefined || !uuidPattern.test(videoId)) {
+        if (videoId === undefined || !isUuid(videoId)) {
           issues.push({ code: "invalid_video_id", path: validationIssuePath([...path, "attrs", "videoId"]) });
         }
       }
@@ -195,7 +195,7 @@ function canonicalize(value: JsonValue): JsonValue {
           name,
           (name === "nodeId" || name === "assetId" || name === "videoId") &&
           typeof attribute === "string" &&
-          uuidPattern.test(attribute)
+          isUuid(attribute)
             ? attribute.toLowerCase()
             : canonicalize(attribute),
         ]),

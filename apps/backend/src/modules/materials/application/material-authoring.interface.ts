@@ -7,8 +7,11 @@ import type {
 } from "../domain/material-body/material-body.js";
 import type {
   MaterialAccess,
-  MaterialRevisionMetadataValidationError,
+  MaterialMetadataValidationError,
 } from "../domain/material-revision-metadata.js";
+import type { Result } from "../result.js";
+
+export type { Result } from "../result.js";
 
 export interface SeriesMembershipInput {
   readonly seriesId: string;
@@ -70,21 +73,29 @@ export interface ReviseDraftCommand {
 }
 
 export type InvalidContentError = Extract<
-  MaterialRevisionMetadataValidationError,
+  MaterialMetadataValidationError,
   { readonly code: "invalid_content" }
+>;
+export type DuplicateTagError = Extract<
+  MaterialMetadataValidationError,
+  { readonly code: "duplicate_tag" }
 >;
 export type InvalidReferenceError = {
   readonly code: "invalid_reference";
   readonly issues: readonly ValidationIssue[];
 };
+export type SlugConflictError = {
+  readonly code: "slug_conflict";
+  readonly slug: string;
+};
+export type SeriesOrdinalConflictError = {
+  readonly code: "series_ordinal_conflict";
+  readonly seriesId: string;
+  readonly ordinal: number;
+};
 export type PersistenceConflictError =
-  | Extract<MaterialRevisionMetadataValidationError, { readonly code: "duplicate_tag" }>
-  | { readonly code: "slug_conflict"; readonly slug: string }
-  | {
-      readonly code: "series_ordinal_conflict";
-      readonly seriesId: string;
-      readonly ordinal: number;
-    };
+  | SeriesOrdinalConflictError
+  | SlugConflictError;
 export type SystemError =
   | { readonly code: "dependency_unavailable"; readonly retryable: true }
   | { readonly code: "internal_error"; readonly correlationId: string };
@@ -101,12 +112,8 @@ export type StalePublicationError = {
   readonly currentPublishedRevisionId: string | null;
 };
 
-export type Result<Value, Error> =
-  | { readonly ok: true; readonly value: Value }
-  | { readonly ok: false; readonly error: Error };
-
 export type CreateDraftError =
-  | MaterialRevisionMetadataValidationError
+  | MaterialMetadataValidationError
   | ForbiddenError
   | InvalidReferenceError
   | PersistenceConflictError
@@ -118,7 +125,7 @@ export type LoadDraftError =
   | MaterialNotFoundError
   | SystemError;
 export type ReviseDraftError =
-  | MaterialRevisionMetadataValidationError
+  | MaterialMetadataValidationError
   | ForbiddenError
   | MaterialNotFoundError
   | StaleRevisionError
@@ -189,6 +196,7 @@ export type ValidateRevisionError =
   | RevisionNotFoundError
   | StaleRevisionError
   | InvalidReferenceError
+  | SeriesOrdinalConflictError
   | SystemError;
 export type PreviewRevisionError =
   | InvalidContentError

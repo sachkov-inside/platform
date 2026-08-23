@@ -1,6 +1,7 @@
 export {
   MATERIAL_AUTHORING,
   type MaterialAuthoring,
+  type Result,
   type CreateDraftError,
   type LoadDraftError,
   type PreviewRevisionError,
@@ -45,6 +46,7 @@ export {
 export {
   PUBLISHED_MATERIAL_READER,
   type PublishedMaterialReadDto,
+  type PublishedMaterialReadError,
   type PublishedMaterialReadResult,
   type PublishedMaterialReader,
   type PublicMaterialProjectionDto,

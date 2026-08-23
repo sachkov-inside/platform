@@ -10,11 +10,13 @@ import {
   materialIdempotencyKey,
   materialRevisionId,
 } from "../../domain/material-identifiers.js";
+import { normalizedUuidSchema } from "../../domain/uuid.js";
 
-export const principalId = z.uuid().transform((value) => value.toLowerCase());
-export const entityId = z.uuid().transform((value) => value.toLowerCase());
-export const materialIdSchema = z.uuid().transform(materialId);
-export const materialRevisionIdSchema = z.uuid().transform(materialRevisionId);
+export const principalId = normalizedUuidSchema;
+export const entityId = normalizedUuidSchema;
+export const materialIdSchema = normalizedUuidSchema.transform(materialId);
+export const materialRevisionIdSchema =
+  normalizedUuidSchema.transform(materialRevisionId);
 export const idempotencyKeySchema = z
   .string()
   .trim()

@@ -3,7 +3,8 @@ import { describe, expect, test } from "vitest";
 import { MaterialRevisionMetadata } from "../../src/modules/materials/domain/material-revision-metadata.js";
 import {
   Material,
-  MaterialRevision,
+  materialRevision,
+  restoreMaterialRevision,
 } from "../../src/modules/materials/domain/material.js";
 import {
   materialId,
@@ -40,8 +41,9 @@ function revisionValues() {
 
 describe("MaterialRevision", () => {
   test("restores an immutable revision and restores history as a new revision", () => {
-    const source = MaterialRevision.restore(revisionValues());
-    const restored = source.restoreAs(
+    const source = materialRevision(revisionValues());
+    const restored = restoreMaterialRevision(
+      source,
       materialRevisionId("93000000-0000-4000-8000-000000000005"),
     );
 

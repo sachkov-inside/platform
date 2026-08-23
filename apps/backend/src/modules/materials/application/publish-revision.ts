@@ -9,9 +9,8 @@ import type {
 import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
 import { authorizePublish } from "./ports/author-policy.js";
 import {
+  executeAuthoringTransaction,
   failure,
-  failureFromTransaction,
-  rollback,
 } from "./shared/application-result.js";
 import { fingerprintCommand } from "./shared/canonical-command-fingerprint.js";
 import {
@@ -21,15 +20,12 @@ import {
   parseCommand,
   principalId,
 } from "./shared/command-validation.js";
-import { mapPostgresError } from "./shared/postgres-error-mapping.js";
+import { mapPostgresLifecycleError } from "./shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "./shared/reference-integrity.js";
+import { executeIdempotentPublication } from "./shared/idempotent-operation.js";
 import {
-  claimIdempotency,
-  completeIdempotency,
-} from "../infrastructure/postgres/idempotency.js";
-import {
-  loadPublicationEvent,
   publishRevisionProjection,
+  type PublicationEvent,
 } from "../infrastructure/postgres/lifecycle-persistence.js";
 import {
   lockMaterialForLifecycleChange,
@@ -65,96 +61,83 @@ export function createPublishRevision(
     }
     const fingerprint = fingerprintCommand({ operation: "publish_revision", ...command });
     let publicationMetadata: MaterialRevisionMetadata | undefined;
-    try {
-      const event = await dependencies.database.transaction().execute(async (transaction) => {
-        const claim = await claimIdempotency(transaction, {
-          actor: command.actor,
-          operation: "publish_revision",
-          key: command.idempotencyKey,
-          fingerprint,
-        });
-        if (claim.kind === "reused") {
-          rollback({ code: "idempotency_key_reused" });
-        }
-        if (claim.kind === "incomplete") {
-          rollback({ code: "dependency_unavailable", retryable: true });
-        }
-        if (claim.kind === "replay") {
-          if (claim.publicationEventId === null) {
-            rollback({ code: "internal_error", correlationId: randomUUID() });
-          }
-          const replay = await loadPublicationEvent(transaction, claim.publicationEventId);
-          if (replay === undefined) {
-            rollback({ code: "internal_error", correlationId: randomUUID() });
-          }
-          return replay;
-        }
+    const result = await executeAuthoringTransaction<
+      PublicationEvent,
+      PublishRevisionError
+    >(
+      dependencies.database,
+      (transaction, rollback) =>
+        executeIdempotentPublication(
+          transaction,
+          {
+            actor: command.actor,
+            operation: "publish_revision",
+            key: command.idempotencyKey,
+            fingerprint,
+          },
+          rollback,
+          async () => {
+            const material = await lockMaterialForLifecycleChange(
+              transaction,
+              command.materialId,
+            );
+            if (material === undefined) {
+              return rollback({ code: "material_not_found" });
+            }
+            const transition = material.publishRevision(
+              command.revisionId,
+              command.expectedPublishedRevisionId,
+            );
+            if (!transition.ok) {
+              return rollback(transition.error);
+            }
 
-        const material = await lockMaterialForLifecycleChange(
-          transaction,
-          command.materialId,
-        );
-        if (material === undefined) {
-          rollback({ code: "material_not_found" });
-        }
-        const transition = material.publishRevision(
-          command.revisionId,
-          command.expectedPublishedRevisionId,
-        );
-        if (!transition.ok) {
-          rollback(transition.error);
-        }
-
-        const revision = await loadMaterialRevision(
-          transaction,
-          dependencies.materialBodyOperations,
-          command.materialId,
-          command.revisionId,
-        );
-        if (revision === undefined || !revision.ok) {
-          rollback({ code: "internal_error", correlationId: randomUUID() });
-        }
-        publicationMetadata = revision.value.metadata;
-        await requireReferenceIntegrity(
-          transaction,
-          command.materialId,
-          revision.value.metadata,
-        );
-        const extraction = dependencies.materialBodyOperations.extract(revision.value.body);
-        if (!extraction.ok) {
-          rollback(extraction.error);
-        }
-        const eventId = randomUUID();
-        const publication = await publishRevisionProjection(transaction, {
-          actor: command.actor,
-          eventId,
-          extraction: extraction.value,
-          revision: revision.value,
-        });
-        await completeIdempotency(transaction, {
-          actor: command.actor,
-          operation: "publish_revision",
-          key: command.idempotencyKey,
-          materialId: command.materialId,
-          revisionId: command.revisionId,
-          publicationEventId: eventId,
-        });
-        return publication;
-      });
-      return {
+            const revision = await loadMaterialRevision(
+              transaction,
+              dependencies.materialBodyOperations,
+              command.materialId,
+              command.revisionId,
+            );
+            if (revision === undefined || !revision.ok) {
+              return rollback({
+                code: "internal_error",
+                correlationId: randomUUID(),
+              });
+            }
+            publicationMetadata = revision.value.metadata;
+            await requireReferenceIntegrity(
+              transaction,
+              command.materialId,
+              revision.value.metadata,
+              rollback,
+            );
+            const extraction = dependencies.materialBodyOperations.extract(
+              revision.value.body,
+            );
+            if (!extraction.ok) {
+              return rollback(extraction.error);
+            }
+            return publishRevisionProjection(transaction, {
+              actor: command.actor,
+              eventId: randomUUID(),
+              extraction: extraction.value,
+              revision: revision.value,
+            });
+          },
+        ),
+      (unexpected) =>
+        mapPostgresLifecycleError(unexpected, publicationMetadata),
+    );
+    return result.ok
+      ? {
         ok: true,
         value: {
-          materialId: event.materialId,
-          revisionId: event.revisionId,
-          publicationEventId: event.id,
-          recordedAt: event.createdAt,
+          materialId: result.value.materialId,
+          revisionId: result.value.revisionId,
+          publicationEventId: result.value.id,
+          recordedAt: result.value.createdAt,
         },
-      };
-    } catch (error) {
-      return failureFromTransaction<PublishRevisionError>(
-        error,
-        (unexpected) => mapPostgresError(unexpected, publicationMetadata),
-      );
-    }
+      }
+      : result;
   };
 }

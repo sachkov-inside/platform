@@ -98,15 +98,12 @@ export interface MaterialBodyExtraction {
   readonly resources: readonly MaterialBodyResourceSummary[];
 }
 
-export type MaterialBodyResult<Value> =
-  | { readonly ok: true; readonly value: Value }
-  | {
-      readonly ok: false;
-      readonly error: {
-        readonly code: "invalid_content";
-        readonly issues: readonly ValidationIssue[];
-      };
-    };
+export type MaterialBodyValidationError = {
+  readonly code: "invalid_content";
+  readonly issues: readonly ValidationIssue[];
+};
+
+export type MaterialBodyResult<Value> = Result<Value, MaterialBodyValidationError>;
 
 export type MaterialBodyChange =
   | { readonly kind: "replace_document"; readonly document: unknown }
@@ -145,3 +142,4 @@ export interface MaterialBodyOperations {
     document: MaterialBodySnapshot,
   ): MaterialBodyResult<MaterialBodyExtraction>;
 }
+import type { Result } from "../../result.js";

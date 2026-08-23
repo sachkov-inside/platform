@@ -5,7 +5,8 @@ import {
   MaterialRevisionMetadata,
   type MaterialRevisionMetadataValues,
 } from "../../domain/material-revision-metadata.js";
-import { Material, MaterialRevision } from "../../domain/material.js";
+import { Material, materialRevision } from "../../domain/material.js";
+import type { MaterialRevision } from "../../domain/material.js";
 import {
   materialId,
   materialRevisionId,
@@ -203,7 +204,7 @@ export function hydratePersistedMaterialRevision(
   }
   return {
     ok: true,
-    value: MaterialRevision.restore({
+    value: materialRevision({
       id: persisted.revisionId,
       materialId: persisted.materialId,
       ...(persisted.restoredFromRevisionId === null

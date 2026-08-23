@@ -9,12 +9,11 @@ import type {
 import { authorizeAuthor } from "./ports/author-policy.js";
 import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
 import {
+  executeAuthoringTransaction,
   failure,
-  failureFromTransaction,
-  rollback,
 } from "./shared/application-result.js";
 import { fingerprintCommand } from "./shared/canonical-command-fingerprint.js";
-import { claimOrReplay } from "./shared/claim-or-replay.js";
+import { executeIdempotentRevision } from "./shared/idempotent-operation.js";
 import {
   idempotencyKeySchema,
   parseCommand,
@@ -24,12 +23,12 @@ import { toMaterialRevisionDto } from "./shared/material-revision-dto.js";
 import { mapPostgresError } from "./shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "./shared/reference-integrity.js";
 import { MaterialRevisionMetadata } from "../domain/material-revision-metadata.js";
+import type { MaterialRevision } from "../domain/material.js";
 import {
   materialId,
   materialRevisionId,
 } from "../domain/material-identifiers.js";
 import type { AuthoringTransaction } from "../infrastructure/postgres/database.js";
-import { completeIdempotency } from "../infrastructure/postgres/idempotency.js";
 import { loadMaterialRevision } from "../infrastructure/postgres/material-persistence.js";
 import {
   insertRevision,
@@ -97,61 +96,68 @@ export function createDraftOperation(
       body: command.body,
     });
 
-    try {
-      const value = await dependencies.database
-        .transaction()
-        .execute(async (transaction) => {
-          const replay = await claimOrReplay(transaction, dependencies, {
+    const result = await executeAuthoringTransaction<
+      MaterialRevision,
+      CreateDraftError
+    >(
+      dependencies.database,
+      (transaction, rollback) =>
+        executeIdempotentRevision(
+          transaction,
+          dependencies.materialBodyOperations,
+          {
             actor: command.actor,
             operation: "create_draft",
             key: command.idempotencyKey,
             fingerprint,
-          });
-          if (replay !== undefined) {
-            return replay;
-          }
-
-          const newMaterialId = materialId(randomUUID());
-          const revisionId = materialRevisionId(randomUUID());
-          await requireReferenceIntegrity(transaction, newMaterialId, metadata.value);
-          await insertMaterial(transaction, {
-            materialId: newMaterialId,
-            revisionId,
-            slug: metadata.value.slug,
-          });
-          await insertRevision(transaction, {
-            actor: command.actor,
-            materialId: newMaterialId,
-            revisionId,
-            metadata: metadata.value,
-            schemaVersion: body.value.schemaVersion,
-            body: body.value.doc,
-          });
-          await replaceCurrentRelations(transaction, newMaterialId, metadata.value);
-          await completeIdempotency(transaction, {
-            actor: command.actor,
-            operation: "create_draft",
-            key: command.idempotencyKey,
-            materialId: newMaterialId,
-            revisionId,
-          });
-          const revision = await loadMaterialRevision(
-            transaction,
-            dependencies.materialBodyOperations,
-            newMaterialId,
-            revisionId,
-          );
-          if (revision === undefined || !revision.ok) {
-            rollback({ code: "internal_error", correlationId: randomUUID() });
-          }
-          return revision.value;
-        });
-      return { ok: true, value: toMaterialRevisionDto(value) };
-    } catch (error) {
-      return failureFromTransaction<CreateDraftError>(
-        error,
-        (unexpected) => mapPostgresError(unexpected, metadata.value),
-      );
-    }
+          },
+          rollback,
+          async () => {
+            const newMaterialId = materialId(randomUUID());
+            const revisionId = materialRevisionId(randomUUID());
+            await requireReferenceIntegrity(
+              transaction,
+              newMaterialId,
+              metadata.value,
+              rollback,
+            );
+            await insertMaterial(transaction, {
+              materialId: newMaterialId,
+              revisionId,
+              slug: metadata.value.slug,
+            });
+            await insertRevision(transaction, {
+              actor: command.actor,
+              materialId: newMaterialId,
+              revisionId,
+              metadata: metadata.value,
+              schemaVersion: body.value.schemaVersion,
+              body: body.value.doc,
+            });
+            await replaceCurrentRelations(
+              transaction,
+              newMaterialId,
+              metadata.value,
+            );
+            const revision = await loadMaterialRevision(
+              transaction,
+              dependencies.materialBodyOperations,
+              newMaterialId,
+              revisionId,
+            );
+            if (revision === undefined || !revision.ok) {
+              return rollback({
+                code: "internal_error",
+                correlationId: randomUUID(),
+              });
+            }
+            return revision.value;
+          },
+        ),
+      (unexpected) => mapPostgresError(unexpected, metadata.value),
+    );
+    return result.ok
+      ? { ok: true, value: toMaterialRevisionDto(result.value) }
+      : result;
   };
 }

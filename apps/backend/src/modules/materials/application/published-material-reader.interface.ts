@@ -1,6 +1,7 @@
 import type { MaterialAccess } from "../domain/material-revision-metadata.js";
 import type { RenderedMaterialBody } from "../domain/material-body/material-body.js";
 import type { AccessDecision, Subject } from "./ports/content-access.js";
+import type { Result } from "../result.js";
 
 export interface PublicMaterialProjectionDto {
   readonly materialId: string;
@@ -32,15 +33,15 @@ export type PublishedMaterialReadDto =
       readonly access: Extract<AccessDecision, { readonly allowed: false }>;
     };
 
-export type PublishedMaterialReadResult =
-  | { readonly ok: true; readonly value: PublishedMaterialReadDto }
-  | {
-      readonly ok: false;
-      readonly error:
-        | { readonly code: "material_not_found" }
-        | { readonly code: "dependency_unavailable"; readonly retryable: true }
-        | { readonly code: "internal_error"; readonly correlationId: string };
-    };
+export type PublishedMaterialReadError =
+  | { readonly code: "material_not_found" }
+  | { readonly code: "dependency_unavailable"; readonly retryable: true }
+  | { readonly code: "internal_error"; readonly correlationId: string };
+
+export type PublishedMaterialReadResult = Result<
+  PublishedMaterialReadDto,
+  PublishedMaterialReadError
+>;
 
 export interface ReadPublishedMaterialQuery {
   readonly subject: Subject;

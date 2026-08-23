@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type {
+  DuplicateTagError,
   InvalidReferenceError,
   PersistenceConflictError,
   SystemError,
@@ -16,6 +17,7 @@ interface PostgreSqlErrorShape {
 }
 
 type PostgresOperationError =
+  | DuplicateTagError
   | InvalidReferenceError
   | PersistenceConflictError
   | SystemError;
@@ -128,6 +130,16 @@ export function mapPostgresError(
     };
   }
   return mapPostgresReadError(error);
+}
+
+export function mapPostgresLifecycleError(
+  error: unknown,
+  metadata?: MaterialRevisionMetadata,
+): InvalidReferenceError | PersistenceConflictError | SystemError {
+  const mapped = mapPostgresError(error, metadata);
+  return mapped.code === "duplicate_tag"
+    ? mapPostgresReadError(error)
+    : mapped;
 }
 
 export function mapPostgresReadError(error: unknown): SystemError {

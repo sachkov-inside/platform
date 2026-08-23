@@ -1,6 +1,14 @@
 import type { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
 import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
-import { rollback } from "./application-result.js";
+import type {
+  InvalidReferenceError,
+  SeriesOrdinalConflictError,
+} from "../material-authoring.interface.js";
+import type { Rollback } from "./application-result.js";
+
+type ReferenceIntegrityError =
+  | InvalidReferenceError
+  | SeriesOrdinalConflictError;
 
 async function findReferenceIssues(
   transaction: AuthoringTransaction,
@@ -96,6 +104,7 @@ export async function requireReferenceIntegrity(
   transaction: AuthoringTransaction,
   materialId: string,
   metadata: MaterialRevisionMetadata,
+  rollback: Rollback<ReferenceIntegrityError>,
 ): Promise<void> {
   const issues = await findReferenceIssues(transaction, metadata);
   if (issues.length > 0) {

@@ -3,15 +3,15 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type {
-  ValidateRevisionOperation,
   ValidateRevisionError,
+  ValidateRevisionOperation,
+  ValidatedRevisionDto,
 } from "./material-authoring.interface.js";
 import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
 import { authorizeAuthor } from "./ports/author-policy.js";
 import {
+  executeAuthoringTransaction,
   failure,
-  failureFromTransaction,
-  rollback,
 } from "./shared/application-result.js";
 import { fingerprintCommand } from "./shared/canonical-command-fingerprint.js";
 import {
@@ -49,9 +49,12 @@ export function createValidateRevision(
     if (!authorization.ok) {
       return failure(authorization.error);
     }
-    try {
-      const validated = await dependencies.database.transaction().execute(
-        async (transaction) => {
+    return executeAuthoringTransaction<
+      ValidatedRevisionDto,
+      ValidateRevisionError
+    >(
+      dependencies.database,
+      async (transaction, rollback) => {
           const material = await transaction
             .selectFrom("materials")
             .select("current_draft_revision_id")
@@ -59,7 +62,7 @@ export function createValidateRevision(
             .forShare()
             .executeTakeFirst();
           if (material === undefined) {
-            rollback({ code: "material_not_found" });
+            return rollback({ code: "material_not_found" });
           }
           const revision = await loadMaterialRevision(
             transaction,
@@ -68,18 +71,22 @@ export function createValidateRevision(
             query.revisionId,
           );
           if (revision === undefined) {
-            rollback({ code: "revision_not_found" });
+            return rollback({ code: "revision_not_found" });
           }
           if (!revision.ok) {
-            rollback({ code: "internal_error", correlationId: randomUUID() });
+            return rollback({
+              code: "internal_error",
+              correlationId: randomUUID(),
+            });
           }
           await requireReferenceIntegrity(
             transaction,
             query.materialId,
             revision.value.metadata,
+            rollback,
           );
           if (material.current_draft_revision_id !== query.revisionId) {
-            rollback({
+            return rollback({
               code: "stale_revision",
               currentRevisionId: materialRevisionId(
                 material.current_draft_revision_id,
@@ -90,7 +97,7 @@ export function createValidateRevision(
             revision.value.body,
           );
           if (!extraction.ok) {
-            rollback(extraction.error);
+            return rollback(extraction.error);
           }
           return {
             materialId: revision.value.materialId,
@@ -101,14 +108,8 @@ export function createValidateRevision(
             }),
             extraction: extraction.value,
           };
-        },
-      );
-      return { ok: true, value: validated };
-    } catch (error) {
-      return failureFromTransaction<ValidateRevisionError>(
-        error,
-        mapPostgresValidationError,
-      );
-    }
+      },
+      mapPostgresValidationError,
+    );
   };
 }

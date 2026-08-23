@@ -1,3 +1,5 @@
+import { normalizedUuidSchema } from "./uuid.js";
+
 declare const materialIdBrand: unique symbol;
 declare const materialRevisionIdBrand: unique symbol;
 declare const idempotencyKeyBrand: unique symbol;
@@ -8,21 +10,20 @@ export type MaterialRevisionId = string & {
 };
 export type IdempotencyKey = string & { readonly [idempotencyKeyBrand]: true };
 
-const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function normalizedIdentifier(value: string, name: string): string {
+  const parsed = normalizedUuidSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new TypeError(`${name} must be a UUID`);
+  }
+  return parsed.data;
+}
 
 export function materialId(value: string): MaterialId {
-  if (!uuidPattern.test(value)) {
-    throw new TypeError("MaterialId must be a UUID");
-  }
-  return value.toLowerCase() as MaterialId;
+  return normalizedIdentifier(value, "MaterialId") as MaterialId;
 }
 
 export function materialRevisionId(value: string): MaterialRevisionId {
-  if (!uuidPattern.test(value)) {
-    throw new TypeError("MaterialRevisionId must be a UUID");
-  }
-  return value.toLowerCase() as MaterialRevisionId;
+  return normalizedIdentifier(value, "MaterialRevisionId") as MaterialRevisionId;
 }
 
 export function materialIdempotencyKey(value: string): IdempotencyKey {

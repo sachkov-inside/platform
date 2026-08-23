@@ -4,8 +4,9 @@ import type {
   MaterialId,
   MaterialRevisionId,
 } from "./material-identifiers.js";
+import type { Result } from "../result.js";
 
-export interface MaterialRevisionValues {
+export interface MaterialRevision {
   readonly id: MaterialRevisionId;
   readonly materialId: MaterialId;
   readonly restoredFromRevisionId?: MaterialRevisionId;
@@ -13,53 +14,34 @@ export interface MaterialRevisionValues {
   readonly body: MaterialBody;
 }
 
-export class MaterialRevision {
-  readonly id: MaterialRevisionId;
-  readonly materialId: MaterialId;
-  readonly restoredFromRevisionId: MaterialRevisionId | undefined;
-  readonly metadata: MaterialRevisionMetadata;
-  readonly body: MaterialBody;
-
-  private constructor(values: MaterialRevisionValues) {
-    if (values.id.length === 0 || values.materialId.length === 0) {
-      throw new TypeError("A MaterialRevision must identify its Material and revision");
-    }
-    this.id = values.id;
-    this.materialId = values.materialId;
-    this.restoredFromRevisionId = values.restoredFromRevisionId;
-    this.metadata = values.metadata;
-    this.body = values.body;
-    Object.freeze(this);
-  }
-
-  static restore(values: MaterialRevisionValues): MaterialRevision {
-    return new MaterialRevision(values);
-  }
-
-  restoreAs(revisionId: MaterialRevisionId): MaterialRevision {
-    return new MaterialRevision({
-      id: revisionId,
-      materialId: this.materialId,
-      restoredFromRevisionId: this.id,
-      metadata: this.metadata,
-      body: this.body,
-    });
-  }
+export function materialRevision(
+  values: MaterialRevision,
+): MaterialRevision {
+  return Object.freeze({ ...values });
 }
 
-export type MaterialLifecycleError =
-  | {
-      readonly code: "stale_revision";
-      readonly currentRevisionId: MaterialRevisionId;
-    }
-  | {
-      readonly code: "stale_publication";
-      readonly currentPublishedRevisionId: MaterialRevisionId | null;
-    };
+export function restoreMaterialRevision(
+  source: MaterialRevision,
+  revisionId: MaterialRevisionId,
+): MaterialRevision {
+  return materialRevision({
+    id: revisionId,
+    materialId: source.materialId,
+    restoredFromRevisionId: source.id,
+    metadata: source.metadata,
+    body: source.body,
+  });
+}
 
-export type MaterialLifecycleResult =
-  | { readonly ok: true; readonly value: Material }
-  | { readonly ok: false; readonly error: MaterialLifecycleError };
+export interface StaleRevisionError {
+  readonly code: "stale_revision";
+  readonly currentRevisionId: MaterialRevisionId;
+}
+
+export interface StalePublicationError {
+  readonly code: "stale_publication";
+  readonly currentPublishedRevisionId: MaterialRevisionId | null;
+}
 
 export interface MaterialValues {
   readonly id: MaterialId;
@@ -73,9 +55,6 @@ export class Material {
   readonly currentPublishedRevisionId: MaterialRevisionId | null;
 
   private constructor(values: MaterialValues) {
-    if (values.id.length === 0 || values.currentDraftRevisionId.length === 0) {
-      throw new TypeError("A Material must identify its current draft revision");
-    }
     this.id = values.id;
     this.currentDraftRevisionId = values.currentDraftRevisionId;
     this.currentPublishedRevisionId = values.currentPublishedRevisionId;
@@ -89,7 +68,7 @@ export class Material {
   advanceDraft(
     baseRevisionId: MaterialRevisionId,
     revisionId: MaterialRevisionId,
-  ): MaterialLifecycleResult {
+  ): Result<Material, StaleRevisionError> {
     if (this.currentDraftRevisionId !== baseRevisionId) {
       return {
         ok: false,
@@ -112,7 +91,7 @@ export class Material {
   publishRevision(
     revisionId: MaterialRevisionId,
     expectedPublishedRevisionId: MaterialRevisionId | null,
-  ): MaterialLifecycleResult {
+  ): Result<Material, StaleRevisionError | StalePublicationError> {
     if (this.currentDraftRevisionId !== revisionId) {
       return {
         ok: false,
@@ -141,7 +120,9 @@ export class Material {
     };
   }
 
-  unpublish(expectedPublishedRevisionId: MaterialRevisionId): MaterialLifecycleResult {
+  unpublish(
+    expectedPublishedRevisionId: MaterialRevisionId,
+  ): Result<Material, StalePublicationError> {
     if (this.currentPublishedRevisionId !== expectedPublishedRevisionId) {
       return {
         ok: false,
