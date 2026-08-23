@@ -1,10 +1,8 @@
 import { z } from "zod";
 
 import { validationIssuePath } from "../../domain/material-body/validation-issue-path.js";
-import type {
-  InvalidContentError,
-  Result,
-} from "../material-authoring.interface.js";
+import type { Result } from "../../result.js";
+import type { InvalidContentError } from "../material-authoring.interface.js";
 import {
   materialId,
   materialIdempotencyKey,

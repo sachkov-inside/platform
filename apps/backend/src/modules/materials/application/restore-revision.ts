@@ -22,6 +22,7 @@ import {
 } from "./shared/command-validation.js";
 import { toMaterialRevisionDto } from "./shared/material-revision-dto.js";
 import { mapPostgresLifecycleError } from "./shared/postgres-error-mapping.js";
+import { requireMaterialRevision } from "./shared/require-material-revision.js";
 import { requireReferenceIntegrity } from "./shared/reference-integrity.js";
 import { executeIdempotentRevision } from "./shared/idempotent-operation.js";
 import {
@@ -147,19 +148,13 @@ export function createRestoreRevision(
               command.materialId,
               restoredRevision.metadata,
             );
-            const restored = await loadMaterialRevision(
+            return requireMaterialRevision(
               transaction,
               dependencies.materialBodyOperations,
               command.materialId,
               restoredRevision.id,
+              rollback,
             );
-            if (restored === undefined || !restored.ok) {
-              return rollback({
-                code: "internal_error",
-                correlationId: randomUUID(),
-              });
-            }
-            return restored.value;
           },
         ),
       mapPostgresLifecycleError,

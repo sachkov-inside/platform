@@ -40,6 +40,16 @@ export interface Formats {
   slug: string;
 }
 
+export interface MaterialAccessAuditEvents {
+  action: string;
+  actor_id: string | null;
+  created_at: Generated<Timestamp>;
+  decision: string;
+  id: string;
+  material_id: string;
+  revision_id: string;
+}
+
 export interface MaterialPublicationEvents {
   actor_id: string;
   created_at: Generated<Timestamp>;
@@ -149,6 +159,7 @@ export interface Topics {
 export interface DB {
   authoring_idempotency: AuthoringIdempotency;
   formats: Formats;
+  material_access_audit_events: MaterialAccessAuditEvents;
   material_publication_events: MaterialPublicationEvents;
   material_revision_series_memberships: MaterialRevisionSeriesMemberships;
   material_revision_tags: MaterialRevisionTags;

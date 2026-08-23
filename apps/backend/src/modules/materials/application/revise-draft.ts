@@ -24,6 +24,7 @@ import {
 } from "./shared/command-validation.js";
 import { toMaterialRevisionDto } from "./shared/material-revision-dto.js";
 import { mapPostgresError } from "./shared/postgres-error-mapping.js";
+import { requireMaterialRevision } from "./shared/require-material-revision.js";
 import { requireReferenceIntegrity } from "./shared/reference-integrity.js";
 import { MaterialRevisionMetadata } from "../domain/material-revision-metadata.js";
 import type { MaterialRevision } from "../domain/material.js";
@@ -247,19 +248,13 @@ export function createReviseDraft(
               command.materialId,
               metadata.value,
             );
-            const revision = await loadMaterialRevision(
+            return requireMaterialRevision(
               transaction,
               dependencies.materialBodyOperations,
               command.materialId,
               transition.value.currentDraftRevisionId,
+              rollback,
             );
-            if (revision === undefined || !revision.ok) {
-              return rollback({
-                code: "internal_error",
-                correlationId: randomUUID(),
-              });
-            }
-            return revision.value;
           },
         ),
       (unexpected) => mapPostgresError(unexpected, metadata.value),

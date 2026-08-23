@@ -11,8 +11,6 @@ import type {
 } from "../domain/material-revision-metadata.js";
 import type { Result } from "../result.js";
 
-export type { Result } from "../result.js";
-
 export interface SeriesMembershipInput {
   readonly seriesId: string;
   readonly ordinal: number;

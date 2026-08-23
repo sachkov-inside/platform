@@ -176,6 +176,39 @@ export async function up(database: Kysely<unknown>): Promise<void> {
   `.execute(database);
 
   await database.schema
+    .createTable("material_access_audit_events")
+    .addColumn("id", "uuid", (column) => column.primaryKey())
+    .addColumn("material_id", "uuid", (column) => column.notNull())
+    .addColumn("revision_id", "uuid", (column) => column.notNull())
+    .addColumn("actor_id", "uuid")
+    .addColumn("action", "text", (column) => column.notNull())
+    .addColumn("decision", "text", (column) => column.notNull())
+    .addColumn("created_at", "timestamptz", (column) =>
+      column.notNull().defaultTo(sql`now()`),
+    )
+    .addForeignKeyConstraint(
+      "material_access_audit_events_revision_fk",
+      ["material_id", "revision_id"],
+      "material_revisions",
+      ["material_id", "id"],
+    )
+    .addCheckConstraint(
+      "material_access_audit_events_action_check",
+      sql`action in ('preview', 'read')`,
+    )
+    .addCheckConstraint(
+      "material_access_audit_events_decision_check",
+      sql`decision in ('allow', 'deny')`,
+    )
+    .execute();
+
+  await sql`
+    create trigger material_access_audit_events_immutable
+    before update or delete on material_access_audit_events
+    for each row execute function reject_immutable_material_revision_change()
+  `.execute(database);
+
+  await database.schema
     .alterTable("authoring_idempotency")
     .dropConstraint("authoring_idempotency_operation_check")
     .execute();
@@ -224,7 +257,11 @@ export async function down(database: Kysely<unknown>): Promise<void> {
   await sql`drop trigger if exists material_publication_events_immutable on material_publication_events`.execute(
     database,
   );
+  await sql`drop trigger if exists material_access_audit_events_immutable on material_access_audit_events`.execute(
+    database,
+  );
   for (const table of [
+    "material_access_audit_events",
     "material_publication_events",
     "material_search_documents",
     "published_material_series_memberships",

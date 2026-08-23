@@ -12,6 +12,7 @@ import {
   loadMaterialRevision,
   loadMaterialRevisionHeader,
 } from "../infrastructure/postgres/material-persistence.js";
+import { recordMaterialAccessDecision } from "../infrastructure/postgres/access-audit-persistence.js";
 
 export function createPreviewRevision(
   dependencies: MaterialAuthoringDependencies,
@@ -37,8 +38,9 @@ export function createPreviewRevision(
           code: currentRevisionId === undefined ? "material_not_found" : "revision_not_found",
         });
       }
+      const subject = { kind: "principal", principalId: query.actor } as const;
       const decision = await dependencies.contentAccess.authorize({
-        subject: { kind: "principal", principalId: query.actor },
+        subject,
         action: "preview",
         resource: {
           kind: "material_body",
@@ -47,6 +49,13 @@ export function createPreviewRevision(
           publication: "draft",
           access: header.access,
         },
+      });
+      await recordMaterialAccessDecision(dependencies.database, {
+        subject,
+        action: "preview",
+        materialId: query.materialId,
+        revisionId: query.revisionId,
+        decision,
       });
       if (!decision.allowed) {
         return failure(

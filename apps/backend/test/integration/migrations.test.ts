@@ -35,6 +35,7 @@ describe("material authoring migrations", () => {
     expect(contentTables).toEqual([
       "authoring_idempotency",
       "formats",
+      "material_access_audit_events",
       "material_publication_events",
       "material_revision_series_memberships",
       "material_revision_tags",

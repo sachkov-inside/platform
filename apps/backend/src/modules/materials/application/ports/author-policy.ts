@@ -1,6 +1,13 @@
+export interface PublicationAuthorizationRequest {
+  readonly action: "publish" | "unpublish";
+  readonly principalId: string;
+  readonly materialId: string;
+  readonly revisionId: string;
+}
+
 export interface AuthorPolicy {
   canAuthor(principalId: string): boolean | Promise<boolean>;
-  canPublish(principalId: string): boolean | Promise<boolean>;
+  canPublish(request: PublicationAuthorizationRequest): boolean | Promise<boolean>;
 }
 
 export type AuthorAuthorization =
@@ -29,9 +36,9 @@ async function authorize(
 
 export function authorizePublish(
   policy: AuthorPolicy,
-  principalId: string,
+  request: PublicationAuthorizationRequest,
 ): Promise<AuthorAuthorization> {
-  return authorize(() => policy.canPublish(principalId));
+  return authorize(() => policy.canPublish(request));
 }
 
 export function authorizeAuthor(

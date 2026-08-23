@@ -48,7 +48,12 @@ export function createUnpublishMaterial(
     const command = parsed.value;
     const authorization = await authorizePublish(
       dependencies.authorPolicy,
-      command.actor,
+      {
+        action: "unpublish",
+        principalId: command.actor,
+        materialId: command.materialId,
+        revisionId: command.expectedPublishedRevisionId,
+      },
     );
     if (!authorization.ok) {
       return failure(authorization.error);

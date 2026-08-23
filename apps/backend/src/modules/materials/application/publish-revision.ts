@@ -54,7 +54,12 @@ export function createPublishRevision(
     const command = parsed.value;
     const authorization = await authorizePublish(
       dependencies.authorPolicy,
-      command.actor,
+      {
+        action: "publish",
+        principalId: command.actor,
+        materialId: command.materialId,
+        revisionId: command.revisionId,
+      },
     );
     if (!authorization.ok) {
       return failure(authorization.error);
@@ -84,25 +89,27 @@ export function createPublishRevision(
             if (material === undefined) {
               return rollback({ code: "material_not_found" });
             }
-            const transition = material.publishRevision(
-              command.revisionId,
-              command.expectedPublishedRevisionId,
-            );
-            if (!transition.ok) {
-              return rollback(transition.error);
-            }
-
             const revision = await loadMaterialRevision(
               transaction,
               dependencies.materialBodyOperations,
               command.materialId,
               command.revisionId,
             );
-            if (revision === undefined || !revision.ok) {
+            if (revision === undefined) {
+              return rollback({ code: "revision_not_found" });
+            }
+            if (!revision.ok) {
               return rollback({
                 code: "internal_error",
                 correlationId: randomUUID(),
               });
+            }
+            const transition = material.publishRevision(
+              command.revisionId,
+              command.expectedPublishedRevisionId,
+            );
+            if (!transition.ok) {
+              return rollback(transition.error);
             }
             publicationMetadata = revision.value.metadata;
             await requireReferenceIntegrity(

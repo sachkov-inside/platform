@@ -44,7 +44,8 @@ describe("Material lifecycle", () => {
   test("validates, previews, publishes and publicly reads one exact free revision", async () => {
     const authorPolicy = {
       canAuthor: (principalId: string) => principalId === ownerId,
-      canPublish: (principalId: string) => principalId === ownerId,
+      canPublish: ({ principalId }: { principalId: string }) =>
+        principalId === ownerId,
     };
     const contentAccess = createBaselineContentAccess(authorPolicy);
     const { authoring } = createMaterials({
@@ -119,6 +120,21 @@ describe("Material lifecycle", () => {
         },
       },
     });
+    expect(
+      await testDatabase.database
+        .selectFrom("material_access_audit_events")
+        .select(["action", "actor_id", "decision", "material_id", "revision_id"])
+        .where("material_id", "=", created.value.materialId)
+        .execute(),
+    ).toEqual([
+      {
+        action: "preview",
+        actor_id: ownerId,
+        decision: "allow",
+        material_id: created.value.materialId,
+        revision_id: created.value.revisionId,
+      },
+    ]);
 
     const published = await authoring.publishRevision({
       actor: ownerId,
@@ -202,7 +218,8 @@ describe("Material lifecycle", () => {
   test("restores an historical revision as a new draft and unpublishes without losing history", async () => {
     const authorPolicy = {
       canAuthor: (principalId: string) => principalId === ownerId,
-      canPublish: (principalId: string) => principalId === ownerId,
+      canPublish: ({ principalId }: { principalId: string }) =>
+        principalId === ownerId,
     };
     const contentAccess = createBaselineContentAccess(authorPolicy);
     const { authoring } = createMaterials({
@@ -461,6 +478,13 @@ describe("Material lifecycle", () => {
       },
     });
     expect(JSON.stringify(result)).not.toContain("private()");
+    expect(
+      await testDatabase.database
+        .selectFrom("material_access_audit_events")
+        .select(["action", "actor_id", "decision"])
+        .where("material_id", "=", materialId)
+        .execute(),
+    ).toEqual([{ action: "read", actor_id: null, decision: "deny" }]);
   });
 
   test("loads an exact membership body only after an explicit allow decision", async () => {
@@ -543,14 +567,25 @@ describe("Material lifecycle", () => {
         },
       },
     ]);
+    expect(
+      await testDatabase.database
+        .selectFrom("material_access_audit_events")
+        .select(["action", "actor_id", "decision"])
+        .where("material_id", "=", created.value.materialId)
+        .execute(),
+    ).toEqual([{ action: "read", actor_id: ownerId, decision: "allow" }]);
   });
 
   test("requires a distinct owner permission before recording publication GO", async () => {
+    const publishAuthorizationRequests: unknown[] = [];
     const { authoring } = createMaterials({
       database: testDatabase.database,
       authorPolicy: {
         canAuthor: (principalId: string) => principalId === ownerId,
-        canPublish: () => false,
+        canPublish: (request) => {
+          publishAuthorizationRequests.push(request);
+          return false;
+        },
       },
     });
     const created = await authoring.createDraft({
@@ -581,6 +616,14 @@ describe("Material lifecycle", () => {
         expectedPublishedRevisionId: null,
       }),
     ).toEqual({ ok: false, error: { code: "forbidden" } });
+    expect(publishAuthorizationRequests).toEqual([
+      {
+        action: "publish",
+        principalId: ownerId,
+        materialId: created.value.materialId,
+        revisionId: created.value.revisionId,
+      },
+    ]);
     expect(
       await testDatabase.database
         .selectFrom("material_publication_events")
@@ -588,6 +631,67 @@ describe("Material lifecycle", () => {
         .where("material_id", "=", created.value.materialId)
         .execute(),
     ).toEqual([]);
+  });
+
+  test("distinguishes an unknown revision from a stale existing revision", async () => {
+    const { authoring } = createMaterials({
+      database: testDatabase.database,
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
+    });
+    const created = await authoring.createDraft({
+      actor: ownerId,
+      idempotencyKey: "71000000-0000-4000-8000-000000000042",
+      metadata: {
+        title: "Publish revision errors",
+        summary: "Unknown and stale revisions have distinct outcomes.",
+        slug: "publish-revision-errors",
+        access: "free",
+        topicId,
+        formatId,
+        tagIds: [],
+        seriesMemberships: [],
+      },
+      body: representativeDocument("Current draft."),
+    });
+    if (!created.ok) {
+      throw new Error(created.error.code);
+    }
+
+    expect(
+      await authoring.publishRevision({
+        actor: ownerId,
+        idempotencyKey: "71000000-0000-4000-8000-000000000043",
+        materialId: created.value.materialId,
+        revisionId: "71000000-0000-4000-8000-000000000099",
+        expectedPublishedRevisionId: null,
+      }),
+    ).toEqual({ ok: false, error: { code: "revision_not_found" } });
+
+    const revised = await authoring.reviseDraft({
+      actor: ownerId,
+      idempotencyKey: "71000000-0000-4000-8000-000000000044",
+      materialId: created.value.materialId,
+      baseRevisionId: created.value.revisionId,
+      changes: { body: [{ kind: "replace_document", document: representativeDocument("New draft.") }] },
+    });
+    if (!revised.ok) {
+      throw new Error(revised.error.code);
+    }
+    expect(
+      await authoring.publishRevision({
+        actor: ownerId,
+        idempotencyKey: "71000000-0000-4000-8000-000000000045",
+        materialId: created.value.materialId,
+        revisionId: created.value.revisionId,
+        expectedPublishedRevisionId: null,
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "stale_revision",
+        currentRevisionId: revised.value.revisionId,
+      },
+    });
   });
 
   test("serializes concurrent publish commands and rejects the stale contender", async () => {

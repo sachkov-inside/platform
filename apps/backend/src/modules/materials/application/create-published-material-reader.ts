@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { MaterialBodyOperations } from "../domain/material-body/material-body.js";
 import { loadPublicMaterialProjection } from "../infrastructure/postgres/lifecycle-persistence.js";
 import { loadCurrentPublishedMaterialRevision } from "../infrastructure/postgres/material-persistence.js";
+import { recordMaterialAccessDecision } from "../infrastructure/postgres/access-audit-persistence.js";
 import {
   materialId,
   materialRevisionId,
@@ -41,6 +42,15 @@ export function createPublishedMaterialReaderImplementation(dependencies: {
             allowed: false as const,
             reason: "temporarily_unavailable" as const,
           };
+        }
+        if (projection.access === "membership") {
+          await recordMaterialAccessDecision(dependencies.database, {
+            subject,
+            action: "read",
+            materialId: materialId(projection.materialId),
+            revisionId: materialRevisionId(projection.revisionId),
+            decision: access,
+          });
         }
         if (!access.allowed) {
           return {
