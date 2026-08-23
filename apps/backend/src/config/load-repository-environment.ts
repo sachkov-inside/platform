@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const repositoryEnvPath = resolve(__dirname, "../../../..", ".env");
+const repositoryEnvPath = fileURLToPath(new URL("../../../../.env", import.meta.url));
 
 let loaded = false;
 
