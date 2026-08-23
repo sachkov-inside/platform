@@ -694,6 +694,7 @@ describe("MaterialDocumentOperations", () => {
     ["duplicate-node-id", "duplicate_node_id"],
     ["external-backslash-link", "unsafe_link"],
     ["invalid-nesting", "invalid_prosemirror_document"],
+    ["invalid-resource-reference", "invalid_asset_id"],
     ["normalization-drift", "document_would_be_normalized"],
     ["unsafe-link", "unsafe_link"],
     ["unknown-mark", "invalid_prosemirror_document"],
