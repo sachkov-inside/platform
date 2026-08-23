@@ -143,7 +143,7 @@ export interface UnpublishMaterialCommand {
   readonly expectedPublishedRevisionId: string;
 }
 
-export interface PublicationDto {
+export interface PublicationLifecycleEventDto {
   readonly materialId: string;
   readonly revisionId: string;
   readonly publicationEventId: string;
@@ -152,9 +152,9 @@ export interface PublicationDto {
 
 export type ValidateRevisionResult = ApplicationResult<ValidatedRevisionDto>;
 export type PreviewRevisionResult = ApplicationResult<PreviewRevisionDto>;
-export type PublishRevisionResult = ApplicationResult<PublicationDto>;
+export type PublishRevisionResult = ApplicationResult<PublicationLifecycleEventDto>;
 export type RestoreRevisionResult = ApplicationResult<MaterialRevisionDto>;
-export type UnpublishMaterialResult = ApplicationResult<PublicationDto>;
+export type UnpublishMaterialResult = ApplicationResult<PublicationLifecycleEventDto>;
 
 export interface ContentAuthoring {
   createDraft(command: CreateDraftCommand): Promise<CreateDraftResult>;

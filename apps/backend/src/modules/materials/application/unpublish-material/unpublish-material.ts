@@ -80,7 +80,16 @@ export function createUnpublishMaterial(
           rollback({ code: "material_not_found" });
         }
         if (material.current_published_revision_id === null) {
-          rollback({ code: "publication_not_found" });
+          const priorPublication = await transaction
+            .selectFrom("material_publication_events")
+            .select("id")
+            .where("material_id", "=", command.materialId)
+            .where("revision_id", "=", command.expectedPublishedRevisionId)
+            .where("kind", "=", "publish")
+            .executeTakeFirst();
+          if (priorPublication === undefined) {
+            rollback({ code: "publication_not_found" });
+          }
         }
         if (
           material.current_published_revision_id !==

@@ -13,7 +13,7 @@ export {
   type LoadDraftResult,
   type PreviewRevisionDto,
   type PreviewRevisionResult,
-  type PublicationDto,
+  type PublicationLifecycleEventDto,
   type PublishRevisionCommand,
   type PublishRevisionResult,
   type ReviseDraftCommand,

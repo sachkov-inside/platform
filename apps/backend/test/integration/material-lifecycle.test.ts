@@ -49,9 +49,15 @@ describe("Material lifecycle", () => {
       authorPolicy,
       contentAccess,
     });
+    let readAuthorizationCalls = 0;
     const publishedMaterials = createPublishedMaterials({
       database: testDatabase.database,
-      contentAccess,
+      contentAccess: {
+        authorize: (request) => {
+          readAuthorizationCalls += 1;
+          return contentAccess.authorize(request);
+        },
+      },
     });
     const body = representativeDocument("Exact published content.");
     const created = await authoring.createDraft({
@@ -157,6 +163,15 @@ describe("Material lifecycle", () => {
         expectedPublishedRevisionId: null,
       }),
     ).toEqual(published);
+    expect(
+      await authoring.publishRevision({
+        actor: ownerId,
+        idempotencyKey: "71000000-0000-4000-8000-000000000011",
+        materialId: created.value.materialId,
+        revisionId: created.value.revisionId,
+        expectedPublishedRevisionId: created.value.revisionId,
+      }),
+    ).toEqual({ ok: false, error: { code: "idempotency_key_reused" } });
 
     expect(
       await publishedMaterials.read({
@@ -177,6 +192,7 @@ describe("Material lifecycle", () => {
         body: preview.ok ? preview.value.body : undefined,
       },
     });
+    expect(readAuthorizationCalls).toBe(1);
   });
 
   test("restores an historical revision as a new draft and unpublishes without losing history", async () => {
@@ -239,14 +255,49 @@ describe("Material lifecycle", () => {
     if (!revised.ok) {
       throw new Error(revised.error.code);
     }
+    expect(
+      await authoring.validateRevision({
+        actor: ownerId,
+        materialId: original.value.materialId,
+        revisionId: original.value.revisionId,
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "stale_revision",
+        currentRevisionId: revised.value.revisionId,
+      },
+    });
 
-    const restored = await authoring.restoreRevision({
+    const restoreCommands = [
+      "71000000-0000-4000-8000-000000000023",
+      "71000000-0000-4000-8000-000000000025",
+    ].map((idempotencyKey) => ({
       actor: ownerId,
-      idempotencyKey: "71000000-0000-4000-8000-000000000023",
+      idempotencyKey,
       materialId: original.value.materialId,
       revisionId: original.value.revisionId,
       baseRevisionId: revised.value.revisionId,
+    }));
+    const restoreResults = await Promise.all(
+      restoreCommands.map((command) => authoring.restoreRevision(command)),
+    );
+    expect(restoreResults.filter((result) => result.ok)).toHaveLength(1);
+    const restoredIndex = restoreResults.findIndex((result) => result.ok);
+    const restored = restoreResults[restoredIndex];
+    if (restored === undefined || !restored.ok) {
+      throw new Error("Expected one successful restore");
+    }
+    expect(restoreResults[restoredIndex === 0 ? 1 : 0]).toEqual({
+      ok: false,
+      error: {
+        code: "stale_revision",
+        currentRevisionId: restored.value.revisionId,
+      },
     });
+    expect(
+      await authoring.restoreRevision(restoreCommands[restoredIndex]!),
+    ).toEqual(restored);
     expect(restored).toMatchObject({
       ok: true,
       value: {
@@ -255,6 +306,13 @@ describe("Material lifecycle", () => {
         body: original.value.body,
       },
     });
+    expect(
+      await testDatabase.database
+        .selectFrom("material_revisions")
+        .select("restored_from_revision_id")
+        .where("id", "=", restored.value.revisionId)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ restored_from_revision_id: original.value.revisionId });
     expect(
       await publishedMaterials.read({ subject: anonymousSubject, slug: "restore-lifecycle" }),
     ).toMatchObject({
@@ -265,13 +323,28 @@ describe("Material lifecycle", () => {
       },
     });
 
-    const command = {
+    const unpublishCommands = [
+      "71000000-0000-4000-8000-000000000024",
+      "71000000-0000-4000-8000-000000000026",
+    ].map((idempotencyKey) => ({
       actor: ownerId,
-      idempotencyKey: "71000000-0000-4000-8000-000000000024",
+      idempotencyKey,
       materialId: original.value.materialId,
       expectedPublishedRevisionId: original.value.revisionId,
-    } as const;
-    const unpublished = await authoring.unpublishMaterial(command);
+    }));
+    const unpublishResults = await Promise.all(
+      unpublishCommands.map((command) => authoring.unpublishMaterial(command)),
+    );
+    expect(unpublishResults.filter((result) => result.ok)).toHaveLength(1);
+    const unpublishedIndex = unpublishResults.findIndex((result) => result.ok);
+    const unpublished = unpublishResults[unpublishedIndex];
+    if (unpublished === undefined || !unpublished.ok) {
+      throw new Error("Expected one successful unpublish");
+    }
+    expect(unpublishResults[unpublishedIndex === 0 ? 1 : 0]).toEqual({
+      ok: false,
+      error: { code: "stale_publication", currentPublishedRevisionId: null },
+    });
     expect(unpublished).toMatchObject({
       ok: true,
       value: {
@@ -280,7 +353,9 @@ describe("Material lifecycle", () => {
         publicationEventId: expect.stringMatching(/^[0-9a-f-]{36}$/),
       },
     });
-    expect(await authoring.unpublishMaterial(command)).toEqual(unpublished);
+    expect(
+      await authoring.unpublishMaterial(unpublishCommands[unpublishedIndex]!),
+    ).toEqual(unpublished);
     expect(
       await publishedMaterials.read({ subject: anonymousSubject, slug: "restore-lifecycle" }),
     ).toEqual({ ok: false, error: { code: "material_not_found" } });
@@ -380,6 +455,87 @@ describe("Material lifecycle", () => {
       },
     });
     expect(JSON.stringify(result)).not.toContain("private()");
+  });
+
+  test("loads an exact membership body only after an explicit allow decision", async () => {
+    const authoring = createContentAuthoring({
+      database: testDatabase.database,
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
+    });
+    const created = await authoring.createDraft({
+      actor: ownerId,
+      idempotencyKey: "71000000-0000-4000-8000-000000000070",
+      metadata: {
+        title: "Membership delivery",
+        summary: "Protected bytes require an allow decision.",
+        slug: "membership-delivery",
+        access: "membership",
+        topicId,
+        formatId,
+        tagIds: [],
+        seriesMemberships: [],
+      },
+      body: representativeDocument("Allowed membership body."),
+    });
+    if (!created.ok) {
+      throw new Error(created.error.code);
+    }
+    const published = await authoring.publishRevision({
+      actor: ownerId,
+      idempotencyKey: "71000000-0000-4000-8000-000000000071",
+      materialId: created.value.materialId,
+      revisionId: created.value.revisionId,
+      expectedPublishedRevisionId: null,
+    });
+    if (!published.ok) {
+      throw new Error(published.error.code);
+    }
+    const decisions: unknown[] = [];
+    const publishedMaterials = createPublishedMaterials({
+      database: testDatabase.database,
+      contentAccess: {
+        authorize: (request) => {
+          decisions.push(request);
+          return Promise.resolve({ allowed: true, reason: "author" });
+        },
+      },
+    });
+
+    expect(
+      await publishedMaterials.read({
+        subject: { kind: "principal", principalId: ownerId },
+        slug: "membership-delivery",
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        kind: "available",
+        cacheScope: "private-no-store",
+        projection: { revisionId: created.value.revisionId, access: "membership" },
+        body: {
+          blocks: [
+            { kind: "heading", level: 2 },
+            {
+              kind: "paragraph",
+              content: [{ kind: "text", text: "Allowed membership body." }],
+            },
+          ],
+        },
+      },
+    });
+    expect(decisions).toEqual([
+      {
+        subject: { kind: "principal", principalId: ownerId },
+        action: "read",
+        resource: {
+          kind: "material_body",
+          materialId: created.value.materialId,
+          revisionId: created.value.revisionId,
+          publication: "published",
+          access: "membership",
+        },
+      },
+    ]);
   });
 
   test("requires a distinct owner permission before recording publication GO", async () => {

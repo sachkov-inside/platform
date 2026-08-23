@@ -54,6 +54,12 @@ export async function publishRevisionProjection(
     .executeTakeFirstOrThrow();
 
   await transaction
+    .updateTable("materials")
+    .set({ current_published_revision_id: values.revision.id })
+    .where("id", "=", values.revision.materialId)
+    .executeTakeFirstOrThrow();
+
+  await transaction
     .insertInto("published_materials")
     .values({
       material_id: values.revision.materialId,
@@ -129,12 +135,6 @@ export async function publishRevisionProjection(
       }),
     )
     .execute();
-
-  await transaction
-    .updateTable("materials")
-    .set({ current_published_revision_id: values.revision.id })
-    .where("id", "=", values.revision.materialId)
-    .executeTakeFirstOrThrow();
 
   return {
     id: event.id,

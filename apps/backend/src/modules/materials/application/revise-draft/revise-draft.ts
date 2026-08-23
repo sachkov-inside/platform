@@ -183,6 +183,21 @@ export function createReviseDraft(
             return replay;
           }
 
+          const material = await transaction
+            .selectFrom("materials")
+            .select("current_draft_revision_id")
+            .where("id", "=", command.materialId)
+            .forUpdate()
+            .executeTakeFirst();
+          if (material === undefined) {
+            rollback({ code: "material_not_found" });
+          }
+          if (material.current_draft_revision_id !== command.baseRevisionId) {
+            rollback({
+              code: "stale_revision",
+              currentRevisionId: material.current_draft_revision_id,
+            });
+          }
           await requireReferenceIntegrity(
             transaction,
             command.materialId,

@@ -20,27 +20,23 @@ export function createPublishedMaterialsImplementation(dependencies: {
           return { ok: false, error: { code: "material_not_found" } };
         }
         let access;
-        if (projection.access === "free") {
-          access = { allowed: true as const, reason: "public" as const };
-        } else {
-          try {
-            access = await dependencies.contentAccess.authorize({
-              subject,
-              action: "read",
-              resource: {
-                kind: "material_body",
-                materialId: projection.materialId,
-                revisionId: projection.revisionId,
-                publication: "published",
-                access: projection.access,
-              },
-            });
-          } catch {
-            access = {
-              allowed: false as const,
-              reason: "temporarily_unavailable" as const,
-            };
-          }
+        try {
+          access = await dependencies.contentAccess.authorize({
+            subject,
+            action: "read",
+            resource: {
+              kind: "material_body",
+              materialId: projection.materialId,
+              revisionId: projection.revisionId,
+              publication: "published",
+              access: projection.access,
+            },
+          });
+        } catch {
+          access = {
+            allowed: false as const,
+            reason: "temporarily_unavailable" as const,
+          };
         }
         if (!access.allowed) {
           return {
