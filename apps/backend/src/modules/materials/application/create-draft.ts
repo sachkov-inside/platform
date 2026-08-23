@@ -3,39 +3,38 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type {
-  MaterialAuthoring,
-  CreateDraftCommand,
   CreateDraftError,
-} from "../material-authoring.interface.js";
-import { authorizeAuthor } from "../ports/author-policy.js";
-import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
+  CreateDraftOperation,
+} from "./material-authoring.interface.js";
+import { authorizeAuthor } from "./ports/author-policy.js";
+import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
 import {
   failure,
   failureFromTransaction,
   rollback,
-} from "../shared/application-result.js";
-import { fingerprintCommand } from "../shared/canonical-command-fingerprint.js";
-import { claimOrReplay } from "../shared/claim-or-replay.js";
+} from "./shared/application-result.js";
+import { fingerprintCommand } from "./shared/canonical-command-fingerprint.js";
+import { claimOrReplay } from "./shared/claim-or-replay.js";
 import {
   idempotencyKeySchema,
   parseCommand,
   principalId,
-} from "../shared/command-validation.js";
-import { toMaterialRevisionDto } from "../shared/material-revision-dto.js";
-import { mapPostgresError } from "../shared/postgres-error-mapping.js";
-import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
-import { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
+} from "./shared/command-validation.js";
+import { toMaterialRevisionDto } from "./shared/material-revision-dto.js";
+import { mapPostgresError } from "./shared/postgres-error-mapping.js";
+import { requireReferenceIntegrity } from "./shared/reference-integrity.js";
+import { MaterialRevisionMetadata } from "../domain/material-revision-metadata.js";
 import {
   materialId,
   materialRevisionId,
-} from "../../domain/material-identifiers.js";
-import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
-import { completeIdempotency } from "../../infrastructure/postgres/idempotency.js";
-import { loadMaterialRevision } from "../../infrastructure/postgres/material-persistence.js";
+} from "../domain/material-identifiers.js";
+import type { AuthoringTransaction } from "../infrastructure/postgres/database.js";
+import { completeIdempotency } from "../infrastructure/postgres/idempotency.js";
+import { loadMaterialRevision } from "../infrastructure/postgres/material-persistence.js";
 import {
   insertRevision,
   replaceCurrentRelations,
-} from "../../infrastructure/postgres/revision-persistence.js";
+} from "../infrastructure/postgres/revision-persistence.js";
 
 const createDraftCommand = z
   .object({
@@ -66,8 +65,8 @@ async function insertMaterial(
 
 export function createCreateDraft(
   dependencies: MaterialAuthoringDependencies,
-): MaterialAuthoring["createDraft"] {
-  return async (input: CreateDraftCommand) => {
+): CreateDraftOperation {
+  return async (input) => {
     const parsedCommand = parseCommand(createDraftCommand, input);
     if (!parsedCommand.ok) {
       return failure(parsedCommand.error);

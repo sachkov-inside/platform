@@ -1,12 +1,24 @@
 import type {
-  MaterialAuthoring,
+  CreateDraftError,
+  LoadDraftError,
+  PreviewRevisionError,
+  PublishRevisionError,
+  RestoreRevisionError,
+  ReviseDraftError,
   Result,
-  ResultError,
+  UnpublishMaterialError,
+  ValidateRevisionError,
 } from "../material-authoring.interface.js";
 
-type AuthoringOperationError = ResultError<
-  Awaited<ReturnType<MaterialAuthoring[keyof MaterialAuthoring]>>
->;
+type AuthoringOperationError =
+  | CreateDraftError
+  | LoadDraftError
+  | PreviewRevisionError
+  | PublishRevisionError
+  | RestoreRevisionError
+  | ReviseDraftError
+  | UnpublishMaterialError
+  | ValidateRevisionError;
 
 export class AuthoringRollback extends Error {
   constructor(readonly applicationError: AuthoringOperationError) {

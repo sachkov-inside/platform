@@ -1,21 +1,21 @@
 import { randomUUID } from "node:crypto";
 
-import type { MaterialAuthoring } from "../material-authoring.interface.js";
-import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
-import { failure } from "../shared/application-result.js";
-import { toMaterialRevisionDto } from "../shared/material-revision-dto.js";
-import { mapPostgresReadError } from "../shared/postgres-error-mapping.js";
-import { validateRevisionQuery } from "../validate-revision/validate-revision.js";
-import { parseCommand } from "../shared/command-validation.js";
+import type { PreviewRevisionOperation } from "./material-authoring.interface.js";
+import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
+import { failure } from "./shared/application-result.js";
+import { toMaterialRevisionDto } from "./shared/material-revision-dto.js";
+import { mapPostgresReadError } from "./shared/postgres-error-mapping.js";
+import { validateRevisionQuery } from "./validate-revision.js";
+import { parseCommand } from "./shared/command-validation.js";
 import {
   loadCurrentRevisionId,
   loadMaterialRevision,
   loadMaterialRevisionHeader,
-} from "../../infrastructure/postgres/material-persistence.js";
+} from "../infrastructure/postgres/material-persistence.js";
 
 export function createPreviewRevision(
   dependencies: MaterialAuthoringDependencies,
-): MaterialAuthoring["previewRevision"] {
+): PreviewRevisionOperation {
   return async (input) => {
     const parsed = parseCommand(validateRevisionQuery, input);
     if (!parsed.ok) {

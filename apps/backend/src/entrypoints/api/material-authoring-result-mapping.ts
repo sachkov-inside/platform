@@ -1,11 +1,23 @@
 import type {
-  MaterialAuthoring,
-  ResultError,
+  CreateDraftError,
+  LoadDraftError,
+  PreviewRevisionError,
+  PublishRevisionError,
+  RestoreRevisionError,
+  ReviseDraftError,
+  UnpublishMaterialError,
+  ValidateRevisionError,
 } from "../../modules/materials/index.js";
 
-type MaterialAuthoringTransportError = ResultError<
-  Awaited<ReturnType<MaterialAuthoring[keyof MaterialAuthoring]>>
->;
+type MaterialAuthoringTransportError =
+  | CreateDraftError
+  | LoadDraftError
+  | PreviewRevisionError
+  | PublishRevisionError
+  | RestoreRevisionError
+  | ReviseDraftError
+  | UnpublishMaterialError
+  | ValidateRevisionError;
 
 export type MaterialAuthoringErrorStatus = 403 | 404 | 409 | 422 | 500 | 503;
 

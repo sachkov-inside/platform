@@ -3,19 +3,18 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type {
-  MaterialAuthoring,
-  ReviseDraftCommand,
   ReviseDraftError,
-} from "../material-authoring.interface.js";
-import { authorizeAuthor } from "../ports/author-policy.js";
-import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
+  ReviseDraftOperation,
+} from "./material-authoring.interface.js";
+import { authorizeAuthor } from "./ports/author-policy.js";
+import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
 import {
   failure,
   failureFromTransaction,
   rollback,
-} from "../shared/application-result.js";
-import { claimOrReplay } from "../shared/claim-or-replay.js";
-import { fingerprintCommand } from "../shared/canonical-command-fingerprint.js";
+} from "./shared/application-result.js";
+import { claimOrReplay } from "./shared/claim-or-replay.js";
+import { fingerprintCommand } from "./shared/canonical-command-fingerprint.js";
 import {
   entityId,
   idempotencyKeySchema,
@@ -23,27 +22,27 @@ import {
   materialRevisionIdSchema,
   parseCommand,
   principalId,
-} from "../shared/command-validation.js";
-import { toMaterialRevisionDto } from "../shared/material-revision-dto.js";
-import { mapPostgresError } from "../shared/postgres-error-mapping.js";
-import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
-import { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
+} from "./shared/command-validation.js";
+import { toMaterialRevisionDto } from "./shared/material-revision-dto.js";
+import { mapPostgresError } from "./shared/postgres-error-mapping.js";
+import { requireReferenceIntegrity } from "./shared/reference-integrity.js";
+import { MaterialRevisionMetadata } from "../domain/material-revision-metadata.js";
 import {
   materialRevisionId,
   type MaterialId,
   type MaterialRevisionId,
-} from "../../domain/material-identifiers.js";
-import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
+} from "../domain/material-identifiers.js";
+import type { AuthoringTransaction } from "../infrastructure/postgres/database.js";
 import {
   lockMaterialForLifecycleChange,
   loadCurrentRevisionId,
   loadMaterialRevision,
-} from "../../infrastructure/postgres/material-persistence.js";
-import { completeIdempotency } from "../../infrastructure/postgres/idempotency.js";
+} from "../infrastructure/postgres/material-persistence.js";
+import { completeIdempotency } from "../infrastructure/postgres/idempotency.js";
 import {
   insertRevision,
   replaceCurrentRelations,
-} from "../../infrastructure/postgres/revision-persistence.js";
+} from "../infrastructure/postgres/revision-persistence.js";
 
 const documentChange = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("replace_document"), document: z.unknown() }).strict(),
@@ -113,8 +112,8 @@ async function advanceCurrentRevision(
 
 export function createReviseDraft(
   dependencies: MaterialAuthoringDependencies,
-): MaterialAuthoring["reviseDraft"] {
-  return async (input: ReviseDraftCommand) => {
+): ReviseDraftOperation {
+  return async (input) => {
     const parsedCommand = parseCommand(reviseDraftCommand, input);
     if (!parsedCommand.ok) {
       return failure(parsedCommand.error);

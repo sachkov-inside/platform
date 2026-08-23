@@ -3,27 +3,27 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type {
-  MaterialAuthoring,
+  ValidateRevisionOperation,
   ValidateRevisionError,
-} from "../material-authoring.interface.js";
-import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
-import { authorizeAuthor } from "../ports/author-policy.js";
+} from "./material-authoring.interface.js";
+import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
+import { authorizeAuthor } from "./ports/author-policy.js";
 import {
   failure,
   failureFromTransaction,
   rollback,
-} from "../shared/application-result.js";
-import { fingerprintCommand } from "../shared/canonical-command-fingerprint.js";
+} from "./shared/application-result.js";
+import { fingerprintCommand } from "./shared/canonical-command-fingerprint.js";
 import {
   materialIdSchema,
   materialRevisionIdSchema,
   parseCommand,
   principalId,
-} from "../shared/command-validation.js";
-import { mapPostgresValidationError } from "../shared/postgres-error-mapping.js";
-import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
-import { loadMaterialRevision } from "../../infrastructure/postgres/material-persistence.js";
-import { materialRevisionId } from "../../domain/material-identifiers.js";
+} from "./shared/command-validation.js";
+import { mapPostgresValidationError } from "./shared/postgres-error-mapping.js";
+import { requireReferenceIntegrity } from "./shared/reference-integrity.js";
+import { loadMaterialRevision } from "../infrastructure/postgres/material-persistence.js";
+import { materialRevisionId } from "../domain/material-identifiers.js";
 
 export const validateRevisionQuery = z
   .object({
@@ -35,7 +35,7 @@ export const validateRevisionQuery = z
 
 export function createValidateRevision(
   dependencies: MaterialAuthoringDependencies,
-): MaterialAuthoring["validateRevision"] {
+): ValidateRevisionOperation {
   return async (input) => {
     const parsed = parseCommand(validateRevisionQuery, input);
     if (!parsed.ok) {

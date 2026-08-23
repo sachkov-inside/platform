@@ -3,55 +3,49 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type {
-  MaterialAuthoring,
-  PublishRevisionError,
-} from "../material-authoring.interface.js";
-import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
-import { authorizePublish } from "../ports/author-policy.js";
+  UnpublishMaterialError,
+  UnpublishMaterialOperation,
+} from "./material-authoring.interface.js";
+import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
+import { authorizePublish } from "./ports/author-policy.js";
 import {
   failure,
   failureFromTransaction,
   rollback,
-} from "../shared/application-result.js";
-import { fingerprintCommand } from "../shared/canonical-command-fingerprint.js";
+} from "./shared/application-result.js";
+import { fingerprintCommand } from "./shared/canonical-command-fingerprint.js";
 import {
   idempotencyKeySchema,
   materialIdSchema,
   materialRevisionIdSchema,
   parseCommand,
   principalId,
-} from "../shared/command-validation.js";
-import { mapPostgresError } from "../shared/postgres-error-mapping.js";
-import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
+} from "./shared/command-validation.js";
+import { mapPostgresReadError } from "./shared/postgres-error-mapping.js";
 import {
   claimIdempotency,
   completeIdempotency,
-} from "../../infrastructure/postgres/idempotency.js";
+} from "../infrastructure/postgres/idempotency.js";
 import {
   loadPublicationEvent,
-  publishRevisionProjection,
-} from "../../infrastructure/postgres/lifecycle-persistence.js";
-import {
-  lockMaterialForLifecycleChange,
-  loadMaterialRevision,
-} from "../../infrastructure/postgres/material-persistence.js";
-import type { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
+  unpublishMaterialProjection,
+} from "../infrastructure/postgres/lifecycle-persistence.js";
+import { lockMaterialForLifecycleChange } from "../infrastructure/postgres/material-persistence.js";
 
-const publishRevisionCommand = z
+const unpublishMaterialCommand = z
   .object({
     actor: principalId,
     idempotencyKey: idempotencyKeySchema,
     materialId: materialIdSchema,
-    revisionId: materialRevisionIdSchema,
-    expectedPublishedRevisionId: materialRevisionIdSchema.nullable(),
+    expectedPublishedRevisionId: materialRevisionIdSchema,
   })
   .strict();
 
-export function createPublishRevision(
+export function createUnpublishMaterial(
   dependencies: MaterialAuthoringDependencies,
-): MaterialAuthoring["publishRevision"] {
+): UnpublishMaterialOperation {
   return async (input) => {
-    const parsed = parseCommand(publishRevisionCommand, input);
+    const parsed = parseCommand(unpublishMaterialCommand, input);
     if (!parsed.ok) {
       return failure(parsed.error);
     }
@@ -63,13 +57,12 @@ export function createPublishRevision(
     if (!authorization.ok) {
       return failure(authorization.error);
     }
-    const fingerprint = fingerprintCommand({ operation: "publish_revision", ...command });
-    let publicationMetadata: MaterialRevisionMetadata | undefined;
+    const fingerprint = fingerprintCommand({ operation: "unpublish_material", ...command });
     try {
       const event = await dependencies.database.transaction().execute(async (transaction) => {
         const claim = await claimIdempotency(transaction, {
           actor: command.actor,
-          operation: "publish_revision",
+          operation: "unpublish_material",
           key: command.idempotencyKey,
           fingerprint,
         });
@@ -97,46 +90,37 @@ export function createPublishRevision(
         if (material === undefined) {
           rollback({ code: "material_not_found" });
         }
-        const transition = material.publishRevision(
-          command.revisionId,
+        if (material.currentPublishedRevisionId === null) {
+          const priorPublication = await transaction
+            .selectFrom("material_publication_events")
+            .select("id")
+            .where("material_id", "=", command.materialId)
+            .where("revision_id", "=", command.expectedPublishedRevisionId)
+            .where("kind", "=", "publish")
+            .executeTakeFirst();
+          if (priorPublication === undefined) {
+            rollback({ code: "publication_not_found" });
+          }
+        }
+        const transition = material.unpublish(
           command.expectedPublishedRevisionId,
         );
         if (!transition.ok) {
           rollback(transition.error);
         }
-
-        const revision = await loadMaterialRevision(
-          transaction,
-          dependencies.materialBodyOperations,
-          command.materialId,
-          command.revisionId,
-        );
-        if (revision === undefined || !revision.ok) {
-          rollback({ code: "internal_error", correlationId: randomUUID() });
-        }
-        publicationMetadata = revision.value.metadata;
-        await requireReferenceIntegrity(
-          transaction,
-          command.materialId,
-          revision.value.metadata,
-        );
-        const extraction = dependencies.materialBodyOperations.extract(revision.value.body);
-        if (!extraction.ok) {
-          rollback(extraction.error);
-        }
         const eventId = randomUUID();
-        const publication = await publishRevisionProjection(transaction, {
+        const publication = await unpublishMaterialProjection(transaction, {
           actor: command.actor,
           eventId,
-          extraction: extraction.value,
-          revision: revision.value,
+          materialId: command.materialId,
+          revisionId: command.expectedPublishedRevisionId,
         });
         await completeIdempotency(transaction, {
           actor: command.actor,
-          operation: "publish_revision",
+          operation: "unpublish_material",
           key: command.idempotencyKey,
           materialId: command.materialId,
-          revisionId: command.revisionId,
+          revisionId: command.expectedPublishedRevisionId,
           publicationEventId: eventId,
         });
         return publication;
@@ -151,9 +135,9 @@ export function createPublishRevision(
         },
       };
     } catch (error) {
-      return failureFromTransaction<PublishRevisionError>(
+      return failureFromTransaction<UnpublishMaterialError>(
         error,
-        (unexpected) => mapPostgresError(unexpected, publicationMetadata),
+        mapPostgresReadError,
       );
     }
   };

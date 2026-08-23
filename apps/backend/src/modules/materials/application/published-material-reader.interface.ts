@@ -42,11 +42,17 @@ export type PublishedMaterialReadResult =
         | { readonly code: "internal_error"; readonly correlationId: string };
     };
 
+export interface ReadPublishedMaterialQuery {
+  readonly subject: Subject;
+  readonly slug: string;
+}
+
+export type ReadPublishedMaterialOperation = (
+  query: ReadPublishedMaterialQuery,
+) => Promise<PublishedMaterialReadResult>;
+
 export interface PublishedMaterialReader {
-  read(query: {
-    readonly subject: Subject;
-    readonly slug: string;
-  }): Promise<PublishedMaterialReadResult>;
+  readonly read: ReadPublishedMaterialOperation;
 }
 
 export const PUBLISHED_MATERIAL_READER = Symbol("PUBLISHED_MATERIAL_READER");

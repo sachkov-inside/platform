@@ -109,13 +109,6 @@ export type Result<Value, Error> =
   | { readonly ok: true; readonly value: Value }
   | { readonly ok: false; readonly error: Error };
 
-export type ResultError<ResultType> = ResultType extends {
-  readonly ok: false;
-  readonly error: infer Error;
-}
-  ? Error
-  : never;
-
 export type CreateDraftError =
   | MaterialRevisionMetadataValidationError
   | ForbiddenError
@@ -252,15 +245,40 @@ export type UnpublishMaterialResult = Result<
   UnpublishMaterialError
 >;
 
+export type CreateDraftOperation = (
+  command: CreateDraftCommand,
+) => Promise<CreateDraftResult>;
+export type LoadDraftOperation = (
+  query: LoadDraftQuery,
+) => Promise<LoadDraftResult>;
+export type ReviseDraftOperation = (
+  command: ReviseDraftCommand,
+) => Promise<ReviseDraftResult>;
+export type ValidateRevisionOperation = (
+  query: ValidateRevisionQuery,
+) => Promise<ValidateRevisionResult>;
+export type PreviewRevisionOperation = (
+  query: ValidateRevisionQuery,
+) => Promise<PreviewRevisionResult>;
+export type PublishRevisionOperation = (
+  command: PublishRevisionCommand,
+) => Promise<PublishRevisionResult>;
+export type RestoreRevisionOperation = (
+  command: RestoreRevisionCommand,
+) => Promise<RestoreRevisionResult>;
+export type UnpublishMaterialOperation = (
+  command: UnpublishMaterialCommand,
+) => Promise<UnpublishMaterialResult>;
+
 export interface MaterialAuthoring {
-  createDraft(command: CreateDraftCommand): Promise<CreateDraftResult>;
-  loadDraft(query: LoadDraftQuery): Promise<LoadDraftResult>;
-  reviseDraft(command: ReviseDraftCommand): Promise<ReviseDraftResult>;
-  validateRevision(query: ValidateRevisionQuery): Promise<ValidateRevisionResult>;
-  previewRevision(query: ValidateRevisionQuery): Promise<PreviewRevisionResult>;
-  publishRevision(command: PublishRevisionCommand): Promise<PublishRevisionResult>;
-  restoreRevision(command: RestoreRevisionCommand): Promise<RestoreRevisionResult>;
-  unpublishMaterial(command: UnpublishMaterialCommand): Promise<UnpublishMaterialResult>;
+  readonly createDraft: CreateDraftOperation;
+  readonly loadDraft: LoadDraftOperation;
+  readonly reviseDraft: ReviseDraftOperation;
+  readonly validateRevision: ValidateRevisionOperation;
+  readonly previewRevision: PreviewRevisionOperation;
+  readonly publishRevision: PublishRevisionOperation;
+  readonly restoreRevision: RestoreRevisionOperation;
+  readonly unpublishMaterial: UnpublishMaterialOperation;
 }
 
 export const MATERIAL_AUTHORING = Symbol("MATERIAL_AUTHORING");

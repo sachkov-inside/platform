@@ -3,20 +3,19 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type {
-  MaterialAuthoring,
-  LoadDraftQuery,
-} from "../material-authoring.interface.js";
-import { authorizeAuthor } from "../ports/author-policy.js";
-import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
-import { failure } from "../shared/application-result.js";
+  LoadDraftOperation,
+} from "./material-authoring.interface.js";
+import { authorizeAuthor } from "./ports/author-policy.js";
+import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
+import { failure } from "./shared/application-result.js";
 import {
   materialIdSchema,
   parseCommand,
   principalId,
-} from "../shared/command-validation.js";
-import { toMaterialRevisionDto } from "../shared/material-revision-dto.js";
-import { mapPostgresReadError } from "../shared/postgres-error-mapping.js";
-import { loadCurrentDraftRevision } from "../../infrastructure/postgres/material-persistence.js";
+} from "./shared/command-validation.js";
+import { toMaterialRevisionDto } from "./shared/material-revision-dto.js";
+import { mapPostgresReadError } from "./shared/postgres-error-mapping.js";
+import { loadCurrentDraftRevision } from "../infrastructure/postgres/material-persistence.js";
 
 const loadDraftQuery = z
   .object({
@@ -27,8 +26,8 @@ const loadDraftQuery = z
 
 export function createLoadDraft(
   dependencies: MaterialAuthoringDependencies,
-): MaterialAuthoring["loadDraft"] {
-  return async (input: LoadDraftQuery) => {
+): LoadDraftOperation {
+  return async (input) => {
     const parsedQuery = parseCommand(loadDraftQuery, input);
     if (!parsedQuery.ok) {
       return failure(parsedQuery.error);

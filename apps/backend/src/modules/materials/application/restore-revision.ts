@@ -3,43 +3,43 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type {
-  MaterialAuthoring,
   RestoreRevisionError,
-} from "../material-authoring.interface.js";
-import type { MaterialAuthoringDependencies } from "../material-authoring.dependencies.js";
-import { authorizeAuthor } from "../ports/author-policy.js";
+  RestoreRevisionOperation,
+} from "./material-authoring.interface.js";
+import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
+import { authorizeAuthor } from "./ports/author-policy.js";
 import {
   failure,
   failureFromTransaction,
   rollback,
-} from "../shared/application-result.js";
-import { fingerprintCommand } from "../shared/canonical-command-fingerprint.js";
+} from "./shared/application-result.js";
+import { fingerprintCommand } from "./shared/canonical-command-fingerprint.js";
 import {
   idempotencyKeySchema,
   materialIdSchema,
   materialRevisionIdSchema,
   parseCommand,
   principalId,
-} from "../shared/command-validation.js";
-import { toMaterialRevisionDto } from "../shared/material-revision-dto.js";
-import { mapPostgresError } from "../shared/postgres-error-mapping.js";
-import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
+} from "./shared/command-validation.js";
+import { toMaterialRevisionDto } from "./shared/material-revision-dto.js";
+import { mapPostgresError } from "./shared/postgres-error-mapping.js";
+import { requireReferenceIntegrity } from "./shared/reference-integrity.js";
 import {
   claimIdempotency,
   completeIdempotency,
-} from "../../infrastructure/postgres/idempotency.js";
+} from "../infrastructure/postgres/idempotency.js";
 import {
   lockMaterialForLifecycleChange,
   loadMaterialRevision,
-} from "../../infrastructure/postgres/material-persistence.js";
+} from "../infrastructure/postgres/material-persistence.js";
 import {
   insertRevision,
   replaceCurrentRelations,
-} from "../../infrastructure/postgres/revision-persistence.js";
+} from "../infrastructure/postgres/revision-persistence.js";
 import {
   materialId,
   materialRevisionId,
-} from "../../domain/material-identifiers.js";
+} from "../domain/material-identifiers.js";
 
 const restoreRevisionCommand = z
   .object({
@@ -53,7 +53,7 @@ const restoreRevisionCommand = z
 
 export function createRestoreRevision(
   dependencies: MaterialAuthoringDependencies,
-): MaterialAuthoring["restoreRevision"] {
+): RestoreRevisionOperation {
   return async (input) => {
     const parsed = parseCommand(restoreRevisionCommand, input);
     if (!parsed.ok) {
