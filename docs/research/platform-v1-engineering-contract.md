@@ -204,12 +204,16 @@ The [owner decision](https://github.com/sachkov-inside/platform/issues/27#issuec
 - FSD is frontend-only and must not be ported to backend;
 - #27 does not implement lint, harness or architecture-test enforcement.
 
-The first real frontend delivery verifies these implementation details without reopening the
-organization unless it finds a material contradiction:
+Later delivery decisions did not change this accepted organization. Exact slice sequencing belongs
+to the canonical application specification, not this research artifact. The first real frontend
+delivery still verifies these implementation details without reopening the organization unless it
+finds a material contradiction:
 
-- one public Material route, one authoring route and one shared content capability mapped to files;
+- the existing `apps/web` maps real route/page composition and a server-only backend seam to the
+  accepted App Router/FSD layers;
 - no server-only import reachable from a `'use client'` entry;
-- data loading and mutations each have one visible path to the Nest application interface;
+- data loading has one visible path to the Nest application interface and later mutations extend
+  that seam instead of creating a second data path;
 - a rule for when route/page code is promoted to Widget, Feature, Entity or Shared instead of
   creating those slices speculatively.
 
@@ -648,7 +652,7 @@ apps/web/
       material/                # reusable Material presentation/types, not backend domain rules
     shared/
       api/                     # server-only Nest client plus transport DTO mapping
-      ui/                      # accepted primitives from the UI track only
+      ui/                      # primitives extracted from a real production consumer only
 ```
 
 The exact file names are illustrative. The implementation must preserve the accepted layer-on-demand,
@@ -715,7 +719,8 @@ apps/backend/
 
 The exact directories and filenames are illustrative. Stage 1–2 remain headless and follow the
 capability ownership, public-interface and no-speculative-extraction rules in the canonical
-specification; this sketch does not authorize UI before the #19–#23 gate.
+specification. Frontend sequencing belongs to that later canonical contract; this research sketch
+does not create a gate or parallel delivery authority.
 
 ## 12. Bounded future checks — do not implement in #27
 
@@ -813,8 +818,9 @@ ADR is required.
 4. Testcontainers is accepted as the integration-test direction, but no package version or
    real-PostgreSQL isolation strategy is locked; Vitest's default file parallelism makes the exact
    setup part of the #30 implementation brief and acceptance tests, not a separate experiment.
-5. The frontend organization is accepted; the first real frontend delivery maps its route/authoring slice to the accepted
-   `_pages` and server/client public-interface rules without a separate prototype ticket.
+5. The frontend organization is accepted; the first real frontend delivery maps real route/page
+   code and one backend seam to the accepted `_pages` and server/client public-interface rules,
+   adding layers only with real consumers. Exact slice scope belongs to the canonical specification.
 6. Canonical payload serialization/hash representation and the exact stored effect reference remain
    to be named; the accepted error contract already fixes scope, replay, mismatch and no-expiry semantics.
 7. Exact optimistic concurrency SQL/constraint names remain to be written; the accepted transaction/error contracts fix the isolation

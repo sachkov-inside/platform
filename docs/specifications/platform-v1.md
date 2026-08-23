@@ -2,9 +2,10 @@
 
 Статус: подтверждённый repository-local contract для
 [Platform #16](https://github.com/sachkov-inside/platform/issues/16), дополненный принятыми
-[Platform #27](https://github.com/sachkov-inside/platform/issues/27) engineering decisions.
+[Platform #27](https://github.com/sachkov-inside/platform/issues/27) engineering decisions и
+[Platform #19](https://github.com/sachkov-inside/platform/issues/19) integrated frontend delivery.
 
-Дата: 2026-08-22.
+Дата: 2026-08-23.
 
 ## Результат и authority
 
@@ -40,11 +41,17 @@ consequences:
   интегрируется с Tribute API/webhooks и не использует click/payment state как MembershipEvidence.
 
 Identity provider, отдельная Telegram application и Kinescope являются внешними seams Platform;
-их provider types и credentials не входят в application modules. Final information architecture,
-typography, palette, layout, motion, component library и остальные visual/UI decisions принадлежат
-[Platform #19–#23](https://github.com/sachkov-inside/platform/issues/19). Production frontend
-feature implementation начинается только после принятых результатов этого track; headless
-foundations и content core могут развиваться параллельно.
+их provider types и credentials не входят в application modules. Production frontend развивается
+в существующем `apps/web` по [Platform #19](https://github.com/sachkov-inside/platform/issues/19):
+первый real slice вместе создаёт App Router/FSD foundation, backend connection seam,
+layouts/routes/navigation и bounded visual baseline. Headless capabilities и frontend могут
+развиваться параллельно через принятые contracts и representative fixtures; внутри frontend ticket
+functionality, responsive/accessibility behavior и visual design являются одним production
+outcome. UX brief #20 и owner-taste brief #21 остаются inputs, но отменённые concept gate
+[#22](https://github.com/sachkov-inside/platform/issues/22#issuecomment-5379019538), standalone
+component proof [#23](https://github.com/sachkov-inside/platform/issues/23#issuecomment-5379019592)
+и superseded design lane [#40](https://github.com/sachkov-inside/platform/issues/40#issuecomment-5382373045)
+не являются dependencies.
 
 ## Production baseline и provisional choices
 
@@ -339,11 +346,20 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    а [#29](https://github.com/sachkov-inside/platform/issues/29) — safe agent authoring через thin
    MCP adapter. Они используют принятый engineering contract; новый owner gate нужен только при
    материальном отклонении.
-6. **UI gate:** #20 и #21 дают UX/content и owner-taste inputs, #22 получает explicit owner visual
-   selection, #23 доказывает bounded component/primitives strategy. Это единственная source of
-   visual/UI decisions.
-7. **Public experience:** accepted UI foundation применяется к home, Library, Topic, Series,
-   Roadmap, free Material и minimal author surface после готовности content core и UI gate.
+6. **Integrated frontend foundation:** после синхронизации contract в #35
+   [#36](https://github.com/sachkov-inside/platform/issues/36) развивает существующий `apps/web`
+   одним production slice: App Router/FSD composition, server-only backend seam, root layouts,
+   routes/navigation `Главная / Библиотека / Карта` и первую bounded visual baseline. Exact
+   styling, primitives, data/validation и testing libraries выбираются just in time для реального
+   consumer, а не глобальным proof. #36 может идти параллельно #30/#31 через approved contracts,
+   существующий API/OpenAPI и representative fixtures.
+7. **Production frontend surfaces:** [#37](https://github.com/sachkov-inside/platform/issues/37),
+   [#38](https://github.com/sachkov-inside/platform/issues/38) и
+   [#39](https://github.com/sachkov-inside/platform/issues/39) поставляют Material reader,
+   author editor/Preview и Library/search/Topic/Series после owning backend capabilities. Каждый
+   ticket объединяет functionality, responsive/accessibility behavior и owner-reviewed design;
+   reusable patterns извлекаются только из работающего surface. #20/#21 остаются structural и
+   owner-taste inputs, а закрытые #22/#23 и superseded #40 не являются gates.
 8. **Identity и protected content:** identity application proof и единый `ContentAccess` покрывают
    closed body, assets, downloads и video через test Membership adapter.
 9. **Real Membership:** отдельная Telegram application подключается только после стабилизации
@@ -370,11 +386,16 @@ choice, неочевидный контекст и реальный trade-off. �
 - `ContentAccess` placement и conformance surface;
 - private Asset delivery mechanism;
 - Kinescope upload/reconciliation/strict authorization mechanics;
-- UI component/primitives strategy, только если #23 докажет hard-to-reverse trade-off.
+- UI component/primitives strategy, только если real production consumer докажет hard-to-reverse
+  trade-off; standalone proof #23 не является prerequisite.
 
 ## Provenance
 
 - [Platform #27 owner architecture decisions](https://github.com/sachkov-inside/platform/issues/27#issuecomment-5378336463)
+- [Platform #19 integrated frontend owner decision](https://github.com/sachkov-inside/platform/issues/19#issuecomment-5382270492)
+- [Platform #22: whole-screen concept gate canceled](https://github.com/sachkov-inside/platform/issues/22#issuecomment-5379019538)
+- [Platform #23: standalone component proof canceled](https://github.com/sachkov-inside/platform/issues/23#issuecomment-5379019592)
+- [Platform #40: separate design lane superseded](https://github.com/sachkov-inside/platform/issues/40#issuecomment-5382373045)
 - [Workspace Platform v1 specification](https://github.com/sachkov-inside/workspace/blob/main/docs/specifications/platform-v1.md)
 - [Workspace #39: current publishing audit decisions](https://github.com/sachkov-inside/workspace/issues/39)
 - [Workspace #41: Telegram Membership boundary](https://github.com/sachkov-inside/workspace/issues/41)
