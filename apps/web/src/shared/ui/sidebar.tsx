@@ -52,7 +52,7 @@ export function Sidebar({ children, defaultPinned = false }: SidebarProps) {
     <SidebarContext.Provider value={{ open, pinned, setPinned }}>
       <TooltipProvider delayDuration={250}>
         <div
-          className="hidden shrink-0 md:-ml-5 md:-mr-4 md:block md:min-h-[calc(100svh-2.5rem)] md:self-stretch md:pl-5 md:pr-4"
+          className="hidden h-svh shrink-0 md:block md:self-stretch md:py-3 md:pl-3"
           onBlurCapture={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) {
               setFocused(false);
@@ -89,7 +89,7 @@ export function SidebarBody({ children, className }: SidebarBodyProps) {
       animate={{ width: open ? "16rem" : "4.75rem" }}
       aria-label="Боковая панель"
       className={cn(
-        "sticky top-0 flex h-[calc(100svh-2.5rem)] shrink-0 flex-col overflow-hidden rounded-l-2xl bg-sidebar text-sidebar-foreground md:top-5",
+        "sticky top-3 flex h-[calc(100svh-1.5rem)] shrink-0 flex-col overflow-hidden rounded-2xl bg-sidebar text-sidebar-foreground",
         className,
       )}
       initial={false}

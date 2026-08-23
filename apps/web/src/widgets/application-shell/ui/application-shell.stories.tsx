@@ -69,6 +69,7 @@ export const SidebarExpanded: Story = {
     const canvas = within(canvasElement);
     const storyWindow = canvasElement.ownerDocument.defaultView;
     const fixture = canvasElement.querySelector("[data-fixture='synthetic-navigation-proof']");
+    const main = canvas.getByRole("main");
     const sidebar = canvas.getByRole("complementary", { name: "Боковая панель" });
     const contents = sidebar.firstElementChild;
     const account = canvas.getByRole("group", { name: "Текущий профиль: Кирилл" });
@@ -82,27 +83,34 @@ export const SidebarExpanded: Story = {
     fixture.append(spacer);
 
     try {
-      const maxScroll = storyWindow.document.documentElement.scrollHeight - storyWindow.innerHeight;
+      const pageScrollRange =
+        storyWindow.document.documentElement.scrollHeight - storyWindow.innerHeight;
+      const mainScrollRange = main.scrollHeight - main.clientHeight;
       const viewportGaps: number[] = [];
+      const sidebarTops: number[] = [];
 
-      for (const scrollTop of [0, Math.round(maxScroll / 2), maxScroll]) {
-        storyWindow.scrollTo(0, scrollTop);
+      for (const scrollTop of [0, Math.round(mainScrollRange / 2), mainScrollRange]) {
+        main.scrollTo({ top: scrollTop });
         await new Promise<void>((resolve) => {
           storyWindow.requestAnimationFrame(() => {
             resolve();
           });
         });
         viewportGaps.push(storyWindow.innerHeight - account.getBoundingClientRect().bottom);
+        sidebarTops.push(sidebar.getBoundingClientRect().top);
       }
 
-      await expect(maxScroll).toBeGreaterThan(100);
+      await expect(pageScrollRange).toBeLessThanOrEqual(1);
+      await expect(mainScrollRange).toBeGreaterThan(100);
+      await expect(main.scrollTop).toBeCloseTo(mainScrollRange, 0);
       await expect(Math.max(...viewportGaps) - Math.min(...viewportGaps)).toBeLessThan(4);
+      await expect(Math.max(...sidebarTops) - Math.min(...sidebarTops)).toBeLessThan(1);
       await expect(
         Math.abs(sidebar.getBoundingClientRect().height - contents.getBoundingClientRect().height),
       ).toBeLessThan(1);
     } finally {
       spacer.remove();
-      storyWindow.scrollTo(0, 0);
+      main.scrollTo({ top: 0 });
     }
   },
 };

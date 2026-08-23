@@ -68,8 +68,8 @@ export function ApplicationShell({
   }
 
   return (
-    <ShellFrame>
-      <div className="flex min-h-svh items-start bg-background md:min-h-[calc(100svh-2.5rem)] md:rounded-2xl md:border md:border-sidebar-border md:bg-sidebar">
+    <ShellFrame fullBleed>
+      <div className="flex min-h-svh items-start bg-background md:h-svh md:min-h-0 md:overflow-hidden">
         <Sidebar defaultPinned={sidebarDefaultPinned}>
           <SidebarBody>
             <SidebarContents
@@ -87,9 +87,20 @@ export function ApplicationShell({
   );
 }
 
-function ShellFrame({ children }: { readonly children: ReactNode }) {
+function ShellFrame({
+  children,
+  fullBleed = false,
+}: {
+  readonly children: ReactNode;
+  readonly fullBleed?: boolean;
+}) {
   return (
-    <div className="min-h-svh bg-background text-foreground md:p-5">
+    <div
+      className={cn(
+        "min-h-svh bg-background text-foreground",
+        !fullBleed && "md:p-5",
+      )}
+    >
       <a
         className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-transform focus:translate-y-0"
         href="#workshop-content"
@@ -111,8 +122,10 @@ function ShellMain({
   return (
     <main
       className={cn(
-        "min-h-svh min-w-0 flex-1 bg-background pb-[calc(5rem+env(safe-area-inset-bottom))] md:min-h-[calc(100svh-2.5rem)] md:bg-card md:pb-0",
-        nested && "md:overflow-hidden md:rounded-l-[2rem] md:rounded-r-2xl md:border-l md:border-sidebar-border",
+        "min-h-svh min-w-0 flex-1 bg-background pb-[calc(5rem+env(safe-area-inset-bottom))] md:bg-card md:pb-0",
+        nested
+          ? "md:h-full md:min-h-0 md:overflow-x-hidden md:overflow-y-auto md:overscroll-y-contain md:[scrollbar-gutter:stable]"
+          : "md:min-h-[calc(100svh-2.5rem)]",
       )}
       id="workshop-content"
       tabIndex={-1}
@@ -140,32 +153,34 @@ function SidebarContents({
   const { open } = useSidebar();
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-6 p-3">
-      <div
-        className={cn(
-          "flex min-h-11 items-center gap-2",
-          open ? "justify-between px-2" : "justify-center",
-        )}
-      >
-        <InsideBrand />
-        {open ? <SidebarToggle /> : null}
-      </div>
-      <nav aria-label="Основная" className="flex flex-col gap-1">
-        {items.map((item) => {
-          const Icon = iconByName[item.icon];
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col p-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-6">
+        <div
+          className={cn(
+            "flex min-h-11 items-center gap-2",
+            open ? "justify-between px-2" : "justify-center",
+          )}
+        >
+          <InsideBrand />
+          {open ? <SidebarToggle /> : null}
+        </div>
+        <nav aria-label="Основная" className="flex flex-col gap-1">
+          {items.map((item) => {
+            const Icon = iconByName[item.icon];
 
-          return (
-            <SidebarLink
-              current={isCurrentPath(currentPath, item.href)}
-              href={item.href}
-              icon={<Icon />}
-              key={item.href}
-              label={item.label}
-            />
-          );
-        })}
-      </nav>
-      <div className="mt-auto border-t border-sidebar-border pt-3">
+            return (
+              <SidebarLink
+                current={isCurrentPath(currentPath, item.href)}
+                href={item.href}
+                icon={<Icon />}
+                key={item.href}
+                label={item.label}
+              />
+            );
+          })}
+        </nav>
+      </div>
+      <div className="shrink-0 border-t border-sidebar-border pt-3">
         <AccountPreview avatarUrl={accountAvatarUrl} label={accountLabel} />
       </div>
     </div>

@@ -154,7 +154,30 @@ body {
 }
 
 @media (max-width: 47.999rem) {
+  #workshop-content > div:has(> [data-prototype="library-responsive"]) {
+    margin: 0;
+    inline-size: 100%;
+    max-inline-size: none;
+    padding-block-start: 0;
+    border: 0;
+    border-radius: 0;
+    background: var(--background);
+  }
+
+  .library-topic-rail {
+    scrollbar-width: none;
+  }
+
+  .library-topic-rail::-webkit-scrollbar {
+    display: none;
+  }
+
   .platform-agentation {
     bottom: calc(5.5rem + env(safe-area-inset-bottom)) !important;
+  }
+
+  body:has([data-slot="sheet-content"][data-state="open"]) [data-agentation-root],
+  body:has([data-slot="sheet-content"][data-state="open"]) [data-agentation-toolbar] {
+    display: none !important;
   }
 }
