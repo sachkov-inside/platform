@@ -1,16 +1,10 @@
 import type {
   MaterialAuthoring,
-  Result,
+  ResultError,
 } from "../../modules/materials/index.js";
 
-type OperationError<Operation> = Operation extends (
-  ...arguments_: never[]
-) => Promise<Result<unknown, infer Error>>
-  ? Error
-  : never;
-
-type MaterialAuthoringTransportError = OperationError<
-  MaterialAuthoring[keyof MaterialAuthoring]
+type MaterialAuthoringTransportError = ResultError<
+  Awaited<ReturnType<MaterialAuthoring[keyof MaterialAuthoring]>>
 >;
 
 export type MaterialAuthoringErrorStatus = 403 | 404 | 409 | 422 | 500 | 503;

@@ -150,6 +150,11 @@ Platform ADR.
 - Public interface использует domain names без storage suffix: `MaterialBodySnapshot` и
   `RenderedMaterialBody`. Persisted body сохраняет явный schema discriminator, а exact codec names
   могут содержать `V1` внутри implementation.
+- Пока production `IdentityPrincipals` owner module не существует и ни один entrypoint не
+  импортирует `MaterialsModule`, Nest adapter может принимать временный `AuthorPolicy` через
+  dynamic registration. Static module и его composition test появляются вместе с первым реальным
+  authorization provider/caller; placeholder/global policy ради декоративного static graph не
+  создаётся.
 
 ### Validation, results and write atomicity
 

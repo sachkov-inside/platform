@@ -109,6 +109,13 @@ export type Result<Value, Error> =
   | { readonly ok: true; readonly value: Value }
   | { readonly ok: false; readonly error: Error };
 
+export type ResultError<ResultType> = ResultType extends {
+  readonly ok: false;
+  readonly error: infer Error;
+}
+  ? Error
+  : never;
+
 export type CreateDraftError =
   | MaterialRevisionMetadataValidationError
   | ForbiddenError

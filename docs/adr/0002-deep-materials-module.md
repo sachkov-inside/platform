@@ -10,6 +10,11 @@ delivery. One `createMaterials` assembly builds both facets; the Nest module onl
 to provider tokens. Transport callers do not coordinate validation, rendering, persistence or
 publication rules themselves.
 
+The current Nest adapter remains dynamically registered only while the real authorization owner
+module does not exist. It must become a static module importing that provider with the first real
+API/MCP consumer; creating a placeholder authorization module or global provider now would make
+the graph look complete without a production policy.
+
 `MaterialBody` is an internal validated representation. Public callers exchange a serializable
 `MaterialBodySnapshot`; persisted data retains an explicit schema discriminator, and version
 suffixes such as `StoredMaterialBodyV1` are limited to codecs and migrations. A separate public

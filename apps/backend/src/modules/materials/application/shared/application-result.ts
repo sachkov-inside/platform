@@ -1,16 +1,11 @@
 import type {
   MaterialAuthoring,
   Result,
+  ResultError,
 } from "../material-authoring.interface.js";
 
-type OperationError<Operation> = Operation extends (
-  ...arguments_: never[]
-) => Promise<Result<unknown, infer Error>>
-  ? Error
-  : never;
-
-type AuthoringOperationError = OperationError<
-  MaterialAuthoring[keyof MaterialAuthoring]
+type AuthoringOperationError = ResultError<
+  Awaited<ReturnType<MaterialAuthoring[keyof MaterialAuthoring]>>
 >;
 
 export class AuthoringRollback extends Error {
