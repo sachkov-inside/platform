@@ -5,8 +5,9 @@
 подтверждённую UX-границу, трассировку требований, state/action matrices и low-fidelity
 wireframes. Fixture corpus, IA и coarse copy приняты owner в working session; документ не выбирает
 visual language и сохраняет implementation decisions, перечисленные в конце. Provisional
-owner-taste constraints и incremental visual delivery contract записаны отдельно в
-[Platform v1 visual brief](platform-v1-visual-brief.md).
+owner-taste constraints записаны отдельно в
+[Platform v1 visual brief](platform-v1-visual-brief.md), а integrated production delivery
+принадлежит [Platform Specification #19](https://github.com/sachkov-inside/platform/issues/19).
 
 Snapshot источников: 2026-08-21. Repository-owned product/application contract и glossary
 ссылаются на current relative files и синхронизируются этим change; cross-repository provenance
@@ -31,9 +32,11 @@ Membership lifecycle. ([Platform MVP brief][platform-brief-outcome],
 - какие решения нельзя принимать без owner input.
 
 В этот документ намеренно не входят palette, typeface, icon style, visual density, component
-library, motion language и иные styling decisions. Они принадлежат последующим #21–#23; production
-frontend implementation начинается только после принятого UI gate.
-([Workspace v1 scope][workspace-v1-scope], [Workspace UI gate][workspace-ui-gate])
+library, motion language и иные styling decisions. Functional states и responsive behavior этого
+brief являются прямыми inputs owning production surfaces; exact visual/component decisions
+принимаются там же, без отдельного pre-production design lane. Delivery order и provenance
+отменённых gates принадлежат [application specification](../specifications/platform-v1.md).
+([Workspace v1 scope][workspace-v1-scope])
 
 Также не проектируются billing, subscription management, тарифы, trial, promo/gifts, comments или
 community внутри Platform, notification center/email notifications, AI search, multi-author review,
@@ -92,7 +95,7 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
 - `Topic` отображается как `Тема`. `ReadingState` меняется только явным user action, без scroll,
   time или video-completion heuristics.
 - Authoring полностью доступен на narrow mobile, а не ограничен preview/publish режимом.
-- Owner делегировал selection материалов; F1–F3 ниже утверждены как sanitized prototype corpus.
+- Owner делегировал selection материалов; F1–F3 ниже утверждены как sanitized representative corpus.
 
 ## 2. Подтверждённые actors
 
@@ -209,8 +212,8 @@ roles и personal layer подтверждены Platform brief.
 
 Эти relations следуют logical model и search/navigation flow.
 ([Workspace logical model][workspace-logical-model], [Workspace search flow][workspace-search-flow])
-Top-level order и history placement подтверждены выше. Для #22 открыты только visual/mobile
-disclosure pattern и exact composition внутри секций, а не состав IA.
+Top-level order и history placement подтверждены выше. Exact responsive disclosure и composition
+решает owning production surface ticket, не меняя состав IA и functional states этого brief.
 
 ### Critical journeys
 
@@ -379,7 +382,8 @@ disclosure pattern и exact composition внутри секций, а не со�
 Статус corpus: **owner делегировал selection и утвердил F1–F3 как representative input**. Это
 sanitized composite из типов контента, подтверждённых publishing audit; он не является verbatim
 копией Telegram и не утверждает seed taxonomy. Один и тот же corpus без переписывания copy
-используется в #22 visual concepts, #23 component proof и content-schema tests.
+используется в content-schema tests и как representative input owning production surfaces;
+отдельный visual/component prototype не требуется.
 
 ### F1 — free long-form guide
 
@@ -501,7 +505,7 @@ decision — в owning document, code — в application repository. Excalidraw 
 
 F2 является одним end-to-end representative Material: его title/summary/body, code, table,
 callout, image, file, Video и Series metadata используются вместе в reader, editor, Preview,
-search and access prototypes.
+search/access tests и production surfaces.
 
 ### F3 — closed search/card diversity
 
@@ -781,21 +785,21 @@ state, provider failure or permanent access. `Вступить в Мастерс
 to the owner-controlled Tribute URL; Platform does not consume Tribute API/webhooks and never uses
 the click or payment page as `MembershipEvidence`.
 
-## 11. Remaining implementation and design inputs
+## 11. Remaining implementation inputs
 
 Owner-approved UX structure is complete. Ни один оставшийся пункт ниже не блокирует #20, но его
-нельзя тихо превратить в product promise во время visual или component implementation.
+нельзя тихо превратить в product promise во время owning production implementation.
 
 | Input | Что уже подтверждено | Что решается позже | Owner stage |
 |---|---|---|---|
 | Exact v1 formatting limits | F1/F2 establish headings, paragraph, blockquote/callout, code, table, image, file and video minimum | Strike/nested-list need, heading levels, table/code/document size limits from real corpus and schema tests | Content-schema implementation |
-| Concrete taxonomy values | F1–F3 labels are approved prototype fixtures only; Material has one Topic/Format and 0..N Tags/Series | Production dictionaries and reviewed RU/EN synonyms emerge during manual authoring | Content filling / search proof |
-| Home composition details | Conditional Продолжить, short history, new feed, Темы, active Серии and Карта are fixed | Curated/query source per block, item counts and exact responsive composition | #22 visual concepts |
+| Concrete taxonomy values | F1–F3 labels are approved representative fixtures only; Material has one Topic/Format and 0..N Tags/Series | Production dictionaries and reviewed RU/EN synonyms emerge during manual authoring | Content filling / search proof |
+| Home composition details | Conditional Продолжить, short history, new feed, Темы, active Серии and Карта are fixed | Curated/query source per block, item counts and exact responsive composition | Owning Home/Roadmap production Specification |
 | Identity provider mechanics | One email-code UX creates/opens account; post-login linking is immediate but skippable | Redirect/inline mechanics, provider/fallback and Yandex horizon after identity proof | Stage 3 identity proof |
 | Account linking/recovery | Telegram linking только после login; no auto-merge/transfer; Membership не unlink-ит identity | Разрешён ли self-service unlink, exceptional relink/recovery policy, confirmation/re-auth copy and support owner | Account journey |
 | Telegram bot public identity | Dedicated branded bot and OIDC flow confirmed | Username, display name/avatar, owner/recovery account; confirm no self-service replacement | Telegram handoff screens |
 | Related Materials presentation | Metadata score + author pins confirmed | Count/order labels, distinction between pinned/generated if any, empty state | Material wireframe |
-| Long-content and resource limits | Corpus names current stress cases: 80+ character title, four-column table, code, long filename, 21:9 image | Add measured document/table/code/file limits after schema implementation evidence | Implementation, not #22 structure |
+| Long-content and resource limits | Corpus names current stress cases: 80+ character title, four-column table, code, long filename, 21:9 image | Add measured document/table/code/file limits after schema implementation evidence | Owning content/Material implementation |
 | Video unavailable/unsupported behavior | Text remains; no public fallback; controlled retry copy accepted | Choose supported-browser help destination; acceptable continued-play window comes from integration proof | Player implementation |
 | Tribute destination operations | Inline offer and `Вступить в Мастерскую` outbound action are fixed; no integration or access inference | Exact owner-controlled URL, link health/content ownership and safe operational update path | Production content/config |
 
@@ -809,14 +813,16 @@ Taxonomy/formatting gaps явно сохранены research inputs. ([Authorin
 Документ содержит owner-approved actors/journeys/IA, R01–R40 traceability, actor × surface × state ×
 allowed-action matrices, full state inventory, sanitized corpus, coarse copy и
 mobile/desktop/keyboard-order wireframes. Он остаётся structural artifact: palette, typeface,
-components, exact layout metrics, motion and visual signature принадлежат #21–#23.
+components, exact layout metrics, motion and visual signature развиваются из owner-taste input #21
+внутри реальных production surfaces по [#19](https://github.com/sachkov-inside/platform/issues/19).
 
-Open inputs из раздела 11 принадлежат своим later proof/implementation stages и не отменяют UX
-contract #20. Visual brief #21 фиксирует direction hypotheses и owner-control boundary, но не
-объявляет generated mockups pixel authority. Screenshots из audit остаются bounded evidence и не
-объявляются полным catalog или seed taxonomy.
+Open inputs из раздела 11 принадлежат своим owning implementation stages и не отменяют UX contract
+#20. Visual brief #21 фиксирует direction hypotheses и owner-control boundary, но не объявляет
+generated mockups pixel authority и не создаёт pre-production gate. Screenshots из audit остаются
+bounded evidence и не объявляются полным catalog или seed taxonomy.
 ([Platform issue #20](https://github.com/sachkov-inside/platform/issues/20),
 [Platform visual brief](platform-v1-visual-brief.md),
+[Platform #19 owner decision](https://github.com/sachkov-inside/platform/issues/19#issuecomment-5382270492),
 [Publishing audit limitations][audit-limitations])
 
 ## Source index
@@ -856,7 +862,6 @@ Workspace provenance is pinned to exact commits. GitHub issues remain the primar
 [workspace-accessibility]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L337-L344
 [workspace-performance]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L346-L360
 [workspace-stage1]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L396-L404
-[workspace-ui-gate]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L406-L434
 [workspace-owner-decisions]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/specifications/platform-v1.md#L549-L562
 [workspace-context]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/CONTEXT.md#L1-L40
 

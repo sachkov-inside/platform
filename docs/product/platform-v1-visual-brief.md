@@ -1,4 +1,4 @@
-# Sachkov Inside Platform v1 — provisional visual brief
+# Sachkov Inside Platform v1 — owner-taste visual input
 
 Статус: owner-calibrated input от 2026-08-21 для
 [Platform issue #21](https://github.com/sachkov-inside/platform/issues/21).
@@ -9,11 +9,11 @@ anti-references и процесс последующей реализации. �
 доказываются поэтапно на реальных responsive surfaces.
 
 Structural UX authority остаётся в
-[Platform v1 UX brief](platform-v1-ux-brief.md). Следующий
-[visual concept ticket #22](https://github.com/sachkov-inside/platform/issues/22) сравнивает
-полноценные concepts, а
-[component strategy ticket #23](https://github.com/sachkov-inside/platform/issues/23) выбирает
-primitives/libraries только после принятого concept.
+[Platform v1 UX brief](platform-v1-ux-brief.md), а integrated production delivery — в
+[Platform Specification #19](https://github.com/sachkov-inside/platform/issues/19) и
+[application specification](../specifications/platform-v1.md). Этот input не создаёт standalone
+concept/component gate: visual language, primitives и libraries выбираются постепенно внутри
+реальных owner-reviewed surfaces существующего `apps/web`.
 
 ## 1. Subject, audience и jobs
 
@@ -21,9 +21,9 @@ Platform — живая инженерная мастерская и канон�
 линейный курс, dashboard метрик или ещё один documentation portal. Product scope и полный surface
 inventory принадлежат [Platform MVP brief](platform-mvp-brief.md) и
 [Platform v1 UX brief](platform-v1-ux-brief.md); здесь зафиксированы только jobs одинаковых
-representative fixtures для следующего visual comparison.
+representative fixtures, на которых production surfaces проверяют visual decisions.
 
-| Prototype surface | Audience | Single job |
+| Reference surface | Audience | Single job |
 |---|---|---|
 | Library / search | Visitor или member, который самостоятельно ищет направление | Найти один релевантный published Material через search и реальные filters |
 | Long-form / video Material | Reader с разрешённым body state | Сосредоточенно прочитать или посмотреть один Material, используя локальную navigation и доступные Resources |
@@ -72,11 +72,11 @@ owner review.
 | Existing landing против dashboard mood reference | Сохранить узнаваемый стиль landing примерно; предпочесть более спокойный, light, rounded, modern и uncluttered product UI | Landing остаётся family context; dashboard задаёт только mood/shape/density signals |
 | H1 против H2 | Owner выбрал вариант `1` из представленных hypotheses без отдельного rationale | H1 выше H2 как текущий starting point; приписывать owner конкретную причину нельзя |
 | H1 против H3 | Owner выбрал вариант `1` из представленных hypotheses без отдельного rationale | H1 выше H3 как текущий starting point; приписывать owner конкретную причину нельзя |
-| H2 против H3 | Owner не дал предпочтения и попросил не превращать approximate direction в точную final reference | Pairwise outcome — tie; оба остаются равноценными alternatives для настоящего concept comparison в #22 |
+| H2 против H3 | Owner не дал предпочтения и попросил не превращать approximate direction в точную final reference | Pairwise outcome — tie; оба остаются optional lenses для real surfaces, но их не нужно отдельно прототипировать |
 | Exact reference против adaptable direction | Реализовывать поэтапно под owner control, не считать reference точной спецификацией | Ни один mockup/source не получает pixel authority; решения подтверждаются на rendered surfaces |
 
-Итоговый rank для текущего handoff: `H1 > H2 = H3`. Это достаточный taste signal для создания
-разных concepts, но не final visual selection.
+Итоговый rank для текущего handoff: `H1 > H2 = H3`. Это starting taste signal для первой
+production baseline, но не final visual selection и не требование создать несколько concepts.
 
 ## 3. Preference axes
 
@@ -142,7 +142,7 @@ authority над product truth.
 - **Color / imagery:** color is mostly functional state/brand emphasis; avoid importing Stripe's
   visual identity or decorative gradients.
 - **Code / media:** adjacent code/action treatment is the main signal; video chapters and content
-  discovery need separate proof.
+  discovery need evidence in their owning production surfaces.
 - **Motion / tone:** precise, immediate interaction feedback and authoritative tone; avoid making
   reading feel like operating an API console.
 
@@ -159,7 +159,7 @@ authority над product truth.
 - **Color / imagery:** thumbnails carry differentiation while surrounding chrome stays quiet;
   Platform must remain useful when optional media is absent.
 - **Code / media:** video is a first-class technical artifact connected to session context; exact
-  player, chapters and transcript behavior still require prototype proof.
+  player, chapters and transcript behavior require owning implementation evidence.
 - **Motion / tone:** calm catalog behavior and editorial technical tone; avoid event-promo cadence.
 
 ### [Notion](https://www.notion.com/product)
@@ -256,15 +256,16 @@ palette и dashboard information architecture являются anti-reference д
   fixture set, но с editorial canvas как dominant treatment.
 - **Main risk:** потерять узнаваемый Inside character и стать generic publishing tool.
 
-H1 задаёт текущий starting point. #22 обязан сравнить 2–3 genuinely different concepts на одном
-real fixture set; варианты не могут отличаться только palette или sidebar position.
+H1 задаёт starting point для первого production consumer. H2/H3 остаются reasoning lenses, если
+конкретный surface выявит их реальную пользу; отдельное сравнение 2–3 whole-screen concepts не
+требуется.
 
 ## 6. Navigation и composition остаются открытыми
 
 Exploration session проверила три topology hypotheses: compact global rail, landing-like floating
 header и denser workbench split. Owner не утверждал ни один generated comp как pixel authority.
 
-Следующая работа должна отдельно доказать:
+Owning production surfaces должны доказать just in time:
 
 - нужен ли persistent desktop rail либо достаточно global header;
 - как global destinations `Главная / Библиотека / Карта` адаптируются на narrow mobile;
@@ -294,9 +295,10 @@ Owner попросил реализовывать направление поэ�
 следующие surfaces. Этот visual brief фиксирует только такой decision boundary; delivery и PR
 rules принадлежат [repository workflow](../../WORKFLOW.md).
 
-Owner также ожидает подходящие libraries и current best practices. Конкретную component strategy
-этот brief не исследует и не выбирает: она целиком принадлежит
-[ticket #23](https://github.com/sachkov-inside/platform/issues/23) после concept proof #22.
+Owner также ожидает подходящие libraries и current best practices. Exact component sources и
+dependencies обосновывает текущий production consumer, а reusable tokens/primitives извлекаются
+только из работающего surface. Этот brief не выбирает глобальную component strategy и не создаёт
+отдельный design lane; delivery order принадлежит application specification.
 
 ## 9. Explicitly not final
 
@@ -313,7 +315,8 @@ Owner также ожидает подходящие libraries и current best p
 
 ## 10. Handoff
 
-#21 даёт #22 confirmed taste constraints, anti-patterns и hypotheses. #22 возвращает explicit owner
-selection на одинаковых real Library, Material и authoring surfaces. Только после этого #23
-доказывает component strategy, а первый production UI ticket реализует один reference surface и
-извлекает reusable pieces по фактической необходимости.
+#21 передаёт confirmed taste constraints, anti-patterns и hypotheses прямо в owning production
+frontend surfaces из application specification. Каждый такой ticket объединяет functionality,
+responsive/accessibility behavior и visual design в одном real `apps/web` outcome, показывает owner
+rendered mobile/desktop evidence и распространяет reusable pieces только после review. Отдельных
+concept/component gates и параллельного design lane нет.

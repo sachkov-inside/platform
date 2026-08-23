@@ -108,10 +108,12 @@ authority находится в платформе.
 Roadmap является редакционной навигационной страницей, «Создание Platform Inside» — упорядоченной
 серией, а Библиотека — генерируемым представлением материалов, а не отдельной копией контента.
 
-Information architecture, visual direction и UI foundation этих поверхностей проектируются только
-в [Platform #19–#23](https://github.com/sachkov-inside/platform/issues/19). Рабочее
-пользовательское название «Тема» можно заменить, если интерфейс покажет, что «Категория» или другой
-термин понятнее.
+Structural UX этих поверхностей задан [UX brief](platform-v1-ux-brief.md), а owner-taste constraints
+— [visual brief](platform-v1-visual-brief.md). [Platform #19](https://github.com/sachkov-inside/platform/issues/19)
+поставляет их как integrated production frontend в существующем `apps/web`: functionality,
+responsive/accessibility behavior и visual decisions развиваются вместе в реальных surfaces.
+Рабочее пользовательское название «Тема» можно заменить, если интерфейс покажет, что «Категория»
+или другой термин понятнее.
 
 После входа главная сохраняет ту же контентную основу, но показывает персональный слой: последний
 просмотренный материал, историю и статусы прочтения. В первой версии прогресс ограничен признаком
@@ -182,8 +184,9 @@ deduplication и migration pipeline не нужны.
   logical schema, flows, application NFR, production foundation order и ADR inputs.
 - [`CONTEXT.md`](../../CONTEXT.md) задаёт канонические application terms без implementation
   details.
-- [Platform #19–#23](https://github.com/sachkov-inside/platform/issues/19) — единственный track для
-  information architecture, visual direction и UI foundation до production frontend work.
+- [Platform #19](https://github.com/sachkov-inside/platform/issues/19) — root Specification для
+  integrated production frontend; application specification владеет delivery order и provenance
+  отменённых pre-production gates.
 
 ## Основания content model
 
