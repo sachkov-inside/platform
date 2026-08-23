@@ -9,11 +9,11 @@ anti-references и процесс последующей реализации. �
 доказываются поэтапно на реальных responsive surfaces.
 
 Structural UX authority остаётся в
-[Platform v1 UX brief](platform-v1-ux-brief.md), а integrated production delivery — в
+[Platform v1 UX brief](platform-v1-ux-brief.md), а UI laboratory и production integration — в
 [Platform Specification #19](https://github.com/sachkov-inside/platform/issues/19) и
-[application specification](../specifications/platform-v1.md). Этот input не создаёт standalone
-concept/component gate: visual language, primitives и libraries выбираются постепенно внутри
-реальных owner-reviewed surfaces существующего `apps/web`.
+[application specification](../specifications/platform-v1.md). Этот input не возвращает
+standalone concept/component gates #22/#23: visual language сначала проверяется в bounded,
+owner-controlled UI laboratory, затем принятые outputs — в production shell и реальных surfaces.
 
 ## 1. Subject, audience и jobs
 
@@ -21,7 +21,8 @@ Platform — живая инженерная мастерская и канон�
 линейный курс, dashboard метрик или ещё один documentation portal. Product scope и полный surface
 inventory принадлежат [Platform MVP brief](platform-mvp-brief.md) и
 [Platform v1 UX brief](platform-v1-ux-brief.md); здесь зафиксированы только jobs одинаковых
-representative fixtures, на которых production surfaces проверяют visual decisions.
+representative fixtures, на которых UI laboratory и production surfaces проверяют visual
+decisions.
 
 | Reference surface | Audience | Single job |
 |---|---|---|
@@ -295,10 +296,11 @@ Owner попросил реализовывать направление поэ�
 следующие surfaces. Этот visual brief фиксирует только такой decision boundary; delivery и PR
 rules принадлежат [repository workflow](../../WORKFLOW.md).
 
-Owner также ожидает подходящие libraries и current best practices. Exact component sources и
-dependencies обосновывает текущий production consumer, а reusable tokens/primitives извлекаются
-только из работающего surface. Этот brief не выбирает глобальную component strategy и не создаёт
-отдельный design lane; delivery order принадлежит application specification.
+Owner также ожидает подходящие libraries и current best practices. UI laboratory проверяет
+bounded reference compositions и component sources через rendered owner review; принятые visual
+решения затем расширяются только из needs реального surface. Exact tool, dependencies, typed
+interfaces, production adoption и external-service gates принадлежат application specification и
+repository workflow.
 
 ## 9. Explicitly not final
 
@@ -315,8 +317,8 @@ dependencies обосновывает текущий production consumer, а reu
 
 ## 10. Handoff
 
-#21 передаёт confirmed taste constraints, anti-patterns и hypotheses прямо в owning production
-frontend surfaces из application specification. Каждый такой ticket объединяет functionality,
-responsive/accessibility behavior и visual design в одном real `apps/web` outcome, показывает owner
-rendered mobile/desktop evidence и распространяет reusable pieces только после review. Отдельных
-concept/component gates и параллельного design lane нет.
+#21 передаёт confirmed taste constraints, anti-patterns и hypotheses в UI laboratory и owning
+production surfaces. Каждый stage показывает owner rendered mobile/desktop evidence до расширения
+visual direction. Exact ticket graph и integration boundaries принадлежат application
+specification; отменённые concept/component gates #22/#23 и superseded shell-only design ticket
+#40 остаются provenance, а не альтернативной delivery model.

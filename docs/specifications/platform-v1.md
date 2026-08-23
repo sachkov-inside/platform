@@ -3,7 +3,8 @@
 Статус: подтверждённый repository-local contract для
 [Platform #16](https://github.com/sachkov-inside/platform/issues/16), дополненный принятыми
 [Platform #27](https://github.com/sachkov-inside/platform/issues/27) engineering decisions и
-[Platform #19](https://github.com/sachkov-inside/platform/issues/19) integrated frontend delivery.
+[Platform #19](https://github.com/sachkov-inside/platform/issues/19) parallel UI laboratory и
+production frontend integration.
 
 Дата: 2026-08-23.
 
@@ -42,16 +43,26 @@ consequences:
 
 Identity provider, отдельная Telegram application и Kinescope являются внешними seams Platform;
 их provider types и credentials не входят в application modules. Production frontend развивается
-в существующем `apps/web` по [Platform #19](https://github.com/sachkov-inside/platform/issues/19):
-первый real slice вместе создаёт App Router/FSD foundation, backend connection seam,
-layouts/routes/navigation и bounded visual baseline. Headless capabilities и frontend могут
-развиваться параллельно через принятые contracts и representative fixtures; внутри frontend ticket
-functionality, responsive/accessibility behavior и visual design являются одним production
-outcome. UX brief #20 и owner-taste brief #21 остаются inputs, но отменённые concept gate
+в одном существующем `apps/web` по
+[Platform #19](https://github.com/sachkov-inside/platform/issues/19). Завершённая
+[#36](https://github.com/sachkov-inside/platform/issues/36) создала App Router/FSD foundation,
+server-only backend connection seam, layouts/routes/navigation и временную visual заглушку, но не
+reusable visual baseline. [#45](https://github.com/sachkov-inside/platform/issues/45) создаёт внутри
+этого приложения отдельно mergeable, development-only UI laboratory; она владеет stories, typed
+presentation fixtures, components и semantic tokens, но не production routes, application data или
+business rules. [#46](https://github.com/sachkov-inside/platform/issues/46) применяет принятый UI к
+production shell, а #37–#39 соединяют те же client-safe presentation interfaces с реальными
+application interfaces своих capabilities.
+
+Backend/headless capabilities и UI laboratory могут развиваться параллельно. Laboratory fixtures
+типизированы presentation props/view-model contracts и выражают representative состояния без fake
+API, client или backend; production routes не импортируют fixture modules или workshop runtime.
+Один server-only backend seam остаётся единственным data path. UX brief #20 и owner-taste brief #21
+остаются inputs, но отменённые concept gate
 [#22](https://github.com/sachkov-inside/platform/issues/22#issuecomment-5379019538), standalone
 component proof [#23](https://github.com/sachkov-inside/platform/issues/23#issuecomment-5379019592)
 и superseded design lane [#40](https://github.com/sachkov-inside/platform/issues/40#issuecomment-5382373045)
-не являются dependencies.
+остаются закрытой provenance и не являются текущими dependencies.
 
 ## Production baseline и provisional choices
 
@@ -103,6 +114,12 @@ Platform ADR.
 - Layer или slice создаётся только вместе с реальным code; пустой speculative scaffold не нужен.
 - Imports следуют FSD layer direction и slice public interfaces. Server-only и client-safe public
   interfaces разделены; client graph не импортирует server-only implementation.
+- UI laboratory остаётся development-only entry внутри `apps/web`: stories используют те же
+  client-safe component public interfaces, что будущие Server Components, а typed presentation
+  fixtures не импортируются production routes и не образуют alternate data layer.
+- Component или token module появляется только вместе с bounded story/reference consumer и затем
+  получает отдельный production adoption point; laboratory не создаёт второй route tree, frontend
+  application или FSD hierarchy.
 - FSD применяется только на frontend. Backend не копирует FSD layers.
 
 ### Backend modules и application interface
@@ -147,10 +164,10 @@ Platform ADR.
 - Platform-local shared strict TypeScript base, type-aware typescript-eslint, frontend/backend
   import rules и generated DB type drift checks приняты как future enforcement. #27 не добавляет
   dependencies, lint/config/CI rules и не меняет shared harness.
-- #27 не создаёт ADR и отдельные prototype/proof tickets. #30 фиксирует exact versions, types, SQL
-  и test isolation в required implementation brief и доказывает их retained vertical slice и
-  tests. Focused ADR добавляется в тот же PR только при реально обнаруженном hard-to-reverse,
-  non-obvious trade-off.
+- Для engineering choices #27 не создаёт ADR и отдельные prototype/proof tickets. #30 фиксирует
+  exact versions, types, SQL и test isolation в required implementation brief и доказывает их
+  retained vertical slice и tests. Focused ADR добавляется в тот же PR только при реально
+  обнаруженном hard-to-reverse, non-obvious trade-off.
 
 ## Processes и capability modules
 
@@ -346,26 +363,37 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    а [#29](https://github.com/sachkov-inside/platform/issues/29) — safe agent authoring через thin
    MCP adapter. Они используют принятый engineering contract; новый owner gate нужен только при
    материальном отклонении.
-6. **Integrated frontend foundation:** после синхронизации contract в #35
-   [#36](https://github.com/sachkov-inside/platform/issues/36) развивает существующий `apps/web`
-   одним production slice: App Router/FSD composition, server-only backend seam, root layouts,
-   routes/navigation `Главная / Библиотека / Карта` и первую bounded visual baseline. Exact
-   styling, primitives, data/validation и testing libraries выбираются just in time для реального
-   consumer, а не глобальным proof. #36 может идти параллельно #30/#31 через approved contracts,
-   существующий API/OpenAPI и representative fixtures.
-7. **Production frontend surfaces:** [#37](https://github.com/sachkov-inside/platform/issues/37),
+6. **Technical frontend foundation:** завершённая
+   [#36](https://github.com/sachkov-inside/platform/issues/36) создала в существующем `apps/web`
+   App Router/FSD composition, server-only backend seam, root layouts, routes/navigation
+   `Главная / Библиотека / Карта` и проверяемую временную visual заглушку. Эта заглушка не является
+   reusable baseline и не определяет visual/component strategy следующих surfaces.
+7. **Parallel UI laboratory:** после синхронизации contract в
+   [#44](https://github.com/sachkov-inside/platform/issues/44)
+   [#45](https://github.com/sachkov-inside/platform/issues/45) создаёт development-only component
+   workshop, semantic tokens, bounded component set и typed presentation fixtures внутри
+   `apps/web`. Laboratory может идти параллельно #30/#31 и headless consumers #28/#29, не требует
+   работающего backend и не создаёт fake API/client. Exact tool и dependencies проходят отдельный
+   owner brief; cloud publishing, Chromatic и любые external services требуют отдельного owner
+   approval.
+8. **Production shell adoption:** после #45
+   [#46](https://github.com/sachkov-inside/platform/issues/46) заменяет временную visual заглушку
+   #36 принятыми components/tokens в production shell, не меняя routes или backend seam. Workshop
+   runtime и fixtures не входят в production graph.
+9. **Production frontend surfaces:** [#37](https://github.com/sachkov-inside/platform/issues/37),
    [#38](https://github.com/sachkov-inside/platform/issues/38) и
    [#39](https://github.com/sachkov-inside/platform/issues/39) поставляют Material reader,
-   author editor/Preview и Library/search/Topic/Series после owning backend capabilities. Каждый
-   ticket объединяет functionality, responsive/accessibility behavior и owner-reviewed design;
-   reusable patterns извлекаются только из работающего surface. #20/#21 остаются structural и
-   owner-taste inputs, а закрытые #22/#23 и superseded #40 не являются gates.
-8. **Identity и protected content:** identity application proof и единый `ContentAccess` покрывают
+   author editor/Preview и Library/search/Topic/Series после #46 и owning backend capabilities.
+   Каждый ticket использует принятые UI public interfaces/tokens, соединяет их с реальными
+   application interfaces и добавляет только component needs собственного surface; второй UI
+   system, fixture data path или browser-owned business rules запрещены. #20/#21 остаются
+   structural и owner-taste inputs, а закрытые #22/#23 и superseded #40 — provenance, не gates.
+10. **Identity и protected content:** identity application proof и единый `ContentAccess` покрывают
    closed body, assets, downloads и video через test Membership adapter.
-9. **Real Membership:** отдельная Telegram application подключается только после стабилизации
+11. **Real Membership:** отдельная Telegram application подключается только после стабилизации
    versioned MembershipEvidence port; Platform сохраняет ownership entitlement и final access
    decision.
-10. **Feature-complete candidate:** author/MCP, content, Kinescope, private resources, Membership,
+12. **Feature-complete candidate:** author/MCP, content, Kinescope, private resources, Membership,
    reading activity и UI journeys проходят end-to-end application verification; актуальные
    Materials вручную созданы без import pipeline.
 
@@ -386,13 +414,14 @@ choice, неочевидный контекст и реальный trade-off. �
 - `ContentAccess` placement и conformance surface;
 - private Asset delivery mechanism;
 - Kinescope upload/reconciliation/strict authorization mechanics;
-- UI component/primitives strategy, только если real production consumer докажет hard-to-reverse
-  trade-off; standalone proof #23 не является prerequisite.
+- UI component/primitives strategy, только если laboratory и production adoption докажут
+  hard-to-reverse trade-off; standalone proof #23 не является prerequisite.
 
 ## Provenance
 
 - [Platform #27 owner architecture decisions](https://github.com/sachkov-inside/platform/issues/27#issuecomment-5378336463)
 - [Platform #19 integrated frontend owner decision](https://github.com/sachkov-inside/platform/issues/19#issuecomment-5382270492)
+- [Platform #44: parallel UI laboratory owner correction](https://github.com/sachkov-inside/platform/issues/44)
 - [Platform #22: whole-screen concept gate canceled](https://github.com/sachkov-inside/platform/issues/22#issuecomment-5379019538)
 - [Platform #23: standalone component proof canceled](https://github.com/sachkov-inside/platform/issues/23#issuecomment-5379019592)
 - [Platform #40: separate design lane superseded](https://github.com/sachkov-inside/platform/issues/40#issuecomment-5382373045)

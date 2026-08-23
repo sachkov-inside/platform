@@ -110,8 +110,13 @@ Roadmap является редакционной навигационной с�
 
 Structural UX этих поверхностей задан [UX brief](platform-v1-ux-brief.md), а owner-taste constraints
 — [visual brief](platform-v1-visual-brief.md). [Platform #19](https://github.com/sachkov-inside/platform/issues/19)
-поставляет их как integrated production frontend в существующем `apps/web`: functionality,
-responsive/accessibility behavior и visual decisions развиваются вместе в реальных surfaces.
+поставляет их в одном production `apps/web` через параллельные, но сходящиеся delivery lanes:
+backend/headless capabilities и owner-controlled UI foundation с последующей production
+интеграцией. Shell из завершённой
+[#36](https://github.com/sachkov-inside/platform/issues/36) является технической foundation и
+временной visual заглушкой, а не принятой visual baseline. Exact UI laboratory, shell adoption и
+surface integration order принадлежит
+[application specification](../specifications/platform-v1.md#production-foundation-order).
 Рабочее пользовательское название «Тема» можно заменить, если интерфейс покажет, что «Категория»
 или другой термин понятнее.
 
@@ -185,8 +190,8 @@ deduplication и migration pipeline не нужны.
 - [`CONTEXT.md`](../../CONTEXT.md) задаёт канонические application terms без implementation
   details.
 - [Platform #19](https://github.com/sachkov-inside/platform/issues/19) — root Specification для
-  integrated production frontend; application specification владеет delivery order и provenance
-  отменённых pre-production gates.
+  UI laboratory и production frontend integration; application specification владеет delivery
+  order и provenance отменённых pre-production gates.
 
 ## Основания content model
 
