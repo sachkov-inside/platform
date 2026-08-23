@@ -33,9 +33,9 @@ Membership lifecycle. ([Platform MVP brief][platform-brief-outcome],
 
 В этот документ намеренно не входят palette, typeface, icon style, visual density, component
 library, motion language и иные styling decisions. Functional states и responsive behavior этого
-brief являются прямыми inputs owning production surfaces; exact visual/component decisions
-принимаются там же, без отдельного pre-production design lane. Delivery order и provenance
-отменённых gates принадлежат [application specification](../specifications/platform-v1.md).
+brief являются representative inputs UI laboratory и owning production surfaces. Exact typed
+presentation boundary, data integration и delivery order принадлежат
+[application specification](../specifications/platform-v1.md).
 ([Workspace v1 scope][workspace-v1-scope])
 
 Также не проектируются billing, subscription management, тарифы, trial, promo/gifts, comments или
@@ -213,7 +213,8 @@ roles и personal layer подтверждены Platform brief.
 Эти relations следуют logical model и search/navigation flow.
 ([Workspace logical model][workspace-logical-model], [Workspace search flow][workspace-search-flow])
 Top-level order и history placement подтверждены выше. Exact responsive disclosure и composition
-решает owning production surface ticket, не меняя состав IA и functional states этого brief.
+проверяет UI laboratory и решает owning production surface ticket, не меняя состав IA и functional
+states этого brief.
 
 ### Critical journeys
 
@@ -382,8 +383,9 @@ Top-level order и history placement подтверждены выше. Exact re
 Статус corpus: **owner делегировал selection и утвердил F1–F3 как representative input**. Это
 sanitized composite из типов контента, подтверждённых publishing audit; он не является verbatim
 копией Telegram и не утверждает seed taxonomy. Один и тот же corpus без переписывания copy
-используется в content-schema tests и как representative input owning production surfaces;
-отдельный visual/component prototype не требуется.
+используется в content-schema tests и как representative input UI laboratory и owning production
+surfaces. Этот brief определяет presentation coverage corpus, а application specification — его
+typed fixture boundary и production integration.
 
 ### F1 — free long-form guide
 
@@ -814,12 +816,14 @@ Taxonomy/formatting gaps явно сохранены research inputs. ([Authorin
 allowed-action matrices, full state inventory, sanitized corpus, coarse copy и
 mobile/desktop/keyboard-order wireframes. Он остаётся structural artifact: palette, typeface,
 components, exact layout metrics, motion and visual signature развиваются из owner-taste input #21
-внутри реальных production surfaces по [#19](https://github.com/sachkov-inside/platform/issues/19).
+сначала в bounded UI laboratory, затем в production adoption и owning surfaces по
+[#19](https://github.com/sachkov-inside/platform/issues/19).
 
 Open inputs из раздела 11 принадлежат своим owning implementation stages и не отменяют UX contract
 #20. Visual brief #21 фиксирует direction hypotheses и owner-control boundary, но не объявляет
-generated mockups pixel authority и не создаёт pre-production gate. Screenshots из audit остаются
-bounded evidence и не объявляются полным catalog или seed taxonomy.
+generated mockups pixel authority. UI laboratory не возвращает отменённые whole-screen concept и
+standalone component proof gates #22/#23. Screenshots из audit остаются bounded evidence и не
+объявляются полным catalog или seed taxonomy.
 ([Platform issue #20](https://github.com/sachkov-inside/platform/issues/20),
 [Platform visual brief](platform-v1-visual-brief.md),
 [Platform #19 owner decision](https://github.com/sachkov-inside/platform/issues/19#issuecomment-5382270492),

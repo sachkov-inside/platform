@@ -204,9 +204,12 @@ The [owner decision](https://github.com/sachkov-inside/platform/issues/27#issuec
 - FSD is frontend-only and must not be ported to backend;
 - #27 does not implement lint, harness or architecture-test enforcement.
 
-Later delivery decisions did not change this accepted organization. Exact slice sequencing belongs
-to the canonical application specification, not this research artifact. The first real frontend
-delivery still verifies these implementation details without reopening the organization unless it
+Later delivery decisions did not change this accepted organization, but the owner correction in
+[#44](https://github.com/sachkov-inside/platform/issues/44) changed frontend sequencing by adding a
+development-only UI laboratory inside the same `apps/web`. This does not change App Router/FSD or
+server/client organization; exact stories, typed fixtures, runtime boundaries and production
+integration belong to the canonical application specification, not this research artifact.
+Delivery still verifies these implementation details without reopening the organization unless it
 finds a material contradiction:
 
 - the existing `apps/web` maps real route/page composition and a server-only backend seam to the
@@ -652,11 +655,12 @@ apps/web/
       material/                # reusable Material presentation/types, not backend domain rules
     shared/
       api/                     # server-only Nest client plus transport DTO mapping
-      ui/                      # primitives extracted from a real production consumer only
+      ui/                      # bounded components from the UI laboratory or production consumers
 ```
 
 The exact file names are illustrative. The implementation must preserve the accepted layer-on-demand,
-server/client-interface and import-direction rules from the canonical specification.
+server/client-interface and import-direction rules from the canonical specification. This tree does
+not prescribe UI laboratory placement or public interfaces.
 
 ### Considered but not selected: route/capability
 
@@ -805,7 +809,8 @@ contract.
 slice; it does not create separate Kysely, ProseMirror, Testcontainers or architecture prototype
 tickets. The implementation, compile/check and acceptance tests supply the verification. If that same PR
 crystallizes a hard-to-reverse, surprising trade-off, it may add one focused ADR there. Otherwise no
-ADR is required.
+ADR is required. The later UI laboratory #45 is a bounded mergeable frontend delivery lane with an
+explicit production adoption path, not a retroactive #27 proof or a backend prerequisite.
 
 ## 15. Concrete implementation inputs left to #30/#31
 
