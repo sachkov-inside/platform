@@ -1,17 +1,27 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import "@fontsource-variable/jetbrains-mono/wght.css";
+import "@fontsource-variable/manrope/wght.css";
+
+import { AppShell } from "@/_app";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Inside Platform",
-  description: "Sachkov Inside membership platform",
+  title: {
+    default: "Главная · Inside",
+    template: "%s · Inside",
+  },
+  description: "Материалы, темы и серии Sachkov Inside",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="ru">
-      <body>{children}</body>
+      <body>
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

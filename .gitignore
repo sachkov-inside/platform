@@ -3,7 +3,10 @@
 .env.*
 !.env.example
 .next/
+.impeccable/review/
 .playwright-cli/
+playwright-report/
+test-results/
 coverage/
 dist/
 node_modules/
