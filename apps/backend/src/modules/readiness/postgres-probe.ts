@@ -1,7 +1,7 @@
 import type { OnModuleDestroy } from "@nestjs/common";
 import { Pool } from "pg";
 
-import type { DatabaseProbe } from "./database-probe";
+import type { DatabaseProbe } from "./database-probe.js";
 
 export class PostgresProbe implements DatabaseProbe, OnModuleDestroy {
   private readonly pool: Pool;

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "doc": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "paragraph",
+        "attrs": { "nodeId": "91000000-0000-4000-8000-000000000004" },
+        "content": [
+          {
+            "type": "text",
+            "text": "external",
+            "marks": [
+              { "type": "link", "attrs": { "href": "/\\evil.example/path" } }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

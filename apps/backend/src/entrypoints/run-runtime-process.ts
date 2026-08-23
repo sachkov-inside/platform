@@ -3,8 +3,8 @@ import { NestFactory } from "@nestjs/core";
 import {
   type RuntimeProcess,
   ReadinessService,
-} from "../modules/readiness/readiness.service";
-import { RuntimeModule } from "./runtime.module";
+} from "../modules/readiness/readiness.service.js";
+import { RuntimeModule } from "./runtime.module.js";
 
 export async function runRuntimeProcess(processName: RuntimeProcess): Promise<void> {
   const app = await NestFactory.createApplicationContext(RuntimeModule);

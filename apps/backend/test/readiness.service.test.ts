@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { DatabaseProbe } from "../src/modules/readiness/database-probe";
-import { ReadinessService } from "../src/modules/readiness/readiness.service";
+import type { DatabaseProbe } from "../src/modules/readiness/database-probe.js";
+import { ReadinessService } from "../src/modules/readiness/readiness.service.js";
 
 describe("ReadinessService", () => {
   it("reports the selected process after PostgreSQL responds", async () => {

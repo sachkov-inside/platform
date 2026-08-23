@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "typecheck": "pnpm --recursive --if-present typecheck",
     "test": "pnpm --recursive --if-present test",
+    "test:integration": "pnpm --filter @inside/backend test:integration",
     "test:e2e": "pnpm --filter @inside/web test:e2e",
     "evidence:web": "pnpm --filter @inside/web test:evidence",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm build",

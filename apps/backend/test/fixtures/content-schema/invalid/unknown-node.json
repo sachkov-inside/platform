@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "doc": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "rawHtml",
+        "attrs": {
+          "nodeId": "91000000-0000-4000-8000-000000000003",
+          "html": "<script>alert(1)</script>"
+        }
+      }
+    ]
+  }
+}

@@ -4,7 +4,7 @@ import { FastifyAdapter } from "@nestjs/platform-fastify";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 
-import { ApiModule } from "./api.module";
+import { ApiModule } from "./api.module.js";
 
 export async function createApiApplication(
   options: NestApplicationOptions = {},

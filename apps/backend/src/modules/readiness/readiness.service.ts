@@ -3,7 +3,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
   DATABASE_PROBE,
   type DatabaseProbe,
-} from "./database-probe";
+} from "./database-probe.js";
 
 export type RuntimeProcess = "api" | "worker" | "mcp";
 

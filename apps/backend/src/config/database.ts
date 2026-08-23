@@ -1,4 +1,4 @@
-import { loadRepositoryEnvironment } from "./load-repository-environment";
+import { loadRepositoryEnvironment } from "./load-repository-environment.js";
 
 const DEFAULT_DATABASE_URL =
   "postgresql://inside:inside@127.0.0.1:5432/inside";

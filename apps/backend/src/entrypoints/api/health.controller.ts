@@ -4,7 +4,7 @@ import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
 import {
   type ReadinessReport,
   ReadinessService,
-} from "../../modules/readiness/readiness.service";
+} from "../../modules/readiness/readiness.service.js";
 
 @Controller()
 export class HealthController {
