@@ -42,7 +42,26 @@ _Avoid_: Material, generated index
 
 **Principal**:
 A person or service whose identity and permissions Platform recognizes.
-_Avoid_: Login, session
+_Avoid_: External Identity, Platform Account, Platform Session
+
+**External Identity**:
+A provider-verified identity bound to one Principal independently of changeable profile data.
+_Avoid_: Email address, login, Member Profile
+
+**Platform Session**:
+A finite authentication context through which Platform recognizes a Principal for subsequent
+authorization.
+_Avoid_: Principal, Membership, permission
+
+**Platform Account**:
+The private Platform state through which a human Principal manages identity, security, linking and
+recovery.
+_Avoid_: Member Profile, Principal, Membership
+
+**Member Profile**:
+A presentation of a human Principal that is visible only to active Inside members and never grants
+identity, Membership or content access.
+_Avoid_: Platform Account, public internet profile, identity record
 
 **MembershipEvidence**:
 A time-limited statement about a Principal's Membership in the canonical closed Telegram chat.

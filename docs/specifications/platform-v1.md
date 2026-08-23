@@ -4,15 +4,18 @@
 [Platform #16](https://github.com/sachkov-inside/platform/issues/16), дополненный принятыми
 [Platform #27](https://github.com/sachkov-inside/platform/issues/27) engineering decisions и
 [Platform #19](https://github.com/sachkov-inside/platform/issues/19) parallel UI laboratory и
-production frontend integration.
+production frontend integration, а также отдельным
+[Platform #48](https://github.com/sachkov-inside/platform/issues/48) Identity, Platform Account и
+Member Profile track.
 
 Дата: 2026-08-23.
 
 ## Результат и authority
 
 Platform v1 является каноническим домом материалов Inside. Автор вручную создаёт и публикует
-материалы; публичный посетитель находит и читает открытый контент; участник связывает Platform
-account с Telegram и получает закрытый контент, пока состоит в каноническом закрытом chat.
+материалы; публичный посетитель находит и читает открытый контент; участник управляет private
+Platform Account и отдельным Member Profile, связывает Platform Account с Telegram и получает
+закрытый контент, пока состоит в каноническом закрытом chat.
 
 Этот документ владеет application contract: capability modules, logical model, flows,
 application-level NFR, порядком production foundations и ADR inputs. Продуктовая граница остаётся в
@@ -20,9 +23,11 @@ application-level NFR, порядком production foundations и ADR inputs. П
 Код, tests и возможные application ADR принадлежат этому repository.
 
 Specification синхронизирует принятую cross-repository
-[Workspace #40](https://github.com/sachkov-inside/workspace/issues/40) и более поздние owner
-corrections. Workspace links ниже являются provenance, но build, test, runtime и agent work не
-читают соседний checkout или Workspace.
+[Workspace #40](https://github.com/sachkov-inside/workspace/issues/40), отдельную
+[Identity/Membership specification #65](https://github.com/sachkov-inside/workspace/issues/65) и
+завершённую [contract sync #66](https://github.com/sachkov-inside/workspace/issues/66). Workspace
+links ниже являются authority provenance, но build, test, runtime и agent work не читают соседний
+checkout или Workspace.
 
 ## Application boundaries
 
@@ -35,7 +40,15 @@ consequences:
 - material-specific Telegram discussion relation не является обязательным полем или application
   invariant;
 - admin, REST и MCP используют одни commands, validation, conflicts и publish policy;
-- один provider-neutral `ContentAccess` решает read, preview, asset/download и video access;
+- один provider-neutral `ContentAccess` является final Platform authority для read, preview,
+  asset/download и video access, а `MembershipEntitlements` только строит bounded Platform grant
+  из принятого evidence;
+- Identity Provider доказывает External Identity, но только Platform сопоставляет её с Principal,
+  создаёт Platform Session и решает permissions/content access;
+- private Platform Account не является member-visible projection, а Member Profile не является
+  identity, Membership или authorization input;
+- Member Profile доступен только active members; anonymous visitor, non-member и crawler не
+  получают projection или sensitive Platform Account/identity/link/evidence/security data;
 - PostgreSQL projections обеспечивают Library, Topic/Series navigation, search и related Materials;
 - ReadingState не участвует в access decision и сохраняется при окончании Membership;
 - owner-controlled Tribute URL является только outbound acquisition destination: Platform не
@@ -182,7 +195,8 @@ Entry points вызывают одни application use cases и не созда�
 
 | Module | Малый interface | Owned facts |
 |---|---|---|
-| `IdentityPrincipals` | сопоставить trusted external identity с local Principal и permissions | Principal, identity mapping, account status |
+| `IdentityPrincipals` | сопоставить trusted external identity/session с local Principal, Subject и permissions | Principal, identity/session mapping, security status и permissions |
+| `AccountProfiles` | предоставить private Platform Account и управлять отдельной member-visible Member Profile projection | owner Platform Account projection, Member Profile visibility/content/version |
 | `ContentAuthoring` | create, revise, validate, preview, publish и restore Material | revision pointers, author policy, publish preconditions |
 | `ContentSchema` | validate, migrate, safely render и extract projection из versioned document | schema versions, allowlist, fixture corpus |
 | `ContentLibrary` | читать projections, search и навигацию, находить related Materials | published projections, ranking и explicit related pins |
@@ -198,6 +212,9 @@ Transaction semantics принадлежат единому
 ports и test adapters. Generic
 multi-provider abstraction появляется только со вторым реальным adapter; `ContentAccess` является
 provider-neutral потому, что его policy используют несколько delivery callers.
+`AccountProfiles` координирует две projections одного human Principal, но Platform Account и Member
+Profile имеют независимые authorization и view contracts: ни одна projection не строится из
+другой и не разделяет с ней sensitive fields.
 
 ## Logical model и cardinalities
 
@@ -207,6 +224,9 @@ entities и invariants v1:
 | Entity | Cardinality / invariant |
 |---|---|
 | `Principal` | одна local identity; 0..1 Telegram link; roles и permissions принадлежат Platform |
+| `ExternalIdentity` | trusted provider identity принадлежит ровно одному Principal; changeable profile data не является merge key |
+| `PlatformAccount` | не более одного private Platform Account на human Principal; identity/security/linking state не публикуется |
+| `MemberProfile` | 0..1 member-visible projection на human Principal; active members only; никогда не authorization input |
 | `Material` | stable identity и slug; ровно один current draft; 0..1 published revision |
 | `MaterialRevision` | immutable full snapshot; принадлежит ровно одному Material |
 | `Topic` | Material имеет ровно один Topic; dictionary одноуровневый |
@@ -261,14 +281,31 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 4. Closed body, access decision и delivery credentials имеют `private, no-store`; protected
    speculative prefetch запрещён.
 
+### Sign-in, Platform Account и Member Profile
+
+1. Identity Provider доказывает External Identity; `IdentityPrincipals` сопоставляет trusted
+   identity с ровно одним Principal, а Platform Session только переносит authenticated context к
+   последующей Platform authorization. Provider roles/claims не дают Membership content access.
+2. Human Principal управляет private Platform Account с identity/security, Telegram linking,
+   Membership и recovery states. Service Principal не получает human Platform Account, Member
+   Profile или Membership.
+3. `AccountProfiles` хранит и авторизует Member Profile отдельно от Platform Account. Exact fields,
+   avatar, moderation и discoverability утверждаются в
+   [#51](https://github.com/sachkov-inside/platform/issues/51) до production implementation.
+4. Только active member получает accepted Member Profile projection другого участника. Anonymous,
+   non-member и crawler не получают projection; email, Platform/Telegram internal identifiers,
+   Telegram username, link/evidence и security/audit state никогда в неё не входят.
+
 ### Membership linking и refresh
 
 1. После email-code sign-in Platform предлагает skippable linking; signed-in Principal начинает
-   short-lived link transaction сразу, позже из account или из closed-Material recovery flow.
+   short-lived link transaction сразу, позже из Platform Account или из closed-Material recovery
+   flow.
 2. Отдельная Telegram application проверяет Telegram identity, uniqueness и Membership в
    каноническом закрытом chat.
-3. Platform принимает normalized MembershipEvidence без raw Telegram model и строит собственный
-   entitlement не дольше `validUntil` этого evidence.
+3. Platform принимает normalized MembershipEvidence без raw Telegram model по принятому
+   [Workspace v1 contract](https://github.com/sachkov-inside/workspace/blob/main/docs/contracts/identity-membership-v1.md)
+   и строит собственный entitlement не дольше `validUntil` этого evidence.
 4. Первый protected request после expiry выполняет single-flight refresh. Positive
    MembershipEvidence живёт не более пяти минут; confirmed removal denies immediately; outage
    после expiry fails closed.
@@ -305,6 +342,9 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 ### Security и privacy
 
 - protected paths fail closed; identity, Telegram и provider role не заменяют Platform authorization;
+- private Platform Account и member-visible Member Profile используют разные projections; email,
+  provider claims, internal/Telegram identifiers, link/evidence и security/audit state не
+  публикуются;
 - cookie session использует `Secure`, `HttpOnly` и explicit `SameSite`; mutations проверяют CSRF и Origin;
 - issuer, audience и expiry валидируются строго; secrets, tokens и raw sessions не попадают в logs;
 - server renderer запрещает raw HTML/MDX, allowlist-ит nodes/URLs и ограничивает document size/depth;
@@ -317,7 +357,8 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
   server-rendered metadata, sitemap и crawlable internal links;
 - closed card может индексироваться, но closed body отсутствует в HTML, RSC, structured data,
   search response и shared cache;
-- draft, preview, admin, account и MCP surfaces имеют `noindex` и не входят в sitemap.
+- draft, preview, admin, Platform Account, Member Profile и MCP surfaces имеют `noindex` и не
+  входят в sitemap.
 
 ### Accessibility и responsive behavior
 
@@ -388,14 +429,56 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    application interfaces и добавляет только component needs собственного surface; второй UI
    system, fixture data path или browser-owned business rules запрещены. #20/#21 остаются
    structural и owner-taste inputs, а закрытые #22/#23 и superseded #40 — provenance, не gates.
-10. **Identity и protected content:** identity application proof и единый `ContentAccess` покрывают
-   closed body, assets, downloads и video через test Membership adapter.
-11. **Real Membership:** отдельная Telegram application подключается только после стабилизации
-   versioned MembershipEvidence port; Platform сохраняет ownership entitlement и final access
-   decision.
+10. **Parallel Identity/Membership track:** отдельная root Specification
+   [#48](https://github.com/sachkov-inside/platform/issues/48) владеет Platform identity,
+   authorization, private Platform Account и Member Profile delivery. После repository-local sync
+   #53
+   [#49](https://github.com/sachkov-inside/platform/issues/49) начинается поверх завершённой #30 и
+   доказывает External Identity → Principal → Platform Session path параллельно #31 и UI lane.
+   [#50](https://github.com/sachkov-inside/platform/issues/50) ждёт #49/#31 и проводит реальные
+   protected resources через `ContentAccess` и test Membership adapter. Member Profile brief
+   [#51](https://github.com/sachkov-inside/platform/issues/51) может идти сразу параллельно;
+   production persistence использует #49, а production UI — принятую #45/#46 foundation.
+   Одновременно [Workspace #60](https://github.com/sachkov-inside/workspace/issues/60) может
+   bootstrap-ить Telegram provider lane после принятого Workspace #65/#66 contract и своих owner
+   gates: завершённый Platform #50 не является его trigger.
+11. **Identity/Membership convergence:**
+   [#52](https://github.com/sachkov-inside/platform/issues/52) соединяет независимо готовые
+   Platform consumer/Member Profile и Telegram provider implementations через versioned HTTP
+   adapter и общий conformance corpus. Platform сохраняет ownership Membership Entitlement и
+   каждого final `ContentAccess` decision; integration или provider availability не дают
+   production GO.
 12. **Feature-complete candidate:** author/MCP, content, Kinescope, private resources, Membership,
    reading activity и UI journeys проходят end-to-end application verification; актуальные
    Materials вручную созданы без import pipeline.
+
+Identity/Membership dependency graph:
+
+```mermaid
+flowchart TD
+    S65[Workspace #65: Identity/Membership specification] --> C66[Workspace #66: shared contract]
+    C66 --> P53[Platform #53: local contract sync]
+    C66 --> B60[Workspace #60: Telegram repository bootstrap]
+
+    DRAFT[Platform #30: create/revise] --> ID49[Platform #49: IdP + Principal + session]
+    P53 --> ID49
+    ID49 --> ACCESS50[Platform #50: ContentAccess + test adapter]
+    LIFE[Platform #31: publish/read] --> ACCESS50
+
+    S65 --> PROFILE51[Platform #51: Platform Account + Member Profile brief]
+    ID49 -. persistence input .-> PROFILE51
+    LAB[Platform #45] --> SHELL[Platform #46]
+    SHELL -. production UI input .-> PROFILE51
+
+    B60 --> TG[Telegram root Specification + provider]
+    ACCESS50 --> JOIN52[Platform #52: end-to-end convergence]
+    PROFILE51 --> JOIN52
+    TG --> JOIN52
+```
+
+Граф задаёт три параллельные линии: content/application, owner-controlled UI и
+Identity/Membership consumer/provider. #51 brief и Telegram bootstrap не ждут готовый #49/#50;
+реальные persistence/UI и финальная integration сохраняют показанные consumer dependencies.
 
 Текущая application specification не определяет environments, deploy/promotion/rollback,
 infrastructure capacity, domains, observability, secrets operations, backup/recovery или production
@@ -419,6 +502,10 @@ choice, неочевидный контекст и реальный trade-off. �
 
 ## Provenance
 
+- [Platform #48: Identity, Authorization и Member Profile root Specification](https://github.com/sachkov-inside/platform/issues/48)
+- [Workspace #65: cross-repository Identity/Membership specification](https://github.com/sachkov-inside/workspace/issues/65)
+- [Workspace #66: accepted Identity/Membership contract sync](https://github.com/sachkov-inside/workspace/issues/66)
+- [Workspace Identity/Membership v1 contract](https://github.com/sachkov-inside/workspace/blob/main/docs/contracts/identity-membership-v1.md)
 - [Platform #27 owner architecture decisions](https://github.com/sachkov-inside/platform/issues/27#issuecomment-5378336463)
 - [Platform #19 integrated frontend owner decision](https://github.com/sachkov-inside/platform/issues/19#issuecomment-5382270492)
 - [Platform #44: parallel UI laboratory owner correction](https://github.com/sachkov-inside/platform/issues/44)
