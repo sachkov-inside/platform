@@ -51,6 +51,10 @@ decisions.
   layout.
 - Visual implementation идёт поэтапно, surface за surface, с явным owner review до расширения
   решения на весь продукт.
+- Вся frontend-разработка Platform идёт mobile-first: base composition, content priority и
+  interaction model сначала доказываются на narrow viewport, а tablet/desktop добавляют
+  space-driven enhancements через min-width/container queries. Desktop composition не
+  проектируется как primary layout с последующим сжатием для mobile.
 - Generated mockups и внешние references задают направление и quality bar, но не являются
   обязательными screenshot specifications.
 
@@ -261,19 +265,39 @@ H1 задаёт starting point для первого production consumer. H2/H3 
 конкретный surface выявит их реальную пользу; отдельное сравнение 2–3 whole-screen concepts не
 требуется.
 
-## 6. Navigation и composition остаются открытыми
+## 6. Owner-approved UI laboratory baseline
 
-Exploration session проверила три topology hypotheses: compact global rail, landing-like floating
-header и denser workbench split. Owner не утверждал ни один generated comp как pixel authority.
+Rendered review в [Platform #45](https://github.com/sachkov-inside/platform/issues/45) 2026-08-23
+подтвердил первую bounded baseline для продолжения laboratory. Это approval конкретных patterns,
+а не pixel authority для ещё не спроектированных interiors или merge GO:
 
-Owning production surfaces должны доказать just in time:
+- desktop использует округлый full-height sidebar: в auto-режиме он раскрывается по hover/focus,
+  может быть явно закреплён, а profile utility с реальной avatar остаётся у нижней границы независимо
+  от page scroll;
+- collapsed sidebar показывает brand mark, а pin control появляется только в expanded state;
+- mobile использует постоянную нижнюю navigation для `Главная / Библиотека / Карта`, а не burger;
+- `Media Card` является принятой основой Material preview: bounded card не растягивается на всю
+  страницу, video получает реальный preview с duration в одном месте, а Material без preview
+  остаётся content-first без искусственной заглушки;
+- card hierarchy строится из compact tags, небольшого title, короткого description, Format и
+  access state; мягкая elevation отделяет card от canvas без журнальной плоскости;
+- `Hybrid Catalog` является принятым composition proof для этих cards, но не финальным layout
+  Библиотеки.
 
-- нужен ли persistent desktop rail либо достаточно global header;
-- как global destinations `Главная / Библиотека / Карта` адаптируются на narrow mobile;
-- когда local Material context становится right rail, inline section или bottom sheet;
-- как reading canvas сохраняет удобную длину строки при chapters, notes и Resources;
-- какие shell transitions помогают сохранить mental context и не нарушают reduced-motion
-  preference.
+Текущие rendered proofs находятся в Storybook stories `Navigation/Application shell` и
+`Compositions/Material cards`. Laboratory использует Tailwind CSS, shadcn-compatible shared UI
+structure и Agentation как owner-feedback overlay; production routes пока не импортируют workshop
+runtime или fixtures.
+
+Следующий owner proof — mobile-first Библиотека. Сначала на narrow viewport проверяются search,
+реальные filters по Topic/Format/Tag, sorting, result count и плотная выдача принятых Material cards;
+затем та же information architecture получает desktop enhancement. Нужны representative normal,
+long-content, preview/no-preview, free/closed, empty-search и только фактически полезные
+loading/error states. После Библиотеки следующий отдельный proof — long-form Material reader, затем
+video и closed-access states.
+
+Local Material context, reading measure, chapters, Resources и authoring composition остаются
+открытыми до owning surface review.
 
 ## 7. Alive, not animated
 
@@ -302,12 +326,18 @@ bounded reference compositions и component sources через rendered owner re
 interfaces, production adoption и external-service gates принадлежат application specification и
 repository workflow.
 
+Mobile-first здесь является implementation constraint, а не отдельной mobile-версией:
+information architecture и core actions остаются одними на всех viewport, touch targets нельзя
+завязывать на hover, а responsive breakpoints вводятся там, где ломается content, а не по
+списку моделей устройств.
+
 ## 9. Explicitly not final
 
 На этом этапе не зафиксированы:
 
 - exact palette values, typefaces, icon family, radius/spacing scale и elevation tokens;
-- sidebar versus header versus hybrid shell;
+- final Library/search, Material reader и author editor/Preview compositions;
+- contextual navigation внутри Material и authoring surfaces;
 - generated composition screenshots;
 - component/primitives library;
 - final motion grammar и timings;
