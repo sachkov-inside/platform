@@ -5,10 +5,8 @@ export {
   type ContentAuthoringError,
   type CreateDraftCommand,
   type CreateDraftResult,
-  type DraftMetadata,
-  type DraftMetadataChanges,
-  type DraftSnapshot,
-  type DraftWriteValue,
+  type MaterialMetadataChanges,
+  type MaterialMetadataInput,
   type LoadDraftQuery,
   type LoadDraftResult,
   type ReviseDraftCommand,
@@ -16,6 +14,12 @@ export {
   type SeriesMembershipInput,
 } from "./application/content-authoring.interface.js";
 export type { AuthorPolicy } from "./application/ports/author-policy.js";
+export type { Material, MaterialRevision } from "./domain/material.js";
+export {
+  MaterialMetadata,
+  type MaterialMetadataValues,
+  type SeriesMembership,
+} from "./domain/material-metadata.js";
 export type {
   DocumentChange,
   JsonObject,

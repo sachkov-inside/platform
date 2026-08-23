@@ -1,24 +1,36 @@
-import { randomUUID } from "node:crypto";
-
 import { sql } from "kysely";
 
-import type {
-  ApplicationResult,
-  DraftMetadata,
-  DraftSnapshot,
-  DraftWriteValue,
-} from "../../application/content-authoring.interface.js";
-import { failure, rollback } from "../../application/shared/application-result.js";
 import type { MaterialDocument } from "../../domain/material-document/material-document.js";
+import { MaterialMetadata } from "../../domain/material-metadata.js";
+import {
+  createMaterial,
+  createMaterialRevision,
+  type Material,
+} from "../../domain/material.js";
 import type { AuthoringDatabase } from "./database.js";
 
-export interface PersistedDraftInput {
+export interface PersistedMaterialRevision {
   readonly materialId: string;
   readonly revisionId: string;
-  readonly metadata: DraftMetadata;
+  readonly metadata: {
+    readonly title: string;
+    readonly summary: string;
+    readonly slug: string;
+    readonly topicId: string;
+    readonly formatId: string;
+    readonly tagIds: readonly string[];
+    readonly seriesMemberships: readonly {
+      readonly seriesId: string;
+      readonly ordinal: number;
+    }[];
+  };
   readonly schemaVersion: number;
   readonly body: unknown;
 }
+
+export type MaterialHydration =
+  | { readonly ok: true; readonly value: Material }
+  | { readonly ok: false };
 
 export async function loadCurrentRevisionId(
   database: AuthoringDatabase,
@@ -32,11 +44,11 @@ export async function loadCurrentRevisionId(
   return material?.current_draft_revision_id;
 }
 
-export async function loadPersistedDraft(
+export async function loadPersistedMaterialRevision(
   database: AuthoringDatabase,
   materialId: string,
   revisionId?: string,
-): Promise<PersistedDraftInput | undefined> {
+): Promise<PersistedMaterialRevision | undefined> {
   let query = database
     .selectFrom("materials as material")
     .innerJoin("material_revisions as revision", "revision.material_id", "material.id")
@@ -106,41 +118,39 @@ export async function loadPersistedDraft(
   };
 }
 
-export function hydratePersistedDraft(
+export function hydratePersistedMaterial(
   materialDocument: MaterialDocument,
-  persisted: PersistedDraftInput,
-): ApplicationResult<DraftSnapshot> {
+  persisted: PersistedMaterialRevision,
+): MaterialHydration {
+  const metadata = MaterialMetadata.create(persisted.metadata);
   const body = materialDocument.accept({
     schemaVersion: persisted.schemaVersion,
     doc: persisted.body,
   });
-  if (!body.ok) {
-    return failure({ code: "internal_error", correlationId: randomUUID() });
+  if (!metadata.ok || !body.ok) {
+    return { ok: false };
   }
-  return {
-    ok: true,
-    value: {
-      materialId: persisted.materialId,
-      revisionId: persisted.revisionId,
-      metadata: persisted.metadata,
-      body: body.value,
-    },
-  };
+  const revision = createMaterialRevision({
+    id: persisted.revisionId,
+    materialId: persisted.materialId,
+    metadata: metadata.value,
+    body: body.value,
+  });
+  return { ok: true, value: createMaterial(revision) };
 }
 
-export async function loadWriteValue(
+export async function loadMaterial(
   database: AuthoringDatabase,
   materialDocument: MaterialDocument,
   materialId: string,
-  revisionId: string,
-): Promise<DraftWriteValue> {
-  const persisted = await loadPersistedDraft(database, materialId, revisionId);
-  if (persisted === undefined) {
-    rollback({ code: "internal_error", correlationId: randomUUID() });
-  }
-  const draft = hydratePersistedDraft(materialDocument, persisted);
-  if (!draft.ok) {
-    rollback(draft.error);
-  }
-  return { materialId, revisionId, draft: draft.value };
+  revisionId?: string,
+): Promise<MaterialHydration | undefined> {
+  const persisted = await loadPersistedMaterialRevision(
+    database,
+    materialId,
+    revisionId,
+  );
+  return persisted === undefined
+    ? undefined
+    : hydratePersistedMaterial(materialDocument, persisted);
 }

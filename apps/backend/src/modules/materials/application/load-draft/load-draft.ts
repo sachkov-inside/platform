@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
 import type {
@@ -12,11 +14,8 @@ import {
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
-import {
-  hydratePersistedDraft,
-  loadPersistedDraft,
-} from "../../infrastructure/postgres/draft-snapshot.js";
-import { mapPostgresError } from "../../infrastructure/postgres/postgres-error-mapping.js";
+import { mapPostgresError } from "../shared/postgres-error-mapping.js";
+import { loadMaterial } from "../../infrastructure/postgres/material-persistence.js";
 
 const loadDraftQuery = z
   .object({
@@ -39,15 +38,17 @@ export function createLoadDraft(
     }
 
     try {
-      const persisted = await loadPersistedDraft(
+      const material = await loadMaterial(
         dependencies.database,
+        dependencies.materialDocument,
         query.materialId,
       );
-      if (persisted === undefined) {
+      if (material === undefined) {
         return failure({ code: "material_not_found" });
       }
-      const draft = hydratePersistedDraft(dependencies.materialDocument, persisted);
-      return draft.ok ? draft : failure(draft.error);
+      return material.ok
+        ? { ok: true, value: material.value }
+        : failure({ code: "internal_error", correlationId: randomUUID() });
     } catch (error) {
       return failure(mapPostgresError(error));
     }

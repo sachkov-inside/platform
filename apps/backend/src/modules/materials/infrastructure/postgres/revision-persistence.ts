@@ -1,5 +1,5 @@
 import type { Json, JsonObject } from "../../../../infrastructure/postgres/generated/database.js";
-import type { DraftMetadata } from "../../domain/material.js";
+import type { MaterialMetadata } from "../../domain/material-metadata.js";
 import type { AuthoringTransaction } from "./database.js";
 
 function toDatabaseJson(value: unknown): Json {
@@ -30,7 +30,7 @@ export async function insertRevision(
     readonly actor: string;
     readonly materialId: string;
     readonly revisionId: string;
-    readonly metadata: DraftMetadata;
+    readonly metadata: MaterialMetadata;
     readonly schemaVersion: number;
     readonly body: unknown;
   },
@@ -81,7 +81,7 @@ export async function insertRevision(
 export async function replaceCurrentRelations(
   transaction: AuthoringTransaction,
   materialId: string,
-  metadata: DraftMetadata,
+  metadata: MaterialMetadata,
 ): Promise<void> {
   await transaction.deleteFrom("material_tags").where("material_id", "=", materialId).execute();
   await transaction

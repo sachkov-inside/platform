@@ -1,20 +1,14 @@
-import { randomUUID } from "node:crypto";
-
-import type { DraftWriteValue } from "../../application/content-authoring.interface.js";
-import { rollback } from "../../application/shared/application-result.js";
-import type { MaterialDocument } from "../../domain/material-document/material-document.js";
 import type { AuthoringTransaction } from "./database.js";
-import { loadWriteValue } from "./draft-snapshot.js";
 
-type AuthoringOperation = "create_draft" | "revise_draft";
+export type AuthoringOperation = "create_draft" | "revise_draft";
 
-type IdempotencyClaim =
+export type IdempotencyClaim =
   | { readonly kind: "claimed" }
   | { readonly kind: "replay"; readonly materialId: string; readonly revisionId: string }
   | { readonly kind: "reused" }
   | { readonly kind: "incomplete" };
 
-async function claimIdempotency(
+export async function claimIdempotency(
   transaction: AuthoringTransaction,
   values: {
     readonly actor: string;
@@ -62,34 +56,6 @@ async function claimIdempotency(
     materialId: existing.material_id,
     revisionId: existing.revision_id,
   };
-}
-
-export async function claimOrReplay(
-  transaction: AuthoringTransaction,
-  materialDocument: MaterialDocument,
-  values: {
-    readonly actor: string;
-    readonly operation: AuthoringOperation;
-    readonly key: string;
-    readonly fingerprint: string;
-  },
-): Promise<DraftWriteValue | undefined> {
-  const claim = await claimIdempotency(transaction, values);
-  if (claim.kind === "claimed") {
-    return undefined;
-  }
-  if (claim.kind === "reused") {
-    rollback({ code: "idempotency_key_reused" });
-  }
-  if (claim.kind === "incomplete") {
-    rollback({ code: "internal_error", correlationId: randomUUID() });
-  }
-  return loadWriteValue(
-    transaction,
-    materialDocument,
-    claim.materialId,
-    claim.revisionId,
-  );
 }
 
 export async function completeIdempotency(

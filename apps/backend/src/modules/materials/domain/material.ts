@@ -1,33 +1,27 @@
-import type { ValidationIssue } from "./material-document/material-document.js";
+import type { MaterialDocumentV1 } from "./material-document/material-document.js";
+import type { MaterialMetadata } from "./material-metadata.js";
 
-export interface SeriesMembershipInput {
-  readonly seriesId: string;
-  readonly ordinal: number;
+export interface MaterialRevision {
+  readonly id: string;
+  readonly materialId: string;
+  readonly metadata: MaterialMetadata;
+  readonly body: MaterialDocumentV1;
 }
 
-export interface DraftMetadata {
-  readonly title: string;
-  readonly summary: string;
-  readonly slug: string;
-  readonly topicId: string;
-  readonly formatId: string;
-  readonly tagIds: readonly string[];
-  readonly seriesMemberships: readonly SeriesMembershipInput[];
+export interface Material {
+  readonly id: string;
+  readonly currentDraft: MaterialRevision;
 }
 
-export interface DraftMetadataChanges {
-  readonly title?: string;
-  readonly summary?: string;
-  readonly slug?: string;
-  readonly topicId?: string;
-  readonly formatId?: string;
-  readonly tagIds?: readonly string[];
-  readonly seriesMemberships?: readonly SeriesMembershipInput[];
+export function createMaterialRevision(
+  values: MaterialRevision,
+): MaterialRevision {
+  return Object.freeze({ ...values });
 }
 
-export type MaterialMetadataValidationError =
-  | {
-      readonly code: "invalid_content";
-      readonly issues: readonly ValidationIssue[];
-    }
-  | { readonly code: "duplicate_tag"; readonly tagId: string };
+export function createMaterial(currentDraft: MaterialRevision): Material {
+  if (currentDraft.materialId.length === 0) {
+    throw new TypeError("A MaterialRevision must belong to a Material");
+  }
+  return Object.freeze({ id: currentDraft.materialId, currentDraft });
+}

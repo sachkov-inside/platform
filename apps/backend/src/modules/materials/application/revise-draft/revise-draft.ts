@@ -13,6 +13,7 @@ import {
   failure,
   rollback,
 } from "../shared/application-result.js";
+import { claimOrReplay } from "../shared/claim-or-replay.js";
 import { fingerprintCommand } from "../shared/canonical-command-fingerprint.js";
 import {
   entityId,
@@ -20,39 +21,18 @@ import {
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
-import {
-  materialMetadataFields,
-  validateMetadata,
-} from "../../domain/material-rules.js";
+import { mapPostgresError } from "../shared/postgres-error-mapping.js";
+import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
 import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
 import {
-  hydratePersistedDraft,
   loadCurrentRevisionId,
-  loadPersistedDraft,
-  loadWriteValue,
-} from "../../infrastructure/postgres/draft-snapshot.js";
-import {
-  claimOrReplay,
-  completeIdempotency,
-} from "../../infrastructure/postgres/idempotency.js";
-import { mapPostgresError } from "../../infrastructure/postgres/postgres-error-mapping.js";
-import { requireReferenceIntegrity } from "../../infrastructure/postgres/reference-integrity.js";
+  loadMaterial,
+} from "../../infrastructure/postgres/material-persistence.js";
+import { completeIdempotency } from "../../infrastructure/postgres/idempotency.js";
 import {
   insertRevision,
   replaceCurrentRelations,
 } from "../../infrastructure/postgres/revision-persistence.js";
-
-const metadataChanges = z
-  .object({
-    title: materialMetadataFields.title.optional(),
-    summary: materialMetadataFields.summary.optional(),
-    slug: materialMetadataFields.slug.optional(),
-    topicId: materialMetadataFields.topicId.optional(),
-    formatId: materialMetadataFields.formatId.optional(),
-    tagIds: materialMetadataFields.tagIds.optional(),
-    seriesMemberships: materialMetadataFields.seriesMemberships.optional(),
-  })
-  .strict();
 
 const documentChange = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("replace_document"), document: z.unknown() }).strict(),
@@ -90,7 +70,7 @@ const reviseDraftCommand = z
     baseRevisionId: entityId,
     changes: z
       .object({
-        metadata: metadataChanges.optional(),
+        metadata: z.unknown().optional(),
         body: z.array(documentChange).max(100).optional(),
       })
       .strict(),
@@ -135,8 +115,9 @@ export function createReviseDraft(
 
     let persistedBase;
     try {
-      persistedBase = await loadPersistedDraft(
+      persistedBase = await loadMaterial(
         dependencies.database,
+        dependencies.materialDocument,
         command.materialId,
         command.baseRevisionId,
       );
@@ -153,22 +134,21 @@ export function createReviseDraft(
       return failure(mapPostgresError(error));
     }
 
-    const base = hydratePersistedDraft(dependencies.materialDocument, persistedBase);
-    if (!base.ok) {
-      return failure(base.error);
+    if (!persistedBase.ok) {
+      return failure({ code: "internal_error", correlationId: randomUUID() });
     }
-    const metadata = validateMetadata({
-      ...base.value.metadata,
-      ...command.changes.metadata,
-    });
+    const base = persistedBase.value;
+    const metadata = base.currentDraft.metadata.revise(
+      command.changes.metadata ?? {},
+    );
     if (!metadata.ok) {
       return failure(metadata.error);
     }
     const body =
       command.changes.body === undefined
-        ? { ok: true as const, value: base.value.body }
+        ? { ok: true as const, value: base.currentDraft.body }
         : dependencies.materialDocument.applyChanges(
-            base.value.body,
+            base.currentDraft.body,
             command.changes.body,
           );
     if (!body.ok) {
@@ -179,7 +159,7 @@ export function createReviseDraft(
       actor: command.actor,
       materialId: command.materialId,
       baseRevisionId: command.baseRevisionId,
-      contentSchemaVersion: base.value.body.schemaVersion,
+      contentSchemaVersion: base.currentDraft.body.schemaVersion,
       changes: command.changes,
     });
 
@@ -187,7 +167,7 @@ export function createReviseDraft(
       const value = await dependencies.database
         .transaction()
         .execute(async (transaction) => {
-          const replay = await claimOrReplay(transaction, dependencies.materialDocument, {
+          const replay = await claimOrReplay(transaction, dependencies, {
             actor: command.actor,
             operation: "revise_draft",
             key: command.idempotencyKey,
@@ -239,12 +219,16 @@ export function createReviseDraft(
             materialId: command.materialId,
             revisionId,
           });
-          return loadWriteValue(
+          const material = await loadMaterial(
             transaction,
             dependencies.materialDocument,
             command.materialId,
             revisionId,
           );
+          if (material === undefined || !material.ok) {
+            rollback({ code: "internal_error", correlationId: randomUUID() });
+          }
+          return material.value;
         });
       return { ok: true, value };
     } catch (error) {

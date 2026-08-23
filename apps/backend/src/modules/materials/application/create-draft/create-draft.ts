@@ -8,25 +8,24 @@ import type {
 } from "../content-authoring.interface.js";
 import { canAuthor } from "../ports/author-policy.js";
 import type { ContentAuthoringDependencies } from "../content-authoring.dependencies.js";
-import { AuthoringRollback, failure } from "../shared/application-result.js";
+import {
+  AuthoringRollback,
+  failure,
+  rollback,
+} from "../shared/application-result.js";
 import { fingerprintCommand } from "../shared/canonical-command-fingerprint.js";
+import { claimOrReplay } from "../shared/claim-or-replay.js";
 import {
   idempotencyKey,
   parseCommand,
   principalId,
 } from "../shared/command-validation.js";
-import {
-  materialMetadataFields,
-  validateMetadata,
-} from "../../domain/material-rules.js";
+import { mapPostgresError } from "../shared/postgres-error-mapping.js";
+import { requireReferenceIntegrity } from "../shared/reference-integrity.js";
+import { MaterialMetadata } from "../../domain/material-metadata.js";
 import type { AuthoringTransaction } from "../../infrastructure/postgres/database.js";
-import { loadWriteValue } from "../../infrastructure/postgres/draft-snapshot.js";
-import {
-  claimOrReplay,
-  completeIdempotency,
-} from "../../infrastructure/postgres/idempotency.js";
-import { mapPostgresError } from "../../infrastructure/postgres/postgres-error-mapping.js";
-import { requireReferenceIntegrity } from "../../infrastructure/postgres/reference-integrity.js";
+import { completeIdempotency } from "../../infrastructure/postgres/idempotency.js";
+import { loadMaterial } from "../../infrastructure/postgres/material-persistence.js";
 import {
   insertRevision,
   replaceCurrentRelations,
@@ -36,7 +35,7 @@ const createDraftCommand = z
   .object({
     actor: principalId,
     idempotencyKey,
-    metadata: z.object(materialMetadataFields).strict(),
+    metadata: z.unknown(),
     body: z.unknown(),
   })
   .strict();
@@ -71,7 +70,7 @@ export function createCreateDraft(
     if (!(await canAuthor(dependencies.authorPolicy, command.actor))) {
       return failure({ code: "forbidden" });
     }
-    const metadata = validateMetadata(command.metadata);
+    const metadata = MaterialMetadata.create(command.metadata);
     if (!metadata.ok) {
       return failure(metadata.error);
     }
@@ -85,7 +84,7 @@ export function createCreateDraft(
     const fingerprint = fingerprintCommand({
       operation: "create_draft",
       actor: command.actor,
-      metadata: metadata.value,
+      metadata: metadata.value.toValues(),
       body: command.body,
     });
 
@@ -93,7 +92,7 @@ export function createCreateDraft(
       const value = await dependencies.database
         .transaction()
         .execute(async (transaction) => {
-          const replay = await claimOrReplay(transaction, dependencies.materialDocument, {
+          const replay = await claimOrReplay(transaction, dependencies, {
             actor: command.actor,
             operation: "create_draft",
             key: command.idempotencyKey,
@@ -127,12 +126,16 @@ export function createCreateDraft(
             materialId,
             revisionId,
           });
-          return loadWriteValue(
+          const material = await loadMaterial(
             transaction,
             dependencies.materialDocument,
             materialId,
             revisionId,
           );
+          if (material === undefined || !material.ok) {
+            rollback({ code: "internal_error", correlationId: randomUUID() });
+          }
+          return material.value;
         });
       return { ok: true, value };
     } catch (error) {
