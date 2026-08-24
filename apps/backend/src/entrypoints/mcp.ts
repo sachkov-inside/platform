@@ -27,7 +27,7 @@ function listenForShutdownSignal(): {
   readonly received: Promise<void>;
   dispose(): void;
 } {
-  let resolveSignal: () => void = () => {};
+  let resolveSignal: (() => void) | undefined;
   const received = new Promise<void>((resolve) => {
     resolveSignal = resolve;
   });
@@ -37,7 +37,7 @@ function listenForShutdownSignal(): {
   };
   const onSignal = (): void => {
     dispose();
-    resolveSignal();
+    resolveSignal?.();
   };
 
   process.once("SIGINT", onSignal);
