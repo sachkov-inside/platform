@@ -8,9 +8,8 @@ import {
 } from "../src/config/platform-config.js";
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
 import { createRuntimeApplication } from "../src/entrypoints/create-runtime-application.js";
+import { OperationalReadiness } from "../src/infrastructure/operational-readiness.js";
 import { PLATFORM_DATABASE } from "../src/infrastructure/postgres/index.js";
-import { DATABASE_PROBE } from "../src/modules/readiness/database-probe.js";
-import { PlatformDatabaseProbe } from "../src/modules/readiness/platform-database-probe.js";
 
 const config = parsePlatformConfig({
   NODE_ENV: "test",
@@ -31,8 +30,7 @@ describe("backend process composition", () => {
     expect(api.get(PLATFORM_CONFIG)).toBe(config);
     const database = api.get(PLATFORM_DATABASE);
     expect(api.get(PLATFORM_DATABASE)).toBe(database);
-    const databaseProbe = api.get<PlatformDatabaseProbe>(DATABASE_PROBE);
-    expect(databaseProbe.database).toBe(database);
+    expect(api.get(OperationalReadiness)).toBeInstanceOf(OperationalReadiness);
 
     const destroy = vi.spyOn(database, "destroy");
     await api.close();
@@ -48,8 +46,9 @@ describe("backend process composition", () => {
     expect(runtime.get(PLATFORM_CONFIG)).toBe(config);
     const database = runtime.get(PLATFORM_DATABASE);
     expect(runtime.get(PLATFORM_DATABASE)).toBe(database);
-    const databaseProbe = runtime.get<PlatformDatabaseProbe>(DATABASE_PROBE);
-    expect(databaseProbe.database).toBe(database);
+    expect(runtime.get(OperationalReadiness)).toBeInstanceOf(
+      OperationalReadiness,
+    );
 
     const destroy = vi.spyOn(database, "destroy");
     await runtime.close();
@@ -65,6 +64,8 @@ describe("backend process composition", () => {
     application = api;
     await api.init();
     await api.getHttpAdapter().getInstance().ready();
+    const database = api.get(PLATFORM_DATABASE);
+    const getExecutor = vi.spyOn(database, "getExecutor");
 
     const response = await api.getHttpAdapter().getInstance().inject({
       method: "GET",
@@ -72,5 +73,6 @@ describe("backend process composition", () => {
     });
 
     expect(response.statusCode).toBe(500);
+    expect(getExecutor).toHaveBeenCalled();
   });
 });

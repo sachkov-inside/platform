@@ -2,13 +2,13 @@ import { Controller, Get } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
 
 import {
+  OperationalReadiness,
   type ReadinessReport,
-  ReadinessService,
-} from "../../modules/readiness/readiness.service.js";
+} from "../../infrastructure/operational-readiness.js";
 
 @Controller()
 export class HealthController {
-  constructor(private readonly readiness: ReadinessService) {}
+  constructor(private readonly readiness: OperationalReadiness) {}
 
   @Get("health")
   @ApiOperation({ summary: "Check API and database readiness" })

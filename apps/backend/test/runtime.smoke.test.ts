@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { loadPlatformConfig } from "../src/config/load-platform-config.js";
 import { createRuntimeApplication } from "../src/entrypoints/create-runtime-application.js";
-import { ReadinessService } from "../src/modules/readiness/readiness.service.js";
+import { OperationalReadiness } from "../src/infrastructure/operational-readiness.js";
 
 describe("MCP and worker runtime smoke", () => {
   let application: INestApplicationContext | undefined;
@@ -18,7 +18,7 @@ describe("MCP and worker runtime smoke", () => {
       application = await createRuntimeApplication(loadPlatformConfig(), {
         logger: false,
       });
-      const readiness = application.get(ReadinessService);
+      const readiness = application.get(OperationalReadiness);
 
       await expect(readiness.check(processName)).resolves.toEqual({
         process: processName,

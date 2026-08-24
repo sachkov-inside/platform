@@ -1,8 +1,8 @@
 import type { PlatformConfig } from "../config/platform-config.js";
 import {
+  OperationalReadiness,
   type RuntimeProcess,
-  ReadinessService,
-} from "../modules/readiness/readiness.service.js";
+} from "../infrastructure/operational-readiness.js";
 import { createRuntimeApplication } from "./create-runtime-application.js";
 
 export async function runRuntimeProcess(
@@ -12,7 +12,7 @@ export async function runRuntimeProcess(
   const app = await createRuntimeApplication(config);
 
   try {
-    const readiness = app.get(ReadinessService);
+    const readiness = app.get(OperationalReadiness);
     const report = await readiness.check(processName);
 
     console.info(JSON.stringify(report));

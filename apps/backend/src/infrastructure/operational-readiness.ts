@@ -1,9 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { sql } from "kysely";
 
 import {
-  DATABASE_PROBE,
-  type DatabaseProbe,
-} from "./database-probe.js";
+  PLATFORM_DATABASE,
+  type PlatformDatabase,
+} from "./postgres/index.js";
 
 export type RuntimeProcess = "api" | "worker" | "mcp";
 
@@ -14,14 +15,14 @@ export interface ReadinessReport {
 }
 
 @Injectable()
-export class ReadinessService {
+export class OperationalReadiness {
   constructor(
-    @Inject(DATABASE_PROBE)
-    private readonly database: DatabaseProbe,
+    @Inject(PLATFORM_DATABASE)
+    private readonly database: PlatformDatabase,
   ) {}
 
   async check(process: RuntimeProcess): Promise<ReadinessReport> {
-    await this.database.ping();
+    await sql`select 1`.execute(this.database);
 
     return {
       process,
