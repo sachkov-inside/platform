@@ -27,13 +27,18 @@ export interface ApplicationNavigationItem {
   readonly label: string;
 }
 
-interface ApplicationShellProps {
+export interface ApplicationShellProps {
+  /** Avatar shown in the account affordance. */
   readonly accountAvatarUrl: string;
+  /** Human-readable account name used by visible and accessible labels. */
   readonly accountLabel: string;
   readonly children: ReactNode;
+  /** Current route used to expose the active navigation item. */
   readonly currentPath: string;
+  /** Desktop navigation topology; both variants keep mobile bottom navigation. */
   readonly layout: "header" | "sidebar";
   readonly navigationItems: readonly ApplicationNavigationItem[];
+  /** Initial pinned state for the expandable desktop sidebar. */
   readonly sidebarDefaultPinned?: boolean;
 }
 
@@ -43,6 +48,7 @@ const iconByName: Readonly<Record<ApplicationNavigationIcon, LucideIcon>> = {
   map: Map,
 };
 
+/** Responsive product frame that owns primary navigation and the main landmark. */
 export function ApplicationShell({
   accountAvatarUrl,
   accountLabel,

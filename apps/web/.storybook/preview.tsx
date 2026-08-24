@@ -26,6 +26,7 @@ const withWorkshop: Decorator = (Story, context) => {
 
 const preview: Preview = {
   decorators: [withWorkshop],
+  tags: ["autodocs"],
   globalTypes: {
     theme: {
       description: "Workshop color theme",
@@ -43,7 +44,11 @@ const preview: Preview = {
   },
   parameters: {
     layout: "fullscreen",
+    docs: {
+      codePanel: true,
+    },
     controls: {
+      expanded: true,
       matchers: {
         color: /(background|color)$/iu,
         date: /Date$/u,
@@ -55,7 +60,35 @@ const preview: Preview = {
     },
     options: {
       storySort: {
-        order: ["Foundation", "Navigation", "Compositions"],
+        order: ["Foundations", "Components", "Patterns", "Pages"],
+      },
+    },
+    viewport: {
+      options: {
+        mobile320: {
+          name: "Mobile 320 × 568",
+          styles: {
+            height: "568px",
+            width: "320px",
+          },
+          type: "mobile",
+        },
+        mobile390: {
+          name: "Mobile 390 × 844",
+          styles: {
+            height: "844px",
+            width: "390px",
+          },
+          type: "mobile",
+        },
+        desktop1440: {
+          name: "Desktop 1440 × 900",
+          styles: {
+            height: "900px",
+            width: "1440px",
+          },
+          type: "desktop",
+        },
       },
     },
   },

@@ -1,0 +1,48 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundations/Design tokens" />
+
+# Design tokens
+
+Tokens name product roles instead of individual screens. Light and dark values are defined in the
+Storybook workshop stylesheet and exposed to components through Tailwind theme aliases.
+
+## Color roles
+
+<div className="not-prose grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+  {[
+    ["Background", "--background", "bg-background text-foreground"],
+    ["Card", "--card", "bg-card text-card-foreground"],
+    ["Primary", "--primary", "bg-primary text-primary-foreground"],
+    ["Secondary", "--secondary", "bg-secondary text-secondary-foreground"],
+    ["Accent", "--accent", "bg-accent text-accent-foreground"],
+    ["Destructive", "--destructive", "bg-destructive text-white"],
+  ].map(([label, token, classes]) => (
+    <div className={`rounded-xl border border-border p-4 ${classes}`} key={token}>
+      <div className="font-semibold">{label}</div>
+      <code className="mt-2 block font-mono text-xs opacity-75">{token}</code>
+    </div>
+  ))}
+</div>
+
+Orange is a scarce signal for current state, focus, and important product accents. It is not a
+default decoration. Foreground/background pairs must remain readable in both themes.
+
+## Typography
+
+<div className="not-prose space-y-5 rounded-xl border border-border bg-card p-6 text-card-foreground">
+  <div>
+    <div className="text-3xl font-semibold tracking-[-0.035em]">Manrope Variable</div>
+    <p className="mt-2 text-muted-foreground">Product copy, headings, labels, and long-form reading.</p>
+  </div>
+  <div className="border-t border-border pt-5 font-mono text-sm">
+    JetBrains Mono Variable · metadata · duration · technical notation
+  </div>
+</div>
+
+## Shape and elevation
+
+Controls use the shared radius scale; cards use restrained elevation only where the surface is
+interactive. Focus is always communicated by the semantic `ring` token and remains visible in
+forced-colors mode. Motion is brief, purposeful, and disabled under `prefers-reduced-motion`.
+

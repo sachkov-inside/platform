@@ -96,8 +96,7 @@ const meta = {
       appDirectory: true,
     },
   },
-  tags: ["autodocs"],
-  title: "Compositions/Material cards",
+  title: "Patterns/Content/Material card",
 } satisfies Meta<typeof MediaCardBoard>;
 
 export default meta;
@@ -105,6 +104,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const HybridCatalog: Story = {
+  name: "Mixed-format catalog",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const account = canvas.queryByRole("group", { name: "Текущий профиль: Кирилл" });
@@ -133,6 +133,7 @@ export const HybridCatalog: Story = {
 };
 
 export const MediaCard: Story = {
+  name: "Video material",
   play: async ({ canvasElement }) => {
     const card = canvasElement.querySelector("article");
 

@@ -80,13 +80,17 @@ export const materialFixtures = {
   },
 } as const satisfies Readonly<Record<string, MaterialPreviewFixture>>;
 
+export interface MaterialCardProps {
+  /** Match the heading level to the surrounding page outline. */
+  readonly headingLevel?: "h2" | "h3";
+  readonly material: MaterialPreviewFixture;
+}
+
+/** Responsive material summary whose media region exists only when the material has real media. */
 export function MaterialCard({
   headingLevel = "h2",
   material,
-}: {
-  readonly headingLevel?: "h2" | "h3";
-  readonly material: MaterialPreviewFixture;
-}) {
+}: MaterialCardProps) {
   const hasPreview = material.format === "Видео";
   const Heading = headingLevel;
   const visibleLabels = [material.topic, ...material.tags.slice(0, 1)];

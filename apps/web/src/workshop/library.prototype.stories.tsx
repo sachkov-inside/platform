@@ -734,7 +734,7 @@ const meta = {
       appDirectory: true,
     },
   },
-  title: "Library",
+  title: "Pages/Library",
 } satisfies Meta<typeof LibraryBoard>;
 
 export default meta;
@@ -742,10 +742,11 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Mobile: Story = {
+  name: "Mobile discovery flow",
   globals: {
     viewport: {
       isRotated: false,
-      value: "mobile1",
+      value: "mobile320",
     },
   },
   play: async ({ canvasElement }) => {
@@ -813,24 +814,11 @@ export const Mobile: Story = {
 };
 
 export const Desktop: Story = {
+  name: "Desktop discovery flow",
   globals: {
     viewport: {
       isRotated: false,
       value: "desktop1440",
-    },
-  },
-  parameters: {
-    viewport: {
-      options: {
-        desktop1440: {
-          name: "Desktop 1440 × 900",
-          styles: {
-            height: "900px",
-            width: "1440px",
-          },
-          type: "desktop",
-        },
-      },
     },
   },
   play: async ({ canvasElement }) => {

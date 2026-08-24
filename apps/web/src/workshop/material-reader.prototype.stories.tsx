@@ -54,7 +54,7 @@ const meta = {
       appDirectory: true,
     },
   },
-  title: "Material/Reader",
+  title: "Pages/Material/Reader",
 } satisfies Meta<typeof MaterialReaderBoard>;
 
 export default meta;
@@ -62,10 +62,11 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Mobile: Story = {
+  name: "Mobile long-form reading",
   globals: {
     viewport: {
       isRotated: false,
-      value: "mobile1",
+      value: "mobile320",
     },
   },
   play: async ({ canvasElement }) => {
@@ -105,24 +106,11 @@ export const Mobile: Story = {
 };
 
 export const Desktop: Story = {
+  name: "Desktop long-form reading",
   globals: {
     viewport: {
       isRotated: false,
       value: "desktop1440",
-    },
-  },
-  parameters: {
-    viewport: {
-      options: {
-        desktop1440: {
-          name: "Desktop 1440 × 900",
-          styles: {
-            height: "900px",
-            width: "1440px",
-          },
-          type: "desktop",
-        },
-      },
     },
   },
   play: async ({ canvasElement }) => {

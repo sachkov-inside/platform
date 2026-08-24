@@ -41,16 +41,23 @@ const buttonVariants = cva(
   }
 )
 
+export type ButtonProps = React.ComponentProps<"button"> &
+  VariantProps<typeof buttonVariants> & {
+    /** Render the button behavior onto its only child, for example a link. */
+    asChild?: boolean
+  }
+
+/**
+ * Primary action primitive for Platform controls. Choose the variant by semantic
+ * importance; icon-only instances must always provide an accessible name.
+ */
 function Button({
   className,
   variant = "default",
   size = "default",
   asChild = false,
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }) {
+}: ButtonProps) {
   const Comp = asChild ? Slot.Root : "button"
 
   return (

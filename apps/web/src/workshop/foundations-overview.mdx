@@ -1,0 +1,28 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundations/Overview" />
+
+# Platform UI laboratory
+
+Storybook is the executable interface to the Platform UI system for people and agents. Start with
+the smallest layer that answers the question at hand:
+
+1. **Foundations** explain the visual language and its provenance.
+2. **Components** document bounded controls, states, props, and accessible behavior.
+3. **Patterns** show components collaborating around a reusable product responsibility.
+4. **Pages** preserve responsive product proofs and realistic user flows.
+
+## Story contract
+
+Each story captures one meaningful use case, explains why it exists, uses realistic Russian
+product content, and asserts its critical behavior in a `play` test. Controls are for exploring
+supported props; they are not a substitute for named states. Responsive page proofs start at
+320 × 568 and keep the same information hierarchy on desktop.
+
+## Agent workflow
+
+When Storybook is running, connect to `http://localhost:6006/mcp`. Read the server instructions and
+the component documentation before editing UI, preview every changed story, and run Storybook tests
+through MCP before handing work back. The manifest is a public interface: JSDoc, story descriptions,
+and hierarchy should make intent recoverable without opening implementation files.
+

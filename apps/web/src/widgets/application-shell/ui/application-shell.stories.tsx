@@ -53,8 +53,7 @@ const meta = {
       </ApplicationShell>
     );
   },
-  tags: ["autodocs"],
-  title: "Navigation/Application shell",
+  title: "Patterns/Navigation/Application shell",
 } satisfies Meta<typeof ApplicationShell>;
 
 export default meta;
@@ -62,6 +61,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const SidebarExpanded: Story = {
+  name: "Desktop pinned sidebar",
   args: {
     sidebarDefaultPinned: true,
   },
@@ -121,6 +121,7 @@ export const SidebarExpanded: Story = {
 };
 
 export const SidebarCompact: Story = {
+  name: "Desktop auto-expand sidebar",
   args: {
     sidebarDefaultPinned: false,
   },
@@ -159,13 +160,14 @@ export const SidebarCompact: Story = {
 };
 
 export const MobileSidebar: Story = {
+  name: "Mobile bottom navigation",
   args: {
     sidebarDefaultPinned: false,
   },
   globals: {
     viewport: {
       isRotated: false,
-      value: "mobile1",
+      value: "mobile320",
     },
   },
   play: async ({ canvasElement }) => {

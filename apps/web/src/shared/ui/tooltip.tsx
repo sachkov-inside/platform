@@ -16,6 +16,7 @@ function TooltipProvider({
   )
 }
 
+/** Short, non-essential explanation revealed by pointer hover or keyboard focus. */
 function Tooltip({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {

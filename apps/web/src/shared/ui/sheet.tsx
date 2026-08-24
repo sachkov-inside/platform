@@ -7,6 +7,7 @@ import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/ui/button"
 import { XIcon } from "lucide-react"
 
+/** Modal supplementary surface for focused tasks such as mobile filters. */
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
@@ -77,7 +78,7 @@ function SheetContent({
             >
               <XIcon
               />
-              <span className="sr-only">Закрыть навигацию</span>
+              <span className="sr-only">Закрыть</span>
             </Button>
           </SheetPrimitive.Close>
         )}
