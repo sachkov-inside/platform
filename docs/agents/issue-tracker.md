@@ -3,7 +3,7 @@
 Issues and specs for this repository live in `sachkov-inside/platform` GitHub Issues. Run `gh`
 inside this clone so repository identity comes from `git remote`.
 
-Product decisions and cross-repository initiatives belong in Workspace; link the Workspace parent
+Product decisions and cross-repository work belong in Workspace; link the Workspace parent
 rather than moving the Platform deliverable there. Tracked pull requests use `Closes #<number>`;
 trivial docs/chore may use `N/A` instead.
 

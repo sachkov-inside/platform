@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "package": "inside-engineering",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "managedSkills": [
     "ask-matt",
     "code-review",
