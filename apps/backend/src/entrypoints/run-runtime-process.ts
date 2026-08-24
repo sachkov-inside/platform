@@ -10,18 +10,39 @@ export async function runRuntimeProcess(
   config: PlatformConfig,
 ): Promise<void> {
   const app = await createRuntimeApplication(config);
+  const shutdown = listenForShutdownSignal();
 
   try {
     const readiness = app.get(OperationalReadiness);
     const report = await readiness.check(processName);
 
     console.info(JSON.stringify(report));
-
-    await new Promise<void>((resolve) => {
-      process.once("SIGINT", resolve);
-      process.once("SIGTERM", resolve);
-    });
+    await shutdown.received;
   } finally {
+    shutdown.dispose();
     await app.close();
   }
+}
+
+function listenForShutdownSignal(): {
+  readonly received: Promise<void>;
+  dispose(): void;
+} {
+  let resolveSignal: () => void = () => {};
+  const received = new Promise<void>((resolve) => {
+    resolveSignal = resolve;
+  });
+  const dispose = (): void => {
+    process.off("SIGINT", onSignal);
+    process.off("SIGTERM", onSignal);
+  };
+  const onSignal = (): void => {
+    dispose();
+    resolveSignal();
+  };
+
+  process.once("SIGINT", onSignal);
+  process.once("SIGTERM", onSignal);
+
+  return { received, dispose };
 }
