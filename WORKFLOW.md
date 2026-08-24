@@ -10,11 +10,11 @@ Create an issue in the repository that owns the outcome:
 
 | Outcome | Repository |
 |---|---|
-| Product discovery, owner decision, shared document, or cross-repository initiative | `workspace` |
+| Product discovery, owner decision, shared document, or cross-repository work | `workspace` |
 | Change or bug in the public landing | `inside-landing` |
 | Change or bug in the Membership platform | `platform` |
 
-A cross-repository initiative has a parent issue in Workspace and repository-local child issues.
+A cross-repository effort has a parent issue in Workspace and repository-local child issues.
 The issue holds discussion and execution history; record confirmed durable knowledge once in a
 versioned document. When connected, GitHub Project remains a projection over issues and pull
 requests.
@@ -29,7 +29,7 @@ Use two organization-level Projects with different responsibilities:
   details.
 - [Inside — Developer Pipeline](https://github.com/orgs/sachkov-inside/projects/1) contains
   repository-owned delivery issues and pull requests. It is the agent execution projection over
-  Initiatives, Specifications, Tickets, dependencies, claims, status, and linked pull requests.
+  Wayfinder maps, Specifications, Tickets, dependencies, claims, status, and linked pull requests.
 
 One issue belongs to one Project. A Human Backlog item stays owner-facing while an agent creates or
 links the repository-owned Specification and Tickets that deliver it. Keep requirements,
@@ -50,20 +50,14 @@ promotion never removes the label or moves the human item.
 `Operations`. Triage and Wayfinder labels describe readiness and work shape; they do not duplicate
 delivery state or priority.
 
-`Level` records delivery hierarchy:
-
-- `Initiative`: a root effort such as a Wayfinder map;
-- `Specification`: a parent specification that owns implementation tickets;
-- `Ticket`: a concrete decision, research, or implementation task.
-
-Use the native `Parent issue` relation for the actual hierarchy; `Level` controls presentation and
-does not replace that relation. The `Current` view contains issues only and shows pull requests
-through `Linked pull requests`. Within each status column, keep the manual order `Initiative`,
-`Specification`, then `Ticket`.
+Use native `Parent issue` and sub-issues as the only delivery hierarchy. Use native dependencies
+for blocking. A Wayfinder map carries `wayfinder:map`; Specifications and Tickets keep their own
+issue contracts and readiness labels. Do not mirror these distinctions in a Project field. The
+`Current` view contains issues only and shows pull requests through `Linked pull requests`.
 
 Repository workflows add new and reopened delivery issues and pull requests to Developer Pipeline.
-The Workspace workflow routes `backlog:human` issues only to Human Backlog. Set `Area`, `Priority`,
-and `Level` during delivery triage, move `Status` with the work, and treat the repository issue or
+The Workspace workflow routes `backlog:human` issues only to Human Backlog. Set `Area` and
+`Priority` during delivery triage, move `Status` with the work, and treat the repository issue or
 pull request state as authoritative when it conflicts with a Project.
 
 ## Issues, branches, and pull requests
