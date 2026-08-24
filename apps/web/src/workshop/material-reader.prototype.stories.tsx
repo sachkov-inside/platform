@@ -53,7 +53,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Owner-controlled mobile-first long-form Material proof. It keeps one reading order across viewports and leaves persistent mobile bottom navigation as an explicit owner decision.",
+          "Skill-oriented guide material. The current fixture keeps the written material central, makes learning outcomes explicit, and leads to a concrete next step.",
       },
     },
     nextjs: {
@@ -68,7 +68,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Mobile: Story = {
-  name: "Mobile long-form reading",
+  name: "Mobile guide material",
   globals: {
     viewport: {
       isRotated: false,
@@ -82,6 +82,10 @@ export const Mobile: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Публичные skills для agent-first setup" }),
     ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "После материала вы сможете" }),
+    ).toBeInTheDocument();
+    await expect(canvas.getByText("Найти устойчивый seam")).toBeInTheDocument();
     await expect(
       canvas.queryByRole("navigation", { name: "В этом материале" }),
     ).not.toBeInTheDocument();
@@ -141,6 +145,8 @@ export const Mobile: Story = {
       "true",
     );
     await expect(bottomActions.getByRole("button", { name: "Нравится 59" })).toBeInTheDocument();
+    await expect(canvas.getByRole("heading", { name: "Следующий шаг" })).toBeInTheDocument();
+    await expect(canvas.queryByText("Продолжить чтение")).not.toBeInTheDocument();
     await expect(canvas.getByRole("region", { name: "Сравнение признаков skill contract" })).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(3);
 
@@ -156,7 +162,7 @@ export const Mobile: Story = {
 };
 
 export const NarrowDesktop: Story = {
-  name: "Narrow desktop reading",
+  name: "Narrow desktop guide material",
   globals: {
     viewport: {
       isRotated: false,
@@ -193,7 +199,7 @@ export const NarrowDesktop: Story = {
 };
 
 export const Desktop: Story = {
-  name: "Desktop long-form reading",
+  name: "Desktop guide material",
   globals: {
     viewport: {
       isRotated: false,
@@ -217,5 +223,10 @@ export const Desktop: Story = {
       canvas.queryByRole("navigation", { name: "Мобильная навигация" }),
     ).not.toBeInTheDocument();
     await expect(canvas.getByRole("heading", { name: "Resources" })).toBeInTheDocument();
+    const nextStep = canvas.getByRole("region", { name: "Следующий шаг" });
+    const nextStepContent = within(nextStep);
+
+    await expect(nextStepContent.getByText("Следующий материал")).toBeInTheDocument();
+    await expect(nextStepContent.getByText("По теме")).toBeInTheDocument();
   },
 };

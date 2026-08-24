@@ -4,6 +4,7 @@ import {
   Bookmark,
   BookOpenCheck,
   BookOpenText,
+  Check,
   Download,
   ExternalLink,
   FileText,
@@ -40,6 +41,7 @@ interface LongFormMaterialFixture {
     readonly steps: readonly string[];
   };
   readonly lead: string;
+  readonly outcomes: readonly string[];
   readonly resources: readonly MaterialResourceFixture[];
   readonly seamParagraphs: readonly string[];
 }
@@ -78,6 +80,11 @@ export const isReady = (check: SkillCheck) =>
   },
   lead:
     "Хороший skill начинается не с большого prompt, а с повторяемого решения. Он объясняет, когда workflow нужен, какие факты считать authority, где проходит owner gate и чем доказать результат.",
+  outcomes: [
+    "Найти устойчивый seam",
+    "Собрать trigger, authority и evidence",
+    "Проверить instruction на двух задачах",
+  ],
   resources: [
     {
       detail: "Markdown · 48 KB",
@@ -146,7 +153,7 @@ export function MaterialReader({
             </a>
           </div>
 
-          <h1 className="mt-5 max-w-[18ch] text-balance text-[2rem] font-semibold leading-[1.08] tracking-[-0.035em] sm:text-[2.75rem] @min-[62rem]/material-reader:text-[3.5rem]">
+          <h1 className="mt-5 max-w-[22ch] text-balance text-[2rem] font-semibold leading-[1.08] tracking-[-0.035em] sm:text-[2.5rem] @min-[62rem]/material-reader:text-[3rem]">
             {material.title}
           </h1>
           <p className="mt-5 max-w-[65ch] text-pretty text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
@@ -164,7 +171,9 @@ export function MaterialReader({
           </ul>
         </header>
 
-        <article className="mt-14 min-w-0 max-w-[70ch] text-pretty text-[1.0625rem] leading-[1.75] sm:text-lg">
+        <LearningOutcomes outcomes={fixture.outcomes} />
+
+        <article className="mt-12 min-w-0 max-w-[70ch] text-pretty text-[1.0625rem] leading-[1.75] sm:text-lg">
           <p className="text-xl font-medium leading-[1.55] tracking-[-0.015em] text-foreground sm:text-2xl">
             {fixture.lead}
           </p>
@@ -269,8 +278,32 @@ export function MaterialReader({
         readingState={readingState}
       />
 
-      <RelatedMaterials />
+      <NextLearningSteps />
     </div>
+  );
+}
+
+function LearningOutcomes({ outcomes }: { readonly outcomes: readonly string[] }) {
+  return (
+    <section
+      aria-labelledby="learning-outcomes"
+      className="mt-8 max-w-[70ch] border-y border-border py-4 @min-[40rem]/material-reader:py-5"
+    >
+      <h2 className="text-sm font-semibold" id="learning-outcomes">
+        После материала вы сможете
+      </h2>
+      <ul
+        className="mt-3 grid gap-2 text-sm leading-5 text-muted-foreground @min-[40rem]/material-reader:mt-4 @min-[40rem]/material-reader:grid-cols-3 @min-[40rem]/material-reader:gap-3 @min-[40rem]/material-reader:leading-6"
+        role="list"
+      >
+        {outcomes.map((outcome) => (
+          <li className="flex items-start gap-2" key={outcome}>
+            <Check aria-hidden="true" className="mt-1 size-4 shrink-0 text-accent" />
+            <span>{outcome}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -440,15 +473,20 @@ function ReaderResources({ resources }: { readonly resources: readonly MaterialR
   );
 }
 
-function RelatedMaterials() {
+function NextLearningSteps() {
   return (
-    <section aria-labelledby="related-materials" className="mt-20 border-t border-border pt-10">
+    <section
+      aria-labelledby="next-learning-step"
+      className="@container/learning-path mt-20 border-t border-border pt-10"
+    >
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold tracking-[-0.03em]" id="related-materials">
-            Продолжить чтение
+          <h2 className="text-2xl font-semibold tracking-[-0.03em]" id="next-learning-step">
+            Следующий шаг
           </h2>
-          <p className="mt-2 text-sm text-muted-foreground">Материалы по соседним workflow.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Продолжите траекторию по agent-first engineering.
+          </p>
         </div>
         <a
           className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold underline decoration-border underline-offset-4 hover:decoration-accent"
@@ -458,9 +496,21 @@ function RelatedMaterials() {
           <ArrowRight aria-hidden="true" className="size-4" />
         </a>
       </div>
-      <div className="mt-6 grid items-start gap-6 xl:grid-cols-2">
-        <MaterialCard headingLevel="h3" material={materialFixtures.platformDeliveryVideo} />
-        <MaterialCard headingLevel="h3" material={materialFixtures.careerVideo} />
+      <div className="mt-7 grid items-start gap-8 @min-[54rem]/learning-path:grid-cols-2">
+        <div className="min-w-0">
+          <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <ArrowRight aria-hidden="true" className="size-4 text-accent" />
+            Следующий материал
+          </p>
+          <MaterialCard headingLevel="h3" material={materialFixtures.platformDeliveryVideo} />
+        </div>
+        <div className="min-w-0">
+          <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <BookOpenText aria-hidden="true" className="size-4 text-accent" />
+            По теме
+          </p>
+          <MaterialCard headingLevel="h3" material={materialFixtures.careerVideo} />
+        </div>
       </div>
     </section>
   );
