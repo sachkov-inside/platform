@@ -1,4 +1,4 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Inject } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
 
 import {
@@ -8,7 +8,10 @@ import {
 
 @Controller()
 export class HealthController {
-  constructor(private readonly readiness: OperationalReadiness) {}
+  constructor(
+    @Inject(OperationalReadiness)
+    private readonly readiness: OperationalReadiness,
+  ) {}
 
   @Get("health")
   @ApiOperation({ summary: "Check API and database readiness" })
