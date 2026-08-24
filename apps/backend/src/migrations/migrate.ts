@@ -1,9 +1,12 @@
-import { loadPlatformConfig } from "../config/load-platform-config.js";
+import { loadRepositoryEnvironment } from "../config/load-repository-environment.js";
+import { parsePlatformDatabaseConfig } from "../config/platform-config.js";
 import { createPlatformDatabase } from "../infrastructure/postgres/create-platform-database.js";
 import { migrateToLatest } from "./index.js";
 
 async function main(): Promise<void> {
-  const database = createPlatformDatabase(loadPlatformConfig().database.url);
+  loadRepositoryEnvironment();
+  const databaseConfig = parsePlatformDatabaseConfig(process.env);
+  const database = createPlatformDatabase(databaseConfig.url);
   try {
     const outcome = await migrateToLatest(database);
     process.stdout.write(`${JSON.stringify(outcome)}\n`);

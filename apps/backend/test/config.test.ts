@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { parsePlatformConfig } from "../src/config/platform-config.js";
+import {
+  parsePlatformConfig,
+  parsePlatformDatabaseConfig,
+} from "../src/config/platform-config.js";
 
 describe("process configuration", () => {
   it("parses and freezes one config without mutating process.env", () => {
@@ -53,6 +56,15 @@ describe("process configuration", () => {
         API_HOST: "0.0.0.0",
       }),
     ).toThrow("API_PORT is required in production mode");
+  });
+
+  it("parses production database config for non-listening migration tooling", () => {
+    expect(
+      parsePlatformDatabaseConfig({
+        NODE_ENV: "production",
+        DATABASE_URL: "postgresql://database.example/inside",
+      }),
+    ).toEqual({ url: "postgresql://database.example/inside" });
   });
 
   it("rejects invalid database and listen values", () => {

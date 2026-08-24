@@ -18,6 +18,8 @@ export interface PlatformConfig {
   }>;
 }
 
+export type PlatformDatabaseConfig = PlatformConfig["database"];
+
 function parseMode(value: string | undefined): PlatformMode {
   const mode = value ?? "production";
   if (mode === "development" || mode === "test" || mode === "production") {
@@ -74,7 +76,22 @@ export function parsePlatformConfig(
   environment: NodeJS.ProcessEnv,
 ): PlatformConfig {
   const mode = parseMode(environment.NODE_ENV);
-  const database = Object.freeze({
+  const database = parsePlatformDatabaseConfig(environment, mode);
+  const api = Object.freeze({
+    host: readRuntimeValue(environment, "API_HOST", mode, DEFAULT_API_HOST),
+    port: parseApiPort(
+      readRuntimeValue(environment, "API_PORT", mode, DEFAULT_API_PORT),
+    ),
+  });
+
+  return Object.freeze({ mode, database, api });
+}
+
+export function parsePlatformDatabaseConfig(
+  environment: NodeJS.ProcessEnv,
+  mode: PlatformMode = parseMode(environment.NODE_ENV),
+): PlatformDatabaseConfig {
+  return Object.freeze({
     url: validateDatabaseUrl(
       readRuntimeValue(
         environment,
@@ -84,12 +101,4 @@ export function parsePlatformConfig(
       ),
     ),
   });
-  const api = Object.freeze({
-    host: readRuntimeValue(environment, "API_HOST", mode, DEFAULT_API_HOST),
-    port: parseApiPort(
-      readRuntimeValue(environment, "API_PORT", mode, DEFAULT_API_PORT),
-    ),
-  });
-
-  return Object.freeze({ mode, database, api });
 }

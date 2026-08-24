@@ -1,12 +1,8 @@
 import { Module } from "@nestjs/common";
-import { sql } from "kysely";
 
-import {
-  PLATFORM_DATABASE,
-  PostgresModule,
-  type PlatformDatabase,
-} from "../../infrastructure/postgres/index.js";
-import { DATABASE_PROBE, type DatabaseProbe } from "./database-probe.js";
+import { PostgresModule } from "../../infrastructure/postgres/index.js";
+import { DATABASE_PROBE } from "./database-probe.js";
+import { PlatformDatabaseProbe } from "./platform-database-probe.js";
 import { ReadinessService } from "./readiness.service.js";
 
 @Module({
@@ -14,12 +10,7 @@ import { ReadinessService } from "./readiness.service.js";
   providers: [
     {
       provide: DATABASE_PROBE,
-      inject: [PLATFORM_DATABASE],
-      useFactory: (database: PlatformDatabase): DatabaseProbe => ({
-        async ping(): Promise<void> {
-          await sql`select 1`.execute(database);
-        },
-      }),
+      useClass: PlatformDatabaseProbe,
     },
     ReadinessService,
   ],

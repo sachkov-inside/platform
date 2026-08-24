@@ -58,7 +58,8 @@ library-owned lifecycle.
 
 ## Start and verify the local stack
 
-Start PostgreSQL, apply checked-in migrations, and verify API-to-database connectivity:
+Start PostgreSQL, apply checked-in migrations, and verify API, MCP and worker composition against
+the shared Platform database lifecycle:
 
 ```bash
 pnpm infra:up
