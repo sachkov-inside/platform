@@ -31,6 +31,10 @@ interface ErrorSignals {
   readonly messages: readonly string[];
 }
 
+function isUnknownArray(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value);
+}
+
 function errorSignals(error: unknown, depth = 0): ErrorSignals {
   if (depth > 3) {
     return { codes: [], messages: [] };
@@ -40,7 +44,7 @@ function errorSignals(error: unknown, depth = 0): ErrorSignals {
   const messages = typeof shape.message === "string" ? [shape.message] : [];
   const children = [
     ...(shape.cause === undefined ? [] : [shape.cause]),
-    ...(Array.isArray(shape.errors) ? shape.errors : []),
+    ...(isUnknownArray(shape.errors) ? shape.errors : []),
   ].map((child) => errorSignals(child, depth + 1));
   return {
     codes: [...codes, ...children.flatMap((child) => child.codes)],

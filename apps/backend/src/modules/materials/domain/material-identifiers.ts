@@ -19,10 +19,14 @@ function normalizedIdentifier(value: string, name: string): string {
 }
 
 export function materialId(value: string): MaterialId {
+  // This parser is the single checked constructor for the nominal ID brand.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return normalizedIdentifier(value, "MaterialId") as MaterialId;
 }
 
 export function materialRevisionId(value: string): MaterialRevisionId {
+  // This parser is the single checked constructor for the nominal ID brand.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return normalizedIdentifier(value, "MaterialRevisionId") as MaterialRevisionId;
 }
 
@@ -31,5 +35,7 @@ export function materialIdempotencyKey(value: string): IdempotencyKey {
   if (normalized.length === 0 || normalized.length > 200) {
     throw new TypeError("IdempotencyKey must contain 1 to 200 characters");
   }
+  // This parser is the single checked constructor for the nominal key brand.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return normalized as IdempotencyKey;
 }

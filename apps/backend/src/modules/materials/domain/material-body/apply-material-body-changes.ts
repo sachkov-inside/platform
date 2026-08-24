@@ -8,9 +8,20 @@ import type {
   MaterialBodySnapshot,
 } from "./material-body.js";
 import { assignMissingNodeIds } from "./assign-missing-node-ids.js";
+import {
+  isJsonArray,
+  isJsonObject,
+  isUnknownArray,
+  isUnknownRecord,
+} from "./json-guards.js";
 
-function isJsonObject(value: unknown): value is JsonObject {
-  return value !== null && value !== undefined && !Array.isArray(value) && typeof value === "object";
+interface TextNode extends JsonObject {
+  readonly type: "text";
+  readonly text: string;
+}
+
+function isTextNode(value: JsonValue): value is TextNode {
+  return isJsonObject(value) && value.type === "text" && typeof value.text === "string";
 }
 
 function fail(index: number, code: string): MaterialBodyResult<never> {
@@ -37,10 +48,13 @@ function withNodeId(
   if (block === null || Array.isArray(block) || typeof block !== "object") {
     return undefined;
   }
-  let candidate: Record<string, unknown>;
+  let candidate: unknown;
   try {
-    candidate = structuredClone(block) as Record<string, unknown>;
+    candidate = structuredClone(block);
   } catch {
+    return undefined;
+  }
+  if (!isUnknownRecord(candidate)) {
     return undefined;
   }
   if (
@@ -50,7 +64,7 @@ function withNodeId(
     return undefined;
   }
   assignMissingNodeIds(candidate, stableNodeId);
-  return candidate as JsonObject;
+  return isJsonObject(candidate) ? candidate : undefined;
 }
 
 interface LocatedNode {
@@ -60,11 +74,10 @@ interface LocatedNode {
 }
 
 function mutableContent(node: unknown): unknown[] | undefined {
-  if (node === null || Array.isArray(node) || typeof node !== "object") {
+  if (!isUnknownRecord(node)) {
     return undefined;
   }
-  const content = (node as Record<string, unknown>).content;
-  return Array.isArray(content) ? content : undefined;
+  return isUnknownArray(node.content) ? node.content : undefined;
 }
 
 function findNode(root: unknown, targetNodeId: string): LocatedNode | undefined {
@@ -93,16 +106,12 @@ function replaceText(
   }
   const textNodes = block.content === undefined ? [] : block.content;
   if (
-    !Array.isArray(textNodes) ||
-    textNodes.some(
-      (node) => !isJsonObject(node) || node.type !== "text" || typeof node.text !== "string",
-    )
+    !isJsonArray(textNodes) ||
+    !textNodes.every(isTextNode)
   ) {
     return undefined;
   }
-  const lengths = textNodes.map((node) =>
-    isJsonObject(node) && typeof node.text === "string" ? [...node.text].length : 0,
-  );
+  const lengths = textNodes.map((node) => Array.from(node.text).length);
   const totalLength = lengths.reduce((total, length) => total + length, 0);
   if (
     !Number.isInteger(change.from) ||
@@ -127,7 +136,7 @@ function replaceText(
       if (JSON.stringify(previousShape) === JSON.stringify(candidateShape)) {
         nextContent[nextContent.length - 1] = {
           ...previous,
-          text: `${String(previous.text)}${text}`,
+          text: `${typeof previous.text === "string" ? previous.text : ""}${text}`,
         };
         return;
       }
@@ -138,8 +147,8 @@ function replaceText(
   let offset = 0;
   let insertionTemplate: JsonObject | undefined;
   for (const [index, value] of textNodes.entries()) {
-    const textNode = value as JsonObject;
-    const text = [...String(textNode.text)];
+    const textNode = value;
+    const text = Array.from(textNode.text);
     const end = offset + text.length;
     if (change.from < end || (change.from === totalLength && index === textNodes.length - 1)) {
       insertionTemplate ??= textNode;
@@ -153,7 +162,8 @@ function replaceText(
   if (
     insertionTemplate === undefined &&
     textNodes.length === 0 &&
-    ["paragraph", "heading", "codeBlock"].includes(String(block.type))
+    typeof block.type === "string" &&
+    ["paragraph", "heading", "codeBlock"].includes(block.type)
   ) {
     insertionTemplate = { type: "text" };
   }
@@ -164,8 +174,8 @@ function replaceText(
 
   offset = 0;
   for (const value of textNodes) {
-    const textNode = value as JsonObject;
-    const text = [...String(textNode.text)];
+    const textNode = value;
+    const text = Array.from(textNode.text);
     const end = offset + text.length;
     if (end > change.to) {
       append(textNode, text.slice(Math.max(0, change.to - offset)).join(""));
@@ -202,7 +212,7 @@ export function applyMaterialBodyChanges(
       continue;
     }
 
-    const document = structuredClone(current.doc) as Record<string, unknown>;
+    const document = structuredClone(current.doc);
 
     if (change.kind === "insert_blocks") {
       const location =
@@ -219,7 +229,10 @@ export function applyMaterialBodyChanges(
       if (inserted.some((block) => block === undefined)) {
         return fail(index, "invalid_block");
       }
-      siblings.splice(insertionIndex, 0, ...(inserted as JsonObject[]));
+      const validBlocks = inserted.filter(
+        (block): block is JsonObject => block !== undefined,
+      );
+      siblings.splice(insertionIndex, 0, ...validBlocks);
     } else {
       const location = findNode(document, change.nodeId);
       if (location === undefined) {

@@ -29,13 +29,24 @@ describe("worker process smoke", () => {
     );
     expect(readinessOutput).toContain('"process":"worker"');
 
+    const exit = waitForExit(worker);
     worker.kill("SIGTERM");
-    const [exitCode, signal] = await once(worker, "exit");
+    const [exitCode, signal] = await exit;
 
     expect(exitCode).toBe(0);
     expect(signal).toBeNull();
   });
 });
+
+function waitForExit(
+  child: ChildProcessWithoutNullStreams,
+): Promise<readonly [number | null, NodeJS.Signals | null]> {
+  return new Promise((resolve) => {
+    child.once("exit", (code, signal) => {
+      resolve([code, signal]);
+    });
+  });
+}
 
 function waitForOutput(
   child: ChildProcessWithoutNullStreams,

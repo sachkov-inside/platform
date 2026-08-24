@@ -127,7 +127,12 @@ export function createRestoreRevision(
               actor: command.actor,
               materialId: restoredRevision.materialId,
               revisionId: restoredRevision.id,
-              restoredFromRevisionId: restoredRevision.restoredFromRevisionId,
+              ...(restoredRevision.restoredFromRevisionId === undefined
+                ? {}
+                : {
+                    restoredFromRevisionId:
+                      restoredRevision.restoredFromRevisionId,
+                  }),
               metadata: restoredRevision.metadata,
               schemaVersion: restoredRevision.body.schemaVersion,
               body: restoredRevision.body.doc,

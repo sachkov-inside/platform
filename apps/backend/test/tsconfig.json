@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["**/*.ts", "../vitest*.config.mts"],
+  "exclude": [
+    "guardrails/fixtures/architecture",
+    "guardrails/fixtures/typescript",
+    "../dist",
+    "../node_modules"
+  ]
+}

@@ -15,7 +15,8 @@
     "db:migrate": "tsx src/migrations/migrate.ts",
     "db:types:generate": "kysely-codegen --env-file ../../.env --dialect postgres --default-schema public --include-pattern 'public.*' --exclude-pattern 'kysely_*' --out-file src/infrastructure/postgres/generated/database.ts",
     "db:types:check": "kysely-codegen --env-file ../../.env --dialect postgres --default-schema public --include-pattern 'public.*' --exclude-pattern 'kysely_*' --out-file src/infrastructure/postgres/generated/database.ts --verify",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p test/tsconfig.json --noEmit",
+    "guardrails": "node scripts/check-backend-architecture.mjs src && node scripts/check-negative-guardrails.mjs",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "smoke:health": "vitest run --config vitest.smoke.config.mts"

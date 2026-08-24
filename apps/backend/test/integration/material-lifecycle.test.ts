@@ -13,6 +13,10 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import {
+  notStringMatching,
+  stringMatching,
+} from "../support/matchers.js";
 
 const ownerId = "71000000-0000-4000-8000-000000000001";
 const topicId = "71000000-0000-4000-8000-000000000002";
@@ -95,7 +99,7 @@ describe("Material lifecycle", () => {
       value: {
         materialId: created.value.materialId,
         revisionId: created.value.revisionId,
-        projectionDigest: expect.stringMatching(/^[0-9a-f]{64}$/),
+        projectionDigest: stringMatching(/^[0-9a-f]{64}$/),
       },
     });
 
@@ -148,7 +152,7 @@ describe("Material lifecycle", () => {
       value: {
         materialId: created.value.materialId,
         revisionId: created.value.revisionId,
-        publicationEventId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        publicationEventId: stringMatching(/^[0-9a-f-]{36}$/),
       },
     });
     if (!published.ok) {
@@ -310,6 +314,10 @@ describe("Material lifecycle", () => {
     if (restored === undefined || !restored.ok) {
       throw new Error("Expected one successful restore");
     }
+    const restoreCommand = restoreCommands[restoredIndex];
+    if (restoreCommand === undefined) {
+      throw new Error("Expected a command for the successful restore");
+    }
     expect(restoreResults[restoredIndex === 0 ? 1 : 0]).toEqual({
       ok: false,
       error: {
@@ -318,13 +326,13 @@ describe("Material lifecycle", () => {
       },
     });
     expect(
-      await authoring.restoreRevision(restoreCommands[restoredIndex]!),
+      await authoring.restoreRevision(restoreCommand),
     ).toEqual(restored);
     expect(restored).toMatchObject({
       ok: true,
       value: {
         materialId: original.value.materialId,
-        revisionId: expect.not.stringMatching(original.value.revisionId),
+        revisionId: notStringMatching(original.value.revisionId),
         body: original.value.body,
       },
     });
@@ -363,6 +371,10 @@ describe("Material lifecycle", () => {
     if (unpublished === undefined || !unpublished.ok) {
       throw new Error("Expected one successful unpublish");
     }
+    const unpublishCommand = unpublishCommands[unpublishedIndex];
+    if (unpublishCommand === undefined) {
+      throw new Error("Expected a command for the successful unpublish");
+    }
     expect(unpublishResults[unpublishedIndex === 0 ? 1 : 0]).toEqual({
       ok: false,
       error: { code: "stale_publication", currentPublishedRevisionId: null },
@@ -372,11 +384,11 @@ describe("Material lifecycle", () => {
       value: {
         materialId: original.value.materialId,
         revisionId: original.value.revisionId,
-        publicationEventId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        publicationEventId: stringMatching(/^[0-9a-f-]{36}$/),
       },
     });
     expect(
-      await authoring.unpublishMaterial(unpublishCommands[unpublishedIndex]!),
+      await authoring.unpublishMaterial(unpublishCommand),
     ).toEqual(unpublished);
     expect(
       await publishedMaterials.read({ subject: anonymousSubject, slug: "restore-lifecycle" }),
