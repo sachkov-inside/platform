@@ -39,6 +39,8 @@ jobs:
         run: npm install --global "$(node -p "require('./package.json').packageManager")"
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install Playwright browser
+        run: pnpm --filter @inside/web exec playwright install --with-deps chromium
       - name: Lint
         run: pnpm lint
       - name: Typecheck
