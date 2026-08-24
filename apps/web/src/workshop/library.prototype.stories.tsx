@@ -143,14 +143,14 @@ function LibraryBoard() {
       sidebarDefaultPinned
     >
       <div
-        className="-mx-5 -mb-7 overflow-hidden bg-background sm:-mx-8 sm:-mb-10 md:m-0 md:overflow-visible md:bg-transparent"
+        className="@container/library -mx-5 -mb-7 overflow-hidden bg-background sm:-mx-8 sm:-mb-10 md:m-0 md:overflow-visible md:bg-transparent"
         data-prototype="library-responsive"
       >
-        <header className="rounded-b-2xl bg-card px-5 pb-5 pt-4 sm:px-8 sm:pb-8 sm:pt-10 md:rounded-none md:bg-transparent md:p-0 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(22rem,32rem)] lg:items-center lg:gap-4">
-          <h1 className="text-2xl font-semibold leading-7 tracking-[-0.03em] sm:text-4xl sm:leading-10 lg:text-5xl lg:leading-[1.1]">
+        <header className="rounded-b-2xl bg-card px-5 pb-5 pt-4 sm:px-8 sm:pb-8 sm:pt-10 md:rounded-none md:bg-transparent md:p-0 @min-[52rem]/library:grid @min-[52rem]/library:grid-cols-[minmax(0,1fr)_minmax(22rem,32rem)] @min-[52rem]/library:items-center @min-[52rem]/library:gap-4">
+          <h1 className="text-2xl font-semibold leading-7 tracking-[-0.03em] sm:text-4xl sm:leading-10 @min-[52rem]/library:text-5xl @min-[52rem]/library:leading-[1.1]">
             Библиотека
           </h1>
-          <div className="hidden lg:block">
+          <div className="hidden @min-[52rem]/library:block">
             <SearchControl
               inputId="library-search-desktop"
               placeholder="Название, тема, тег"
@@ -161,7 +161,7 @@ function LibraryBoard() {
         </header>
 
         <div className="px-5 pb-7 sm:px-8 sm:pb-10 md:px-0 md:pb-0">
-          <div className="grid gap-2 pt-4 lg:hidden">
+          <div className="grid gap-2 pt-4 @min-[52rem]/library:hidden">
             <SearchControl
               inputId="library-search-mobile"
               placeholder="Поиск"
@@ -225,7 +225,7 @@ function LibraryBoard() {
               ) : null}
             </div>
 
-            <div className="mt-4 flex justify-end lg:hidden">
+            <div className="mt-4 flex justify-end @min-[52rem]/library:hidden">
               <div className="w-full max-w-48">
                 <SortControl sortOrder={sortOrder} setSortOrder={setSortOrder} />
               </div>
@@ -241,7 +241,7 @@ function LibraryBoard() {
             />
 
             {filteredMaterials.length > 0 ? (
-              <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
+              <div className="mt-4 grid items-start gap-4 @min-[52rem]/library:grid-cols-2">
                 {filteredMaterials.map((material) => (
                   <MaterialCard headingLevel="h3" key={material.id} material={material} />
                 ))}
@@ -324,7 +324,7 @@ function TopicNavigation({
         Темы
       </h2>
       <div
-        className="library-topic-rail mt-3 grid snap-x snap-mandatory auto-cols-[calc((100%_-_0.75rem)_/_2)] grid-flow-col gap-3 overflow-x-auto pb-1 overscroll-x-contain touch-pan-x sm:grid-flow-row sm:grid-cols-4 sm:overflow-visible lg:pb-0"
+        className="library-topic-rail mt-3 grid snap-x snap-mandatory auto-cols-[calc((100%_-_0.75rem)_/_2)] grid-flow-col gap-3 overflow-x-auto pb-1 overscroll-x-contain touch-pan-x sm:grid-flow-row sm:grid-cols-4 sm:overflow-visible @min-[52rem]/library:pb-0"
         data-topic-navigation
       >
         <TopicButton
@@ -474,7 +474,7 @@ function DesktopFilters({
   readonly sortOrder: SortOrder;
 }) {
   return (
-    <div className="mt-5 hidden grid-cols-[minmax(10rem,0.55fr)_minmax(0,1.45fr)_12rem] items-start gap-6 rounded-xl bg-muted/55 p-4 lg:grid">
+    <div className="mt-5 hidden grid-cols-[minmax(10rem,0.55fr)_minmax(0,1.45fr)_12rem] items-start gap-6 rounded-xl bg-muted/55 p-4 @min-[52rem]/library:grid">
       <FilterGroup
         compact
         label="Формат"
@@ -810,6 +810,25 @@ export const Mobile: Story = {
     });
     (canvasElement.ownerDocument.activeElement as HTMLElement | null)?.blur();
     canvasElement.ownerDocument.defaultView?.scrollTo({ left: 0, top: 0 });
+  },
+};
+
+export const NarrowDesktop: Story = {
+  name: "Narrow desktop shell",
+  globals: {
+    viewport: {
+      isRotated: false,
+      value: "desktop1036",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const heading = canvas.getByRole("heading", { name: "Библиотека" });
+    const searchInput = canvas.getByRole("searchbox", { name: "Поиск по библиотеке" });
+
+    await expect(searchInput.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      heading.getBoundingClientRect().bottom,
+    );
   },
 };
 

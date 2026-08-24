@@ -81,6 +81,14 @@ const preview: Preview = {
           },
           type: "mobile",
         },
+        desktop1036: {
+          name: "Narrow desktop 1036 × 916",
+          styles: {
+            height: "916px",
+            width: "1036px",
+          },
+          type: "desktop",
+        },
         desktop1440: {
           name: "Desktop 1440 × 900",
           styles: {
