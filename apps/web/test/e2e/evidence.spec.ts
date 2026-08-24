@@ -6,7 +6,7 @@ const outputByProject: Readonly<Record<string, string>> = {
   "mobile-chromium": "mobile.png",
 };
 
-test("capture the issue 36 shell evidence", async ({ page }, testInfo) => {
+test("capture the issue 46 production shell evidence", async ({ page }, testInfo) => {
   const outputName = outputByProject[testInfo.project.name];
 
   if (outputName === undefined) {
@@ -19,6 +19,6 @@ test("capture the issue 36 shell evidence", async ({ page }, testInfo) => {
   await page.screenshot({
     animations: "disabled",
     fullPage: true,
-    path: resolve(process.cwd(), "../../docs/evidence/issue-36", outputName),
+    path: resolve(process.cwd(), "../../docs/evidence/issue-46", outputName),
   });
 });

@@ -75,8 +75,8 @@ function ShellFrame({ children }: { readonly children: ReactNode }) {
   return (
     <div className="min-h-svh bg-background text-foreground">
       <a
-        className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-transform focus:translate-y-0"
-        href="#workshop-content"
+        className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] focus:translate-y-0 motion-reduce:transition-none"
+        href="#content"
       >
         Перейти к содержанию
       </a>
@@ -92,7 +92,7 @@ function ShellMain({ children }: { readonly children: ReactNode }) {
         "min-h-svh min-w-0 flex-1 bg-background pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:bg-card md:pb-0",
         "md:h-full md:min-h-0 md:overflow-x-hidden md:overflow-y-auto md:overscroll-y-contain md:[scrollbar-gutter:stable]",
       )}
-      id="workshop-content"
+      id="content"
       tabIndex={-1}
     >
       <div className="mx-3 my-3 w-auto max-w-6xl rounded-2xl border border-border bg-card px-5 py-7 sm:mx-5 sm:px-8 sm:py-10 md:mx-auto md:my-0 md:w-full md:rounded-none md:border-0 md:bg-transparent md:py-12 lg:px-12 lg:py-14">
@@ -214,7 +214,7 @@ function MobileBottomNavigation({
               aria-current={current ? "page" : undefined}
               className={cn(
                 "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-[0.625rem] font-medium leading-none text-muted-foreground no-underline",
-                "active:bg-muted focus-visible:outline-ring",
+                "transition-colors duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] active:bg-muted focus-visible:outline-ring motion-reduce:transition-none",
                 current && "text-foreground",
               )}
               href={item.href}
