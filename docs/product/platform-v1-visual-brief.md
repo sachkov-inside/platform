@@ -317,6 +317,9 @@ rendered visual/component GO остаётся отдельным от PR и merg
   но не образуют отдельную filter group;
 - Material Card показывает title и ordinal Series только при реальном membership; карточка без
   Series не резервирует под него место;
+- video Material cards образуют компактную media-grid с одинаковым `16:9` preview и стабильной
+  геометрией metadata; Material без preview остаётся естественно ниже, а related cards в Reader
+  не растягиваются на всю доступную ширину;
 - accepted component foundation состоит из реально используемых `Button`, `Select`, `Tooltip` и
   surface patterns `ApplicationShell`, `MaterialCard`, `LibraryFilters`; story-only `Sheet`,
   неподтверждённая header topology и внешний avatar dependency в baseline не сохраняются;

@@ -395,7 +395,7 @@ function TopicButton({
       aria-label={label}
       aria-pressed={selected}
       className={cn(
-        "grid min-h-24 min-w-0 snap-start content-between rounded-xl p-3 text-left transition-colors focus-visible:outline-ring sm:min-h-28 sm:p-4",
+        "relative grid min-h-24 min-w-0 snap-start content-between rounded-xl p-3 text-left transition-colors focus-visible:outline-ring sm:min-h-28 sm:p-4",
         selected
           ? "bg-primary text-primary-foreground shadow-card"
           : "border border-border bg-muted/60 text-foreground hover:bg-muted",
@@ -403,11 +403,14 @@ function TopicButton({
       onClick={onClick}
       type="button"
     >
-      <span className="flex items-start justify-between gap-4">
+      <span className="pr-6">
         <span className="text-sm font-semibold leading-5 tracking-[-0.02em] sm:text-base">{label}</span>
         <ArrowUpRight
           aria-hidden="true"
-          className={cn("size-4 shrink-0", selected ? "text-accent" : "text-muted-foreground")}
+          className={cn(
+            "absolute right-3 top-3 size-4 sm:right-4 sm:top-4",
+            selected ? "text-accent" : "text-muted-foreground",
+          )}
         />
       </span>
       <span
@@ -626,6 +629,9 @@ export const Mobile: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const topicButtons = Array.from(
+      canvasElement.querySelectorAll<HTMLButtonElement>("[data-topic-navigation] button"),
+    );
 
     await expect(canvas.getByRole("heading", { name: "Библиотека" })).toBeInTheDocument();
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
@@ -633,6 +639,18 @@ export const Mobile: Story = {
       "aria-pressed",
       "true",
     );
+    await expect(
+      topicButtons.every((button) => {
+        const buttonBounds = button.getBoundingClientRect();
+        const arrowBounds = button.querySelector("svg")?.getBoundingClientRect();
+
+        return (
+          arrowBounds !== undefined &&
+          arrowBounds.left >= buttonBounds.left &&
+          arrowBounds.right <= buttonBounds.right
+        );
+      }),
+    ).toBe(true);
 
     await userEvent.click(canvas.getByRole("button", { name: "Product engineering" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
@@ -730,14 +748,37 @@ export const Desktop: Story = {
     const canvas = within(canvasElement);
     const storyBody = within(canvasElement.ownerDocument.body);
     const materialCards = Array.from(canvasElement.querySelectorAll<HTMLElement>("article"));
+    const platformVideo = canvasElement.querySelector<HTMLElement>(
+      `[data-material-id="${materialFixtures.platformDeliveryVideo.id}"]`,
+    );
+    const careerVideo = canvasElement.querySelector<HTMLElement>(
+      `[data-material-id="${materialFixtures.careerVideo.id}"]`,
+    );
+    const publicGuide = canvasElement.querySelector<HTMLElement>(
+      `[data-material-id="${materialFixtures.publicAgentGuide.id}"]`,
+    );
 
     await expect(materialCards).toHaveLength(3);
     await expect(
       materialCards.every((card) => card.getBoundingClientRect().width < 400),
     ).toBe(true);
-    const cardHeights = materialCards.map((card) => card.getBoundingClientRect().height);
+    if (platformVideo === null || careerVideo === null || publicGuide === null) {
+      throw new Error("Material cards are missing");
+    }
 
-    await expect(Math.max(...cardHeights) - Math.min(...cardHeights)).toBeLessThanOrEqual(1);
+    await expect(
+      Math.abs(
+        platformVideo.getBoundingClientRect().height -
+          careerVideo.getBoundingClientRect().height,
+      ),
+    ).toBeLessThanOrEqual(1);
+    await expect(publicGuide.getBoundingClientRect().height).toBeLessThan(
+      platformVideo.getBoundingClientRect().height,
+    );
+    await expect(
+      platformVideo.getBoundingClientRect().height /
+        platformVideo.getBoundingClientRect().width,
+    ).toBeLessThan(1.3);
     await userEvent.click(canvas.getByRole("button", { name: "AI-first engineering" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
     await expect(

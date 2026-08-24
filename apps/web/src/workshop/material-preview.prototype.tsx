@@ -97,15 +97,17 @@ export function MaterialCard({
 
   return (
     <article
-      className="@container/material-card h-full w-full max-w-[36rem]"
+      className={cn(
+        "@container/material-card w-full max-w-[24rem]",
+        hasPreview ? "h-full" : "self-start",
+      )}
       data-material-id={material.id}
     >
       <div
         className={cn(
-          "group/card grid h-full overflow-hidden rounded-xl bg-card shadow-card transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
+          "group/card grid overflow-hidden rounded-xl bg-card shadow-card transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
           "hover:-translate-y-0.5 hover:shadow-card-hover focus-within:outline-ring active:translate-y-0 active:shadow-card",
-          hasPreview &&
-            "@min-[30rem]/material-card:grid-cols-[minmax(11rem,0.8fr)_minmax(0,1.2fr)]",
+          hasPreview && "h-full",
         )}
       >
         {hasPreview ? (
@@ -117,9 +119,14 @@ export function MaterialCard({
             <MaterialPoster material={material} />
           </a>
         ) : null}
-        <div className="flex min-w-0 flex-col p-4 @min-[30rem]/material-card:p-5">
+        <div
+          className={cn(
+            "flex min-w-0 flex-col p-4",
+            hasPreview && "min-h-[12.5rem]",
+          )}
+        >
           <MaterialTaxonomy material={material} />
-          <Heading className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em] @min-[30rem]/material-card:line-clamp-3 @min-[30rem]/material-card:text-lg">
+          <Heading className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em]">
             <a
               className="no-underline hover:underline hover:decoration-accent hover:underline-offset-4 focus-visible:outline-ring"
               href={`/library/${material.id}`}
@@ -127,10 +134,20 @@ export function MaterialCard({
               {material.title}
             </a>
           </Heading>
-          <p className="mt-2 line-clamp-1 text-sm leading-5 text-muted-foreground @min-[30rem]/material-card:line-clamp-2">
+          <p
+            className={cn(
+              "mt-2 text-sm leading-5 text-muted-foreground",
+              hasPreview ? "line-clamp-1" : "line-clamp-2",
+            )}
+          >
             {material.summary}
           </p>
-          <div className="mt-3 flex flex-wrap items-end justify-between gap-2 @min-[30rem]/material-card:mt-auto @min-[30rem]/material-card:pt-4">
+          <div
+            className={cn(
+              "flex flex-wrap items-end justify-between gap-2",
+              hasPreview ? "mt-auto pt-3" : "mt-3",
+            )}
+          >
             <MaterialContext material={material} />
             <AccessLabel access={material.access} />
           </div>
@@ -169,14 +186,14 @@ function MaterialContext({ material }: { readonly material: MaterialPreviewFixtu
   const FormatIcon = material.format === "Видео" ? Play : BookOpenText;
 
   return (
-    <span className="flex min-w-0 flex-col gap-1.5 font-mono text-[0.6875rem] text-muted-foreground">
-      <span className="inline-flex items-center gap-1.5">
+    <span className="flex min-w-0 flex-1 items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
+      <span className="inline-flex shrink-0 items-center gap-1.5">
         <FormatIcon aria-hidden="true" className="size-3.5 text-accent" />
         {material.format}
       </span>
       {material.series.map((membership) => (
         <a
-          className="inline-flex min-h-7 min-w-0 items-center gap-1.5 rounded-md pr-1 no-underline hover:text-foreground focus-visible:outline-ring"
+          className="inline-flex min-h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md pr-1 no-underline hover:text-foreground focus-visible:outline-ring"
           href={`/series/${membership.id}`}
           key={membership.id}
         >
@@ -213,12 +230,12 @@ function MaterialPoster({ material }: { readonly material: MaterialPreviewFixtur
   return (
     <span
       aria-label={material.posterLabel}
-      className="relative grid aspect-video min-h-0 place-items-center overflow-clip bg-sidebar p-5 text-sidebar-foreground @min-[30rem]/material-card:aspect-auto @min-[30rem]/material-card:min-h-full"
+      className="relative grid aspect-video min-h-0 place-items-center overflow-clip bg-sidebar p-4 text-sidebar-foreground"
       role="img"
     >
       <span
         aria-hidden="true"
-        className="absolute left-5 top-4 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-sidebar-foreground/55"
+        className="absolute left-4 top-3 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-sidebar-foreground/55"
       >
         {material.format}
       </span>
@@ -231,7 +248,7 @@ function MaterialPoster({ material }: { readonly material: MaterialPreviewFixtur
       >
         {material.posterSteps.map((step) => (
           <span
-            className="relative grid min-h-14 min-w-0 place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent px-1 text-center font-mono text-[0.5625rem] leading-4 text-sidebar-accent-foreground sm:text-[0.625rem]"
+            className="relative grid min-h-12 min-w-0 place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent px-1 text-center font-mono text-[0.5625rem] leading-4 text-sidebar-accent-foreground sm:text-[0.625rem]"
             key={step}
           >
             {step}

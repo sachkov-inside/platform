@@ -37,7 +37,7 @@ function HybridCatalogBoard() {
               3 материала
             </span>
           </div>
-          <div className="mt-5 grid items-stretch gap-6 xl:grid-cols-2">
+          <div className="mt-5 grid items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-3">
             <MaterialCard material={materialFixtures.platformDeliveryVideo} />
             <MaterialCard material={materialFixtures.publicAgentGuide} />
             <MaterialCard material={materialFixtures.careerVideo} />
@@ -111,6 +111,12 @@ export const HybridCatalog: Story = {
       name: materialFixtures.publicAgentGuide.title,
     });
     const guideCard = guideHeading.closest("article");
+    const platformVideo = canvasElement.querySelector<HTMLElement>(
+      `[data-material-id="${materialFixtures.platformDeliveryVideo.id}"]`,
+    );
+    const careerVideo = canvasElement.querySelector<HTMLElement>(
+      `[data-material-id="${materialFixtures.careerVideo.id}"]`,
+    );
 
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
     await expect(canvas.getAllByRole("img")).toHaveLength(2);
@@ -120,13 +126,22 @@ export const HybridCatalog: Story = {
       ).toBeLessThanOrEqual(16);
     }
 
-    if (guideCard === null) {
-      throw new Error("Text material card is missing");
+    if (guideCard === null || platformVideo === null || careerVideo === null) {
+      throw new Error("Material cards are missing");
     }
 
     await expect(within(guideCard).queryByRole("img")).not.toBeInTheDocument();
     await expect(within(guideCard).queryByRole("link", { name: /выпуск/ })).not.toBeInTheDocument();
     await expect(guideCard.getBoundingClientRect().width).toBeLessThan(750);
+    await expect(
+      Math.abs(
+        platformVideo.getBoundingClientRect().height -
+          careerVideo.getBoundingClientRect().height,
+      ),
+    ).toBeLessThanOrEqual(1);
+    await expect(guideCard.getBoundingClientRect().height).toBeLessThan(
+      platformVideo.getBoundingClientRect().height,
+    );
   },
   render: () => <HybridCatalogBoard />,
 };
