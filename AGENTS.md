@@ -12,6 +12,9 @@ machine-local dependency.
 - For GitHub triage or Wayfinder operations, read `docs/agents/issue-tracker.md` and
   `docs/agents/triage-labels.md`.
 - For product context, terminology or ADR placement, read `docs/agents/domain.md`.
+- For every frontend or UI change, use Agentation as the owner-feedback overlay during interactive
+  browser and Storybook review. Keep it enabled for human review and disable it only in automated
+  test runs where the overlay would interfere with assertions.
 
 ## Commands
 
