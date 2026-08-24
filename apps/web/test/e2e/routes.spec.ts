@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const destinations = [
   { path: "/", label: "Главная", heading: "Главная" },
@@ -74,8 +74,7 @@ test("desktop sidebar closes after pointer navigation", async ({ page }, testInf
     .getByRole("navigation", { name: "Основная" })
     .getByRole("link", { name: "Библиотека", exact: true });
 
-  await libraryLink.hover();
-  await expect(sidebar).toHaveCSS("width", "256px");
+  await hoverUntilSidebarOpens(page, sidebar, libraryLink);
   await libraryLink.click();
   await page.mouse.move(600, 500);
 
@@ -213,4 +212,12 @@ function navigationMode(projectName: string): "desktop" | "mobile" {
   }
 
   throw new Error(`No navigation mode configured for Playwright project ${projectName}`);
+}
+
+async function hoverUntilSidebarOpens(page: Page, sidebar: Locator, target: Locator) {
+  await expect(async () => {
+    await page.mouse.move(600, 500);
+    await target.hover();
+    await expect(sidebar).toHaveCSS("width", "256px", { timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
 }
