@@ -65,8 +65,9 @@ reusable visual baseline. [#45](https://github.com/sachkov-inside/platform/issue
 этого приложения отдельно mergeable, development-only UI laboratory; она владеет stories, typed
 presentation fixtures, components и semantic tokens, но не production routes, application data или
 business rules. [#46](https://github.com/sachkov-inside/platform/issues/46) применяет принятый UI к
-production shell, а #37–#39 соединяют те же client-safe presentation interfaces с реальными
-application interfaces своих capabilities.
+production shell. Production vertical slices #89, #90, #94 и #95 продвигают принятые
+client-safe presentation interfaces в owning FSD modules и соединяют их с реальными application
+interfaces без отдельного временного frontend path.
 
 Backend/headless capabilities и UI laboratory могут развиваться параллельно. Laboratory fixtures
 типизированы presentation props/view-model contracts и выражают representative состояния без fake
@@ -101,7 +102,10 @@ throwaway prototype:
 foundations. Их scope и acceptance распределены по vertical capability tickets
 [#30](https://github.com/sachkov-inside/platform/issues/30),
 [#31](https://github.com/sachkov-inside/platform/issues/31),
-[#28](https://github.com/sachkov-inside/platform/issues/28) и
+[#89](https://github.com/sachkov-inside/platform/issues/89),
+[#90](https://github.com/sachkov-inside/platform/issues/90),
+[#91](https://github.com/sachkov-inside/platform/issues/91),
+[#93](https://github.com/sachkov-inside/platform/issues/93) и
 [#29](https://github.com/sachkov-inside/platform/issues/29). Отдельных Kysely/Drizzle и
 ProseMirror/Portable Text comparison stages нет. Если implementation выявляет конкретный blocker,
 owning PR фиксирует evidence и migration impact и предлагает smallest production change; два
@@ -412,11 +416,14 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    validation/renderer и private preview к owner-approved publish, public/free read, unpublish и
    restore. До кода owner отдельно утверждает lifecycle, projection, transaction и security design;
    readiness так же меняется с `ready-for-human` на `ready-for-agent` только после approval.
-5. **Parallel headless consumers:** после #31
-   [#28](https://github.com/sachkov-inside/platform/issues/28) поставляет Library/search/navigation,
-   а [#29](https://github.com/sachkov-inside/platform/issues/29) — safe agent authoring через thin
-   MCP adapter. Они используют принятый engineering contract; новый owner gate нужен только при
-   материальном отклонении.
+5. **Application consumers:** после #31 production Reader и Library поставляются законченными
+   vertical slices: [#89](https://github.com/sachkov-inside/platform/issues/89) соединяет public
+   Material read с production route, [#90](https://github.com/sachkov-inside/platform/issues/90)
+   поставляет real catalog, а [#91](https://github.com/sachkov-inside/platform/issues/91) и
+   [#93](https://github.com/sachkov-inside/platform/issues/93) последовательно добавляют RU/EN
+   search, URL facets/sort и Topic/Series/related navigation. Safe agent authoring
+   [#29](https://github.com/sachkov-inside/platform/issues/29) остаётся thin MCP adapter и ждёт
+   production IdentityPrincipals, ContentAccess и application-owned prepare-publication contract.
 6. **Technical frontend foundation:** завершённая
    [#36](https://github.com/sachkov-inside/platform/issues/36) создала в существующем `apps/web`
    App Router/FSD composition, server-only backend seam, root layouts, routes/navigation
@@ -426,7 +433,7 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    [#44](https://github.com/sachkov-inside/platform/issues/44)
    [#45](https://github.com/sachkov-inside/platform/issues/45) создаёт development-only component
    workshop, semantic tokens, bounded component set и typed presentation fixtures внутри
-   `apps/web`. Laboratory может идти параллельно #30/#31 и headless consumers #28/#29, не требует
+   `apps/web`. Laboratory может идти параллельно backend capabilities, не требует
    работающего backend и не создаёт fake API/client. Exact tool и dependencies проходят отдельный
    owner brief; cloud publishing, Chromatic и любые external services требуют отдельного owner
    approval.
@@ -434,14 +441,18 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    [#46](https://github.com/sachkov-inside/platform/issues/46) заменяет временную visual заглушку
    #36 принятыми components/tokens в production shell, не меняя routes или backend seam. Workshop
    runtime и fixtures не входят в production graph.
-9. **Production frontend surfaces:** [#37](https://github.com/sachkov-inside/platform/issues/37),
-   [#38](https://github.com/sachkov-inside/platform/issues/38) и
-   [#39](https://github.com/sachkov-inside/platform/issues/39) поставляют Material reader,
-   author editor/Preview и Library/search/Topic/Series после #46 и owning backend capabilities.
-   Каждый ticket использует принятые UI public interfaces/tokens, соединяет их с реальными
-   application interfaces и добавляет только component needs собственного surface; второй UI
-   system, fixture data path или browser-owned business rules запрещены. #20/#21 остаются
-   structural и owner-taste inputs, а закрытые #22/#23 и superseded #40 — provenance, не gates.
+9. **Production frontend surfaces:** завершённая #46 владеет shell foundation. Reader #89 и
+   Library #90 продвигают принятые presentation modules и real backend data каждый в одном
+   production vertical slice; #91 и #93 расширяют уже работающий Library journey. Для authoring
+   [#38](https://github.com/sachkov-inside/platform/issues/38) сначала получает отдельный
+   owner-accepted Storybook proof Editor/exact Preview; после proof и working Principal/session #49
+   [#94](https://github.com/sachkov-inside/platform/issues/94) поставляет production create + exact
+   Preview, а [#95](https://github.com/sachkov-inside/platform/issues/95) — safe revise и conflict
+   recovery. Каждый production ticket использует принятые UI public interfaces/tokens, соединяет
+   их с реальными application interfaces и добавляет только component needs собственного surface;
+   второй UI system, fixture data path или browser-owned business rules запрещены. #20/#21 остаются
+   structural и owner-taste inputs, а закрытые #22/#23, #28, #37, #39 и superseded #40 —
+   provenance, не gates.
 10. **Parallel Identity/Membership track:** отдельная root Specification
    [#48](https://github.com/sachkov-inside/platform/issues/48) владеет Platform identity,
    authorization, private Platform Account и Member Profile delivery. После repository-local sync
