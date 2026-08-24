@@ -226,8 +226,22 @@ export const Desktop: Story = {
     await expect(canvas.getByRole("navigation", { name: "В этом материале" })).toBeInTheDocument();
     const nextStep = canvas.getByRole("region", { name: "По теме" });
     const nextStepContent = within(nextStep);
+    const relatedCards = nextStepContent.getAllByRole("article");
+    const firstRelatedCard = relatedCards[0];
+    const secondRelatedCard = relatedCards[1];
+
+    if (firstRelatedCard === undefined || secondRelatedCard === undefined) {
+      throw new Error("Related material cards are missing");
+    }
 
     await expect(nextStepContent.queryByText("Следующий материал")).not.toBeInTheDocument();
+    await expect(relatedCards).toHaveLength(2);
+    await expect(
+      Math.abs(
+        firstRelatedCard.getBoundingClientRect().height -
+          secondRelatedCard.getBoundingClientRect().height,
+      ),
+    ).toBeLessThanOrEqual(1);
     await expect(within(topActions).getAllByRole("button")).toHaveLength(1);
     await expect(within(topActions).getAllByRole("link")).toHaveLength(1);
   },

@@ -269,7 +269,7 @@ function LibraryBoard() {
             />
 
             {filteredMaterials.length > 0 ? (
-              <div className="mt-4 grid items-start gap-4 @min-[52rem]/library:grid-cols-2 @min-[64rem]/library:grid-cols-3">
+              <div className="mt-4 grid items-stretch gap-4 @min-[52rem]/library:grid-cols-2 @min-[64rem]/library:grid-cols-3">
                 {filteredMaterials.map((material) => (
                   <MaterialCard headingLevel="h3" key={material.id} material={material} />
                 ))}
@@ -735,6 +735,9 @@ export const Desktop: Story = {
     await expect(
       materialCards.every((card) => card.getBoundingClientRect().width < 400),
     ).toBe(true);
+    const cardHeights = materialCards.map((card) => card.getBoundingClientRect().height);
+
+    await expect(Math.max(...cardHeights) - Math.min(...cardHeights)).toBeLessThanOrEqual(1);
     await userEvent.click(canvas.getByRole("button", { name: "AI-first engineering" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
     await expect(

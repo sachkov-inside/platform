@@ -505,9 +505,9 @@ function NextLearningSteps({
           <ArrowRight aria-hidden="true" className="size-4" />
         </a>
       </div>
-      <div className="mt-7 grid items-start gap-8 @min-[54rem]/learning-path:grid-cols-2">
+      <div className="mt-7 grid items-stretch gap-8 @min-[54rem]/learning-path:grid-cols-2">
         {nextMaterial ? (
-          <div className="min-w-0">
+          <div className="h-full min-w-0">
             <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
               <ArrowRight aria-hidden="true" className="size-4 text-accent" />
               Следующий материал
@@ -516,7 +516,7 @@ function NextLearningSteps({
           </div>
         ) : null}
         {relatedMaterials.map((material) => (
-          <div className="min-w-0" key={material.id}>
+          <div className="h-full min-w-0" key={material.id}>
             <MaterialCard headingLevel="h3" material={material} />
           </div>
         ))}

@@ -118,6 +118,9 @@ export const InlinePanel: Story = {
   render: () => <InlineFiltersFixture />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const filters = canvas.getByRole("region", { name: "Фильтры библиотеки" });
+
+    await expect(filters.querySelectorAll('label > span[aria-hidden="true"]')).toHaveLength(0);
 
     await userEvent.click(canvas.getByRole("checkbox", { name: "Видео" }));
     await userEvent.click(canvas.getByRole("checkbox", { name: "Product engineering" }));

@@ -37,7 +37,7 @@ function HybridCatalogBoard() {
               3 материала
             </span>
           </div>
-          <div className="mt-5 grid items-start gap-6 xl:grid-cols-2">
+          <div className="mt-5 grid items-stretch gap-6 xl:grid-cols-2">
             <MaterialCard material={materialFixtures.platformDeliveryVideo} />
             <MaterialCard material={materialFixtures.publicAgentGuide} />
             <MaterialCard material={materialFixtures.careerVideo} />

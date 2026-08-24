@@ -103,7 +103,7 @@ function FilterGroup({
               className={cn(
                 "cursor-pointer border font-medium transition-colors has-focus-visible:outline-3 has-focus-visible:outline-ring has-focus-visible:outline-offset-2",
                 compact
-                  ? "inline-flex min-h-11 items-center gap-2 rounded-lg px-2.5 text-xs"
+                  ? "inline-flex min-h-11 items-center rounded-lg px-3 text-xs"
                   : "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm",
                 checked
                   ? "border-accent/55 bg-accent/12 text-foreground shadow-sm"
@@ -119,7 +119,7 @@ function FilterGroup({
                 }}
                 type="checkbox"
               />
-              <SelectionMark checked={checked} compact={compact} />
+              {compact ? null : <SelectionMark checked={checked} />}
               <span className="min-w-0 break-words">{option.label}</span>
             </label>
           );
@@ -131,21 +131,18 @@ function FilterGroup({
 
 function SelectionMark({
   checked,
-  compact,
 }: {
   readonly checked: boolean;
-  readonly compact: boolean;
 }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "grid shrink-0 place-items-center rounded-md border",
-        compact ? "size-4" : "size-5",
+        "grid size-5 shrink-0 place-items-center rounded-md border",
         checked ? "border-accent bg-accent text-accent-foreground" : "border-input bg-background",
       )}
     >
-      {checked ? <Check className={compact ? "size-3" : "size-3.5"} /> : null}
+      {checked ? <Check className="size-3.5" /> : null}
     </span>
   );
 }

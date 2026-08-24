@@ -97,12 +97,12 @@ export function MaterialCard({
 
   return (
     <article
-      className="@container/material-card w-full max-w-[36rem]"
+      className="@container/material-card h-full w-full max-w-[36rem]"
       data-material-id={material.id}
     >
       <div
         className={cn(
-          "group/card grid overflow-hidden rounded-xl bg-card shadow-card transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
+          "group/card grid h-full overflow-hidden rounded-xl bg-card shadow-card transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
           "hover:-translate-y-0.5 hover:shadow-card-hover focus-within:outline-ring active:translate-y-0 active:shadow-card",
           hasPreview &&
             "@min-[30rem]/material-card:grid-cols-[minmax(11rem,0.8fr)_minmax(0,1.2fr)]",
