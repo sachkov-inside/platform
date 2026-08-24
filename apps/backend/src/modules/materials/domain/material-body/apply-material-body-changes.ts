@@ -8,22 +8,12 @@ import type {
   MaterialBodySnapshot,
 } from "./material-body.js";
 import { assignMissingNodeIds } from "./assign-missing-node-ids.js";
-
-function isJsonObject(value: unknown): value is JsonObject {
-  return value !== null && value !== undefined && !Array.isArray(value) && typeof value === "object";
-}
-
-function isJsonArray(value: JsonValue): value is readonly JsonValue[] {
-  return Array.isArray(value);
-}
-
-function isUnknownArray(value: unknown): value is unknown[] {
-  return Array.isArray(value);
-}
-
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && !Array.isArray(value) && typeof value === "object";
-}
+import {
+  isJsonArray,
+  isJsonObject,
+  isUnknownArray,
+  isUnknownRecord,
+} from "./json-guards.js";
 
 interface TextNode extends JsonObject {
   readonly type: "text";

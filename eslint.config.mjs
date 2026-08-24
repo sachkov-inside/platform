@@ -6,10 +6,6 @@ import tseslint from "typescript-eslint";
 const webTypeScriptFiles = ["apps/web/**/*.{ts,tsx,mts,cts}"];
 const webClientFiles = ["apps/web/**/*.client.{ts,tsx}"];
 const backendTypeScriptFiles = ["apps/backend/**/*.{ts,mts,cts}"];
-const backendProductionCallers = [
-  "apps/backend/src/**/*.ts",
-  "apps/backend/test/guardrails/fixtures/eslint/**/*.ts",
-];
 
 export default tseslint.config(
   {
@@ -23,6 +19,7 @@ export default tseslint.config(
       "**/next-env.d.ts",
       "**/playwright-report/**",
       "**/test-results/**",
+      "apps/backend/test/guardrails/fixtures/architecture/**",
       "apps/backend/test/guardrails/fixtures/typescript/**",
     ],
   },
@@ -62,34 +59,6 @@ export default tseslint.config(
     files: ["apps/backend/src/**/*.module.ts"],
     rules: {
       "@typescript-eslint/no-extraneous-class": "off",
-    },
-  },
-  {
-    files: backendProductionCallers,
-    // Materials implementation and frozen migration imports are the two local owners.
-    ignores: [
-      "apps/backend/src/migrations/**/*.ts",
-      "apps/backend/src/modules/materials/**/*.ts",
-    ],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: [
-                "**/modules/materials/application/**",
-                "**/modules/materials/domain/**",
-                "**/modules/materials/infrastructure/**",
-                "**/modules/materials/create-materials.*",
-                "**/modules/materials/materials.module.*",
-                "**/modules/*/internal/**",
-              ],
-              message: "Import the capability index.ts instead of its internals.",
-            },
-          ],
-        },
-      ],
     },
   },
   {

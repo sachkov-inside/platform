@@ -5,5 +5,10 @@
     "types": ["node", "vitest/globals"]
   },
   "include": ["**/*.ts", "../vitest*.config.mts"],
-  "exclude": ["guardrails/fixtures/typescript", "../dist", "../node_modules"]
+  "exclude": [
+    "guardrails/fixtures/architecture",
+    "guardrails/fixtures/typescript",
+    "../dist",
+    "../node_modules"
+  ]
 }

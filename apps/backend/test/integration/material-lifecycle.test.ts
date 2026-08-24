@@ -13,6 +13,10 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import {
+  notStringMatching,
+  stringMatching,
+} from "../support/matchers.js";
 
 const ownerId = "71000000-0000-4000-8000-000000000001";
 const topicId = "71000000-0000-4000-8000-000000000002";
@@ -21,14 +25,6 @@ const denyAllAuthorPolicy = {
   canAuthor: () => false,
   canPublish: () => false,
 };
-
-function stringMatching(pattern: RegExp): unknown {
-  return expect.stringMatching(pattern);
-}
-
-function notStringMatching(value: string): unknown {
-  return expect.not.stringMatching(value);
-}
 
 describe("Material lifecycle", () => {
   let testDatabase: TestDatabase;

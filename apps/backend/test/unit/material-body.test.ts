@@ -4,9 +4,14 @@ import { describe, expect, test } from "vitest";
 
 import { materialBodyOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
 import {
+  isUnknownArray,
+  isUnknownRecord,
+} from "../../src/modules/materials/domain/material-body/json-guards.js";
+import {
   fullRepresentativeDocument,
   representativeDocument,
 } from "../fixtures/material-body/representative.js";
+import { stringMatching } from "../support/matchers.js";
 
 function invalidFixture(name: string): unknown {
   return JSON.parse(
@@ -19,18 +24,6 @@ function invalidFixture(name: string): unknown {
 
 function testNodeId(index: number): string {
   return `92000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
-}
-
-function isUnknownArray(value: unknown): value is unknown[] {
-  return Array.isArray(value);
-}
-
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && !Array.isArray(value) && typeof value === "object";
-}
-
-function stringMatching(pattern: RegExp): unknown {
-  return expect.stringMatching(pattern);
 }
 
 describe("MaterialBodyOperations", () => {

@@ -4,10 +4,7 @@ import type {
   MaterialBody,
   MaterialBodySnapshot,
 } from "./material-body.js";
-
-function isJsonArray(value: JsonValue): value is readonly JsonValue[] {
-  return Array.isArray(value);
-}
+import { isJsonArray } from "./json-guards.js";
 
 function freezeJson(value: JsonValue): JsonValue {
   if (isJsonArray(value)) {

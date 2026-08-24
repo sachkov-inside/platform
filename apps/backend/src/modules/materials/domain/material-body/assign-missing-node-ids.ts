@@ -1,16 +1,9 @@
 import { randomUUID } from "node:crypto";
 
 import { addressableBlockTypes } from "./document-rules.js";
+import { isUnknownArray, isUnknownRecord } from "./json-guards.js";
 
 const addressableBlockTypeSet = new Set<string>(addressableBlockTypes);
-
-function isUnknownArray(value: unknown): value is unknown[] {
-  return Array.isArray(value);
-}
-
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && !Array.isArray(value) && typeof value === "object";
-}
 
 export function assignMissingNodeIds(value: unknown, stableRootNodeId?: string): void {
   function visit(candidate: unknown, root: boolean): void {

@@ -13,6 +13,7 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import { stringMatching } from "../support/matchers.js";
 
 const actor = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const topicId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -20,10 +21,6 @@ const formatId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const firstTagId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const secondTagId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const seriesId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
-
-function stringMatching(pattern: RegExp): unknown {
-  return expect.stringMatching(pattern);
-}
 
 describe("MaterialAuthoring", () => {
   let testDatabase: TestDatabase;

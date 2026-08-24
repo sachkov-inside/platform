@@ -10,39 +10,16 @@ import type {
 import { assignMissingNodeIds } from "./assign-missing-node-ids.js";
 import { DOCUMENT_LIMITS } from "./document-limits.js";
 import { addressableBlockTypes } from "./document-rules.js";
+import {
+  isJsonArray,
+  isJsonObject,
+  isUnknownRecord,
+} from "./json-guards.js";
 import { restoreStoredMaterialBodyV1 } from "./stored-material-body-v1.js";
 import { validationIssuePath } from "./validation-issue-path.js";
 import { isUuid } from "../uuid.js";
 
 const addressableBlockTypeSet = new Set<string>(addressableBlockTypes);
-
-function isJsonValue(value: unknown): value is JsonValue {
-  if (value === null || typeof value === "boolean" || typeof value === "string") {
-    return true;
-  }
-  if (typeof value === "number") {
-    return Number.isFinite(value);
-  }
-  if (Array.isArray(value)) {
-    return value.every(isJsonValue);
-  }
-  if (typeof value !== "object") {
-    return false;
-  }
-  return Object.values(value).every(isJsonValue);
-}
-
-function isJsonObject(value: unknown): value is JsonObject {
-  return value !== null && !Array.isArray(value) && typeof value === "object" && isJsonValue(value);
-}
-
-function isJsonArray(value: JsonValue): value is readonly JsonValue[] {
-  return Array.isArray(value);
-}
-
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && !Array.isArray(value) && typeof value === "object";
-}
 
 const envelopeSchema = z
   .object({
