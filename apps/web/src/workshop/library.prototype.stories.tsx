@@ -3,7 +3,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import {
   ArrowUpRight,
-  Check,
   ListVideo,
   Search,
   SlidersHorizontal,
@@ -41,8 +40,10 @@ import {
   type MaterialPreviewFixture,
   type MaterialSeriesFixture,
 } from "@/workshop/material-preview.prototype";
+import { LibraryFilters } from "@/workshop/library-filters.prototype";
 
 type SortOrder = "relevance" | "title";
+type FilterPresentation = "inline" | "sheet";
 
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
@@ -70,13 +71,18 @@ const librarySeries = [
   ).values(),
 ] satisfies readonly MaterialSeriesFixture[];
 
-function LibraryBoard() {
+function LibraryBoard({
+  filterPresentation = "sheet",
+}: {
+  readonly filterPresentation?: FilterPresentation;
+}) {
   const [query, setQuery] = useState("");
   const [selectedFormats, setSelectedFormats] = useState<readonly string[]>([]);
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<readonly string[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("relevance");
+  const [inlineFiltersExpanded, setInlineFiltersExpanded] = useState(false);
 
   const normalizedQuery = query.trim().toLocaleLowerCase("ru");
   const activeFilterCount = selectedFormats.length + selectedTags.length;
@@ -147,7 +153,7 @@ function LibraryBoard() {
         data-prototype="library-responsive"
       >
         <header className="rounded-b-2xl bg-card px-5 pb-5 pt-4 sm:px-8 sm:pb-8 sm:pt-10 md:rounded-none md:bg-transparent md:p-0 @min-[52rem]/library:grid @min-[52rem]/library:grid-cols-[minmax(0,1fr)_minmax(22rem,32rem)] @min-[52rem]/library:items-center @min-[52rem]/library:gap-4">
-          <h1 className="text-2xl font-semibold leading-7 tracking-[-0.03em] sm:text-4xl sm:leading-10 @min-[52rem]/library:text-5xl @min-[52rem]/library:leading-[1.1]">
+          <h1 className="text-2xl font-semibold leading-7 tracking-[-0.03em] @min-[30rem]/library:text-3xl @min-[30rem]/library:leading-9 @min-[52rem]/library:text-5xl @min-[52rem]/library:leading-[1.1]">
             Библиотека
           </h1>
           <div className="hidden @min-[52rem]/library:block">
@@ -161,23 +167,65 @@ function LibraryBoard() {
         </header>
 
         <div className="px-5 pb-7 sm:px-8 sm:pb-10 md:px-0 md:pb-0">
-          <div className="grid gap-2 pt-4 @min-[52rem]/library:hidden">
+          <div className="grid gap-2 pt-4 @min-[40rem]/library:grid-cols-[minmax(0,1fr)_auto] @min-[52rem]/library:hidden">
             <SearchControl
               inputId="library-search-mobile"
               placeholder="Поиск"
               query={query}
               setQuery={setQuery}
             />
-            <FilterSheet
-              activeFilterCount={activeFilterCount}
-              onReset={resetFilters}
-              resultCount={filteredMaterials.length}
-              selectedFormats={selectedFormats}
-              selectedTags={selectedTags}
-              setSelectedFormats={setSelectedFormats}
-              setSelectedTags={setSelectedTags}
-            />
+            {filterPresentation === "sheet" ? (
+              <FilterSheet
+                activeFilterCount={activeFilterCount}
+                onReset={resetFilters}
+                resultCount={filteredMaterials.length}
+                selectedFormats={selectedFormats}
+                selectedTags={selectedTags}
+                setSelectedFormats={setSelectedFormats}
+                setSelectedTags={setSelectedTags}
+              />
+            ) : (
+              <Button
+                aria-controls="library-inline-filters"
+                aria-expanded={inlineFiltersExpanded}
+                aria-label={
+                  activeFilterCount > 0
+                    ? `Фильтры, выбрано ${String(activeFilterCount)}`
+                    : "Фильтры"
+                }
+                className="min-h-11 justify-center bg-card px-3 @min-[40rem]/library:min-h-10 @min-[40rem]/library:min-w-36"
+                onClick={() => {
+                  setInlineFiltersExpanded((current) => !current);
+                }}
+                variant="outline"
+              >
+                <SlidersHorizontal aria-hidden="true" className="size-4" />
+                <span>Фильтры</span>
+                {activeFilterCount > 0 ? (
+                  <span className="ml-auto grid size-5 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-accent-foreground">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
+              </Button>
+            )}
           </div>
+
+          {filterPresentation === "inline" && inlineFiltersExpanded ? (
+            <div
+              className="mt-3 rounded-xl bg-muted/55 p-4 @min-[52rem]/library:hidden"
+              id="library-inline-filters"
+            >
+              <LibraryFilters
+                density="compact"
+                formatOptions={filterOptions.formats}
+                selectedFormats={selectedFormats}
+                selectedTags={selectedTags}
+                setSelectedFormats={setSelectedFormats}
+                setSelectedTags={setSelectedTags}
+                tagOptions={filterOptions.tags}
+              />
+            </div>
+          ) : null}
 
           <TopicNavigation
             selectedSeriesId={selectedSeriesId}
@@ -202,10 +250,7 @@ function LibraryBoard() {
           <section aria-labelledby="materials-heading" className="mt-8 sm:mt-10">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h2
-                  className="text-xl font-semibold tracking-[-0.03em] sm:text-2xl"
-                  id="materials-heading"
-                >
+                <h2 className="text-lg font-semibold tracking-[-0.025em] @min-[30rem]/library:text-xl" id="materials-heading">
                   Материалы
                 </h2>
                 <div aria-live="polite" className="mt-1 font-mono text-xs text-muted-foreground" role="status">
@@ -279,7 +324,7 @@ function SearchControl({
         />
         <input
           className={cn(
-            "min-h-11 w-full rounded-xl border border-input bg-card pl-10 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30",
+            "min-h-11 w-full rounded-xl border border-input bg-card pl-10 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 @min-[40rem]/library:min-h-10",
             query.length > 0 ? "pr-11" : "pr-3",
           )}
           id={inputId}
@@ -320,7 +365,7 @@ function TopicNavigation({
 
   return (
     <section aria-labelledby="topics-heading" className="mt-8 sm:mt-10">
-      <h2 className="text-lg font-semibold tracking-[-0.025em] sm:text-xl" id="topics-heading">
+      <h2 className="text-lg font-semibold tracking-[-0.025em] @min-[30rem]/library:text-xl" id="topics-heading">
         Темы
       </h2>
       <div
@@ -405,7 +450,7 @@ function SeriesNavigation({
 }) {
   return (
     <section aria-labelledby="playlists-heading" className="mt-6 sm:mt-7">
-      <h2 className="text-lg font-semibold tracking-[-0.025em] sm:text-xl" id="playlists-heading">
+      <h2 className="text-lg font-semibold tracking-[-0.025em] @min-[30rem]/library:text-xl" id="playlists-heading">
         Плейлисты
       </h2>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -474,20 +519,15 @@ function DesktopFilters({
   readonly sortOrder: SortOrder;
 }) {
   return (
-    <div className="mt-5 hidden grid-cols-[minmax(10rem,0.55fr)_minmax(0,1.45fr)_12rem] items-start gap-6 rounded-xl bg-muted/55 p-4 @min-[52rem]/library:grid">
-      <FilterGroup
-        compact
-        label="Формат"
-        options={filterOptions.formats}
-        selected={selectedFormats}
-        setSelected={setSelectedFormats}
-      />
-      <FilterGroup
-        compact
-        label="Тег"
-        options={filterOptions.tags}
-        selected={selectedTags}
-        setSelected={setSelectedTags}
+    <div className="mt-5 hidden grid-cols-[minmax(0,1fr)_12rem] items-start gap-6 rounded-xl bg-muted/55 p-4 @min-[52rem]/library:grid">
+      <LibraryFilters
+        density="compact"
+        formatOptions={filterOptions.formats}
+        selectedFormats={selectedFormats}
+        selectedTags={selectedTags}
+        setSelectedFormats={setSelectedFormats}
+        setSelectedTags={setSelectedTags}
+        tagOptions={filterOptions.tags}
       />
       <SortControl sortOrder={sortOrder} setSortOrder={setSortOrder} />
     </div>
@@ -516,7 +556,7 @@ function FilterSheet({
               ? `Фильтры, выбрано ${String(activeFilterCount)}`
               : "Фильтры"
           }
-          className="min-h-11 w-full justify-center bg-card px-3"
+          className="min-h-11 w-full justify-center bg-card px-3 @min-[40rem]/library:min-h-10 @min-[40rem]/library:min-w-36"
           variant="outline"
         >
           <SlidersHorizontal aria-hidden="true" className="size-4" />
@@ -548,17 +588,13 @@ function FilterSheet({
           </SheetClose>
         </SheetHeader>
         <div className="overflow-y-auto px-5 py-4 overscroll-contain">
-          <FilterGroup
-            label="Формат"
-            options={filterOptions.formats}
-            selected={selectedFormats}
-            setSelected={setSelectedFormats}
-          />
-          <FilterGroup
-            label="Тег"
-            options={filterOptions.tags}
-            selected={selectedTags}
-            setSelected={setSelectedTags}
+          <LibraryFilters
+            formatOptions={filterOptions.formats}
+            selectedFormats={selectedFormats}
+            selectedTags={selectedTags}
+            setSelectedFormats={setSelectedFormats}
+            setSelectedTags={setSelectedTags}
+            tagOptions={filterOptions.tags}
           />
         </div>
         <SheetFooter className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 border-t border-border px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
@@ -578,70 +614,6 @@ function FilterSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
-  );
-}
-
-function FilterGroup({
-  compact = false,
-  label,
-  options,
-  selected,
-  setSelected,
-}: {
-  readonly compact?: boolean;
-  readonly label: string;
-  readonly options: readonly string[];
-  readonly selected: readonly string[];
-  readonly setSelected: (values: readonly string[]) => void;
-}) {
-  return (
-    <fieldset className={cn("border-0 p-0", compact ? "min-w-0" : "not-last:mb-5")}>
-      <legend className="mb-2 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-        {label}
-      </legend>
-      <div className={cn(compact ? "flex flex-wrap gap-1.5" : "grid gap-2")}>
-        {options.map((option) => {
-          const checked = selected.includes(option);
-
-          return (
-            <label
-              className={cn(
-                "cursor-pointer font-medium",
-                "has-focus-visible:outline-3 has-focus-visible:outline-ring has-focus-visible:outline-offset-2",
-                compact
-                  ? "inline-flex min-h-9 items-center rounded-lg px-3 text-xs"
-                  : "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm",
-                checked ? "bg-secondary text-foreground" : "bg-background text-muted-foreground",
-              )}
-              key={option}
-            >
-              <input
-                checked={checked}
-                className="peer sr-only"
-                onChange={() => {
-                  setSelected(toggleValue(selected, option));
-                }}
-                type="checkbox"
-              />
-              {compact ? null : (
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "grid size-5 shrink-0 place-items-center rounded-md border",
-                    checked
-                      ? "border-accent bg-accent text-accent-foreground"
-                      : "border-input bg-background",
-                  )}
-                >
-                  {checked ? <Check className="size-3.5" /> : null}
-                </span>
-              )}
-              <span className="min-w-0 break-words">{option}</span>
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
   );
 }
 
@@ -692,10 +664,6 @@ function EmptyResults({ onReset }: { readonly onReset: () => void }) {
       </Button>
     </div>
   );
-}
-
-function toggleValue(values: readonly string[], value: string): readonly string[] {
-  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }
 
 function unique(values: readonly string[]): readonly string[] {
@@ -814,7 +782,10 @@ export const Mobile: Story = {
 };
 
 export const NarrowDesktop: Story = {
-  name: "Narrow desktop shell",
+  args: {
+    filterPresentation: "inline",
+  },
+  name: "Narrow desktop · inline filters",
   globals: {
     viewport: {
       isRotated: false,
@@ -825,10 +796,43 @@ export const NarrowDesktop: Story = {
     const canvas = within(canvasElement);
     const heading = canvas.getByRole("heading", { name: "Библиотека" });
     const searchInput = canvas.getByRole("searchbox", { name: "Поиск по библиотеке" });
+    const filterTrigger = canvas.getByRole("button", { name: "Фильтры" });
 
     await expect(searchInput.getBoundingClientRect().top).toBeGreaterThanOrEqual(
       heading.getBoundingClientRect().bottom,
     );
+    await expect(
+      Math.abs(searchInput.getBoundingClientRect().top - filterTrigger.getBoundingClientRect().top),
+    ).toBeLessThanOrEqual(1);
+
+    await userEvent.click(filterTrigger);
+    await expect(filterTrigger).toHaveAttribute("aria-expanded", "true");
+    await expect(canvas.getByRole("region", { name: "Фильтры библиотеки" })).toBeInTheDocument();
+    await expect(canvas.queryByRole("dialog", { name: "Фильтры" })).not.toBeInTheDocument();
+    await userEvent.type(canvas.getByRole("searchbox", { name: "Теги" }), "agent");
+    await userEvent.click(canvas.getByRole("checkbox", { name: "agent skills" }));
+    await expect(
+      canvas.getByRole("button", { name: "Убрать тег: agent skills" }),
+    ).toBeInTheDocument();
+  },
+};
+
+export const NarrowDesktopSheet: Story = {
+  name: "Narrow desktop · sheet filters",
+  globals: {
+    viewport: {
+      isRotated: false,
+      value: "desktop1036",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const storyBody = within(canvasElement.ownerDocument.body);
+
+    await userEvent.click(canvas.getByRole("button", { name: "Фильтры" }));
+    const filtersDialog = storyBody.getByRole("dialog", { name: "Фильтры" });
+    await expect(filtersDialog).toBeInTheDocument();
+    await userEvent.click(within(filtersDialog).getByRole("button", { name: "Закрыть фильтры" }));
   },
 };
 

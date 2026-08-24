@@ -105,6 +105,35 @@ export const Mobile: Story = {
   },
 };
 
+export const NarrowDesktop: Story = {
+  name: "Narrow desktop reading",
+  globals: {
+    viewport: {
+      isRotated: false,
+      value: "desktop1209",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const context = canvas.getByRole("complementary", { name: "Контекст чтения" });
+    const heading = canvas.getByRole("heading", {
+      name: "Публичные skills для agent-first setup",
+    });
+    const article = canvas.getAllByRole("article")[0];
+
+    if (article === undefined) {
+      throw new Error("Reader article is missing");
+    }
+
+    await expect(context.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      heading.getBoundingClientRect().bottom,
+    );
+    await expect(article.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      context.getBoundingClientRect().bottom,
+    );
+  },
+};
+
 export const Desktop: Story = {
   name: "Desktop long-form reading",
   globals: {

@@ -52,7 +52,7 @@ export function Sidebar({ children, defaultPinned = false }: SidebarProps) {
     <SidebarContext.Provider value={{ open, pinned, setPinned }}>
       <TooltipProvider delayDuration={250}>
         <div
-          className="hidden h-svh shrink-0 md:block md:self-stretch md:py-3 md:pl-3"
+          className="hidden h-svh shrink-0 bg-card md:block md:self-stretch md:py-3 md:pl-3"
           onBlurCapture={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) {
               setFocused(false);

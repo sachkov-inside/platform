@@ -75,7 +75,7 @@ export function ApplicationShell({
 
   return (
     <ShellFrame fullBleed>
-      <div className="flex min-h-svh items-start bg-background md:h-svh md:min-h-0 md:overflow-hidden">
+      <div className="flex min-h-svh items-start bg-background md:h-svh md:min-h-0 md:overflow-hidden md:bg-card">
         <Sidebar defaultPinned={sidebarDefaultPinned}>
           <SidebarBody>
             <SidebarContents

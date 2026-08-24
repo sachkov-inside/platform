@@ -112,7 +112,7 @@ export function MaterialReader({
   const material = materialFixtures.publicAgentGuide;
 
   return (
-    <div data-prototype="material-reader-responsive">
+    <div className="@container/material-reader" data-prototype="material-reader-responsive">
       <a
         className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-semibold text-muted-foreground no-underline transition-colors hover:text-foreground"
         href="/library"
@@ -121,8 +121,8 @@ export function MaterialReader({
         Библиотека
       </a>
 
-      <div className="mt-5 grid min-w-0 gap-x-14 lg:grid-cols-[minmax(0,44rem)_minmax(14rem,18rem)]">
-        <header className="min-w-0 lg:col-start-1 lg:row-start-1">
+      <div className="mt-5 grid min-w-0 gap-x-14 @min-[62rem]/material-reader:grid-cols-[minmax(0,44rem)_minmax(14rem,18rem)]">
+        <header className="min-w-0 @min-[62rem]/material-reader:col-start-1 @min-[62rem]/material-reader:row-start-1">
           <div className="flex flex-wrap items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
             <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-secondary px-2.5 font-semibold text-secondary-foreground">
               <BookOpenText aria-hidden="true" className="size-3.5 text-accent" />
@@ -136,7 +136,7 @@ export function MaterialReader({
             </a>
           </div>
 
-          <h1 className="mt-5 max-w-[18ch] text-balance text-[2rem] font-semibold leading-[1.08] tracking-[-0.035em] sm:text-[2.75rem] lg:text-[3.5rem]">
+          <h1 className="mt-5 max-w-[18ch] text-balance text-[2rem] font-semibold leading-[1.08] tracking-[-0.035em] sm:text-[2.75rem] @min-[62rem]/material-reader:text-[3.5rem]">
             {material.title}
           </h1>
           <p className="mt-5 max-w-[65ch] text-pretty text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
@@ -159,7 +159,7 @@ export function MaterialReader({
           readingState={readingState}
         />
 
-        <article className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[1.0625rem] leading-[1.75] sm:text-lg lg:col-start-1 lg:row-start-2 lg:mt-14">
+        <article className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[1.0625rem] leading-[1.75] sm:text-lg @min-[62rem]/material-reader:col-start-1 @min-[62rem]/material-reader:row-start-2 @min-[62rem]/material-reader:mt-14">
           <p className="text-xl font-medium leading-[1.55] tracking-[-0.015em] text-foreground sm:text-2xl">
             {fixture.lead}
           </p>
@@ -267,29 +267,31 @@ function ReaderContext({
   return (
     <aside
       aria-label="Контекст чтения"
-      className="mt-8 border-y border-border py-6 lg:sticky lg:top-8 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:self-start lg:border-y-0 lg:border-l lg:py-1 lg:pl-7"
+      className="mt-8 border-y border-border py-6 @min-[40rem]/material-reader:grid @min-[40rem]/material-reader:grid-cols-[minmax(13rem,0.8fr)_minmax(0,1.2fr)] @min-[40rem]/material-reader:gap-x-8 @min-[62rem]/material-reader:sticky @min-[62rem]/material-reader:top-8 @min-[62rem]/material-reader:col-start-2 @min-[62rem]/material-reader:row-span-2 @min-[62rem]/material-reader:row-start-1 @min-[62rem]/material-reader:mt-0 @min-[62rem]/material-reader:block @min-[62rem]/material-reader:self-start @min-[62rem]/material-reader:border-y-0 @min-[62rem]/material-reader:border-l @min-[62rem]/material-reader:py-1 @min-[62rem]/material-reader:pl-7"
     >
-      <div aria-live="polite" className="flex items-center gap-2 text-sm font-semibold">
-        {isRead ? (
-          <BookOpenCheck aria-hidden="true" className="size-4 text-accent" />
-        ) : (
-          <BookOpenText aria-hidden="true" className="size-4 text-accent" />
-        )}
-        {isRead ? "Материал прочитан" : "Материал не прочитан"}
+      <div>
+        <div aria-live="polite" className="flex items-center gap-2 text-sm font-semibold">
+          {isRead ? (
+            <BookOpenCheck aria-hidden="true" className="size-4 text-accent" />
+          ) : (
+            <BookOpenText aria-hidden="true" className="size-4 text-accent" />
+          )}
+          {isRead ? "Материал прочитан" : "Материал не прочитан"}
+        </div>
+        <Button
+          aria-pressed={isRead}
+          className="mt-3 min-h-11 w-full justify-start px-3"
+          onClick={() => {
+            onReadingStateChange(isRead ? "unread" : "read");
+          }}
+          variant="outline"
+        >
+          {isRead ? <RotateCcw aria-hidden="true" /> : <Check aria-hidden="true" />}
+          {isRead ? "Отметить непрочитанным" : "Отметить прочитанным"}
+        </Button>
       </div>
-      <Button
-        aria-pressed={isRead}
-        className="mt-3 min-h-11 w-full justify-start px-3"
-        onClick={() => {
-          onReadingStateChange(isRead ? "unread" : "read");
-        }}
-        variant="outline"
-      >
-        {isRead ? <RotateCcw aria-hidden="true" /> : <Check aria-hidden="true" />}
-        {isRead ? "Отметить непрочитанным" : "Отметить прочитанным"}
-      </Button>
 
-      <nav aria-label="В этом материале" className="mt-7">
+      <nav aria-label="В этом материале" className="mt-7 @min-[40rem]/material-reader:mt-0 @min-[62rem]/material-reader:mt-7">
         <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           В этом материале
         </p>
