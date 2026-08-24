@@ -155,7 +155,7 @@ export const SidebarCompact: Story = {
   },
 };
 
-export const MobileSidebar: Story = {
+export const MobileBottomNavigation: Story = {
   name: "Mobile bottom navigation",
   args: {
     sidebarDefaultPinned: false,
