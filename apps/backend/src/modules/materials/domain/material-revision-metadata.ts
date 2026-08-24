@@ -1,16 +1,21 @@
 import { z } from "zod";
 
-import type { ValidationIssue } from "./material-document/material-document.js";
+import type { Result } from "../result.js";
+import type { ValidationIssue } from "./material-body/material-body.js";
+import { normalizedUuidSchema } from "./uuid.js";
 
 export interface SeriesMembership {
   readonly seriesId: string;
   readonly ordinal: number;
 }
 
+export type MaterialAccess = "free" | "membership";
+
 export interface MaterialRevisionMetadataValues {
   readonly title: string;
   readonly summary: string;
   readonly slug: string;
+  readonly access: MaterialAccess;
   readonly topicId: string;
   readonly formatId: string;
   readonly tagIds: readonly string[];
@@ -19,34 +24,39 @@ export interface MaterialRevisionMetadataValues {
 
 export type MaterialRevisionMetadataChangeValues = Partial<MaterialRevisionMetadataValues>;
 
-export type MaterialRevisionMetadataValidationError =
+export type MaterialMetadataValidationError =
   | {
       readonly code: "invalid_content";
       readonly issues: readonly ValidationIssue[];
     }
   | { readonly code: "duplicate_tag"; readonly tagId: string };
 
-export type MaterialRevisionMetadataResult =
-  | { readonly ok: true; readonly value: MaterialRevisionMetadata }
-  | { readonly ok: false; readonly error: MaterialRevisionMetadataValidationError };
+export type MaterialRevisionMetadataResult = Result<
+  MaterialRevisionMetadata,
+  MaterialMetadataValidationError
+>;
 
-export type MaterialRevisionMetadataChangesResult =
-  | { readonly ok: true; readonly value: MaterialRevisionMetadataChangeValues }
-  | { readonly ok: false; readonly error: MaterialRevisionMetadataValidationError };
+export type MaterialRevisionMetadataChangesResult = Result<
+  MaterialRevisionMetadataChangeValues,
+  MaterialMetadataValidationError
+>;
 
-const uuid = z.uuid().transform((value) => value.toLowerCase());
 const metadataSchema = z
   .object({
     title: z.string().trim().min(1).max(160),
     summary: z.string().trim().min(1).max(500),
     slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120),
-    topicId: uuid,
-    formatId: uuid,
-    tagIds: z.array(uuid).max(100),
+    access: z.enum(["free", "membership"]),
+    topicId: normalizedUuidSchema,
+    formatId: normalizedUuidSchema,
+    tagIds: z.array(normalizedUuidSchema).max(100),
     seriesMemberships: z
       .array(
         z
-          .object({ seriesId: uuid, ordinal: z.number().int().positive() })
+          .object({
+            seriesId: normalizedUuidSchema,
+            ordinal: z.number().int().positive(),
+          })
           .strict(),
       )
       .max(100),
@@ -56,7 +66,7 @@ const metadataChangesSchema = metadataSchema.partial().strict();
 
 function invalidMetadata(error: z.ZodError): {
   readonly ok: false;
-  readonly error: MaterialRevisionMetadataValidationError;
+  readonly error: MaterialMetadataValidationError;
 } {
   return {
     ok: false,
@@ -78,6 +88,7 @@ export class MaterialRevisionMetadata {
     readonly title: string,
     readonly summary: string,
     readonly slug: string,
+    readonly access: MaterialAccess,
     readonly topicId: string,
     readonly formatId: string,
     readonly tagIds: readonly string[],
@@ -123,6 +134,7 @@ export class MaterialRevisionMetadata {
         parsed.data.title,
         parsed.data.summary,
         parsed.data.slug,
+        parsed.data.access,
         parsed.data.topicId,
         parsed.data.formatId,
         [...parsed.data.tagIds].sort(),
@@ -156,6 +168,7 @@ export class MaterialRevisionMetadata {
       title: this.title,
       summary: this.summary,
       slug: this.slug,
+      access: this.access,
       topicId: this.topicId,
       formatId: this.formatId,
       tagIds: this.tagIds,

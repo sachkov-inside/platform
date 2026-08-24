@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "doc": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "assetImage",
+        "attrs": {
+          "nodeId": "93000000-0000-4000-8000-000000000001",
+          "assetId": "private/storage/locator",
+          "alt": "Invalid resource"
+        }
+      }
+    ]
+  }
+}

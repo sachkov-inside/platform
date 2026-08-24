@@ -2,16 +2,16 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, test } from "vitest";
 
-import { materialDocumentOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
+import { materialBodyOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
 import {
   fullRepresentativeDocument,
   representativeDocument,
-} from "../fixtures/material-document/representative.js";
+} from "../fixtures/material-body/representative.js";
 
 function invalidFixture(name: string): unknown {
   return JSON.parse(
     readFileSync(
-      new URL(`../fixtures/material-document/invalid/${name}.json`, import.meta.url),
+      new URL(`../fixtures/material-body/invalid/${name}.json`, import.meta.url),
       "utf8",
     ),
   ) as unknown;
@@ -21,9 +21,9 @@ function testNodeId(index: number): string {
   return `92000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
 }
 
-describe("MaterialDocumentOperations", () => {
+describe("MaterialBodyOperations", () => {
   test("accepts a representative v1 document without semantic drift", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const input = {
       schemaVersion: 1,
       doc: {
@@ -86,14 +86,72 @@ describe("MaterialDocumentOperations", () => {
   });
 
   test("round-trips every retained v1 body shape through the Tiptap schema", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const document = fullRepresentativeDocument();
 
     expect(documentOperations.accept(document)).toEqual({ ok: true, value: document });
   });
 
+  test("renders and extracts the representative document without executable or private data", () => {
+    const documentOperations = materialBodyOperations;
+    const document = fullRepresentativeDocument();
+
+    const rendered = documentOperations.render(document);
+    expect(rendered.ok).toBe(true);
+    if (!rendered.ok) {
+      throw new Error(rendered.error.issues[0]?.code);
+    }
+    expect(rendered.value.schemaVersion).toBe(1);
+    expect(rendered.value.blocks.slice(0, 2)).toEqual([
+          {
+            kind: "heading",
+            level: 2,
+            content: [{ kind: "text", text: "Developer Pipeline", marks: [] }],
+          },
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "Issue", marks: [{ kind: "bold" }] },
+              { kind: "text", text: " хранит ", marks: [{ kind: "italic" }] },
+              { kind: "text", text: "intent", marks: [{ kind: "code" }] },
+              { kind: "text", text: " и ", marks: [{ kind: "strike" }] },
+              {
+                kind: "text",
+                text: "evidence",
+                marks: [{ kind: "link", href: "https://example.com/evidence" }],
+              },
+              { kind: "text", text: ".", marks: [] },
+            ],
+          },
+        ]);
+
+    expect(documentOperations.extract(document)).toEqual({
+      ok: true,
+      value: {
+        plainText:
+          "Developer Pipeline\n\nIssue хранит intent и evidence.\n\nDecision\n\nIssue\n\nOwner gate.\n\npnpm check\n\nStage\tEvidence\nReview\tChecks\n\nPublish requires owner GO.\n\nDelivery stages\nOne retained path\n\nPipeline checklist\n\nPlatform build episode",
+        headings: [{ level: 2, text: "Developer Pipeline" }],
+        resources: [
+          {
+            kind: "image",
+            alt: "Delivery stages",
+            caption: "One retained path",
+          },
+          {
+            kind: "file",
+            label: "Pipeline checklist",
+          },
+          {
+            kind: "video",
+            caption: "Platform build episode",
+          },
+        ],
+      },
+    });
+  });
+
   test("canonicalizes accepted content and rejects non-JSON or duplicate nested node IDs", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const canonicalized = documentOperations.accept({
       schemaVersion: 1,
       doc: {
@@ -202,7 +260,7 @@ describe("MaterialDocumentOperations", () => {
   });
 
   test("replaces text across marked text nodes without dropping unaffected marks", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const result = documentOperations.applyChanges(fullRepresentativeDocument(), [
       {
         kind: "replace_text",
@@ -224,7 +282,9 @@ describe("MaterialDocumentOperations", () => {
     expect(blocks[1]).toMatchObject({
       content: [
         { type: "text", text: "Issue", marks: [{ type: "bold" }] },
-        { type: "text", text: " сохраняет intent и " },
+        { type: "text", text: " сохраняет ", marks: [{ type: "italic" }] },
+        { type: "text", text: "intent", marks: [{ type: "code" }] },
+        { type: "text", text: " и ", marks: [{ type: "strike" }] },
         {
           type: "text",
           text: "evidence",
@@ -272,7 +332,7 @@ describe("MaterialDocumentOperations", () => {
   });
 
   test("applies semantic block and text changes while preserving stable node IDs", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const result = documentOperations.applyChanges(representativeDocument(), [
       {
         kind: "replace_text",
@@ -330,7 +390,7 @@ describe("MaterialDocumentOperations", () => {
   });
 
   test("addresses insert, replace, delete and text changes in nested blocks", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const result = documentOperations.applyChanges(
       {
         schemaVersion: 1,
@@ -416,7 +476,7 @@ describe("MaterialDocumentOperations", () => {
   });
 
   test("assigns missing IDs only when accepting a new document", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const document = {
       schemaVersion: 1,
       doc: {
@@ -463,7 +523,7 @@ describe("MaterialDocumentOperations", () => {
   });
 
   test("fails closed for duplicate IDs, unsafe links, unknown nodes and document limits", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     const duplicateId = representativeDocument();
     const duplicateBlocks = duplicateId.doc.content;
     if (!Array.isArray(duplicateBlocks)) {
@@ -560,7 +620,7 @@ describe("MaterialDocumentOperations", () => {
   });
 
   test("enforces depth, node, text and bounded-issue limits", () => {
-    const documentOperations = materialDocumentOperations;
+    const documentOperations = materialBodyOperations;
     let nested: unknown = {
       type: "paragraph",
       attrs: { nodeId: testNodeId(100) },
@@ -637,10 +697,14 @@ describe("MaterialDocumentOperations", () => {
   test.each([
     ["duplicate-node-id", "duplicate_node_id"],
     ["external-backslash-link", "unsafe_link"],
+    ["invalid-nesting", "invalid_prosemirror_document"],
+    ["invalid-resource-reference", "invalid_asset_id"],
+    ["normalization-drift", "document_would_be_normalized"],
     ["unsafe-link", "unsafe_link"],
+    ["unknown-mark", "invalid_prosemirror_document"],
     ["unknown-node", "invalid_prosemirror_document"],
   ])("rejects negative JSON fixture %s", (fixture, code) => {
-    expect(materialDocumentOperations.accept(invalidFixture(fixture))).toMatchObject({
+    expect(materialBodyOperations.accept(invalidFixture(fixture))).toMatchObject({
       ok: false,
       error: { issues: [{ code }] },
     });

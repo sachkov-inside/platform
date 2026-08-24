@@ -1,50 +1,107 @@
 import { sql } from "kysely";
 
-import type { MaterialDocumentOperations } from "../../domain/material-document/material-document.js";
+import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
 import {
   MaterialRevisionMetadata,
   type MaterialRevisionMetadataValues,
 } from "../../domain/material-revision-metadata.js";
+import { Material, materialRevision } from "../../domain/material.js";
+import type { MaterialRevision } from "../../domain/material.js";
 import {
-  restoreMaterial,
-  restoreMaterialRevision,
-  type Material,
-  type MaterialRevision,
-} from "../../domain/material.js";
-import type { AuthoringDatabase } from "./database.js";
+  materialId,
+  materialRevisionId,
+  type MaterialId,
+  type MaterialRevisionId,
+} from "../../domain/material-identifiers.js";
+import type { AuthoringDatabase, AuthoringTransaction } from "./database.js";
 
 export interface PersistedMaterialRevision {
-  readonly materialId: string;
-  readonly revisionId: string;
+  readonly materialId: MaterialId;
+  readonly revisionId: MaterialRevisionId;
+  readonly restoredFromRevisionId: MaterialRevisionId | null;
   readonly metadata: MaterialRevisionMetadataValues;
   readonly schemaVersion: number;
   readonly body: unknown;
+}
+
+export interface MaterialRevisionHeader {
+  readonly materialId: MaterialId;
+  readonly revisionId: MaterialRevisionId;
+  readonly access: "free" | "membership";
 }
 
 export type MaterialRevisionHydration =
   | { readonly ok: true; readonly value: MaterialRevision }
   | { readonly ok: false };
 
-export type MaterialHydration =
-  | { readonly ok: true; readonly value: Material }
-  | { readonly ok: false };
+export async function lockMaterialForLifecycleChange(
+  transaction: AuthoringTransaction,
+  materialIdValue: MaterialId,
+): Promise<Material | undefined> {
+  const row = await transaction
+    .selectFrom("materials")
+    .select(["id", "current_draft_revision_id", "current_published_revision_id"])
+    .where("id", "=", materialIdValue)
+    .forUpdate()
+    .executeTakeFirst();
+  return row === undefined
+    ? undefined
+    : Material.restore({
+        id: materialId(row.id),
+        currentDraftRevisionId: materialRevisionId(row.current_draft_revision_id),
+        currentPublishedRevisionId:
+          row.current_published_revision_id === null
+            ? null
+            : materialRevisionId(row.current_published_revision_id),
+      });
+}
 
 export async function loadCurrentRevisionId(
   database: AuthoringDatabase,
-  materialId: string,
-): Promise<string | undefined> {
+  materialIdValue: MaterialId,
+): Promise<MaterialRevisionId | undefined> {
   const material = await database
     .selectFrom("materials")
     .select("current_draft_revision_id")
-    .where("id", "=", materialId)
+    .where("id", "=", materialIdValue)
     .executeTakeFirst();
-  return material?.current_draft_revision_id;
+  return material === undefined
+    ? undefined
+    : materialRevisionId(material.current_draft_revision_id);
 }
 
-export async function loadPersistedMaterialRevision(
+export async function loadMaterialRevisionHeader(
   database: AuthoringDatabase,
-  materialId: string,
-  revisionId?: string,
+  materialIdValue: MaterialId,
+  revisionId: MaterialRevisionId,
+): Promise<MaterialRevisionHeader | undefined> {
+  const row = await database
+    .selectFrom("material_revisions")
+    .select(["material_id", "id", "access"])
+    .where("material_id", "=", materialIdValue)
+    .where("id", "=", revisionId)
+    .executeTakeFirst();
+  return row === undefined || (row.access !== "free" && row.access !== "membership")
+    ? undefined
+    : {
+        materialId: materialId(row.material_id),
+        revisionId: materialRevisionId(row.id),
+        access: row.access,
+      };
+}
+
+type RevisionSelection =
+  | { readonly kind: "current_draft" }
+  | { readonly kind: "revision"; readonly revisionId: MaterialRevisionId }
+  | {
+      readonly kind: "current_publication";
+      readonly revisionId: MaterialRevisionId;
+    };
+
+async function loadPersistedMaterialRevision(
+  database: AuthoringDatabase,
+  materialIdValue: MaterialId,
+  selection: RevisionSelection,
 ): Promise<PersistedMaterialRevision | undefined> {
   let query = database
     .selectFrom("materials as material")
@@ -55,9 +112,11 @@ export async function loadPersistedMaterialRevision(
       "revision.title",
       "revision.summary",
       "revision.slug",
+      "revision.access",
       "revision.topic_id",
       "revision.format_id",
       "revision.schema_version",
+      "revision.restored_from_revision_id",
       "revision.body",
       sql<readonly string[]>`coalesce(
         (
@@ -84,24 +143,40 @@ export async function loadPersistedMaterialRevision(
         '[]'::jsonb
       )`.as("series_memberships"),
     ])
-    .where("material.id", "=", materialId);
+    .where("material.id", "=", materialIdValue);
 
-  query =
-    revisionId === undefined
-      ? query.whereRef("revision.id", "=", "material.current_draft_revision_id")
-      : query.where("revision.id", "=", revisionId);
+  if (selection.kind === "current_draft") {
+    query = query.whereRef("revision.id", "=", "material.current_draft_revision_id");
+  } else {
+    query = query.where("revision.id", "=", selection.revisionId);
+    if (selection.kind === "current_publication") {
+      query = query.whereRef(
+        "revision.id",
+        "=",
+        "material.current_published_revision_id",
+      );
+    }
+  }
   const row = await query.executeTakeFirst();
   if (row === undefined) {
     return undefined;
   }
 
   return {
-    materialId: row.material_id,
-    revisionId: row.revision_id,
+    materialId: materialId(row.material_id),
+    revisionId: materialRevisionId(row.revision_id),
+    restoredFromRevisionId:
+      row.restored_from_revision_id === null
+        ? null
+        : materialRevisionId(row.restored_from_revision_id),
     metadata: {
       title: row.title,
       summary: row.summary,
       slug: row.slug,
+      access:
+        row.access === "free" || row.access === "membership"
+          ? row.access
+          : "membership",
       topicId: row.topic_id,
       formatId: row.format_id,
       tagIds: row.tag_ids,
@@ -116,11 +191,11 @@ export async function loadPersistedMaterialRevision(
 }
 
 export function hydratePersistedMaterialRevision(
-  materialDocumentOperations: MaterialDocumentOperations,
+  materialBodyOperations: MaterialBodyOperations,
   persisted: PersistedMaterialRevision,
 ): MaterialRevisionHydration {
   const metadata = MaterialRevisionMetadata.create(persisted.metadata);
-  const body = materialDocumentOperations.accept({
+  const body = materialBodyOperations.accept({
     schemaVersion: persisted.schemaVersion,
     doc: persisted.body,
   });
@@ -129,9 +204,12 @@ export function hydratePersistedMaterialRevision(
   }
   return {
     ok: true,
-    value: restoreMaterialRevision({
+    value: materialRevision({
       id: persisted.revisionId,
       materialId: persisted.materialId,
+      ...(persisted.restoredFromRevisionId === null
+        ? {}
+        : { restoredFromRevisionId: persisted.restoredFromRevisionId }),
       metadata: metadata.value,
       body: body.value,
     }),
@@ -140,34 +218,50 @@ export function hydratePersistedMaterialRevision(
 
 export async function loadMaterialRevision(
   database: AuthoringDatabase,
-  materialDocumentOperations: MaterialDocumentOperations,
-  materialId: string,
-  revisionId: string,
+  materialBodyOperations: MaterialBodyOperations,
+  materialId: MaterialId,
+  revisionId: MaterialRevisionId,
 ): Promise<MaterialRevisionHydration | undefined> {
   const persisted = await loadPersistedMaterialRevision(
     database,
     materialId,
-    revisionId,
+    { kind: "revision", revisionId },
   );
   return persisted === undefined
     ? undefined
-    : hydratePersistedMaterialRevision(materialDocumentOperations, persisted);
+    : hydratePersistedMaterialRevision(materialBodyOperations, persisted);
 }
 
-export async function loadCurrentMaterial(
+export async function loadCurrentPublishedMaterialRevision(
   database: AuthoringDatabase,
-  materialDocumentOperations: MaterialDocumentOperations,
-  materialId: string,
-): Promise<MaterialHydration | undefined> {
-  const persisted = await loadPersistedMaterialRevision(database, materialId);
+  materialBodyOperations: MaterialBodyOperations,
+  materialId: MaterialId,
+  revisionId: MaterialRevisionId,
+): Promise<MaterialRevisionHydration | undefined> {
+  const persisted = await loadPersistedMaterialRevision(
+    database,
+    materialId,
+    { kind: "current_publication", revisionId },
+  );
+  return persisted === undefined
+    ? undefined
+    : hydratePersistedMaterialRevision(materialBodyOperations, persisted);
+}
+
+export async function loadCurrentDraftRevision(
+  database: AuthoringDatabase,
+  materialBodyOperations: MaterialBodyOperations,
+  materialId: MaterialId,
+): Promise<MaterialRevisionHydration | undefined> {
+  const persisted = await loadPersistedMaterialRevision(database, materialId, {
+    kind: "current_draft",
+  });
   if (persisted === undefined) {
     return undefined;
   }
   const revision = hydratePersistedMaterialRevision(
-    materialDocumentOperations,
+    materialBodyOperations,
     persisted,
   );
-  return revision.ok
-    ? { ok: true, value: restoreMaterial(revision.value) }
-    : revision;
+  return revision;
 }

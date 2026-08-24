@@ -1,4 +1,4 @@
-import type { MaterialRevisionDto } from "../content-authoring.interface.js";
+import type { MaterialRevisionDto } from "../material-authoring.interface.js";
 import type { MaterialRevision } from "../../domain/material.js";
 
 export function toMaterialRevisionDto(

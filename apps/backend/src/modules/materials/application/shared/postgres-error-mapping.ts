@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import type { ContentAuthoringError } from "../content-authoring.interface.js";
+import type {
+  DuplicateTagError,
+  InvalidReferenceError,
+  PersistenceConflictError,
+  SystemError,
+} from "../material-authoring.interface.js";
 import type { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
 
 interface PostgreSqlErrorShape {
@@ -10,6 +15,12 @@ interface PostgreSqlErrorShape {
   readonly errors?: unknown;
   readonly message?: unknown;
 }
+
+type PostgresOperationError =
+  | DuplicateTagError
+  | InvalidReferenceError
+  | PersistenceConflictError
+  | SystemError;
 
 function errorShape(error: unknown): PostgreSqlErrorShape {
   return typeof error === "object" && error !== null ? error : {};
@@ -72,14 +83,18 @@ const retryablePgClientMessages = new Set([
 export function mapPostgresError(
   error: unknown,
   metadata?: MaterialRevisionMetadata,
-): ContentAuthoringError {
+): PostgresOperationError {
   const shape = errorShape(error);
   const code = typeof shape.code === "string" ? shape.code : undefined;
   const constraint =
     typeof shape.constraint === "string" ? shape.constraint : undefined;
-  const signals = errorSignals(error);
 
-  if (code === "23505" && constraint === "materials_slug_unique" && metadata !== undefined) {
+  if (
+    code === "23505" &&
+    (constraint === "materials_slug_unique" ||
+      constraint === "published_materials_slug_unique") &&
+    metadata !== undefined
+  ) {
     return { code: "slug_conflict", slug: metadata.slug };
   }
   if (
@@ -114,6 +129,21 @@ export function mapPostgresError(
       issues: [{ code: "reference_not_found", path: referencePath }],
     };
   }
+  return mapPostgresReadError(error);
+}
+
+export function mapPostgresLifecycleError(
+  error: unknown,
+  metadata?: MaterialRevisionMetadata,
+): InvalidReferenceError | PersistenceConflictError | SystemError {
+  const mapped = mapPostgresError(error, metadata);
+  return mapped.code === "duplicate_tag"
+    ? mapPostgresReadError(error)
+    : mapped;
+}
+
+export function mapPostgresReadError(error: unknown): SystemError {
+  const signals = errorSignals(error);
   if (
     signals.codes.some(
       (candidate) =>
@@ -124,4 +154,23 @@ export function mapPostgresError(
     return { code: "dependency_unavailable", retryable: true };
   }
   return { code: "internal_error", correlationId: randomUUID() };
+}
+
+export function mapPostgresValidationError(
+  error: unknown,
+): InvalidReferenceError | SystemError {
+  const shape = errorShape(error);
+  const code = typeof shape.code === "string" ? shape.code : undefined;
+  const constraint =
+    typeof shape.constraint === "string" ? shape.constraint : undefined;
+  const referencePath =
+    code === "23503" && constraint !== undefined
+      ? referenceConstraints.get(constraint)
+      : undefined;
+  return referencePath === undefined
+    ? mapPostgresReadError(error)
+    : {
+        code: "invalid_reference",
+        issues: [{ code: "reference_not_found", path: referencePath }],
+      };
 }
