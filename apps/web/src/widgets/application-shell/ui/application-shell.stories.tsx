@@ -131,10 +131,13 @@ export const SidebarCompact: Story = {
       throw new Error("Sidebar hover region is missing");
     }
 
+    await userEvent.unhover(hoverRegion);
     await expect(brand).toHaveTextContent("S");
-    await expect(
-      canvas.queryByRole("button", { name: "Закрепить сайдбар" }),
-    ).not.toBeInTheDocument();
+    await waitFor(async () => {
+      await expect(
+        canvas.queryByRole("button", { name: "Закрепить сайдбар" }),
+      ).not.toBeInTheDocument();
+    });
     await userEvent.hover(hoverRegion);
     const toggle = canvas.getByRole("button", { name: "Закрепить сайдбар" });
 
