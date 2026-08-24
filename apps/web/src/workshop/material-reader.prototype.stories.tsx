@@ -98,8 +98,24 @@ export const Mobile: Story = {
 
     const topActions = within(topActionsElement);
     const bottomActions = within(bottomActionsElement);
+    const topActionControls = Array.from(
+      topActionsElement.querySelectorAll<HTMLElement>("[data-slot='button']"),
+    );
+    const firstControl = topActionControls[0];
+
+    if (firstControl === undefined) {
+      throw new Error("Reader action controls are missing");
+    }
 
     await expect(actionGroups).toHaveLength(2);
+    await expect(topActionsElement.getBoundingClientRect().height).toBeLessThanOrEqual(52);
+    await expect(
+      Math.max(
+        ...topActionControls.map((control) =>
+          Math.abs(control.getBoundingClientRect().top - firstControl.getBoundingClientRect().top),
+        ),
+      ),
+    ).toBeLessThanOrEqual(1);
     await expect(topActions.getByRole("button", { name: "Отметить изученным" })).toHaveAttribute(
       "aria-pressed",
       "false",
@@ -163,6 +179,7 @@ export const NarrowDesktop: Story = {
     await expect(heading.getBoundingClientRect().top).toBeGreaterThan(
       topActions.getBoundingClientRect().bottom,
     );
+    await expect(topActions.getBoundingClientRect().height).toBeLessThanOrEqual(64);
     await expect(article.getBoundingClientRect().top).toBeGreaterThanOrEqual(
       header.getBoundingClientRect().bottom,
     );

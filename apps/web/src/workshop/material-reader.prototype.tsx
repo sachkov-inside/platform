@@ -296,37 +296,47 @@ function ReaderActionBar({
   readonly placement: "bottom" | "top";
 }) {
   const isRead = readingState === "read";
+  const likeCount = 58 + (isLiked ? 1 : 0);
 
   return (
     <div className={`@container/reader-actions ${className}`}>
       <div
         aria-label={`Действия с материалом ${placement === "top" ? "в начале" : "в конце"}`}
-        className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-2.5 @min-[40rem]/reader-actions:grid-cols-[auto_auto_minmax(11rem,1fr)_auto] @min-[62rem]/reader-actions:flex @min-[62rem]/reader-actions:items-center"
+        className="flex min-w-0 items-center gap-1.5 rounded-xl border border-border bg-card p-1.5 @min-[46rem]/reader-actions:gap-2 @min-[46rem]/reader-actions:p-2.5"
         role="group"
       >
-        <Button asChild className="min-h-10 px-3" size="lg" variant="outline">
-          <a href="/library">
+        <Button
+          asChild
+          className="size-9 px-0 @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:w-auto @min-[46rem]/reader-actions:px-3"
+          size="icon-lg"
+          variant="outline"
+        >
+          <a aria-label="Назад" href="/library">
             <ArrowLeft aria-hidden="true" />
-            Назад
+            <span className="hidden @min-[46rem]/reader-actions:inline">Назад</span>
           </a>
         </Button>
 
         <Button
+          aria-label={isSaved ? "Сохранено" : "Сохранить"}
           aria-pressed={isSaved}
-          className="min-h-10 px-3"
+          className="size-9 px-0 @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:w-auto @min-[46rem]/reader-actions:px-3"
           onClick={() => {
             onSavedChange(!isSaved);
           }}
-          size="lg"
+          size="icon-lg"
           variant="outline"
         >
           <Bookmark aria-hidden="true" className={isSaved ? "fill-current" : undefined} />
-          {isSaved ? "Сохранено" : "Сохранить"}
+          <span className="hidden @min-[46rem]/reader-actions:inline">
+            {isSaved ? "Сохранено" : "Сохранить"}
+          </span>
         </Button>
 
         <Button
+          aria-label={isRead ? "Изучено" : "Отметить изученным"}
           aria-pressed={isRead}
-          className="col-span-2 min-h-10 px-3 @min-[40rem]/reader-actions:col-span-1"
+          className="h-9 min-w-0 flex-1 px-1.5 text-[0.8125rem] @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:flex-none @min-[46rem]/reader-actions:px-3 @min-[46rem]/reader-actions:text-sm"
           onClick={() => {
             onReadingStateChange(isRead ? "unread" : "read");
           }}
@@ -334,12 +344,18 @@ function ReaderActionBar({
           variant="outline"
         >
           <BookOpenCheck aria-hidden="true" />
-          {isRead ? "Изучено" : "Отметить изученным"}
+          <span className="@min-[46rem]/reader-actions:hidden">
+            {isRead ? "Изучено" : "Изучить"}
+          </span>
+          <span className="hidden @min-[46rem]/reader-actions:inline">
+            {isRead ? "Изучено" : "Отметить изученным"}
+          </span>
         </Button>
 
         <Button
+          aria-label={["Нравится", likeCount].join(" ")}
           aria-pressed={isLiked}
-          className="min-h-10 px-3 tabular-nums @min-[40rem]/reader-actions:col-start-1 @min-[62rem]/reader-actions:col-start-auto"
+          className="h-9 px-2 text-[0.8125rem] tabular-nums @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:px-3 @min-[46rem]/reader-actions:text-sm"
           onClick={() => {
             onLikedChange(!isLiked);
           }}
@@ -347,17 +363,17 @@ function ReaderActionBar({
           variant="outline"
         >
           <ThumbsUp aria-hidden="true" className={isLiked ? "fill-current" : undefined} />
-          Нравится <span className="text-muted-foreground">{58 + (isLiked ? 1 : 0)}</span>
+          <span className="hidden @min-[46rem]/reader-actions:inline">Нравится</span>
+          <span className="text-muted-foreground">{likeCount}</span>
         </Button>
 
         <Button
           asChild
-          className="min-h-10 px-4 @min-[40rem]/reader-actions:col-span-3 @min-[62rem]/reader-actions:ml-auto"
-          size="lg"
+          className="size-9 px-0 @min-[46rem]/reader-actions:ml-auto @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:w-auto @min-[46rem]/reader-actions:px-4"
+          size="icon-lg"
         >
-          <a href="/library/material-platform-delivery">
-            <span className="@min-[30rem]/reader-actions:hidden">Далее</span>
-            <span className="hidden @min-[30rem]/reader-actions:inline">Следующий материал</span>
+          <a aria-label="Следующий материал" href="/library/material-platform-delivery">
+            <span className="hidden @min-[46rem]/reader-actions:inline">Следующий материал</span>
             <ArrowRight aria-hidden="true" />
           </a>
         </Button>
