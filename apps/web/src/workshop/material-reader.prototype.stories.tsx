@@ -106,6 +106,9 @@ export const Mobile: Story = {
       topActionsElement.querySelectorAll<HTMLElement>("[data-slot='button']"),
     );
     const firstControl = topActionControls[0];
+    const readingStateControl = topActions.getByRole("button", {
+      name: "Отметить изученным",
+    });
 
     if (firstControl === undefined) {
       throw new Error("Reader action controls are missing");
@@ -114,13 +117,18 @@ export const Mobile: Story = {
     await expect(actionGroups).toHaveLength(2);
     await expect(topActionsElement.getBoundingClientRect().height).toBeLessThanOrEqual(52);
     await expect(
+      topActionControls.every((control) => control.getBoundingClientRect().height >= 44),
+    ).toBe(true);
+    await expect(readingStateControl.getBoundingClientRect().width).toBeLessThanOrEqual(48);
+    await expect(storyWindow?.getComputedStyle(topActionsElement).borderTopWidth).toBe("0px");
+    await expect(
       Math.max(
         ...topActionControls.map((control) =>
           Math.abs(control.getBoundingClientRect().top - firstControl.getBoundingClientRect().top),
         ),
       ),
     ).toBeLessThanOrEqual(1);
-    await expect(topActions.getByRole("button", { name: "Отметить изученным" })).toHaveAttribute(
+    await expect(readingStateControl).toHaveAttribute(
       "aria-pressed",
       "false",
     );

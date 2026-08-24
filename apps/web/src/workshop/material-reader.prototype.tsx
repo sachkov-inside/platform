@@ -335,12 +335,12 @@ function ReaderActionBar({
     <div className={`@container/reader-actions ${className}`}>
       <div
         aria-label={`Действия с материалом ${placement === "top" ? "в начале" : "в конце"}`}
-        className="flex min-w-0 items-center gap-1.5 rounded-xl border border-border bg-card p-1.5 @min-[46rem]/reader-actions:gap-2 @min-[46rem]/reader-actions:p-2.5"
+        className="flex min-w-0 items-center justify-between gap-1 @min-[46rem]/reader-actions:justify-start @min-[46rem]/reader-actions:gap-2 @min-[46rem]/reader-actions:rounded-xl @min-[46rem]/reader-actions:border @min-[46rem]/reader-actions:border-border @min-[46rem]/reader-actions:bg-card @min-[46rem]/reader-actions:p-2.5"
         role="group"
       >
         <Button
           asChild
-          className="size-9 px-0 @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:w-auto @min-[46rem]/reader-actions:px-3"
+          className="size-11 border-transparent bg-transparent px-0 @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:w-auto @min-[46rem]/reader-actions:border-border @min-[46rem]/reader-actions:bg-background @min-[46rem]/reader-actions:px-3"
           size="icon-lg"
           variant="outline"
         >
@@ -353,7 +353,7 @@ function ReaderActionBar({
         <Button
           aria-label={isSaved ? "Сохранено" : "Сохранить"}
           aria-pressed={isSaved}
-          className="size-9 px-0 @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:w-auto @min-[46rem]/reader-actions:px-3"
+          className="size-11 border-transparent bg-transparent px-0 aria-pressed:bg-secondary aria-pressed:text-secondary-foreground @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:w-auto @min-[46rem]/reader-actions:border-border @min-[46rem]/reader-actions:bg-background @min-[46rem]/reader-actions:px-3"
           onClick={() => {
             onSavedChange(!isSaved);
           }}
@@ -369,7 +369,7 @@ function ReaderActionBar({
         <Button
           aria-label={isRead ? "Изучено" : "Отметить изученным"}
           aria-pressed={isRead}
-          className="h-9 min-w-0 flex-1 px-1.5 text-[0.8125rem] @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:flex-none @min-[46rem]/reader-actions:px-3 @min-[46rem]/reader-actions:text-sm"
+          className="size-11 border-transparent bg-transparent px-0 text-[0.8125rem] aria-pressed:bg-secondary aria-pressed:text-secondary-foreground @min-[22rem]/reader-actions:w-auto @min-[22rem]/reader-actions:px-2.5 @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:border-border @min-[46rem]/reader-actions:bg-background @min-[46rem]/reader-actions:px-3 @min-[46rem]/reader-actions:text-sm"
           onClick={() => {
             onReadingStateChange(isRead ? "unread" : "read");
           }}
@@ -377,7 +377,7 @@ function ReaderActionBar({
           variant="outline"
         >
           <BookOpenCheck aria-hidden="true" />
-          <span className="@min-[46rem]/reader-actions:hidden">
+          <span className="hidden @min-[22rem]/reader-actions:inline @min-[46rem]/reader-actions:hidden">
             {isRead ? "Изучено" : "Изучить"}
           </span>
           <span className="hidden @min-[46rem]/reader-actions:inline">
@@ -388,7 +388,7 @@ function ReaderActionBar({
         <Button
           aria-label={["Нравится", likeCount].join(" ")}
           aria-pressed={isLiked}
-          className="h-9 px-2 text-[0.8125rem] tabular-nums @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:px-3 @min-[46rem]/reader-actions:text-sm"
+          className="h-11 border-transparent bg-transparent px-2 text-[0.8125rem] tabular-nums aria-pressed:bg-secondary aria-pressed:text-secondary-foreground @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:border-border @min-[46rem]/reader-actions:bg-background @min-[46rem]/reader-actions:px-3 @min-[46rem]/reader-actions:text-sm"
           onClick={() => {
             onLikedChange(!isLiked);
           }}
@@ -402,7 +402,7 @@ function ReaderActionBar({
 
         <Button
           asChild
-          className="size-9 px-0 @min-[46rem]/reader-actions:ml-auto @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:w-auto @min-[46rem]/reader-actions:px-4"
+          className="size-11 px-0 @min-[46rem]/reader-actions:ml-auto @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:w-auto @min-[46rem]/reader-actions:px-4"
           size="icon-lg"
         >
           <a aria-label="Следующий материал" href="/library/material-platform-delivery">
