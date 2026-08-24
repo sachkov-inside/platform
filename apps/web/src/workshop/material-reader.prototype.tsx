@@ -1,18 +1,21 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Bookmark,
   BookOpenCheck,
   BookOpenText,
   Check,
+  ChevronDown,
   Download,
   ExternalLink,
   FileText,
-  ThumbsUp,
 } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
-import { MaterialCard, materialFixtures } from "@/workshop/material-preview.prototype";
+import {
+  MaterialCard,
+  materialFixtures,
+  type MaterialPreviewFixture,
+} from "@/workshop/material-preview.prototype";
 
 export type ReadingState = "read" | "unread";
 
@@ -42,6 +45,8 @@ interface LongFormMaterialFixture {
   };
   readonly lead: string;
   readonly outcomes: readonly string[];
+  readonly nextMaterial?: MaterialPreviewFixture;
+  readonly relatedMaterials: readonly MaterialPreviewFixture[];
   readonly resources: readonly MaterialResourceFixture[];
   readonly seamParagraphs: readonly string[];
 }
@@ -85,6 +90,7 @@ export const isReady = (check: SkillCheck) =>
     "Собрать trigger, authority и evidence",
     "Проверить instruction на двух задачах",
   ],
+  relatedMaterials: [materialFixtures.platformDeliveryVideo, materialFixtures.careerVideo],
   resources: [
     {
       detail: "Markdown · 48 KB",
@@ -107,21 +113,13 @@ export const isReady = (check: SkillCheck) =>
 
 interface MaterialReaderProps {
   readonly fixture: LongFormMaterialFixture;
-  readonly isLiked: boolean;
-  readonly isSaved: boolean;
-  readonly onLikedChange: (isLiked: boolean) => void;
   readonly onReadingStateChange: (state: ReadingState) => void;
-  readonly onSavedChange: (isSaved: boolean) => void;
   readonly readingState: ReadingState;
 }
 
 export function MaterialReader({
   fixture,
-  isLiked,
-  isSaved,
-  onLikedChange,
   onReadingStateChange,
-  onSavedChange,
   readingState,
 }: MaterialReaderProps) {
   const material = materialFixtures.publicAgentGuide;
@@ -129,11 +127,8 @@ export function MaterialReader({
   return (
     <div className="@container/material-reader" data-prototype="material-reader-responsive">
       <ReaderActionBar
-        isLiked={isLiked}
-        isSaved={isSaved}
-        onLikedChange={onLikedChange}
+        nextMaterial={fixture.nextMaterial}
         onReadingStateChange={onReadingStateChange}
-        onSavedChange={onSavedChange}
         placement="top"
         readingState={readingState}
       />
@@ -161,17 +156,20 @@ export function MaterialReader({
           </p>
           <ul aria-label="Теги материала" className="mt-5 flex flex-wrap gap-2" role="list">
             {material.tags.map((tag) => (
-              <li
-                className="rounded-md bg-muted px-2.5 py-1.5 font-mono text-[0.6875rem] text-muted-foreground"
-                key={tag}
-              >
-                {tag}
+              <li key={tag}>
+                <a
+                  className="inline-flex min-h-8 items-center rounded-md bg-muted px-2.5 py-1.5 font-mono text-[0.6875rem] text-muted-foreground no-underline hover:bg-secondary hover:text-foreground focus-visible:outline-ring"
+                  href={`/library?query=${encodeURIComponent(tag)}`}
+                >
+                  {tag}
+                </a>
               </li>
             ))}
           </ul>
         </header>
 
         <LearningOutcomes outcomes={fixture.outcomes} />
+        <ReaderOutline />
 
         <article className="mt-12 min-w-0 max-w-[70ch] text-pretty text-[1.0625rem] leading-[1.75] sm:text-lg">
           <p className="text-xl font-medium leading-[1.55] tracking-[-0.015em] text-foreground sm:text-2xl">
@@ -269,16 +267,62 @@ export function MaterialReader({
 
       <ReaderActionBar
         className="mt-16"
-        isLiked={isLiked}
-        isSaved={isSaved}
-        onLikedChange={onLikedChange}
+        nextMaterial={fixture.nextMaterial}
         onReadingStateChange={onReadingStateChange}
-        onSavedChange={onSavedChange}
         placement="bottom"
         readingState={readingState}
       />
 
-      <NextLearningSteps />
+      <NextLearningSteps
+        nextMaterial={fixture.nextMaterial}
+        relatedMaterials={fixture.relatedMaterials}
+      />
+    </div>
+  );
+}
+
+const readerOutlineItems = [
+  { href: "#stable-seam", label: "Устойчивый seam" },
+  { href: "#test-instructions", label: "Проверка instruction" },
+  { href: "#resources", label: "Resources" },
+] as const;
+
+function ReaderOutline() {
+  const links = readerOutlineItems.map((item) => (
+    <li key={item.href}>
+      <a
+        className="flex min-h-10 items-center rounded-lg px-2 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
+        href={item.href}
+      >
+        {item.label}
+      </a>
+    </li>
+  ));
+
+  return (
+    <div className="mt-6 max-w-[70ch]">
+      <details className="group rounded-xl bg-muted/60 @min-[40rem]/material-reader:hidden">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+          В этом материале
+          <ChevronDown
+            aria-hidden="true"
+            className="size-4 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
+          />
+        </summary>
+        <nav aria-label="В этом материале" className="border-t border-border px-1.5 py-1.5">
+          <ul role="list">{links}</ul>
+        </nav>
+      </details>
+
+      <nav
+        aria-label="В этом материале"
+        className="hidden border-y border-border py-3 @min-[40rem]/material-reader:block"
+      >
+        <p className="px-2 text-sm font-semibold">В этом материале</p>
+        <ul className="mt-2 grid grid-cols-3 gap-2" role="list">
+          {links}
+        </ul>
+      </nav>
     </div>
   );
 }
@@ -309,27 +353,16 @@ function LearningOutcomes({ outcomes }: { readonly outcomes: readonly string[] }
 
 function ReaderActionBar({
   className = "",
-  isLiked,
-  isSaved,
-  onLikedChange,
+  nextMaterial,
   onReadingStateChange,
-  onSavedChange,
   placement,
   readingState,
-}: Pick<
-  MaterialReaderProps,
-  | "isLiked"
-  | "isSaved"
-  | "onLikedChange"
-  | "onReadingStateChange"
-  | "onSavedChange"
-  | "readingState"
-> & {
+}: Pick<MaterialReaderProps, "onReadingStateChange" | "readingState"> & {
   readonly className?: string;
+  readonly nextMaterial: MaterialPreviewFixture | undefined;
   readonly placement: "bottom" | "top";
 }) {
   const isRead = readingState === "read";
-  const likeCount = 58 + (isLiked ? 1 : 0);
 
   return (
     <div className={`@container/reader-actions ${className}`}>
@@ -351,25 +384,9 @@ function ReaderActionBar({
         </Button>
 
         <Button
-          aria-label={isSaved ? "Сохранено" : "Сохранить"}
-          aria-pressed={isSaved}
-          className="size-11 border-transparent bg-transparent px-0 aria-pressed:bg-secondary aria-pressed:text-secondary-foreground @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:w-auto @min-[46rem]/reader-actions:border-border @min-[46rem]/reader-actions:bg-background @min-[46rem]/reader-actions:px-3"
-          onClick={() => {
-            onSavedChange(!isSaved);
-          }}
-          size="icon-lg"
-          variant="outline"
-        >
-          <Bookmark aria-hidden="true" className={isSaved ? "fill-current" : undefined} />
-          <span className="hidden @min-[46rem]/reader-actions:inline">
-            {isSaved ? "Сохранено" : "Сохранить"}
-          </span>
-        </Button>
-
-        <Button
-          aria-label={isRead ? "Изучено" : "Отметить изученным"}
+          aria-label={isRead ? "Прочитано" : "Не прочитано"}
           aria-pressed={isRead}
-          className="size-11 border-transparent bg-transparent px-0 text-[0.8125rem] aria-pressed:bg-secondary aria-pressed:text-secondary-foreground @min-[22rem]/reader-actions:w-auto @min-[22rem]/reader-actions:px-2.5 @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:border-border @min-[46rem]/reader-actions:bg-background @min-[46rem]/reader-actions:px-3 @min-[46rem]/reader-actions:text-sm"
+          className="h-11 border-transparent bg-transparent px-3 text-sm aria-pressed:bg-secondary aria-pressed:text-secondary-foreground @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:border-border @min-[46rem]/reader-actions:bg-background"
           onClick={() => {
             onReadingStateChange(isRead ? "unread" : "read");
           }}
@@ -377,39 +394,21 @@ function ReaderActionBar({
           variant="outline"
         >
           <BookOpenCheck aria-hidden="true" />
-          <span className="hidden @min-[22rem]/reader-actions:inline @min-[46rem]/reader-actions:hidden">
-            {isRead ? "Изучено" : "Изучить"}
-          </span>
-          <span className="hidden @min-[46rem]/reader-actions:inline">
-            {isRead ? "Изучено" : "Отметить изученным"}
-          </span>
+          <span>{isRead ? "Прочитано" : "Не прочитано"}</span>
         </Button>
 
-        <Button
-          aria-label={["Нравится", likeCount].join(" ")}
-          aria-pressed={isLiked}
-          className="h-11 border-transparent bg-transparent px-2 text-[0.8125rem] tabular-nums aria-pressed:bg-secondary aria-pressed:text-secondary-foreground @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:border-border @min-[46rem]/reader-actions:bg-background @min-[46rem]/reader-actions:px-3 @min-[46rem]/reader-actions:text-sm"
-          onClick={() => {
-            onLikedChange(!isLiked);
-          }}
-          size="lg"
-          variant="outline"
-        >
-          <ThumbsUp aria-hidden="true" className={isLiked ? "fill-current" : undefined} />
-          <span className="hidden @min-[46rem]/reader-actions:inline">Нравится</span>
-          <span className="text-muted-foreground">{likeCount}</span>
-        </Button>
-
-        <Button
-          asChild
-          className="size-11 px-0 @min-[46rem]/reader-actions:ml-auto @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:w-auto @min-[46rem]/reader-actions:px-4"
-          size="icon-lg"
-        >
-          <a aria-label="Следующий материал" href="/library/material-platform-delivery">
-            <span className="hidden @min-[46rem]/reader-actions:inline">Следующий материал</span>
-            <ArrowRight aria-hidden="true" />
-          </a>
-        </Button>
+        {nextMaterial ? (
+          <Button
+            asChild
+            className="size-11 px-0 @min-[46rem]/reader-actions:ml-auto @min-[46rem]/reader-actions:h-10 @min-[46rem]/reader-actions:w-auto @min-[46rem]/reader-actions:px-4"
+            size="icon-lg"
+          >
+            <a aria-label="Следующий материал" href={`/library/${nextMaterial.id}`}>
+              <span className="hidden @min-[46rem]/reader-actions:inline">Следующий материал</span>
+              <ArrowRight aria-hidden="true" />
+            </a>
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -473,7 +472,13 @@ function ReaderResources({ resources }: { readonly resources: readonly MaterialR
   );
 }
 
-function NextLearningSteps() {
+function NextLearningSteps({
+  nextMaterial,
+  relatedMaterials,
+}: {
+  readonly nextMaterial: MaterialPreviewFixture | undefined;
+  readonly relatedMaterials: readonly MaterialPreviewFixture[];
+}) {
   return (
     <section
       aria-labelledby="next-learning-step"
@@ -482,10 +487,12 @@ function NextLearningSteps() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-[-0.03em]" id="next-learning-step">
-            Следующий шаг
+            {nextMaterial ? "Продолжить серию" : "По теме"}
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Продолжите траекторию по agent-first engineering.
+            {nextMaterial
+              ? "Следующий материал в подтверждённой последовательности."
+              : "Связанные материалы для следующего учебного шага."}
           </p>
         </div>
         <a
@@ -497,20 +504,20 @@ function NextLearningSteps() {
         </a>
       </div>
       <div className="mt-7 grid items-start gap-8 @min-[54rem]/learning-path:grid-cols-2">
-        <div className="min-w-0">
-          <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <ArrowRight aria-hidden="true" className="size-4 text-accent" />
-            Следующий материал
-          </p>
-          <MaterialCard headingLevel="h3" material={materialFixtures.platformDeliveryVideo} />
-        </div>
-        <div className="min-w-0">
-          <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <BookOpenText aria-hidden="true" className="size-4 text-accent" />
-            По теме
-          </p>
-          <MaterialCard headingLevel="h3" material={materialFixtures.careerVideo} />
-        </div>
+        {nextMaterial ? (
+          <div className="min-w-0">
+            <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <ArrowRight aria-hidden="true" className="size-4 text-accent" />
+              Следующий материал
+            </p>
+            <MaterialCard headingLevel="h3" material={nextMaterial} />
+          </div>
+        ) : null}
+        {relatedMaterials.map((material) => (
+          <div className="min-w-0" key={material.id}>
+            <MaterialCard headingLevel="h3" material={material} />
+          </div>
+        ))}
       </div>
     </section>
   );

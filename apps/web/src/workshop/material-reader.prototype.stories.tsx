@@ -21,8 +21,6 @@ const navigationItems = [
 ] satisfies readonly ApplicationNavigationItem[];
 
 function MaterialReaderBoard() {
-  const [isLiked, setIsLiked] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
   const [readingState, setReadingState] = useState<ReadingState>("unread");
 
   return (
@@ -36,11 +34,7 @@ function MaterialReaderBoard() {
     >
       <MaterialReader
         fixture={longFormMaterialFixture}
-        isLiked={isLiked}
-        isSaved={isSaved}
-        onLikedChange={setIsLiked}
         onReadingStateChange={setReadingState}
-        onSavedChange={setIsSaved}
         readingState={readingState}
       />
     </ApplicationShell>
@@ -87,9 +81,6 @@ export const Mobile: Story = {
     ).toBeInTheDocument();
     await expect(canvas.getByText("Найти устойчивый seam")).toBeInTheDocument();
     await expect(
-      canvas.queryByRole("navigation", { name: "В этом материале" }),
-    ).not.toBeInTheDocument();
-    await expect(
       canvas.getByRole("navigation", { name: "Мобильная навигация" }),
     ).toBeInTheDocument();
     const actionGroups = canvas.getAllByRole("group", { name: /Действия с материалом/ });
@@ -106,9 +97,7 @@ export const Mobile: Story = {
       topActionsElement.querySelectorAll<HTMLElement>("[data-slot='button']"),
     );
     const firstControl = topActionControls[0];
-    const readingStateControl = topActions.getByRole("button", {
-      name: "Отметить изученным",
-    });
+    const readingStateControl = topActions.getByRole("button", { name: "Не прочитано" });
 
     if (firstControl === undefined) {
       throw new Error("Reader action controls are missing");
@@ -119,7 +108,6 @@ export const Mobile: Story = {
     await expect(
       topActionControls.every((control) => control.getBoundingClientRect().height >= 44),
     ).toBe(true);
-    await expect(readingStateControl.getBoundingClientRect().width).toBeLessThanOrEqual(48);
     await expect(storyWindow?.getComputedStyle(topActionsElement).borderTopWidth).toBe("0px");
     await expect(
       Math.max(
@@ -133,28 +121,25 @@ export const Mobile: Story = {
       "false",
     );
 
-    await userEvent.click(topActions.getByRole("button", { name: "Сохранить" }));
-    await expect(topActions.getByRole("button", { name: "Сохранено" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    await expect(bottomActions.getByRole("button", { name: "Сохранено" })).toBeInTheDocument();
+    await expect(topActionControls).toHaveLength(2);
+    await expect(topActions.queryByRole("button", { name: /Сохран/ })).not.toBeInTheDocument();
+    await expect(topActions.queryByRole("button", { name: /Нравится/ })).not.toBeInTheDocument();
+    await expect(topActions.queryByRole("link", { name: "Следующий материал" })).not.toBeInTheDocument();
 
-    await userEvent.click(topActions.getByRole("button", { name: "Отметить изученным" }));
-    await expect(topActions.getByRole("button", { name: "Изучено" })).toHaveAttribute(
+    await userEvent.click(readingStateControl);
+    await expect(topActions.getByRole("button", { name: "Прочитано" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await expect(bottomActions.getByRole("button", { name: "Изучено" })).toBeInTheDocument();
+    await expect(bottomActions.getByRole("button", { name: "Прочитано" })).toBeInTheDocument();
 
-    await userEvent.click(topActions.getByRole("button", { name: "Нравится 58" }));
-    await expect(topActions.getByRole("button", { name: "Нравится 59" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    await expect(bottomActions.getByRole("button", { name: "Нравится 59" })).toBeInTheDocument();
-    await expect(canvas.getByRole("heading", { name: "Следующий шаг" })).toBeInTheDocument();
+    await userEvent.click(canvas.getByText("В этом материале", { selector: "summary" }));
+    const localNavigation = canvas.getByRole("navigation", { name: "В этом материале" });
+
+    await expect(within(localNavigation).getAllByRole("link")).toHaveLength(3);
+    await expect(canvas.getByRole("heading", { name: "По теме" })).toBeInTheDocument();
     await expect(canvas.queryByText("Продолжить чтение")).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Следующий материал")).not.toBeInTheDocument();
     await expect(canvas.getByRole("region", { name: "Сравнение признаков skill contract" })).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(3);
 
@@ -203,6 +188,7 @@ export const NarrowDesktop: Story = {
     await expect(
       canvas.queryByRole("complementary", { name: "Контекст чтения" }),
     ).not.toBeInTheDocument();
+    await expect(canvas.getByRole("navigation", { name: "В этом материале" })).toBeInTheDocument();
   },
 };
 
@@ -231,10 +217,12 @@ export const Desktop: Story = {
       canvas.queryByRole("navigation", { name: "Мобильная навигация" }),
     ).not.toBeInTheDocument();
     await expect(canvas.getByRole("heading", { name: "Resources" })).toBeInTheDocument();
-    const nextStep = canvas.getByRole("region", { name: "Следующий шаг" });
+    await expect(canvas.getByRole("navigation", { name: "В этом материале" })).toBeInTheDocument();
+    const nextStep = canvas.getByRole("region", { name: "По теме" });
     const nextStepContent = within(nextStep);
 
-    await expect(nextStepContent.getByText("Следующий материал")).toBeInTheDocument();
-    await expect(nextStepContent.getByText("По теме")).toBeInTheDocument();
+    await expect(nextStepContent.queryByText("Следующий материал")).not.toBeInTheDocument();
+    await expect(within(topActions).getAllByRole("button")).toHaveLength(1);
+    await expect(within(topActions).getAllByRole("link")).toHaveLength(1);
   },
 };
