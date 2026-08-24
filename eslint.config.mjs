@@ -1,5 +1,6 @@
 import eslint from "@eslint/js";
 import nextPlugin from "@next/eslint-plugin-next";
+import storybook from "eslint-plugin-storybook";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
@@ -18,6 +19,7 @@ export default tseslint.config(
       "**/dist/**",
       "**/next-env.d.ts",
       "**/playwright-report/**",
+      "**/storybook-static/**",
       "**/test-results/**",
       "apps/backend/test/guardrails/fixtures/architecture/**",
       "apps/backend/test/guardrails/fixtures/typescript/**",
@@ -262,4 +264,5 @@ export default tseslint.config(
       "no-restricted-imports": ["error", { patterns: ["@/_app/**"] }],
     },
   },
+  storybook.configs["flat/recommended"],
 );

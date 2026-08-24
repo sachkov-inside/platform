@@ -1,21 +1,48 @@
-import { NestFactory } from "@nestjs/core";
-
+import type { PlatformConfig } from "../config/platform-config.js";
 import {
+  OperationalReadiness,
   type RuntimeProcess,
-  ReadinessService,
-} from "../modules/readiness/readiness.service.js";
-import { RuntimeModule } from "./runtime.module.js";
+} from "../infrastructure/operational-readiness.js";
+import { createRuntimeApplication } from "./create-runtime-application.js";
 
-export async function runRuntimeProcess(processName: RuntimeProcess): Promise<void> {
-  const app = await NestFactory.createApplicationContext(RuntimeModule);
-  const readiness = app.get(ReadinessService);
-  const report = await readiness.check(processName);
+export async function runRuntimeProcess(
+  processName: RuntimeProcess,
+  config: PlatformConfig,
+): Promise<void> {
+  const app = await createRuntimeApplication(config);
+  const shutdown = listenForShutdownSignal();
 
-  console.info(JSON.stringify(report));
+  try {
+    const readiness = app.get(OperationalReadiness);
+    const report = await readiness.check(processName);
 
-  await new Promise<void>((resolve) => {
-    process.once("SIGINT", resolve);
-    process.once("SIGTERM", resolve);
+    console.info(JSON.stringify(report));
+    await shutdown.received;
+  } finally {
+    shutdown.dispose();
+    await app.close();
+  }
+}
+
+function listenForShutdownSignal(): {
+  readonly received: Promise<void>;
+  dispose(): void;
+} {
+  let resolveSignal: (() => void) | undefined;
+  const received = new Promise<void>((resolve) => {
+    resolveSignal = resolve;
   });
-  await app.close();
+  const dispose = (): void => {
+    process.off("SIGINT", onSignal);
+    process.off("SIGTERM", onSignal);
+  };
+  const onSignal = (): void => {
+    dispose();
+    resolveSignal?.();
+  };
+
+  process.once("SIGINT", onSignal);
+  process.once("SIGTERM", onSignal);
+
+  return { received, dispose };
 }

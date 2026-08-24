@@ -60,13 +60,14 @@ function owningModule(file) {
   return /^src\/modules\/([^/]+)\//.exec(file)?.[1];
 }
 
-function isApprovedPersistenceOwner(file) {
+function isApprovedPersistenceImport(file, specifier) {
   return (
     file.startsWith("src/infrastructure/postgres/") ||
     /^src\/modules\/[^/]+\/infrastructure\/postgres\//.test(file) ||
     file.startsWith("src/migrations/") ||
-    // #61 will consolidate this existing adapter into the Platform database lifecycle.
-    file === "src/modules/readiness/postgres-probe.ts"
+    // The shared readiness service owns the single cross-runtime database probe.
+    (file === "src/infrastructure/operational-readiness.ts" &&
+      specifier === "kysely")
   );
 }
 
@@ -106,7 +107,7 @@ function violationsFor(source, specifier) {
     specifier === "pg" ||
     specifier.startsWith("pg/") ||
     importedPath?.includes("/infrastructure/postgres/generated/") === true;
-  if (importsRawPersistence && !isApprovedPersistenceOwner(sourcePath)) {
+  if (importsRawPersistence && !isApprovedPersistenceImport(sourcePath, specifier)) {
     violations.push("raw persistence imports require an approved postgres owner path");
   }
 

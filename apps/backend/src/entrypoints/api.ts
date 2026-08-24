@@ -1,13 +1,18 @@
 import "reflect-metadata";
 
-import { readApiListenConfig } from "../config/api-listen.js";
+import { loadPlatformConfig } from "../config/load-platform-config.js";
 import { createApiApplication } from "./api/create-api-application.js";
 
 async function bootstrap(): Promise<void> {
-  const config = readApiListenConfig();
-  const app = await createApiApplication();
+  const config = loadPlatformConfig();
+  const app = await createApiApplication(config);
 
-  await app.listen(config.port, config.host);
+  try {
+    await app.listen(config.api.port, config.api.host);
+  } catch (error) {
+    await app.close();
+    throw error;
+  }
 }
 
 void bootstrap().catch((error: unknown) => {

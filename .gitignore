@@ -11,3 +11,6 @@ coverage/
 dist/
 node_modules/
 *.tsbuildinfo
+
+*storybook.log
+storybook-static

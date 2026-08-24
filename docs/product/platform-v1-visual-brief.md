@@ -51,6 +51,10 @@ decisions.
   layout.
 - Visual implementation идёт поэтапно, surface за surface, с явным owner review до расширения
   решения на весь продукт.
+- Вся frontend-разработка Platform идёт mobile-first: base composition, content priority и
+  interaction model сначала доказываются на narrow viewport, а tablet/desktop добавляют
+  space-driven enhancements через min-width/container queries. Desktop composition не
+  проектируется как primary layout с последующим сжатием для mobile.
 - Generated mockups и внешние references задают направление и quality bar, но не являются
   обязательными screenshot specifications.
 
@@ -261,19 +265,75 @@ H1 задаёт starting point для первого production consumer. H2/H3 
 конкретный surface выявит их реальную пользу; отдельное сравнение 2–3 whole-screen concepts не
 требуется.
 
-## 6. Navigation и composition остаются открытыми
+## 6. Owner-approved UI laboratory baseline
 
-Exploration session проверила три topology hypotheses: compact global rail, landing-like floating
-header и denser workbench split. Owner не утверждал ни один generated comp как pixel authority.
+Rendered review в [Platform #45](https://github.com/sachkov-inside/platform/issues/45) 2026-08-23
+подтвердил первую bounded baseline для продолжения laboratory. Это approval конкретных patterns,
+а не pixel authority для ещё не спроектированных interiors или merge GO:
 
-Owning production surfaces должны доказать just in time:
+- desktop использует округлый full-height sidebar: в auto-режиме он раскрывается по hover/focus,
+  может быть явно закреплён, а profile utility с детерминированной account identity остаётся у
+  нижней границы независимо от page scroll;
+- collapsed sidebar показывает brand mark, а pin control появляется только в expanded state;
+- mobile использует постоянную нижнюю navigation для `Главная / Библиотека / Карта`, а не burger;
+- `Media Card` является принятой основой Material preview: bounded card не растягивается на всю
+  страницу, video получает реальный preview с duration в одном месте, а Material без preview
+  остаётся content-first без искусственной заглушки;
+- card hierarchy строится из compact tags, небольшого title, короткого description, Format и
+  access state; мягкая elevation отделяет card от canvas без журнальной плоскости;
+- `Hybrid Catalog` является принятым composition proof для этих cards, но не финальным layout
+  Библиотеки.
 
-- нужен ли persistent desktop rail либо достаточно global header;
-- как global destinations `Главная / Библиотека / Карта` адаптируются на narrow mobile;
-- когда local Material context становится right rail, inline section или bottom sheet;
-- как reading canvas сохраняет удобную длину строки при chapters, notes и Resources;
-- какие shell transitions помогают сохранить mental context и не нарушают reduced-motion
-  preference.
+Текущие rendered proofs находятся в Storybook stories `Navigation/Application shell` и
+`Compositions/Material cards`. Laboratory использует Tailwind CSS, shadcn-compatible shared UI
+structure и Agentation как owner-feedback overlay; production routes пока не импортируют workshop
+runtime или fixtures.
+
+Rendered review 2026-08-24 принял bounded responsive proof Библиотеки как основу следующей
+laboratory-итерации:
+
+- mobile использует сплошной content canvas без внешней рамки, компактный title region,
+  полноширинные Search и custom Filters, две полностью видимые Topic cards на шаг horizontal
+  navigation и отдельный блок `Плейлисты`;
+- desktop сохраняет ту же information architecture, использует весь viewport и прокручивает только
+  main content; округлый sidebar остаётся плавающим с небольшим inset, а profile закреплён внизу;
+- native browser selects не входят в visual language: workshop использует собственный accessible
+  Select;
+- `Плейлисты` является проверяемым UI label для ordered collections, но не переименовывает
+  канонический domain term `Series` без отдельного product decision;
+- production routes и backend seam по-прежнему не импортируют workshop fixtures или runtime.
+
+Completion pass 2026-08-24 зафиксировал owner-directed contract для финального bounded review; его
+rendered visual/component GO остаётся отдельным от PR и merge GO:
+
+- глобальная navigation сохраняется внутри Reader: sidebar на desktop и нижняя navigation на
+  mobile; локальная `В этом материале` дополняет её как inline scan-friendly navigation на desktop
+  и компактный disclosure на mobile, не занимая отдельную боковую колонку;
+- mobile navigation остаётся постоянной, но использует компактный dock высотой около `3.5rem` с
+  touch targets не меньше `44px`, чтобы не отнимать место у Material content;
+- Reader показывает только подтверждённые actions: `Назад` и вручную переключаемое
+  `Прочитано / Не прочитано`; save и like не моделируются, а переход к следующему Material
+  появляется только при реальном membership текущего Material в Series;
+- Library фильтрует по каноническим facets `Тема / Формат / Серия`: выбранные значения работают
+  как OR внутри facet и AND между facets; Tags остаются видимыми searchable links и search text,
+  но не образуют отдельную filter group;
+- Material Card показывает title и ordinal Series только при реальном membership; карточка без
+  Series не резервирует под него место;
+- video Material cards образуют компактную media-grid с одинаковым `16:9` preview и стабильной
+  геометрией metadata; Material без preview остаётся естественно ниже, а related cards в Reader
+  не растягиваются на всю доступную ширину;
+- accepted component foundation состоит из реально используемых `Button`, `Select`, `Tooltip` и
+  surface patterns `ApplicationShell`, `MaterialCard`, `LibraryFilters`; story-only `Sheet`,
+  неподтверждённая header topology и внешний avatar dependency в baseline не сохраняются;
+- Agentation остаётся обязательным feedback overlay каждой frontend-итерации, а Storybook stories
+  являются читаемыми responsive proofs и исполняемыми interaction/accessibility contracts.
+
+Reader proof остаётся отделён от production route, backend/client integration, video player,
+closed-access acquisition flow и author editor. Video и closed-access states проходят собственные
+owning surface reviews.
+
+Chapters, video timecode, closed access и authoring composition остаются открытыми до своих owning
+surface reviews.
 
 ## 7. Alive, not animated
 
@@ -302,12 +362,18 @@ bounded reference compositions и component sources через rendered owner re
 interfaces, production adoption и external-service gates принадлежат application specification и
 repository workflow.
 
+Mobile-first здесь является implementation constraint, а не отдельной mobile-версией:
+information architecture и core actions остаются одними на всех viewport, touch targets нельзя
+завязывать на hover, а responsive breakpoints вводятся там, где ломается content, а не по
+списку моделей устройств.
+
 ## 9. Explicitly not final
 
 На этом этапе не зафиксированы:
 
 - exact palette values, typefaces, icon family, radius/spacing scale и elevation tokens;
-- sidebar versus header versus hybrid shell;
+- production Library/search, Material reader и author editor/Preview compositions;
+- contextual navigation внутри Material и authoring surfaces;
 - generated composition screenshots;
 - component/primitives library;
 - final motion grammar и timings;

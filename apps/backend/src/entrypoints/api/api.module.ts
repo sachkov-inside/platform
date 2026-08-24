@@ -1,10 +1,20 @@
-import { Module } from "@nestjs/common";
+import { type DynamicModule, Module } from "@nestjs/common";
 
-import { ReadinessModule } from "../../modules/readiness/readiness.module.js";
+import { PlatformConfigModule } from "../../config/platform-config.module.js";
+import type { PlatformConfig } from "../../config/platform-config.js";
+import { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
+import { PostgresModule } from "../../infrastructure/postgres/index.js";
 import { HealthController } from "./health.controller.js";
 
 @Module({
-  imports: [ReadinessModule],
   controllers: [HealthController],
+  providers: [OperationalReadiness],
 })
-export class ApiModule {}
+export class ApiModule {
+  static forRoot(config: PlatformConfig): DynamicModule {
+    return {
+      module: ApiModule,
+      imports: [PlatformConfigModule.forRoot(config), PostgresModule],
+    };
+  }
+}

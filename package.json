@@ -9,6 +9,7 @@
     "dev:api": "pnpm --filter @inside/backend dev:api",
     "dev:worker": "pnpm --filter @inside/backend dev:worker",
     "dev:mcp": "pnpm --filter @inside/backend dev:mcp",
+    "storybook": "pnpm --filter @inside/web storybook",
     "build": "pnpm --recursive --if-present build",
     "lint": "eslint .",
     "typecheck": "pnpm --recursive --if-present typecheck",
@@ -16,8 +17,10 @@
     "test": "pnpm --recursive --if-present test",
     "test:integration": "pnpm --filter @inside/backend test:integration",
     "test:e2e": "pnpm --filter @inside/web test:e2e",
+    "test:storybook": "pnpm --filter @inside/web test:storybook",
     "evidence:web": "pnpm --filter @inside/web test:evidence",
-    "check": "pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test && pnpm test:e2e && pnpm build",
+    "build:storybook": "pnpm --filter @inside/web build-storybook",
+    "check": "pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test && pnpm test:e2e && pnpm build && pnpm build:storybook",
     "infra:up": "docker compose up -d --wait postgres",
     "infra:down": "docker compose down",
     "smoke:health": "pnpm --filter @inside/backend smoke:health"
@@ -27,6 +30,7 @@
     "@next/eslint-plugin-next": "16.3.1",
     "eslint": "10.8.1",
     "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-storybook": "10.5.10",
     "typescript": "6.0.3",
     "typescript-eslint": "8.67.0"
   }

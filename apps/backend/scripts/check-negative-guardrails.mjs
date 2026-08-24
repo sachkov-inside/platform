@@ -60,7 +60,12 @@ expectFailure(
     "scripts/check-backend-architecture.mjs",
     "test/guardrails/fixtures/architecture",
   ],
-  ["capability index.ts", "raw persistence imports"],
+  [
+    "capability index.ts",
+    "raw persistence imports",
+    "src/infrastructure/operational-readiness.ts",
+    "(pg)",
+  ],
 );
 
 process.stdout.write("Negative TypeScript and architecture guardrails passed.\n");

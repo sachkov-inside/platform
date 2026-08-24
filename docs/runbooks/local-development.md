@@ -49,9 +49,17 @@ pnpm install --frozen-lockfile
 The checked-in `.env.example` contains local-only credentials. Keep personal overrides in the
 ignored root `.env`; already exported environment variables take precedence.
 
+Every backend process loads that repository environment once and then parses one immutable
+`PlatformConfig`. `NODE_ENV=development` in `.env.example` explicitly enables the checked-in local
+database and listen defaults; an absent `NODE_ENV` is treated as production, where `DATABASE_URL`,
+`API_HOST` and `API_PORT` are required. Readiness queries the same Platform-owned Kysely connection
+pool used by application modules. The worker's PgBoss connections remain a separate,
+library-owned lifecycle.
+
 ## Start and verify the local stack
 
-Start PostgreSQL, apply checked-in migrations, and verify API-to-database connectivity:
+Start PostgreSQL, apply checked-in migrations, and verify API, MCP and worker composition against
+the shared Platform database lifecycle:
 
 ```bash
 pnpm infra:up
