@@ -15,6 +15,8 @@ machine-local dependency.
 - For every frontend or UI change, use Agentation as the owner-feedback overlay during interactive
   browser and Storybook review. Keep it enabled for human review and disable it only in automated
   test runs where the overlay would interfere with assertions.
+- For full-stack frontend delivery, Storybook reuse, or temporary UI, read
+  `docs/agents/frontend-delivery.md`.
 
 ## Commands
 
