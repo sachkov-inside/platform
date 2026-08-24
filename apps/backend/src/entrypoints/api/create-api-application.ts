@@ -4,13 +4,15 @@ import { FastifyAdapter } from "@nestjs/platform-fastify";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 
+import type { PlatformConfig } from "../../config/platform-config.js";
 import { ApiModule } from "./api.module.js";
 
 export async function createApiApplication(
+  config: PlatformConfig,
   options: NestApplicationOptions = {},
 ): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(
-    ApiModule,
+    ApiModule.forRoot(config),
     new FastifyAdapter(),
     options,
   );

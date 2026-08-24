@@ -1,12 +1,24 @@
-import { Injectable, Module, type OnApplicationShutdown } from "@nestjs/common";
+import {
+  Inject,
+  Injectable,
+  Module,
+  type OnApplicationShutdown,
+} from "@nestjs/common";
 
-import { readDatabaseConfig } from "../../config/database.js";
+import {
+  PLATFORM_CONFIG,
+  type PlatformConfig,
+} from "../../config/platform-config.js";
 import { createPlatformDatabase } from "./create-platform-database.js";
 import { PLATFORM_DATABASE, type PlatformDatabase } from "./platform-database.js";
 
 @Injectable()
 class PlatformDatabaseLifecycle implements OnApplicationShutdown {
-  readonly database = createPlatformDatabase(readDatabaseConfig().url);
+  readonly database: PlatformDatabase;
+
+  constructor(@Inject(PLATFORM_CONFIG) config: PlatformConfig) {
+    this.database = createPlatformDatabase(config.database.url);
+  }
 
   async onApplicationShutdown(): Promise<void> {
     await this.database.destroy();
