@@ -89,7 +89,7 @@ function ShellMain({ children }: { readonly children: ReactNode }) {
   return (
     <main
       className={cn(
-        "min-h-svh min-w-0 flex-1 bg-background pb-[calc(5rem+env(safe-area-inset-bottom))] md:bg-card md:pb-0",
+        "min-h-svh min-w-0 flex-1 bg-background pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:bg-card md:pb-0",
         "md:h-full md:min-h-0 md:overflow-x-hidden md:overflow-y-auto md:overscroll-y-contain md:[scrollbar-gutter:stable]",
       )}
       id="workshop-content"
@@ -202,9 +202,9 @@ function MobileBottomNavigation({
   return (
     <nav
       aria-label="Мобильная навигация"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
     >
-      <div className="grid grid-cols-3 px-2 pt-1.5">
+      <div className="grid grid-cols-3 px-2 pt-1">
         {items.map((item) => {
           const Icon = iconByName[item.icon];
           const current = isCurrentPath(currentPath, item.href);
@@ -213,7 +213,7 @@ function MobileBottomNavigation({
             <Link
               aria-current={current ? "page" : undefined}
               className={cn(
-                "flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 text-[0.6875rem] font-medium text-muted-foreground no-underline",
+                "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-[0.625rem] font-medium leading-none text-muted-foreground no-underline",
                 "active:bg-muted focus-visible:outline-ring",
                 current && "text-foreground",
               )}
@@ -222,7 +222,7 @@ function MobileBottomNavigation({
             >
               <Icon
                 aria-hidden="true"
-                className={cn("size-5", current && "text-accent")}
+                className={cn("size-4.5", current && "text-accent")}
               />
               <span>{item.label}</span>
             </Link>

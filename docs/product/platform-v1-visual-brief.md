@@ -309,6 +309,8 @@ rendered visual/component GO остаётся отдельным от PR и merg
 - глобальная navigation сохраняется внутри Reader: sidebar на desktop и нижняя navigation на
   mobile; локальная `В этом материале` дополняет её как inline scan-friendly navigation на desktop
   и компактный disclosure на mobile, не занимая отдельную боковую колонку;
+- mobile navigation остаётся постоянной, но использует компактный dock высотой около `3.5rem` с
+  touch targets не меньше `44px`, чтобы не отнимать место у Material content;
 - Reader показывает только подтверждённые actions: `Назад` и вручную переключаемое
   `Прочитано / Не прочитано`; save и like не моделируются, а переход к следующему Material
   появляется только при реальном membership текущего Material в Series;

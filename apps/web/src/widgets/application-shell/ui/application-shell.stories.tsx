@@ -171,8 +171,13 @@ export const MobileSidebar: Story = {
     const mobileNavigation = canvas.getByRole("navigation", {
       name: "Мобильная навигация",
     });
+    const navigationLinks = within(mobileNavigation).getAllByRole("link");
 
-    await expect(within(mobileNavigation).getAllByRole("link")).toHaveLength(3);
+    await expect(navigationLinks).toHaveLength(3);
+    await expect(mobileNavigation.getBoundingClientRect().height).toBeLessThanOrEqual(60);
+    await expect(
+      navigationLinks.every((link) => link.getBoundingClientRect().height >= 44),
+    ).toBe(true);
     await expect(
       canvas.queryByRole("button", { name: "Открыть навигацию" }),
     ).not.toBeInTheDocument();
