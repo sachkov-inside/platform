@@ -1,3 +1,3 @@
-import type { MaterialId } from "../modules/materials/domain/material-identifiers.js";
+import type { Result } from "../modules/materials/result.js";
 
-export type ForbiddenMaterialImport = MaterialId;
+export type ForbiddenMaterialImport = Result<string, Error>;

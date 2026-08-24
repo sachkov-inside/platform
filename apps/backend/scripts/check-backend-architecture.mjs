@@ -78,13 +78,8 @@ function violationsFor(source, specifier) {
   const importedModule = importedPath === undefined ? undefined : owningModule(importedPath);
 
   const importsMaterialsImplementation =
-    importedPath !== undefined &&
-    (/^src\/modules\/materials\/(?:application|domain|infrastructure)\//.test(
-      importedPath,
-    ) ||
-      /^src\/modules\/materials\/(?:create-materials|materials\.module)\./.test(
-        importedPath,
-      ));
+    importedPath?.startsWith("src/modules/materials/") === true &&
+    !/^src\/modules\/materials\/index\.[cm]?[jt]s$/.test(importedPath);
   const importsFrozenMaterialsMigration =
     importedPath?.startsWith(
       "src/modules/materials/infrastructure/postgres/migrations/",
