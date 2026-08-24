@@ -190,7 +190,7 @@ function LibraryBoard() {
 
           {inlineFiltersExpanded ? (
             <div
-              className="mt-3 rounded-xl bg-muted/55 p-4 @min-[52rem]/library:hidden"
+              className="mt-3 rounded-xl bg-muted/75 p-4 @min-[52rem]/library:hidden"
               id="library-inline-filters"
             >
               <LibraryFilters
@@ -269,7 +269,7 @@ function LibraryBoard() {
             />
 
             {filteredMaterials.length > 0 ? (
-              <div className="mt-4 grid items-start gap-4 @min-[52rem]/library:grid-cols-2">
+              <div className="mt-4 grid items-start gap-4 @min-[52rem]/library:grid-cols-2 @min-[64rem]/library:grid-cols-3">
                 {filteredMaterials.map((material) => (
                   <MaterialCard headingLevel="h3" key={material.id} material={material} />
                 ))}
@@ -506,7 +506,7 @@ function DesktopFilters({
   readonly sortOrder: SortOrder;
 }) {
   return (
-    <div className="mt-5 hidden grid-cols-[minmax(0,1fr)_12rem] items-start gap-6 rounded-xl bg-muted/55 p-4 @min-[52rem]/library:grid">
+    <div className="mt-5 hidden grid-cols-[minmax(0,1fr)_12rem] items-start gap-6 rounded-xl bg-muted/75 p-4 @min-[52rem]/library:grid">
       <LibraryFilters
         density="compact"
         formatOptions={filterOptions.formats}
@@ -729,8 +729,12 @@ export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const storyBody = within(canvasElement.ownerDocument.body);
+    const materialCards = Array.from(canvasElement.querySelectorAll<HTMLElement>("article"));
 
-    await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
+    await expect(materialCards).toHaveLength(3);
+    await expect(
+      materialCards.every((card) => card.getBoundingClientRect().width < 400),
+    ).toBe(true);
     await userEvent.click(canvas.getByRole("button", { name: "AI-first engineering" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
     await expect(

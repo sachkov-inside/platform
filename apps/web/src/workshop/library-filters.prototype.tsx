@@ -101,11 +101,13 @@ function FilterGroup({
           return (
             <label
               className={cn(
-                "cursor-pointer font-medium has-focus-visible:outline-3 has-focus-visible:outline-ring has-focus-visible:outline-offset-2",
+                "cursor-pointer border font-medium transition-colors has-focus-visible:outline-3 has-focus-visible:outline-ring has-focus-visible:outline-offset-2",
                 compact
-                  ? "inline-flex min-h-11 items-center rounded-lg px-3 text-xs"
+                  ? "inline-flex min-h-11 items-center gap-2 rounded-lg px-2.5 text-xs"
                   : "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm",
-                checked ? "bg-secondary text-foreground" : "bg-background text-muted-foreground",
+                checked
+                  ? "border-accent/55 bg-accent/12 text-foreground shadow-sm"
+                  : "border-border bg-card text-foreground hover:border-muted-foreground/45 hover:bg-muted/80",
               )}
               key={option.value}
             >
@@ -117,7 +119,7 @@ function FilterGroup({
                 }}
                 type="checkbox"
               />
-              {compact ? null : <SelectionMark checked={checked} />}
+              <SelectionMark checked={checked} compact={compact} />
               <span className="min-w-0 break-words">{option.label}</span>
             </label>
           );
@@ -127,16 +129,23 @@ function FilterGroup({
   );
 }
 
-function SelectionMark({ checked }: { readonly checked: boolean }) {
+function SelectionMark({
+  checked,
+  compact,
+}: {
+  readonly checked: boolean;
+  readonly compact: boolean;
+}) {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "grid size-5 shrink-0 place-items-center rounded-md border",
+        "grid shrink-0 place-items-center rounded-md border",
+        compact ? "size-4" : "size-5",
         checked ? "border-accent bg-accent text-accent-foreground" : "border-input bg-background",
       )}
     >
-      {checked ? <Check className="size-3.5" /> : null}
+      {checked ? <Check className={compact ? "size-3" : "size-3.5"} /> : null}
     </span>
   );
 }

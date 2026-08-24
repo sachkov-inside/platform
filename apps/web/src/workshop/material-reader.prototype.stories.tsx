@@ -203,6 +203,9 @@ export const Desktop: Story = {
     const actionGroups = canvas.getAllByRole("group", { name: /Действия с материалом/ });
     const topActions = actionGroups[0];
     const article = canvas.getAllByRole("article")[0];
+    const heading = canvas.getByRole("heading", {
+      name: "Публичные skills для agent-first setup",
+    });
 
     if (article === undefined || topActions === undefined) {
       throw new Error("Reader content is missing");
@@ -210,6 +213,11 @@ export const Desktop: Story = {
 
     await expect(actionGroups).toHaveLength(2);
     await expect(topActions.getBoundingClientRect().height).toBeLessThanOrEqual(64);
+    await expect(
+      Number.parseFloat(
+        canvasElement.ownerDocument.defaultView?.getComputedStyle(heading).fontSize ?? "0",
+      ),
+    ).toBeLessThanOrEqual(40);
     await expect(article.getBoundingClientRect().width).toBeLessThanOrEqual(780);
     await expect(
       canvas.queryByRole("navigation", { name: "Мобильная навигация" }),

@@ -148,10 +148,10 @@ export function MaterialReader({
             </a>
           </div>
 
-          <h1 className="mt-5 max-w-[22ch] text-balance text-[1.75rem] font-semibold leading-[1.1] tracking-[-0.035em] sm:text-[2.5rem] @min-[62rem]/material-reader:text-[3rem]">
+          <h1 className="mt-5 max-w-[22ch] text-balance text-[1.75rem] font-semibold leading-[1.1] tracking-[-0.035em] sm:text-[2.25rem] @min-[62rem]/material-reader:text-[2.5rem]">
             {material.title}
           </h1>
-          <p className="mt-4 max-w-[65ch] text-pretty text-[0.9375rem] leading-6 text-muted-foreground sm:mt-5 sm:text-lg sm:leading-8">
+          <p className="mt-4 max-w-[65ch] text-pretty text-[0.9375rem] leading-6 text-muted-foreground sm:mt-5 sm:text-base sm:leading-7">
             {material.summary}
           </p>
           <ul aria-label="Теги материала" className="mt-5 flex flex-wrap gap-2" role="list">
@@ -171,8 +171,8 @@ export function MaterialReader({
         <LearningOutcomes outcomes={fixture.outcomes} />
         <ReaderOutline />
 
-        <article className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[0.96875rem] leading-[1.7] sm:mt-12 sm:text-lg">
-          <p className="text-[1.0625rem] font-medium leading-[1.6] tracking-[-0.015em] text-foreground sm:text-2xl">
+        <article className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[0.96875rem] leading-[1.7] sm:mt-12 sm:text-[1.0625rem]">
+          <p className="text-[1.0625rem] font-medium leading-[1.6] tracking-[-0.015em] text-foreground sm:text-xl">
             {fixture.lead}
           </p>
 
@@ -427,7 +427,7 @@ function ReaderSection({
 }) {
   return (
     <section className="mt-12 space-y-5 scroll-mt-8 sm:mt-14 sm:space-y-6" id={id}>
-      <h2 className="max-w-[22ch] text-balance text-xl font-semibold leading-tight tracking-[-0.03em] sm:text-3xl">
+      <h2 className="max-w-[22ch] text-balance text-xl font-semibold leading-tight tracking-[-0.03em] sm:text-2xl">
         {title}
       </h2>
       {children}
@@ -438,7 +438,7 @@ function ReaderSection({
 function ReaderResources({ resources }: { readonly resources: readonly MaterialResourceFixture[] }) {
   return (
     <section className="mt-12 scroll-mt-8 sm:mt-14" id="resources">
-      <h2 className="text-xl font-semibold tracking-[-0.03em] sm:text-3xl">Resources</h2>
+      <h2 className="text-xl font-semibold tracking-[-0.03em] sm:text-2xl">Resources</h2>
       <ul className="mt-4 grid gap-2 sm:mt-5" role="list">
         {resources.map((resource) => {
           const Icon = resource.kind === "file" ? FileText : ExternalLink;

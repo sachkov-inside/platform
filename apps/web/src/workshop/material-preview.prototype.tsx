@@ -97,38 +97,43 @@ export function MaterialCard({
 
   return (
     <article
-      className={cn(
-        "@container/material-card group/card grid max-w-[46rem] overflow-hidden rounded-xl bg-card shadow-card transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
-        "hover:-translate-y-0.5 hover:shadow-card-hover focus-within:outline-ring active:translate-y-0 active:shadow-card",
-        hasPreview && "@min-[30rem]/material-card:grid-cols-[minmax(13rem,0.9fr)_minmax(0,1.1fr)]",
-      )}
+      className="@container/material-card w-full max-w-[36rem]"
       data-material-id={material.id}
     >
-      {hasPreview ? (
-        <a
-          aria-label={`Открыть материал: ${material.title}`}
-          className="min-w-0 no-underline focus-visible:outline-ring"
-          href={`/library/${material.id}`}
-        >
-          <MaterialPoster material={material} />
-        </a>
-      ) : null}
-      <div className="flex min-w-0 flex-col p-4 @min-[30rem]/material-card:p-6">
-        <MaterialTaxonomy material={material} />
-        <Heading className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em] @min-[30rem]/material-card:line-clamp-3 @min-[30rem]/material-card:text-lg">
+      <div
+        className={cn(
+          "group/card grid overflow-hidden rounded-xl bg-card shadow-card transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
+          "hover:-translate-y-0.5 hover:shadow-card-hover focus-within:outline-ring active:translate-y-0 active:shadow-card",
+          hasPreview &&
+            "@min-[30rem]/material-card:grid-cols-[minmax(11rem,0.8fr)_minmax(0,1.2fr)]",
+        )}
+      >
+        {hasPreview ? (
           <a
-            className="no-underline hover:underline hover:decoration-accent hover:underline-offset-4 focus-visible:outline-ring"
+            aria-label={`Открыть материал: ${material.title}`}
+            className="min-w-0 no-underline focus-visible:outline-ring"
             href={`/library/${material.id}`}
           >
-            {material.title}
+            <MaterialPoster material={material} />
           </a>
-        </Heading>
-        <p className="mt-2 line-clamp-1 text-sm leading-5 text-muted-foreground @min-[30rem]/material-card:line-clamp-2">
-          {material.summary}
-        </p>
-        <div className="mt-3 flex flex-wrap items-end justify-between gap-2 @min-[30rem]/material-card:mt-auto @min-[30rem]/material-card:pt-4">
-          <MaterialContext material={material} />
-          <AccessLabel access={material.access} />
+        ) : null}
+        <div className="flex min-w-0 flex-col p-4 @min-[30rem]/material-card:p-5">
+          <MaterialTaxonomy material={material} />
+          <Heading className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em] @min-[30rem]/material-card:line-clamp-3 @min-[30rem]/material-card:text-lg">
+            <a
+              className="no-underline hover:underline hover:decoration-accent hover:underline-offset-4 focus-visible:outline-ring"
+              href={`/library/${material.id}`}
+            >
+              {material.title}
+            </a>
+          </Heading>
+          <p className="mt-2 line-clamp-1 text-sm leading-5 text-muted-foreground @min-[30rem]/material-card:line-clamp-2">
+            {material.summary}
+          </p>
+          <div className="mt-3 flex flex-wrap items-end justify-between gap-2 @min-[30rem]/material-card:mt-auto @min-[30rem]/material-card:pt-4">
+            <MaterialContext material={material} />
+            <AccessLabel access={material.access} />
+          </div>
         </div>
       </div>
     </article>
