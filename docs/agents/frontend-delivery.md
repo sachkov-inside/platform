@@ -48,6 +48,19 @@ Before implementing a surface, inspect the Storybook catalog and its MCP documen
 Prefer feature ownership. Promote a module to `src/shared/ui` only when more than one real surface
 needs the same responsibility and the shared interface is smaller than the duplicated behavior.
 
+## Production foundation imports
+
+The accepted semantic color, typography, radius, elevation and motion tokens and Tailwind theme
+live in `apps/web/app/globals.css`. Production and Storybook both import that file; do not copy
+token values into a feature stylesheet. The accepted responsive shell is exported by
+`@/widgets/application-shell`, while `@/_app` is the production adapter that supplies App Router
+path and account state.
+
+For #37–#39, move an accepted surface implementation out of `src/workshop` into its owning FSD
+slice before connecting real data. Its story and production route then import the same client-safe
+public interface. Never import `.storybook`, `src/workshop`, stories or fixture adapters from a
+production route, and do not create a parallel token or navigation system.
+
 ## Completion rules
 
 - A functional ticket may merge with temporary semantic UI when the real end-to-end behavior and

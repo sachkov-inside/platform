@@ -1,30 +1,34 @@
-import Link from "next/link";
+"use client";
+
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { GlobalNavigation } from "@/widgets/global-navigation";
+import {
+  ApplicationShell,
+  type ApplicationNavigationItem,
+} from "@/widgets/application-shell";
 
 interface AppShellProps {
   readonly children: ReactNode;
 }
 
+const navigationItems = [
+  { href: "/", icon: "home", label: "Главная" },
+  { href: "/library", icon: "library", label: "Библиотека" },
+  { href: "/map", icon: "map", label: "Карта" },
+] satisfies readonly ApplicationNavigationItem[];
+
+/** Connects the accepted application shell to App Router route state. */
 export function AppShell({ children }: AppShellProps) {
+  const pathname = usePathname();
+
   return (
-    <div className="app-shell">
-      <a className="skip-link" href="#content">
-        Перейти к содержанию
-      </a>
-      <header className="site-header">
-        <div className="site-header__inner">
-          <Link className="brand-link" href="/">
-            Inside
-          </Link>
-          <GlobalNavigation />
-        </div>
-      </header>
-      <main className="page-main" id="content" tabIndex={-1}>
-        {children}
-      </main>
-      <footer className="site-footer">Дом материалов Sachkov Inside</footer>
-    </div>
+    <ApplicationShell
+      accountLabel="Гость"
+      currentPath={pathname}
+      navigationItems={navigationItems}
+    >
+      {children}
+    </ApplicationShell>
   );
 }
