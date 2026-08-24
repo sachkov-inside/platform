@@ -1,13 +1,13 @@
 import {
   ArrowLeft,
   ArrowRight,
+  Bookmark,
   BookOpenCheck,
   BookOpenText,
-  Check,
   Download,
   ExternalLink,
   FileText,
-  RotateCcw,
+  ThumbsUp,
 } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
@@ -100,29 +100,39 @@ export const isReady = (check: SkillCheck) =>
 
 interface MaterialReaderProps {
   readonly fixture: LongFormMaterialFixture;
+  readonly isLiked: boolean;
+  readonly isSaved: boolean;
+  readonly onLikedChange: (isLiked: boolean) => void;
   readonly onReadingStateChange: (state: ReadingState) => void;
+  readonly onSavedChange: (isSaved: boolean) => void;
   readonly readingState: ReadingState;
 }
 
 export function MaterialReader({
   fixture,
+  isLiked,
+  isSaved,
+  onLikedChange,
   onReadingStateChange,
+  onSavedChange,
   readingState,
 }: MaterialReaderProps) {
   const material = materialFixtures.publicAgentGuide;
 
   return (
     <div className="@container/material-reader" data-prototype="material-reader-responsive">
-      <a
-        className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-semibold text-muted-foreground no-underline transition-colors hover:text-foreground"
-        href="/library"
-      >
-        <ArrowLeft aria-hidden="true" className="size-4 text-accent" />
-        Библиотека
-      </a>
+      <ReaderActionBar
+        isLiked={isLiked}
+        isSaved={isSaved}
+        onLikedChange={onLikedChange}
+        onReadingStateChange={onReadingStateChange}
+        onSavedChange={onSavedChange}
+        placement="top"
+        readingState={readingState}
+      />
 
-      <div className="mt-5 grid min-w-0 gap-x-14 @min-[62rem]/material-reader:grid-cols-[minmax(0,44rem)_minmax(14rem,18rem)]">
-        <header className="min-w-0 @min-[62rem]/material-reader:col-start-1 @min-[62rem]/material-reader:row-start-1">
+      <div className="mt-10 min-w-0">
+        <header className="min-w-0 max-w-[56rem]">
           <div className="flex flex-wrap items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
             <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-secondary px-2.5 font-semibold text-secondary-foreground">
               <BookOpenText aria-hidden="true" className="size-3.5 text-accent" />
@@ -154,12 +164,7 @@ export function MaterialReader({
           </ul>
         </header>
 
-        <ReaderContext
-          onReadingStateChange={onReadingStateChange}
-          readingState={readingState}
-        />
-
-        <article className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[1.0625rem] leading-[1.75] sm:text-lg @min-[62rem]/material-reader:col-start-1 @min-[62rem]/material-reader:row-start-2 @min-[62rem]/material-reader:mt-14">
+        <article className="mt-14 min-w-0 max-w-[70ch] text-pretty text-[1.0625rem] leading-[1.75] sm:text-lg">
           <p className="text-xl font-medium leading-[1.55] tracking-[-0.015em] text-foreground sm:text-2xl">
             {fixture.lead}
           </p>
@@ -253,72 +258,111 @@ export function MaterialReader({
         </article>
       </div>
 
+      <ReaderActionBar
+        className="mt-16"
+        isLiked={isLiked}
+        isSaved={isSaved}
+        onLikedChange={onLikedChange}
+        onReadingStateChange={onReadingStateChange}
+        onSavedChange={onSavedChange}
+        placement="bottom"
+        readingState={readingState}
+      />
+
       <RelatedMaterials />
     </div>
   );
 }
 
-function ReaderContext({
+function ReaderActionBar({
+  className = "",
+  isLiked,
+  isSaved,
+  onLikedChange,
   onReadingStateChange,
+  onSavedChange,
+  placement,
   readingState,
-}: Pick<MaterialReaderProps, "onReadingStateChange" | "readingState">) {
+}: Pick<
+  MaterialReaderProps,
+  | "isLiked"
+  | "isSaved"
+  | "onLikedChange"
+  | "onReadingStateChange"
+  | "onSavedChange"
+  | "readingState"
+> & {
+  readonly className?: string;
+  readonly placement: "bottom" | "top";
+}) {
   const isRead = readingState === "read";
 
   return (
-    <aside
-      aria-label="Контекст чтения"
-      className="mt-8 border-y border-border py-6 @min-[40rem]/material-reader:grid @min-[40rem]/material-reader:grid-cols-[minmax(13rem,0.8fr)_minmax(0,1.2fr)] @min-[40rem]/material-reader:gap-x-8 @min-[62rem]/material-reader:sticky @min-[62rem]/material-reader:top-8 @min-[62rem]/material-reader:col-start-2 @min-[62rem]/material-reader:row-span-2 @min-[62rem]/material-reader:row-start-1 @min-[62rem]/material-reader:mt-0 @min-[62rem]/material-reader:block @min-[62rem]/material-reader:self-start @min-[62rem]/material-reader:border-y-0 @min-[62rem]/material-reader:border-l @min-[62rem]/material-reader:py-1 @min-[62rem]/material-reader:pl-7"
-    >
-      <div>
-        <div aria-live="polite" className="flex items-center gap-2 text-sm font-semibold">
-          {isRead ? (
-            <BookOpenCheck aria-hidden="true" className="size-4 text-accent" />
-          ) : (
-            <BookOpenText aria-hidden="true" className="size-4 text-accent" />
-          )}
-          {isRead ? "Материал прочитан" : "Материал не прочитан"}
-        </div>
+    <div className={`@container/reader-actions ${className}`}>
+      <div
+        aria-label={`Действия с материалом ${placement === "top" ? "в начале" : "в конце"}`}
+        className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-2.5 @min-[40rem]/reader-actions:grid-cols-[auto_auto_minmax(11rem,1fr)_auto] @min-[62rem]/reader-actions:flex @min-[62rem]/reader-actions:items-center"
+        role="group"
+      >
+        <Button asChild className="min-h-10 px-3" size="lg" variant="outline">
+          <a href="/library">
+            <ArrowLeft aria-hidden="true" />
+            Назад
+          </a>
+        </Button>
+
+        <Button
+          aria-pressed={isSaved}
+          className="min-h-10 px-3"
+          onClick={() => {
+            onSavedChange(!isSaved);
+          }}
+          size="lg"
+          variant="outline"
+        >
+          <Bookmark aria-hidden="true" className={isSaved ? "fill-current" : undefined} />
+          {isSaved ? "Сохранено" : "Сохранить"}
+        </Button>
+
         <Button
           aria-pressed={isRead}
-          className="mt-3 min-h-11 w-full justify-start px-3"
+          className="col-span-2 min-h-10 px-3 @min-[40rem]/reader-actions:col-span-1"
           onClick={() => {
             onReadingStateChange(isRead ? "unread" : "read");
           }}
+          size="lg"
           variant="outline"
         >
-          {isRead ? <RotateCcw aria-hidden="true" /> : <Check aria-hidden="true" />}
-          {isRead ? "Отметить непрочитанным" : "Отметить прочитанным"}
+          <BookOpenCheck aria-hidden="true" />
+          {isRead ? "Изучено" : "Отметить изученным"}
+        </Button>
+
+        <Button
+          aria-pressed={isLiked}
+          className="min-h-10 px-3 tabular-nums @min-[40rem]/reader-actions:col-start-1 @min-[62rem]/reader-actions:col-start-auto"
+          onClick={() => {
+            onLikedChange(!isLiked);
+          }}
+          size="lg"
+          variant="outline"
+        >
+          <ThumbsUp aria-hidden="true" className={isLiked ? "fill-current" : undefined} />
+          Нравится <span className="text-muted-foreground">{58 + (isLiked ? 1 : 0)}</span>
+        </Button>
+
+        <Button
+          asChild
+          className="min-h-10 px-4 @min-[40rem]/reader-actions:col-span-3 @min-[62rem]/reader-actions:ml-auto"
+          size="lg"
+        >
+          <a href="/library/material-platform-delivery">
+            <span className="@min-[30rem]/reader-actions:hidden">Далее</span>
+            <span className="hidden @min-[30rem]/reader-actions:inline">Следующий материал</span>
+            <ArrowRight aria-hidden="true" />
+          </a>
         </Button>
       </div>
-
-      <nav aria-label="В этом материале" className="mt-7 @min-[40rem]/material-reader:mt-0 @min-[62rem]/material-reader:mt-7">
-        <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          В этом материале
-        </p>
-        <ol className="relative mt-3 space-y-1 before:absolute before:bottom-4 before:left-[0.3125rem] before:top-4 before:w-px before:bg-accent/45">
-          <ReaderNavigationLink href="#stable-seam" label="Устойчивый seam" />
-          <ReaderNavigationLink href="#test-instructions" label="Проверка instruction" />
-          <ReaderNavigationLink href="#resources" label="Resources" />
-        </ol>
-      </nav>
-    </aside>
-  );
-}
-
-function ReaderNavigationLink({ href, label }: { readonly href: string; readonly label: string }) {
-  return (
-    <li className="relative pl-5">
-      <span
-        aria-hidden="true"
-        className="absolute left-0 top-[1.125rem] size-2.5 rounded-full border-2 border-accent bg-card"
-      />
-      <a
-        className="flex min-h-10 items-center rounded-lg px-2 text-sm text-muted-foreground no-underline transition-colors hover:bg-muted hover:text-foreground"
-        href={href}
-      >
-        {label}
-      </a>
-    </li>
+    </div>
   );
 }
 

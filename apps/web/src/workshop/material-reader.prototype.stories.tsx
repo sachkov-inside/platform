@@ -21,6 +21,8 @@ const navigationItems = [
 ] satisfies readonly ApplicationNavigationItem[];
 
 function MaterialReaderBoard() {
+  const [isLiked, setIsLiked] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const [readingState, setReadingState] = useState<ReadingState>("unread");
 
   return (
@@ -34,7 +36,11 @@ function MaterialReaderBoard() {
     >
       <MaterialReader
         fixture={longFormMaterialFixture}
+        isLiked={isLiked}
+        isSaved={isSaved}
+        onLikedChange={setIsLiked}
         onReadingStateChange={setReadingState}
+        onSavedChange={setIsSaved}
         readingState={readingState}
       />
     </ApplicationShell>
@@ -76,21 +82,49 @@ export const Mobile: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Публичные skills для agent-first setup" }),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("navigation", { name: "В этом материале" })).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("navigation", { name: "В этом материале" }),
+    ).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("navigation", { name: "Мобильная навигация" }),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Отметить прочитанным" })).toHaveAttribute(
+    const actionGroups = canvas.getAllByRole("group", { name: /Действия с материалом/ });
+    const topActionsElement = actionGroups[0];
+    const bottomActionsElement = actionGroups[1];
+
+    if (topActionsElement === undefined || bottomActionsElement === undefined) {
+      throw new Error("Reader action bars are missing");
+    }
+
+    const topActions = within(topActionsElement);
+    const bottomActions = within(bottomActionsElement);
+
+    await expect(actionGroups).toHaveLength(2);
+    await expect(topActions.getByRole("button", { name: "Отметить изученным" })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
 
-    await userEvent.click(canvas.getByRole("button", { name: "Отметить прочитанным" }));
-    await expect(canvas.getByText("Материал прочитан")).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Отметить непрочитанным" })).toHaveAttribute(
+    await userEvent.click(topActions.getByRole("button", { name: "Сохранить" }));
+    await expect(topActions.getByRole("button", { name: "Сохранено" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
+    await expect(bottomActions.getByRole("button", { name: "Сохранено" })).toBeInTheDocument();
+
+    await userEvent.click(topActions.getByRole("button", { name: "Отметить изученным" }));
+    await expect(topActions.getByRole("button", { name: "Изучено" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(bottomActions.getByRole("button", { name: "Изучено" })).toBeInTheDocument();
+
+    await userEvent.click(topActions.getByRole("button", { name: "Нравится 58" }));
+    await expect(topActions.getByRole("button", { name: "Нравится 59" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(bottomActions.getByRole("button", { name: "Нравится 59" })).toBeInTheDocument();
     await expect(canvas.getByRole("region", { name: "Сравнение признаков skill contract" })).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(3);
 
@@ -115,22 +149,29 @@ export const NarrowDesktop: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const context = canvas.getByRole("complementary", { name: "Контекст чтения" });
+    const topActions = canvas.getByRole("group", { name: "Действия с материалом в начале" });
     const heading = canvas.getByRole("heading", {
       name: "Публичные skills для agent-first setup",
     });
     const article = canvas.getAllByRole("article")[0];
+    const header = heading.closest("header");
 
-    if (article === undefined) {
-      throw new Error("Reader article is missing");
+    if (article === undefined || header === null) {
+      throw new Error("Reader content is missing");
     }
 
-    await expect(context.getBoundingClientRect().top).toBeGreaterThanOrEqual(
-      heading.getBoundingClientRect().bottom,
+    await expect(heading.getBoundingClientRect().top).toBeGreaterThan(
+      topActions.getBoundingClientRect().bottom,
     );
     await expect(article.getBoundingClientRect().top).toBeGreaterThanOrEqual(
-      context.getBoundingClientRect().bottom,
+      header.getBoundingClientRect().bottom,
     );
+    await expect(
+      Math.abs(article.getBoundingClientRect().left - header.getBoundingClientRect().left),
+    ).toBeLessThanOrEqual(1);
+    await expect(
+      canvas.queryByRole("complementary", { name: "Контекст чтения" }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -144,17 +185,17 @@ export const Desktop: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const context = canvas.getByRole("complementary", { name: "Контекст чтения" });
+    const actionGroups = canvas.getAllByRole("group", { name: /Действия с материалом/ });
+    const topActions = actionGroups[0];
     const article = canvas.getAllByRole("article")[0];
 
-    if (article === undefined) {
-      throw new Error("Reader article is missing");
+    if (article === undefined || topActions === undefined) {
+      throw new Error("Reader content is missing");
     }
 
-    await expect(context.getBoundingClientRect().left).toBeGreaterThan(
-      article.getBoundingClientRect().right,
-    );
-    await expect(article.getBoundingClientRect().width).toBeLessThanOrEqual(720);
+    await expect(actionGroups).toHaveLength(2);
+    await expect(topActions.getBoundingClientRect().height).toBeLessThanOrEqual(64);
+    await expect(article.getBoundingClientRect().width).toBeLessThanOrEqual(780);
     await expect(
       canvas.queryByRole("navigation", { name: "Мобильная навигация" }),
     ).not.toBeInTheDocument();
