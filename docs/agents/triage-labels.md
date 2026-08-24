@@ -10,5 +10,8 @@ Use the canonical roles from `mattpocock/skills` without renaming them.
 | `ready-for-human` | `ready-for-human` | Human implementation or judgment is required |
 | `wontfix` | `wontfix` | The work will not be actioned |
 
-Every triaged issue has exactly one role from this table. Category labels are optional and
-independent from readiness.
+Every triaged delivery issue has exactly one role from this table. A Workspace owner-facing issue
+labelled `backlog:human` is an input to delivery rather than an implementation issue: it carries no
+readiness role until an agent promotes its outcome into repository-owned Specifications and
+Tickets. `backlog:human` routes the issue between Projects and never substitutes for readiness.
+Category labels are optional and independent from readiness.
