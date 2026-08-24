@@ -289,15 +289,34 @@ Rendered review в [Platform #45](https://github.com/sachkov-inside/platform/iss
 structure и Agentation как owner-feedback overlay; production routes пока не импортируют workshop
 runtime или fixtures.
 
-Следующий owner proof — mobile-first Библиотека. Сначала на narrow viewport проверяются search,
-реальные filters по Topic/Format/Tag, sorting, result count и плотная выдача принятых Material cards;
-затем та же information architecture получает desktop enhancement. Нужны representative normal,
-long-content, preview/no-preview, free/closed, empty-search и только фактически полезные
-loading/error states. После Библиотеки следующий отдельный proof — long-form Material reader, затем
-video и closed-access states.
+Rendered review 2026-08-24 принял bounded responsive proof Библиотеки как основу следующей
+laboratory-итерации:
 
-Local Material context, reading measure, chapters, Resources и authoring composition остаются
-открытыми до owning surface review.
+- mobile использует сплошной content canvas без внешней рамки, компактный title region,
+  полноширинные Search и custom Filters, две полностью видимые Topic cards на шаг horizontal
+  navigation и отдельный блок `Плейлисты`;
+- desktop сохраняет ту же information architecture, использует весь viewport и прокручивает только
+  main content; округлый sidebar остаётся плавающим с небольшим inset, а profile закреплён внизу;
+- native browser selects не входят в visual language: workshop использует собственный accessible
+  Select;
+- `Плейлисты` является проверяемым UI label для ordered collections, но не переименовывает
+  канонический domain term `Series` без отдельного product decision;
+- production routes и backend seam по-прежнему не импортируют workshop fixtures или runtime.
+
+Следующий отдельный owner proof — mobile-first long-form Material reader с разрешённым body state,
+после него — video и closed-access states. Reader сначала проверяет реальный reading rhythm на
+320×568, затем получает desktop enhancement той же information architecture. В proof нужны title и
+metadata context, устойчивый reading measure, representative headings/lists/code/media/links,
+local navigation, Resources, related Materials и manual read/unread state. Поведение постоянной
+mobile bottom navigation во время чтения остаётся owner decision owning surface review.
+
+Не объединять reader proof с production route, backend/client integration, video player,
+closed-access acquisition flow или author editor. Stopping condition: owner может прочитать один
+реалистичный длинный Material на mobile и desktop, проверить typography, local navigation и конец
+reading flow и явно принять либо скорректировать composition.
+
+Chapters, video timecode, closed access и authoring composition остаются открытыми до своих owning
+surface reviews.
 
 ## 7. Alive, not animated
 
@@ -336,7 +355,7 @@ information architecture и core actions остаются одними на вс
 На этом этапе не зафиксированы:
 
 - exact palette values, typefaces, icon family, radius/spacing scale и elevation tokens;
-- final Library/search, Material reader и author editor/Preview compositions;
+- production Library/search, Material reader и author editor/Preview compositions;
 - contextual navigation внутри Material и authoring surfaces;
 - generated composition screenshots;
 - component/primitives library;
