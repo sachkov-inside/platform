@@ -22,7 +22,11 @@ export interface MaterialRevisionMetadataValues {
   readonly seriesMemberships: readonly SeriesMembership[];
 }
 
-export type MaterialRevisionMetadataChangeValues = Partial<MaterialRevisionMetadataValues>;
+export type MaterialRevisionMetadataChangeValues = {
+  readonly [Property in keyof MaterialRevisionMetadataValues]?:
+    | MaterialRevisionMetadataValues[Property]
+    | undefined;
+};
 
 export type MaterialMetadataValidationError =
   | {
@@ -150,12 +154,7 @@ export class MaterialRevisionMetadata {
     if (!parsed.success) {
       return invalidMetadata(parsed.error);
     }
-    return {
-      ok: true,
-      value: Object.fromEntries(
-        Object.entries(parsed.data).filter(([, value]) => value !== undefined),
-      ),
-    };
+    return { ok: true, value: parsed.data };
   }
 
   revise(changes: unknown): MaterialRevisionMetadataResult {

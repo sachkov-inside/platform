@@ -92,4 +92,19 @@ describe("Material revision metadata rules", () => {
     expect(Object.isFrozen(created.value)).toBe(true);
     expect(Object.isFrozen(created.value.tagIds)).toBe(true);
   });
+
+  test("rejects an explicitly undefined patch value", () => {
+    const created = MaterialRevisionMetadata.create(validMetadata());
+    if (!created.ok) {
+      throw new Error(created.error.code);
+    }
+
+    expect(created.value.revise({ title: undefined })).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid_content",
+        issues: [{ code: "invalid_metadata", path: "/title" }],
+      },
+    });
+  });
 });

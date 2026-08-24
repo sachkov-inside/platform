@@ -94,8 +94,9 @@ export default tseslint.config(
   },
   {
     files: [
-      "apps/backend/src/modules/materials/application/**/*.ts",
-      "apps/backend/src/modules/materials/domain/**/*.ts",
+      "apps/backend/src/modules/*/application/**/*.ts",
+      "apps/backend/src/modules/*/domain/**/*.ts",
+      "apps/backend/test/guardrails/fixtures/eslint/**/*.ts",
     ],
     rules: {
       "no-restricted-imports": [
@@ -103,8 +104,17 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ["@nestjs/**"],
-              message: "Application and domain modules cannot depend on Nest adapters.",
+              group: [
+                "@nestjs/**",
+                "kysely",
+                "kysely/**",
+                "pg",
+                "pg/**",
+                "**/infrastructure/postgres/generated/**",
+                "**/modules/*/internal/**",
+              ],
+              message:
+                "Application and domain modules cannot depend on framework or persistence internals.",
             },
           ],
         },
@@ -112,15 +122,61 @@ export default tseslint.config(
     },
   },
   {
-    files: ["apps/backend/src/modules/materials/domain/**/*.ts"],
+    files: ["apps/backend/src/modules/*/domain/**/*.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
           patterns: [
             {
-              group: ["@nestjs/**", "kysely", "kysely/**", "pg", "pg/**"],
-              message: "The Materials model and body cannot depend on Nest or persistence adapters.",
+              group: [
+                "@nestjs/**",
+                "kysely",
+                "kysely/**",
+                "pg",
+                "pg/**",
+                "**/infrastructure/postgres/generated/**",
+                "**/modules/*/internal/**",
+              ],
+              message: "Domain models cannot depend on Nest or persistence adapters.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/backend/src/modules/*/infrastructure/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/modules/*/internal/**"],
+              message: "Capability infrastructure cannot import another module's internals.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The registry may load frozen migrations, but no other Materials implementation detail.
+    files: ["apps/backend/src/migrations/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex:
+                "modules/materials/(?!infrastructure/postgres/migrations/)",
+              message: "Migration code may import only frozen capability migrations.",
+            },
+            {
+              group: ["**/modules/*/internal/**"],
+              message: "Migration code cannot import capability internals.",
             },
           ],
         },
@@ -142,24 +198,6 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-return": "off",
       "@typescript-eslint/no-unsafe-type-assertion": "off",
       "@typescript-eslint/require-await": "off",
-    },
-  },
-  {
-    files: ["apps/backend/vitest*.config.mts"],
-    extends: [tseslint.configs.disableTypeChecked],
-    languageOptions: {
-      parserOptions: {
-        projectService: false,
-      },
-    },
-  },
-  {
-    // Vitest asymmetric matchers and deliberate malformed runtime inputs surface `any` in tests.
-    files: ["apps/backend/test/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/no-unsafe-member-access": "off",
-      "@typescript-eslint/unbound-method": "off",
     },
   },
   {

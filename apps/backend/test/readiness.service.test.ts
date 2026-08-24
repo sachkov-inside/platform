@@ -5,8 +5,9 @@ import { ReadinessService } from "../src/modules/readiness/readiness.service.js"
 
 describe("ReadinessService", () => {
   it("reports the selected process after PostgreSQL responds", async () => {
+    const ping = vi.fn().mockResolvedValue(undefined);
     const database: DatabaseProbe = {
-      ping: vi.fn().mockResolvedValue(undefined),
+      ping,
     };
     const readiness = new ReadinessService(database);
 
@@ -15,6 +16,6 @@ describe("ReadinessService", () => {
       status: "ok",
       database: "reachable",
     });
-    expect(database.ping).toHaveBeenCalledOnce();
+    expect(ping).toHaveBeenCalledOnce();
   });
 });

@@ -47,7 +47,11 @@ expectFailure(
     "--no-inline-config",
     "test/guardrails/fixtures/eslint/guardrails.ts",
   ],
-  ["no-restricted-imports", "@typescript-eslint/switch-exhaustiveness-check"],
+  [
+    "no-restricted-imports",
+    "framework or persistence internals",
+    "@typescript-eslint/switch-exhaustiveness-check",
+  ],
 );
 
 process.stdout.write("Negative TypeScript and architecture guardrails passed.\n");

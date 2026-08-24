@@ -22,6 +22,14 @@ const denyAllAuthorPolicy = {
   canPublish: () => false,
 };
 
+function stringMatching(pattern: RegExp): unknown {
+  return expect.stringMatching(pattern);
+}
+
+function notStringMatching(value: string): unknown {
+  return expect.not.stringMatching(value);
+}
+
 describe("Material lifecycle", () => {
   let testDatabase: TestDatabase;
 
@@ -95,7 +103,7 @@ describe("Material lifecycle", () => {
       value: {
         materialId: created.value.materialId,
         revisionId: created.value.revisionId,
-        projectionDigest: expect.stringMatching(/^[0-9a-f]{64}$/),
+        projectionDigest: stringMatching(/^[0-9a-f]{64}$/),
       },
     });
 
@@ -148,7 +156,7 @@ describe("Material lifecycle", () => {
       value: {
         materialId: created.value.materialId,
         revisionId: created.value.revisionId,
-        publicationEventId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        publicationEventId: stringMatching(/^[0-9a-f-]{36}$/),
       },
     });
     if (!published.ok) {
@@ -328,7 +336,7 @@ describe("Material lifecycle", () => {
       ok: true,
       value: {
         materialId: original.value.materialId,
-        revisionId: expect.not.stringMatching(original.value.revisionId),
+        revisionId: notStringMatching(original.value.revisionId),
         body: original.value.body,
       },
     });
@@ -380,7 +388,7 @@ describe("Material lifecycle", () => {
       value: {
         materialId: original.value.materialId,
         revisionId: original.value.revisionId,
-        publicationEventId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        publicationEventId: stringMatching(/^[0-9a-f-]{36}$/),
       },
     });
     expect(

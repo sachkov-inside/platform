@@ -21,6 +21,10 @@ const firstTagId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const secondTagId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const seriesId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 
+function stringMatching(pattern: RegExp): unknown {
+  return expect.stringMatching(pattern);
+}
+
 describe("MaterialAuthoring", () => {
   let testDatabase: TestDatabase;
 
@@ -336,7 +340,7 @@ describe("MaterialAuthoring", () => {
       doc: {
         content: [
           {
-            attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+            attrs: { nodeId: stringMatching(/^[0-9a-f-]{36}$/) },
           },
         ],
       },
@@ -380,10 +384,10 @@ describe("MaterialAuthoring", () => {
       doc: {
         content: [
           {
-            attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+            attrs: { nodeId: stringMatching(/^[0-9a-f-]{36}$/) },
             content: [
               {
-                attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+                attrs: { nodeId: stringMatching(/^[0-9a-f-]{36}$/) },
               },
             ],
           },

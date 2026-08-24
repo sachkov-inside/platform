@@ -12,10 +12,9 @@ export async function runMigrationsToLatest(
 ): Promise<MigrationOutcome> {
   const result = await new Migrator({ db: database, provider: migrationProvider }).migrateToLatest();
   if (result.error !== undefined) {
-    if (result.error instanceof Error) {
-      throw result.error;
-    }
-    throw new Error("Database migration failed", { cause: result.error });
+    // Kysely exposes this as unknown; migration callers must receive the original failure value.
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    throw result.error;
   }
   return {
     appliedMigrations: (result.results ?? [])

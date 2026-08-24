@@ -21,6 +21,18 @@ function testNodeId(index: number): string {
   return `92000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
 }
 
+function isUnknownArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && !Array.isArray(value) && typeof value === "object";
+}
+
+function stringMatching(pattern: RegExp): unknown {
+  return expect.stringMatching(pattern);
+}
+
 describe("MaterialBodyOperations", () => {
   test("accepts a representative v1 document without semantic drift", () => {
     const documentOperations = materialBodyOperations;
@@ -199,29 +211,25 @@ describe("MaterialBodyOperations", () => {
 
     const nestedDuplicate = fullRepresentativeDocument();
     const blocks = nestedDuplicate.doc.content;
-    if (!Array.isArray(blocks)) {
+    if (!isUnknownArray(blocks)) {
       throw new Error("Expected document blocks");
     }
     const list = blocks[2];
     if (
-      list === null ||
-      Array.isArray(list) ||
-      typeof list !== "object" ||
-      !Array.isArray(list.content)
+      !isUnknownRecord(list) ||
+      !isUnknownArray(list.content)
     ) {
       throw new Error("Expected list content");
     }
     const item = list.content[0];
     if (
-      item === null ||
-      Array.isArray(item) ||
-      typeof item !== "object" ||
-      !Array.isArray(item.content)
+      !isUnknownRecord(item) ||
+      !isUnknownArray(item.content)
     ) {
       throw new Error("Expected list item content");
     }
     const paragraph = item.content[0];
-    if (paragraph === null || Array.isArray(paragraph) || typeof paragraph !== "object") {
+    if (!isUnknownRecord(paragraph)) {
       throw new Error("Expected nested paragraph");
     }
     paragraph.attrs = { nodeId: "01000000-0000-4000-8000-000000000001" };
@@ -384,7 +392,7 @@ describe("MaterialBodyOperations", () => {
     });
     expect(blocks?.[2]).toMatchObject({
       type: "paragraph",
-      attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+      attrs: { nodeId: stringMatching(/^[0-9a-f-]{36}$/) },
       content: [{ type: "text", text: "Новый блок" }],
     });
   });
@@ -450,15 +458,13 @@ describe("MaterialBodyOperations", () => {
       throw new Error(result.error.issues[0]?.code);
     }
     const content = result.value.doc.content;
-    if (!Array.isArray(content)) {
+    if (!isUnknownArray(content)) {
       throw new Error("Expected document content");
     }
     const list = content[0];
     const item =
-      list !== null &&
-      typeof list === "object" &&
-      !Array.isArray(list) &&
-      Array.isArray(list.content)
+      isUnknownRecord(list) &&
+      isUnknownArray(list.content)
         ? list.content[0]
         : undefined;
     expect(item).toMatchObject({
@@ -468,7 +474,7 @@ describe("MaterialBodyOperations", () => {
           content: [{ type: "text", text: "Primary" }],
         },
         {
-          attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+          attrs: { nodeId: stringMatching(/^[0-9a-f-]{36}$/) },
           content: [{ type: "text", text: "Inserted" }],
         },
       ],
@@ -508,10 +514,10 @@ describe("MaterialBodyOperations", () => {
         doc: {
           content: [
             {
-              attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+              attrs: { nodeId: stringMatching(/^[0-9a-f-]{36}$/) },
               content: [
                 {
-                  attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+                  attrs: { nodeId: stringMatching(/^[0-9a-f-]{36}$/) },
                 },
               ],
             },
