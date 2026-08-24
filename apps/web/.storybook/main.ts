@@ -6,10 +6,18 @@ const config: StorybookConfig = {
     "@storybook/addon-vitest",
     "@storybook/addon-a11y",
     "@storybook/addon-docs",
+    {
+      name: "@storybook/addon-mcp",
+      options: {
+        endpoint: "/mcp",
+      },
+    },
   ],
   framework: "@storybook/nextjs-vite",
   typescript: {
-    reactDocgen: "react-docgen",
+    // Accurate prop extraction is worth the extra dev-time work because the MCP
+    // manifest is a public interface for both human and AI consumers.
+    reactDocgen: "react-docgen-typescript",
   },
 };
 
