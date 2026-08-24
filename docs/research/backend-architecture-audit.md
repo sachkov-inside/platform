@@ -244,7 +244,7 @@ Evidence:
   публично объявляет structural `MaterialDocumentV1 { schemaVersion: 1; doc: JsonObject }`.
 - [`MaterialRevisionMetadata`](../../apps/backend/src/modules/materials/domain/material-revision-metadata.ts)
   — реальный immutable value object с runtime Zod parse и `revise`; напротив,
-  [`Material`](../../apps/backend/src/modules/materials/domain/material.ts) — interface с почти
+  [`Material`](https://github.com/sachkov-inside/platform/blob/1d099a0842077319b9b23e91ed5b0ce1858b0c82/apps/backend/src/modules/materials/domain/material.ts) — interface с почти
   пустыми restore/freezing functions.
 - Backend `tsconfig` включает `strict` и `noUncheckedIndexedAccess`, но
   [`eslint.config.mjs`](../../eslint.config.mjs) применяет `strictTypeChecked` только к web, не к
