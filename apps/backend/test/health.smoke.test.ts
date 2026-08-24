@@ -1,6 +1,7 @@
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { loadPlatformConfig } from "../src/config/load-platform-config.js";
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
 
 describe("API health smoke", () => {
@@ -11,7 +12,7 @@ describe("API health smoke", () => {
   });
 
   it("boots the API and reaches local PostgreSQL", async () => {
-    app = await createApiApplication({ logger: false });
+    app = await createApiApplication(loadPlatformConfig(), { logger: false });
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
 

@@ -1,15 +1,25 @@
 import { Module } from "@nestjs/common";
+import { sql } from "kysely";
 
-import { readDatabaseConfig } from "../../config/database.js";
-import { DATABASE_PROBE } from "./database-probe.js";
-import { PostgresProbe } from "./postgres-probe.js";
+import {
+  PLATFORM_DATABASE,
+  PostgresModule,
+  type PlatformDatabase,
+} from "../../infrastructure/postgres/index.js";
+import { DATABASE_PROBE, type DatabaseProbe } from "./database-probe.js";
 import { ReadinessService } from "./readiness.service.js";
 
 @Module({
+  imports: [PostgresModule],
   providers: [
     {
       provide: DATABASE_PROBE,
-      useFactory: () => new PostgresProbe(readDatabaseConfig().url),
+      inject: [PLATFORM_DATABASE],
+      useFactory: (database: PlatformDatabase): DatabaseProbe => ({
+        async ping(): Promise<void> {
+          await sql`select 1`.execute(database);
+        },
+      }),
     },
     ReadinessService,
   ],

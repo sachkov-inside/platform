@@ -1,21 +1,27 @@
-import { NestFactory } from "@nestjs/core";
-
+import type { PlatformConfig } from "../config/platform-config.js";
 import {
   type RuntimeProcess,
   ReadinessService,
 } from "../modules/readiness/readiness.service.js";
-import { RuntimeModule } from "./runtime.module.js";
+import { createRuntimeApplication } from "./create-runtime-application.js";
 
-export async function runRuntimeProcess(processName: RuntimeProcess): Promise<void> {
-  const app = await NestFactory.createApplicationContext(RuntimeModule);
-  const readiness = app.get(ReadinessService);
-  const report = await readiness.check(processName);
+export async function runRuntimeProcess(
+  processName: RuntimeProcess,
+  config: PlatformConfig,
+): Promise<void> {
+  const app = await createRuntimeApplication(config);
 
-  console.info(JSON.stringify(report));
+  try {
+    const readiness = app.get(ReadinessService);
+    const report = await readiness.check(processName);
 
-  await new Promise<void>((resolve) => {
-    process.once("SIGINT", resolve);
-    process.once("SIGTERM", resolve);
-  });
-  await app.close();
+    console.info(JSON.stringify(report));
+
+    await new Promise<void>((resolve) => {
+      process.once("SIGINT", resolve);
+      process.once("SIGTERM", resolve);
+    });
+  } finally {
+    await app.close();
+  }
 }
