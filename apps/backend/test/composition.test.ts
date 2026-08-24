@@ -9,7 +9,10 @@ import {
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
 import { OperationalReadiness } from "../src/infrastructure/operational-readiness.js";
-import { PLATFORM_DATABASE } from "../src/infrastructure/postgres/index.js";
+import {
+  PLATFORM_DATABASE,
+  type PlatformDatabase,
+} from "../src/infrastructure/postgres/index.js";
 
 const config = parsePlatformConfig({
   NODE_ENV: "test",
@@ -28,8 +31,8 @@ describe("backend process composition", () => {
     application = api;
 
     expect(api.get(PLATFORM_CONFIG)).toBe(config);
-    const database = api.get(PLATFORM_DATABASE);
-    expect(api.get(PLATFORM_DATABASE)).toBe(database);
+    const database = api.get<PlatformDatabase>(PLATFORM_DATABASE);
+    expect(api.get<PlatformDatabase>(PLATFORM_DATABASE)).toBe(database);
     expect(api.get(OperationalReadiness)).toBeInstanceOf(OperationalReadiness);
 
     const destroy = vi.spyOn(database, "destroy");
@@ -44,8 +47,8 @@ describe("backend process composition", () => {
     application = mcp;
 
     expect(mcp.get(PLATFORM_CONFIG)).toBe(config);
-    const database = mcp.get(PLATFORM_DATABASE);
-    expect(mcp.get(PLATFORM_DATABASE)).toBe(database);
+    const database = mcp.get<PlatformDatabase>(PLATFORM_DATABASE);
+    expect(mcp.get<PlatformDatabase>(PLATFORM_DATABASE)).toBe(database);
     expect(mcp.get(OperationalReadiness)).toBeInstanceOf(
       OperationalReadiness,
     );
@@ -64,7 +67,7 @@ describe("backend process composition", () => {
     application = api;
     await api.init();
     await api.getHttpAdapter().getInstance().ready();
-    const database = api.get(PLATFORM_DATABASE);
+    const database = api.get<PlatformDatabase>(PLATFORM_DATABASE);
     const getExecutor = vi.spyOn(database, "getExecutor");
 
     const response = await api.getHttpAdapter().getInstance().inject({

@@ -64,6 +64,23 @@ const metadataSchema = z
   .strict();
 const metadataChangesSchema = metadataSchema.partial().strict();
 
+function exactMetadataChanges(
+  changes: z.infer<typeof metadataChangesSchema>,
+): MaterialRevisionMetadataChangeValues {
+  return {
+    ...(changes.title === undefined ? {} : { title: changes.title }),
+    ...(changes.summary === undefined ? {} : { summary: changes.summary }),
+    ...(changes.slug === undefined ? {} : { slug: changes.slug }),
+    ...(changes.access === undefined ? {} : { access: changes.access }),
+    ...(changes.topicId === undefined ? {} : { topicId: changes.topicId }),
+    ...(changes.formatId === undefined ? {} : { formatId: changes.formatId }),
+    ...(changes.tagIds === undefined ? {} : { tagIds: changes.tagIds }),
+    ...(changes.seriesMemberships === undefined
+      ? {}
+      : { seriesMemberships: changes.seriesMemberships }),
+  };
+}
+
 function invalidMetadata(error: z.ZodError): {
   readonly ok: false;
   readonly error: MaterialMetadataValidationError;
@@ -147,9 +164,23 @@ export class MaterialRevisionMetadata {
 
   static validateChanges(input: unknown): MaterialRevisionMetadataChangesResult {
     const parsed = metadataChangesSchema.safeParse(input);
-    return parsed.success
-      ? { ok: true, value: parsed.data }
-      : invalidMetadata(parsed.error);
+    if (!parsed.success) {
+      return invalidMetadata(parsed.error);
+    }
+    const explicitUndefinedIssues = Object.entries(parsed.data)
+      .filter(([, value]) => value === undefined)
+      .map(([property]) => ({
+        code: "invalid_metadata",
+        path: `/${property}`,
+      }))
+      .sort((left, right) => left.path.localeCompare(right.path));
+    if (explicitUndefinedIssues.length > 0) {
+      return {
+        ok: false,
+        error: { code: "invalid_content", issues: explicitUndefinedIssues },
+      };
+    }
+    return { ok: true, value: exactMetadataChanges(parsed.data) };
   }
 
   revise(changes: unknown): MaterialRevisionMetadataResult {

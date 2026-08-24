@@ -4,7 +4,6 @@ import {
   createMaterials,
   type CreateDraftCommand,
   type LoadDraftQuery,
-  type ReviseDraftCommand,
 } from "../../src/modules/materials/index.js";
 import {
   fullRepresentativeDocument,
@@ -14,6 +13,7 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import { stringMatching } from "../support/matchers.js";
 
 const actor = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const topicId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -66,6 +66,8 @@ describe("MaterialAuthoring", () => {
     });
 
     expect(
+      // Deliberately cross the compile-time interface to prove runtime validation.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       await authoring.createDraft(null as unknown as CreateDraftCommand),
     ).toEqual({
       ok: false,
@@ -89,7 +91,7 @@ describe("MaterialAuthoring", () => {
           seriesMemberships: [],
         },
         body: {},
-      } as CreateDraftCommand),
+      }),
     ).toMatchObject({
       ok: false,
       error: {
@@ -100,6 +102,8 @@ describe("MaterialAuthoring", () => {
       },
     });
     expect(
+      // Deliberately cross the compile-time interface to prove runtime validation.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       await authoring.loadDraft(null as unknown as LoadDraftQuery),
     ).toEqual({
       ok: false,
@@ -148,7 +152,7 @@ describe("MaterialAuthoring", () => {
             },
           ],
         },
-      } as ReviseDraftCommand),
+      }),
     ).toMatchObject({
       ok: false,
       error: {
@@ -333,7 +337,7 @@ describe("MaterialAuthoring", () => {
       doc: {
         content: [
           {
-            attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+            attrs: { nodeId: stringMatching(/^[0-9a-f-]{36}$/) },
           },
         ],
       },
@@ -377,10 +381,10 @@ describe("MaterialAuthoring", () => {
       doc: {
         content: [
           {
-            attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+            attrs: { nodeId: stringMatching(/^[0-9a-f-]{36}$/) },
             content: [
               {
-                attrs: { nodeId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+                attrs: { nodeId: stringMatching(/^[0-9a-f-]{36}$/) },
               },
             ],
           },

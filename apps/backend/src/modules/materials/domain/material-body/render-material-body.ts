@@ -14,6 +14,10 @@ function isObject(value: JsonValue): value is JsonObject {
   return value !== null && !Array.isArray(value) && typeof value === "object";
 }
 
+function isArray(value: JsonValue | undefined): value is readonly JsonValue[] {
+  return Array.isArray(value);
+}
+
 function object(value: JsonValue | undefined, context: string): JsonObject {
   if (value === undefined || !isObject(value)) {
     throw new TypeError(`Expected ${context}`);
@@ -22,7 +26,7 @@ function object(value: JsonValue | undefined, context: string): JsonObject {
 }
 
 function array(value: JsonValue | undefined, context: string): readonly JsonValue[] {
-  if (!Array.isArray(value)) {
+  if (!isArray(value)) {
     throw new TypeError(`Expected ${context}`);
   }
   return value;

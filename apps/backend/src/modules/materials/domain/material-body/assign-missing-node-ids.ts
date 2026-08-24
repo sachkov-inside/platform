@@ -1,28 +1,27 @@
 import { randomUUID } from "node:crypto";
 
 import { addressableBlockTypes } from "./document-rules.js";
+import { isUnknownArray, isUnknownRecord } from "./json-guards.js";
 
 const addressableBlockTypeSet = new Set<string>(addressableBlockTypes);
 
 export function assignMissingNodeIds(value: unknown, stableRootNodeId?: string): void {
   function visit(candidate: unknown, root: boolean): void {
-    if (Array.isArray(candidate)) {
+    if (isUnknownArray(candidate)) {
       candidate.forEach((child) => visit(child, false));
       return;
     }
-    if (candidate === null || typeof candidate !== "object") {
+    if (!isUnknownRecord(candidate)) {
       return;
     }
-    const node = candidate as Record<string, unknown>;
+    const node = candidate;
     if (typeof node.type === "string" && addressableBlockTypeSet.has(node.type)) {
       if (node.attrs === undefined) {
         node.attrs = { nodeId: root ? stableRootNodeId ?? randomUUID() : randomUUID() };
       } else if (
-        node.attrs !== null &&
-        !Array.isArray(node.attrs) &&
-        typeof node.attrs === "object"
+        isUnknownRecord(node.attrs)
       ) {
-        const attributes = node.attrs as Record<string, unknown>;
+        const attributes = node.attrs;
         if (root && stableRootNodeId !== undefined) {
           attributes.nodeId = stableRootNodeId;
         } else if (attributes.nodeId === undefined || attributes.nodeId === null) {
@@ -30,7 +29,7 @@ export function assignMissingNodeIds(value: unknown, stableRootNodeId?: string):
         }
       }
     }
-    if (Array.isArray(node.content)) {
+    if (isUnknownArray(node.content)) {
       node.content.forEach((child) => visit(child, false));
     }
   }
