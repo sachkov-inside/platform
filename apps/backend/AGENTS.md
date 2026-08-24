@@ -3,8 +3,7 @@
 ## Role
 
 `apps/backend` is one NestJS modular monolith with thin `api`, `worker`, and `mcp` process
-entrypoints. Put behaviour behind capability interfaces; add a package, process, or deployable only
-when a separate operational seam has real consumers.
+entrypoints. Put behaviour behind capability interfaces.
 
 ## Module seams
 
@@ -28,8 +27,11 @@ scan and every negative fixture pass.
 - When changing the Materials interface, model, body codec, composition, or persistence, read
   [`docs/adr/0002-deep-materials-module.md`](../../docs/adr/0002-deep-materials-module.md) and the
   backend contract in [`docs/specifications/platform-v1.md`](../../docs/specifications/platform-v1.md).
-- When changing an entrypoint or process lifecycle, read
-  [`docs/adr/0001-one-backend-multiple-entrypoints.md`](../../docs/adr/0001-one-backend-multiple-entrypoints.md).
+- When changing an entrypoint or process lifecycle, or proposing another backend package, process,
+  or deployable, read
+  [`docs/adr/0001-one-backend-multiple-entrypoints.md`](../../docs/adr/0001-one-backend-multiple-entrypoints.md)
+  and the backend contract in
+  [`docs/specifications/platform-v1.md`](../../docs/specifications/platform-v1.md).
 - When changing migrations, generated database types, or local PostgreSQL workflows, follow
   [`docs/runbooks/local-development.md`](../../docs/runbooks/local-development.md). Frozen
   migrations stay self-contained; migration authors regenerate and commit database types.
