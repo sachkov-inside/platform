@@ -111,11 +111,22 @@ ProseMirror/Portable Text comparison stages нет. Если implementation вы
 owning PR фиксирует evidence и migration impact и предлагает smallest production change; два
 параллельных data или document path не поддерживаются.
 
-Identity choice остаётся provisional. Текущая application target — Logto OSS с email code,
-branded redirect, Next BFF и Nest JWT; Better Auth является fallback при провале UX/protocol proof.
-Provider не считается принятым только на основании этой specification: сначала нужны application
-proof и отдельное owner decision, а hard-to-reverse trade-off при необходимости фиксируется в
-Platform ADR.
+Owner выбрал Logto OSS как единственный application proof target; Better Auth исключён и не
+остаётся fallback. Target использует отдельные Logto deployable/database/migration authority,
+owner-maintained Experience UI fork и external email connector. Browser проходит authorization
+code flow со state + S256 PKCE без nonce; BFF хранит provider context server-side и предъявляет
+Nest Logto access JWT для exact Platform audience + opaque local sessionRef. Platform JWT и второй
+signing-key lifecycle не вводятся. Platform Session имеет absolute maximum 7 days без sliding
+extension; access JWT и recent re-auth fact — maximum 5 minutes. Different external identity с уже
+известным verified email даёт hard `identity_conflict`, не second Principal или merge.
+
+Нормативные application flow и proof gates находятся в
+[`idp-application-flow-v1.md`](idp-application-flow-v1.md), module interface — в
+[`identity-principals-session-v1.md`](identity-principals-session-v1.md).
+Этот выбор разрешает local application proof, но не объявляет Logto/fork production-ready:
+production infrastructure, key/secret custody, email deliverability и upgrade/restore evidence
+остаются отдельными gates. Application ADR создаётся после успешного proof, когда hard-to-reverse
+production trade-off подтверждён evidence, а не заранее для ещё недоказанной topology.
 
 ## Engineering organization and write contract
 
@@ -300,16 +311,29 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 
 ### Sign-in, Platform Account и Member Profile
 
-1. Identity Provider доказывает External Identity; `IdentityPrincipals` сопоставляет trusted
-   identity с ровно одним Principal, а Platform Session только переносит authenticated context к
-   последующей Platform authorization. Provider roles/claims не дают Membership content access.
-2. Human Principal управляет private Platform Account с identity/security, Telegram linking,
+1. Forked Logto Experience UI доказывает human External Identity через email-code authorization
+   code flow. Next BFF владеет state/S256 PKCE, callback и protected provider context; browser
+   JavaScript не получает token или sessionRef.
+2. На первом callback Nest валидирует один Logto access JWT, exact issuer/audience/time/subject и
+   Logto-signed `inside_verified_email`, затем `IdentityPrincipals.establishHumanSession` atomically сопоставляет
+   `(issuer, subject)` с ровно одним Principal. Повторный request предъявляет server-to-server
+   access JWT + sessionRef; Nest снова валидирует identity, а module — active matching session.
+   Provider roles/claims не дают Platform permissions или Membership content access.
+3. Human и service identity используют разные application commands/adapters. Human sign-in может
+   создать Principal; service Principal только pre-provisioned и не наследует human Account,
+   Profile, Membership или grants. Duplicate verified email другой identity даёт
+   `identity_conflict` до audited recovery.
+4. Sign-out немедленно уничтожает persisted BFF context, затем bounded best-effort завершает local
+   session и provider refresh/end-session. Re-auth использует новый `prompt=login` access JWT с
+   `inside_interactive_at` не старше 5 minutes и one-time attempt, заранее связанный с sessionRef;
+   refresh grant не получает этот claim и assurance не обновляет.
+5. Human Principal управляет private Platform Account с identity/security, Telegram linking,
    Membership и recovery states. Service Principal не получает human Platform Account, Member
    Profile или Membership.
-3. `AccountProfiles` хранит и авторизует Member Profile отдельно от Platform Account. Exact fields,
+6. `AccountProfiles` хранит и авторизует Member Profile отдельно от Platform Account. Exact fields,
    avatar, moderation и discoverability утверждаются в
    [#51](https://github.com/sachkov-inside/platform/issues/51) до production implementation.
-4. Только active member получает accepted Member Profile projection другого участника. Anonymous,
+7. Только active member получает accepted Member Profile projection другого участника. Anonymous,
    non-member и crawler не получают projection; email, Platform/Telegram internal identifiers,
    Telegram username, link/evidence и security/audit state никогда в неё не входят.
 
