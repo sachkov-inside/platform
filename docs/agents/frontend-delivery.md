@@ -3,6 +3,13 @@
 Use one production frontend in `apps/web`. Storybook is its executable UI review surface, not a
 second application or data path.
 
+## Review surface
+
+Use Agentation as the owner-feedback overlay during interactive browser and Storybook review. Keep
+it enabled while the owner reviews the UI; automated tests disable it only when the overlay would
+interfere with assertions. Review is complete when every annotation is resolved or represented by
+a linked follow-up issue.
+
 ## Delivery contract
 
 Every full-stack feature owns a small presentation interface. A server-only production adapter
@@ -24,8 +31,13 @@ Before implementing a surface, inspect the Storybook catalog and its MCP documen
    acceptance. Put one marker at the temporary module's interface, linking both issues; do not
    scatter TODO comments through its implementation.
 
+   Replace the placeholders below with the linked issue numbers:
+
    ```ts
-   /** Temporary semantic UI for #67; replace through #37 after Storybook acceptance. */
+   /**
+    * Temporary semantic UI for #FUNCTIONAL_ISSUE.
+    * Replace through #INTEGRATION_ISSUE after Storybook acceptance.
+    */
    ```
 
 4. Develop the missing visual module in Storybook through the same presentation interface. Once
@@ -40,13 +52,9 @@ needs the same responsibility and the shared interface is smaller than the dupli
 
 - A functional ticket may merge with temporary semantic UI when the real end-to-end behavior and
   tests pass; final visual acceptance is not a dependency for proving the feature path.
-- The owning Specification cannot be `Done` while a linked Storybook/integration ticket or a
-  temporary UI marker remains open.
-- Production imports no `.storybook`, `src/workshop`, stories, or fixture modules. Enforce this
-  through import checks and the production build.
-- Storybook fixtures describe representative presentation states only. They never reproduce
-  application rules or become a production fallback.
-
-Current examples: Material Reader uses functional ticket #67 followed by integration ticket #37;
-Library uses its functional delivery after #28 followed by #39; Authoring/Preview uses its
-functional delivery followed by #38.
+- The owning Specification becomes `Done` only after every linked Storybook/integration ticket is
+  closed and every temporary UI marker is removed.
+- Import checks and the production build confirm that `.storybook`, `src/workshop`, stories, and
+  fixture modules stay outside the production dependency graph.
+- Storybook fixtures contain representative presentation states only; application rules and
+  production fallback behavior remain behind production adapters.
