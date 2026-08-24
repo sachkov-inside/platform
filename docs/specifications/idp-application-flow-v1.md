@@ -1,4 +1,4 @@
-# IdP application flow proof
+# IdP application flow specification v1
 
 Статус: owner утвердил Logto OSS application flow и proof gates: отдельная IdP topology, fork
 Logto Experience UI, state + S256 PKCE без nonce, balanced lifetime profile 7d/5m/5m и blocked
@@ -9,9 +9,9 @@ equal-email conflict; Better Auth исключён,
 gates для будущего implementation ticket
 [Platform #49](https://github.com/sachkov-inside/platform/issues/49). Это не ADR, не production
 implementation и не production operational acceptance. Provider direction, UX ownership, nonce
-policy, lifetime contract, target topology, identity-conflict policy и итоговый protocol brief
-подтверждены. Это разрешает совместную implementation decomposition #49, но не production deploy,
-merge или autonomous implementation.
+policy, lifetime contract, target topology, identity-conflict policy и итоговый protocol contract
+подтверждены. Production code первого #49 slice, credentials, deploy и merge остаются отдельными
+owner gates.
 
 ## 1. Authority, результат и граница
 
@@ -19,15 +19,15 @@ merge или autonomous implementation.
 
 - [Platform MVP brief](../product/platform-mvp-brief.md) требует email sign-in, private Platform
   Account и связь с Telegram Membership.
-- [Platform v1 specification](../specifications/platform-v1.md) первоначально оставляла identity
+- [Platform v1 specification](platform-v1.md) первоначально оставляла identity
   choice provisional. Owner decision 2026-08-24: Logto OSS является единственным proof target;
   Better Auth не остаётся fallback.
 - [Platform #48](https://github.com/sachkov-inside/platform/issues/48) задаёт границу: IdP
   authenticates, Platform authorizes; provider roles/claims не дают Membership или content access.
 - [`CONTEXT.md`](../../CONTEXT.md) определяет `External Identity`, `Principal` и `Platform Session`.
   `Platform Session` — application term, а не имя Logto session, grant или SDK cookie.
-- #82 исследует и формулирует owner choice. Production code, credentials, IdP deployment,
-  Platform persistence и merge не входят в scope.
+- #82 сформулировал и зафиксировал owner choice. Production code, credentials, IdP deployment и
+  Platform persistence входят только в последующие implementation/infrastructure tickets.
 
 ### Проверяемый результат
 
@@ -159,9 +159,9 @@ production-accepted provider: infrastructure proof и release gates ниже в�
   у разных `issuer + subject` не merge-ит и не transfer-ит Principal.
 - BFF владеет browser redirect, transient protocol state, provider tokens и secure cookie. Browser
   JavaScript не получает refresh token или Platform API bearer token.
-- Nest token adapter проверяет cryptography и protocol claims и передаёт application только
-  provider-neutral `VerifiedExternalIdentity`. Provider roles/scopes/email не превращаются в
-  `Subject` permissions.
+- Nest token adapter проверяет cryptography и protocol claims и строит только соответствующий
+  typed verified identity value. Provider roles/scopes/email не превращаются в `Subject`
+  permissions.
 - Application mapping проверяет local Principal state. Disabled Principal не становится
   authenticated application `Subject` даже с валидным provider JWT.
 - Human и service Principal разрешаются разными application commands/ports. M2M `sub` нельзя
@@ -233,6 +233,15 @@ production-accepted provider: infrastructure proof и release gates ниже в�
 - Официальный Nest guide использует `jose`, remote JWKS, exact issuer и explicit audience checks
   ([Nest guide](https://docs.logto.io/api-protection/nodejs/nestjs)). Его RBAC examples не являются
   Platform permission model.
+- Logto OSS позволяет trusted operator добавить private claims в user access token через
+  `getCustomJwtClaims`; result сливается с payload и подписывается как один access JWT
+  ([custom access token](https://docs.logto.io/developers/custom-token-claims),
+  [script context](https://docs.logto.io/developers/custom-token-claims/create-script)). Platform
+  использует только `inside_verified_email` и `inside_interactive_at`: оба выдаются лишь при direct
+  authorization-code issuance с matching newly submitted verified interaction; interactive time
+  создаётся trusted script рядом с final JWT `iat`. Refresh grant и silent SSO continuation не
+  получают interactive claim. Это сохраняет BFF → Nest presentation ровно как Platform-audience
+  access JWT + opaque local sessionRef.
 - API resource access-token TTL настраивается в seconds; default — 3600 seconds
   ([RBAC API resource properties](https://docs.logto.io/authorization/role-based-access-control#api-resources)).
 - Logto различает central sign-in session, app grant и app-local session/tokens. Default central
@@ -348,7 +357,7 @@ Owner исключил Better Auth из #49. Раздел сохраняет с�
 | Branding | Logo/color/CSS; full UI/hide mark ограничены в OSS | Полностью application-owned page | Branding остаётся Logto owner gate, но не включает автоматический fallback |
 | Callback defense | Authorization code + state + S256 PKCE; researched snapshot без nonce | Email OTP не имеет OAuth callback | Сравнивать `nonce passed` нельзя; сначала owner выбирает security policy/topology |
 | BFF state | Encrypted token cookie, optional external wrapper | Opaque session cookie + server session row | Оба скрывают durable credential от browser JS; expiry/refresh различаются |
-| Nest boundary | OIDC issuer/JWKS/resource audience JWT | JWT plugin issuer/JWKS/audience JWT | Один provider-neutral Nest verifier port может иметь два contract-tested adapters |
+| Nest interface | OIDC issuer/JWKS/resource audience JWT | JWT plugin issuer/JWKS/audience JWT | Один provider-neutral Nest verifier port может иметь два contract-tested adapters |
 | Stable mapping | OIDC `issuer + sub` | Explicit JWT issuer + Better Auth user ID `sub` | Platform unique key одинаков для обоих; email всегда attribute |
 | Logout | Local clear + refresh revoke + end-session; JWT residual до exp | Session revoke/local cookie clear; JWT residual до exp | Local disable и short TTL нужны независимо от provider |
 | Upgrade authority | Logto CLI alterations в отдельной IdP DB | Checked-in Platform migration generated from plugin schema | Нельзя смешивать две migration authorities в одной schema |
@@ -372,10 +381,12 @@ Logto OSS выбран, Better Auth исключён.
 5. Для Nest BFF получает JWT точно для Platform API resource и посылает его в `Authorization:
    Bearer` server-to-server.
 6. Nest allowlist-ит algorithm, проверяет JWKS signature, exact issuer, exact audience, `exp` и
-   non-empty `sub`; затем создаёт `VerifiedExternalIdentity { issuer, subject }` без role/scope.
-7. `IdentityPrincipals.resolveHuman` в одной transaction либо создаёт один Principal + External
-   Identity, либо возвращает существующий. Только после local active-state check adapter выдаёт
-   application `Subject`.
+   non-empty `sub`; для первого human sign-in он также требует Logto-signed
+   `inside_verified_email` и валидный `inside_interactive_at`, затем строит `VerifiedHumanSignIn` без
+   role/scope.
+7. `IdentityPrincipals.establishHumanSession` в одной transaction либо создаёт один Principal +
+   External Identity, либо возвращает существующий. Только после local active-state check adapter
+   выдаёт application `TrustedSubject` и opaque sessionRef.
 
 Шаги 1–4 опираются на Logto SDK behavior, а 5–7 — на repository-owned application contract. Они не
 утверждают, что provider token сам является Platform authorization.
@@ -403,7 +414,9 @@ Logto OSS выбран, Better Auth исключён.
 - Disabled local Principal блокируется после cryptographic token validation и до любого use case.
   Это даёт немедленный Platform deny независимо от provider outage/JWT residual window.
 - Sensitive future action начинает новую authorization request с `prompt=login`; успешный result
-  даёт bounded re-auth fact, но не новую роль.
+  даёт новый Platform-audience JWT с `inside_interactive_at`, который принимается только вместе с
+  one-time Platform attempt, заранее связанным с текущей sessionRef и state/PKCE transaction.
+  Refresh grant не получает interactive claim и не повышает assurance.
 
 ### Provider outage matrix
 
@@ -454,11 +467,11 @@ UX gate дополняет, но не заменяет automated assertions.
 
 | ID | Setup/action | Pass condition |
 |---|---|---|
-| C1 | Request Platform resource token after email sign-in without Platform business roles in IdP | JWT is issued for exact API audience. If Logto requires provider roles that become Platform authority, target fails |
-| C2 | Verify valid JWT in Nest with warm JWKS | Adapter emits only `{issuer, subject, principalKindHint}`; scopes/roles/email are not permissions and do not enter domain interface |
+| C1 | Request Platform resource token after verified email sign-in without Platform business roles in IdP | JWT is issued for exact API audience and contains only built-ins plus `inside_verified_email` and `inside_interactive_at`; custom script source is versioned and Logto roles never become Platform authority |
+| C2 | Verify valid JWT in Nest with warm JWKS | Sign-in adapter emits `VerifiedHumanSignIn`; ordinary request emits `VerifiedHumanSessionIdentity`. Email is used only as changeable conflict observation, while scopes/roles never become permissions |
 | C3 | Mutate signature, `alg`, issuer, audience, expiry/not-before and remove subject | Each token fails closed; accepted algorithms are explicit; ID token and token for another resource are rejected as API bearer |
 | C4 | Sign first valid human token and call mapping concurrently N times | Exactly one Principal and one External Identity exist; every successful call returns the same Principal ID |
-| C5 | Sign in again with same issuer/subject after changing email claim | Same Principal is returned; mutable email cannot alter identity key |
+| C5 | Sign in again with same issuer/subject after changing `inside_verified_email` | Same Principal is returned; mutable email cannot alter identity key |
 | C6 | Use deterministic fake tokens with different subjects and equal email | `identity_conflict`; no second authenticated Subject, Principal creation, merge or transfer; audited recovery is the only future resolution path |
 | C7 | Disable local Principal, retain valid provider token | Nest verifies identity but application returns disabled deny and never emits authenticated `Subject` |
 | C8 | Present M2M token whose `sub` is app ID | Human resolver rejects it; explicit service resolver maps only pre-provisioned service Principal and permissions |
@@ -476,7 +489,7 @@ UX gate дополняет, но не заменяет automated assertions.
 | D6 | Stop Logto before login, during exchange and during refresh | Outcomes match outage matrix; no partial Principal/session or duplicate on recovery |
 | D7 | Stop issuer with cold JWKS, then present known and unknown `kid` tokens | Both fail closed without a key; response distinguishes dependency outage where safe but never allows |
 | D8 | Rotate signing key with overlap/grace and refresh JWKS | New `kid` triggers bounded JWKS refresh; old unexpired token works only through declared overlap; unknown key never falls back to another algorithm |
-| D9 | Force re-auth with `prompt=login` while provider SSO exists | Credential/code challenge appears and result creates a bounded re-auth fact without changing Principal/permissions |
+| D9 | Keep session A stale; try authorization without `prompt=login`; re-auth session B; refresh A; then run `prompt=login` for A | Silent authorization, B re-auth and A refresh do not raise A assurance and carry no acceptable `inside_interactive_at`; only A's bound one-time attempt plus fresh interactive authorization-code JWT raises A without changing Principal/permissions |
 | D10 | Exercise Next RSC after token expiry under load | No refresh-per-render storm: mutation-capable refresh or approved external session wrapper persists the new token |
 
 ### E. Self-hosted lifecycle
@@ -518,9 +531,10 @@ Owner decisions в scope #82 подтверждены 2026-08-24. Future infrast
 implementation/merge gate остаются отдельными решениями; #49 начинается только с согласованного
 первого slice.
 
-## 11. Stopping rule
+## 11. Implementation gate
 
-#82 is complete when this research PR passes review and owner merge GO. #49 может перейти к
-совместной decomposition; production code начинается только после согласования первого slice.
-Logto всё ещё не production-ready до прохождения local proof gates и future infrastructure
-acceptance.
+#49 production code начинается только после отдельного owner GO на этот contract и первый thin
+end-to-end slice. Logto остаётся не production-ready до прохождения local proof gates и future
+infrastructure acceptance. Если pinned Logto OSS не может
+детерминированно выдать описанные minimal custom access-token claims, seam не расширяется ID token
+или BFF assertion-ом: proof останавливается и возвращает решение owner.
