@@ -19,11 +19,23 @@ The issue holds discussion and execution history; record confirmed durable knowl
 versioned document. When connected, GitHub Project remains a projection over issues and pull
 requests.
 
-## Tracker
+## Trackers
 
-Use the organization-level [Inside project](https://github.com/orgs/sachkov-inside/projects/1) as
-the shared view. Keep requirements, discussion, and execution history in the owning repository
-issue.
+Use two organization-level Projects with different responsibilities:
+
+- [Inside — Human Backlog](https://github.com/orgs/sachkov-inside/projects/2) contains owner-facing
+  goals, epics, features, bugs, and chores written in plain language. These are Workspace issues
+  labelled `backlog:human`; they describe the desired outcome and do not duplicate agent execution
+  details.
+- [Inside — Developer Pipeline](https://github.com/orgs/sachkov-inside/projects/1) contains
+  repository-owned delivery issues and pull requests. It is the agent execution projection over
+  Initiatives, Specifications, Tickets, dependencies, claims, status, and linked pull requests.
+
+One issue belongs to one Project. A Human Backlog item stays owner-facing while an agent creates or
+links the repository-owned Specification and Tickets that deliver it. Keep requirements,
+discussion, and execution history in the owning issue; cross-link the human outcome and delivery
+track instead of copying their bodies. Removing `backlog:human` is only a classification repair;
+promotion never removes the label or moves the human item.
 
 `Status` records delivery state:
 
@@ -49,9 +61,10 @@ does not replace that relation. The `Current` view contains issues only and show
 through `Linked pull requests`. Within each status column, keep the manual order `Initiative`,
 `Specification`, then `Ticket`.
 
-Repository workflows add new and reopened issues and pull requests to the Project. Set `Area` and
-`Priority` and `Level` during triage, move `Status` with the work, and treat the repository issue or
-pull request state as authoritative when it conflicts with the Project.
+Repository workflows add new and reopened delivery issues and pull requests to Developer Pipeline.
+The Workspace workflow routes `backlog:human` issues only to Human Backlog. Set `Area`, `Priority`,
+and `Level` during delivery triage, move `Status` with the work, and treat the repository issue or
+pull request state as authoritative when it conflicts with a Project.
 
 ## Issues, branches, and pull requests
 
