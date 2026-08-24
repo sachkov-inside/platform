@@ -102,7 +102,9 @@ export const SidebarExpanded: Story = {
 
       await expect(pageScrollRange).toBeLessThanOrEqual(1);
       await expect(mainScrollRange).toBeGreaterThan(100);
-      await expect(main.scrollTop).toBeCloseTo(mainScrollRange, 0);
+      await waitFor(async () => {
+        await expect(main.scrollTop).toBeCloseTo(mainScrollRange, 0);
+      });
       await expect(Math.max(...viewportGaps) - Math.min(...viewportGaps)).toBeLessThan(4);
       await expect(Math.max(...sidebarTops) - Math.min(...sidebarTops)).toBeLessThan(1);
       await expect(
