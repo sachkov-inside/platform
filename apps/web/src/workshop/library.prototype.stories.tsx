@@ -21,16 +21,6 @@ import {
   SelectValue,
 } from "@/shared/ui/select";
 import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/shared/ui/sheet";
-import {
   ApplicationShell,
   type ApplicationNavigationItem,
 } from "@/widgets/application-shell";
@@ -43,7 +33,6 @@ import {
 import { LibraryFilters } from "@/workshop/library-filters.prototype";
 
 type SortOrder = "relevance" | "title";
-type FilterPresentation = "inline" | "sheet";
 
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
@@ -71,11 +60,7 @@ const librarySeries = [
   ).values(),
 ] satisfies readonly MaterialSeriesFixture[];
 
-function LibraryBoard({
-  filterPresentation = "sheet",
-}: {
-  readonly filterPresentation?: FilterPresentation;
-}) {
+function LibraryBoard() {
   const [query, setQuery] = useState("");
   const [selectedFormats, setSelectedFormats] = useState<readonly string[]>([]);
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
@@ -174,43 +159,31 @@ function LibraryBoard({
               query={query}
               setQuery={setQuery}
             />
-            {filterPresentation === "sheet" ? (
-              <FilterSheet
-                activeFilterCount={activeFilterCount}
-                onReset={resetFilters}
-                resultCount={filteredMaterials.length}
-                selectedFormats={selectedFormats}
-                selectedTags={selectedTags}
-                setSelectedFormats={setSelectedFormats}
-                setSelectedTags={setSelectedTags}
-              />
-            ) : (
-              <Button
-                aria-controls="library-inline-filters"
-                aria-expanded={inlineFiltersExpanded}
-                aria-label={
-                  activeFilterCount > 0
-                    ? `Фильтры, выбрано ${String(activeFilterCount)}`
-                    : "Фильтры"
-                }
-                className="min-h-11 justify-center bg-card px-3 @min-[40rem]/library:min-h-10 @min-[40rem]/library:min-w-36"
-                onClick={() => {
-                  setInlineFiltersExpanded((current) => !current);
-                }}
-                variant="outline"
-              >
-                <SlidersHorizontal aria-hidden="true" className="size-4" />
-                <span>Фильтры</span>
-                {activeFilterCount > 0 ? (
-                  <span className="ml-auto grid size-5 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-accent-foreground">
-                    {activeFilterCount}
-                  </span>
-                ) : null}
-              </Button>
-            )}
+            <Button
+              aria-controls="library-inline-filters"
+              aria-expanded={inlineFiltersExpanded}
+              aria-label={
+                activeFilterCount > 0
+                  ? `Фильтры, выбрано ${String(activeFilterCount)}`
+                  : "Фильтры"
+              }
+              className="min-h-11 justify-center bg-card px-3 @min-[40rem]/library:min-h-10 @min-[40rem]/library:min-w-36"
+              onClick={() => {
+                setInlineFiltersExpanded((current) => !current);
+              }}
+              variant="outline"
+            >
+              <SlidersHorizontal aria-hidden="true" className="size-4" />
+              <span>Фильтры</span>
+              {activeFilterCount > 0 ? (
+                <span className="ml-auto grid size-5 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-accent-foreground">
+                  {activeFilterCount}
+                </span>
+              ) : null}
+            </Button>
           </div>
 
-          {filterPresentation === "inline" && inlineFiltersExpanded ? (
+          {inlineFiltersExpanded ? (
             <div
               className="mt-3 rounded-xl bg-muted/55 p-4 @min-[52rem]/library:hidden"
               id="library-inline-filters"
@@ -534,89 +507,6 @@ function DesktopFilters({
   );
 }
 
-function FilterSheet({
-  activeFilterCount,
-  onReset,
-  resultCount,
-  selectedFormats,
-  selectedTags,
-  setSelectedFormats,
-  setSelectedTags,
-}: FilterProps & {
-  readonly activeFilterCount: number;
-  readonly onReset: () => void;
-  readonly resultCount: number;
-}) {
-  return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button
-          aria-label={
-            activeFilterCount > 0
-              ? `Фильтры, выбрано ${String(activeFilterCount)}`
-              : "Фильтры"
-          }
-          className="min-h-11 w-full justify-center bg-card px-3 @min-[40rem]/library:min-h-10 @min-[40rem]/library:min-w-36"
-          variant="outline"
-        >
-          <SlidersHorizontal aria-hidden="true" className="size-4" />
-          <span>Фильтры</span>
-          {activeFilterCount > 0 ? (
-            <span className="ml-auto grid size-5 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-accent-foreground">
-              {activeFilterCount}
-            </span>
-          ) : null}
-        </Button>
-      </SheetTrigger>
-      <SheetContent
-        className="max-h-[min(88svh,40rem)] gap-0 overflow-hidden rounded-t-3xl border-border"
-        showCloseButton={false}
-        side="bottom"
-      >
-        <SheetHeader className="relative border-b border-border px-5 pb-4 pt-5">
-          <SheetTitle className="text-lg font-semibold tracking-[-0.02em]">Фильтры</SheetTitle>
-          <SheetDescription>Форматы и теги из текущей Library fixture.</SheetDescription>
-          <SheetClose asChild>
-            <Button
-              aria-label="Закрыть фильтры"
-              className="absolute right-3 top-3 size-11"
-              size="icon"
-              variant="ghost"
-            >
-              <X aria-hidden="true" className="size-4" />
-            </Button>
-          </SheetClose>
-        </SheetHeader>
-        <div className="overflow-y-auto px-5 py-4 overscroll-contain">
-          <LibraryFilters
-            formatOptions={filterOptions.formats}
-            selectedFormats={selectedFormats}
-            selectedTags={selectedTags}
-            setSelectedFormats={setSelectedFormats}
-            setSelectedTags={setSelectedTags}
-            tagOptions={filterOptions.tags}
-          />
-        </div>
-        <SheetFooter className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 border-t border-border px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-          <Button
-            className="min-h-11 px-4"
-            disabled={activeFilterCount === 0}
-            onClick={onReset}
-            variant="ghost"
-          >
-            Сбросить
-          </Button>
-          <SheetClose asChild>
-            <Button className="min-h-11 px-4">
-              Показать {formatMaterialCount(resultCount)}
-            </Button>
-          </SheetClose>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
 function SortControl({
   setSortOrder,
   sortOrder,
@@ -719,7 +609,6 @@ export const Mobile: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const storyBody = within(canvasElement.ownerDocument.body);
 
     await expect(canvas.getByRole("heading", { name: "Библиотека" })).toBeInTheDocument();
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
@@ -754,12 +643,11 @@ export const Mobile: Story = {
     await expect(canvas.getByRole("heading", { name: "Ничего не найдено" })).toBeInTheDocument();
     await userEvent.clear(searchInput);
 
-    await userEvent.click(canvas.getByRole("button", { name: "Фильтры" }));
-    const filtersDialog = storyBody.getByRole("dialog", { name: "Фильтры" });
-    await userEvent.click(within(filtersDialog).getByRole("checkbox", { name: "Видео" }));
-    await userEvent.click(
-      within(filtersDialog).getByRole("button", { name: "Показать 2 материала" }),
-    );
+    const filterTrigger = canvas.getByRole("button", { name: "Фильтры" });
+    await userEvent.click(filterTrigger);
+    await expect(filterTrigger).toHaveAttribute("aria-expanded", "true");
+    const inlineFilters = canvas.getByRole("region", { name: "Фильтры библиотеки" });
+    await userEvent.click(within(inlineFilters).getByRole("checkbox", { name: "Видео" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(2);
 
     await waitFor(async () => {
@@ -767,12 +655,10 @@ export const Mobile: Story = {
         canvas.getByRole("button", { name: "Фильтры, выбрано 1" }),
       ).toBeInTheDocument();
     });
-    await userEvent.click(canvas.getByRole("button", { name: "Фильтры, выбрано 1" }));
-    const reopenedFiltersDialog = storyBody.getByRole("dialog", { name: "Фильтры" });
-    await userEvent.click(within(reopenedFiltersDialog).getByRole("button", { name: "Сбросить" }));
-    await userEvent.click(
-      within(reopenedFiltersDialog).getByRole("button", { name: "Показать 3 материала" }),
-    );
+    await userEvent.click(within(inlineFilters).getByRole("checkbox", { name: "Видео" }));
+    await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
+    await userEvent.click(canvas.getByRole("button", { name: "Фильтры" }));
+    await expect(canvas.queryByRole("region", { name: "Фильтры библиотеки" })).not.toBeInTheDocument();
     await waitFor(async () => {
       await expect(canvas.getByRole("heading", { name: "Библиотека" })).toBeInTheDocument();
     });
@@ -782,9 +668,6 @@ export const Mobile: Story = {
 };
 
 export const NarrowDesktop: Story = {
-  args: {
-    filterPresentation: "inline",
-  },
   name: "Narrow desktop · inline filters",
   globals: {
     viewport: {
@@ -814,25 +697,6 @@ export const NarrowDesktop: Story = {
     await expect(
       canvas.getByRole("button", { name: "Убрать тег: agent skills" }),
     ).toBeInTheDocument();
-  },
-};
-
-export const NarrowDesktopSheet: Story = {
-  name: "Narrow desktop · sheet filters",
-  globals: {
-    viewport: {
-      isRotated: false,
-      value: "desktop1036",
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const storyBody = within(canvasElement.ownerDocument.body);
-
-    await userEvent.click(canvas.getByRole("button", { name: "Фильтры" }));
-    const filtersDialog = storyBody.getByRole("dialog", { name: "Фильтры" });
-    await expect(filtersDialog).toBeInTheDocument();
-    await userEvent.click(within(filtersDialog).getByRole("button", { name: "Закрыть фильтры" }));
   },
 };
 

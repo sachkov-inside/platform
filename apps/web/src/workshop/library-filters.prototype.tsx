@@ -143,8 +143,9 @@ export function TagPicker({
         />
         <input
           className={cn(
-            "w-full rounded-xl border border-input bg-background pl-9 pr-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30",
-            compact ? "min-h-10" : "min-h-11",
+            "min-h-11 w-full rounded-xl border border-input bg-background pl-9 pr-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30",
+            compact &&
+              "@min-[36rem]/library-filters:min-h-9 @min-[36rem]/library-filters:rounded-lg @min-[36rem]/library-filters:pl-8 @min-[36rem]/library-filters:text-sm",
           )}
           id={inputId}
           onChange={(event) => {
