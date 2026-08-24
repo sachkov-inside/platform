@@ -148,10 +148,10 @@ export function MaterialReader({
             </a>
           </div>
 
-          <h1 className="mt-5 max-w-[22ch] text-balance text-[2rem] font-semibold leading-[1.08] tracking-[-0.035em] sm:text-[2.5rem] @min-[62rem]/material-reader:text-[3rem]">
+          <h1 className="mt-5 max-w-[22ch] text-balance text-[1.75rem] font-semibold leading-[1.1] tracking-[-0.035em] sm:text-[2.5rem] @min-[62rem]/material-reader:text-[3rem]">
             {material.title}
           </h1>
-          <p className="mt-5 max-w-[65ch] text-pretty text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
+          <p className="mt-4 max-w-[65ch] text-pretty text-[0.9375rem] leading-6 text-muted-foreground sm:mt-5 sm:text-lg sm:leading-8">
             {material.summary}
           </p>
           <ul aria-label="Теги материала" className="mt-5 flex flex-wrap gap-2" role="list">
@@ -171,8 +171,8 @@ export function MaterialReader({
         <LearningOutcomes outcomes={fixture.outcomes} />
         <ReaderOutline />
 
-        <article className="mt-12 min-w-0 max-w-[70ch] text-pretty text-[1.0625rem] leading-[1.75] sm:text-lg">
-          <p className="text-xl font-medium leading-[1.55] tracking-[-0.015em] text-foreground sm:text-2xl">
+        <article className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[0.96875rem] leading-[1.7] sm:mt-12 sm:text-lg">
+          <p className="text-[1.0625rem] font-medium leading-[1.6] tracking-[-0.015em] text-foreground sm:text-2xl">
             {fixture.lead}
           </p>
 
@@ -316,7 +316,7 @@ function ReaderOutline() {
 
       <nav
         aria-label="В этом материале"
-        className="hidden border-y border-border py-3 @min-[40rem]/material-reader:block"
+        className="hidden rounded-xl bg-muted/60 px-2 py-3 @min-[40rem]/material-reader:block"
       >
         <p className="px-2 text-sm font-semibold">В этом материале</p>
         <ul className="mt-2 grid grid-cols-3 gap-2" role="list">
@@ -331,7 +331,7 @@ function LearningOutcomes({ outcomes }: { readonly outcomes: readonly string[] }
   return (
     <section
       aria-labelledby="learning-outcomes"
-      className="mt-8 max-w-[70ch] border-y border-border py-4 @min-[40rem]/material-reader:py-5"
+      className="mt-8 max-w-[70ch]"
     >
       <h2 className="text-sm font-semibold" id="learning-outcomes">
         После материала вы сможете
@@ -365,7 +365,9 @@ function ReaderActionBar({
   const isRead = readingState === "read";
 
   return (
-    <div className={`@container/reader-actions ${className}`}>
+    <div
+      className={`@container/reader-actions ${placement === "top" ? "pt-3 @min-[46rem]/reader-actions:pt-0" : ""} ${className}`}
+    >
       <div
         aria-label={`Действия с материалом ${placement === "top" ? "в начале" : "в конце"}`}
         className="flex min-w-0 items-center justify-between gap-1 @min-[46rem]/reader-actions:justify-start @min-[46rem]/reader-actions:gap-2 @min-[46rem]/reader-actions:rounded-xl @min-[46rem]/reader-actions:border @min-[46rem]/reader-actions:border-border @min-[46rem]/reader-actions:bg-card @min-[46rem]/reader-actions:p-2.5"
@@ -424,8 +426,8 @@ function ReaderSection({
   readonly title: string;
 }) {
   return (
-    <section className="mt-14 space-y-6 scroll-mt-8" id={id}>
-      <h2 className="max-w-[22ch] text-balance text-2xl font-semibold leading-tight tracking-[-0.03em] sm:text-3xl">
+    <section className="mt-12 space-y-5 scroll-mt-8 sm:mt-14 sm:space-y-6" id={id}>
+      <h2 className="max-w-[22ch] text-balance text-xl font-semibold leading-tight tracking-[-0.03em] sm:text-3xl">
         {title}
       </h2>
       {children}
@@ -435,16 +437,16 @@ function ReaderSection({
 
 function ReaderResources({ resources }: { readonly resources: readonly MaterialResourceFixture[] }) {
   return (
-    <section className="mt-14 scroll-mt-8" id="resources">
-      <h2 className="text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">Resources</h2>
-      <ul className="mt-5 divide-y divide-border border-y border-border" role="list">
+    <section className="mt-12 scroll-mt-8 sm:mt-14" id="resources">
+      <h2 className="text-xl font-semibold tracking-[-0.03em] sm:text-3xl">Resources</h2>
+      <ul className="mt-4 grid gap-2 sm:mt-5" role="list">
         {resources.map((resource) => {
           const Icon = resource.kind === "file" ? FileText : ExternalLink;
 
           return (
             <li key={resource.label}>
               <a
-                className="group flex min-h-20 items-center gap-3 py-4 no-underline"
+                className="group flex min-h-20 items-center gap-3 rounded-xl bg-muted/60 px-3 py-4 no-underline hover:bg-muted"
                 href={resource.href}
                 rel={resource.kind === "link" ? "noreferrer" : undefined}
                 target={resource.kind === "link" ? "_blank" : undefined}
@@ -482,11 +484,11 @@ function NextLearningSteps({
   return (
     <section
       aria-labelledby="next-learning-step"
-      className="@container/learning-path mt-20 border-t border-border pt-10"
+      className="@container/learning-path mt-16 sm:mt-20"
     >
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold tracking-[-0.03em]" id="next-learning-step">
+          <h2 className="text-xl font-semibold tracking-[-0.03em] sm:text-2xl" id="next-learning-step">
             {nextMaterial ? "Продолжить серию" : "По теме"}
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
