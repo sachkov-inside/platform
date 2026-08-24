@@ -4,16 +4,17 @@
 [Platform #58](https://github.com/sachkov-inside/platform/issues/58), 2026-08-23.
 
 Владелец подтвердил направление в обсуждении #58. Material-specific implementation и
-синхронизация durable contract находятся в
+синхронизация durable contract смержены через
 [PR #57](https://github.com/sachkov-inside/platform/pull/57); repository-wide guardrails и единый
 config/database lifecycle вынесены в [#60](https://github.com/sachkov-inside/platform/issues/60) и
 [#61](https://github.com/sachkov-inside/platform/issues/61), чтобы не смешивать независимые
 delivery scopes.
 
 Этот документ исследует backend `origin/main` на commit
-`1d099a0842077319b9b23e91ed5b0ce1858b0c82` и незамерженный candidate
+`1d099a0842077319b9b23e91ed5b0ce1858b0c82` и candidate state
 [PR #57](https://github.com/sachkov-inside/platform/pull/57) на commit
-`121c71211692ad2fc091a20210e9b1975fc5addf`. Exact file map ниже остаётся историческим snapshot
+`121c71211692ad2fc091a20210e9b1975fc5addf`. PR позднее был доработан и смержен как
+`26390b29eb42b29ea662454ef92120792019da2b`. Exact file map ниже остаётся историческим snapshot
 до принятого refactor; normative architecture находится в specification и ADR, а backlog — в
 tracked issues.
 
@@ -233,13 +234,13 @@ Evidence:
   readiness; Materials остаётся headless production capability.
 - [`MaterialsModule`](../../apps/backend/src/modules/materials/materials.module.ts) является
   DynamicModule и принимает уже созданный `AuthorPolicy` value.
-- [`ContentAuthoringDependencies`](../../apps/backend/src/modules/materials/application/content-authoring.dependencies.ts)
+- [`ContentAuthoringDependencies`](https://github.com/sachkov-inside/platform/blob/1d099a0842077319b9b23e91ed5b0ce1858b0c82/apps/backend/src/modules/materials/application/content-authoring.dependencies.ts)
   содержит concrete `PlatformDatabase`; use cases импортируют transaction/persistence helpers и
   местами строят Kysely queries сами.
 - [`PostgresModule`](../../apps/backend/src/infrastructure/postgres/postgres.module.ts) корректно
   владеет `Kysely` lifecycle, но [`PostgresProbe`](../../apps/backend/src/modules/readiness/postgres-probe.ts)
   создаёт второй independent pool.
-- [`material-document.ts`](../../apps/backend/src/modules/materials/domain/material-document/material-document.ts)
+- [`material-document.ts`](https://github.com/sachkov-inside/platform/blob/1d099a0842077319b9b23e91ed5b0ce1858b0c82/apps/backend/src/modules/materials/domain/material-document/material-document.ts)
   публично объявляет structural `MaterialDocumentV1 { schemaVersion: 1; doc: JsonObject }`.
 - [`MaterialRevisionMetadata`](../../apps/backend/src/modules/materials/domain/material-revision-metadata.ts)
   — реальный immutable value object с runtime Zod parse и `revise`; напротив,
@@ -824,7 +825,11 @@ authorities и оставляет здесь evidence и rationale.
 
 ## 16. Independently mergeable improvement slices
 
-Все slices — proposals. Production refactor начинается только после owner approval target.
+Таблица ниже фиксирует proposals на момент audit. После owner approval Material-specific части
+naming, result contracts, branded IDs, body boundary, lifecycle aggregate, semantic persistence и
+idempotency были реализованы в #57. Repository-wide guardrails и config/database lifecycle
+остаются отдельными #60 и #61; static Nest wiring отложен до появления реального authorization
+owner module, как зафиксировано в ADR 0002.
 
 | Order | Slice | Depends on | Verification |
 |---:|---|---|---|
@@ -842,7 +847,12 @@ authorities и оставляет здесь evidence и rationale.
 Каждый slice должен быть mechanical или behavior-preserving по acceptance tests. Не совмещать body
 format migration, public rename и transaction rewrite в одном PR.
 
-## 17. Explicit owner decisions
+## 17. Explicit owner decisions at the audit checkpoint
+
+Все перечисленные ниже вопросы разрешены владельцем в #58. Направления 1–3 и 5–8 приняты и
+синхронизированы через #57; static composition из пункта 4 принята как target, но её реализация
+отложена до реального authorization provider; пункт 9 разрешён как несколько независимо
+проверяемых PR, а не один широкий refactor.
 
 1. Принять ли domain naming direction:
    - `MaterialAuthoring` вместо `ContentAuthoring`;
@@ -860,10 +870,10 @@ format migration, public rename и transaction rewrite в одном PR.
    transaction seam.
 9. Разрешить ли отдельные implementation PRs из backlog только после merge/решения судьбы PR #57.
 
-## 18. Unresolved proof gates
+## 18. Proof gates and current disposition
 
-- PR #57 не находится в `origin/main`; target synthesis должен решить, audit refactor starts from
-  merged lifecycle или адаптируется к revised candidate. Audit не должен merge PR.
+- **Resolved:** #57 доработан по принятому направлению, смержен в `main`, а normative decisions
+  перенесены в glossary/specification/ADR.
 - Production `AuthorPolicy`/Membership modules ещё отсутствуют; static Nest composition нельзя
   окончательно доказать до real provider binding, но можно доказать fail-fast wiring contract.
 - Нет HTTP/MCP Materials adapters; public DTO/error naming нужно проверить на первом real transport,
@@ -889,14 +899,17 @@ capabilities, branded IDs, method-specific result unions, concrete Kysely persis
 PostgreSQL acceptance. Убрать `V1` из public names, но сохранить persisted body format version и
 internal version-specific codec.
 
-### Decisions enabled
+### Decisions recorded
 
-Owner может решить naming, public capability shape, body version visibility, class/function policy,
-Nest composition, transaction/persistence seam, strict guardrails и порядок independently mergeable
-refactors без механического переноса .NET patterns.
+Owner принял domain naming, public capability shape, internal body versioning, selective
+class/function policy, concrete transaction/persistence seam и порядок independently mergeable
+refactors без механического переноса .NET patterns. Static Nest composition остаётся принятым
+target с отложенной реализацией, а strict repository guardrails принадлежат #60.
 
-### Unresolved proof gates
+### Current follow-up gates
 
-Сначала определить судьбу PR #57 и подтвердить девять owner decisions выше. Затем каждый production
-slice отдельно доказывает compatibility, wiring, body fixtures и PostgreSQL concurrency. До этого
-target sections остаются proposals, а current safety behavior PR #57 нельзя ослаблять.
+Material-specific решения и safety behavior уже закреплены #57. Следующие независимо проверяемые
+gates — repository-wide TypeScript/import enforcement в #60, shared config/database/readiness
+lifecycle в #61 и static Nest composition вместе с первым реальным authorization owner module.
+Первый production transport отдельно проверит public DTO/error mapping; future body V2 потребует
+реальной migration fixture, а не заранее созданного framework.
