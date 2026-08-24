@@ -12,6 +12,8 @@ machine-local dependency.
 - For GitHub triage or Wayfinder operations, read `docs/agents/issue-tracker.md` and
   `docs/agents/triage-labels.md`.
 - For product context, terminology or ADR placement, read `docs/agents/domain.md`.
+- For full-stack frontend delivery, Storybook reuse, or temporary UI, read
+  `docs/agents/frontend-delivery.md`.
 
 ## Commands
 
