@@ -7,7 +7,6 @@
     "dev": "pnpm --parallel --filter @inside/web --filter @inside/backend dev",
     "dev:web": "pnpm --filter @inside/web dev",
     "dev:api": "pnpm --filter @inside/backend dev:api",
-    "dev:worker": "pnpm --filter @inside/backend dev:worker",
     "dev:mcp": "pnpm --filter @inside/backend dev:mcp",
     "storybook": "pnpm --filter @inside/web storybook",
     "build": "pnpm --recursive --if-present build",

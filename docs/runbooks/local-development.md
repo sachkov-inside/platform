@@ -7,7 +7,7 @@ development database. Run commands from the repository root.
 
 - `docker compose` runs PostgreSQL 18.4 and keeps its data in the named
   `inside-platform_postgres-data` volume.
-- API, worker, MCP and web processes run through local Node.js and pnpm commands.
+- API, MCP and web processes run through local Node.js and pnpm commands.
 - Integration tests start their own temporary PostgreSQL container through Testcontainers. They do
   not read or modify the Compose database and remove their databases and container after the run.
 
@@ -53,13 +53,12 @@ Every backend process loads that repository environment once and then parses one
 `PlatformConfig`. `NODE_ENV=development` in `.env.example` explicitly enables the checked-in local
 database and listen defaults; an absent `NODE_ENV` is treated as production, where `DATABASE_URL`,
 `API_HOST` and `API_PORT` are required. Readiness queries the same Platform-owned Kysely connection
-pool used by application modules. The worker's PgBoss connections remain a separate,
-library-owned lifecycle.
+pool used by application modules.
 
 ## Start and verify the local stack
 
-Start PostgreSQL, apply checked-in migrations, and verify API, MCP and worker composition against
-the shared Platform database lifecycle:
+Start PostgreSQL, apply checked-in migrations, and verify API and MCP composition against the
+shared Platform database lifecycle:
 
 ```bash
 pnpm infra:up
@@ -155,8 +154,7 @@ pnpm --filter @inside/backend db:types:check
 ```
 
 The type commands read the repository root `.env` explicitly and inspect only the product-owned
-`public` schema. Complete the first-time setup before running them. The `pgboss` schema is owned by
-the worker library and is deliberately absent from the generated application database types.
+`public` schema. Complete the first-time setup before running them.
 
 Only migration authors should regenerate and commit the type file:
 

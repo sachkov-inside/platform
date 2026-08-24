@@ -7,7 +7,7 @@ import {
   parsePlatformConfig,
 } from "../src/config/platform-config.js";
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
-import { createRuntimeApplication } from "../src/entrypoints/create-runtime-application.js";
+import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
 import { OperationalReadiness } from "../src/infrastructure/operational-readiness.js";
 import { PLATFORM_DATABASE } from "../src/infrastructure/postgres/index.js";
 
@@ -39,19 +39,19 @@ describe("backend process composition", () => {
     expect(destroy).toHaveBeenCalledOnce();
   });
 
-  it("uses the same required bindings for MCP and worker runtime contexts", async () => {
-    const runtime = await createRuntimeApplication(config, { logger: false });
-    application = runtime;
+  it("uses the same required bindings for the MCP context", async () => {
+    const mcp = await createMcpApplication(config, { logger: false });
+    application = mcp;
 
-    expect(runtime.get(PLATFORM_CONFIG)).toBe(config);
-    const database = runtime.get(PLATFORM_DATABASE);
-    expect(runtime.get(PLATFORM_DATABASE)).toBe(database);
-    expect(runtime.get(OperationalReadiness)).toBeInstanceOf(
+    expect(mcp.get(PLATFORM_CONFIG)).toBe(config);
+    const database = mcp.get(PLATFORM_DATABASE);
+    expect(mcp.get(PLATFORM_DATABASE)).toBe(database);
+    expect(mcp.get(OperationalReadiness)).toBeInstanceOf(
       OperationalReadiness,
     );
 
     const destroy = vi.spyOn(database, "destroy");
-    await runtime.close();
+    await mcp.close();
     application = undefined;
 
     expect(destroy).toHaveBeenCalledOnce();

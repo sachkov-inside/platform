@@ -6,10 +6,10 @@ import { OperationalReadiness } from "../infrastructure/operational-readiness.js
 import { PostgresModule } from "../infrastructure/postgres/index.js";
 
 @Module({ providers: [OperationalReadiness] })
-export class RuntimeModule {
+export class McpModule {
   static forRoot(config: PlatformConfig): DynamicModule {
     return {
-      module: RuntimeModule,
+      module: McpModule,
       imports: [PlatformConfigModule.forRoot(config), PostgresModule],
     };
   }

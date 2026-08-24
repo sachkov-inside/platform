@@ -13,8 +13,8 @@ Sachkov Inside membership platform
 The repository is a pnpm workspace with two applications:
 
 - `apps/web`: Next.js App Router process;
-- `apps/backend`: one NestJS codebase with API, `pg-boss` worker and MCP entrypoint adapters
-  over shared application modules.
+- `apps/backend`: one NestJS codebase with thin API and MCP entrypoint adapters over shared
+  application modules. A capability-specific worker is added only with its first durable job.
 
 The process-layout decision is recorded in
 [`ADR 0001`](docs/adr/0001-one-backend-multiple-entrypoints.md).
@@ -37,7 +37,6 @@ pnpm install --frozen-lockfile
 pnpm dev          # web and API
 pnpm dev:web
 pnpm dev:api
-pnpm dev:worker
 pnpm dev:mcp
 
 pnpm lint
@@ -66,9 +65,6 @@ pnpm infra:down
 Nest API in-process, calls `GET /health`, and proves the API can query that PostgreSQL
 instance. The named volume is preserved by `infra:down`; use
 `docker compose down --volumes` only when local data should be discarded.
-
-The worker starts and stops `pg-boss` with its process lifecycle. This provisions only
-`pg-boss`'s library-owned PostgreSQL schema; product queues and jobs are intentionally absent.
 
 For migrations, integration tests, manual database inspection and reset procedures, see the
 [local development runbook](docs/runbooks/local-development.md).
