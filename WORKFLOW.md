@@ -60,6 +60,31 @@ The Workspace workflow routes `backlog:human` issues only to Human Backlog. Set 
 `Priority` during delivery triage, move `Status` with the work, and treat the repository issue or
 pull request state as authoritative when it conflicts with a Project.
 
+## Issue contract
+
+Write every tracker item with an owner-facing opening that explains the work without translating
+implementation vocabulary:
+
+1. **Outcome**: what changes for a user, the owner, or the product.
+2. **Why now**: why this work is needed at the current stage.
+3. **Delivered result**: what can be observed or used after the issue closes.
+4. **Next or excluded**: what remains a later step and what this issue deliberately does not
+   deliver.
+
+Use equivalent headings in the issue's language. Prefer domain language from `CONTEXT.md`; define
+an unavoidable implementation term in the sentence where it first matters. For a Human Backlog
+item, add product-level acceptance, priority, and links to known delivery tracks; this concise
+owner-facing body is the complete contract. Keep implementation scope and agent handoff details out
+until the work is represented by delivery issues.
+
+For a delivery Specification or Ticket, follow the opening with the agent contract: scope,
+interfaces and seams when relevant, dependencies, acceptance criteria, owner decisions,
+verification, and one stopping condition. A parent Specification describes the complete user- or
+product-visible outcome. Every child says whether it delivers a user-visible slice, an enabling
+capability, or an integration step, and links the later convergence that turns a technical step
+into the completed outcome. A technical ticket must not read as if it delivers the whole feature
+when another issue is required before a user can use it.
+
 ## Issues, branches, and pull requests
 
 Product work, bugs, architecture, and substantial documentation changes start from one primary
