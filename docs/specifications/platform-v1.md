@@ -25,7 +25,7 @@ application-level NFR, порядком production foundations и ADR inputs. П
 
 Specification синхронизирует принятую cross-repository
 [Workspace #40](https://github.com/sachkov-inside/workspace/issues/40), отдельную
-[Identity/Membership specification #65](https://github.com/sachkov-inside/workspace/issues/65) и
+[Identity/Membership initiative #65](https://github.com/sachkov-inside/workspace/issues/65) и
 завершённую [contract sync #66](https://github.com/sachkov-inside/workspace/issues/66). Workspace
 links ниже являются authority provenance, но build, test, runtime и agent work не читают соседний
 checkout или Workspace.
@@ -453,8 +453,8 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    [#51](https://github.com/sachkov-inside/platform/issues/51) может идти сразу параллельно;
    production persistence использует #49, а production UI — принятую #45/#46 foundation.
    Одновременно [Workspace #60](https://github.com/sachkov-inside/workspace/issues/60) может
-   bootstrap-ить Telegram provider lane после принятого Workspace #65/#66 contract и своих owner
-   gates: завершённый Platform #50 не является его trigger.
+   bootstrap-ить Telegram provider lane после принятой Workspace initiative #65, versioned
+   contract из #66 и своих owner gates: завершённый Platform #50 не является его trigger.
 11. **Identity/Membership convergence:**
    [#52](https://github.com/sachkov-inside/platform/issues/52) соединяет независимо готовые
    Platform consumer/Member Profile и Telegram provider implementations через versioned HTTP
@@ -469,7 +469,7 @@ Identity/Membership dependency graph:
 
 ```mermaid
 flowchart TD
-    S65[Workspace #65: Identity/Membership specification] --> C66[Workspace #66: shared contract]
+    S65[Workspace #65: Identity/Membership initiative] --> C66[Workspace #66: shared contract]
     C66 --> P53[Platform #53: local contract sync]
     C66 --> B60[Workspace #60: Telegram repository bootstrap]
 
@@ -516,7 +516,7 @@ choice, неочевидный контекст и реальный trade-off. �
 ## Provenance
 
 - [Platform #48: Identity, Authorization и Member Profile root Specification](https://github.com/sachkov-inside/platform/issues/48)
-- [Workspace #65: cross-repository Identity/Membership specification](https://github.com/sachkov-inside/workspace/issues/65)
+- [Workspace #65: cross-repository Identity/Membership initiative](https://github.com/sachkov-inside/workspace/issues/65)
 - [Workspace #66: accepted Identity/Membership contract sync](https://github.com/sachkov-inside/workspace/issues/66)
 - [Workspace Identity/Membership v1 contract](https://github.com/sachkov-inside/workspace/blob/main/docs/contracts/identity-membership-v1.md)
 - [Platform #27 owner architecture decisions](https://github.com/sachkov-inside/platform/issues/27#issuecomment-5378336463)
