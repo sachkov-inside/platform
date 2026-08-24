@@ -14,11 +14,9 @@ const navigationItems = [
 
 const meta = {
   args: {
-    accountAvatarUrl: "https://github.com/KirillSachkov.png?size=80",
     accountLabel: "Кирилл",
     children: null,
     currentPath: "/",
-    layout: "sidebar",
     navigationItems,
     sidebarDefaultPinned: true,
   },
@@ -27,17 +25,13 @@ const meta = {
       control: "select",
       options: ["/", "/library", "/map"],
     },
-    layout: {
-      control: "inline-radio",
-      options: ["sidebar", "header"],
-    },
   },
   component: ApplicationShell,
   parameters: {
     docs: {
       description: {
         component:
-          "Сравнение navigation topology для Platform. Desktop sidebar работает в auto-режиме по hover/focus и может быть закреплён; mobile использует постоянную нижнюю навигацию.",
+          "Принятая navigation topology Platform: desktop sidebar раскрывается по hover/focus и может быть закреплён, а mobile сохраняет постоянную нижнюю навигацию.",
       },
     },
     nextjs: {
@@ -113,6 +107,8 @@ export const SidebarExpanded: Story = {
       await expect(
         Math.abs(sidebar.getBoundingClientRect().height - contents.getBoundingClientRect().height),
       ).toBeLessThan(1);
+      await expect(within(account).getByText("К")).toBeInTheDocument();
+      await expect(within(account).queryByRole("img")).not.toBeInTheDocument();
     } finally {
       spacer.remove();
       main.scrollTo({ top: 0 });

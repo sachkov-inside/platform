@@ -71,10 +71,8 @@ function MediaCardBoard() {
 function WorkshopShell({ children }: { readonly children: ReactNode }) {
   return (
     <ApplicationShell
-      accountAvatarUrl="https://github.com/KirillSachkov.png?size=80"
       accountLabel="Кирилл"
       currentPath="/library"
-      layout="sidebar"
       navigationItems={navigationItems}
       sidebarDefaultPinned
     >
@@ -127,6 +125,7 @@ export const HybridCatalog: Story = {
     }
 
     await expect(within(guideCard).queryByRole("img")).not.toBeInTheDocument();
+    await expect(within(guideCard).queryByRole("link", { name: /выпуск/ })).not.toBeInTheDocument();
     await expect(guideCard.getBoundingClientRect().width).toBeLessThan(750);
   },
   render: () => <HybridCatalogBoard />,
@@ -143,5 +142,12 @@ export const MediaCard: Story = {
 
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
     await expect(card.getBoundingClientRect().width).toBeLessThan(750);
+    await expect(
+      within(card).getByRole("link", { name: "Создание Platform Inside · выпуск 5" }),
+    ).toHaveAttribute("href", "/series/series-platform-inside");
+    await expect(within(card).getByRole("link", { name: "developer pipeline" })).toHaveAttribute(
+      "href",
+      "/library?query=developer%20pipeline",
+    );
   },
 };

@@ -48,7 +48,6 @@ const libraryMaterials: readonly MaterialPreviewFixture[] = [
 
 const filterOptions = {
   formats: unique(libraryMaterials.map((material) => material.format)),
-  tags: unique(libraryMaterials.flatMap((material) => material.tags)),
   topics: unique(libraryMaterials.map((material) => material.topic)),
 } as const;
 
@@ -60,25 +59,34 @@ const librarySeries = [
   ).values(),
 ] satisfies readonly MaterialSeriesFixture[];
 
+const seriesFilterOptions = librarySeries.map((series) => ({
+  label: series.title,
+  value: series.id,
+}));
+
 function LibraryBoard() {
   const [query, setQuery] = useState("");
   const [selectedFormats, setSelectedFormats] = useState<readonly string[]>([]);
-  const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
-  const [selectedTags, setSelectedTags] = useState<readonly string[]>([]);
-  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [selectedSeriesIds, setSelectedSeriesIds] = useState<readonly string[]>([]);
+  const [selectedTopics, setSelectedTopics] = useState<readonly string[]>([]);
   const [sortOrder, setSortOrder] = useState<SortOrder>("relevance");
   const [inlineFiltersExpanded, setInlineFiltersExpanded] = useState(false);
 
   const normalizedQuery = query.trim().toLocaleLowerCase("ru");
-  const activeFilterCount = selectedFormats.length + selectedTags.length;
-  const selectedSeries = librarySeries.find((series) => series.id === selectedSeriesId) ?? null;
-  const activeContext = selectedSeries?.title ?? selectedTopic;
+  const activeFilterCount =
+    selectedFormats.length + selectedSeriesIds.length + selectedTopics.length;
+  const selectedSeries =
+    selectedSeriesIds.length === 1
+      ? librarySeries.find((series) => series.id === selectedSeriesIds[0]) ?? null
+      : null;
+  const activeContext =
+    selectedSeries?.title ?? (selectedTopics.length === 1 ? selectedTopics[0] ?? null : null);
   const relatedSeries = librarySeries.filter((series) =>
-    selectedTopic === null
+    selectedTopics.length === 0
       ? true
       : libraryMaterials.some(
           (material) =>
-            material.topic === selectedTopic &&
+            selectedTopics.includes(material.topic) &&
             material.series.some((membership) => membership.id === series.id),
         ),
   );
@@ -97,11 +105,10 @@ function LibraryBoard() {
 
       return (
         (normalizedQuery.length === 0 || searchableText.includes(normalizedQuery)) &&
-        (selectedTopic === null || material.topic === selectedTopic) &&
-        (selectedSeriesId === null ||
-          material.series.some((series) => series.id === selectedSeriesId)) &&
-        (selectedFormats.length === 0 || selectedFormats.includes(material.format)) &&
-        (selectedTags.length === 0 || material.tags.some((tag) => selectedTags.includes(tag)))
+        (selectedTopics.length === 0 || selectedTopics.includes(material.topic)) &&
+        (selectedSeriesIds.length === 0 ||
+          material.series.some((series) => selectedSeriesIds.includes(series.id))) &&
+        (selectedFormats.length === 0 || selectedFormats.includes(material.format))
       );
     })
     .toSorted((first, second) =>
@@ -109,13 +116,13 @@ function LibraryBoard() {
     );
 
   function resetContext() {
-    setSelectedSeriesId(null);
-    setSelectedTopic(null);
+    setSelectedSeriesIds([]);
+    setSelectedTopics([]);
   }
 
   function resetFilters() {
     setSelectedFormats([]);
-    setSelectedTags([]);
+    resetContext();
   }
 
   function resetAll() {
@@ -126,10 +133,8 @@ function LibraryBoard() {
 
   return (
     <ApplicationShell
-      accountAvatarUrl="https://github.com/KirillSachkov.png?size=80"
       accountLabel="Кирилл"
       currentPath="/library"
-      layout="sidebar"
       navigationItems={navigationItems}
       sidebarDefaultPinned
     >
@@ -192,30 +197,33 @@ function LibraryBoard() {
                 density="compact"
                 formatOptions={filterOptions.formats}
                 selectedFormats={selectedFormats}
-                selectedTags={selectedTags}
+                selectedSeriesIds={selectedSeriesIds}
+                selectedTopics={selectedTopics}
+                seriesOptions={seriesFilterOptions}
                 setSelectedFormats={setSelectedFormats}
-                setSelectedTags={setSelectedTags}
-                tagOptions={filterOptions.tags}
+                setSelectedSeriesIds={setSelectedSeriesIds}
+                setSelectedTopics={setSelectedTopics}
+                topicOptions={filterOptions.topics}
               />
             </div>
           ) : null}
 
           <TopicNavigation
-            selectedSeriesId={selectedSeriesId}
-            selectedTopic={selectedTopic}
+            selectedSeriesIds={selectedSeriesIds}
+            selectedTopics={selectedTopics}
             setSelectedTopic={(topic) => {
-              setSelectedSeriesId(null);
-              setSelectedTopic(topic);
+              setSelectedSeriesIds([]);
+              setSelectedTopics(topic === null ? [] : [topic]);
             }}
           />
 
           {relatedSeries.length > 0 ? (
             <SeriesNavigation
-              selectedSeriesId={selectedSeriesId}
+              selectedSeriesIds={selectedSeriesIds}
               series={relatedSeries}
               setSelectedSeriesId={(seriesId) => {
-                setSelectedTopic(null);
-                setSelectedSeriesId(seriesId);
+                setSelectedTopics([]);
+                setSelectedSeriesIds([seriesId]);
               }}
             />
           ) : null}
@@ -251,9 +259,11 @@ function LibraryBoard() {
 
             <DesktopFilters
               selectedFormats={selectedFormats}
-              selectedTags={selectedTags}
+              selectedSeriesIds={selectedSeriesIds}
+              selectedTopics={selectedTopics}
               setSelectedFormats={setSelectedFormats}
-              setSelectedTags={setSelectedTags}
+              setSelectedSeriesIds={setSelectedSeriesIds}
+              setSelectedTopics={setSelectedTopics}
               sortOrder={sortOrder}
               setSortOrder={setSortOrder}
             />
@@ -326,15 +336,15 @@ function SearchControl({
 }
 
 function TopicNavigation({
-  selectedSeriesId,
-  selectedTopic,
+  selectedSeriesIds,
+  selectedTopics,
   setSelectedTopic,
 }: {
-  readonly selectedSeriesId: string | null;
-  readonly selectedTopic: string | null;
+  readonly selectedSeriesIds: readonly string[];
+  readonly selectedTopics: readonly string[];
   readonly setSelectedTopic: (topic: string | null) => void;
 }) {
-  const allTopicsSelected = selectedTopic === null && selectedSeriesId === null;
+  const allTopicsSelected = selectedTopics.length === 0 && selectedSeriesIds.length === 0;
 
   return (
     <section aria-labelledby="topics-heading" className="mt-8 sm:mt-10">
@@ -361,7 +371,7 @@ function TopicNavigation({
             onClick={() => {
               setSelectedTopic(topic);
             }}
-            selected={selectedTopic === topic}
+            selected={selectedTopics.includes(topic)}
           />
         ))}
       </div>
@@ -413,11 +423,11 @@ function TopicButton({
 }
 
 function SeriesNavigation({
-  selectedSeriesId,
+  selectedSeriesIds,
   series,
   setSelectedSeriesId,
 }: {
-  readonly selectedSeriesId: string | null;
+  readonly selectedSeriesIds: readonly string[];
   readonly series: readonly MaterialSeriesFixture[];
   readonly setSelectedSeriesId: (seriesId: string) => void;
 }) {
@@ -428,7 +438,7 @@ function SeriesNavigation({
       </h2>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         {series.map((item) => {
-          const selected = selectedSeriesId === item.id;
+          const selected = selectedSeriesIds.includes(item.id);
           const materialCount = libraryMaterials.filter((material) =>
             material.series.some((membership) => membership.id === item.id),
           ).length;
@@ -475,16 +485,20 @@ function SeriesNavigation({
 
 interface FilterProps {
   readonly selectedFormats: readonly string[];
-  readonly selectedTags: readonly string[];
+  readonly selectedSeriesIds: readonly string[];
+  readonly selectedTopics: readonly string[];
   readonly setSelectedFormats: (values: readonly string[]) => void;
-  readonly setSelectedTags: (values: readonly string[]) => void;
+  readonly setSelectedSeriesIds: (values: readonly string[]) => void;
+  readonly setSelectedTopics: (values: readonly string[]) => void;
 }
 
 function DesktopFilters({
   selectedFormats,
-  selectedTags,
+  selectedSeriesIds,
+  selectedTopics,
   setSelectedFormats,
-  setSelectedTags,
+  setSelectedSeriesIds,
+  setSelectedTopics,
   setSortOrder,
   sortOrder,
 }: FilterProps & {
@@ -497,10 +511,13 @@ function DesktopFilters({
         density="compact"
         formatOptions={filterOptions.formats}
         selectedFormats={selectedFormats}
-        selectedTags={selectedTags}
+        selectedSeriesIds={selectedSeriesIds}
+        selectedTopics={selectedTopics}
+        seriesOptions={seriesFilterOptions}
         setSelectedFormats={setSelectedFormats}
-        setSelectedTags={setSelectedTags}
-        tagOptions={filterOptions.tags}
+        setSelectedSeriesIds={setSelectedSeriesIds}
+        setSelectedTopics={setSelectedTopics}
+        topicOptions={filterOptions.topics}
       />
       <SortControl sortOrder={sortOrder} setSortOrder={setSortOrder} />
     </div>
@@ -585,7 +602,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Owner-controlled responsive Library proof. Topic is primary browse navigation, Playlist is an ordered context, and Format/Tag refine the resulting approved F1–F3 fixtures.",
+          "Owner-controlled responsive Library proof. Topic, Format and Series are canonical multi-select facets; Tags remain visible links and searchable text across the approved F1–F3 fixtures.",
       },
     },
     nextjs: {
@@ -690,13 +707,14 @@ export const NarrowDesktop: Story = {
 
     await userEvent.click(filterTrigger);
     await expect(filterTrigger).toHaveAttribute("aria-expanded", "true");
-    await expect(canvas.getByRole("region", { name: "Фильтры библиотеки" })).toBeInTheDocument();
+    const filters = canvas.getByRole("region", { name: "Фильтры библиотеки" });
+
+    await expect(filters).toBeInTheDocument();
     await expect(canvas.queryByRole("dialog", { name: "Фильтры" })).not.toBeInTheDocument();
-    await userEvent.type(canvas.getByRole("searchbox", { name: "Теги" }), "agent");
-    await userEvent.click(canvas.getByRole("checkbox", { name: "agent skills" }));
-    await expect(
-      canvas.getByRole("button", { name: "Убрать тег: agent skills" }),
-    ).toBeInTheDocument();
+    await expect(within(filters).getByRole("group", { name: "Тема" })).toBeInTheDocument();
+    await expect(within(filters).getByRole("group", { name: "Формат" })).toBeInTheDocument();
+    await expect(within(filters).getByRole("group", { name: "Серия" })).toBeInTheDocument();
+    await expect(within(filters).queryByRole("group", { name: "Теги" })).not.toBeInTheDocument();
   },
 };
 
@@ -722,10 +740,29 @@ export const Desktop: Story = {
       canvas.getByRole("button", { name: "Сбросить контекст: AI-first engineering" }),
     );
 
-    await userEvent.click(canvas.getByRole("checkbox", { name: "Гайд" }));
+    await userEvent.click(canvas.getByRole("checkbox", { name: "AI-first engineering" }));
+    await userEvent.click(canvas.getByRole("checkbox", { name: "Карьера" }));
+    await expect(canvasElement.querySelectorAll("article")).toHaveLength(2);
+    await userEvent.click(canvas.getByRole("checkbox", { name: "Видео" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
-    await userEvent.click(canvas.getByRole("checkbox", { name: "Гайд" }));
+    await expect(canvas.getByRole("heading", { name: materialFixtures.careerVideo.title })).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("checkbox", { name: "Видео" }));
+    await userEvent.click(canvas.getByRole("checkbox", { name: "AI-first engineering" }));
+    await userEvent.click(canvas.getByRole("checkbox", { name: "Карьера" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
+
+    await userEvent.click(canvas.getByRole("checkbox", { name: "Создание Platform Inside" }));
+    await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
+    await expect(
+      canvas.getByRole("link", { name: "Создание Platform Inside · выпуск 5" }),
+    ).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("checkbox", { name: "Создание Platform Inside" }));
+    await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
+
+    const harnessLinks = canvas.getAllByRole("link", { name: "harness" });
+
+    await expect(harnessLinks.length).toBeGreaterThan(0);
+    await expect(harnessLinks[0]).toHaveAttribute("href", "/library?query=harness");
 
     const sortControl = canvas.getByRole("combobox", { name: "Сортировка" });
     await userEvent.click(sortControl);

@@ -1,5 +1,6 @@
 import {
   BookOpenText,
+  ListVideo,
   LockKeyhole,
   Play,
   Unlock,
@@ -93,48 +94,69 @@ export function MaterialCard({
 }: MaterialCardProps) {
   const hasPreview = material.format === "Видео";
   const Heading = headingLevel;
-  const visibleLabels = [material.topic, ...material.tags.slice(0, 1)];
 
   return (
-    <article className="@container/material-card max-w-[46rem]" data-material-id={material.id}>
-      <a
-        className={cn(
-          "group grid overflow-hidden rounded-xl bg-card shadow-card no-underline transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
-          "hover:-translate-y-0.5 hover:shadow-card-hover active:translate-y-0 active:shadow-card focus-visible:outline-ring",
-          hasPreview && "@min-[30rem]/material-card:grid-cols-[minmax(13rem,0.9fr)_minmax(0,1.1fr)]",
-        )}
-        href="#open-material"
-      >
-        {hasPreview ? <MaterialPoster material={material} /> : null}
-        <span className="flex min-w-0 flex-col p-4 @min-[30rem]/material-card:p-6">
-          <span className="flex flex-wrap gap-1.5">
-            {visibleLabels.map((label, index) => (
-              <span
-                className={cn(
-                  "rounded-md px-2 py-1 text-[0.6875rem] font-semibold leading-4",
-                  index === 0
-                    ? "bg-accent/10 text-foreground"
-                    : "bg-secondary text-secondary-foreground/75",
-                )}
-                key={label}
-              >
-                {label}
-              </span>
-            ))}
-          </span>
-          <Heading className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em] @min-[30rem]/material-card:line-clamp-3 @min-[30rem]/material-card:text-lg">
+    <article
+      className={cn(
+        "@container/material-card group/card grid max-w-[46rem] overflow-hidden rounded-xl bg-card shadow-card transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
+        "hover:-translate-y-0.5 hover:shadow-card-hover focus-within:outline-ring active:translate-y-0 active:shadow-card",
+        hasPreview && "@min-[30rem]/material-card:grid-cols-[minmax(13rem,0.9fr)_minmax(0,1.1fr)]",
+      )}
+      data-material-id={material.id}
+    >
+      {hasPreview ? (
+        <a
+          aria-label={`Открыть материал: ${material.title}`}
+          className="min-w-0 no-underline focus-visible:outline-ring"
+          href={`/library/${material.id}`}
+        >
+          <MaterialPoster material={material} />
+        </a>
+      ) : null}
+      <div className="flex min-w-0 flex-col p-4 @min-[30rem]/material-card:p-6">
+        <MaterialTaxonomy material={material} />
+        <Heading className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em] @min-[30rem]/material-card:line-clamp-3 @min-[30rem]/material-card:text-lg">
+          <a
+            className="no-underline hover:underline hover:decoration-accent hover:underline-offset-4 focus-visible:outline-ring"
+            href={`/library/${material.id}`}
+          >
             {material.title}
-          </Heading>
-          <span className="mt-2 line-clamp-1 text-sm leading-5 text-muted-foreground @min-[30rem]/material-card:line-clamp-2">
-            {material.summary}
-          </span>
-          <span className="mt-3 flex flex-wrap items-center justify-between gap-2 @min-[30rem]/material-card:mt-auto @min-[30rem]/material-card:pt-4">
-            <MaterialContext material={material} />
-            <AccessLabel access={material.access} />
-          </span>
-        </span>
-      </a>
+          </a>
+        </Heading>
+        <p className="mt-2 line-clamp-1 text-sm leading-5 text-muted-foreground @min-[30rem]/material-card:line-clamp-2">
+          {material.summary}
+        </p>
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-2 @min-[30rem]/material-card:mt-auto @min-[30rem]/material-card:pt-4">
+          <MaterialContext material={material} />
+          <AccessLabel access={material.access} />
+        </div>
+      </div>
     </article>
+  );
+}
+
+function MaterialTaxonomy({ material }: { readonly material: MaterialPreviewFixture }) {
+  return (
+    <ul aria-label="Контекст материала" className="flex flex-wrap gap-1.5" role="list">
+      <li>
+        <a
+          className="inline-flex min-h-7 items-center rounded-md bg-accent/10 px-2 py-1 text-[0.6875rem] font-semibold leading-4 text-foreground no-underline hover:bg-accent/15 focus-visible:outline-ring"
+          href={`/library?topic=${encodeURIComponent(material.topic)}`}
+        >
+          {material.topic}
+        </a>
+      </li>
+      {material.tags.slice(0, 2).map((tag) => (
+        <li key={tag}>
+          <a
+            className="inline-flex min-h-7 items-center rounded-md bg-secondary px-2 py-1 text-[0.6875rem] font-semibold leading-4 text-secondary-foreground/75 no-underline hover:text-secondary-foreground focus-visible:outline-ring"
+            href={`/library?query=${encodeURIComponent(tag)}`}
+          >
+            {tag}
+          </a>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -142,11 +164,23 @@ function MaterialContext({ material }: { readonly material: MaterialPreviewFixtu
   const FormatIcon = material.format === "Видео" ? Play : BookOpenText;
 
   return (
-    <span className="flex flex-wrap items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
+    <span className="flex min-w-0 flex-col gap-1.5 font-mono text-[0.6875rem] text-muted-foreground">
       <span className="inline-flex items-center gap-1.5">
         <FormatIcon aria-hidden="true" className="size-3.5 text-accent" />
         {material.format}
       </span>
+      {material.series.map((membership) => (
+        <a
+          className="inline-flex min-h-7 min-w-0 items-center gap-1.5 rounded-md pr-1 no-underline hover:text-foreground focus-visible:outline-ring"
+          href={`/series/${membership.id}`}
+          key={membership.id}
+        >
+          <ListVideo aria-hidden="true" className="size-3.5 shrink-0 text-accent" />
+          <span className="min-w-0 truncate">
+            {membership.title} · выпуск {membership.ordinal}
+          </span>
+        </a>
+      ))}
     </span>
   );
 }

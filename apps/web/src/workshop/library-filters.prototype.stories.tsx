@@ -6,35 +6,18 @@ import { useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
 
 import { Button } from "@/shared/ui/button";
-import {
-  LibraryFilters,
-  TagPicker,
-} from "@/workshop/library-filters.prototype";
+import { LibraryFilters } from "@/workshop/library-filters.prototype";
 
 const formatOptions = ["Видео", "Гайд"] as const;
-const tagOptions = [
-  "platform build",
-  "developer pipeline",
-  "harness",
-  "agent skills",
-  "engineering workflow",
-  "job search",
-  "resume",
+const topicOptions = ["Product engineering", "AI-first engineering", "Карьера"] as const;
+const seriesOptions = [
+  { label: "Создание Platform Inside", value: "series-platform-inside" },
 ] as const;
-
-function SearchableTagPickerFixture() {
-  const [selected, setSelected] = useState<readonly string[]>(["harness"]);
-
-  return (
-    <div className="w-full max-w-lg rounded-xl bg-muted/55 p-4">
-      <TagPicker options={tagOptions} selected={selected} setSelected={setSelected} />
-    </div>
-  );
-}
 
 function InlineFiltersFixture() {
   const [selectedFormats, setSelectedFormats] = useState<readonly string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<readonly string[]>([]);
+  const [selectedSeriesIds, setSelectedSeriesIds] = useState<readonly string[]>([]);
+  const [selectedTopics, setSelectedTopics] = useState<readonly string[]>([]);
 
   return (
     <div className="w-full max-w-3xl rounded-xl bg-muted/55 p-4">
@@ -42,10 +25,13 @@ function InlineFiltersFixture() {
         density="compact"
         formatOptions={formatOptions}
         selectedFormats={selectedFormats}
-        selectedTags={selectedTags}
+        selectedSeriesIds={selectedSeriesIds}
+        selectedTopics={selectedTopics}
+        seriesOptions={seriesOptions}
         setSelectedFormats={setSelectedFormats}
-        setSelectedTags={setSelectedTags}
-        tagOptions={tagOptions}
+        setSelectedSeriesIds={setSelectedSeriesIds}
+        setSelectedTopics={setSelectedTopics}
+        topicOptions={topicOptions}
       />
     </div>
   );
@@ -54,8 +40,10 @@ function InlineFiltersFixture() {
 function InlineDisclosureFixture() {
   const [expanded, setExpanded] = useState(false);
   const [selectedFormats, setSelectedFormats] = useState<readonly string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<readonly string[]>([]);
-  const activeFilterCount = selectedFormats.length + selectedTags.length;
+  const [selectedSeriesIds, setSelectedSeriesIds] = useState<readonly string[]>([]);
+  const [selectedTopics, setSelectedTopics] = useState<readonly string[]>([]);
+  const activeFilterCount =
+    selectedFormats.length + selectedSeriesIds.length + selectedTopics.length;
 
   return (
     <div className="w-full max-w-3xl">
@@ -76,10 +64,13 @@ function InlineDisclosureFixture() {
             density="compact"
             formatOptions={formatOptions}
             selectedFormats={selectedFormats}
-            selectedTags={selectedTags}
+            selectedSeriesIds={selectedSeriesIds}
+            selectedTopics={selectedTopics}
+            seriesOptions={seriesOptions}
             setSelectedFormats={setSelectedFormats}
-            setSelectedTags={setSelectedTags}
-            tagOptions={tagOptions}
+            setSelectedSeriesIds={setSelectedSeriesIds}
+            setSelectedTopics={setSelectedTopics}
+            topicOptions={topicOptions}
           />
         </div>
       ) : null}
@@ -91,10 +82,13 @@ const meta = {
   args: {
     formatOptions,
     selectedFormats: [],
-    selectedTags: [],
+    selectedSeriesIds: [],
+    selectedTopics: [],
+    seriesOptions,
     setSelectedFormats: () => undefined,
-    setSelectedTags: () => undefined,
-    tagOptions,
+    setSelectedSeriesIds: () => undefined,
+    setSelectedTopics: () => undefined,
+    topicOptions,
   },
   component: LibraryFilters,
   decorators: [
@@ -108,7 +102,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Compact library filtering pattern. Tag search limits visible suggestions, keeps selected values removable, and can live directly in page flow without a modal surface.",
+          "Compact canonical Library facets. Topic, Format and Series use multi-select checkboxes directly in page flow; Tags remain searchable links on materials.",
       },
     },
   },
@@ -119,21 +113,6 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const SearchableTags: Story = {
-  name: "Searchable tag picker",
-  render: () => <SearchableTagPickerFixture />,
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const searchInput = canvas.getByRole("searchbox", { name: "Теги" });
-
-    await userEvent.type(searchInput, "agent");
-    await userEvent.click(canvas.getByRole("checkbox", { name: "agent skills" }));
-    await expect(canvas.getByRole("button", { name: "Убрать тег: agent skills" })).toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Убрать тег: harness" }));
-    await expect(canvas.queryByRole("button", { name: "Убрать тег: harness" })).not.toBeInTheDocument();
-  },
-};
-
 export const InlinePanel: Story = {
   name: "Inline filters",
   render: () => <InlineFiltersFixture />,
@@ -141,9 +120,11 @@ export const InlinePanel: Story = {
     const canvas = within(canvasElement);
 
     await userEvent.click(canvas.getByRole("checkbox", { name: "Видео" }));
-    await userEvent.type(canvas.getByRole("searchbox", { name: "Теги" }), "pipeline");
-    await userEvent.click(canvas.getByRole("checkbox", { name: "developer pipeline" }));
-    await expect(canvas.getByRole("button", { name: "Убрать тег: developer pipeline" })).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("checkbox", { name: "Product engineering" }));
+    await userEvent.click(canvas.getByRole("checkbox", { name: "Создание Platform Inside" }));
+    await expect(canvas.getByRole("checkbox", { name: "Видео" })).toBeChecked();
+    await expect(canvas.getByRole("checkbox", { name: "Product engineering" })).toBeChecked();
+    await expect(canvas.getByRole("checkbox", { name: "Создание Platform Inside" })).toBeChecked();
   },
 };
 

@@ -272,8 +272,8 @@ Rendered review в [Platform #45](https://github.com/sachkov-inside/platform/iss
 а не pixel authority для ещё не спроектированных interiors или merge GO:
 
 - desktop использует округлый full-height sidebar: в auto-режиме он раскрывается по hover/focus,
-  может быть явно закреплён, а profile utility с реальной avatar остаётся у нижней границы независимо
-  от page scroll;
+  может быть явно закреплён, а profile utility с детерминированной account identity остаётся у
+  нижней границы независимо от page scroll;
 - collapsed sidebar показывает brand mark, а pin control появляется только в expanded state;
 - mobile использует постоянную нижнюю navigation для `Главная / Библиотека / Карта`, а не burger;
 - `Media Card` является принятой основой Material preview: bounded card не растягивается на всю
@@ -303,17 +303,29 @@ laboratory-итерации:
   канонический domain term `Series` без отдельного product decision;
 - production routes и backend seam по-прежнему не импортируют workshop fixtures или runtime.
 
-Следующий отдельный owner proof — mobile-first long-form Material reader с разрешённым body state,
-после него — video и closed-access states. Reader сначала проверяет реальный reading rhythm на
-320×568, затем получает desktop enhancement той же information architecture. В proof нужны title и
-metadata context, устойчивый reading measure, representative headings/lists/code/media/links,
-local navigation, Resources, related Materials и manual read/unread state. Поведение постоянной
-mobile bottom navigation во время чтения остаётся owner decision owning surface review.
+Completion pass 2026-08-24 зафиксировал owner-directed contract для финального bounded review; его
+rendered visual/component GO остаётся отдельным от PR и merge GO:
 
-Не объединять reader proof с production route, backend/client integration, video player,
-closed-access acquisition flow или author editor. Stopping condition: owner может прочитать один
-реалистичный длинный Material на mobile и desktop, проверить typography, local navigation и конец
-reading flow и явно принять либо скорректировать composition.
+- глобальная navigation сохраняется внутри Reader: sidebar на desktop и нижняя navigation на
+  mobile; локальная `В этом материале` дополняет её как inline scan-friendly navigation на desktop
+  и компактный disclosure на mobile, не занимая отдельную боковую колонку;
+- Reader показывает только подтверждённые actions: `Назад` и вручную переключаемое
+  `Прочитано / Не прочитано`; save и like не моделируются, а переход к следующему Material
+  появляется только при реальном membership текущего Material в Series;
+- Library фильтрует по каноническим facets `Тема / Формат / Серия`: выбранные значения работают
+  как OR внутри facet и AND между facets; Tags остаются видимыми searchable links и search text,
+  но не образуют отдельную filter group;
+- Material Card показывает title и ordinal Series только при реальном membership; карточка без
+  Series не резервирует под него место;
+- accepted component foundation состоит из реально используемых `Button`, `Select`, `Tooltip` и
+  surface patterns `ApplicationShell`, `MaterialCard`, `LibraryFilters`; story-only `Sheet`,
+  неподтверждённая header topology и внешний avatar dependency в baseline не сохраняются;
+- Agentation остаётся обязательным feedback overlay каждой frontend-итерации, а Storybook stories
+  являются читаемыми responsive proofs и исполняемыми interaction/accessibility contracts.
+
+Reader proof остаётся отделён от production route, backend/client integration, video player,
+closed-access acquisition flow и author editor. Video и closed-access states проходят собственные
+owning surface reviews.
 
 Chapters, video timecode, closed access и authoring composition остаются открытыми до своих owning
 surface reviews.

@@ -25,10 +25,8 @@ function MaterialReaderBoard() {
 
   return (
     <ApplicationShell
-      accountAvatarUrl="https://github.com/KirillSachkov.png?size=80"
       accountLabel="Кирилл"
       currentPath="/library/material-public-agent-skills"
-      layout="sidebar"
       navigationItems={navigationItems}
       sidebarDefaultPinned
     >

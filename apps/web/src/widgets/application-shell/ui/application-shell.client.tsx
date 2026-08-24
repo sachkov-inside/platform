@@ -28,15 +28,11 @@ export interface ApplicationNavigationItem {
 }
 
 export interface ApplicationShellProps {
-  /** Avatar shown in the account affordance. */
-  readonly accountAvatarUrl: string;
   /** Human-readable account name used by visible and accessible labels. */
   readonly accountLabel: string;
   readonly children: ReactNode;
   /** Current route used to expose the active navigation item. */
   readonly currentPath: string;
-  /** Desktop navigation topology; both variants keep mobile bottom navigation. */
-  readonly layout: "header" | "sidebar";
   readonly navigationItems: readonly ApplicationNavigationItem[];
   /** Initial pinned state for the expandable desktop sidebar. */
   readonly sidebarDefaultPinned?: boolean;
@@ -50,63 +46,34 @@ const iconByName: Readonly<Record<ApplicationNavigationIcon, LucideIcon>> = {
 
 /** Responsive product frame that owns primary navigation and the main landmark. */
 export function ApplicationShell({
-  accountAvatarUrl,
   accountLabel,
   children,
   currentPath,
-  layout,
   navigationItems,
   sidebarDefaultPinned = false,
 }: ApplicationShellProps) {
-  if (layout === "header") {
-    return (
-      <ShellFrame>
-        <HeaderNavigation
-          accountAvatarUrl={accountAvatarUrl}
-          accountLabel={accountLabel}
-          currentPath={currentPath}
-          items={navigationItems}
-        />
-        <ShellMain>{children}</ShellMain>
-        <MobileBottomNavigation currentPath={currentPath} items={navigationItems} />
-      </ShellFrame>
-    );
-  }
-
   return (
-    <ShellFrame fullBleed>
+    <ShellFrame>
       <div className="flex min-h-svh items-start bg-background md:h-svh md:min-h-0 md:overflow-hidden md:bg-card">
         <Sidebar defaultPinned={sidebarDefaultPinned}>
           <SidebarBody>
             <SidebarContents
-              accountAvatarUrl={accountAvatarUrl}
               accountLabel={accountLabel}
               currentPath={currentPath}
               items={navigationItems}
             />
           </SidebarBody>
         </Sidebar>
-        <ShellMain nested>{children}</ShellMain>
+        <ShellMain>{children}</ShellMain>
       </div>
       <MobileBottomNavigation currentPath={currentPath} items={navigationItems} />
     </ShellFrame>
   );
 }
 
-function ShellFrame({
-  children,
-  fullBleed = false,
-}: {
-  readonly children: ReactNode;
-  readonly fullBleed?: boolean;
-}) {
+function ShellFrame({ children }: { readonly children: ReactNode }) {
   return (
-    <div
-      className={cn(
-        "min-h-svh bg-background text-foreground",
-        !fullBleed && "md:p-5",
-      )}
-    >
+    <div className="min-h-svh bg-background text-foreground">
       <a
         className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-transform focus:translate-y-0"
         href="#workshop-content"
@@ -118,20 +85,12 @@ function ShellFrame({
   );
 }
 
-function ShellMain({
-  children,
-  nested = false,
-}: {
-  readonly children: ReactNode;
-  readonly nested?: boolean;
-}) {
+function ShellMain({ children }: { readonly children: ReactNode }) {
   return (
     <main
       className={cn(
         "min-h-svh min-w-0 flex-1 bg-background pb-[calc(5rem+env(safe-area-inset-bottom))] md:bg-card md:pb-0",
-        nested
-          ? "md:h-full md:min-h-0 md:overflow-x-hidden md:overflow-y-auto md:overscroll-y-contain md:[scrollbar-gutter:stable]"
-          : "md:min-h-[calc(100svh-2.5rem)]",
+        "md:h-full md:min-h-0 md:overflow-x-hidden md:overflow-y-auto md:overscroll-y-contain md:[scrollbar-gutter:stable]",
       )}
       id="workshop-content"
       tabIndex={-1}
@@ -144,14 +103,12 @@ function ShellMain({
 }
 
 interface NavigationProps {
-  readonly accountAvatarUrl: string;
   readonly accountLabel: string;
   readonly currentPath: string;
   readonly items: readonly ApplicationNavigationItem[];
 }
 
 function SidebarContents({
-  accountAvatarUrl,
   accountLabel,
   currentPath,
   items,
@@ -187,7 +144,7 @@ function SidebarContents({
         </nav>
       </div>
       <div className="shrink-0 border-t border-sidebar-border pt-3">
-        <AccountPreview avatarUrl={accountAvatarUrl} label={accountLabel} />
+        <AccountPreview label={accountLabel} />
       </div>
     </div>
   );
@@ -212,44 +169,7 @@ function InsideBrand() {
   );
 }
 
-function HeaderNavigation({
-  accountAvatarUrl,
-  accountLabel,
-  currentPath,
-  items,
-}: NavigationProps) {
-  return (
-    <header className="sticky top-5 z-30 mx-5 hidden max-w-6xl items-center justify-between gap-4 rounded-2xl border border-border bg-card/95 p-2 shadow-[0_0.75rem_2.5rem_oklch(0.22_0.02_125/0.08)] backdrop-blur md:flex xl:mx-auto">
-      <Link
-        className="flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold tracking-[-0.025em] no-underline"
-        href="/"
-      >
-        Sachkov Inside
-      </Link>
-      <nav aria-label="Основная" className="hidden items-center gap-1 md:flex">
-        {items.map((item) => (
-          <HeaderLink
-            current={isCurrentPath(currentPath, item.href)}
-            href={item.href}
-            key={item.href}
-            label={item.label}
-          />
-        ))}
-      </nav>
-      <div>
-        <AccountChip avatarUrl={accountAvatarUrl} label={accountLabel} />
-      </div>
-    </header>
-  );
-}
-
-function AccountPreview({
-  avatarUrl,
-  label,
-}: {
-  readonly avatarUrl: string;
-  readonly label: string;
-}) {
+function AccountPreview({ label }: { readonly label: string }) {
   const { open } = useSidebar();
 
   return (
@@ -258,49 +178,20 @@ function AccountPreview({
       className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-sidebar-foreground/72"
       role="group"
     >
-      <AccountAvatar avatarUrl={avatarUrl} label={label} />
+      <AccountInitials label={label} />
       {open ? <span className="hidden whitespace-nowrap md:inline">{label}</span> : null}
     </div>
   );
 }
 
-function AccountChip({ avatarUrl, label }: { readonly avatarUrl: string; readonly label: string }) {
+function AccountInitials({ label }: { readonly label: string }) {
   return (
-    <div
-      aria-label={`Текущий профиль: ${label}`}
-      className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm text-muted-foreground"
-      role="group"
+    <span
+      aria-hidden="true"
+      className="grid size-8 shrink-0 place-items-center rounded-full bg-sidebar-accent font-mono text-xs font-semibold text-sidebar-accent-foreground"
     >
-      <AccountAvatar avatarUrl={avatarUrl} label={label} size="small" />
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function AccountAvatar({
-  avatarUrl,
-  label,
-  size = "regular",
-}: {
-  readonly avatarUrl: string;
-  readonly label: string;
-  readonly size?: "regular" | "small";
-}) {
-  return (
-    // The workshop accepts an arbitrary user-supplied avatar URL, so native img is intentional.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      alt=""
-      className={cn(
-        "shrink-0 rounded-full bg-sidebar-accent object-cover",
-        size === "small" ? "size-6" : "size-8",
-      )}
-      height={size === "small" ? 24 : 32}
-      loading="lazy"
-      src={avatarUrl}
-      title={`Аватар: ${label}`}
-      width={size === "small" ? 24 : 32}
-    />
+      {label.trim().slice(0, 1).toLocaleUpperCase("ru")}
+    </span>
   );
 }
 
@@ -339,34 +230,6 @@ function MobileBottomNavigation({
         })}
       </div>
     </nav>
-  );
-}
-
-interface HeaderLinkProps {
-  readonly current: boolean;
-  readonly href: Route;
-  readonly label: string;
-}
-
-function HeaderLink({ current, href, label }: HeaderLinkProps) {
-  return (
-    <Link
-      aria-current={current ? "page" : undefined}
-      className={cn(
-        "relative flex min-h-11 items-center rounded-xl px-4 text-sm font-medium text-muted-foreground no-underline transition-colors",
-        "hover:bg-muted hover:text-foreground",
-        current && "bg-muted text-foreground",
-      )}
-      href={href}
-    >
-      {label}
-      {current ? (
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-4 bottom-1 h-0.5 rounded-full bg-accent"
-        />
-      ) : null}
-    </Link>
   );
 }
 
