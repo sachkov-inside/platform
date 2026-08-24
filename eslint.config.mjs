@@ -5,6 +5,11 @@ import tseslint from "typescript-eslint";
 
 const webTypeScriptFiles = ["apps/web/**/*.{ts,tsx,mts,cts}"];
 const webClientFiles = ["apps/web/**/*.client.{ts,tsx}"];
+const backendTypeScriptFiles = ["apps/backend/**/*.{ts,mts,cts}"];
+const backendProductionCallers = [
+  "apps/backend/src/**/*.ts",
+  "apps/backend/test/guardrails/fixtures/eslint/**/*.ts",
+];
 
 export default tseslint.config(
   {
@@ -18,10 +23,145 @@ export default tseslint.config(
       "**/next-env.d.ts",
       "**/playwright-report/**",
       "**/test-results/**",
+      "apps/backend/test/guardrails/fixtures/typescript/**",
     ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    files: backendTypeScriptFiles,
+    extends: [
+      ...tseslint.configs.strictTypeChecked,
+      ...tseslint.configs.stylisticTypeChecked,
+    ],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "@typescript-eslint/consistent-type-imports": "error",
+      "@typescript-eslint/consistent-indexed-object-style": "off",
+      "@typescript-eslint/consistent-type-definitions": "off",
+      "@typescript-eslint/no-confusing-void-expression": "off",
+      "@typescript-eslint/no-misused-spread": "off",
+      "@typescript-eslint/no-unnecessary-condition": "off",
+      "@typescript-eslint/no-unsafe-type-assertion": "error",
+      "@typescript-eslint/prefer-nullish-coalescing": "off",
+      "@typescript-eslint/prefer-optional-chain": "off",
+      "@typescript-eslint/restrict-template-expressions": [
+        "error",
+        { allowNumber: true },
+      ],
+      "@typescript-eslint/switch-exhaustiveness-check": "error",
+    },
+  },
+  {
+    // Nest modules are decorator metadata containers; their classes are intentionally bodyless.
+    files: ["apps/backend/src/**/*.module.ts"],
+    rules: {
+      "@typescript-eslint/no-extraneous-class": "off",
+    },
+  },
+  {
+    files: backendProductionCallers,
+    // Materials implementation and frozen migration imports are the two local owners.
+    ignores: [
+      "apps/backend/src/migrations/**/*.ts",
+      "apps/backend/src/modules/materials/**/*.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "**/modules/materials/application/**",
+                "**/modules/materials/domain/**",
+                "**/modules/materials/infrastructure/**",
+                "**/modules/materials/create-materials.*",
+                "**/modules/materials/materials.module.*",
+                "**/modules/*/internal/**",
+              ],
+              message: "Import the capability index.ts instead of its internals.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "apps/backend/src/modules/materials/application/**/*.ts",
+      "apps/backend/src/modules/materials/domain/**/*.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@nestjs/**"],
+              message: "Application and domain modules cannot depend on Nest adapters.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/backend/src/modules/materials/domain/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@nestjs/**", "kysely", "kysely/**", "pg", "pg/**"],
+              message: "The Materials model and body cannot depend on Nest or persistence adapters.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Generated database shapes and frozen migrations are external/immutable inputs.
+    files: [
+      "apps/backend/src/infrastructure/postgres/generated/**/*.ts",
+      "apps/backend/src/modules/*/infrastructure/postgres/migrations/**/*.ts",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+      "@typescript-eslint/no-unsafe-type-assertion": "off",
+      "@typescript-eslint/require-await": "off",
+    },
+  },
+  {
+    files: ["apps/backend/vitest*.config.mts"],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+      },
+    },
+  },
+  {
+    // Vitest asymmetric matchers and deliberate malformed runtime inputs surface `any` in tests.
+    files: ["apps/backend/test/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/unbound-method": "off",
+    },
+  },
   {
     files: webTypeScriptFiles,
     extends: [

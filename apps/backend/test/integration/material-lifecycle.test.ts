@@ -310,6 +310,10 @@ describe("Material lifecycle", () => {
     if (restored === undefined || !restored.ok) {
       throw new Error("Expected one successful restore");
     }
+    const restoreCommand = restoreCommands[restoredIndex];
+    if (restoreCommand === undefined) {
+      throw new Error("Expected a command for the successful restore");
+    }
     expect(restoreResults[restoredIndex === 0 ? 1 : 0]).toEqual({
       ok: false,
       error: {
@@ -318,7 +322,7 @@ describe("Material lifecycle", () => {
       },
     });
     expect(
-      await authoring.restoreRevision(restoreCommands[restoredIndex]!),
+      await authoring.restoreRevision(restoreCommand),
     ).toEqual(restored);
     expect(restored).toMatchObject({
       ok: true,
@@ -363,6 +367,10 @@ describe("Material lifecycle", () => {
     if (unpublished === undefined || !unpublished.ok) {
       throw new Error("Expected one successful unpublish");
     }
+    const unpublishCommand = unpublishCommands[unpublishedIndex];
+    if (unpublishCommand === undefined) {
+      throw new Error("Expected a command for the successful unpublish");
+    }
     expect(unpublishResults[unpublishedIndex === 0 ? 1 : 0]).toEqual({
       ok: false,
       error: { code: "stale_publication", currentPublishedRevisionId: null },
@@ -376,7 +384,7 @@ describe("Material lifecycle", () => {
       },
     });
     expect(
-      await authoring.unpublishMaterial(unpublishCommands[unpublishedIndex]!),
+      await authoring.unpublishMaterial(unpublishCommand),
     ).toEqual(unpublished);
     expect(
       await publishedMaterials.read({ subject: anonymousSubject, slug: "restore-lifecycle" }),

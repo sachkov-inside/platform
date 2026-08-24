@@ -12,7 +12,10 @@ export async function runMigrationsToLatest(
 ): Promise<MigrationOutcome> {
   const result = await new Migrator({ db: database, provider: migrationProvider }).migrateToLatest();
   if (result.error !== undefined) {
-    throw result.error;
+    if (result.error instanceof Error) {
+      throw result.error;
+    }
+    throw new Error("Database migration failed", { cause: result.error });
   }
   return {
     appliedMigrations: (result.results ?? [])

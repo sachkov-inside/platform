@@ -14,8 +14,8 @@ const migrations: Record<string, Migration> = {
 };
 
 const platformMigrationProvider: MigrationProvider = {
-  async getMigrations() {
-    return migrations;
+  getMigrations() {
+    return Promise.resolve(migrations);
   },
 };
 

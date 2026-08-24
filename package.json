@@ -12,11 +12,12 @@
     "build": "pnpm --recursive --if-present build",
     "lint": "eslint .",
     "typecheck": "pnpm --recursive --if-present typecheck",
+    "guardrails": "pnpm --filter @inside/backend guardrails",
     "test": "pnpm --recursive --if-present test",
     "test:integration": "pnpm --filter @inside/backend test:integration",
     "test:e2e": "pnpm --filter @inside/web test:e2e",
     "evidence:web": "pnpm --filter @inside/web test:evidence",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm build",
+    "check": "pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test && pnpm test:e2e && pnpm build",
     "infra:up": "docker compose up -d --wait postgres",
     "infra:down": "docker compose down",
     "smoke:health": "pnpm --filter @inside/backend smoke:health"

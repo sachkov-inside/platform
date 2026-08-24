@@ -20,7 +20,8 @@ const Callout = Node.create({
     return [{ tag: "aside[data-callout]" }];
   },
   renderHTML({ HTMLAttributes }) {
-    return ["aside", { ...HTMLAttributes, "data-callout": HTMLAttributes.kind }, 0];
+    const attributes: Record<string, unknown> = HTMLAttributes;
+    return ["aside", { ...attributes, "data-callout": attributes.kind }, 0];
   },
 });
 

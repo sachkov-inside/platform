@@ -4,7 +4,6 @@ import {
   createMaterials,
   type CreateDraftCommand,
   type LoadDraftQuery,
-  type ReviseDraftCommand,
 } from "../../src/modules/materials/index.js";
 import {
   fullRepresentativeDocument,
@@ -66,6 +65,8 @@ describe("MaterialAuthoring", () => {
     });
 
     expect(
+      // Deliberately cross the compile-time interface to prove runtime validation.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       await authoring.createDraft(null as unknown as CreateDraftCommand),
     ).toEqual({
       ok: false,
@@ -89,7 +90,7 @@ describe("MaterialAuthoring", () => {
           seriesMemberships: [],
         },
         body: {},
-      } as CreateDraftCommand),
+      }),
     ).toMatchObject({
       ok: false,
       error: {
@@ -100,6 +101,8 @@ describe("MaterialAuthoring", () => {
       },
     });
     expect(
+      // Deliberately cross the compile-time interface to prove runtime validation.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       await authoring.loadDraft(null as unknown as LoadDraftQuery),
     ).toEqual({
       ok: false,
@@ -148,7 +151,7 @@ describe("MaterialAuthoring", () => {
             },
           ],
         },
-      } as ReviseDraftCommand),
+      }),
     ).toMatchObject({
       ok: false,
       error: {

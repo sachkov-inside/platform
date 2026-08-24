@@ -147,9 +147,15 @@ export class MaterialRevisionMetadata {
 
   static validateChanges(input: unknown): MaterialRevisionMetadataChangesResult {
     const parsed = metadataChangesSchema.safeParse(input);
-    return parsed.success
-      ? { ok: true, value: parsed.data }
-      : invalidMetadata(parsed.error);
+    if (!parsed.success) {
+      return invalidMetadata(parsed.error);
+    }
+    return {
+      ok: true,
+      value: Object.fromEntries(
+        Object.entries(parsed.data).filter(([, value]) => value !== undefined),
+      ),
+    };
   }
 
   revise(changes: unknown): MaterialRevisionMetadataResult {

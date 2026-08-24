@@ -36,6 +36,14 @@ function isJsonObject(value: unknown): value is JsonObject {
   return value !== null && !Array.isArray(value) && typeof value === "object" && isJsonValue(value);
 }
 
+function isJsonArray(value: JsonValue): value is readonly JsonValue[] {
+  return Array.isArray(value);
+}
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && !Array.isArray(value) && typeof value === "object";
+}
+
 const envelopeSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -89,7 +97,7 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
       issues.push({ code: "document_too_deep", path: validationIssuePath(path) });
       return;
     }
-    if (Array.isArray(value)) {
+    if (isJsonArray(value)) {
       value.forEach((child, index) => walk(child, [...path, index], depth));
       return;
     }
@@ -151,7 +159,7 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
     }
 
     const marks = value.marks;
-    if (Array.isArray(marks)) {
+    if (marks !== undefined && isJsonArray(marks)) {
       marks.forEach((mark, index) => {
         if (isJsonObject(mark) && mark.type === "link") {
           const href = stringAttribute(mark, "href");
@@ -163,7 +171,7 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
     }
 
     const content = value.content;
-    if (Array.isArray(content)) {
+    if (content !== undefined && isJsonArray(content)) {
       content.forEach((child, index) => walk(child, [...path, "content", index], depth + 1));
     }
   }
@@ -236,8 +244,8 @@ export function acceptMaterialBody(
   }
   if (options?.assignMissingNodeIds === true) {
     const document =
-      candidate !== null && typeof candidate === "object" && !Array.isArray(candidate)
-        ? (candidate as Record<string, unknown>).doc
+      isUnknownRecord(candidate)
+        ? candidate.doc
         : undefined;
     assignMissingNodeIds(document);
   }
