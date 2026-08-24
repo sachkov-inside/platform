@@ -154,7 +154,12 @@ body {
 }
 
 @media (max-width: 47.999rem) {
-  #workshop-content > div:has(> [data-prototype="library-responsive"]) {
+  #workshop-content > div:has(
+    > :is(
+      [data-prototype="library-responsive"],
+      [data-prototype="material-reader-responsive"]
+    )
+  ) {
     margin: 0;
     inline-size: 100%;
     max-inline-size: none;
