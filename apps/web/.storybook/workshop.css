@@ -145,8 +145,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-slot="sheet-content"],
-  [data-slot="sheet-overlay"],
   [data-slot="tooltip-content"] {
     animation-duration: 0s !important;
     transition-duration: 0s !important;
@@ -178,11 +176,6 @@ body {
   }
 
   .platform-agentation {
-    bottom: calc(5.5rem + env(safe-area-inset-bottom)) !important;
-  }
-
-  body:has([data-slot="sheet-content"][data-state="open"]) [data-agentation-root],
-  body:has([data-slot="sheet-content"][data-state="open"]) [data-agentation-toolbar] {
-    display: none !important;
+    bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
   }
 }
