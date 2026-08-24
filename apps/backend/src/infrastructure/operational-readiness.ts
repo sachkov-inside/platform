@@ -6,7 +6,7 @@ import {
   type PlatformDatabase,
 } from "./postgres/index.js";
 
-export type RuntimeProcess = "api" | "worker" | "mcp";
+export type RuntimeProcess = "api" | "mcp";
 
 export interface ReadinessReport {
   readonly process: RuntimeProcess;

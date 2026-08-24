@@ -87,11 +87,11 @@ throwaway prototype:
 |---|---|
 | Runtime/tooling | Node.js 24 LTS, strict TypeScript, pnpm и exact lockfile |
 | Web | Next.js App Router + React |
-| Backend | один NestJS + Fastify codebase с thin `api`, `worker` и `mcp` entrypoints |
+| Backend | один NestJS + Fastify codebase с thin demand-driven process entrypoints; сейчас `api` и `mcp` |
 | Application contract | REST + OpenAPI; transports не владеют application rules |
 | Transactional store | PostgreSQL 18 |
 | Data access | Kysely + `pg`, checked-in migrations as authority и generated DB types |
-| Jobs | `pg-boss`; product queue появляется только вместе с первым durable job |
+| Jobs | `pg-boss`; dependency, capability-specific worker и queue появляются вместе с первым durable job |
 | Search | PostgreSQL FTS с bounded RU/EN normalization и ranking fixtures |
 | Content document | versioned ProseMirror JSON, Tiptap adapter, immutable revisions, safe renderer и semantic commands |
 | Video | Kinescope за application-owned authorization adapter |
@@ -201,7 +201,7 @@ Platform ADR.
 |---|---|---|
 | `web` | SSR/RSC public, member и admin surfaces; BFF session; coarse access states | Membership policy, provider secrets, direct database access |
 | `api` | REST/OpenAPI adapters, identity mapping, uploads/callbacks и application commands | route-local domain rules |
-| `worker` | durable projection, reconciliation и provider jobs | отдельная domain model или write path |
+| `<capability>-worker` | конкретные durable projection, reconciliation или provider jobs | generic job graph, отдельная domain model или write path |
 | `mcp` | authenticated tools/resources поверх application interfaces | SQL, autonomous publish или human Membership identity |
 
 Entry points вызывают одни application use cases и не создают параллельные rule sets.

@@ -2,14 +2,19 @@
 status: accepted
 ---
 
-# One backend codebase with multiple process entrypoints
+# One backend codebase with demand-driven process entrypoints
 
 Platform starts as a pnpm workspace with a Next.js web application and one NestJS backend.
-API, worker and MCP are thin process adapters over the same application modules, so application
-rules remain local and consistent. Separate backend packages or deployable services are deferred
-until a module has its own interface and at least two real consumers; creating them during
-bootstrap would add distribution and synchronization cost without product behaviour.
+API and MCP are thin process adapters over shared application modules, so application rules remain
+local and consistent. Additional process entrypoints are introduced only with concrete runtime
+behaviour. Separate backend packages or deployable services are deferred until a module has its
+own interface and at least two real consumers; creating them during bootstrap would add
+distribution and synchronization cost without product behaviour.
 
-The worker owns the `pg-boss` process lifecycle against the shared PostgreSQL database. The
-library's internal schema is infrastructure owned by `pg-boss`; product queues, jobs and their
-handlers remain future application behaviour and are not part of this bootstrap decision.
+A worker is named and composed for its first durable job and imports only the capability modules
+that job needs. The repository does not keep a generic worker, queue lifecycle or readiness contract
+as a placeholder. Whether later jobs share a process or use independently deployed workers is an
+operational decision made from real scheduling, scaling and failure-isolation requirements.
+
+`pg-boss` remains the selected PostgreSQL job infrastructure, but its dependency, library-owned
+schema and lifecycle enter the repository together with the first durable job.

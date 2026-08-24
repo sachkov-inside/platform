@@ -27,8 +27,8 @@ pnpm smoke:health
 pnpm infra:down
 ```
 
-Run individual process adapters through the root `dev:web`, `dev:api`,
-`dev:worker` and `dev:mcp` scripts. Keep infrastructure shutdown in the
+Run individual process adapters through the root `dev:web`, `dev:api`
+and `dev:mcp` scripts. Keep infrastructure shutdown in the
 verification path after a successful or failed smoke.
 Before an agent runs repository Compose commands from any worktree, it must read and follow the
 [singleton Compose ownership rule](docs/runbooks/local-development.md#parallel-worktrees-and-compose-ownership).

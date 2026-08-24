@@ -2,8 +2,9 @@
 
 ## Role
 
-`apps/backend` is one NestJS modular monolith with thin `api`, `worker`, and `mcp` process
-entrypoints. Put behaviour behind capability interfaces.
+`apps/backend` is one NestJS modular monolith with thin demand-driven process entrypoints. The
+current entrypoints are `api` and `mcp`; add a capability-specific worker only with its first
+durable job. Put behaviour behind capability interfaces.
 
 ## Module seams
 

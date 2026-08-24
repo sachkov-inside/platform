@@ -6,11 +6,9 @@
   "scripts": {
     "dev": "pnpm dev:api",
     "dev:api": "tsx watch src/entrypoints/api.ts",
-    "dev:worker": "tsx watch src/entrypoints/worker.ts",
     "dev:mcp": "tsx watch src/entrypoints/mcp.ts",
     "build": "tsc -p tsconfig.build.json",
     "start:api": "node dist/entrypoints/api.js",
-    "start:worker": "node dist/entrypoints/worker.js",
     "start:mcp": "node dist/entrypoints/mcp.js",
     "db:migrate": "tsx src/migrations/migrate.ts",
     "db:types:generate": "kysely-codegen --env-file ../../.env --dialect postgres --default-schema public --include-pattern 'public.*' --exclude-pattern 'kysely_*' --out-file src/infrastructure/postgres/generated/database.ts",
@@ -35,7 +33,6 @@
     "fastify": "5.12.1",
     "kysely": "0.29.5",
     "pg": "8.23.0",
-    "pg-boss": "12.27.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "zod": "4.4.3"
