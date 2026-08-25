@@ -1,162 +1,165 @@
 # Local development runbook
 
-Use this runbook to start Platform locally, verify the backend against PostgreSQL and inspect the
-development database. Run commands from the repository root.
+Docker Compose is the primary local-development contract. A fresh clone needs Docker with Compose,
+not host Node.js or a host `node_modules` directory.
 
-## What runs where
+## What Compose runs
 
-- `docker compose` runs PostgreSQL 18.4 and keeps its data in the named
-  `inside-platform_postgres-data` volume.
-- API, MCP and web processes run through local Node.js and pnpm commands.
-- Integration tests start their own temporary PostgreSQL container through Testcontainers. They do
-  not read or modify the Compose database and remove their databases and container after the run.
+The default stack contains:
+
+- PostgreSQL 18.4 with a persistent named volume;
+- one `bootstrap` job that applies migrations and the deterministic development seed;
+- Nest API on <http://127.0.0.1:3001> with health and OpenAPI endpoints;
+- the long-running MCP process over the same application and database lifecycle;
+- Next.js web on <http://127.0.0.1:3000>.
+
+API and web expose real healthchecks. API and MCP wait for healthy PostgreSQL and a successful
+bootstrap; web waits for healthy API. Storybook is an optional profile on
+<http://127.0.0.1:6006>. Integration tests continue to use their own temporary PostgreSQL through
+Testcontainers and never share the Compose database.
 
 The production API exposes health, OpenAPI and the published Material Reader endpoint. Material
-authoring remains an application interface covered by integration tests; it does not yet have a
-production HTTP or MCP transport.
+authoring remains an application interface covered by integration tests; this Compose work does
+not invent a production authoring transport.
 
-## Parallel worktrees and Compose ownership
+## Parallel worktrees and singleton ownership
 
-The checked-in Compose project has one fixed project name, host port and named volume shared by all
-worktrees on the same machine. Treat this environment as a singleton:
+The fixed `inside-platform` Compose project, host ports and PostgreSQL volume are shared by all
+worktrees on one machine. At most one worktree or agent session owns them.
 
-- At most one active worktree or agent session owns the `inside-platform` Compose environment.
-- The session that successfully runs `pnpm infra:up` owns it until that same session runs
-  `pnpm infra:down` and reports the shutdown in its handoff.
-- A running `inside-platform` Compose project is owned by another session unless the current
-  session started it. Other sessions use `pnpm test:integration`, whose Testcontainers database is
-  isolated, or wait for the owner; they do not run migrations, smoke, shutdown or reset against the
-  shared Compose database.
-- Only the current Compose owner may run `docker compose down --volumes`, after confirming that its
-  local data can be discarded.
-
-Playwright does not use Compose. When another worktree owns its default port `3100`, run the gate
-with an available explicit port, for example `PLAYWRIGHT_PORT=3200 pnpm check`; never stop the
-other worktree's process.
-
-Check whether the shared environment is already running before claiming it:
+Before starting, run:
 
 ```bash
 docker compose ps
 ```
 
-## First-time setup
+Any running service belongs to another session unless the current session started it. Wait for its
+handoff; do not rebuild, migrate, stop or reset that stack. The successful starter owns the stack
+until that same session runs `docker compose down` and reports the shutdown. Integration tests are
+safe in parallel because Testcontainers owns an isolated database.
 
-Prerequisites are Docker with Compose, the Node.js version from `.node-version`, and the pnpm
-version declared in `package.json`.
+Playwright does not use Compose. If another worktree owns its default port `3100`, use an available
+explicit port such as `PLAYWRIGHT_PORT=3200 pnpm check`; never stop another worktree's process.
+
+## Start from a fresh clone
+
+From the repository root:
+
+```bash
+docker compose up --build --watch
+```
+
+This one command builds exact Node/pnpm development images, starts PostgreSQL, migrates and seeds
+it once, then starts API, MCP and web. Compose Watch synchronizes backend and frontend source into
+the containers without a host `node_modules`. A package manifest, workspace manifest or lockfile
+change performs a controlled image rebuild.
+
+The checked-in local credentials are defaults. A root `.env` copied from `.env.example` is optional
+for overrides and for the host fallback; already exported variables take precedence. Inside the
+Compose network, applications use `postgres` and `api` service DNS. Browser-facing URLs remain on
+`127.0.0.1`.
+
+For a detached stack suitable for smoke commands:
+
+```bash
+docker compose up --detach --build --wait
+bash scripts/compose-stack-smoke.sh
+```
+
+The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
+database-backed readiness, and exactly one seeded `inside-platform-overview` Material and revision
+exist. Repeating `docker compose down` and the detached startup preserves the database volume and
+proves the bootstrap seed is idempotent.
+
+Stop without deleting data:
+
+```bash
+docker compose down
+```
+
+After shutdown, `docker compose ps --all` should list no application containers.
+
+## Optional Storybook profile
+
+Start the default stack plus Storybook:
+
+```bash
+docker compose --profile storybook up --build --watch
+```
+
+The profile uses the same frozen container dependencies and Compose Watch source synchronization.
+
+## Optional host Node.js fallback
+
+Use Node.js from `.node-version` and pnpm from `packageManager` only when a faster host loop is
+useful:
 
 ```bash
 cp .env.example .env
 pnpm install --frozen-lockfile
-```
-
-The automated equivalent after dependency installation is:
-
-```bash
-pnpm local:setup
-```
-
-It creates `.env` only when missing, runs `pnpm platform:doctor`, starts PostgreSQL, applies
-migrations, seeds representative content and runs the live full-stack smoke. On success PostgreSQL
-remains running for development. On failure it stops Compose only when this invocation started it;
-it never removes the named data volume. It refuses to reuse an already running Compose project,
-because that environment belongs to another session under the singleton ownership rule.
-
-The checked-in `.env.example` contains local-only credentials. Keep personal overrides in the
-ignored root `.env`; already exported environment variables take precedence.
-
-Every backend process loads that repository environment once and then parses one immutable
-`PlatformConfig`. `NODE_ENV=development` in `.env.example` explicitly enables the checked-in local
-database and listen defaults; an absent `NODE_ENV` is treated as production, where `DATABASE_URL`,
-`API_HOST` and `API_PORT` are required. Readiness queries the same Platform-owned Kysely connection
-pool used by application modules.
-
-## Start and verify the local stack
-
-Start PostgreSQL, apply checked-in migrations, and verify API and MCP composition against the
-shared Platform database lifecycle:
-
-```bash
 pnpm infra:up
 pnpm --filter @inside/backend db:migrate
 pnpm --filter @inside/backend db:seed
-pnpm smoke:health
-pnpm smoke:fullstack
+pnpm dev
 ```
 
-For an interactive API process, keep this command running in a separate terminal:
+Individual adapters are `pnpm dev:web`, `pnpm dev:api` and `pnpm dev:mcp`. `pnpm local:setup` is a
+host-pnpm convenience wrapper around the full detached Compose startup and smoke; it refuses to
+reuse a running singleton stack.
 
-```bash
-pnpm dev:api
-```
+Every backend process loads the optional repository `.env` once and parses one immutable
+`PlatformConfig`. `NODE_ENV=development` enables checked-in local defaults; absent `NODE_ENV` is
+production, where database and API listen values are required.
 
-Then inspect:
+Inspect the running host fallback or Compose stack:
 
 - health: <http://127.0.0.1:3001/health>
 - OpenAPI UI: <http://127.0.0.1:3001/openapi>
 - published Material API: <http://127.0.0.1:3001/materials/inside-platform-overview>
 - production Reader: <http://127.0.0.1:3000/materials/inside-platform-overview>
 
-Expected health response:
+The API health response is:
 
 ```json
 {"process":"api","status":"ok","database":"reachable"}
 ```
 
-`smoke:health` includes both in-process composition and an external regression that launches the
-documented `tsx watch` development entrypoint. `smoke:fullstack` starts the development API and a
-production-built web process, verifies the published Reader on desktop and mobile through
-Playwright, and exercises the web server-only adapter against the live API. It stops only those
-application processes and expects the singleton Compose PostgreSQL environment to be owned by the
-current session.
+`pnpm smoke:health` verifies Nest composition and the documented `tsx watch` API entrypoint.
+`pnpm smoke:fullstack` remains the host-process fallback smoke against Compose PostgreSQL; it
+starts the API and a production-built web process, verifies the published Reader on desktop and
+mobile through Playwright, and exercises the server-only adapter against the live API.
 
-Stop application processes with `Ctrl+C`. Stop Compose without deleting local data:
+## Repository verification
 
-```bash
-pnpm infra:down
-```
-
-## Test the Material flow
-
-Run the complete repository gate:
+With pinned host Node.js and pnpm:
 
 ```bash
 pnpm check
 ```
 
-This gate covers lint, strict typecheck, backend architecture guardrails, unit/module/Storybook
-tests, Playwright, production builds and the Storybook build. It intentionally does not claim a
-real database.
-
-Run the complete code plus infrastructure gate used by CI:
+This covers lint, strict typecheck, backend architecture guardrails, unit/module/Storybook tests,
+Playwright, production builds and the Storybook build without claiming a real database.
 
 ```bash
 pnpm check:full
 ```
 
-It adds the isolated Testcontainers suite and live full-stack smoke. The shared Compose PostgreSQL
-must be running locally; CI supplies its own PostgreSQL service.
+This adds isolated Testcontainers integration tests and the host full-stack smoke. Stop the full
+Compose stack and start only `pnpm infra:up` first, because the host smoke owns ports 3000 and 3001.
+CI runs that gate and a separate Docker-only contract that builds all image targets, starts a clean
+volume, restarts against the preserved volume, exercises Compose Watch and rejects orphan
+containers.
 
-Run the real-PostgreSQL backend suite:
+Run only the real-PostgreSQL backend suite with:
 
 ```bash
 pnpm test:integration
 ```
 
-The Material integration tests exercise the public application interface and prove:
+Its disposable Testcontainers database covers create/load/revise, immutable revisions, rollback
+and constraints, idempotency, concurrent stale writes, migration replay and generated-type drift.
 
-- create, load and revise flows;
-- immutable revisions and the current-draft pointer;
-- transaction rollback and PostgreSQL constraints;
-- idempotency replay and stale concurrent writes;
-- migration replay and generated database type drift.
-
-Docker must be running for integration tests, but `pnpm infra:up` is not required because
-Testcontainers owns an isolated PostgreSQL container for the test run.
-
-## Inspect the Compose database
-
-Open `psql` inside the PostgreSQL container:
+## Inspect PostgreSQL
 
 ```bash
 docker compose exec postgres psql -U inside -d inside
@@ -173,15 +176,10 @@ from material_revisions
 order by created_at;
 ```
 
-Exit `psql` with `\q`.
-
-The Compose database is empty after its first migration. Integration-test Material data is not
-visible here because those tests intentionally use isolated temporary databases.
-
-Populate or refresh the stable local development fixture:
+The seed is safe to repeat manually:
 
 ```bash
-pnpm --filter @inside/backend db:seed
+docker compose run --rm bootstrap
 ```
 
 The seed refuses non-development mode, uses versioned idempotency keys and creates one free,
@@ -191,73 +189,49 @@ volume. The Material itself is created, revised, validated and published through
 application interface. Only its fixed local Topic/Format/Tag/Series prerequisites use typed Kysely
 bootstrap because Platform has no product taxonomy-authoring capability yet; raw SQL is not used.
 
-## Diagnose prerequisites
-
-Run the read-only doctor before claiming Compose when setup fails:
-
-```bash
-pnpm platform:doctor
-```
-
-It checks the pinned Node and pnpm versions, `.env`, Docker CLI/Compose/daemon and ports 3000, 3001
-and 5432. Port 5432 is accepted as occupied only when the running `inside-platform` Compose project
-owns PostgreSQL. The `platform:` prefix is intentional because `pnpm doctor` is pnpm's own package
-manager diagnostic, not this repository check.
-
 ## Migration and generated-type checks
 
-Apply all pending migrations. Repeating the command is safe and reports no newly applied
-migrations when the database is current.
+With the host fallback database running:
 
 ```bash
 pnpm --filter @inside/backend db:migrate
-```
-
-Verify checked-in Kysely database types against the migrated Compose database:
-
-```bash
 pnpm --filter @inside/backend db:types:check
 ```
 
-The type commands read the repository root `.env` explicitly and inspect only the product-owned
-`public` schema. Complete the first-time setup before running them.
-
-Only migration authors should regenerate and commit the type file:
+Only migration authors regenerate the checked-in Kysely type file:
 
 ```bash
 pnpm --filter @inside/backend db:types:generate
 ```
 
-## Reset local PostgreSQL
+The type commands read the repository `.env` and inspect only the product-owned `public` schema.
 
-Normal shutdown preserves the named volume:
+## Diagnose prerequisites
 
-```bash
-pnpm infra:down
-```
+`bash scripts/doctor.sh` checks the same Docker-only prerequisites and Compose contract without
+requiring host Node.js, pnpm or `.env`. The `pnpm platform:doctor` alias is available only as a
+convenience when the optional host toolchain is already installed. Startup reports image,
+dependency, health and port failures through `docker compose up` and `docker compose ps`.
 
-To deliberately delete all local Compose database data and rebuild from migrations:
-
-```bash
-docker compose down --volumes
-pnpm infra:up
-pnpm --filter @inside/backend db:migrate
-```
-
-`docker compose down --volumes` is destructive for the local Compose database. It does not affect
-the isolated Testcontainers databases, which are disposable by design.
-
-## Troubleshooting
-
-Inspect container state and PostgreSQL logs:
+Inspect service state and logs with:
 
 ```bash
 docker compose ps
-docker compose logs postgres
+docker compose logs postgres bootstrap api mcp web
 ```
 
-If port `5432` is already occupied, either stop the conflicting local PostgreSQL process or set a
-different Compose port and matching `DATABASE_URL` locally. Do not commit machine-specific ports
-or credentials.
+If a required port is occupied, inspect its owner and wait for the owning worktree's handoff. Do
+not commit machine-specific ports or credentials and do not stop another session's process.
 
-Always run `pnpm infra:down` when a manual smoke session is complete.
+## Destructive reset
+
+Normal shutdown preserves data. Only the current singleton owner may explicitly delete the local
+database volume:
+
+```bash
+docker compose down --volumes
+docker compose up --detach --build --wait
+```
+
+This does not affect disposable Testcontainers databases. Never use `--volumes` as routine
+shutdown.
