@@ -18,8 +18,9 @@ bootstrap; web waits for healthy API. Storybook is an optional profile on
 <http://127.0.0.1:6006>. Integration tests continue to use their own temporary PostgreSQL through
 Testcontainers and never share the Compose database.
 
-The production API currently exposes health and OpenAPI. Material authoring remains an application
-interface covered by integration tests; this Compose work does not invent a new product transport.
+The production API exposes health, OpenAPI and the published Material Reader endpoint. Material
+authoring remains an application interface covered by integration tests; this Compose work does
+not invent a production authoring transport.
 
 ## Parallel worktrees and singleton ownership
 
@@ -66,9 +67,9 @@ bash scripts/compose-stack-smoke.sh
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
-database-backed readiness, and exactly one seeded `inside-platform-overview` Material and revision
-exist. Repeating `docker compose down` and the detached startup preserves the database volume and
-proves the bootstrap seed is idempotent.
+database-backed readiness, and exactly one seeded `inside-platform-overview` Material with its two
+stable lifecycle revisions exists. Repeating `docker compose down` and the detached startup
+preserves the database volume and proves the bootstrap seed does not create another revision.
 
 Stop without deleting data:
 
@@ -110,6 +111,13 @@ Every backend process loads the optional repository `.env` once and parses one i
 `PlatformConfig`. `NODE_ENV=development` enables checked-in local defaults; absent `NODE_ENV` is
 production, where database and API listen values are required.
 
+Inspect the running host fallback or Compose stack:
+
+- health: <http://127.0.0.1:3001/health>
+- OpenAPI UI: <http://127.0.0.1:3001/openapi>
+- published Material API: <http://127.0.0.1:3001/materials/inside-platform-overview>
+- production Reader: <http://127.0.0.1:3000/materials/inside-platform-overview>
+
 The API health response is:
 
 ```json
@@ -117,7 +125,9 @@ The API health response is:
 ```
 
 `pnpm smoke:health` verifies Nest composition and the documented `tsx watch` API entrypoint.
-`pnpm smoke:fullstack` remains the host-process fallback smoke against Compose PostgreSQL.
+`pnpm smoke:fullstack` remains the host-process fallback smoke against Compose PostgreSQL; it
+starts the API and a production-built web process, verifies the published Reader on desktop and
+mobile through Playwright, and exercises the server-only adapter against the live API.
 
 ## Repository verification
 
@@ -172,10 +182,12 @@ The seed is safe to repeat manually:
 docker compose run --rm bootstrap
 ```
 
-It is development-only, uses fixed idempotency keys, and creates one free published Material at
-slug `inside-platform-overview` through the Materials application interface. Its fixed Topic and
-Format prerequisites use typed Kysely bootstrap because no taxonomy-authoring capability exists;
-raw SQL is not used.
+The seed refuses non-development mode, uses versioned idempotency keys and creates one free,
+representative published Material at slug `inside-platform-overview`. Repeating it keeps the same
+Material and upgrades an older local fixture to the current revision without resetting the named
+volume. The Material itself is created, revised, validated and published through the Materials
+application interface. Only its fixed local Topic/Format/Tag/Series prerequisites use typed Kysely
+bootstrap because Platform has no product taxonomy-authoring capability yet; raw SQL is not used.
 
 ## Migration and generated-type checks
 
