@@ -130,6 +130,31 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+@media (width >= 48rem) {
+  html,
+  body {
+    block-size: 100%;
+    overflow: hidden;
+  }
+}
+
+@keyframes reader-status-halo-arrive {
+  from {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.reader-status-halo {
+  animation: reader-status-halo-arrive 700ms var(--motion-ease-out) both;
+  filter: blur(1.25rem);
+}
+
 ::selection {
   color: var(--accent-foreground);
   background: var(--accent);
@@ -147,6 +172,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .reader-status-halo,
   [data-slot="tooltip-content"] {
     animation-duration: 0s !important;
     transition-duration: 0s !important;

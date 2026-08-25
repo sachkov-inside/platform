@@ -4,6 +4,7 @@ const LOCAL_BACKEND_BASE_URL = "http://127.0.0.1:3001";
 const BACKEND_REQUEST_TIMEOUT_MS = 3_000;
 
 export type BackendConnectionErrorCode =
+  | "backend-error"
   | "configuration"
   | "invalid-response"
   | "rejected"
@@ -75,22 +76,25 @@ export function readBackendBaseUrl(): string {
   return url.toString().replace(/\/$/u, "");
 }
 
-export async function getBackendHealth(): Promise<BackendHealth> {
+export async function requestBackend(
+  path: `/${string}`,
+  init: Pick<RequestInit, "headers" | "method"> = {},
+): Promise<Response> {
   const baseUrl = readBackendBaseUrl();
-  let response: Response;
 
   try {
-    response = await fetch(`${baseUrl}/health`, {
+    return await fetch(`${baseUrl}${path}`, {
+      ...init,
       cache: "no-store",
       signal: AbortSignal.timeout(BACKEND_REQUEST_TIMEOUT_MS),
     });
   } catch (cause) {
-    throw new BackendConnectionError(
-      "unavailable",
-      "Backend health request failed",
-      { cause },
-    );
+    throw new BackendConnectionError("unavailable", "Backend request failed", { cause });
   }
+}
+
+export async function getBackendHealth(): Promise<BackendHealth> {
+  const response = await requestBackend("/health");
 
   if (!response.ok) {
     throw new BackendConnectionError(
@@ -152,7 +156,7 @@ export async function beginIdentityReauthentication(command: {
   readonly idempotencyKey: string;
   readonly sessionRef: string;
 }): Promise<{ readonly attemptId: string; readonly expiresAt: string }> {
-  const response = await requestBackend("/identity/reauthentication-attempts", {
+  const response = await requestIdentityBackend("/identity/reauthentication-attempts", {
     method: "POST",
     headers: identitySessionHeaders(command),
   });
@@ -185,7 +189,7 @@ export async function endIdentitySession(command: {
   readonly idempotencyKey: string;
   readonly sessionRef: string;
 }): Promise<void> {
-  const response = await requestBackend("/identity/sessions/current", {
+  const response = await requestIdentityBackend("/identity/sessions/current", {
     method: "DELETE",
     headers: {
       authorization: `Bearer ${command.accessToken}`,
@@ -212,10 +216,10 @@ function identitySessionHeaders(command: {
 }
 
 async function requestIdentitySubject(
-  path: string,
+  path: `/${string}`,
   init: Pick<RequestInit, "headers" | "method">,
 ): Promise<IdentitySubject> {
-  const response = await requestBackend(path, init);
+  const response = await requestIdentityBackend(path, init);
   const payload = await readJson(response);
   if (!isRecord(payload) || !isIdentitySubject(payload.subject)) {
     throw invalidBackendResponse("Identity response does not match the contract");
@@ -223,23 +227,11 @@ async function requestIdentitySubject(
   return payload.subject;
 }
 
-async function requestBackend(
-  path: string,
+async function requestIdentityBackend(
+  path: `/${string}`,
   init: Pick<RequestInit, "headers" | "method">,
 ): Promise<Response> {
-  const baseUrl = readBackendBaseUrl();
-  let response: Response;
-  try {
-    response = await fetch(`${baseUrl}${path}`, {
-      ...init,
-      cache: "no-store",
-      signal: AbortSignal.timeout(BACKEND_REQUEST_TIMEOUT_MS),
-    });
-  } catch (cause) {
-    throw new BackendConnectionError("unavailable", "Backend identity request failed", {
-      cause,
-    });
-  }
+  const response = await requestBackend(path, init);
   if (!response.ok) {
     throw new BackendConnectionError(
       response.status >= 500 ? "unavailable" : "rejected",

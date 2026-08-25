@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 
 import type { MaterialBodyOperations } from "../domain/material-body/material-body.js";
 import { loadPublicMaterialProjection } from "../infrastructure/postgres/lifecycle-persistence.js";
@@ -11,6 +12,25 @@ import {
 import type { PlatformDatabase } from "../../../infrastructure/postgres/index.js";
 import type { ContentAccess } from "./ports/content-access.js";
 import type { PublishedMaterialReader } from "./published-material-reader.interface.js";
+import { normalizedUuidSchema } from "../domain/uuid.js";
+
+const readPublishedMaterialQuerySchema = z
+  .object({
+    subject: z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("anonymous") }).strict(),
+      z
+        .object({
+          kind: z.literal("principal"),
+          principalId: normalizedUuidSchema,
+        })
+        .strict(),
+    ]),
+    slug: z
+      .string()
+      .max(120)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u),
+  })
+  .strict();
 
 export function createPublishedMaterialReaderImplementation(dependencies: {
   readonly database: PlatformDatabase;
@@ -18,7 +38,12 @@ export function createPublishedMaterialReaderImplementation(dependencies: {
   readonly materialBodyOperations: MaterialBodyOperations;
 }): PublishedMaterialReader {
   return {
-    async read({ subject, slug }) {
+    async read(query) {
+      const parsed = readPublishedMaterialQuerySchema.safeParse(query);
+      if (!parsed.success) {
+        return { ok: false, error: { code: "invalid_request_shape" } };
+      }
+      const { subject, slug } = parsed.data;
       try {
         const projection = await loadPublicMaterialProjection(dependencies.database, slug);
         if (projection === undefined) {

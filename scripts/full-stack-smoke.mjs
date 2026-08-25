@@ -68,9 +68,13 @@ try {
     ...childEnvironment,
     BACKEND_BASE_URL: apiBaseUrl,
   });
+  await runPnpm(["--filter", "@inside/web", "test:fullstack"], {
+    ...childEnvironment,
+    FULLSTACK_WEB_BASE_URL: webBaseUrl,
+  });
 
   process.stdout.write(
-    `Full-stack smoke passed: live web ${webBaseUrl}; web server adapter ${apiBaseUrl}; PostgreSQL reachable\n`,
+    `Full-stack smoke passed: Reader ${webBaseUrl}/materials/inside-platform-overview; live API ${apiBaseUrl}; PostgreSQL reachable\n`,
   );
 } catch (error) {
   if (interruptedSignal === undefined) {

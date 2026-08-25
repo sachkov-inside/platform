@@ -7,9 +7,10 @@ import { PostgresModule } from "../../infrastructure/postgres/index.js";
 import { IdentityPrincipalsModule } from "../../modules/identity-principals/index.js";
 import { MaterialsModule } from "../../modules/materials/index.js";
 import { HealthController } from "./health.controller.js";
+import { PublishedMaterialsController } from "./published-materials.controller.js";
 
 @Module({
-  controllers: [HealthController],
+  controllers: [HealthController, PublishedMaterialsController],
   providers: [OperationalReadiness],
 })
 export class ApiModule {

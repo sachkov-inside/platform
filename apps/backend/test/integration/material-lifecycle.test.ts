@@ -481,9 +481,10 @@ describe("Material lifecycle", () => {
           title: "Closed safe teaser",
           summary: "The public projection remains available.",
           access: "membership",
-          topicId,
-          formatId,
-          tagIds: [],
+          publishedAt: stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+          topic: { id: topicId, name: "Engineering", slug: "engineering" },
+          format: { id: formatId, name: "Guide", slug: "guide" },
+          tags: [],
           seriesMemberships: [],
         },
         access: { allowed: false, reason: "temporarily_unavailable" },
@@ -506,7 +507,7 @@ describe("Material lifecycle", () => {
     });
     const created = await authoring.createDraft({
       actor: ownerId,
-      idempotencyKey: "71000000-0000-4000-8000-000000000070",
+      idempotencyKey: "71000000-0000-4000-8000-000000000090",
       metadata: {
         title: "Membership delivery",
         summary: "Protected bytes require an allow decision.",
@@ -524,7 +525,7 @@ describe("Material lifecycle", () => {
     }
     const published = await authoring.publishRevision({
       actor: ownerId,
-      idempotencyKey: "71000000-0000-4000-8000-000000000071",
+      idempotencyKey: "71000000-0000-4000-8000-000000000091",
       materialId: created.value.materialId,
       revisionId: created.value.revisionId,
       expectedPublishedRevisionId: null,
@@ -876,6 +877,84 @@ describe("Material lifecycle", () => {
         materialId: contender.value.materialId,
         revisionId: contender.value.revisionId,
       },
+    });
+  });
+
+  test("replaces the published search projection when a newer revision is published", async () => {
+    const { authoring } = createMaterials({
+      database: testDatabase.database,
+      authorPolicy: { canAuthor: () => true, canPublish: () => true },
+    });
+    const created = await authoring.createDraft({
+      actor: ownerId,
+      idempotencyKey: "71000000-0000-4000-8000-000000000070",
+      metadata: {
+        title: "Direct republish",
+        summary: "Replaces every public projection atomically.",
+        slug: "direct-republish",
+        access: "free",
+        topicId,
+        formatId,
+        tagIds: [],
+        seriesMemberships: [],
+      },
+      body: representativeDocument("First searchable body."),
+    });
+    if (!created.ok) {
+      throw new Error(created.error.code);
+    }
+    const firstPublication = await authoring.publishRevision({
+      actor: ownerId,
+      idempotencyKey: "71000000-0000-4000-8000-000000000071",
+      materialId: created.value.materialId,
+      revisionId: created.value.revisionId,
+      expectedPublishedRevisionId: null,
+    });
+    if (!firstPublication.ok) {
+      throw new Error(firstPublication.error.code);
+    }
+    const revised = await authoring.reviseDraft({
+      actor: ownerId,
+      idempotencyKey: "71000000-0000-4000-8000-000000000092",
+      materialId: created.value.materialId,
+      baseRevisionId: created.value.revisionId,
+      changes: {
+        body: [
+          {
+            kind: "replace_document",
+            document: representativeDocument("Second searchable body."),
+          },
+        ],
+      },
+    });
+    if (!revised.ok) {
+      throw new Error(revised.error.code);
+    }
+
+    expect(
+      await authoring.publishRevision({
+        actor: ownerId,
+        idempotencyKey: "71000000-0000-4000-8000-000000000093",
+        materialId: created.value.materialId,
+        revisionId: revised.value.revisionId,
+        expectedPublishedRevisionId: created.value.revisionId,
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        materialId: created.value.materialId,
+        revisionId: revised.value.revisionId,
+      },
+    });
+    expect(
+      await testDatabase.database
+        .selectFrom("material_search_documents")
+        .select(["revision_id", "plain_text"])
+        .where("material_id", "=", created.value.materialId)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({
+      revision_id: revised.value.revisionId,
+      plain_text: "Developer Pipeline\n\nSecond searchable body.",
     });
   });
 });
