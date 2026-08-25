@@ -1,6 +1,57 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+test("server-renders the safe PostgreSQL catalog through Nest", async ({
+  page,
+  request,
+}) => {
+  const browserErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      browserErrors.push(message.text());
+    }
+  });
+  page.on("pageerror", (error) => browserErrors.push(error.message));
+
+  const documentResponse = await request.get("/library");
+  const initialHtml = await documentResponse.text();
+
+  expect(documentResponse.status()).toBe(200);
+  expect(initialHtml).toContain("Developer Pipeline без потери контекста");
+  expect(initialHtml).toContain("Как устроен Inside Platform");
+  expect(initialHtml).not.toContain("Закрытое содержимое для участников");
+
+  const browserResponse = await page.goto("/library");
+  expect(browserResponse?.status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "Библиотека", level: 1 })).toBeVisible();
+  await expect(page.getByRole("article")).toHaveCount(2);
+  await expect(page.getByText("Для участников")).toBeVisible();
+  await expect(page.getByText("Бесплатно")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Developer Pipeline без потери контекста" }),
+  ).toHaveAttribute("href", "/materials/membership-delivery-guide");
+  await expect(page).toHaveTitle("Библиотека · Inside");
+
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("link", { name: "Перейти к содержанию" })).toBeFocused();
+
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(
+    accessibility.violations.filter(
+      ({ impact }) => impact === "serious" || impact === "critical",
+    ),
+  ).toEqual([]);
+
+  const overflow = await page.locator("html").evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+  expect(browserErrors).toEqual([]);
+});
+
 test("server-renders the representative PostgreSQL Material through Nest", async ({
   page,
   request,

@@ -2,9 +2,12 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type { MaterialBodyOperations } from "../domain/material-body/material-body.js";
-import { loadPublicMaterialProjection } from "../infrastructure/postgres/lifecycle-persistence.js";
 import { loadCurrentPublishedMaterialRevision } from "../infrastructure/postgres/material-persistence.js";
 import { recordMaterialAccessDecision } from "../infrastructure/postgres/access-audit-persistence.js";
+import {
+  findPublishedMaterialProjection,
+  listPublishedMaterialProjections,
+} from "../infrastructure/postgres/published-material-projection.js";
 import {
   materialId,
   materialRevisionId,
@@ -13,6 +16,7 @@ import type { PlatformDatabase } from "../../../infrastructure/postgres/index.js
 import type { ContentAccess } from "./ports/content-access.js";
 import type { PublishedMaterialReader } from "./published-material-reader.interface.js";
 import { normalizedUuidSchema } from "../domain/uuid.js";
+import { mapPostgresReadError } from "./shared/postgres-error-mapping.js";
 
 const readPublishedMaterialQuerySchema = z
   .object({
@@ -32,12 +36,47 @@ const readPublishedMaterialQuerySchema = z
   })
   .strict();
 
+const listPublishedMaterialProjectionsQuerySchema = z
+  .object({
+    after: z
+      .object({
+        materialId: normalizedUuidSchema,
+        publishedAt: z.iso.datetime({ offset: true }),
+      })
+      .strict()
+      .optional(),
+    first: z.number().int().min(1).max(24),
+  })
+  .strict();
+
 export function createPublishedMaterialReaderImplementation(dependencies: {
   readonly database: PlatformDatabase;
   readonly contentAccess: ContentAccess;
   readonly materialBodyOperations: MaterialBodyOperations;
 }): PublishedMaterialReader {
   return {
+    async listProjections(query) {
+      const parsed = listPublishedMaterialProjectionsQuerySchema.safeParse(query);
+      if (!parsed.success) {
+        return { ok: false, error: { code: "invalid_request_shape" } };
+      }
+      try {
+        const page = await listPublishedMaterialProjections(dependencies.database, {
+          first: parsed.data.first,
+          ...(parsed.data.after === undefined
+            ? {}
+            : {
+                after: {
+                  materialId: materialId(parsed.data.after.materialId),
+                  publishedAt: new Date(parsed.data.after.publishedAt),
+                },
+              }),
+        });
+        return { ok: true, value: page };
+      } catch (error) {
+        return { ok: false, error: mapPostgresReadError(error) };
+      }
+    },
     async read(query) {
       const parsed = readPublishedMaterialQuerySchema.safeParse(query);
       if (!parsed.success) {
@@ -45,7 +84,10 @@ export function createPublishedMaterialReaderImplementation(dependencies: {
       }
       const { subject, slug } = parsed.data;
       try {
-        const projection = await loadPublicMaterialProjection(dependencies.database, slug);
+        const projection = await findPublishedMaterialProjection(
+          dependencies.database,
+          slug,
+        );
         if (projection === undefined) {
           return { ok: false, error: { code: "material_not_found" } };
         }
@@ -116,11 +158,8 @@ export function createPublishedMaterialReaderImplementation(dependencies: {
             body: rendered.value,
           },
         };
-      } catch {
-        return {
-          ok: false,
-          error: { code: "dependency_unavailable", retryable: true },
-        };
+      } catch (error) {
+        return { ok: false, error: mapPostgresReadError(error) };
       }
     },
   };

@@ -1,15 +1,14 @@
-import type { MaterialAccess } from "../domain/material-revision-metadata.js";
 import type { RenderedMaterialBody } from "../domain/material-body/material-body.js";
 import type { AccessDecision, Subject } from "./ports/content-access.js";
 import type { Result } from "../result.js";
 
-export interface PublicMaterialProjectionDto {
+export interface PublishedMaterialProjectionDto {
   readonly materialId: string;
   readonly revisionId: string;
   readonly slug: string;
   readonly title: string;
   readonly summary: string;
-  readonly access: MaterialAccess;
+  readonly access: "free" | "membership";
   readonly publishedAt: string;
   readonly topic: {
     readonly id: string;
@@ -39,13 +38,13 @@ export type PublishedMaterialReadDto =
   | {
       readonly kind: "available";
       readonly cacheScope: "private-no-store" | "public";
-      readonly projection: PublicMaterialProjectionDto;
+      readonly projection: PublishedMaterialProjectionDto;
       readonly body: RenderedMaterialBody;
     }
   | {
       readonly kind: "teaser";
       readonly cacheScope: "private-no-store" | "public";
-      readonly projection: PublicMaterialProjectionDto;
+      readonly projection: PublishedMaterialProjectionDto;
       readonly access: Extract<AccessDecision, { readonly allowed: false }>;
     };
 
@@ -69,7 +68,35 @@ export type ReadPublishedMaterialOperation = (
   query: ReadPublishedMaterialQuery,
 ) => Promise<PublishedMaterialReadResult>;
 
+export interface ListPublishedMaterialProjectionsQuery {
+  readonly after?: {
+    readonly materialId: string;
+    readonly publishedAt: string;
+  };
+  readonly first: number;
+}
+
+export interface PublishedMaterialProjectionPageDto {
+  readonly items: readonly PublishedMaterialProjectionDto[];
+  readonly hasNext: boolean;
+}
+
+export type PublishedMaterialProjectionListError =
+  | { readonly code: "invalid_request_shape" }
+  | { readonly code: "dependency_unavailable"; readonly retryable: true }
+  | { readonly code: "internal_error"; readonly correlationId: string };
+
+export type PublishedMaterialProjectionListResult = Result<
+  PublishedMaterialProjectionPageDto,
+  PublishedMaterialProjectionListError
+>;
+
+export type ListPublishedMaterialProjectionsOperation = (
+  query: ListPublishedMaterialProjectionsQuery,
+) => Promise<PublishedMaterialProjectionListResult>;
+
 export interface PublishedMaterialReader {
+  readonly listProjections: ListPublishedMaterialProjectionsOperation;
   readonly read: ReadPublishedMaterialOperation;
 }
 
