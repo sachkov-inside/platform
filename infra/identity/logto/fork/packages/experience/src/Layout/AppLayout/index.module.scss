@@ -5,6 +5,8 @@
   position: absolute;
   inset: 0;
   overflow: auto;
+  color: #151812;
+  background: #f3f4ee;
 }
 
 .container {
@@ -26,7 +28,7 @@
     align-self: stretch;
     padding: _.unit(4) _.unit(5);
     position: relative;
-    background: var(--color-bg-body);
+    background: #f3f4ee;
   }
 }
 
@@ -41,8 +43,9 @@
     position: relative;
     padding: _.unit(6);
     border-radius: 16px;
-    background: var(--color-bg-float);
-    box-shadow: var(--color-shadow-2);
+    border: 1px solid #d0d2c8;
+    background: #fcfcf9;
+    box-shadow: 0 12px 32px -16px rgb(21 24 18 / 28%);
   }
 
   @media only screen and (max-width: 580px) {

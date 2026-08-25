@@ -7,6 +7,7 @@ import {
   ensureApplication,
   ensureEmailConnector,
   ensureResource,
+  ensureSignInExperience,
   mergeEnv,
 } from "./identity-proof-bootstrap.mjs";
 
@@ -34,8 +35,8 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   assert.doesNotMatch(`${dockerfile}\n${compose}`, /(?:latest|npx\s)/u);
 });
 
-test("Experience UI fork removes provider signature and keeps an Inside fallback title", async () => {
-  const [layout, title] = await Promise.all([
+test("Experience UI fork keeps the Inside shell and removes the unknown-account prompt", async () => {
+  const [layout, title, verification] = await Promise.all([
     readFile(
       new URL(
         "fork/packages/experience/src/Layout/AppLayout/index.tsx",
@@ -50,10 +51,36 @@ test("Experience UI fork removes provider signature and keeps an Inside fallback
       ),
       "utf8",
     ),
+    readFile(
+      new URL(
+        "fork/packages/experience/src/containers/VerificationCode/use-sign-in-flow-code-verification.ts",
+        proofRoot,
+      ),
+      "utf8",
+    ),
   ]);
 
   assert.doesNotMatch(layout, /LogtoSignature|Powered by/u);
   assert.match(title, /return 'Sachkov Inside'/u);
+  assert.doesNotMatch(verification, /usePromiseConfirmModal|sign_in_id_does_not_exist/u);
+  assert.match(verification, /registerWithIdentifierAsync\(verificationId\)/u);
+});
+
+test("Management API bootstrap forces the Platform light Russian experience", async () => {
+  let request;
+  await ensureSignInExperience(async (path, options) => {
+    request = { path, ...options };
+    return {};
+  });
+
+  assert.equal(request.path, "/sign-in-exp");
+  assert.equal(request.method, "PATCH");
+  assert.equal(request.body.color.primaryColor, "#EE5D27");
+  assert.equal(request.body.color.isDarkModeEnabled, false);
+  assert.deepEqual(request.body.languageInfo, {
+    autoDetect: false,
+    fallbackLanguage: "ru",
+  });
 });
 
 test("custom access-token claims require a matching fresh email-code interaction", async () => {

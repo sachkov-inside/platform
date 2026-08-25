@@ -188,17 +188,17 @@ export async function ensureEmailConnector(api) {
   });
 }
 
-async function ensureSignInExperience(api) {
+export async function ensureSignInExperience(api) {
   await api("/sign-in-exp", {
     method: "PATCH",
     body: {
       color: {
-        primaryColor: "#BC5215",
-        isDarkModeEnabled: true,
-        darkPrimaryColor: "#E47A3C",
+        primaryColor: "#EE5D27",
+        isDarkModeEnabled: false,
+        darkPrimaryColor: "#EE5D27",
       },
       branding: {},
-      languageInfo: { autoDetect: true, fallbackLanguage: "ru" },
+      languageInfo: { autoDetect: false, fallbackLanguage: "ru" },
       signIn: {
         methods: [
           {
