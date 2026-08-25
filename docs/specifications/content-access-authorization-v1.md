@@ -21,19 +21,27 @@ type AccessCaller =
   | "playbackToken"
   | "videoAuthorization";
 
+type AccessAuditContext = Readonly<{
+  caller: AccessCaller;
+  correlationId: CorrelationId;
+}>;
+
+type AccessRequest = Readonly<{
+  subject: Subject;
+  resource: Resource;
+  action: Action;
+}> & AccessAuditContext;
+
 interface ContentAccess {
-  authorize(input: Readonly<{
-    subject: Subject;
-    resource: Resource;
-    action: Action;
-    caller: AccessCaller;
-    correlationId: CorrelationId;
-  }>): Promise<AccessDecision>;
+  authorize(input: AccessRequest): Promise<AccessDecision>;
 }
 ```
 
 Caller сообщает trusted `Subject`, opaque local `Resource` reference, одну `Action` и
 audit context `caller`/`correlationId`. Audit context не влияет на policy outcome.
+`AccessCaller` — stable audit taxonomy конкретной boundary, запросившей decision: она
+намеренно включает transport callers и resource-delivery adapters и не моделирует
+resource или action — для них есть отдельные fields.
 Module сам читает актуальные Platform facts о Principal, publication/resource mapping и
 `MembershipEntitlement`; caller не передаёт роли, access class, publication state, email,
 Telegram state или provider claims. IdP аутентифицирует External Identity, а Platform
@@ -205,8 +213,9 @@ semantics; adapters не создают новые reasons. `policyVersion` ме
 
 Каждый non-public allow конечен. `active_membership` не живёт дольше entitlement, а
 `content_permission`/`admin_permission` не живут дольше самого раннего known permission,
-Principal expiry и versioned finite `permissionDecisionCap` от `decidedAt`. Exact cap выбирается
-в #50 до production code и входит в `policyVersion`; Platform Session только идентифицирует
+Principal expiry и versioned finite `permissionDecisionCap` от `decidedAt`. Exact cap — open owner
+decision #50: он выбирается до permission-based ContentAccess core code, блокирует
+этот slice до выбора и входит в `policyVersion`; Platform Session только идентифицирует
 Subject и не является access lease. Five-minute cap применяется к Membership evidence,
 а не автоматически к permission-based decisions. Caller не reuse-ит allow для другой
 operation; он может только ограничить derived credential ещё более коротким сроком. Public allow
@@ -493,7 +502,9 @@ Design #84 не заблокирован. Для #50:
 - production Telegram HTTP adapter и credentialed integration принадлежат #52, поэтому outage and
   contract behavior в #50 доказывает deterministic adapter;
 - shared schema/fixtures ещё не vendored; это первый #50 slice, а не runtime dependency на
-  Workspace.
+  Workspace;
+- exact finite `permissionDecisionCap` остаётся open owner decision #50 и блокирует
+  permission-based policy implementation и derived-credential acceptance до выбора.
 
 Rejected:
 
@@ -522,6 +533,7 @@ delivery, Kinescope enforcement и operational retention также могут �
 | Anonymous/non-member/member/expired/author/admin/service outcomes | Stable matrix and deterministic reason precedence. |
 | Authorize before body/private metadata/credentials | Explicit Material/preview and future delivery ordering. |
 | Five-minute positive bound | Entitlement validation and `validUntil` cap. |
+| Finite author/admin allow | `permissionDecisionCap` обязателен; exact value — explicit #50 owner blocker и policy-version input. |
 | Removal/expiry/rejoin/replay | Monotonic projection rules and vendored fixtures. |
 | Stale outage fails closed | Fresh-only use, no grace, `entitlement_stale`/`dependency_unavailable`. |
 | Single-flight refresh | Durable lease/generation without remote call in transaction. |
