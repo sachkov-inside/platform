@@ -21,7 +21,7 @@ export async function recordMaterialAccessDecision(
   },
 ): Promise<void> {
   await database
-    .insertInto("material_access_audit_events")
+    .insertInto("materials.material_access_audit_events")
     .values({
       id: randomUUID(),
       material_id: values.materialId,

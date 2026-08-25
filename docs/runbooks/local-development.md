@@ -168,11 +168,11 @@ docker compose exec postgres psql -U inside -d inside
 Useful read-only commands:
 
 ```sql
-\dt
-select name, timestamp from kysely_migration order by name;
-select id, slug, current_draft_revision_id from materials order by created_at;
+\dt materials.*
+select name, timestamp from public.kysely_migration order by name;
+select id, slug, current_draft_revision_id from materials.materials order by created_at;
 select id, material_id, title, schema_version, created_at
-from material_revisions
+from materials.material_revisions
 order by created_at;
 ```
 
@@ -204,7 +204,9 @@ Only migration authors regenerate the checked-in Kysely type file:
 pnpm --filter @inside/backend db:types:generate
 ```
 
-The type commands read the repository `.env` and inspect only the product-owned `public` schema.
+The type commands read the repository `.env` and inspect only the product-owned `materials` schema.
+Generated `DB` keys remain schema-qualified so a query cannot compile after silently dropping the
+Module ownership prefix.
 
 ## Diagnose prerequisites
 

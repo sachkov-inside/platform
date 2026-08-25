@@ -23,6 +23,7 @@ import {
 import { mapPostgresReadError } from "./shared/postgres-error-mapping.js";
 import { executeIdempotentPublication } from "./shared/idempotent-operation.js";
 import {
+  hasPublicationEvent,
   unpublishMaterialProjection,
   type PublicationEvent,
 } from "../infrastructure/postgres/lifecycle-persistence.js";
@@ -83,18 +84,12 @@ export function createUnpublishMaterial(
               return rollback({ code: "material_not_found" });
             }
             if (material.currentPublishedRevisionId === null) {
-              const priorPublication = await transaction
-                .selectFrom("material_publication_events")
-                .select("id")
-                .where("material_id", "=", command.materialId)
-                .where(
-                  "revision_id",
-                  "=",
-                  command.expectedPublishedRevisionId,
-                )
-                .where("kind", "=", "publish")
-                .executeTakeFirst();
-              if (priorPublication === undefined) {
+              const hadPriorPublication = await hasPublicationEvent(
+                transaction,
+                command.materialId,
+                command.expectedPublishedRevisionId,
+              );
+              if (!hadPriorPublication) {
                 return rollback({ code: "publication_not_found" });
               }
             }

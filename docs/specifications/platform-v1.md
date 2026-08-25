@@ -158,6 +158,12 @@ production trade-off подтверждён evidence, а не заранее д�
   internal implementations и явно объявленные dependencies; entrypoints остаются thin adapters.
 - Platform-owned PostgreSQL pool/Kysely composition, generated types и один migration authority
   принадлежат `infrastructure/postgres`; capability persistence остаётся internal.
+- Каждый capability Module с persistent application state владеет одной PostgreSQL schema с
+  module-derived именем. Только implementation и migrations владельца обращаются к её объектам;
+  cross-schema queries, views, foreign keys и writes между Modules запрещены, а взаимодействие
+  проходит через public interfaces. Stateless Modules не получают пустые schemas. Это
+  архитектурная граница владения поверх общей runtime role, а не security boundary; полный rationale
+  зафиксирован в [ADR 0003](../adr/0003-one-postgresql-schema-per-state-owning-module.md).
 - Новый workspace package, process или separately deployable module допустим только после доказанной
   operational/domain seam. Speculative packages и generic layer folders запрещены.
 - Один глубокий `Materials` module предоставляет caller-oriented facets `MaterialAuthoring` и
