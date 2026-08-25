@@ -1,9 +1,9 @@
-# ContentAccess authorization brief
+# ContentAccess authorization specification v1
 
-Статус: design brief для
+Статус: decision-ready repository-local specification для
 [#84](https://github.com/sachkov-inside/platform/issues/84), подготовленный по
-`origin/main` `5a3786198d7eb63fd10ef2c9581ea96b075b7a9d` от 2026-08-24. После owner approval
-он является repository-local implementation contract для
+`origin/main` `30bf750f30dcc7e72363f1a9d5a2caf03b192634` от 2026-08-25. После owner approval
+и merge он является repository-local implementation contract для
 [#50](https://github.com/sachkov-inside/platform/issues/50), но не production implementation и не
 ADR.
 
@@ -32,6 +32,9 @@ Telegram state или provider claims. IdP аутентифицирует Extern
 Если module удалить, Principal/resource/entitlement policy, reason ordering, freshness и
 fail-closed rules разойдутся по Material Reader, preview и будущим delivery callers; поэтому seam
 даёт leverage и locality. Tests проходят через тот же `authorize`, что production callers.
+Транспортный `TrustedSubject` из `IdentityPrincipals` сужается до access-oriented
+`Subject`; current Principal state и grants проверяются за границей caller и не
+переносятся в `ContentAccess` как trusted permission snapshot.
 
 `MembershipEntitlements` остаётся отдельным глубоким Platform module за внутренним seam
 `ContentAccess`. Он скрывает validation versioned evidence, projection, persistence, freshness,
@@ -44,10 +47,12 @@ adapter в [#52](https://github.com/sachkov-inside/platform/issues/52) реал�
 
 Решение конкретизирует следующие принятые authorities:
 
-- [Platform specification](../specifications/platform-v1.md) закрепляет Platform-owned
+- [Platform specification](platform-v1.md) закрепляет Platform-owned
   `ContentAccess`, `MembershipEntitlements`, public/closed load ordering и protected delivery;
+- [IdentityPrincipals и Platform Session specification](identity-principals-session-v1.md)
+  закрепляет trusted `Subject`, current Principal state и exact permission vocabulary;
 - [Platform #48](https://github.com/sachkov-inside/platform/issues/48) задаёт root
-  Identity/Authorization delivery contract, а #50 реализует этот brief;
+  Identity/Authorization delivery contract, а #50 реализует эту specification;
 - [Workspace #65](https://github.com/sachkov-inside/workspace/issues/65) задаёт cross-repository
   authority split;
 - Workspace contract
@@ -67,7 +72,7 @@ floating dependency на `workspace/main`.
 
 ## Инвентаризация `origin/main`
 
-| Surface | Реальность на `5a37861` | Следствие для #50 |
+| Surface | Реальность на `30bf750` | Следствие для #50 |
 |---|---|---|
 | Published Material body | Реальный PostgreSQL-backed [`PublishedMaterialReader`](../../apps/backend/src/modules/materials/application/create-published-material-reader.ts) сначала загружает allowlisted public projection, вызывает Materials-local `ContentAccess`, и только после allow загружает exact published revision/body. Closed deny возвращает teaser; интеграционные tests доказывают отсутствие protected bytes и `private-no-store` для allow. | Первый реальный protected consumer уже существует. #50 заменяет injected baseline новым module и сохраняет authorize-before-body-load. #31 закрыт и больше не blocker. |
 | Material preview | Реальный `previewRevision` вызывает `ContentAccess` до body load, но сначала читает revision header и передаёт caller-supplied `publication/access` facts в policy. | Первый real privileged consumer существует. #50 переносит resource-fact resolution внутрь `ContentAccess`, чтобы private revision metadata не была pre-authorization dependency caller. |
@@ -76,8 +81,8 @@ floating dependency на `workspace/main`.
 | Access audit | `material_access_audit_events` записывает только action, actor, resource ids и coarse allow/deny для read/preview. | #50 сохраняет существующий audit consumer и добавляет stable reason/policy/decision correlation только если это нужно для reasoned conformance; email, provider refs/tokens и credentials не логируются. Audit не становится authorization input. |
 | Asset/Image/File | MaterialBody умеет validate/render local `assetId` references и safe labels. Отдельных `Assets` module, persistence, ready-state, private metadata, upload или delivery interface/endpoints нет. | `Resource` vocabulary резервирует `asset`, но #50 не создаёт Asset adapter, signed URL или dummy production resource. Asset slice начинается только с owning real consumer. |
 | Video | MaterialBody умеет validate/render local `videoId` и caption. `Videos` module, Kinescope mapping/status, playback-token и callback отсутствуют. Storybook `Video` fixtures — presentation-only. | `Resource` vocabulary резервирует `video`, но #50 не создаёт Video/Kinescope adapter. `play` conformance активируется с первым owning Video consumer. |
-| Web page | Production routes `/`, `/library`, `/map` — semantic placeholders. Material route и real backend adapter отсутствуют; [#67](https://github.com/sachkov-inside/platform/issues/67) владеет первым production Material Reader route. | #50 не создаёт page. `PublishedMaterialReader` остаётся application test surface; #67 обязан использовать его outcome и не повторять policy. |
-| REST | API process содержит только `/health` и result mapping helper; Materials module/controller/read endpoint не подключены. | REST adapter отсутствует. Не создавать speculative controller; первый real REST consumer вызывает тот же `ContentAccess` через owning application interface и получает reason mapping из этого brief. |
+| Web page | Production routes `/`, `/library`, `/map` не читают Material. Material route и real backend adapter отсутствуют; #67 closed as superseded without implementation, а [#89](https://github.com/sachkov-inside/platform/issues/89) теперь владеет одним finished production Reader slice. | #50 не создаёт page. `PublishedMaterialReader` остаётся application test surface; #89 использует его outcome и не повторяет policy. |
+| REST | API process содержит только `/health` и result mapping helper; Materials module/controller/read endpoint не подключены. | REST adapter отсутствует. Не создавать speculative controller; первый real REST consumer вызывает тот же `ContentAccess` через owning application interface и получает reason mapping из этой specification. |
 | MCP | MCP process содержит config, PostgreSQL и readiness; Materials resources/tools отсутствуют. [#29](https://github.com/sachkov-inside/platform/issues/29) владеет future Material MCP adapter. | Не создавать speculative MCP resource. Service Principal и preview/read semantics фиксируются сейчас, adapter появляется consumer-led в #29. |
 
 `Asset`, `Video`, page, REST и MCP являются подтверждёнными contract consumers, но не существующими
@@ -95,9 +100,12 @@ type Subject =
 ```
 
 `PrincipalId` — opaque checked Platform identifier из trusted `IdentityPrincipals` path #49.
-Human/service kind также приходит из Platform mapping, а не из request body или provider claim.
-Subject не содержит permissions, account status, Membership, email, session, issuer/subject или
-Telegram identifiers. Author/admin — personas с explicit Platform permissions, не Subject kinds.
+`IdentityPrincipals.resolveSubject` возвращает `TrustedSubject`; trusted composition проецирует
+только `principalId` и `principalKind` в этот `Subject`. Human/service kind не приходит
+из request body или provider claim. `Subject` не содержит permissions, account status,
+Membership, email, `sessionRef`, issuer/subject или Telegram identifiers. Author/admin — personas
+с explicit current Platform permissions, не Subject kinds. `ContentAccess` проверяет их
+через `IdentityPrincipals.checkPermission`; caller-supplied permission snapshot не является authority.
 Service Principal никогда не использует human Membership entitlement и не наследует browser
 session; ему нужен explicit permission для каждой privileged content action.
 
@@ -184,8 +192,9 @@ semantics; adapters не создают новые reasons. `policyVersion` ме
 использует для correlation, но они не являются bearer credential.
 
 Каждый non-public allow конечен. `active_membership` не живёт дольше entitlement, а
-`content_permission`/`admin_permission` не живут дольше самого раннего known permission/account
-expiry и versioned five-minute policy cap от `decidedAt`. Caller не reuse-ит allow для другой
+`content_permission`/`admin_permission` не живут дольше самого раннего known permission,
+Principal или Platform Session expiry. Five-minute cap применяется к Membership evidence,
+а не к permission-based decisions. Caller не reuse-ит allow для другой
 operation; он может только ограничить derived credential ещё более коротким сроком. Public allow
 не требует Principal/Membership lookup и может не иметь `validUntil`.
 
@@ -198,7 +207,10 @@ operation; он может только ограничить derived credential 
 3. protected anonymous operation получает `authentication_required`;
 4. unavailable required Platform fact получает `dependency_unavailable`;
 5. disabled Principal получает `principal_disabled`;
-6. valid admin/content permission разрешает только соответствующую action;
+6. current `materials:author` разрешает content read/preview с `content_permission`;
+   если у того же Principal есть `identity:admin`, reason — `admin_permission`;
+   `identity:admin` без `materials:author` ничего не открывает, а `materials:publish` не участвует в
+   content access;
 7. preview без permission получает `content_permission_required`;
 8. human normal closed delivery проверяет current entitlement; service Principal без explicit
    permission получает `content_permission_required`, не Membership lookup;
@@ -212,8 +224,9 @@ deny. Internal reason не попадает в public analytics/UI copy.
 
 ## Stable access matrix
 
-`Author`, `admin` и service columns подразумевают enabled Principal и указанную explicit Platform
-permission. Active/expired Membership применяется только к human Principal.
+`Author` и service-with-permission columns подразумевают `materials:author`.
+`Admin` подразумевает одновременно `materials:author` и `identity:admin`; один
+`identity:admin` не даёт Material access. Active/expired Membership применяется только к human Principal.
 
 | Resource / action | Anonymous | Human non-member | Active member | Expired member | Human author | Human admin | Service, no permission | Service, explicit content permission |
 |---|---|---|---|---|---|---|---|---|
@@ -252,7 +265,7 @@ interface MembershipEntitlements {
 
 interface TelegramMembership {
   check(input: Readonly<{
-    principalRef: PrincipalIntegrationRef;
+    principalRef: MembershipPrincipalRef;
     afterEvidenceVersion?: number;
   }>): Promise<unknown>;
 }
@@ -261,8 +274,11 @@ interface TelegramMembership {
 `MembershipAccessState` — internal finite Platform state (`active` с `validUntil` и audit refs,
 `required`, `expired`, `stale`, `unavailable`), не wire evidence и не UI DTO. `check` возвращает
 `unknown`, потому что owning module обязан strict-validate the vendored v1 schema, principal
-binding, clock and monotonic version before accepting evidence. `PrincipalIntegrationRef` — opaque
-Platform-issued integration reference, не email/raw Principal ID.
+binding, clock and monotonic version before accepting evidence. `MembershipPrincipalRef` — opaque
+Platform-issued integration reference, не email/raw Principal ID. Consumer-side binding
+`PrincipalId -> MembershipPrincipalRef` принадлежит `MembershipEntitlements`, а не
+`IdentityPrincipals`: #50 доказывает его с deterministic fixture binding, а #52 подключает
+real link lifecycle и HTTP adapter.
 
 `resolveForAccess` выполняет:
 
@@ -293,7 +309,7 @@ Platform-issued integration reference, не email/raw Principal ID.
 
 ### Single-flight and outage
 
-Single-flight key is one `PrincipalIntegrationRef`, not route/resource. One process-local Promise
+Single-flight key is one `MembershipPrincipalRef`, not route/resource. One process-local Promise
 is insufficient in a multi-instance backend, so projection persistence owns a short refresh lease
 and generation:
 
@@ -371,9 +387,15 @@ apps/backend/src/modules/
 
 `ContentAccess` and `MembershipEntitlements` are in-process modules in the same modular monolith,
 not packages/processes. PostgreSQL implementations stay internal and use existing Platform
-database/migration authority. Resource facts use concrete PostgreSQL queries and real-PostgreSQL
-tests; a generic `ResourceRepository`, policy engine, UoW or in-memory Materials store would be a
-hypothetical seam and is rejected.
+database/migration authority. `ContentAccess` не читает Materials tables напрямую. Он
+объявляет access-oriented `MaterialResourceFacts` port, а Materials-owned adapter
+реализует его поверх internal persistence и возвращает только minimal
+revision/publication/access facts. Так Materials хранит ownership своих tables,
+caller не передаёт policy facts, а dependency в code остаётся однонаправленной:
+Materials adapter реализует ContentAccess-owned port. #50 добавляет только real Material
+port; будущие Assets/Videos добавляют свои facts adapters только вместе с real
+consumers. Generic `ResourceRepository`, policy engine, UoW или in-memory Materials store
+остаются rejected hypothetical seams. Tests адаптера используют real PostgreSQL.
 
 The only new remote port is `TelegramMembership`, justified by deterministic test and production
 HTTP adapters. Clock/ID sources and contract fixture adapter are internal test seams, not exported
@@ -405,8 +427,8 @@ interface. Existing Materials lifecycle tests are adapted, not layered with a se
    production adapter.
 2. **MembershipEntitlements core.** Add PostgreSQL projection/migration, strict evidence validation,
    deterministic adapter, clock, monotonic replay/removal/rejoin behavior and durable single-flight
-   tests. This slice waits for #49's Principal/integration-reference ownership rather than inventing
-   a duplicate identity table.
+   tests. This slice waits for #49's `PrincipalId`/trusted Subject ownership, но сам владеет
+   consumer-side opaque Membership binding и не создаёт duplicate identity table.
 3. **Platform ContentAccess core.** Implement reason precedence against #49 Principal/permission
    facts, current Material resource facts and MembershipEntitlements. Prove the full Material rows
    plus unavailable/disabled/service cases through one interface.
@@ -415,7 +437,7 @@ interface. Existing Materials lifecycle tests are adapted, not layered with a se
    `ContentAccess` into `createMaterials`/Nest composition; preserve public teaser, exact published
    pointer, private-no-store and audit behavior.
 5. **Cross-surface hardening.** Run focused lifecycle/conformance/concurrency/cache tests, root
-   checks, guardrails and Standards + Spec review. Record explicit TODO links to #67, #29 and future
+   checks, guardrails and Standards + Spec review. Record explicit TODO links to #89, #29 and future
    Asset/Video owners; do not scaffold their adapters.
 
 Slices 2–4 may be separate commits inside one #50 PR, but they are not independently releasable
@@ -428,8 +450,9 @@ Design #84 не заблокирован. Для #50:
 
 - [#31](https://github.com/sachkov-inside/platform/issues/31) уже closed и real protected Material
   path существует;
-- [#49](https://github.com/sachkov-inside/platform/issues/49) остаётся hard blocker для trusted
-  human/service Subject, Principal status, permissions и opaque integration reference;
+- [#49](https://github.com/sachkov-inside/platform/issues/49) design contract уже merged, но production
+  implementation остаётся hard blocker для trusted human/service Subject, Principal status и
+  current permissions; opaque Membership binding принадлежит #50/#52, а не #49;
 - Assets/Videos/page/REST/MCP не blockers для core Material implementation; они отсутствующие
   consumers и подключаются своими owning tickets;
 - production Telegram HTTP adapter и credentialed integration принадлежат #52, поэтому outage and
@@ -447,13 +470,17 @@ Rejected:
 - provider call inside a long PostgreSQL transaction;
 - stale-positive grace extension, allow-on-error or shared caching of protected outcomes.
 
-No new hard-to-reverse trade-off is introduced beyond accepted Platform/Workspace contracts, so
-#84 не создаёт ADR. Concrete object delivery, Kinescope enforcement and operational retention may
-require focused ADRs only after their real proofs.
+Owner выбрал PostgreSQL lease/generation как reversible #50 implementation default для
+cross-process single-flight: remote call не держит transaction, а expired lease даёт recovery
+после crash. Acceptance property — один refresh на Principal между live instances — остаётся
+важнее exact table/query shape. Если implementation proof выявит hard-to-reverse trade-off,
+owning application ADR зафиксирует его тогда. #84 не создаёт ADR заранее. Concrete object
+delivery, Kinescope enforcement и operational retention также могут потребовать focused ADRs только
+после их real proofs.
 
 ## Traceability and implementation acceptance
 
-| #50 / shared requirement | Brief contract |
+| #50 / shared requirement | Specification contract |
 |---|---|
 | IdP authenticates; Platform authorizes | Authority section; Subject contains no roles/claims; Principal facts are Platform-owned. |
 | One interface for protected resources/callers | Single `authorize` interface; inventory names real and absent consumers. |
@@ -467,6 +494,6 @@ require focused ADRs only after their real proofs.
 | No speculative resource adapters | Asset/Video/page/REST/MCP are explicitly absent and consumer-led. |
 | Provider-neutral implementation stopping condition | Real PublishedMaterialReader + preview use one Platform module; baseline policy removed. |
 
-Owner approval of this brief authorizes #50 implementation only after #49 supplies its trusted
+Owner approval of this specification authorizes #50 implementation only after #49 supplies its trusted
 Subject contract. It does not approve provider selection, Telegram HTTP calls, production
 credentials/deploy, Asset/Video delivery mechanisms or merge.
