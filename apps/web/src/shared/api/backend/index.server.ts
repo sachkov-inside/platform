@@ -61,22 +61,21 @@ export function readBackendBaseUrl(): string {
   return url.toString().replace(/\/$/u, "");
 }
 
-export async function getBackendHealth(): Promise<BackendHealth> {
+export async function requestBackend(path: `/${string}`): Promise<Response> {
   const baseUrl = readBackendBaseUrl();
-  let response: Response;
 
   try {
-    response = await fetch(`${baseUrl}/health`, {
+    return await fetch(`${baseUrl}${path}`, {
       cache: "no-store",
       signal: AbortSignal.timeout(BACKEND_REQUEST_TIMEOUT_MS),
     });
   } catch (cause) {
-    throw new BackendConnectionError(
-      "unavailable",
-      "Backend health request failed",
-      { cause },
-    );
+    throw new BackendConnectionError("unavailable", "Backend request failed", { cause });
   }
+}
+
+export async function getBackendHealth(): Promise<BackendHealth> {
+  const response = await requestBackend("/health");
 
   if (!response.ok) {
     throw new BackendConnectionError(

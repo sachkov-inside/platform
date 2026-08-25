@@ -11,9 +11,9 @@ development database. Run commands from the repository root.
 - Integration tests start their own temporary PostgreSQL container through Testcontainers. They do
   not read or modify the Compose database and remove their databases and container after the run.
 
-The current production API exposes health and OpenAPI endpoints. Material create/load/revise is an
-application interface covered by integration tests; it does not yet have a production HTTP or MCP
-transport.
+The production API exposes health, OpenAPI and the published Material Reader endpoint. Material
+authoring remains an application interface covered by integration tests; it does not yet have a
+production HTTP or MCP transport.
 
 ## Parallel worktrees and Compose ownership
 
@@ -94,6 +94,8 @@ Then inspect:
 
 - health: <http://127.0.0.1:3001/health>
 - OpenAPI UI: <http://127.0.0.1:3001/openapi>
+- published Material API: <http://127.0.0.1:3001/materials/inside-platform-overview>
+- production Reader: <http://127.0.0.1:3000/materials/inside-platform-overview>
 
 Expected health response:
 
@@ -103,10 +105,10 @@ Expected health response:
 
 `smoke:health` includes both in-process composition and an external regression that launches the
 documented `tsx watch` development entrypoint. `smoke:fullstack` starts the development API and a
-production-built web process, checks the live web route, then executes the web server-only backend
-adapter against the live API. It stops only those application processes and expects the singleton
-Compose PostgreSQL environment to be owned by the current session. The first real product
-Next-to-Nest route remains the Reader vertical slice; this setup does not invent a health BFF route.
+production-built web process, verifies the published Reader on desktop and mobile through
+Playwright, and exercises the web server-only adapter against the live API. It stops only those
+application processes and expects the singleton Compose PostgreSQL environment to be owned by the
+current session.
 
 Stop application processes with `Ctrl+C`. Stop Compose without deleting local data:
 
@@ -182,11 +184,12 @@ Populate or refresh the stable local development fixture:
 pnpm --filter @inside/backend db:seed
 ```
 
-The seed refuses non-development mode, uses fixed idempotency keys and creates one free published
-Material at slug `inside-platform-overview`. Repeating it returns the same Material and revision.
-The Material itself is created, validated and published through the Materials application
-interface. Only its fixed local Topic/Format prerequisites use typed Kysely bootstrap because
-Platform has no product taxonomy-authoring capability yet; raw SQL is not used.
+The seed refuses non-development mode, uses versioned idempotency keys and creates one free,
+representative published Material at slug `inside-platform-overview`. Repeating it keeps the same
+Material and upgrades an older local fixture to the current revision without resetting the named
+volume. The Material itself is created, revised, validated and published through the Materials
+application interface. Only its fixed local Topic/Format/Tag/Series prerequisites use typed Kysely
+bootstrap because Platform has no product taxonomy-authoring capability yet; raw SQL is not used.
 
 ## Diagnose prerequisites
 

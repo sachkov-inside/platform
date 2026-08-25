@@ -65,6 +65,13 @@ export async function publishRevisionProjection(
     .where("id", "=", values.revision.materialId)
     .executeTakeFirstOrThrow();
 
+  // The search row references the exact published revision. Remove it before
+  // replacing that revision, then recreate it below in the same transaction.
+  await transaction
+    .deleteFrom("material_search_documents")
+    .where("material_id", "=", values.revision.materialId)
+    .execute();
+
   await transaction
     .insertInto("published_materials")
     .values({
@@ -193,6 +200,8 @@ export async function loadPublicMaterialProjection(
 ): Promise<PublicMaterialProjectionDto | undefined> {
   const row = await database
     .selectFrom("published_materials as publication")
+    .innerJoin("topics as topic", "topic.id", "publication.topic_id")
+    .innerJoin("formats as format", "format.id", "publication.format_id")
     .select([
       "publication.material_id",
       "publication.revision_id",
@@ -200,23 +209,45 @@ export async function loadPublicMaterialProjection(
       "publication.title",
       "publication.summary",
       "publication.access",
-      "publication.topic_id",
-      "publication.format_id",
-      sql<readonly string[]>`coalesce(
-        (
-          select jsonb_agg(tag.tag_id order by tag.tag_id)
-          from published_material_tags as tag
-          where tag.material_id = publication.material_id
-        ),
-        '[]'::jsonb
-      )`.as("tag_ids"),
-      sql<readonly { readonly series_id: string; readonly ordinal: number }[]>`coalesce(
+      "publication.published_at",
+      "topic.id as topic_id",
+      "topic.name as topic_name",
+      "topic.slug as topic_slug",
+      "format.id as format_id",
+      "format.name as format_name",
+      "format.slug as format_slug",
+      sql<readonly { readonly id: string; readonly name: string }[]>`coalesce(
         (
           select jsonb_agg(
-            jsonb_build_object('series_id', membership.series_id, 'ordinal', membership.ordinal)
-            order by membership.series_id
+            jsonb_build_object('id', tag.id, 'name', tag.name)
+            order by tag.normalized_name
+          )
+          from published_material_tags as membership
+          join tags as tag on tag.id = membership.tag_id
+          where membership.material_id = publication.material_id
+        ),
+        '[]'::jsonb
+      )`.as("tags"),
+      sql<
+        readonly {
+          readonly id: string;
+          readonly name: string;
+          readonly slug: string;
+          readonly ordinal: number;
+        }[]
+      >`coalesce(
+        (
+          select jsonb_agg(
+            jsonb_build_object(
+              'id', series.id,
+              'name', series.name,
+              'slug', series.slug,
+              'ordinal', membership.ordinal
+            )
+            order by series.name, membership.ordinal
           )
           from published_material_series_memberships as membership
+          join series on series.id = membership.series_id
           where membership.material_id = publication.material_id
         ),
         '[]'::jsonb
@@ -237,12 +268,21 @@ export async function loadPublicMaterialProjection(
     title: row.title,
     summary: row.summary,
     access: row.access,
-    topicId: row.topic_id,
-    formatId: row.format_id,
-    tagIds: row.tag_ids,
-    seriesMemberships: row.series_memberships.map(({ ordinal, series_id }) => ({
+    publishedAt: row.published_at.toISOString(),
+    topic: {
+      id: row.topic_id,
+      name: row.topic_name,
+      slug: row.topic_slug,
+    },
+    format: {
+      id: row.format_id,
+      name: row.format_name,
+      slug: row.format_slug,
+    },
+    tags: row.tags,
+    seriesMemberships: row.series_memberships.map(({ id, name, ordinal, slug }) => ({
       ordinal,
-      seriesId: series_id,
+      series: { id, name, slug },
     })),
   };
 }

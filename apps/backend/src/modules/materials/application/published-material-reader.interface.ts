@@ -10,12 +10,28 @@ export interface PublicMaterialProjectionDto {
   readonly title: string;
   readonly summary: string;
   readonly access: MaterialAccess;
-  readonly topicId: string;
-  readonly formatId: string;
-  readonly tagIds: readonly string[];
+  readonly publishedAt: string;
+  readonly topic: {
+    readonly id: string;
+    readonly name: string;
+    readonly slug: string;
+  };
+  readonly format: {
+    readonly id: string;
+    readonly name: string;
+    readonly slug: string;
+  };
+  readonly tags: readonly {
+    readonly id: string;
+    readonly name: string;
+  }[];
   readonly seriesMemberships: readonly {
-    readonly seriesId: string;
     readonly ordinal: number;
+    readonly series: {
+      readonly id: string;
+      readonly name: string;
+      readonly slug: string;
+    };
   }[];
 }
 
