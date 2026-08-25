@@ -129,7 +129,17 @@ describe("Material Reader server adapter", () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(Response.json({ code: "material_not_found" }, { status: 404 })),
+      vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            type: "urn:inside:problem:material-not-found",
+            title: "Material not found",
+            status: 404,
+            code: "material_not_found",
+          },
+          { status: 404 },
+        ),
+      ),
     );
 
     await expect(getMaterialReader("missing")).resolves.toEqual({ kind: "not-found" });
@@ -154,17 +164,47 @@ describe("Material Reader server adapter", () => {
     });
   });
 
-  it("keeps backend failures distinct from contract drift", async () => {
+  it("maps a non-JSON dependency outage to the unavailable state", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("upstream unavailable", { status: 503 })),
+    );
+
+    await expect(getMaterialReader("inside-platform-overview")).resolves.toEqual({
+      kind: "unavailable",
+    });
+  });
+
+  it("maps a failed backend request to the unavailable state", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("connection refused")));
+
+    await expect(getMaterialReader("inside-platform-overview")).resolves.toEqual({
+      kind: "unavailable",
+    });
+  });
+
+  it("keeps an internal backend error distinct from an infrastructure outage", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        Response.json({ code: "dependency_unavailable", retryable: true }, { status: 503 }),
+        Response.json(
+          {
+            type: "urn:inside:problem:internal-error",
+            title: "Internal error",
+            status: 500,
+            code: "internal_error",
+            correlationId: "72000000-0000-4000-8000-000000000099",
+          },
+          { status: 500 },
+        ),
       ),
     );
 
     await expect(getMaterialReader("inside-platform-overview")).rejects.toMatchObject({
-      code: "unavailable",
+      code: "backend-error",
     });
   });
 });

@@ -10,6 +10,9 @@ export async function generateMetadata({
   if (result.kind === "not-found") {
     return { title: "Материал не найден" };
   }
+  if (result.kind === "unavailable") {
+    return { title: "Материал временно недоступен" };
+  }
   return {
     title: result.material.title,
     description: result.material.summary,

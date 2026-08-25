@@ -75,4 +75,5 @@ export type MaterialReaderResult =
       readonly material: MaterialReaderMetadata;
       readonly reason: "forbidden" | "membership_required" | "temporarily_unavailable";
     }
+  | { readonly kind: "unavailable" }
   | { readonly kind: "not-found" };

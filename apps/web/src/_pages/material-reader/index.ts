@@ -10,5 +10,6 @@ export {
   MaterialReaderLoading,
   MaterialReaderNotFound,
   MaterialReaderUnexpectedError,
+  MaterialReaderUnavailable,
 } from "./ui/material-reader-states";
 export { MaterialReaderView } from "./ui/material-reader-view";

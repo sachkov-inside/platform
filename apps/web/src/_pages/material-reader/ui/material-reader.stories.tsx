@@ -14,6 +14,7 @@ import {
   MaterialReaderLoading,
   MaterialReaderNotFound,
   MaterialReaderUnexpectedError,
+  MaterialReaderUnavailable,
 } from "./material-reader-states";
 import { MaterialReaderView } from "./material-reader-view";
 
@@ -189,7 +190,8 @@ type ReaderStoryMode =
   | "error"
   | "loading"
   | "mobile"
-  | "not-found";
+  | "not-found"
+  | "unavailable";
 
 function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
   return (
@@ -229,6 +231,8 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
       );
     case "error":
       return <MaterialReaderUnexpectedError onRetry={() => undefined} />;
+    case "unavailable":
+      return <MaterialReaderUnavailable slug={material.slug} />;
   }
 }
 
@@ -314,6 +318,17 @@ export const AccessUnavailable: Story = {
       canvas.getByRole("heading", { name: "Проверка доступа временно недоступна" }),
     ).toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "Проверить снова" })).toBeInTheDocument();
+  },
+};
+
+export const Unavailable: Story = {
+  args: { mode: "unavailable" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Материал временно недоступен" }),
+    ).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Повторить" })).toBeInTheDocument();
   },
 };
 

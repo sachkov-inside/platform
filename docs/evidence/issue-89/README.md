@@ -10,7 +10,7 @@ Captured from the implementation branch on 2026-08-25 after `pnpm check:full` pa
 - Live route: `/materials/inside-platform-overview`
 - Storybook: `Pages/Material/Reader` (`Desktop` and `Mobile`)
 - Desktop viewport: `1440 × 1000`
-- Mobile device viewport: `iPhone 15` / live route `390 × 844`
+- Mobile viewport: `390 × 844`
 - Storybook Agentation control is enabled in the development capture.
 - Keyboard smoke: first `Tab` focuses “Перейти к содержанию”; `Enter` moves focus to `main`;
   local navigation, code and table overflow regions remain keyboard reachable.
@@ -22,4 +22,6 @@ Captured from the implementation branch on 2026-08-25 after `pnpm check:full` pa
   INP ≤ 200 ms and CLS ≤ 0.1.
 - Hydration smoke: the live route produces no browser console or page errors after load and local
   navigation interaction.
+- Operational stories distinguish infrastructure `Unavailable`, access-policy unavailability and
+  unexpected errors; topic, tags and series remain plain metadata until their owning routes ship.
 - Owner production visual GO: pending; this evidence does not self-approve it.

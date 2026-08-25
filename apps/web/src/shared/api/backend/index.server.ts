@@ -4,6 +4,7 @@ const LOCAL_BACKEND_BASE_URL = "http://127.0.0.1:3001";
 const BACKEND_REQUEST_TIMEOUT_MS = 3_000;
 
 export type BackendConnectionErrorCode =
+  | "backend-error"
   | "configuration"
   | "invalid-response"
   | "unavailable";

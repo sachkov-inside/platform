@@ -103,6 +103,28 @@ export function MaterialReaderAccess({
   );
 }
 
+export function MaterialReaderUnavailable({ slug }: { readonly slug: string }) {
+  return (
+    <ReaderStatus
+      action={
+        <div className="flex flex-wrap gap-3">
+          <Button asChild size="lg">
+            <a href={`/materials/${slug}`}>Повторить</a>
+          </Button>
+          <Button asChild size="lg" variant="outline">
+            <a href="/library">Открыть Библиотеку</a>
+          </Button>
+        </div>
+      }
+      eyebrow="Material · сервис недоступен"
+      icon={<ShieldAlert aria-hidden="true" />}
+      message="Сервис чтения или его хранилище временно не отвечает. Повторите запрос через несколько минут."
+      state="unavailable"
+      title="Материал временно недоступен"
+    />
+  );
+}
+
 export function MaterialReaderUnexpectedError({ onRetry }: { readonly onRetry: () => void }) {
   return (
     <ReaderStatus

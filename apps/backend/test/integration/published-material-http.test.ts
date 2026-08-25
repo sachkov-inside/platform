@@ -94,7 +94,29 @@ describe("published Material HTTP contract", () => {
     });
 
     expect(response.statusCode).toBe(404);
-    expect(response.json()).toEqual({ code: "material_not_found" });
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.json()).toEqual({
+      type: "urn:inside:problem:material-not-found",
+      title: "Material not found",
+      status: 404,
+      code: "material_not_found",
+    });
+  });
+
+  test("rejects an invalid slug at the Materials boundary", async () => {
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/materials/Invalid%20Slug",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.json()).toEqual({
+      type: "urn:inside:problem:invalid-request-shape",
+      title: "Invalid request shape",
+      status: 400,
+      code: "invalid_request_shape",
+    });
   });
 
   test("returns a retryable 503 outcome when PostgreSQL is unavailable", async () => {
@@ -115,7 +137,14 @@ describe("published Material HTTP contract", () => {
       });
 
       expect(response.statusCode).toBe(503);
-      expect(response.json()).toEqual({ code: "dependency_unavailable", retryable: true });
+      expect(response.headers["content-type"]).toContain("application/problem+json");
+      expect(response.json()).toEqual({
+        type: "urn:inside:problem:dependency-unavailable",
+        title: "Dependency unavailable",
+        status: 503,
+        code: "dependency_unavailable",
+        retryable: true,
+      });
     } finally {
       await unavailableApp.close();
     }

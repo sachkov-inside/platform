@@ -108,7 +108,12 @@ const publishedMaterialSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-const notFoundSchema = z.object({ code: z.literal("material_not_found") });
+const notFoundSchema = z.object({
+  type: z.literal("urn:inside:problem:material-not-found"),
+  title: z.literal("Material not found"),
+  status: z.literal(404),
+  code: z.literal("material_not_found"),
+});
 
 /**
  * Loads the current published revision on every RSC render.
@@ -117,23 +122,36 @@ const notFoundSchema = z.object({ code: z.literal("material_not_found") });
  * adapter deliberately uses `no-store`. Protected viewer-specific caching remains forbidden.
  */
 export async function getMaterialReader(slug: string): Promise<MaterialReaderResult> {
-  const response = await requestBackend(`/materials/${encodeURIComponent(slug)}`);
-  const payload = await readJson(response);
+  let response: Response;
+  try {
+    response = await requestBackend(`/materials/${encodeURIComponent(slug)}`);
+  } catch (error) {
+    if (error instanceof BackendConnectionError && error.code === "unavailable") {
+      return { kind: "unavailable" };
+    }
+    throw error;
+  }
 
   if (response.status === 404) {
+    const payload = await readJson(response);
     if (!notFoundSchema.safeParse(payload).success) {
       throw invalidContract("Published Material 404 response does not match the contract");
     }
     return { kind: "not-found" };
   }
 
+  if (response.status === 503) {
+    return { kind: "unavailable" };
+  }
+
   if (!response.ok) {
     throw new BackendConnectionError(
-      "unavailable",
+      "backend-error",
       `Published Material request returned ${String(response.status)}`,
     );
   }
 
+  const payload = await readJson(response);
   const parsed = publishedMaterialSchema.safeParse(payload);
   if (!parsed.success) {
     throw invalidContract("Published Material response does not match the contract", parsed.error);

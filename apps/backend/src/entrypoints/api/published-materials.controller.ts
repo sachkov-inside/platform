@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Inject,
@@ -9,6 +10,8 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import {
+  ApiBadRequestResponse,
+  ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -35,8 +38,10 @@ export class PublishedMaterialsController {
   @ApiOperation({ summary: "Read the current published Material revision" })
   @ApiParam({ name: "slug" })
   @ApiOkResponse({ description: "Published Material body or an access-safe teaser" })
+  @ApiBadRequestResponse({ description: "Published Material request is malformed" })
   @ApiNotFoundResponse({ description: "Published Material does not exist" })
   @ApiServiceUnavailableResponse({ description: "Published Material dependency is unavailable" })
+  @ApiInternalServerErrorResponse({ description: "Published Material read failed unexpectedly" })
   async read(
     @Param("slug") slug: string,
     @Res({ passthrough: true }) response: FastifyReply,
@@ -46,6 +51,7 @@ export class PublishedMaterialsController {
       slug,
     });
     if (!result.ok) {
+      response.type("application/problem+json");
       throwPublishedMaterialError(result.error);
     }
 
@@ -59,13 +65,37 @@ export class PublishedMaterialsController {
   }
 }
 
-function throwPublishedMaterialError(error: PublishedMaterialReadError): never {
+export function throwPublishedMaterialError(error: PublishedMaterialReadError): never {
   switch (error.code) {
+    case "invalid_request_shape":
+      throw new BadRequestException({
+        type: "urn:inside:problem:invalid-request-shape",
+        title: "Invalid request shape",
+        status: 400,
+        code: error.code,
+      });
     case "material_not_found":
-      throw new NotFoundException(error);
+      throw new NotFoundException({
+        type: "urn:inside:problem:material-not-found",
+        title: "Material not found",
+        status: 404,
+        code: error.code,
+      });
     case "dependency_unavailable":
-      throw new ServiceUnavailableException(error);
+      throw new ServiceUnavailableException({
+        type: "urn:inside:problem:dependency-unavailable",
+        title: "Dependency unavailable",
+        status: 503,
+        code: error.code,
+        retryable: error.retryable,
+      });
     case "internal_error":
-      throw new InternalServerErrorException(error);
+      throw new InternalServerErrorException({
+        type: "urn:inside:problem:internal-error",
+        title: "Internal error",
+        status: 500,
+        code: error.code,
+        correlationId: error.correlationId,
+      });
   }
 }

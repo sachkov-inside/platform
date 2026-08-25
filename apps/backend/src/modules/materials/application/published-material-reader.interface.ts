@@ -50,6 +50,7 @@ export type PublishedMaterialReadDto =
     };
 
 export type PublishedMaterialReadError =
+  | { readonly code: "invalid_request_shape" }
   | { readonly code: "material_not_found" }
   | { readonly code: "dependency_unavailable"; readonly retryable: true }
   | { readonly code: "internal_error"; readonly correlationId: string };

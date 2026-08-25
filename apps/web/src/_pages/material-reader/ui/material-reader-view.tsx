@@ -68,12 +68,9 @@ function MaterialHeader({ material }: { readonly material: MaterialReaderMetadat
           <BookOpenText aria-hidden="true" className="size-3.5 text-accent" />
           {material.format.name}
         </span>
-        <a
-          className="inline-flex min-h-7 items-center rounded-md px-1 underline decoration-border underline-offset-4 hover:decoration-accent"
-          href={`/library?topic=${encodeURIComponent(material.topic.slug)}`}
-        >
+        <span className="inline-flex min-h-7 items-center px-1">
           {material.topic.name}
-        </a>
+        </span>
         <time dateTime={material.publishedAt}>Опубликовано {publicationDate}</time>
       </div>
       <h1 className="mt-5 max-w-[22ch] text-balance text-[1.75rem] font-semibold leading-[1.1] tracking-[-0.035em] sm:text-[2.25rem] @min-[62rem]/material-reader:text-[2.5rem]">
@@ -98,12 +95,9 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
         <ul aria-label="Теги материала" className="flex flex-wrap gap-2" role="list">
           {material.tags.map((tag) => (
             <li key={tag.name}>
-              <a
-                className="inline-flex min-h-8 items-center rounded-md bg-muted px-2.5 py-1.5 font-mono text-[0.6875rem] text-muted-foreground no-underline hover:bg-secondary hover:text-foreground focus-visible:outline-ring"
-                href={`/library?query=${encodeURIComponent(tag.name)}`}
-              >
+              <span className="inline-flex min-h-8 items-center rounded-md bg-muted px-2.5 py-1.5 font-mono text-[0.6875rem] text-muted-foreground">
                 {tag.name}
-              </a>
+              </span>
             </li>
           ))}
         </ul>
@@ -112,13 +106,7 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
         <ul aria-label="Серии материала" className="flex flex-wrap gap-x-4 gap-y-2" role="list">
           {material.seriesMemberships.map(({ ordinal, series }) => (
             <li className="font-mono text-xs text-muted-foreground" key={series.slug}>
-              <a
-                className="underline decoration-border underline-offset-4 hover:decoration-accent"
-                href={`/series/${series.slug}`}
-              >
-                {series.name}
-              </a>{" "}
-              · выпуск {ordinal}
+              {series.name} · выпуск {ordinal}
             </li>
           ))}
         </ul>
