@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
   anonymousSubject,
   createBaselineContentAccess,
+  createMaterials,
 } from "../../src/modules/materials/index.js";
 import {
   fullRepresentativeDocument,
@@ -12,7 +13,6 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
-import { createTestMaterials as createMaterials } from "./setup/create-test-materials.js";
 import {
   notStringMatching,
   stringMatching,
@@ -32,11 +32,11 @@ describe("Material lifecycle", () => {
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
     await testDatabase.database
-      .insertInto("topics")
+      .insertInto("materials.topics")
       .values({ id: topicId, slug: "engineering", name: "Engineering" })
       .execute();
     await testDatabase.database
-      .insertInto("formats")
+      .insertInto("materials.formats")
       .values({ id: formatId, slug: "guide", name: "Guide" })
       .execute();
   });
@@ -126,7 +126,7 @@ describe("Material lifecycle", () => {
     });
     expect(
       await testDatabase.database
-        .selectFrom("material_access_audit_events")
+        .selectFrom("materials.material_access_audit_events")
         .select(["action", "actor_id", "decision", "material_id", "revision_id"])
         .where("material_id", "=", created.value.materialId)
         .execute(),
@@ -160,7 +160,7 @@ describe("Material lifecycle", () => {
     }
     expect(
       await testDatabase.database
-        .selectFrom("material_publication_events")
+        .selectFrom("materials.material_publication_events")
         .select(["material_id", "revision_id", "kind", "actor_id", "created_at"])
         .where("id", "=", published.value.publicationEventId)
         .executeTakeFirstOrThrow(),
@@ -173,7 +173,7 @@ describe("Material lifecycle", () => {
     });
     await expect(
       testDatabase.database
-        .updateTable("material_publication_events")
+        .updateTable("materials.material_publication_events")
         .set({ actor_id: topicId })
         .where("id", "=", published.value.publicationEventId)
         .execute(),
@@ -338,7 +338,7 @@ describe("Material lifecycle", () => {
     });
     expect(
       await testDatabase.database
-        .selectFrom("material_revisions")
+        .selectFrom("materials.material_revisions")
         .select("restored_from_revision_id")
         .where("id", "=", restored.value.revisionId)
         .executeTakeFirstOrThrow(),
@@ -410,7 +410,7 @@ describe("Material lifecycle", () => {
     const revisionId = "71000000-0000-4000-8000-000000000031";
     await testDatabase.database.transaction().execute(async (transaction) => {
       await transaction
-        .insertInto("materials")
+        .insertInto("materials.materials")
         .values({
           id: materialId,
           slug: "closed-corrupt-body",
@@ -419,7 +419,7 @@ describe("Material lifecycle", () => {
         })
         .execute();
       await transaction
-        .insertInto("material_revisions")
+        .insertInto("materials.material_revisions")
         .values({
           id: revisionId,
           material_id: materialId,
@@ -436,7 +436,7 @@ describe("Material lifecycle", () => {
         })
         .execute();
       await transaction
-        .insertInto("published_materials")
+        .insertInto("materials.published_materials")
         .values({
           material_id: materialId,
           revision_id: revisionId,
@@ -450,7 +450,7 @@ describe("Material lifecycle", () => {
         })
         .execute();
       await transaction
-        .updateTable("materials")
+        .updateTable("materials.materials")
         .set({ current_published_revision_id: revisionId })
         .where("id", "=", materialId)
         .execute();
@@ -493,7 +493,7 @@ describe("Material lifecycle", () => {
     expect(JSON.stringify(result)).not.toContain("private()");
     expect(
       await testDatabase.database
-        .selectFrom("material_access_audit_events")
+        .selectFrom("materials.material_access_audit_events")
         .select(["action", "actor_id", "decision"])
         .where("material_id", "=", materialId)
         .execute(),
@@ -582,7 +582,7 @@ describe("Material lifecycle", () => {
     ]);
     expect(
       await testDatabase.database
-        .selectFrom("material_access_audit_events")
+        .selectFrom("materials.material_access_audit_events")
         .select(["action", "actor_id", "decision"])
         .where("material_id", "=", created.value.materialId)
         .execute(),
@@ -639,7 +639,7 @@ describe("Material lifecycle", () => {
     ]);
     expect(
       await testDatabase.database
-        .selectFrom("material_publication_events")
+        .selectFrom("materials.material_publication_events")
         .select("id")
         .where("material_id", "=", created.value.materialId)
         .execute(),
@@ -753,7 +753,7 @@ describe("Material lifecycle", () => {
     });
     expect(
       await testDatabase.database
-        .selectFrom("material_publication_events")
+        .selectFrom("materials.material_publication_events")
         .select("id")
         .where("material_id", "=", created.value.materialId)
         .execute(),
@@ -835,28 +835,28 @@ describe("Material lifecycle", () => {
     });
     expect(
       await testDatabase.database
-        .selectFrom("materials")
+        .selectFrom("materials.materials")
         .select("current_published_revision_id")
         .where("id", "=", contender.value.materialId)
         .executeTakeFirstOrThrow(),
     ).toEqual({ current_published_revision_id: null });
     expect(
       await testDatabase.database
-        .selectFrom("published_materials")
+        .selectFrom("materials.published_materials")
         .select("material_id")
         .where("material_id", "=", contender.value.materialId)
         .execute(),
     ).toEqual([]);
     expect(
       await testDatabase.database
-        .selectFrom("material_publication_events")
+        .selectFrom("materials.material_publication_events")
         .select("id")
         .where("material_id", "=", contender.value.materialId)
         .execute(),
     ).toEqual([]);
     expect(
       await testDatabase.database
-        .selectFrom("authoring_idempotency")
+        .selectFrom("materials.authoring_idempotency")
         .select("idempotency_key")
         .where("idempotency_key", "=", failedCommand.idempotencyKey)
         .execute(),
@@ -948,7 +948,7 @@ describe("Material lifecycle", () => {
     });
     expect(
       await testDatabase.database
-        .selectFrom("material_search_documents")
+        .selectFrom("materials.material_search_documents")
         .select(["revision_id", "plain_text"])
         .where("material_id", "=", created.value.materialId)
         .executeTakeFirstOrThrow(),

@@ -30,11 +30,9 @@ import { MaterialRevisionMetadata } from "../domain/material-revision-metadata.j
 import type { MaterialRevision } from "../domain/material.js";
 import {
   materialRevisionId,
-  type MaterialId,
-  type MaterialRevisionId,
 } from "../domain/material-identifiers.js";
-import type { AuthoringTransaction } from "../infrastructure/postgres/database.js";
 import {
+  advanceCurrentRevision,
   lockMaterialForLifecycleChange,
   loadCurrentRevisionId,
   loadMaterialRevision,
@@ -86,29 +84,6 @@ const reviseDraftCommand = z
       .strict(),
   })
   .strict();
-
-async function advanceCurrentRevision(
-  transaction: AuthoringTransaction,
-  values: {
-    readonly materialId: MaterialId;
-    readonly baseRevisionId: MaterialRevisionId;
-    readonly revisionId: MaterialRevisionId;
-    readonly slug: string;
-  },
-): Promise<boolean> {
-  const updated = await transaction
-    .updateTable("materials")
-    .set({
-      current_draft_revision_id: values.revisionId,
-      slug: values.slug,
-      updated_at: new Date(),
-    })
-    .where("id", "=", values.materialId)
-    .where("current_draft_revision_id", "=", values.baseRevisionId)
-    .returning("id")
-    .executeTakeFirst();
-  return updated !== undefined;
-}
 
 export function createReviseDraft(
   dependencies: MaterialAuthoringDependencies,

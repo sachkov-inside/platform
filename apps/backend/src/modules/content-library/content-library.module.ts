@@ -1,24 +1,23 @@
 import { Module } from "@nestjs/common";
 
 import {
-  PLATFORM_DATABASE,
-  PostgresModule,
-  type PlatformDatabase,
-} from "../../infrastructure/postgres/index.js";
+  MaterialsModule,
+  PUBLISHED_MATERIAL_READER,
+  type PublishedMaterialReader,
+} from "../materials/index.js";
 import { CONTENT_LIBRARY, type ContentLibrary } from "./content-library.interface.js";
 import { createContentLibrary } from "./create-content-library.js";
 
 @Module({
-  imports: [PostgresModule],
+  imports: [MaterialsModule],
   providers: [
     {
       provide: CONTENT_LIBRARY,
-      inject: [PLATFORM_DATABASE],
-      useFactory: (database: PlatformDatabase): ContentLibrary =>
-        createContentLibrary({ database }),
+      inject: [PUBLISHED_MATERIAL_READER],
+      useFactory: (publishedMaterialReader: PublishedMaterialReader): ContentLibrary =>
+        createContentLibrary({ publishedMaterialReader }),
     },
   ],
   exports: [CONTENT_LIBRARY],
 })
 export class ContentLibraryModule {}
-

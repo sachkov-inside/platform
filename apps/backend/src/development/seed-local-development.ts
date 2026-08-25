@@ -1,5 +1,4 @@
 import type { PlatformDatabase } from "../infrastructure/postgres/index.js";
-import { createContentLibrary } from "../modules/content-library/index.js";
 import { createMaterials } from "../modules/materials/index.js";
 
 const actor = "72000000-0000-4000-8000-000000000001";
@@ -29,7 +28,6 @@ export async function seedLocalDevelopment(
 
   const { authoring } = createMaterials({
     database,
-    contentLibrary: createContentLibrary({ database }),
     authorPolicy: {
       canAuthor: (principalId) => principalId === actor,
       canPublish: ({ principalId }) => principalId === actor,
@@ -384,22 +382,22 @@ async function ensureMembershipCatalogMaterial(
 
 async function ensureReferenceData(database: PlatformDatabase): Promise<void> {
   await database
-    .insertInto("topics")
+    .insertInto("materials.topics")
     .values({ id: topicId, slug: "platform", name: "Platform" })
     .onConflict((conflict) => conflict.column("id").doNothing())
     .execute();
   await database
-    .insertInto("formats")
+    .insertInto("materials.formats")
     .values({ id: formatId, slug: "guide", name: "Guide" })
     .onConflict((conflict) => conflict.column("id").doNothing())
     .execute();
   await database
-    .insertInto("tags")
+    .insertInto("materials.tags")
     .values({ id: tagId, name: "Full stack", normalized_name: "full stack" })
     .onConflict((conflict) => conflict.column("id").doNothing())
     .execute();
   await database
-    .insertInto("series")
+    .insertInto("materials.series")
     .values({ id: seriesId, slug: "platform-inside", name: "Создание Platform Inside" })
     .onConflict((conflict) => conflict.column("id").doNothing())
     .execute();

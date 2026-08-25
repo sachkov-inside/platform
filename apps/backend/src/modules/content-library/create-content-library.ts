@@ -1,14 +1,7 @@
 import { z } from "zod";
 
-import type { PlatformDatabase } from "../../infrastructure/postgres/index.js";
+import type { PublishedMaterialReader } from "../materials/index.js";
 import type { ContentLibrary } from "./content-library.interface.js";
-import { mapContentLibraryPersistenceError } from "./map-content-library-persistence-error.js";
-import {
-  findPublishedMaterialProjection,
-  listPublishedMaterialProjections,
-  type PublishedMaterialCursor,
-  type MaterialId,
-} from "./infrastructure/postgres/published-material-projection.js";
 
 const listPublishedMaterialsQuerySchema = z
   .object({
@@ -16,11 +9,6 @@ const listPublishedMaterialsQuerySchema = z
     first: z.number().int().min(1).max(24),
   })
   .strict();
-
-const publishedMaterialSlugSchema = z
-  .string()
-  .max(120)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
 
 const cursorSchema = z
   .object({
@@ -31,26 +19,9 @@ const cursorSchema = z
   .strict();
 
 export function createContentLibrary(dependencies: {
-  readonly database: PlatformDatabase;
+  readonly publishedMaterialReader: Pick<PublishedMaterialReader, "listProjections">;
 }): ContentLibrary {
   return {
-    async findPublishedMaterial(slug) {
-      const parsed = publishedMaterialSlugSchema.safeParse(slug);
-      if (!parsed.success) {
-        return { ok: false, error: { code: "invalid_request_shape" } };
-      }
-      try {
-        return {
-          ok: true,
-          value: await findPublishedMaterialProjection(
-            dependencies.database,
-            parsed.data,
-          ),
-        };
-      } catch (error) {
-        return { ok: false, error: mapContentLibraryPersistenceError(error) };
-      }
-    },
     async listPublishedMaterials(query) {
       const parsed = listPublishedMaterialsQuerySchema.safeParse(query);
       if (!parsed.success) {
@@ -63,30 +34,34 @@ export function createContentLibrary(dependencies: {
       if (parsed.data.after !== undefined && after === undefined) {
         return { ok: false, error: { code: "invalid_request_shape" } };
       }
-      try {
-        const page = await listPublishedMaterialProjections(dependencies.database, {
-          first: parsed.data.first,
-          ...(after === undefined ? {} : { after }),
-        });
-        const lastItem = page.items.at(-1);
-        return {
-          ok: true,
-          value: {
-            items: page.items,
-            nextCursor:
-              page.hasNext && lastItem !== undefined
-                ? encodeCursor({
-                    materialId: materialId(lastItem.materialId),
-                    publishedAt: new Date(lastItem.publishedAt),
-                  })
-                : null,
-          },
-        };
-      } catch (error) {
-        return { ok: false, error: mapContentLibraryPersistenceError(error) };
+      const page = await dependencies.publishedMaterialReader.listProjections({
+        first: parsed.data.first,
+        ...(after === undefined ? {} : { after }),
+      });
+      if (!page.ok) {
+        return page;
       }
+      const lastItem = page.value.items.at(-1);
+      return {
+        ok: true,
+        value: {
+          items: page.value.items,
+          nextCursor:
+            page.value.hasNext && lastItem !== undefined
+              ? encodeCursor({
+                  materialId: lastItem.materialId,
+                  publishedAt: lastItem.publishedAt,
+                })
+              : null,
+        },
+      };
     },
   };
+}
+
+interface PublishedMaterialCursor {
+  readonly materialId: string;
+  readonly publishedAt: string;
 }
 
 function decodeCursor(value: string): PublishedMaterialCursor | undefined {
@@ -96,8 +71,8 @@ function decodeCursor(value: string): PublishedMaterialCursor | undefined {
     );
     return parsed.success
       ? {
-          materialId: materialId(parsed.data.materialId),
-          publishedAt: new Date(parsed.data.publishedAt),
+          materialId: parsed.data.materialId,
+          publishedAt: parsed.data.publishedAt,
         }
       : undefined;
   } catch {
@@ -105,22 +80,12 @@ function decodeCursor(value: string): PublishedMaterialCursor | undefined {
   }
 }
 
-function materialId(value: string): MaterialId {
-  const parsed = z.uuid().safeParse(value);
-  if (!parsed.success) {
-    throw new TypeError("MaterialId must be a UUID");
-  }
-  // This checked constructor is the only assertion for the local nominal ID.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return parsed.data as MaterialId;
-}
-
 function encodeCursor(value: PublishedMaterialCursor): string {
   return Buffer.from(
     JSON.stringify({
       v: 1,
       materialId: value.materialId,
-      publishedAt: value.publishedAt.toISOString(),
+      publishedAt: value.publishedAt,
     }),
     "utf8",
   ).toString("base64url");

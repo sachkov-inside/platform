@@ -1,17 +1,13 @@
 import { sql } from "kysely";
 
 import type { PlatformDatabase } from "../../../../infrastructure/postgres/index.js";
-import type { PublishedMaterialProjectionDto } from "../../content-library.interface.js";
+import type { PublishedMaterialProjectionDto } from "../../application/published-material-reader.interface.js";
+import type { MaterialId } from "../../domain/material-identifiers.js";
 
 export interface PublishedMaterialCursor {
   readonly materialId: MaterialId;
   readonly publishedAt: Date;
 }
-
-declare const materialIdBrand: unique symbol;
-export type MaterialId = string & {
-  readonly [materialIdBrand]: true;
-};
 
 export interface PublishedMaterialProjectionPage {
   readonly items: readonly PublishedMaterialProjectionDto[];
@@ -54,9 +50,9 @@ export async function listPublishedMaterialProjections(
 
 function publishedMaterialProjectionQuery(database: PlatformDatabase) {
   return database
-    .selectFrom("published_materials as publication")
-    .innerJoin("topics as topic", "topic.id", "publication.topic_id")
-    .innerJoin("formats as format", "format.id", "publication.format_id")
+    .selectFrom("materials.published_materials as publication")
+    .innerJoin("materials.topics as topic", "topic.id", "publication.topic_id")
+    .innerJoin("materials.formats as format", "format.id", "publication.format_id")
     .select([
       "publication.material_id",
       "publication.revision_id",
@@ -77,8 +73,8 @@ function publishedMaterialProjectionQuery(database: PlatformDatabase) {
             jsonb_build_object('id', tag.id, 'name', tag.name)
             order by tag.normalized_name
           )
-          from published_material_tags as membership
-          join tags as tag on tag.id = membership.tag_id
+          from materials.published_material_tags as membership
+          join materials.tags as tag on tag.id = membership.tag_id
           where membership.material_id = publication.material_id
         ),
         '[]'::jsonb
@@ -101,8 +97,8 @@ function publishedMaterialProjectionQuery(database: PlatformDatabase) {
             )
             order by series.name, membership.ordinal
           )
-          from published_material_series_memberships as membership
-          join series on series.id = membership.series_id
+          from materials.published_material_series_memberships as membership
+          join materials.series on series.id = membership.series_id
           where membership.material_id = publication.material_id
         ),
         '[]'::jsonb

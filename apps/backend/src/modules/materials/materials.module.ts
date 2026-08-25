@@ -5,11 +5,6 @@ import {
   PostgresModule,
   type PlatformDatabase,
 } from "../../infrastructure/postgres/index.js";
-import {
-  CONTENT_LIBRARY,
-  ContentLibraryModule,
-  type ContentLibrary,
-} from "../content-library/index.js";
 import { AUTHOR_POLICY, type AuthorPolicy } from "./application/ports/author-policy.js";
 import {
   CONTENT_ACCESS,
@@ -33,7 +28,7 @@ const publicReaderPolicy: AuthorPolicy = {
 };
 
 @Module({
-  imports: [PostgresModule, ContentLibraryModule],
+  imports: [PostgresModule],
   providers: [
     // The first production consumer is anonymous/read-only. IdentityPrincipals
     // replaces this real baseline policy when its owning module is delivered.
@@ -46,21 +41,14 @@ const publicReaderPolicy: AuthorPolicy = {
     },
     {
       provide: MATERIALS,
-      inject: [
-        PLATFORM_DATABASE,
-        CONTENT_LIBRARY,
-        AUTHOR_POLICY,
-        CONTENT_ACCESS,
-      ],
+      inject: [PLATFORM_DATABASE, AUTHOR_POLICY, CONTENT_ACCESS],
       useFactory: (
         database: PlatformDatabase,
-        contentLibrary: ContentLibrary,
         policy: AuthorPolicy,
         contentAccess: ContentAccess,
       ): Materials =>
         createMaterials({
           database,
-          contentLibrary,
           authorPolicy: policy,
           contentAccess,
         }),

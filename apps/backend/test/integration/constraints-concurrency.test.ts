@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
+import { createMaterials } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
-import { createTestMaterials as createMaterials } from "./setup/create-test-materials.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -20,19 +20,19 @@ describe("material authoring integrity contract", () => {
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
     await testDatabase.database
-      .insertInto("topics")
+      .insertInto("materials.topics")
       .values({ id: topicId, slug: "product", name: "Product" })
       .execute();
     await testDatabase.database
-      .insertInto("formats")
+      .insertInto("materials.formats")
       .values({ id: formatId, slug: "text", name: "Text" })
       .execute();
     await testDatabase.database
-      .insertInto("tags")
+      .insertInto("materials.tags")
       .values({ id: tagId, name: "Platform", normalized_name: "platform" })
       .execute();
     await testDatabase.database
-      .insertInto("series")
+      .insertInto("materials.series")
       .values([
         { id: seriesId, slug: "build", name: "Build" },
         { id: secondSeriesId, slug: "operate", name: "Operate" },
@@ -249,7 +249,7 @@ describe("material authoring integrity contract", () => {
 
     await expect(
       testDatabase.database
-        .updateTable("material_revisions")
+        .updateTable("materials.material_revisions")
         .set({ title: "Mutated" })
         .where("id", "=", created.value.revisionId)
         .execute(),

@@ -22,7 +22,10 @@ import {
 } from "./shared/command-validation.js";
 import { mapPostgresValidationError } from "./shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "./shared/reference-integrity.js";
-import { loadMaterialRevision } from "../infrastructure/postgres/material-persistence.js";
+import {
+  loadCurrentRevisionIdForValidation,
+  loadMaterialRevision,
+} from "../infrastructure/postgres/material-persistence.js";
 import { materialRevisionId } from "../domain/material-identifiers.js";
 
 export const validateRevisionQuery = z
@@ -55,13 +58,11 @@ export function createValidateRevision(
     >(
       dependencies.database,
       async (transaction, rollback) => {
-          const material = await transaction
-            .selectFrom("materials")
-            .select("current_draft_revision_id")
-            .where("id", "=", query.materialId)
-            .forShare()
-            .executeTakeFirst();
-          if (material === undefined) {
+          const currentRevisionId = await loadCurrentRevisionIdForValidation(
+            transaction,
+            query.materialId,
+          );
+          if (currentRevisionId === undefined) {
             return rollback({ code: "material_not_found" });
           }
           const revision = await loadMaterialRevision(
@@ -85,12 +86,10 @@ export function createValidateRevision(
             revision.value.metadata,
             rollback,
           );
-          if (material.current_draft_revision_id !== query.revisionId) {
+          if (currentRevisionId !== query.revisionId) {
             return rollback({
               code: "stale_revision",
-              currentRevisionId: materialRevisionId(
-                material.current_draft_revision_id,
-              ),
+              currentRevisionId: materialRevisionId(currentRevisionId),
             });
           }
           const extraction = dependencies.materialBodyOperations.extract(

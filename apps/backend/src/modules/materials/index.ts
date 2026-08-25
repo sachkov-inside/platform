@@ -44,6 +44,12 @@ export {
 } from "./application/ports/content-access.js";
 export {
   PUBLISHED_MATERIAL_READER,
+  type ListPublishedMaterialProjectionsOperation,
+  type ListPublishedMaterialProjectionsQuery,
+  type PublishedMaterialProjectionDto,
+  type PublishedMaterialProjectionListError,
+  type PublishedMaterialProjectionListResult,
+  type PublishedMaterialProjectionPageDto,
   type PublishedMaterialReadDto,
   type PublishedMaterialReadError,
   type PublishedMaterialReadResult,
@@ -51,7 +57,7 @@ export {
 } from "./application/published-material-reader.interface.js";
 export type {
   PublishedMaterialProjectionDto as PublicMaterialProjectionDto,
-} from "../content-library/index.js";
+} from "./application/published-material-reader.interface.js";
 export type {
   MaterialBodyChange,
   JsonObject,

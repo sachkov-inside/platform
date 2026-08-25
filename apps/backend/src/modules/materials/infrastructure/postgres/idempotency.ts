@@ -28,7 +28,7 @@ export async function claimIdempotency(
   },
 ): Promise<IdempotencyClaim> {
   const inserted = await transaction
-    .insertInto("authoring_idempotency")
+    .insertInto("materials.authoring_idempotency")
     .values({
       actor_id: values.actor,
       operation: values.operation,
@@ -49,7 +49,7 @@ export async function claimIdempotency(
   }
 
   const existing = await transaction
-    .selectFrom("authoring_idempotency")
+    .selectFrom("materials.authoring_idempotency")
     .select([
       "request_fingerprint",
       "material_id",
@@ -87,7 +87,7 @@ export async function completeIdempotency(
   },
 ): Promise<void> {
   await transaction
-    .updateTable("authoring_idempotency")
+    .updateTable("materials.authoring_idempotency")
     .set({
       material_id: values.materialId,
       publication_event_id: values.publicationEventId ?? null,

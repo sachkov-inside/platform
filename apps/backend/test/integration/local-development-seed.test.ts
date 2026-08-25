@@ -2,12 +2,14 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { createContentLibrary } from "../../src/modules/content-library/index.js";
-import { anonymousSubject } from "../../src/modules/materials/index.js";
+import {
+  anonymousSubject,
+  createMaterials,
+} from "../../src/modules/materials/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
-import { createTestMaterials as createMaterials } from "./setup/create-test-materials.js";
 
 describe("local development seed", () => {
   let testDatabase: TestDatabase;
@@ -26,8 +28,15 @@ describe("local development seed", () => {
 
     expect(second).toEqual(first);
 
-    const catalog = await createContentLibrary({
+    const { publishedMaterialReader } = createMaterials({
       database: testDatabase.database,
+      authorPolicy: {
+        canAuthor: () => false,
+        canPublish: () => false,
+      },
+    });
+    const catalog = await createContentLibrary({
+      publishedMaterialReader,
     }).listPublishedMaterials({ first: 12 });
     expect(catalog).toMatchObject({
       ok: true,
@@ -40,13 +49,6 @@ describe("local development seed", () => {
       },
     });
 
-    const { publishedMaterialReader } = createMaterials({
-      database: testDatabase.database,
-      authorPolicy: {
-        canAuthor: () => false,
-        canPublish: () => false,
-      },
-    });
     await expect(
       publishedMaterialReader.read({
         subject: anonymousSubject,

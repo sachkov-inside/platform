@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { createContentLibrary } from "../../src/modules/content-library/index.js";
+import { createMaterials } from "../../src/modules/materials/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -20,7 +21,11 @@ describe("ContentLibrary", () => {
   });
 
   test("continues through deterministic pages of safe published projections", async () => {
-    const contentLibrary = createContentLibrary({ database: testDatabase.database });
+    const { publishedMaterialReader } = createMaterials({
+      database: testDatabase.database,
+      authorPolicy: { canAuthor: () => false, canPublish: () => false },
+    });
+    const contentLibrary = createContentLibrary({ publishedMaterialReader });
 
     const firstPage = await contentLibrary.listPublishedMaterials({ first: 1 });
     expect(firstPage).toMatchObject({

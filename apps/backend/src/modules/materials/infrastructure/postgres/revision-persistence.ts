@@ -37,7 +37,7 @@ export async function insertRevision(
   },
 ): Promise<void> {
   await transaction
-    .insertInto("material_revisions")
+    .insertInto("materials.material_revisions")
     .values({
       id: values.revisionId,
       material_id: values.materialId,
@@ -56,7 +56,7 @@ export async function insertRevision(
 
   if (values.metadata.tagIds.length > 0) {
     await transaction
-      .insertInto("material_revision_tags")
+      .insertInto("materials.material_revision_tags")
       .values(
         values.metadata.tagIds.map((tagId) => ({
           material_id: values.materialId,
@@ -68,7 +68,7 @@ export async function insertRevision(
   }
   if (values.metadata.seriesMemberships.length > 0) {
     await transaction
-      .insertInto("material_revision_series_memberships")
+      .insertInto("materials.material_revision_series_memberships")
       .values(
         values.metadata.seriesMemberships.map(({ seriesId, ordinal }) => ({
           material_id: values.materialId,
@@ -86,21 +86,21 @@ export async function replaceCurrentRelations(
   materialId: string,
   metadata: MaterialRevisionMetadata,
 ): Promise<void> {
-  await transaction.deleteFrom("material_tags").where("material_id", "=", materialId).execute();
+  await transaction.deleteFrom("materials.material_tags").where("material_id", "=", materialId).execute();
   await transaction
-    .deleteFrom("series_memberships")
+    .deleteFrom("materials.series_memberships")
     .where("material_id", "=", materialId)
     .execute();
 
   if (metadata.tagIds.length > 0) {
     await transaction
-      .insertInto("material_tags")
+      .insertInto("materials.material_tags")
       .values(metadata.tagIds.map((tagId) => ({ material_id: materialId, tag_id: tagId })))
       .execute();
   }
   if (metadata.seriesMemberships.length > 0) {
     await transaction
-      .insertInto("series_memberships")
+      .insertInto("materials.series_memberships")
       .values(
         metadata.seriesMemberships.map(({ seriesId, ordinal }) => ({
           material_id: materialId,
