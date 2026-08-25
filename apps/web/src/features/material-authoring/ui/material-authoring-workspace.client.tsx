@@ -75,6 +75,7 @@ export function MaterialAuthoringWorkspace({
 
       <form
         className="mx-auto grid w-full max-w-[52rem] min-w-0 gap-0 px-4 pb-14 pt-7 sm:px-6 @min-[68rem]/material-authoring:max-w-[80rem] @min-[68rem]/material-authoring:grid-cols-[minmax(17rem,0.72fr)_minmax(32rem,1.55fr)] @min-[68rem]/material-authoring:px-8"
+        id="material-authoring-form"
         onSubmit={(event) => {
           event.preventDefault();
           actions.onSave();
@@ -101,7 +102,7 @@ function EditorHeader({
     <header className="sticky top-0 z-30 border-b border-border bg-card/95 px-4 py-3 backdrop-blur-sm supports-[backdrop-filter]:bg-card/88 sm:px-6">
       <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <Button aria-label="Вернуться к материалам" onClick={actions.onBack} size="icon-lg" type="button" variant="ghost">
+          <Button aria-label="Вернуться к материалам" className="size-11" onClick={actions.onBack} size="icon-lg" type="button" variant="ghost">
             <ArrowLeft aria-hidden="true" />
           </Button>
           <div className="min-w-0">
@@ -118,11 +119,11 @@ function EditorHeader({
         </div>
         <div className="grid w-full grid-cols-2 items-center gap-2 sm:ml-auto sm:flex sm:w-auto">
           <SaveStatus state={presentation.save} />
-          <Button disabled={previewDisabled} onClick={actions.onOpenPreview} type="button" variant="outline">
+          <Button className="min-h-11 px-3" disabled={previewDisabled} onClick={actions.onOpenPreview} type="button" variant="outline">
             <Eye aria-hidden="true" data-icon="inline-start" />
             Preview
           </Button>
-          <Button disabled={presentation.save.kind !== "dirty" || presentation.blocking.kind !== "none"} onClick={actions.onSave} type="button">
+          <Button className="min-h-11 px-3" disabled={presentation.save.kind !== "dirty" || presentation.blocking.kind !== "none"} form="material-authoring-form" type="submit">
             {presentation.save.kind === "submitting" ? (
               <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" data-icon="inline-start" />
             ) : (
@@ -168,8 +169,10 @@ function MetadataPanel({
       <div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2 @min-[68rem]/material-authoring:grid-cols-1">
         <Field label="Название" targetId="material-title">
           <input
+            autoComplete="off"
             className={fieldClassName}
             id="material-title"
+            name="title"
             onChange={(event) => {
               actions.onFieldChange("title", event.currentTarget.value);
             }}
@@ -178,8 +181,10 @@ function MetadataPanel({
         </Field>
         <Field label="Краткое описание" targetId="material-summary">
           <textarea
+            autoComplete="off"
             className={cn(fieldClassName, "min-h-28 resize-y py-3 leading-6")}
             id="material-summary"
+            name="summary"
             onChange={(event) => {
               actions.onFieldChange("summary", event.currentTarget.value);
             }}
@@ -189,17 +194,18 @@ function MetadataPanel({
         <Field label="Тема" targetId="material-topic">
           <Select
             disabled={disabled}
+            name="topic"
             onValueChange={(value) => {
               actions.onFieldChange("topic", value);
             }}
             value={presentation.draft.topic}
           >
-            <SelectTrigger id="material-topic">
+            <SelectTrigger className={authoringSelectTriggerClassName} id="material-topic">
               <SelectValue placeholder="Выберите тему" />
             </SelectTrigger>
             <SelectContent>
               {presentation.availableTopics.map((topic) => (
-                <SelectItem key={topic.value} value={topic.value}>{topic.label}</SelectItem>
+                <SelectItem className={authoringSelectItemClassName} key={topic.value} value={topic.value}>{topic.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -207,45 +213,50 @@ function MetadataPanel({
         <Field label="Формат" targetId="material-format">
           <Select
             disabled={disabled}
+            name="format"
             onValueChange={(value) => {
               actions.onFieldChange("format", value);
             }}
             value={presentation.draft.format}
           >
-            <SelectTrigger id="material-format">
+            <SelectTrigger className={authoringSelectTriggerClassName} id="material-format">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Текст">Текст</SelectItem>
-              <SelectItem value="Guide">Guide</SelectItem>
-              <SelectItem value="Видео">Видео</SelectItem>
+              <SelectItem className={authoringSelectItemClassName} value="Текст">Текст</SelectItem>
+              <SelectItem className={authoringSelectItemClassName} value="Guide">Guide</SelectItem>
+              <SelectItem className={authoringSelectItemClassName} value="Видео">Видео</SelectItem>
             </SelectContent>
           </Select>
         </Field>
         <Field hint="Через запятую" label="Теги" targetId="material-tags">
           <input
+            autoComplete="off"
             className={fieldClassName}
             id="material-tags"
+            name="tags"
             onChange={(event) => {
               actions.onFieldChange("tags", event.currentTarget.value);
             }}
+            spellCheck={false}
             value={presentation.draft.tags}
           />
         </Field>
         <Field label="Доступ" targetId="material-access">
           <Select
             disabled={disabled}
+            name="access"
             onValueChange={(value) => {
               actions.onFieldChange("access", value);
             }}
             value={presentation.draft.access}
           >
-            <SelectTrigger id="material-access">
+            <SelectTrigger className={authoringSelectTriggerClassName} id="material-access">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="free">Бесплатный</SelectItem>
-              <SelectItem value="membership">Для участников</SelectItem>
+              <SelectItem className={authoringSelectItemClassName} value="free">Бесплатный</SelectItem>
+              <SelectItem className={authoringSelectItemClassName} value="membership">Для участников</SelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -277,7 +288,10 @@ function Field({
 }
 
 const fieldClassName =
-  "min-h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none";
+  "min-h-12 w-full rounded-xl border border-input bg-card px-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none sm:min-h-11 sm:text-sm";
+
+const authoringSelectTriggerClassName = "min-h-12 text-base sm:min-h-11 sm:text-sm";
+const authoringSelectItemClassName = "min-h-11 sm:min-h-10";
 
 function DocumentPanel({ actions, presentation }: MaterialAuthoringWorkspaceProps) {
   return (
@@ -308,7 +322,7 @@ function MaterialDocumentEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        "aria-label": "Содержимое редакции материала",
+        "aria-labelledby": "document-heading",
         "aria-multiline": "true",
         id: "material-body",
         role: "textbox",
@@ -364,7 +378,7 @@ function ToolbarButton({
   readonly onClick: () => void;
 }) {
   return (
-    <Button aria-label={label} aria-pressed={active} disabled={disabled} onClick={onClick} size="icon-lg" type="button" variant={active ? "secondary" : "ghost"}>
+    <Button aria-label={label} aria-pressed={active} className="size-11 sm:size-9" disabled={disabled} onClick={onClick} size="icon-lg" type="button" variant={active ? "secondary" : "ghost"}>
       {children}
     </Button>
   );
@@ -431,7 +445,7 @@ function ExactPreview({
       <header className="sticky top-0 z-30 border-b border-sidebar-border bg-sidebar px-4 py-3 text-sidebar-foreground sm:px-6">
         <div className="mx-auto flex w-full max-w-[92rem] flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <Button className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground" onClick={onReturnToEditor} size="icon-lg" type="button" variant="ghost">
+            <Button className="size-11 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground" onClick={onReturnToEditor} size="icon-lg" type="button" variant="ghost">
               <ArrowLeft aria-hidden="true" />
               <span className="sr-only">Вернуться в редактор</span>
             </Button>
@@ -469,7 +483,7 @@ function UnauthorizedState({ onBack }: { readonly onBack: () => void }) {
 
 function SaveStatus({ state }: { readonly state: MaterialSaveState }) {
   return (
-    <span className="hidden min-w-0 items-center gap-1.5 font-mono text-[0.6875rem] text-muted-foreground sm:inline-flex" role="status">
+    <span className="sr-only min-w-0 items-center gap-1.5 font-mono text-[0.6875rem] text-muted-foreground sm:not-sr-only sm:inline-flex" role="status">
       {state.kind === "submitting" ? <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" /> : state.kind === "saved" ? <Check aria-hidden="true" className="size-3.5 text-accent" /> : null}
       {saveStateLabel(state)}
     </span>
