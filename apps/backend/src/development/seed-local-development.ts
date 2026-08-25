@@ -332,22 +332,22 @@ export async function seedLocalDevelopment(
 
 async function ensureReferenceData(database: PlatformDatabase): Promise<void> {
   await database
-    .insertInto("topics")
+    .insertInto("materials.topics")
     .values({ id: topicId, slug: "platform", name: "Platform" })
     .onConflict((conflict) => conflict.column("id").doNothing())
     .execute();
   await database
-    .insertInto("formats")
+    .insertInto("materials.formats")
     .values({ id: formatId, slug: "guide", name: "Guide" })
     .onConflict((conflict) => conflict.column("id").doNothing())
     .execute();
   await database
-    .insertInto("tags")
+    .insertInto("materials.tags")
     .values({ id: tagId, name: "Full stack", normalized_name: "full stack" })
     .onConflict((conflict) => conflict.column("id").doNothing())
     .execute();
   await database
-    .insertInto("series")
+    .insertInto("materials.series")
     .values({ id: seriesId, slug: "platform-inside", name: "Создание Platform Inside" })
     .onConflict((conflict) => conflict.column("id").doNothing())
     .execute();

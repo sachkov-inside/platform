@@ -23,7 +23,7 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
-export interface AuthoringIdempotency {
+export interface MaterialsAuthoringIdempotency {
   actor_id: string;
   created_at: Generated<Timestamp>;
   idempotency_key: string;
@@ -34,13 +34,13 @@ export interface AuthoringIdempotency {
   revision_id: string | null;
 }
 
-export interface Formats {
+export interface MaterialsFormats {
   id: string;
   name: string;
   slug: string;
 }
 
-export interface MaterialAccessAuditEvents {
+export interface MaterialsMaterialAccessAuditEvents {
   action: string;
   actor_id: string | null;
   created_at: Generated<Timestamp>;
@@ -50,7 +50,7 @@ export interface MaterialAccessAuditEvents {
   revision_id: string;
 }
 
-export interface MaterialPublicationEvents {
+export interface MaterialsMaterialPublicationEvents {
   actor_id: string;
   created_at: Generated<Timestamp>;
   id: string;
@@ -59,7 +59,7 @@ export interface MaterialPublicationEvents {
   revision_id: string;
 }
 
-export interface MaterialRevisions {
+export interface MaterialsMaterialRevisions {
   access: string;
   body: Json;
   created_at: Generated<Timestamp>;
@@ -75,20 +75,20 @@ export interface MaterialRevisions {
   topic_id: string;
 }
 
-export interface MaterialRevisionSeriesMemberships {
+export interface MaterialsMaterialRevisionSeriesMemberships {
   material_id: string;
   ordinal: number;
   revision_id: string;
   series_id: string;
 }
 
-export interface MaterialRevisionTags {
+export interface MaterialsMaterialRevisionTags {
   material_id: string;
   revision_id: string;
   tag_id: string;
 }
 
-export interface Materials {
+export interface MaterialsMaterials {
   created_at: Generated<Timestamp>;
   current_draft_revision_id: string;
   current_published_revision_id: string | null;
@@ -97,18 +97,18 @@ export interface Materials {
   updated_at: Generated<Timestamp>;
 }
 
-export interface MaterialSearchDocuments {
+export interface MaterialsMaterialSearchDocuments {
   material_id: string;
   plain_text: string;
   revision_id: string;
 }
 
-export interface MaterialTags {
+export interface MaterialsMaterialTags {
   material_id: string;
   tag_id: string;
 }
 
-export interface PublishedMaterials {
+export interface MaterialsPublishedMaterials {
   access: string;
   format_id: string;
   material_id: string;
@@ -121,57 +121,57 @@ export interface PublishedMaterials {
   topic_id: string;
 }
 
-export interface PublishedMaterialSeriesMemberships {
+export interface MaterialsPublishedMaterialSeriesMemberships {
   material_id: string;
   ordinal: number;
   series_id: string;
 }
 
-export interface PublishedMaterialTags {
+export interface MaterialsPublishedMaterialTags {
   material_id: string;
   tag_id: string;
 }
 
-export interface Series {
+export interface MaterialsSeries {
   id: string;
   name: string;
   slug: string;
 }
 
-export interface SeriesMemberships {
+export interface MaterialsSeriesMemberships {
   material_id: string;
   ordinal: number;
   series_id: string;
 }
 
-export interface Tags {
+export interface MaterialsTags {
   id: string;
   name: string;
   normalized_name: string;
 }
 
-export interface Topics {
+export interface MaterialsTopics {
   id: string;
   name: string;
   slug: string;
 }
 
 export interface DB {
-  authoring_idempotency: AuthoringIdempotency;
-  formats: Formats;
-  material_access_audit_events: MaterialAccessAuditEvents;
-  material_publication_events: MaterialPublicationEvents;
-  material_revision_series_memberships: MaterialRevisionSeriesMemberships;
-  material_revision_tags: MaterialRevisionTags;
-  material_revisions: MaterialRevisions;
-  material_search_documents: MaterialSearchDocuments;
-  material_tags: MaterialTags;
-  materials: Materials;
-  published_material_series_memberships: PublishedMaterialSeriesMemberships;
-  published_material_tags: PublishedMaterialTags;
-  published_materials: PublishedMaterials;
-  series: Series;
-  series_memberships: SeriesMemberships;
-  tags: Tags;
-  topics: Topics;
+  "materials.authoring_idempotency": MaterialsAuthoringIdempotency;
+  "materials.formats": MaterialsFormats;
+  "materials.material_access_audit_events": MaterialsMaterialAccessAuditEvents;
+  "materials.material_publication_events": MaterialsMaterialPublicationEvents;
+  "materials.material_revision_series_memberships": MaterialsMaterialRevisionSeriesMemberships;
+  "materials.material_revision_tags": MaterialsMaterialRevisionTags;
+  "materials.material_revisions": MaterialsMaterialRevisions;
+  "materials.material_search_documents": MaterialsMaterialSearchDocuments;
+  "materials.material_tags": MaterialsMaterialTags;
+  "materials.materials": MaterialsMaterials;
+  "materials.published_material_series_memberships": MaterialsPublishedMaterialSeriesMemberships;
+  "materials.published_material_tags": MaterialsPublishedMaterialTags;
+  "materials.published_materials": MaterialsPublishedMaterials;
+  "materials.series": MaterialsSeries;
+  "materials.series_memberships": MaterialsSeriesMemberships;
+  "materials.tags": MaterialsTags;
+  "materials.topics": MaterialsTopics;
 }

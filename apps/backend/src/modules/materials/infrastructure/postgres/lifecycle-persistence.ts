@@ -23,7 +23,7 @@ export async function loadPublicationEvent(
   eventId: string,
 ): Promise<PublicationEvent | undefined> {
   const event = await database
-    .selectFrom("material_publication_events")
+    .selectFrom("materials.material_publication_events")
     .select(["id", "material_id", "revision_id", "created_at"])
     .where("id", "=", eventId)
     .executeTakeFirst();
@@ -37,6 +37,21 @@ export async function loadPublicationEvent(
       };
 }
 
+export async function hasPublicationEvent(
+  database: AuthoringDatabase,
+  materialIdValue: MaterialId,
+  revisionId: MaterialRevisionId,
+): Promise<boolean> {
+  const event = await database
+    .selectFrom("materials.material_publication_events")
+    .select("id")
+    .where("material_id", "=", materialIdValue)
+    .where("revision_id", "=", revisionId)
+    .where("kind", "=", "publish")
+    .executeTakeFirst();
+  return event !== undefined;
+}
+
 export async function publishRevisionProjection(
   transaction: AuthoringTransaction,
   values: {
@@ -48,7 +63,7 @@ export async function publishRevisionProjection(
 ): Promise<PublicationEvent> {
   const { metadata } = values.revision;
   const event = await transaction
-    .insertInto("material_publication_events")
+    .insertInto("materials.material_publication_events")
     .values({
       id: values.eventId,
       material_id: values.revision.materialId,
@@ -60,7 +75,7 @@ export async function publishRevisionProjection(
     .executeTakeFirstOrThrow();
 
   await transaction
-    .updateTable("materials")
+    .updateTable("materials.materials")
     .set({ current_published_revision_id: values.revision.id })
     .where("id", "=", values.revision.materialId)
     .executeTakeFirstOrThrow();
@@ -68,12 +83,12 @@ export async function publishRevisionProjection(
   // The search row references the exact published revision. Remove it before
   // replacing that revision, then recreate it below in the same transaction.
   await transaction
-    .deleteFrom("material_search_documents")
+    .deleteFrom("materials.material_search_documents")
     .where("material_id", "=", values.revision.materialId)
     .execute();
 
   await transaction
-    .insertInto("published_materials")
+    .insertInto("materials.published_materials")
     .values({
       material_id: values.revision.materialId,
       revision_id: values.revision.id,
@@ -102,12 +117,12 @@ export async function publishRevisionProjection(
     .execute();
 
   await transaction
-    .deleteFrom("published_material_tags")
+    .deleteFrom("materials.published_material_tags")
     .where("material_id", "=", values.revision.materialId)
     .execute();
   if (metadata.tagIds.length > 0) {
     await transaction
-      .insertInto("published_material_tags")
+      .insertInto("materials.published_material_tags")
       .values(
         metadata.tagIds.map((tagId) => ({
           material_id: values.revision.materialId,
@@ -118,12 +133,12 @@ export async function publishRevisionProjection(
   }
 
   await transaction
-    .deleteFrom("published_material_series_memberships")
+    .deleteFrom("materials.published_material_series_memberships")
     .where("material_id", "=", values.revision.materialId)
     .execute();
   if (metadata.seriesMemberships.length > 0) {
     await transaction
-      .insertInto("published_material_series_memberships")
+      .insertInto("materials.published_material_series_memberships")
       .values(
         metadata.seriesMemberships.map(({ ordinal, seriesId }) => ({
           material_id: values.revision.materialId,
@@ -135,7 +150,7 @@ export async function publishRevisionProjection(
   }
 
   await transaction
-    .insertInto("material_search_documents")
+    .insertInto("materials.material_search_documents")
     .values({
       material_id: values.revision.materialId,
       revision_id: values.revision.id,
@@ -167,7 +182,7 @@ export async function unpublishMaterialProjection(
   },
 ): Promise<PublicationEvent> {
   const event = await transaction
-    .insertInto("material_publication_events")
+    .insertInto("materials.material_publication_events")
     .values({
       id: values.eventId,
       material_id: values.materialId,
@@ -178,12 +193,12 @@ export async function unpublishMaterialProjection(
     .returning(["id", "material_id", "revision_id", "created_at"])
     .executeTakeFirstOrThrow();
   await transaction
-    .updateTable("materials")
+    .updateTable("materials.materials")
     .set({ current_published_revision_id: null })
     .where("id", "=", values.materialId)
     .executeTakeFirstOrThrow();
   await transaction
-    .deleteFrom("published_materials")
+    .deleteFrom("materials.published_materials")
     .where("material_id", "=", values.materialId)
     .executeTakeFirstOrThrow();
   return {
@@ -199,9 +214,9 @@ export async function loadPublicMaterialProjection(
   slug: string,
 ): Promise<PublicMaterialProjectionDto | undefined> {
   const row = await database
-    .selectFrom("published_materials as publication")
-    .innerJoin("topics as topic", "topic.id", "publication.topic_id")
-    .innerJoin("formats as format", "format.id", "publication.format_id")
+    .selectFrom("materials.published_materials as publication")
+    .innerJoin("materials.topics as topic", "topic.id", "publication.topic_id")
+    .innerJoin("materials.formats as format", "format.id", "publication.format_id")
     .select([
       "publication.material_id",
       "publication.revision_id",
@@ -222,8 +237,8 @@ export async function loadPublicMaterialProjection(
             jsonb_build_object('id', tag.id, 'name', tag.name)
             order by tag.normalized_name
           )
-          from published_material_tags as membership
-          join tags as tag on tag.id = membership.tag_id
+          from materials.published_material_tags as membership
+          join materials.tags as tag on tag.id = membership.tag_id
           where membership.material_id = publication.material_id
         ),
         '[]'::jsonb
@@ -246,8 +261,8 @@ export async function loadPublicMaterialProjection(
             )
             order by series.name, membership.ordinal
           )
-          from published_material_series_memberships as membership
-          join series on series.id = membership.series_id
+          from materials.published_material_series_memberships as membership
+          join materials.series on series.id = membership.series_id
           where membership.material_id = publication.material_id
         ),
         '[]'::jsonb

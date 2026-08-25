@@ -68,6 +68,14 @@ describe("supported toolchain contract", () => {
       assert.match(body, /^\s{8}update-types: \[minor, patch\]$/mu, `${name} can mix major updates`);
     }
   });
+
+  it("schema-qualifies Materials tables in the Compose smoke query", () => {
+    const smoke = read("scripts/compose-stack-smoke.sh");
+
+    assert.match(smoke, /from materials\.materials\b/u);
+    assert.match(smoke, /from materials\.material_revisions\b/u);
+    assert.doesNotMatch(smoke, /\b(?:from|join) (?:materials|material_revisions)\b(?!\.)/u);
+  });
 });
 
 function escapeRegExp(value) {
