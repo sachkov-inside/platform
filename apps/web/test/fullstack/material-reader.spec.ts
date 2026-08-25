@@ -207,11 +207,59 @@ test("returns the production not-found state for an unpublished slug", async ({ 
 test("keeps desktop shell fixed while main content owns scrolling", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
 
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "__shellCls", { value: { value: 0 } });
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        const shift = entry as PerformanceEntry & {
+          readonly hadRecentInput: boolean;
+          readonly value: number;
+        };
+        if (!shift.hadRecentInput) {
+          (
+            window as unknown as Window & {
+              readonly __shellCls: { value: number };
+            }
+          ).__shellCls.value += shift.value;
+        }
+      }
+    }).observe({ type: "layout-shift", buffered: true });
+  });
   await page.goto("/materials/inside-platform-overview");
   const sidebar = page.getByRole("complementary", { name: "Боковая панель" });
   const main = page.getByRole("main");
+  const collapsedMainRect = await main.evaluate((element) => {
+    const { width, x } = element.getBoundingClientRect();
+    return { width, x };
+  });
 
+  await page.evaluate(() => {
+    (
+      window as unknown as Window & {
+        readonly __shellCls: { value: number };
+      }
+    ).__shellCls.value = 0;
+  });
   await sidebar.hover();
+  await expect
+    .poll(() =>
+      main.evaluate((element) => {
+        const { width, x } = element.getBoundingClientRect();
+        return { width, x };
+      }),
+    )
+    .toEqual(collapsedMainRect);
+  await page.waitForTimeout(500);
+  expect(
+    await page.evaluate(
+      () =>
+        (
+          window as unknown as Window & {
+            readonly __shellCls: { value: number };
+          }
+        ).__shellCls.value,
+    ),
+  ).toBeLessThanOrEqual(0.001);
   await page.mouse.wheel(0, 600);
   await page.waitForTimeout(100);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
