@@ -14,6 +14,18 @@ const config: StorybookConfig = {
     },
   ],
   framework: "@storybook/nextjs-vite",
+  viteFinal: (viteConfig) => ({
+    ...viteConfig,
+    optimizeDeps: {
+      ...viteConfig.optimizeDeps,
+      include: [
+        ...(viteConfig.optimizeDeps?.include ?? []),
+        "@tiptap/core",
+        "@tiptap/react",
+        "@tiptap/starter-kit",
+      ],
+    },
+  }),
   typescript: {
     // Accurate prop extraction is worth the extra dev-time work because the MCP
     // manifest is a public interface for both human and AI consumers.
