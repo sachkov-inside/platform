@@ -556,24 +556,17 @@ function ExactPreview({
 }
 
 function PreviewValidationStatus({ state }: { readonly state: MaterialValidationState }) {
-  if (state.kind === "checking") {
-    return (
-      <span aria-live="polite" className="mt-1 flex items-center gap-1.5 text-[0.6875rem] text-sidebar-foreground/80" role="status">
-        <LoaderCircle aria-hidden="true" className="size-3 animate-spin motion-reduce:animate-none" />
-        Проверяем exact revision…
-      </span>
-    );
-  }
-  if (state.kind === "valid") {
-    return <span className="mt-1 block text-[0.6875rem] text-sidebar-foreground/80" role="status">Ошибок нет · {state.checkedAtLabel}</span>;
-  }
-  if (state.kind === "invalid") {
-    return <span className="mt-1 block text-[0.6875rem] text-sidebar-foreground/80" role="status">Найдено ошибок: {state.issues.length}</span>;
-  }
-  if (state.kind === "failed") {
-    return <span className="mt-1 block text-[0.6875rem] text-sidebar-foreground/80" role="alert">Проверка недоступна · {state.correlationId}</span>;
-  }
-  return <span className="mt-1 block text-[0.6875rem] text-sidebar-foreground/70">Проверка не запускалась</span>;
+  const summary = validationStatePresentation(state);
+  return (
+    <span
+      aria-live={summary.checking ? "polite" : undefined}
+      className="mt-1 flex items-center gap-1.5 text-[0.6875rem] text-sidebar-foreground/80"
+      role={summary.role}
+    >
+      {summary.checking ? <LoaderCircle aria-hidden="true" className="size-3 animate-spin motion-reduce:animate-none" /> : null}
+      {summary.previewLabel}
+    </span>
+  );
 }
 
 function UnauthorizedState({ onBack }: { readonly onBack: () => void }) {
@@ -615,17 +608,51 @@ function saveStateLabel(state: MaterialSaveState): string {
 }
 
 function validationStateLabel(state: MaterialValidationState): string {
+  return validationStatePresentation(state).railLabel;
+}
+
+function validationStatePresentation(state: MaterialValidationState): {
+  readonly checking: boolean;
+  readonly previewLabel: string;
+  readonly railLabel: string;
+  readonly role: "alert" | "status" | undefined;
+} {
   switch (state.kind) {
     case "unchecked":
-      return "Не запускалась";
+      return {
+        checking: false,
+        previewLabel: "Проверка не запускалась",
+        railLabel: "Не запускалась",
+        role: undefined,
+      };
     case "checking":
-      return "Выполняется…";
+      return {
+        checking: true,
+        previewLabel: "Проверяем exact revision…",
+        railLabel: "Выполняется…",
+        role: "status",
+      };
     case "valid":
-      return "Ошибок нет";
+      return {
+        checking: false,
+        previewLabel: `Ошибок нет · ${state.checkedAtLabel}`,
+        railLabel: "Ошибок нет",
+        role: "status",
+      };
     case "invalid":
-      return `${String(state.issues.length)} ${state.issues.length === 1 ? "ошибка" : "ошибки"}`;
+      return {
+        checking: false,
+        previewLabel: `Найдено ошибок: ${String(state.issues.length)}`,
+        railLabel: `${String(state.issues.length)} ${state.issues.length === 1 ? "ошибка" : "ошибки"}`,
+        role: "status",
+      };
     case "failed":
-      return "Недоступна";
+      return {
+        checking: false,
+        previewLabel: `Проверка недоступна · ${state.correlationId}`,
+        railLabel: "Недоступна",
+        role: "alert",
+      };
   }
 }
 
