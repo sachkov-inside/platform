@@ -126,6 +126,23 @@ export const materialAuthoringPresentation = {
   save: { kind: "clean" },
 } as const satisfies MaterialAuthoringPresentation;
 
+export const savedAfterEditingPresentation = {
+  ...materialAuthoringPresentation,
+  draft: {
+    ...materialAuthoringPresentation.draft,
+    revisionId: savedRevisionId,
+    title: "Новая редакция Developer Pipeline",
+    topic: "architecture",
+  },
+  preview: {
+    ...materialAuthoringPresentation.preview,
+    exactRevisionId: savedRevisionId,
+    title: "Новая редакция Developer Pipeline",
+    topic: "Архитектура",
+  },
+  save: { kind: "saved", savedAtLabel: "12:41" },
+} as const satisfies MaterialAuthoringPresentation;
+
 export const emptyMaterialAuthoringPresentation = {
   ...materialAuthoringPresentation,
   draft: {

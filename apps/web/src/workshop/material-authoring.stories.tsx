@@ -13,6 +13,7 @@ import {
 import {
   emptyMaterialAuthoringPresentation,
   materialAuthoringPresentation,
+  savedAfterEditingPresentation,
   savedRevisionId,
 } from "./material-authoring.fixtures";
 
@@ -87,30 +88,7 @@ function MaterialAuthoringFixture({
     },
     onSave: () => {
       noopActions.onSave();
-      setPresentation((current) => {
-        const topic = current.availableTopics.find(
-          (option) => option.value === current.draft.topic,
-        );
-
-        return {
-          ...current,
-          draft: {
-            ...current.draft,
-            revisionId: savedRevisionId,
-          },
-          preview: {
-            ...(current.preview ?? materialAuthoringPresentation.preview),
-            accessLabel: current.draft.access === "membership" ? "Для участников" : "Бесплатный",
-            exactRevisionId: savedRevisionId,
-            format: current.draft.format,
-            summary: current.draft.summary,
-            tags: current.draft.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-            title: current.draft.title,
-            topic: topic?.label ?? current.draft.topic,
-          },
-          save: { kind: "saved", savedAtLabel: "12:41" },
-        };
-      });
+      setPresentation(savedAfterEditingPresentation);
     },
   } satisfies MaterialAuthoringActions;
 
