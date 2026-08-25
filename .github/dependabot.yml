@@ -1,0 +1,73 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Moscow
+    open-pull-requests-limit: 10
+    labels: [dependencies]
+    groups:
+      next:
+        patterns: [next, "@next/*"]
+        update-types: [minor, patch]
+      tiptap:
+        patterns: ["@tiptap/*"]
+        update-types: [minor, patch]
+      storybook:
+        patterns: [storybook, "@storybook/*", "eslint-plugin-storybook"]
+        update-types: [minor, patch]
+      react:
+        patterns: [react, react-dom, "@types/react", "@types/react-dom"]
+        update-types: [minor, patch]
+      npm-patch-minor:
+        patterns: ["*"]
+        update-types: [minor, patch]
+      npm-security-patch-minor:
+        applies-to: security-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      # Keep runtime declarations on the pinned Node LTS major.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
+      # Retry TS 7 when its API is supported by typescript-eslint and Storybook/Vite tooling.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:15"
+      timezone: Europe/Moscow
+    labels: [dependencies]
+    groups:
+      docker-patch-minor:
+        patterns: ["*"]
+        update-types: [minor, patch]
+      docker-security-patch-minor:
+        applies-to: security-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:30"
+      timezone: Europe/Moscow
+    labels: [dependencies]
+    groups:
+      actions-patch-minor:
+        patterns: ["*"]
+        update-types: [minor, patch]
+      actions-security-patch-minor:
+        applies-to: security-updates
+        patterns: ["*"]
+        update-types: [minor, patch]

@@ -1,0 +1,17 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+.impeccable
+.inside-harness
+**/.next
+.playwright-cli
+**/coverage
+**/dist
+**/node_modules
+**/playwright-report
+**/storybook-static
+**/test-results
+*.log
+**/*.tsbuildinfo
