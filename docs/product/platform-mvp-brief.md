@@ -36,7 +36,7 @@ private Platform Account, member-only Member Profile и reading experience. `sac
 - видит карточку и описание каждого закрытого материала;
 - видит описание, порядок и карточки всех выпусков закрытой серии;
 - на закрытом материале видит предложение вступить в Мастерскую и external CTA на
-  owner-controlled Tribute page.
+  owner-controlled `https://sachkov.dev` landing.
 
 ### Участник Membership
 
@@ -61,12 +61,12 @@ Telegram username, linking/evidence, security или audit data. Exact поля,
 moderation и delete/disable policy утверждаются владельцем до production implementation и не
 расширяют этот brief до публичной социальной сети.
 
-Платформа не принимает оплату и не управляет подпиской. Outbound link на Tribute является только
-acquisition destination: Platform не читает Tribute API/webhooks и не делает access decision по
-клику или payment state. Trial, промокоды, подарки, временные доступы и продажа отдельных серий не
-входят в первую версию. Внешним признаком Membership является участие в единственном каноническом
-закрытом Telegram chat. Platform не выдаёт доступ по данным Tribute или другого payment/roster
-operator; technical integration boundary описана в
+Платформа не принимает оплату и не управляет подпиской. Outbound link ведёт на owner-controlled
+`https://sachkov.dev` landing: Platform не читает Tribute API/webhooks и не делает access decision
+по клику или payment state. Trial, промокоды, подарки, временные доступы и продажа отдельных серий
+не входят в первую версию. Внешним признаком Membership является участие в единственном
+каноническом закрытом Telegram chat. Platform не выдаёт доступ по данным Tribute или другого
+payment/roster operator; technical integration boundary описана в
 [application specification](../specifications/platform-v1.md).
 
 ### Автор
