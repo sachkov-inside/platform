@@ -64,4 +64,5 @@ export type {
   ValidationIssue,
 } from "./domain/material-body/material-body.js";
 export { MaterialsModule } from "./materials.module.js";
+export { createIdentityAuthorPolicy } from "./infrastructure/identity/identity-author-policy.js";
 export { createMaterials, type Materials } from "./create-materials.js";

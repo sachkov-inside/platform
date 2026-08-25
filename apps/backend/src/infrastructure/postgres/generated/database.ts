@@ -34,10 +34,50 @@ export interface AuthoringIdempotency {
   revision_id: string | null;
 }
 
+export interface ExternalIdentities {
+  created_at: Generated<Timestamp>;
+  email_fingerprint: string | null;
+  id: string;
+  issuer: string;
+  principal_id: string;
+  subject: string;
+}
+
 export interface Formats {
   id: string;
   name: string;
   slug: string;
+}
+
+export interface IdentityAuditEvents {
+  created_at: Generated<Timestamp>;
+  id: string;
+  operation: string;
+  outcome: string;
+  principal_id: string | null;
+  session_id: string | null;
+}
+
+export interface IdentityIdempotency {
+  created_at: Generated<Timestamp>;
+  idempotency_key: string;
+  operation: string;
+  principal_id: string | null;
+  request_fingerprint: string;
+  session_id: string | null;
+}
+
+export interface IdentityReauthenticationAttempts {
+  begin_idempotency_key: string;
+  begin_request_fingerprint: string;
+  complete_idempotency_key: string | null;
+  complete_request_fingerprint: string | null;
+  consumed_at: Timestamp | null;
+  created_at: Timestamp;
+  expires_at: Timestamp;
+  id: string;
+  session_id: string;
+  token_fingerprint: string | null;
 }
 
 export interface MaterialAccessAuditEvents {
@@ -108,6 +148,30 @@ export interface MaterialTags {
   tag_id: string;
 }
 
+export interface PlatformSessions {
+  authenticated_at: Timestamp;
+  created_at: Timestamp;
+  ended_at: Timestamp | null;
+  expires_at: Timestamp;
+  id: string;
+  principal_id: string;
+  security_version: number;
+}
+
+export interface PrincipalPermissions {
+  created_at: Generated<Timestamp>;
+  permission: string;
+  principal_id: string;
+}
+
+export interface Principals {
+  created_at: Generated<Timestamp>;
+  id: string;
+  kind: string;
+  security_version: Generated<number>;
+  state: Generated<string>;
+}
+
 export interface PublishedMaterials {
   access: string;
   format_id: string;
@@ -158,7 +222,11 @@ export interface Topics {
 
 export interface DB {
   authoring_idempotency: AuthoringIdempotency;
+  external_identities: ExternalIdentities;
   formats: Formats;
+  identity_audit_events: IdentityAuditEvents;
+  identity_idempotency: IdentityIdempotency;
+  identity_reauthentication_attempts: IdentityReauthenticationAttempts;
   material_access_audit_events: MaterialAccessAuditEvents;
   material_publication_events: MaterialPublicationEvents;
   material_revision_series_memberships: MaterialRevisionSeriesMemberships;
@@ -167,6 +235,9 @@ export interface DB {
   material_search_documents: MaterialSearchDocuments;
   material_tags: MaterialTags;
   materials: Materials;
+  platform_sessions: PlatformSessions;
+  principal_permissions: PrincipalPermissions;
+  principals: Principals;
   published_material_series_memberships: PublishedMaterialSeriesMemberships;
   published_material_tags: PublishedMaterialTags;
   published_materials: PublishedMaterials;

@@ -15,6 +15,14 @@ The current production API exposes health and OpenAPI endpoints. Material create
 application interface covered by integration tests; it does not yet have a production HTTP or MCP
 transport.
 
+The optional Logto email-code proof is a separate, disposable Compose project with isolated ports
+and volumes. Its pinned build, automated Management API bootstrap and Mailpit capture are
+documented in [`infra/identity/logto/README.md`](../../infra/identity/logto/README.md). Run
+`pnpm identity:proof:start`; it starts the shared Platform PostgreSQL, applies normal repository
+migrations and runs the application without Logto Console setup. The launcher claims the same
+machine-wide ownership lock as `local:setup`, refuses an already running Platform or proof Compose
+project, and stops only the environments it claimed when the process exits.
+
 ## Parallel worktrees and Compose ownership
 
 The checked-in Compose project has one fixed project name, host port and named volume shared by all

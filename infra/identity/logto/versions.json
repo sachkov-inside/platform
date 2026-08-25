@@ -1,0 +1,21 @@
+{
+  "logto": {
+    "version": "1.41.0",
+    "image": "ghcr.io/logto-io/logto:1.41.0",
+    "digest": "sha256:7f79547e3d1fe569a3ecae757968a7cfc579687aa8164eec35113c0adc983c5b",
+    "upstreamRevision": "91e55698a42f99438cd41ec2b16a1fc51dbdab8a",
+    "forkRevision": "inside.1"
+  },
+  "logtoNext": "4.2.10",
+  "jose": "6.2.10",
+  "postgres": {
+    "version": "17.6-alpine",
+    "image": "postgres:17.6-alpine",
+    "digest": "sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94"
+  },
+  "mailpit": {
+    "version": "1.30.6",
+    "image": "ghcr.io/axllent/mailpit:v1.30.6",
+    "digest": "sha256:7f33095f80e901f6ad08028f06ca284aa58fe84942be5496008d041d3b9f4d4d"
+  }
+}

@@ -22,7 +22,11 @@ describe("material authoring migrations", () => {
     const second = await migrateToLatest(testDatabase.database);
 
     expect(first).toEqual({
-      appliedMigrations: ["0001_content_authoring", "0002_material_lifecycle"],
+      appliedMigrations: [
+        "0001_content_authoring",
+        "0002_material_lifecycle",
+        "0003_identity_principals",
+      ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
 
@@ -34,7 +38,11 @@ describe("material authoring migrations", () => {
 
     expect(contentTables).toEqual([
       "authoring_idempotency",
+      "external_identities",
       "formats",
+      "identity_audit_events",
+      "identity_idempotency",
+      "identity_reauthentication_attempts",
       "material_access_audit_events",
       "material_publication_events",
       "material_revision_series_memberships",
@@ -43,6 +51,9 @@ describe("material authoring migrations", () => {
       "material_search_documents",
       "material_tags",
       "materials",
+      "platform_sessions",
+      "principal_permissions",
+      "principals",
       "published_material_series_memberships",
       "published_material_tags",
       "published_materials",

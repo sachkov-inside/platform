@@ -168,12 +168,12 @@ interface IdentityPrincipals {
   establishHumanSession(command: {
     readonly identity: VerifiedHumanSignIn;
     readonly idempotencyKey: string;
-  }): Promise<EstablishSessionResult>;
+  }): Promise<HumanSessionEstablishmentResult>;
 
   establishServiceSession(command: {
     readonly identity: VerifiedServiceSessionIdentity;
     readonly idempotencyKey: string;
-  }): Promise<EstablishSessionResult>;
+  }): Promise<ServiceSessionEstablishmentResult>;
 
   resolveSubject(query: {
     readonly sessionRef: string;

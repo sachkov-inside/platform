@@ -32,6 +32,7 @@
     "@tiptap/pm": "3.30.2",
     "@tiptap/starter-kit": "3.30.2",
     "fastify": "5.12.1",
+    "jose": "6.2.10",
     "kysely": "0.29.5",
     "pg": "8.23.0",
     "reflect-metadata": "0.2.2",

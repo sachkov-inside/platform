@@ -14,6 +14,7 @@ export default defineConfig({
   use: {
     baseURL,
     screenshot: "only-on-failure",
+    storageState: process.env.EVIDENCE_STORAGE_STATE,
     trace: "retain-on-failure",
   },
   projects: [

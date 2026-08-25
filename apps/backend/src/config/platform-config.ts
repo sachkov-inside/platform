@@ -2,6 +2,10 @@ const DEFAULT_DATABASE_URL =
   "postgresql://inside:inside@127.0.0.1:5432/inside";
 const DEFAULT_API_HOST = "127.0.0.1";
 const DEFAULT_API_PORT = "3001";
+const DEFAULT_LOGTO_ISSUER = "https://identity.inside.localhost:3301/oidc";
+const DEFAULT_LOGTO_AUDIENCE = "http://127.0.0.1:3001";
+const DEFAULT_LOGTO_JWKS_URL = "https://identity.inside.localhost:3301/oidc/jwks";
+const DEFAULT_EMAIL_FINGERPRINT_KEY = "inside-local-email-fingerprint-key";
 
 export const PLATFORM_CONFIG = Symbol("PLATFORM_CONFIG");
 
@@ -15,6 +19,12 @@ export interface PlatformConfig {
   readonly api: Readonly<{
     host: string;
     port: number;
+  }>;
+  readonly identity: Readonly<{
+    issuer: string;
+    audience: string;
+    jwksUrl: string;
+    emailFingerprintKey: string;
   }>;
 }
 
@@ -31,7 +41,14 @@ function parseMode(value: string | undefined): PlatformMode {
 
 function readRuntimeValue(
   environment: NodeJS.ProcessEnv,
-  name: "DATABASE_URL" | "API_HOST" | "API_PORT",
+  name:
+    | "API_HOST"
+    | "API_PORT"
+    | "DATABASE_URL"
+    | "IDENTITY_EMAIL_FINGERPRINT_KEY"
+    | "LOGTO_AUDIENCE"
+    | "LOGTO_ISSUER"
+    | "LOGTO_JWKS_URL",
   mode: PlatformMode,
   localDefault: string,
 ): string {
@@ -72,6 +89,54 @@ function parseApiPort(value: string): number {
   return port;
 }
 
+function validateHttpUrl(value: string, name: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${name} must be an absolute URL`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`${name} must use HTTP or HTTPS`);
+  }
+  return value;
+}
+
+function parseIdentityConfig(
+  environment: NodeJS.ProcessEnv,
+  mode: PlatformMode,
+): PlatformConfig["identity"] {
+  const issuer = validateHttpUrl(
+    readRuntimeValue(environment, "LOGTO_ISSUER", mode, DEFAULT_LOGTO_ISSUER),
+    "LOGTO_ISSUER",
+  );
+  if (new URL(issuer).protocol !== "https:") {
+    throw new Error("LOGTO_ISSUER must use HTTPS");
+  }
+  const audience = validateHttpUrl(
+    readRuntimeValue(environment, "LOGTO_AUDIENCE", mode, DEFAULT_LOGTO_AUDIENCE),
+    "LOGTO_AUDIENCE",
+  );
+  const jwksUrl = validateHttpUrl(
+    readRuntimeValue(environment, "LOGTO_JWKS_URL", mode, DEFAULT_LOGTO_JWKS_URL),
+    "LOGTO_JWKS_URL",
+  );
+  if (mode === "production" && new URL(jwksUrl).protocol !== "https:") {
+    throw new Error("LOGTO_JWKS_URL must use HTTPS in production mode");
+  }
+  const emailFingerprintKey = readRuntimeValue(
+    environment,
+    "IDENTITY_EMAIL_FINGERPRINT_KEY",
+    mode,
+    DEFAULT_EMAIL_FINGERPRINT_KEY,
+  );
+  if (emailFingerprintKey.length < 32) {
+    throw new Error("IDENTITY_EMAIL_FINGERPRINT_KEY must contain at least 32 characters");
+  }
+
+  return Object.freeze({ issuer, audience, jwksUrl, emailFingerprintKey });
+}
+
 export function parsePlatformConfig(
   environment: NodeJS.ProcessEnv,
 ): PlatformConfig {
@@ -83,8 +148,9 @@ export function parsePlatformConfig(
       readRuntimeValue(environment, "API_PORT", mode, DEFAULT_API_PORT),
     ),
   });
+  const identity = parseIdentityConfig(environment, mode);
 
-  return Object.freeze({ mode, database, api });
+  return Object.freeze({ mode, database, api, identity });
 }
 
 export function parsePlatformDatabaseConfig(

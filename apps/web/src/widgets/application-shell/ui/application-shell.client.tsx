@@ -29,11 +29,15 @@ export interface ApplicationNavigationItem {
 
 export interface ApplicationShellProps {
   /** Human-readable account name used by visible and accessible labels. */
-  readonly accountLabel: string;
+  readonly accountLabel?: string | undefined;
   readonly children: ReactNode;
   /** Current route used to expose the active navigation item. */
   readonly currentPath: string;
   readonly navigationItems: readonly ApplicationNavigationItem[];
+  /** Server-owned identity control rendered inside the desktop sidebar. */
+  readonly desktopAccountSlot?: ReactNode | undefined;
+  /** Server-owned identity control rendered beside mobile navigation. */
+  readonly mobileAccountSlot?: ReactNode | undefined;
   /** Initial pinned state for the expandable desktop sidebar. */
   readonly sidebarDefaultPinned?: boolean;
 }
@@ -49,6 +53,8 @@ export function ApplicationShell({
   accountLabel,
   children,
   currentPath,
+  desktopAccountSlot,
+  mobileAccountSlot,
   navigationItems,
   sidebarDefaultPinned = false,
 }: ApplicationShellProps) {
@@ -59,6 +65,7 @@ export function ApplicationShell({
           <SidebarBody>
             <SidebarContents
               accountLabel={accountLabel}
+              accountSlot={desktopAccountSlot}
               currentPath={currentPath}
               items={navigationItems}
             />
@@ -66,7 +73,11 @@ export function ApplicationShell({
         </Sidebar>
         <ShellMain>{children}</ShellMain>
       </div>
-      <MobileBottomNavigation currentPath={currentPath} items={navigationItems} />
+      <MobileBottomNavigation
+        accountSlot={mobileAccountSlot}
+        currentPath={currentPath}
+        items={navigationItems}
+      />
     </ShellFrame>
   );
 }
@@ -103,13 +114,15 @@ function ShellMain({ children }: { readonly children: ReactNode }) {
 }
 
 interface NavigationProps {
-  readonly accountLabel: string;
+  readonly accountLabel?: string | undefined;
+  readonly accountSlot?: ReactNode | undefined;
   readonly currentPath: string;
   readonly items: readonly ApplicationNavigationItem[];
 }
 
 function SidebarContents({
   accountLabel,
+  accountSlot,
   currentPath,
   items,
 }: NavigationProps) {
@@ -144,7 +157,7 @@ function SidebarContents({
         </nav>
       </div>
       <div className="shrink-0 border-t border-sidebar-border pt-3">
-        <AccountPreview label={accountLabel} />
+        {accountSlot ?? <AccountPreview label={accountLabel ?? "Гость"} />}
       </div>
     </div>
   );
@@ -196,15 +209,21 @@ function AccountInitials({ label }: { readonly label: string }) {
 }
 
 function MobileBottomNavigation({
+  accountSlot,
   currentPath,
   items,
-}: Pick<NavigationProps, "currentPath" | "items">) {
+}: Pick<NavigationProps, "accountSlot" | "currentPath" | "items">) {
   return (
     <nav
       aria-label="Мобильная навигация"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
     >
-      <div className="grid grid-cols-3 px-2 pt-1">
+      <div
+        className={cn(
+          "grid px-2 pt-1",
+          accountSlot === undefined ? "grid-cols-3" : "grid-cols-4",
+        )}
+      >
         {items.map((item) => {
           const Icon = iconByName[item.icon];
           const current = isCurrentPath(currentPath, item.href);
@@ -228,6 +247,7 @@ function MobileBottomNavigation({
             </Link>
           );
         })}
+        {accountSlot}
       </div>
     </nav>
   );

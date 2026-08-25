@@ -44,7 +44,8 @@ export function Sidebar({ children, defaultPinned = false }: SidebarProps) {
   return (
     <SidebarContext.Provider value={{ open, pinned, setPinned }}>
       <div
-        className="hidden h-svh shrink-0 bg-card md:block md:self-stretch md:py-3 md:pl-3"
+        className="group/sidebar hidden h-svh shrink-0 bg-card md:block md:self-stretch md:py-3 md:pl-3"
+        data-state={open ? "expanded" : "collapsed"}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) {
             setFocused(false);
