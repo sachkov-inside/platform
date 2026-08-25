@@ -2,7 +2,7 @@
 
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import type { ReactNode } from "react";
-import { expect, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import {
   ApplicationShell,
@@ -21,7 +21,7 @@ function HybridCatalogBoard() {
     <WorkshopShell>
       <div data-prototype="material-card-candidate">
         <header className="max-w-3xl">
-          <h1 className="text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
+          <h1 className="break-words text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
             Библиотека
           </h1>
           <p className="mt-4 max-w-[66ch] text-pretty text-base leading-7 text-muted-foreground">
@@ -29,7 +29,7 @@ function HybridCatalogBoard() {
           </p>
         </header>
         <section aria-labelledby="materials-heading" className="@container/material-catalog mt-9 max-w-[80rem]">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <h2 className="text-xl font-semibold tracking-[-0.025em]" id="materials-heading">
               Новые материалы
             </h2>
@@ -122,6 +122,9 @@ export const HybridCatalog: Story = {
       `[data-material-id="${materialFixtures.careerVideo.id}"]`,
     );
     const materialGrid = canvasElement.querySelector<HTMLElement>("[data-material-grid]");
+    const platformPosterLink = canvas.getByRole("link", {
+      name: `Открыть материал: ${materialFixtures.platformDeliveryVideo.title}`,
+    });
 
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
     await expect(canvas.getAllByRole("img")).toHaveLength(2);
@@ -144,6 +147,14 @@ export const HybridCatalog: Story = {
       getComputedStyle(materialGrid).gridTemplateColumns.split(" "),
     ).toHaveLength(2);
     await expect(platformVideo.getBoundingClientRect().width).toBeGreaterThanOrEqual(360);
+    for (
+      let tabIndex = 0;
+      tabIndex < 12 && canvasElement.ownerDocument.activeElement !== platformPosterLink;
+      tabIndex += 1
+    ) {
+      await userEvent.tab();
+    }
+    await expect(platformPosterLink).toHaveFocus();
     await expect(within(guideCard).queryByRole("img")).not.toBeInTheDocument();
     await expect(within(guideCard).queryByRole("link", { name: /выпуск/ })).not.toBeInTheDocument();
     await expect(guideCard.getBoundingClientRect().width).toBeLessThan(750);
@@ -176,6 +187,25 @@ export const HybridCatalogMobile: Story = {
     await expect(canvasElement.ownerDocument.documentElement.scrollWidth).toBeLessThanOrEqual(
       canvasElement.ownerDocument.documentElement.clientWidth,
     );
+  },
+  render: () => <HybridCatalogBoard />,
+};
+
+export const HybridCatalogTextZoom: Story = {
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Mixed-format catalog · 200% text zoom",
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.ownerDocument.documentElement;
+    const originalFontSize = root.style.fontSize;
+
+    try {
+      root.style.fontSize = "200%";
+      await waitFor(async () => {
+        await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+      });
+    } finally {
+      root.style.fontSize = originalFontSize;
+    }
   },
   render: () => <HybridCatalogBoard />,
 };
