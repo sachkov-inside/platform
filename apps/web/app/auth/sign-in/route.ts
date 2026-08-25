@@ -1,11 +1,10 @@
-import { randomUUID } from "node:crypto";
-
 import LogtoClient, { getAccessToken } from "@logto/next/server-actions";
 import { NextResponse } from "next/server";
 
 import { completePlatformSignIn } from "@/shared/auth/complete-platform-sign-in.server";
 import {
   clearSignInAttempt,
+  createSignInAttempt,
   isSameOriginMutation,
   readLogtoBffConfig,
   readSignInAttempt,
@@ -39,13 +38,7 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1_000).toISOString();
-  await writeSignInAttempt({
-    id: randomUUID(),
-    expiresAt,
-    kind: "sign_in",
-    phase: "provider_pending",
-  });
+  await writeSignInAttempt(createSignInAttempt());
 
   try {
     const client = new LogtoClient(config);

@@ -34,13 +34,21 @@ import {
   type PrincipalId,
 } from "../../domain/identity-identifiers.js";
 
-const SESSION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1_000;
-const REAUTHENTICATION_LIFETIME_MS = 5 * 60 * 1_000;
+const SESSION_LIFETIME_MS = daysInMilliseconds(7);
+const REAUTHENTICATION_LIFETIME_MS = minutesInMilliseconds(5);
 const permissionValues = new Set<PlatformPermission>([
   "identity:admin",
   "materials:author",
   "materials:publish",
 ]);
+
+function minutesInMilliseconds(minutes: number): number {
+  return minutes * 60_000;
+}
+
+function daysInMilliseconds(days: number): number {
+  return days * 24 * 60 * 60_000;
+}
 
 interface Dependencies {
   readonly database: PlatformDatabase;

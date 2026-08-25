@@ -1,5 +1,7 @@
 import "server-only";
 
+import { z } from "zod";
+
 const LOCAL_BACKEND_BASE_URL = "http://127.0.0.1:3001";
 const BACKEND_REQUEST_TIMEOUT_MS = 3_000;
 
@@ -30,18 +32,17 @@ export interface BackendHealth {
   readonly database: "reachable";
 }
 
-export interface IdentitySubject {
-  readonly principalId: string;
-  readonly principalKind: "human" | "service";
-  readonly sessionRef: string;
-  readonly authenticatedAt: string;
-  readonly expiresAt: string;
-  readonly permissions: readonly (
-    | "identity:admin"
-    | "materials:author"
-    | "materials:publish"
-  )[];
-}
+const identitySubjectSchema = z.object({
+  principalId: z.uuid(),
+  principalKind: z.enum(["human", "service"]),
+  sessionRef: z.uuid(),
+  authenticatedAt: z.iso.datetime({ offset: true }),
+  expiresAt: z.iso.datetime({ offset: true }),
+  permissions: z.array(
+    z.enum(["identity:admin", "materials:author", "materials:publish"]),
+  ).readonly(),
+});
+export type IdentitySubject = Readonly<z.infer<typeof identitySubjectSchema>>;
 
 export function readBackendBaseUrl(): string {
   const configuredUrl = nonEmpty(process.env.BACKEND_BASE_URL?.trim());
@@ -254,24 +255,7 @@ function invalidBackendResponse(message: string, cause?: unknown): BackendConnec
 }
 
 function isIdentitySubject(value: unknown): value is IdentitySubject {
-  if (!isRecord(value)) {
-    return false;
-  }
-  const permissions = value.permissions;
-  return (
-    isUuid(value.principalId) &&
-    (value.principalKind === "human" || value.principalKind === "service") &&
-    isUuid(value.sessionRef) &&
-    isTimestamp(value.authenticatedAt) &&
-    isTimestamp(value.expiresAt) &&
-    Array.isArray(permissions) &&
-    permissions.every(
-      (permission) =>
-        permission === "identity:admin" ||
-        permission === "materials:author" ||
-        permission === "materials:publish",
-    )
-  );
+  return identitySubjectSchema.safeParse(value).success;
 }
 
 function isBackendHealth(value: unknown): value is BackendHealth {
@@ -288,19 +272,6 @@ function isBackendHealth(value: unknown): value is BackendHealth {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isTimestamp(value: unknown): value is string {
-  return typeof value === "string" && Number.isFinite(Date.parse(value));
-}
-
-function isUuid(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
-      value,
-    )
-  );
 }
 
 function nonEmpty(value: string | undefined): string | undefined {

@@ -14,10 +14,12 @@ import {
   verifiedServiceSessionIdentity,
   type VerifiedHumanSessionIdentity,
 } from "../../../application/verified-external-identity.js";
+import { parseReauthenticationAttemptId } from "../../../domain/identity-identifiers.js";
 
-const MAX_ACCESS_TOKEN_LIFETIME_SECONDS = 5 * 60;
+const MAX_ACCESS_TOKEN_LIFETIME_SECONDS = minutesInSeconds(5);
 const MAX_TOKEN_LENGTH = 16_384;
 const MAX_INTERACTIVE_IAT_SKEW_SECONDS = 60;
+const REMOTE_JWKS_CACHE_LIFETIME_MS = minutesInMilliseconds(10);
 
 type ProofErrorCode = "dependency_unavailable" | "invalid_proof";
 
@@ -131,7 +133,7 @@ export function createLogtoAccessTokenVerifier(
     },
 
     async verifyHumanReauthentication(token, attemptId) {
-      if (!validUuid(attemptId)) {
+      if (parseReauthenticationAttemptId(attemptId) === undefined) {
         return invalidProof();
       }
       const verified = await verifyToken(token, config, keyResolver);
@@ -231,7 +233,7 @@ function createKeyResolver(config: LogtoVerifierConfig): JWTVerifyGetKey {
   return createRemoteJWKSet(jwksUrl, {
     timeoutDuration: 2_000,
     cooldownDuration: 30_000,
-    cacheMaxAge: 10 * 60 * 1_000,
+    cacheMaxAge: REMOTE_JWKS_CACHE_LIFETIME_MS,
   });
 }
 
@@ -288,8 +290,10 @@ function isDependencyFailure(error: unknown, remoteJwks: boolean): boolean {
   );
 }
 
-function validUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
-    value,
-  );
+function minutesInSeconds(minutes: number): number {
+  return minutes * 60;
+}
+
+function minutesInMilliseconds(minutes: number): number {
+  return minutesInSeconds(minutes) * 1_000;
 }

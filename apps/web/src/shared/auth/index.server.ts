@@ -17,6 +17,7 @@ export {
 export { providerCallbackUrl } from "./provider-callback-url.server";
 export {
   clearSignInAttempt,
+  createSignInAttempt,
   decodeSignInAttemptCookie,
   encodeSignInAttemptCookie,
   readSignInAttempt,

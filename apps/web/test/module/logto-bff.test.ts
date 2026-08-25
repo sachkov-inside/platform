@@ -4,6 +4,7 @@ import { AudienceBoundLogtoClient } from "@/shared/auth/audience-bound-logto-cli
 
 import {
   bindAuthorizationCodeResource,
+  createSignInAttempt,
   decodeSignInAttemptCookie,
   encodeSignInAttemptCookie,
   isSameOriginMutation,
@@ -142,6 +143,17 @@ describe("Logto BFF configuration", () => {
 });
 
 describe("sign-in callback attempt", () => {
+  it("creates an opaque provider attempt with a ten-minute lifetime", () => {
+    const attempt = createSignInAttempt(new Date("2026-08-25T06:00:00.000Z"));
+
+    expect(attempt).toMatchObject({
+      expiresAt: "2026-08-25T06:10:00.000Z",
+      kind: "sign_in",
+      phase: "provider_pending",
+    });
+    expect(attempt.id).toMatch(/^[0-9a-f-]{36}$/u);
+  });
+
   it("binds one opaque idempotency attempt and rejects tampering or expiry", () => {
     const attempt = {
       id: "72000000-0000-4000-8000-000000000010",

@@ -1,18 +1,21 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { z } from "zod";
 
 import { decodeSignedCookie, encodeSignedCookie } from "./signed-cookie.server";
-
-export interface PlatformSessionContext {
-  readonly sessionRef: string;
-  readonly expiresAt: string;
-}
 
 type RuntimeMode = "development" | "production" | "test";
 
 const LOCAL_COOKIE_NAME = "inside_session";
 const PRODUCTION_COOKIE_NAME = "__Host-inside_session";
+const platformSessionContextSchema = z.strictObject({
+  sessionRef: z.uuid(),
+  expiresAt: z.iso.datetime({ offset: true }),
+});
+export type PlatformSessionContext = Readonly<
+  z.infer<typeof platformSessionContextSchema>
+>;
 
 export function encodePlatformSessionCookie(
   context: PlatformSessionContext,
@@ -83,23 +86,5 @@ function runtimeMode(): RuntimeMode {
 }
 
 function isPlatformSessionContext(value: unknown): value is PlatformSessionContext {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-  const record = value as Record<string, unknown>;
-  return (
-    Object.keys(record).length === 2 &&
-    isUuid(record.sessionRef) &&
-    typeof record.expiresAt === "string" &&
-    Number.isFinite(Date.parse(record.expiresAt))
-  );
-}
-
-function isUuid(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
-      value,
-    )
-  );
+  return platformSessionContextSchema.safeParse(value).success;
 }

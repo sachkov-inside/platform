@@ -18,6 +18,9 @@ export class AudienceBoundLogtoClient extends LogtoClient {
   ): ReturnType<LogtoClient["createNodeClient"]> {
     const client = await super.createNodeClient(options);
     const request = client.adapter.requester;
+    // @logto/client sends `resource` on authorization but currently omits it
+    // from the authorization-code exchange. The first Platform token must be
+    // audience-bound because Logto adds our sign-in proof only to that grant.
     client.adapter.requester = (input, init) =>
       request(input, bindAuthorizationCodeResource(init, this.#audience));
     return client;

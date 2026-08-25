@@ -1,10 +1,14 @@
 import { randomUUID } from "node:crypto";
 
+import { z } from "zod";
+
 declare const principalIdBrand: unique symbol;
 declare const platformSessionIdBrand: unique symbol;
 declare const externalIdentityIdBrand: unique symbol;
 declare const reauthenticationAttemptIdBrand: unique symbol;
 declare const identityIdempotencyKeyBrand: unique symbol;
+
+const uuidSchema = z.uuid();
 
 export type PrincipalId = string & { readonly [principalIdBrand]: true };
 export type PlatformSessionId = string & { readonly [platformSessionIdBrand]: true };
@@ -72,10 +76,5 @@ export function newReauthenticationAttemptId(): ReauthenticationAttemptId {
 }
 
 function isUuid(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
-      value,
-    )
-  );
+  return uuidSchema.safeParse(value).success;
 }

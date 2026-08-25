@@ -25,6 +25,12 @@ const fakes = vi.hoisted(() => ({
   },
   cookieSet: vi.fn(),
   cookieGet: vi.fn(() => ({ value: "encrypted-logto-session" })),
+  createSignInAttempt: vi.fn(() => ({
+    id: "72000000-0000-4000-8000-000000000010",
+    expiresAt: "2026-08-25T06:10:00.000Z",
+    kind: "sign_in" as const,
+    phase: "provider_pending" as const,
+  })),
   writeSignInAttempt: vi.fn(),
   clearSignInAttempt: vi.fn(() => {
     fakes.sequence.push("clear-attempt");
@@ -125,6 +131,7 @@ vi.mock("@/shared/auth/index.server", () => ({
     callbackUrl.search = incoming.search;
     return callbackUrl.toString();
   },
+  createSignInAttempt: fakes.createSignInAttempt,
   writeSignInAttempt: fakes.writeSignInAttempt,
   clearSignInAttempt: fakes.clearSignInAttempt,
   readSignInAttempt: fakes.readSignInAttempt,

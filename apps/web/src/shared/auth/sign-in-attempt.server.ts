@@ -1,26 +1,46 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { cookies } from "next/headers";
+import { z } from "zod";
 
 import { readLogtoBffConfig } from "./logto-bff-config.server";
 import { decodeSignedCookie, encodeSignedCookie } from "./signed-cookie.server";
 
-interface BaseAuthenticationAttempt {
-  readonly id: string;
-  readonly expiresAt: string;
+const ATTEMPT_LIFETIME_MINUTES = 10;
+const ATTEMPT_LIFETIME_SECONDS = minutesInSeconds(ATTEMPT_LIFETIME_MINUTES);
+
+const authenticationAttemptFields = {
+  id: z.uuid(),
+  expiresAt: z.iso.datetime({ offset: true }),
+};
+const signInAttemptSchema = z.discriminatedUnion("kind", [
+  z.strictObject({
+    ...authenticationAttemptFields,
+    kind: z.literal("sign_in"),
+    phase: z.enum(["provider_pending", "backend_pending"]),
+  }),
+  z.strictObject({
+    ...authenticationAttemptFields,
+    kind: z.literal("reauthentication"),
+    sessionRef: z.uuid(),
+  }),
+]);
+export type SignInAttempt = Readonly<z.infer<typeof signInAttemptSchema>>;
+
+export function createSignInAttempt(now = new Date()): SignInAttempt {
+  const expiresAt = new Date(now);
+  expiresAt.setUTCMinutes(
+    expiresAt.getUTCMinutes() + ATTEMPT_LIFETIME_MINUTES,
+  );
+  return Object.freeze({
+    id: randomUUID(),
+    expiresAt: expiresAt.toISOString(),
+    kind: "sign_in",
+    phase: "provider_pending",
+  });
 }
-
-export type SignInAttempt =
-  | (BaseAuthenticationAttempt & {
-      readonly kind: "sign_in";
-      readonly phase: "provider_pending" | "backend_pending";
-    })
-  | (BaseAuthenticationAttempt & {
-      readonly kind: "reauthentication";
-      readonly sessionRef: string;
-    });
-
-const ATTEMPT_LIFETIME_SECONDS = 10 * 60;
 
 export function encodeSignInAttemptCookie(attempt: SignInAttempt, secret: string): string {
   validate(attempt);
@@ -88,32 +108,9 @@ function validate(attempt: SignInAttempt): void {
 }
 
 function isSignInAttempt(value: unknown): value is SignInAttempt {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-  const record = value as Record<string, unknown>;
-  const common =
-    typeof record.id === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
-      record.id,
-    ) &&
-    typeof record.expiresAt === "string" &&
-    Number.isFinite(Date.parse(record.expiresAt));
-  if (!common) {
-    return false;
-  }
-  if (record.kind === "sign_in") {
-    return (
-      Object.keys(record).length === 4 &&
-      (record.phase === "provider_pending" || record.phase === "backend_pending")
-    );
-  }
-  return (
-    record.kind === "reauthentication" &&
-    Object.keys(record).length === 4 &&
-    typeof record.sessionRef === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
-      record.sessionRef,
-    )
-  );
+  return signInAttemptSchema.safeParse(value).success;
+}
+
+function minutesInSeconds(minutes: number): number {
+  return minutes * 60;
 }
