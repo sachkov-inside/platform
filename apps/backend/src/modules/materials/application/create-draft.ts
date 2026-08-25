@@ -29,7 +29,7 @@ import {
   materialId,
   materialRevisionId,
 } from "../domain/material-identifiers.js";
-import type { AuthoringTransaction } from "../infrastructure/postgres/database.js";
+import { insertMaterial } from "../infrastructure/postgres/material-persistence.js";
 import {
   insertRevision,
   replaceCurrentRelations,
@@ -43,24 +43,6 @@ const createDraftCommand = z
     body: z.unknown(),
   })
   .strict();
-
-async function insertMaterial(
-  transaction: AuthoringTransaction,
-  values: {
-    readonly materialId: string;
-    readonly revisionId: string;
-    readonly slug: string;
-  },
-): Promise<void> {
-  await transaction
-    .insertInto("materials")
-    .values({
-      id: values.materialId,
-      slug: values.slug,
-      current_draft_revision_id: values.revisionId,
-    })
-    .executeTakeFirstOrThrow();
-}
 
 export function createDraftOperation(
   dependencies: MaterialAuthoringDependencies,

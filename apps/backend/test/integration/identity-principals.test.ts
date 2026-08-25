@@ -194,7 +194,7 @@ describe("IdentityPrincipals", () => {
 
     await expect(
       testDatabase.database
-        .selectFrom("identity_audit_events")
+        .selectFrom("identity_principals.identity_audit_events")
         .select(["principal_id", "session_id"])
         .where("operation", "=", "establish_human_session")
         .where("outcome", "=", "identity_conflict_duplicate_email")
@@ -234,7 +234,7 @@ describe("IdentityPrincipals", () => {
 
     await expect(
       testDatabase.database
-        .selectFrom("identity_audit_events")
+        .selectFrom("identity_principals.identity_audit_events")
         .select(["principal_id", "session_id"])
         .where("operation", "=", "establish_human_session")
         .where("outcome", "=", "email_observation_conflict")
@@ -315,7 +315,7 @@ describe("IdentityPrincipals", () => {
     ).resolves.toEqual({ ok: true, allowed: false });
 
     await testDatabase.database
-      .insertInto("principal_permissions")
+      .insertInto("identity_principals.principal_permissions")
       .values({
         principal_id: established.subject.principalId,
         permission: "materials:author",
@@ -329,7 +329,7 @@ describe("IdentityPrincipals", () => {
     ).resolves.toEqual({ ok: true, allowed: true });
 
     await testDatabase.database
-      .updateTable("principals")
+      .updateTable("identity_principals.principals")
       .set({ state: "disabled", security_version: 2 })
       .where("id", "=", established.subject.principalId)
       .execute();
@@ -367,11 +367,11 @@ describe("IdentityPrincipals", () => {
 
     const principalId = randomUUID();
     await testDatabase.database
-      .insertInto("principals")
+      .insertInto("identity_principals.principals")
       .values({ id: principalId, kind: "service", state: "active" })
       .execute();
     await testDatabase.database
-      .insertInto("external_identities")
+      .insertInto("identity_principals.external_identities")
       .values({
         id: randomUUID(),
         principal_id: principalId,
@@ -381,7 +381,7 @@ describe("IdentityPrincipals", () => {
       })
       .execute();
     await testDatabase.database
-      .insertInto("principal_permissions")
+      .insertInto("identity_principals.principal_permissions")
       .values({ principal_id: principalId, permission: "materials:author" })
       .execute();
 

@@ -36,7 +36,12 @@ expectFailure(
     "--pretty",
     "false",
   ],
-  ["TS2322", "Cannot find name 'describe'"],
+  [
+    "TS2322",
+    "TS2345",
+    "identity_principals.principals",
+    "Cannot find name 'describe'",
+  ],
 );
 
 expectFailure(
@@ -65,6 +70,11 @@ expectFailure(
     "raw persistence imports",
     "src/infrastructure/operational-readiness.ts",
     "(pg)",
+    "database table references must be schema-qualified",
+    "database table references must stay inside the owning Module schema",
+    "database table references must use statically declared identifiers",
+    "application schema references must stay inside the owning Module",
+    'identity_principals.principals',
   ],
 );
 

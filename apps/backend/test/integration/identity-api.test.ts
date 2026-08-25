@@ -179,11 +179,11 @@ describe("identity API", () => {
   test("maps a pre-provisioned M2M identity only through the service boundary", async () => {
     const principalId = "72000000-0000-4000-8000-000000000101";
     await testDatabase.database
-      .insertInto("principals")
+      .insertInto("identity_principals.principals")
       .values({ id: principalId, kind: "service", state: "active" })
       .execute();
     await testDatabase.database
-      .insertInto("external_identities")
+      .insertInto("identity_principals.external_identities")
       .values({
         id: "72000000-0000-4000-8000-000000000102",
         principal_id: principalId,
@@ -193,7 +193,7 @@ describe("identity API", () => {
       })
       .execute();
     await testDatabase.database
-      .insertInto("principal_permissions")
+      .insertInto("identity_principals.principal_permissions")
       .values({ principal_id: principalId, permission: "materials:author" })
       .execute();
     const token = await signHumanToken({

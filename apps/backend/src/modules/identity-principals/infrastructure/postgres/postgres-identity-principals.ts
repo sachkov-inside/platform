@@ -149,8 +149,8 @@ async function establishHumanSession(
       );
 
       const existingIdentity = await transaction
-        .selectFrom("external_identities")
-        .innerJoin("principals", "principals.id", "external_identities.principal_id")
+        .selectFrom("identity_principals.external_identities as external_identities")
+        .innerJoin("identity_principals.principals as principals", "principals.id", "external_identities.principal_id")
         .select([
           "principals.id",
           "principals.kind",
@@ -164,7 +164,7 @@ async function establishHumanSession(
       let principal: PrincipalRow;
       if (existingIdentity === undefined) {
         const emailOwner = await transaction
-          .selectFrom("external_identities")
+          .selectFrom("identity_principals.external_identities as external_identities")
           .select("principal_id")
           .where("email_fingerprint", "=", emailFingerprint)
           .executeTakeFirst();
@@ -179,9 +179,9 @@ async function establishHumanSession(
         }
 
         principal = { id: newPrincipalId(), kind: "human", state: "active" };
-        await transaction.insertInto("principals").values(principal).execute();
+        await transaction.insertInto("identity_principals.principals").values(principal).execute();
         await transaction
-          .insertInto("external_identities")
+          .insertInto("identity_principals.external_identities")
           .values({
             id: newExternalIdentityId(),
             principal_id: principal.id,
@@ -207,13 +207,13 @@ async function establishHumanSession(
         }
         if (existingIdentity.email_fingerprint !== emailFingerprint) {
           const emailOwner = await transaction
-            .selectFrom("external_identities")
+            .selectFrom("identity_principals.external_identities as external_identities")
             .select("principal_id")
             .where("email_fingerprint", "=", emailFingerprint)
             .executeTakeFirst();
           if (emailOwner === undefined || emailOwner.principal_id === principal.id) {
             await transaction
-              .updateTable("external_identities")
+              .updateTable("identity_principals.external_identities")
               .set({ email_fingerprint: emailFingerprint })
               .where("issuer", "=", command.identity.issuer)
               .where("subject", "=", command.identity.subject)
@@ -242,7 +242,7 @@ async function establishHumanSession(
         ended_at: null,
       };
       await transaction
-        .insertInto("platform_sessions")
+        .insertInto("identity_principals.platform_sessions")
         .values({ ...session, created_at: createdAt, security_version: 1 })
         .execute();
       await completeIdempotency(
@@ -302,8 +302,8 @@ async function establishServiceSession(
       }
 
       const identity = await transaction
-        .selectFrom("external_identities")
-        .innerJoin("principals", "principals.id", "external_identities.principal_id")
+        .selectFrom("identity_principals.external_identities as external_identities")
+        .innerJoin("identity_principals.principals as principals", "principals.id", "external_identities.principal_id")
         .select(["principals.id", "principals.kind", "principals.state"])
         .where("external_identities.issuer", "=", command.identity.issuer)
         .where("external_identities.subject", "=", command.identity.subject)
@@ -329,7 +329,7 @@ async function establishServiceSession(
         ended_at: null,
       };
       await transaction
-        .insertInto("platform_sessions")
+        .insertInto("identity_principals.platform_sessions")
         .values({ ...session, created_at: createdAt, security_version: 1 })
         .execute();
       await completeIdempotency(
@@ -360,9 +360,9 @@ async function resolveSubject(
   }
 
   const row = await database
-    .selectFrom("platform_sessions")
-    .innerJoin("principals", "principals.id", "platform_sessions.principal_id")
-    .innerJoin("external_identities", "external_identities.principal_id", "principals.id")
+    .selectFrom("identity_principals.platform_sessions as platform_sessions")
+    .innerJoin("identity_principals.principals as principals", "principals.id", "platform_sessions.principal_id")
+    .innerJoin("identity_principals.external_identities as external_identities", "external_identities.principal_id", "principals.id")
     .select([
       "principals.id",
       "principals.kind",
@@ -452,10 +452,10 @@ async function endSession(
       }
 
       const owned = await transaction
-        .selectFrom("platform_sessions")
-        .innerJoin("principals", "principals.id", "platform_sessions.principal_id")
+        .selectFrom("identity_principals.platform_sessions as platform_sessions")
+        .innerJoin("identity_principals.principals as principals", "principals.id", "platform_sessions.principal_id")
         .innerJoin(
-          "external_identities",
+          "identity_principals.external_identities as external_identities",
           "external_identities.principal_id",
           "platform_sessions.principal_id",
         )
@@ -478,7 +478,7 @@ async function endSession(
       }
 
       await transaction
-        .updateTable("platform_sessions")
+        .updateTable("identity_principals.platform_sessions")
         .set({ ended_at: new Date() })
         .where("id", "=", sessionId)
         .where("ended_at", "is", null)
@@ -530,7 +530,7 @@ async function beginHumanReauthentication(
       transaction,
     );
     const replay = await transaction
-      .selectFrom("identity_reauthentication_attempts")
+      .selectFrom("identity_principals.identity_reauthentication_attempts")
       .select(["id", "expires_at", "begin_request_fingerprint"])
       .where("begin_idempotency_key", "=", idempotencyKey)
       .executeTakeFirst();
@@ -541,10 +541,10 @@ async function beginHumanReauthentication(
     }
 
     const owned = await transaction
-      .selectFrom("platform_sessions")
-      .innerJoin("principals", "principals.id", "platform_sessions.principal_id")
+      .selectFrom("identity_principals.platform_sessions as platform_sessions")
+      .innerJoin("identity_principals.principals as principals", "principals.id", "platform_sessions.principal_id")
       .innerJoin(
-        "external_identities",
+        "identity_principals.external_identities as external_identities",
         "external_identities.principal_id",
         "principals.id",
       )
@@ -567,7 +567,7 @@ async function beginHumanReauthentication(
     const attemptId = newReauthenticationAttemptId();
     const expiresAt = new Date(createdAt.getTime() + REAUTHENTICATION_LIFETIME_MS);
     await transaction
-      .insertInto("identity_reauthentication_attempts")
+      .insertInto("identity_principals.identity_reauthentication_attempts")
       .values({
         id: attemptId,
         session_id: sessionId,
@@ -642,7 +642,7 @@ async function completeHumanReauthentication(
     }
 
     const attempt = await transaction
-      .selectFrom("identity_reauthentication_attempts")
+      .selectFrom("identity_principals.identity_reauthentication_attempts")
       .selectAll()
       .where("id", "=", attemptId)
       .forUpdate()
@@ -652,10 +652,10 @@ async function completeHumanReauthentication(
     }
 
     const owned = await transaction
-      .selectFrom("platform_sessions")
-      .innerJoin("principals", "principals.id", "platform_sessions.principal_id")
+      .selectFrom("identity_principals.platform_sessions as platform_sessions")
+      .innerJoin("identity_principals.principals as principals", "principals.id", "platform_sessions.principal_id")
       .innerJoin(
-        "external_identities",
+        "identity_principals.external_identities as external_identities",
         "external_identities.principal_id",
         "principals.id",
       )
@@ -716,7 +716,7 @@ async function completeHumanReauthentication(
       return { ok: false, error: { code: "reauthentication_required" } };
     }
     const usedToken = await transaction
-      .selectFrom("identity_reauthentication_attempts")
+      .selectFrom("identity_principals.identity_reauthentication_attempts")
       .select("id")
       .where("token_fingerprint", "=", tokenFingerprint)
       .executeTakeFirst();
@@ -725,7 +725,7 @@ async function completeHumanReauthentication(
     }
 
     await transaction
-      .updateTable("platform_sessions")
+      .updateTable("identity_principals.platform_sessions")
       .set({
         authenticated_at: reauthenticatedAt,
         security_version: (expression) => expression("security_version", "+", 1),
@@ -733,7 +733,7 @@ async function completeHumanReauthentication(
       .where("id", "=", sessionId)
       .execute();
     await transaction
-      .updateTable("identity_reauthentication_attempts")
+      .updateTable("identity_principals.identity_reauthentication_attempts")
       .set({
         consumed_at: now,
         token_fingerprint: tokenFingerprint,
@@ -774,7 +774,7 @@ async function checkPermission(
     return { ok: false, error: { code: "invalid_input" } };
   }
   const principal = await database
-    .selectFrom("principals")
+    .selectFrom("identity_principals.principals as principals")
     .select("state")
     .where("id", "=", principalId)
     .executeTakeFirst();
@@ -785,7 +785,7 @@ async function checkPermission(
     return { ok: false, error: { code: "principal_disabled" } };
   }
   const grant = await database
-    .selectFrom("principal_permissions")
+    .selectFrom("identity_principals.principal_permissions")
     .select("principal_id")
     .where("principal_id", "=", principalId)
     .where("permission", "=", query.permission)
@@ -799,7 +799,7 @@ async function buildSubject(
   session: SessionRow,
 ): Promise<SubjectBuildResult> {
   const permissions = await database
-    .selectFrom("principal_permissions")
+    .selectFrom("identity_principals.principal_permissions")
     .select("permission")
     .where("principal_id", "=", principal.id)
     .orderBy("permission")
@@ -829,12 +829,12 @@ async function loadSubject(
   sessionId: PlatformSessionId,
 ): Promise<SubjectBuildResult> {
   const principal = await transaction
-    .selectFrom("principals")
+    .selectFrom("identity_principals.principals as principals")
     .select(["id", "kind", "state"])
     .where("id", "=", principalId)
     .executeTakeFirst();
   const session = await transaction
-    .selectFrom("platform_sessions")
+    .selectFrom("identity_principals.platform_sessions as platform_sessions")
     .select(["id", "principal_id", "authenticated_at", "expires_at", "ended_at"])
     .where("id", "=", sessionId)
     .executeTakeFirst();
@@ -866,7 +866,7 @@ async function claimIdempotency(
   requestFingerprint: string,
 ): Promise<IdempotencyClaim> {
   await transaction
-    .insertInto("identity_idempotency")
+    .insertInto("identity_principals.identity_idempotency")
     .values({
       operation,
       idempotency_key: idempotencyKey,
@@ -877,7 +877,7 @@ async function claimIdempotency(
     .onConflict((conflict) => conflict.columns(["operation", "idempotency_key"]).doNothing())
     .execute();
   const row = await transaction
-    .selectFrom("identity_idempotency")
+    .selectFrom("identity_principals.identity_idempotency")
     .select(["request_fingerprint", "principal_id", "session_id"])
     .where("operation", "=", operation)
     .where("idempotency_key", "=", idempotencyKey)
@@ -904,7 +904,7 @@ async function completeIdempotency(
   sessionId: PlatformSessionId,
 ): Promise<void> {
   await transaction
-    .updateTable("identity_idempotency")
+    .updateTable("identity_principals.identity_idempotency")
     .set({ principal_id: principalId, session_id: sessionId })
     .where("operation", "=", operation)
     .where("idempotency_key", "=", idempotencyKey)
@@ -921,7 +921,7 @@ async function appendAudit(
   },
 ): Promise<void> {
   await transaction
-    .insertInto("identity_audit_events")
+    .insertInto("identity_principals.identity_audit_events")
     .values({
       id: randomUUID(),
       operation,

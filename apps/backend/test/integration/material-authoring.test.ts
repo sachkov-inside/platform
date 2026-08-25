@@ -28,22 +28,22 @@ describe("MaterialAuthoring", () => {
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
     await testDatabase.database
-      .insertInto("topics")
+      .insertInto("materials.topics")
       .values({ id: topicId, slug: "engineering", name: "Engineering" })
       .execute();
     await testDatabase.database
-      .insertInto("formats")
+      .insertInto("materials.formats")
       .values({ id: formatId, slug: "guide", name: "Guide" })
       .execute();
     await testDatabase.database
-      .insertInto("tags")
+      .insertInto("materials.tags")
       .values([
         { id: firstTagId, name: "Platform", normalized_name: "platform" },
         { id: secondTagId, name: "Delivery", normalized_name: "delivery" },
       ])
       .execute();
     await testDatabase.database
-      .insertInto("series")
+      .insertInto("materials.series")
       .values({ id: seriesId, slug: "inside-platform", name: "Inside Platform" })
       .execute();
   });

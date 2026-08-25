@@ -26,6 +26,7 @@ import { requireMaterialRevision } from "./shared/require-material-revision.js";
 import { requireReferenceIntegrity } from "./shared/reference-integrity.js";
 import { executeIdempotentRevision } from "./shared/idempotent-operation.js";
 import {
+  advanceCurrentRevision,
   lockMaterialForLifecycleChange,
   loadMaterialRevision,
 } from "../infrastructure/postgres/material-persistence.js";
@@ -137,17 +138,12 @@ export function createRestoreRevision(
               schemaVersion: restoredRevision.body.schemaVersion,
               body: restoredRevision.body.doc,
             });
-            await transaction
-              .updateTable("materials")
-              .set({
-                current_draft_revision_id:
-                  transition.value.currentDraftRevisionId,
-                slug: restoredRevision.metadata.slug,
-                updated_at: new Date(),
-              })
-              .where("id", "=", command.materialId)
-              .where("current_draft_revision_id", "=", command.baseRevisionId)
-              .executeTakeFirstOrThrow();
+            await advanceCurrentRevision(transaction, {
+              materialId: command.materialId,
+              baseRevisionId: command.baseRevisionId,
+              revisionId: transition.value.currentDraftRevisionId,
+              slug: restoredRevision.metadata.slug,
+            });
             await replaceCurrentRelations(
               transaction,
               command.materialId,

@@ -2,5 +2,7 @@ import type { Kysely, Transaction } from "kysely";
 
 import type { DB } from "../../../../infrastructure/postgres/generated/database.js";
 
-export type AuthoringDatabase = Kysely<DB>;
-export type AuthoringTransaction = Transaction<DB>;
+type MaterialsDB = Pick<DB, Extract<keyof DB, `materials.${string}`>>;
+
+export type AuthoringDatabase = Kysely<MaterialsDB>;
+export type AuthoringTransaction = Transaction<MaterialsDB>;

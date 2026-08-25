@@ -30,6 +30,62 @@ export interface MaterialRevisionHeader {
   readonly access: "free" | "membership";
 }
 
+export async function insertMaterial(
+  transaction: AuthoringTransaction,
+  values: {
+    readonly materialId: MaterialId;
+    readonly revisionId: MaterialRevisionId;
+    readonly slug: string;
+  },
+): Promise<void> {
+  await transaction
+    .insertInto("materials.materials")
+    .values({
+      id: values.materialId,
+      slug: values.slug,
+      current_draft_revision_id: values.revisionId,
+    })
+    .executeTakeFirstOrThrow();
+}
+
+export async function advanceCurrentRevision(
+  transaction: AuthoringTransaction,
+  values: {
+    readonly materialId: MaterialId;
+    readonly baseRevisionId: MaterialRevisionId;
+    readonly revisionId: MaterialRevisionId;
+    readonly slug: string;
+  },
+): Promise<boolean> {
+  const updated = await transaction
+    .updateTable("materials.materials")
+    .set({
+      current_draft_revision_id: values.revisionId,
+      slug: values.slug,
+      updated_at: new Date(),
+    })
+    .where("id", "=", values.materialId)
+    .where("current_draft_revision_id", "=", values.baseRevisionId)
+    .returning("id")
+    .executeTakeFirst();
+  return updated !== undefined;
+}
+
+export async function loadCurrentRevisionIdForValidation(
+  transaction: AuthoringTransaction,
+  materialIdValue: MaterialId,
+): Promise<MaterialRevisionId | undefined> {
+  const material = await transaction
+    .selectFrom("materials.materials")
+    .select("current_draft_revision_id")
+    .where("id", "=", materialIdValue)
+    .forShare()
+    .executeTakeFirst();
+  return material === undefined
+    ? undefined
+    : materialRevisionId(material.current_draft_revision_id);
+}
+
 export type MaterialRevisionHydration =
   | { readonly ok: true; readonly value: MaterialRevision }
   | { readonly ok: false };
@@ -39,7 +95,7 @@ export async function lockMaterialForLifecycleChange(
   materialIdValue: MaterialId,
 ): Promise<Material | undefined> {
   const row = await transaction
-    .selectFrom("materials")
+    .selectFrom("materials.materials")
     .select(["id", "current_draft_revision_id", "current_published_revision_id"])
     .where("id", "=", materialIdValue)
     .forUpdate()
@@ -61,7 +117,7 @@ export async function loadCurrentRevisionId(
   materialIdValue: MaterialId,
 ): Promise<MaterialRevisionId | undefined> {
   const material = await database
-    .selectFrom("materials")
+    .selectFrom("materials.materials")
     .select("current_draft_revision_id")
     .where("id", "=", materialIdValue)
     .executeTakeFirst();
@@ -76,7 +132,7 @@ export async function loadMaterialRevisionHeader(
   revisionId: MaterialRevisionId,
 ): Promise<MaterialRevisionHeader | undefined> {
   const row = await database
-    .selectFrom("material_revisions")
+    .selectFrom("materials.material_revisions")
     .select(["material_id", "id", "access"])
     .where("material_id", "=", materialIdValue)
     .where("id", "=", revisionId)
@@ -104,8 +160,12 @@ async function loadPersistedMaterialRevision(
   selection: RevisionSelection,
 ): Promise<PersistedMaterialRevision | undefined> {
   let query = database
-    .selectFrom("materials as material")
-    .innerJoin("material_revisions as revision", "revision.material_id", "material.id")
+    .selectFrom("materials.materials as material")
+    .innerJoin(
+      "materials.material_revisions as revision",
+      "revision.material_id",
+      "material.id",
+    )
     .select([
       "material.id as material_id",
       "revision.id as revision_id",
@@ -121,7 +181,7 @@ async function loadPersistedMaterialRevision(
       sql<readonly string[]>`coalesce(
         (
           select jsonb_agg(revision_tag.tag_id order by revision_tag.tag_id)
-          from material_revision_tags as revision_tag
+          from materials.material_revision_tags as revision_tag
           where revision_tag.material_id = material.id
             and revision_tag.revision_id = revision.id
         ),
@@ -136,7 +196,7 @@ async function loadPersistedMaterialRevision(
             )
             order by revision_series.series_id
           )
-          from material_revision_series_memberships as revision_series
+          from materials.material_revision_series_memberships as revision_series
           where revision_series.material_id = material.id
             and revision_series.revision_id = revision.id
         ),

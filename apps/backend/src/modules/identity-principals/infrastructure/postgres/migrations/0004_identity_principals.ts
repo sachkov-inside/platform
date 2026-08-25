@@ -1,7 +1,12 @@
 import { type Kysely, sql } from "kysely";
 
+const IDENTITY_SCHEMA = "identity_principals";
+
 export async function up(database: Kysely<unknown>): Promise<void> {
-  await database.schema
+  await database.schema.createSchema(IDENTITY_SCHEMA).execute();
+  const schema = database.schema.withSchema(IDENTITY_SCHEMA);
+
+  await schema
     .createTable("principals")
     .addColumn("id", "uuid", (column) => column.primaryKey())
     .addColumn("kind", "text", (column) => column.notNull())
@@ -13,7 +18,7 @@ export async function up(database: Kysely<unknown>): Promise<void> {
     .addCheckConstraint("principals_security_version_positive", sql`security_version > 0`)
     .execute();
 
-  await database.schema
+  await schema
     .createTable("external_identities")
     .addColumn("id", "uuid", (column) => column.primaryKey())
     .addColumn("principal_id", "uuid", (column) => column.notNull())
@@ -37,7 +42,7 @@ export async function up(database: Kysely<unknown>): Promise<void> {
     )
     .execute();
 
-  await database.schema
+  await schema
     .createTable("principal_permissions")
     .addColumn("principal_id", "uuid", (column) => column.notNull())
     .addColumn("permission", "text", (column) => column.notNull())
@@ -56,7 +61,7 @@ export async function up(database: Kysely<unknown>): Promise<void> {
     )
     .execute();
 
-  await database.schema
+  await schema
     .createTable("platform_sessions")
     .addColumn("id", "uuid", (column) => column.primaryKey())
     .addColumn("principal_id", "uuid", (column) => column.notNull())
@@ -83,7 +88,7 @@ export async function up(database: Kysely<unknown>): Promise<void> {
     .addCheckConstraint("platform_sessions_security_version_positive", sql`security_version > 0`)
     .execute();
 
-  await database.schema
+  await schema
     .createTable("identity_idempotency")
     .addColumn("operation", "text", (column) => column.notNull())
     .addColumn("idempotency_key", "varchar(200)", (column) => column.notNull())
@@ -110,7 +115,7 @@ export async function up(database: Kysely<unknown>): Promise<void> {
     )
     .execute();
 
-  await database.schema
+  await schema
     .createTable("identity_reauthentication_attempts")
     .addColumn("id", "uuid", (column) => column.primaryKey())
     .addColumn("session_id", "uuid", (column) => column.notNull())
@@ -138,7 +143,7 @@ export async function up(database: Kysely<unknown>): Promise<void> {
     )
     .execute();
 
-  await database.schema
+  await schema
     .createTable("identity_audit_events")
     .addColumn("id", "uuid", (column) => column.primaryKey())
     .addColumn("operation", "text", (column) => column.notNull())
@@ -162,6 +167,7 @@ export async function up(database: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(database: Kysely<unknown>): Promise<void> {
+  const schema = database.schema.withSchema(IDENTITY_SCHEMA);
   for (const table of [
     "identity_audit_events",
     "identity_reauthentication_attempts",
@@ -171,6 +177,7 @@ export async function down(database: Kysely<unknown>): Promise<void> {
     "external_identities",
     "principals",
   ]) {
-    await database.schema.dropTable(table).ifExists().execute();
+    await schema.dropTable(table).ifExists().execute();
   }
+  await database.schema.dropSchema(IDENTITY_SCHEMA).ifExists().execute();
 }
