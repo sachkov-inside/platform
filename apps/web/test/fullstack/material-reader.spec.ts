@@ -64,14 +64,37 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   });
   page.on("pageerror", (error) => browserErrors.push(error.message));
   await page.addInitScript(() => {
-    const measurements = { cls: 0, inp: 0, lcp: 0 };
+    const measurements = {
+      cls: 0,
+      inp: 0,
+      lcp: 0,
+      shifts: [] as { readonly sources: readonly string[]; readonly value: number }[],
+    };
     Object.defineProperty(window, "__readerPerformance", { value: measurements });
     if (PerformanceObserver.supportedEntryTypes.includes("layout-shift")) {
       new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
-          const shift = entry as PerformanceEntry & { hadRecentInput: boolean; value: number };
+          const shift = entry as PerformanceEntry & {
+            hadRecentInput: boolean;
+            sources?: readonly { readonly node?: Node }[];
+            value: number;
+          };
           if (!shift.hadRecentInput) {
             measurements.cls += shift.value;
+            measurements.shifts.push({
+              sources: (shift.sources ?? []).map(({ node }) => {
+                if (!(node instanceof Element)) {
+                  return node instanceof Node ? node.nodeName : "unknown";
+                }
+                const id = node.id.length === 0 ? "" : `#${node.id}`;
+                const classes = [...node.classList]
+                  .slice(0, 4)
+                  .map((className) => `.${className}`)
+                  .join("");
+                return `${node.tagName.toLowerCase()}${id}${classes}`;
+              }),
+              value: shift.value,
+            });
           }
         }
       }).observe({ type: "layout-shift", buffered: true });
@@ -147,7 +170,15 @@ test("server-renders the representative PostgreSQL Material through Nest", async
       | undefined;
     const measured = (
       window as unknown as Window & {
-        __readerPerformance: { cls: number; inp: number; lcp: number };
+        __readerPerformance: {
+          cls: number;
+          inp: number;
+          lcp: number;
+          shifts: readonly {
+            readonly sources: readonly string[];
+            readonly value: number;
+          }[];
+        };
       }
     ).__readerPerformance;
     return {
@@ -158,7 +189,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   expect(metrics.ttfb).toBeLessThanOrEqual(800);
   expect(metrics.lcp).toBeLessThanOrEqual(2_500);
   expect(metrics.inp).toBeLessThanOrEqual(200);
-  expect(metrics.cls).toBeLessThanOrEqual(0.1);
+  expect(metrics.cls, JSON.stringify(metrics.shifts)).toBeLessThanOrEqual(0.1);
   expect(browserErrors).toEqual([]);
 });
 
