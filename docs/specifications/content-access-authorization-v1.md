@@ -12,16 +12,28 @@ ADR.
 Platform создаёт один глубокий `ContentAccess` module с единственным внешним interface:
 
 ```ts
+type AccessCaller =
+  | "web"
+  | "rest"
+  | "mcp"
+  | "asset"
+  | "download"
+  | "playbackToken"
+  | "videoAuthorization";
+
 interface ContentAccess {
   authorize(input: Readonly<{
     subject: Subject;
     resource: Resource;
     action: Action;
+    caller: AccessCaller;
+    correlationId: CorrelationId;
   }>): Promise<AccessDecision>;
 }
 ```
 
-Caller сообщает только trusted `Subject`, opaque local `Resource` reference и одну `Action`.
+Caller сообщает trusted `Subject`, opaque local `Resource` reference, одну `Action` и
+audit context `caller`/`correlationId`. Audit context не влияет на policy outcome.
 Module сам читает актуальные Platform facts о Principal, publication/resource mapping и
 `MembershipEntitlement`; caller не передаёт роли, access class, publication state, email,
 Telegram state или provider claims. IdP аутентифицирует External Identity, а Platform
@@ -78,7 +90,7 @@ floating dependency на `workspace/main`.
 | Material preview | Реальный `previewRevision` вызывает `ContentAccess` до body load, но сначала читает revision header и передаёт caller-supplied `publication/access` facts в policy. | Первый real privileged consumer существует. #50 переносит resource-fact resolution внутрь `ContentAccess`, чтобы private revision metadata не была pre-authorization dependency caller. |
 | Current ContentAccess | [`content-access.ts`](../../apps/backend/src/modules/materials/application/ports/content-access.ts) поддерживает только anonymous/principal, Material body, `preview/read` и baseline public/author outcomes. `createMaterials` допускает injection, а `MaterialsModule.register` создаёт baseline из `AuthorPolicy`. | Файл является временным seam из #31, не target ownership. Новый Platform-owned module заменяет типы/policy; параллельный compatibility policy не сохраняется. Static composition появляется вместе с #49/#50 real providers. |
 | Public projection/cache | `published_materials` и `PublishedMaterialReader` уже отделяют title/summary/taxonomy от body; public/free body может быть `public`, protected result — `private-no-store`. | Сохранить public lookup до authorization, но никогда не добавлять в projection body, private locator, entitlement, decision или credential. |
-| Access audit | `material_access_audit_events` записывает только action, actor, resource ids и coarse allow/deny для read/preview. | #50 сохраняет существующий audit consumer и добавляет stable reason/policy/decision correlation только если это нужно для reasoned conformance; email, provider refs/tokens и credentials не логируются. Audit не становится authorization input. |
+| Access audit | `material_access_audit_events` записывает только action, actor, resource ids и coarse allow/deny для read/preview. | #50 заменяет или мигрирует этот временный consumer в обязательный ContentAccess audit с stable reason, caller, policy/decision/correlation fields; email, provider refs/tokens и credentials не логируются. Audit не становится authorization input. |
 | Asset/Image/File | MaterialBody умеет validate/render local `assetId` references и safe labels. Отдельных `Assets` module, persistence, ready-state, private metadata, upload или delivery interface/endpoints нет. | `Resource` vocabulary резервирует `asset`, но #50 не создаёт Asset adapter, signed URL или dummy production resource. Asset slice начинается только с owning real consumer. |
 | Video | MaterialBody умеет validate/render local `videoId` и caption. `Videos` module, Kinescope mapping/status, playback-token и callback отсутствуют. Storybook `Video` fixtures — presentation-only. | `Resource` vocabulary резервирует `video`, но #50 не создаёт Video/Kinescope adapter. `play` conformance активируется с первым owning Video consumer. |
 | Web page | Production routes `/`, `/library`, `/map` не читают Material. Material route и real backend adapter отсутствуют; #67 closed as superseded without implementation, а [#89](https://github.com/sachkov-inside/platform/issues/89) теперь владеет одним finished production Reader slice. | #50 не создаёт page. `PublishedMaterialReader` остаётся application test surface; #89 использует его outcome и не повторяет policy. |
@@ -193,8 +205,10 @@ semantics; adapters не создают новые reasons. `policyVersion` ме
 
 Каждый non-public allow конечен. `active_membership` не живёт дольше entitlement, а
 `content_permission`/`admin_permission` не живут дольше самого раннего known permission,
-Principal или Platform Session expiry. Five-minute cap применяется к Membership evidence,
-а не к permission-based decisions. Caller не reuse-ит allow для другой
+Principal expiry и versioned finite `permissionDecisionCap` от `decidedAt`. Exact cap выбирается
+в #50 до production code и входит в `policyVersion`; Platform Session только идентифицирует
+Subject и не является access lease. Five-minute cap применяется к Membership evidence,
+а не автоматически к permission-based decisions. Caller не reuse-ит allow для другой
 operation; он может только ограничить derived credential ещё более коротким сроком. Public allow
 не требует Principal/Membership lookup и может не иметь `validUntil`.
 
@@ -373,6 +387,25 @@ When real consumers appear:
 Object-storage/Kinescope mechanism and exact delivery caps belong to their owning production
 proofs. #50 does not invent those adapters.
 
+## Audit and correlation
+
+`ContentAccess` обязательно эмитит audit event для каждого protected allow/deny,
+author/admin preview и dependency failure. High-volume `public_resource` allow может быть
+metrics-only; public deny аудируется, если он показывает probing или configuration
+error. Internal `AccessAudit` port получает событие из того же module, который
+сформировал decision; route или delivery adapter не собирает duplicate audit сам.
+
+Minimum event содержит `decisionId`, `decidedAt`, `effect`, `reason`, `action`, `caller`,
+opaque Subject/resource identifiers, `policyVersion`, `correlationId`, latency class и — только
+если entitlement участвовал — evidence reference/version/`validUntil`. Email, names, raw
+Platform/Telegram identifiers, sessions, authorization headers, signed URLs, JWTs, query strings,
+provider tokens, IP и User-Agent запрещены. `caller` и `correlationId` — audit context, а не
+policy inputs.
+
+Audit sink outage не превращает deny в allow и не меняет уже вычисленный decision:
+adapter использует bounded buffer/best-effort telemetry и alert. Production protected paths не
+получают GO, пока required events не доказаны и не защищены от sensitive data.
+
 ## Persistence, composition and tests
 
 Recommended ownership after #49 merge:
@@ -415,7 +448,9 @@ Required tests:
 - service Principal never consumes Membership; disabled Principal loses private permissions;
 - cross-caller corpus expands only when page/REST/MCP/Asset/Video adapters actually exist;
 - cache/response tests prove closed bytes/IDs/credentials absent and Subject A never receives
-  Subject B protected result.
+  Subject B protected result;
+- every protected allow/deny, preview и dependency failure проходят через `AccessAudit`
+  с exact `caller`/`correlationId`/reason/policy fields и без prohibited identity, session и provider data.
 
 Old baseline-policy unit tests are deleted once equivalent tests pass through the new external
 interface. Existing Materials lifecycle tests are adapted, not layered with a second policy fake.
@@ -483,7 +518,7 @@ delivery, Kinescope enforcement и operational retention также могут �
 | #50 / shared requirement | Specification contract |
 |---|---|
 | IdP authenticates; Platform authorizes | Authority section; Subject contains no roles/claims; Principal facts are Platform-owned. |
-| One interface for protected resources/callers | Single `authorize` interface; inventory names real and absent consumers. |
+| One interface for protected resources/callers | Single `authorize` interface с non-policy caller/correlation context; inventory names real and absent consumers. |
 | Anonymous/non-member/member/expired/author/admin/service outcomes | Stable matrix and deterministic reason precedence. |
 | Authorize before body/private metadata/credentials | Explicit Material/preview and future delivery ordering. |
 | Five-minute positive bound | Entitlement validation and `validUntil` cap. |
