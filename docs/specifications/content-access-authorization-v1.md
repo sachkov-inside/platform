@@ -575,7 +575,8 @@ Required tests:
 - concurrent stale requests prove one adapter call, durable lease takeover after failure and
   monotonic final state;
 - service Principal never consumes Membership; disabled Principal loses private permissions;
-- cross-boundary corpus expands only when page/REST/MCP/Asset/Video adapters actually exist;
+- existing production page/REST path passes the same Material outcome corpus; MCP/Asset/Video
+  extend cross-boundary conformance only with their first real adapters;
 - cache/response tests prove closed bytes/IDs/credentials absent and Subject A never receives
   Subject B protected result;
 - every protected allow/deny, preview и dependency failure проходят через `AccessAudit`
@@ -604,9 +605,9 @@ interface. Existing Materials lifecycle tests are adapted, not layered with a se
    access/publication facts and preview header-before-authorization. Bind one production
    `ContentAccess` into `createMaterials`/Nest composition; preserve public teaser, exact published
    pointer, private-no-store and audit behavior.
-5. **Cross-surface hardening.** Run focused lifecycle/conformance/concurrency/cache tests, root
-   checks, guardrails and Standards + Spec review. Record explicit TODO links to #89, #29 and future
-   Asset/Video owners; do not scaffold their adapters.
+5. **Cross-surface hardening.** Run focused lifecycle/conformance/concurrency/cache tests through
+   existing #89 page/REST consumers, root checks, guardrails and Standards + Spec review. Record
+   explicit TODO links to #29 and future Asset/Video owners; do not scaffold absent adapters.
 
 Slices are tracked as dependency-aware child tickets under #50 rather than one blocked monolith.
 The first slice may merge as an enabling capability after #49/#84 without production login or
@@ -624,8 +625,9 @@ Design #84 не заблокирован. Для #50:
   implementation supplies canonical trusted human/service Subject, Principal status and current
   permissions. It blocks the first implementation child from inventing duplicate identity, but no
   longer forces Membership persistence/provider delivery into the same slice;
-- Assets/Videos/page/REST/MCP не blockers для core Material implementation; они отсутствующие
-  consumers и подключаются своими owning tickets;
+- existing page/REST consumers входят в #112 integration proof и не являются blockers;
+  Assets/Videos/MCP отсутствуют, не блокируют core Material implementation и подключаются своими
+  owning tickets;
 - production Telegram HTTP adapter и credentialed integration принадлежат #52, поэтому outage and
   contract behavior в #50 доказывает deterministic adapter;
 - shared schema/fixtures ещё не vendored; это первый #50 slice, а не runtime dependency на
@@ -669,7 +671,7 @@ delivery, Kinescope enforcement и operational retention также могут �
 | Stale outage fails closed | Fresh-only use, no grace, `entitlement_stale`/`dependency_unavailable`. |
 | Single-flight refresh | Durable lease/generation without remote call in transaction. |
 | Test and HTTP adapters share one port | Deterministic adapter in #50, production HTTP adapter deferred to #52. |
-| No speculative resource adapters | Asset/Video/page/REST/MCP are explicitly absent and consumer-led. |
+| No speculative resource adapters | Existing page/REST use the real Reader; absent Asset/Video/MCP adapters remain consumer-led. |
 | Provider-neutral implementation stopping condition | Real PublishedMaterialReader + preview use one Platform module; baseline policy removed. |
 
 Owner approval of this specification authorizes #50 implementation only after #49 supplies its trusted
