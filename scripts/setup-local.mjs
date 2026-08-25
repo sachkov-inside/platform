@@ -19,7 +19,7 @@ if (!existsSync(environmentPath)) {
   copyFileSync(resolve(repositoryRoot, ".env.example"), environmentPath);
   process.stdout.write("Created .env from .env.example\n");
 }
-let ownsPostgres = false;
+let ownsCompose = false;
 let interruptedSignal;
 let shutdownPromise;
 const activeProcesses = new Set();
@@ -31,17 +31,17 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 
 try {
   await runPnpm(["platform:doctor"]);
-  if (await isPostgresRunning()) {
+  if (await isComposeRunning()) {
     throw new Error(
-      "Platform Compose PostgreSQL is already running and belongs to another session. Use that owner's handoff or stop it before local:setup.",
+      "The Platform Compose stack is already running and belongs to another session. Use that owner's handoff or stop it before local:setup.",
     );
   }
-  ownsPostgres = true;
-  await runPnpm(["infra:up"]);
-  await runPnpm(["smoke:fullstack"]);
-  ownsPostgres = false;
+  ownsCompose = true;
+  await runPnpm(["compose:up"]);
+  await runPnpm(["compose:smoke"]);
+  ownsCompose = false;
   process.stdout.write(
-    "Local Platform is ready. PostgreSQL remains running; use pnpm infra:down when finished.\n",
+    "Local Platform is ready at http://127.0.0.1:3000; use pnpm infra:down when finished.\n",
   );
 } catch (error) {
   await shutdown();
@@ -56,12 +56,12 @@ if (interruptedSignal !== undefined) {
   process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;
 }
 
-async function isPostgresRunning() {
+async function isComposeRunning() {
   const result = await runPnpm(
     ["exec", "docker", "compose", "ps", "--services", "--status", "running"],
     true,
   );
-  return result.output.split(/\s+/u).includes("postgres");
+  return result.output.trim().length > 0;
 }
 
 async function runPnpm(arguments_, capture = false) {
@@ -117,8 +117,8 @@ async function acquireSetupLock() {
 function shutdown() {
   shutdownPromise ??= (async () => {
     await Promise.all([...activeProcesses].map((child) => stopProcess(child)));
-    if (ownsPostgres) {
-      ownsPostgres = false;
+    if (ownsCompose) {
+      ownsCompose = false;
       await runCleanupPnpm(["infra:down"]).catch(() => undefined);
     }
   })();

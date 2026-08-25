@@ -2,7 +2,7 @@ name: inside-platform
 
 services:
   postgres:
-    image: postgres:18.4-alpine
+    image: postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-inside}
       POSTGRES_USER: ${POSTGRES_USER:-inside}
@@ -20,6 +20,179 @@ services:
       retries: 15
     volumes:
       - postgres-data:/var/lib/postgresql
+
+  bootstrap:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: bootstrap
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-inside}:${POSTGRES_PASSWORD:-inside}@postgres:5432/${POSTGRES_DB:-inside}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-inside}:${POSTGRES_PASSWORD:-inside}@postgres:5432/${POSTGRES_DB:-inside}
+      API_HOST: 0.0.0.0
+      API_PORT: "3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:3001:3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    init: true
+    stop_grace_period: 10s
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/backend/src
+          target: /workspace/apps/backend/src
+        - action: rebuild
+          path: ./apps/backend/package.json
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+        - action: rebuild
+          path: ./pnpm-workspace.yaml
+
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: mcp
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-inside}:${POSTGRES_PASSWORD:-inside}@postgres:5432/${POSTGRES_DB:-inside}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+    init: true
+    stop_grace_period: 10s
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/backend/src
+          target: /workspace/apps/backend/src
+        - action: rebuild
+          path: ./apps/backend/package.json
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+        - action: rebuild
+          path: ./pnpm-workspace.yaml
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    environment:
+      NODE_ENV: development
+      BACKEND_BASE_URL: http://api:3001
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 45
+    init: true
+    stop_grace_period: 10s
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/web
+          target: /workspace/apps/web
+          ignore:
+            - .next/
+            - node_modules/
+            - package.json
+            - storybook-static/
+        - action: rebuild
+          path: ./apps/web/package.json
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+        - action: rebuild
+          path: ./pnpm-workspace.yaml
+
+  storybook:
+    profiles: [storybook]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: storybook
+    environment:
+      NODE_ENV: development
+    ports:
+      - "127.0.0.1:6006:6006"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:6006').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 45
+    init: true
+    stop_grace_period: 10s
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/web
+          target: /workspace/apps/web
+          ignore:
+            - .next/
+            - node_modules/
+            - package.json
+            - storybook-static/
+        - action: rebuild
+          path: ./apps/web/package.json
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+        - action: rebuild
+          path: ./pnpm-workspace.yaml
 
 volumes:
   postgres-data:

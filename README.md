@@ -19,29 +19,25 @@ The repository is a pnpm workspace with two applications:
 The process-layout decision is recorded in
 [`ADR 0001`](docs/adr/0001-one-backend-multiple-entrypoints.md).
 
-## Prerequisites
+## Start the development stack
 
-- Node.js version pinned in [`.node-version`](.node-version);
-- pnpm version pinned by `packageManager` in [`package.json`](package.json);
-- Docker with Compose.
-
-Install from the committed lockfile:
+A fresh clone needs Docker with Compose; host Node.js is not required for the primary path.
 
 ```bash
-pnpm install --frozen-lockfile
+docker compose up --build --watch
 ```
 
-For a fresh local environment, run the repository-owned setup. It creates `.env` from the checked
-example only when missing, checks prerequisites, starts PostgreSQL, applies migrations, seeds one
-stable published Material and verifies live web/API processes:
-
-```bash
-pnpm local:setup
-```
+This starts PostgreSQL, a one-shot migration/seed bootstrap, Nest API, MCP and Next web. Open web at
+<http://127.0.0.1:3000>, API health/OpenAPI at <http://127.0.0.1:3001/health> and
+<http://127.0.0.1:3001/openapi>. Source changes synchronize through Compose Watch without host
+`node_modules`; manifest and lockfile changes rebuild the affected images.
 
 ## Commands
 
 ```bash
+pnpm compose:up    # optional host-pnpm wrapper for detached full Compose
+pnpm compose:smoke
+
 pnpm dev          # web and API
 pnpm dev:web
 pnpm dev:api
@@ -57,38 +53,27 @@ pnpm check:full
 
 `pnpm check` is the normal code/build/UI gate and does not require the shared Compose database.
 `pnpm check:full` additionally runs isolated real-PostgreSQL integration tests and the live local
-stack smoke; PostgreSQL must already be reachable. Use `pnpm platform:doctor` for a read-only
-diagnosis of Node, pnpm, Docker, `.env` and development ports. The `platform:` prefix avoids
-pnpm's unrelated built-in `doctor` command.
+stack smoke. For that optional host gate, stop the full Compose stack and use postgres-only
+`pnpm infra:up`, because the smoke owns host ports 3000 and 3001. Use `pnpm platform:doctor` for a
+read-only diagnosis of Node, pnpm, Docker, `.env` and development ports. The `platform:` prefix
+avoids pnpm's unrelated built-in `doctor` command.
 
 The API listens on `127.0.0.1:3001`, exposes `GET /health`, and serves OpenAPI
 UI at `/openapi`.
 
-## Local PostgreSQL and health smoke
-
-The checked-in defaults are local-only values. Override them through an ignored root `.env`
-copied from `.env.example` when needed. Compose and every backend entrypoint load that same file;
-already exported environment variables take precedence.
+## Docker-only smoke and shutdown
 
 ```bash
-pnpm infra:up
-pnpm --filter @inside/backend db:seed
-pnpm smoke:health
-pnpm smoke:fullstack
-pnpm infra:down
+docker compose up --detach --build --wait
+bash scripts/compose-stack-smoke.sh
+docker compose down
 ```
 
-`infra:up` waits for PostgreSQL to become healthy. `smoke:health` boots the
-Nest API in-process, calls `GET /health`, and proves the API can query that PostgreSQL
-instance. The named volume is preserved by `infra:down`; use
-`docker compose down --volumes` only when local data should be discarded.
-
-`db:seed` is development-only and idempotently creates one representative published Material
-through the Materials application interface; its fixed Topic/Format prerequisites use typed Kysely
-bootstrap because no product taxonomy-authoring capability exists. `smoke:fullstack` applies
-migrations and that seed, starts the development API and a production-built web process, verifies
-the live web route plus the web server-only adapter against the live API, and stops only the
-application processes it started.
+The smoke verifies web → API → PostgreSQL, MCP readiness and the idempotent seeded Material. Normal
+shutdown preserves the named PostgreSQL volume; `docker compose down --volumes` is an explicit
+destructive reset.
 
 For migrations, integration tests, manual database inspection and reset procedures, see the
-[local development runbook](docs/runbooks/local-development.md).
+[local development runbook](docs/runbooks/local-development.md). Version policy and current
+compatibility holds are recorded in the
+[dependency update policy](docs/runbooks/dependency-updates.md).

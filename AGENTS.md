@@ -17,19 +17,17 @@ machine-local dependency.
 
 ## Commands
 
-Use Node.js and pnpm versions pinned in `.node-version` and `packageManager`.
+The primary development stack requires Docker with Compose; host Node.js and pnpm are an optional
+fallback and use the versions pinned in `.node-version` and `packageManager`.
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm check
-pnpm infra:up
-pnpm smoke:health
-pnpm infra:down
+docker compose up --build --watch
+bash scripts/compose-stack-smoke.sh
+docker compose down
 ```
 
-Run individual process adapters through the root `dev:web`, `dev:api`
-and `dev:mcp` scripts. Keep infrastructure shutdown in the
-verification path after a successful or failed smoke.
+Run optional host process adapters through the root `dev:web`, `dev:api` and `dev:mcp` scripts.
+Keep Compose shutdown in the verification path after a successful or failed smoke.
 Before an agent runs repository Compose commands from any worktree, it must read and follow the
 [singleton Compose ownership rule](docs/runbooks/local-development.md#parallel-worktrees-and-compose-ownership).
 
