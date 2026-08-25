@@ -38,8 +38,15 @@ bash scripts/prove-typescript-7.sh --with-alias-check
 
 The first command runs the exact TypeScript `7.0.2` CLI over every repository tsconfig after Next
 type generation and requires the branded-ID negative fixture to retain diagnostic `TS2322`. That
-corpus covers backend source/build/tests and Vitest configs, Nest decorators, Kysely generated
-types, Next generated types, Storybook TypeScript config/stories, and Playwright config/specs.
+project-source corpus covers backend source/build/tests and Vitest configs, Nest decorators,
+Kysely generated types, Next generated types, Storybook TypeScript config/stories, and Playwright
+config/specs. It then explicitly disables `skipLibCheck` and requires the known declaration
+failures to remain visible: the backend's DOM-free config exposes Tiptap, ProseMirror and Vitest
+browser DOM declarations, while web exposes Storybook, Radix and `ast-types` incompatibilities
+(plus generated Next conflicts when both development and production corpora exist). Canonical
+TypeScript 6 shares part of this third-party declaration debt, so only the project-source TS7 pass
+is claimed.
+
 TypeScript itself does not parse MDX. MDX, Storybook runtime/build, Vitest, Playwright and Kysely
 code generation therefore require the package-level side-by-side contract rather than a CLI-only
 claim.
@@ -64,8 +71,9 @@ Retry TypeScript 7 when all of these are true:
 1. the stable TypeScript API is supported by `typescript-eslint`;
 2. Storybook/MDX and its Next/Vite chain publish a compatible peer contract;
 3. the official side-by-side alias, if still needed, passes strict frozen installation;
-4. canonical and compatibility diagnostics, Next typegen, Storybook, Vitest, Playwright, Kysely
-   generated types and architecture fixtures all agree under the full gate.
+4. project and library diagnostics are reviewed without adding new skips, and canonical and
+   compatibility diagnostics, Next typegen, Storybook, Vitest, Playwright, Kysely generated types
+   and architecture fixtures all agree under the full gate.
 
 pnpm remains at `11.22.0` for the same reproducible lock-refresh reason: `11.23.0` turns those
 existing transitive peer mismatches into a strict installation failure. Retry the pnpm minor after

@@ -41,9 +41,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browser
         run: pnpm --filter @inside/web exec playwright install --with-deps chromium
-      - name: Verify supported package and supply-chain baseline
-        run: pnpm test:tooling
-      - name: Verify repository and full stack
+      - name: Verify supported baseline, repository and full stack
         env:
           API_HOST: 127.0.0.1
           API_PORT: "3001"

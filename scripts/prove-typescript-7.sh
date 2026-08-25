@@ -27,7 +27,33 @@ if ! grep --quiet 'error TS2322' "$negative_output"; then
 fi
 rm -f "$negative_output"
 
-echo "TypeScript ${typescript_version} CLI proof passed for every repository tsconfig and the negative fixture."
+library_output="$(mktemp -t inside-platform-ts7-libraries.XXXXXX)"
+if "${tsc[@]}" -p apps/backend/tsconfig.json --noEmit --skipLibCheck false >"$library_output" 2>&1; then
+  rm -f "$library_output"
+  echo "Backend library diagnostics are now clean; reassess the documented TypeScript 7 hold." >&2
+  exit 1
+fi
+if ! grep --extended-regexp --quiet '@tiptap\+core|prosemirror-model|@vitest\+browser' "$library_output"; then
+  cat "$library_output" >&2
+  rm -f "$library_output"
+  echo "Backend TypeScript 7 library diagnostics changed unexpectedly" >&2
+  exit 1
+fi
+
+if "${tsc[@]}" -p apps/web/tsconfig.json --noEmit --skipLibCheck false >"$library_output" 2>&1; then
+  rm -f "$library_output"
+  echo "Web library diagnostics are now clean; reassess the documented TypeScript 7 hold." >&2
+  exit 1
+fi
+if ! grep --extended-regexp --quiet '@storybook\+react|@radix-ui\+react-select|ast-types' "$library_output"; then
+  cat "$library_output" >&2
+  rm -f "$library_output"
+  echo "Web TypeScript 7 library diagnostics changed unexpectedly" >&2
+  exit 1
+fi
+rm -f "$library_output"
+
+echo "TypeScript ${typescript_version} project-source proof passed; known library diagnostics and the negative fixture were reproduced."
 
 if [[ "${1:-}" != "--with-alias-check" ]]; then
   exit 0
