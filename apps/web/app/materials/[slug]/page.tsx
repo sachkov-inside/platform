@@ -2,9 +2,13 @@ import type { Metadata } from "next";
 
 import { getMaterialReader, MaterialReaderPage } from "@/_pages/material-reader.server";
 
+interface MaterialPageProps {
+  readonly params: Promise<{ readonly slug: string }>;
+}
+
 export async function generateMetadata({
   params,
-}: PageProps<"/materials/[slug]">): Promise<Metadata> {
+}: MaterialPageProps): Promise<Metadata> {
   const { slug } = await params;
   const result = await getMaterialReader(slug);
   if (result.kind === "not-found") {
@@ -19,7 +23,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function Page({ params }: PageProps<"/materials/[slug]">) {
+export default async function Page({ params }: MaterialPageProps) {
   const { slug } = await params;
   return <MaterialReaderPage slug={slug} />;
 }
