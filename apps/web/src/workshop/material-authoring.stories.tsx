@@ -13,7 +13,6 @@ import {
 import {
   emptyMaterialAuthoringPresentation,
   materialAuthoringPresentation,
-  savedAfterEditingPresentation,
   savedRevisionId,
 } from "./material-authoring.fixtures";
 
@@ -88,7 +87,30 @@ function MaterialAuthoringFixture({
     },
     onSave: () => {
       noopActions.onSave();
-      setPresentation(savedAfterEditingPresentation);
+      setPresentation((current) => {
+        const topic = current.availableTopics.find(
+          (option) => option.value === current.draft.topic,
+        );
+
+        return {
+          ...current,
+          draft: {
+            ...current.draft,
+            revisionId: savedRevisionId,
+          },
+          preview: {
+            ...(current.preview ?? materialAuthoringPresentation.preview),
+            accessLabel: current.draft.access === "membership" ? "Для участников" : "Бесплатный",
+            exactRevisionId: savedRevisionId,
+            format: current.draft.format,
+            summary: current.draft.summary,
+            tags: current.draft.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+            title: current.draft.title,
+            topic: topic?.label ?? current.draft.topic,
+          },
+          save: { kind: "saved", savedAtLabel: "12:41" },
+        };
+      });
     },
   } satisfies MaterialAuthoringActions;
 
@@ -157,6 +179,7 @@ export const Editing: Story = {
     await expect(canvas.getAllByText(savedRevisionId).length).toBeGreaterThan(0);
     await userEvent.click(canvas.getByRole("button", { name: "Preview" }));
     await expect(canvas.getByRole("heading", { name: "Новая редакция Developer Pipeline" })).toBeInTheDocument();
+    await expect(canvas.getByText("Архитектура", { exact: true })).toBeInTheDocument();
     await expect(canvas.getAllByText(new RegExp(savedRevisionId)).length).toBeGreaterThan(0);
   },
 };
