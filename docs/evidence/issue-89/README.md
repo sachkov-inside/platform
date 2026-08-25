@@ -27,4 +27,5 @@ Captured from the implementation branch on 2026-08-25 after `pnpm check:full` pa
   unexpected errors; topic, tags and series remain plain metadata until their owning routes ship.
 - Membership offer uses short owner-approved copy and sends `Вступить в Мастерскую` to the external
   `https://sachkov.dev` landing.
-- Owner production visual GO: pending; this evidence does not self-approve it.
+- Owner production visual GO: accepted on 2026-08-25 for the refreshed live Reader and operational
+  state evidence. Merge GO remains a separate decision.
