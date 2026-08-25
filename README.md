@@ -31,6 +31,14 @@ Install from the committed lockfile:
 pnpm install --frozen-lockfile
 ```
 
+For a fresh local environment, run the repository-owned setup. It creates `.env` from the checked
+example only when missing, checks prerequisites, starts PostgreSQL, applies migrations, seeds one
+stable published Material and verifies live web/API processes:
+
+```bash
+pnpm local:setup
+```
+
 ## Commands
 
 ```bash
@@ -44,7 +52,14 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm check
+pnpm check:full
 ```
+
+`pnpm check` is the normal code/build/UI gate and does not require the shared Compose database.
+`pnpm check:full` additionally runs isolated real-PostgreSQL integration tests and the live local
+stack smoke; PostgreSQL must already be reachable. Use `pnpm platform:doctor` for a read-only
+diagnosis of Node, pnpm, Docker, `.env` and development ports. The `platform:` prefix avoids
+pnpm's unrelated built-in `doctor` command.
 
 The API listens on `127.0.0.1:3001`, exposes `GET /health`, and serves OpenAPI
 UI at `/openapi`.
@@ -57,7 +72,9 @@ already exported environment variables take precedence.
 
 ```bash
 pnpm infra:up
+pnpm --filter @inside/backend db:seed
 pnpm smoke:health
+pnpm smoke:fullstack
 pnpm infra:down
 ```
 
@@ -65,6 +82,13 @@ pnpm infra:down
 Nest API in-process, calls `GET /health`, and proves the API can query that PostgreSQL
 instance. The named volume is preserved by `infra:down`; use
 `docker compose down --volumes` only when local data should be discarded.
+
+`db:seed` is development-only and idempotently creates one representative published Material
+through the Materials application interface; its fixed Topic/Format prerequisites use typed Kysely
+bootstrap because no product taxonomy-authoring capability exists. `smoke:fullstack` applies
+migrations and that seed, starts the development API and a production-built web process, verifies
+the live web route plus the web server-only adapter against the live API, and stops only the
+application processes it started.
 
 For migrations, integration tests, manual database inspection and reset procedures, see the
 [local development runbook](docs/runbooks/local-development.md).

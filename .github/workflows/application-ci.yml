@@ -41,13 +41,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browser
         run: pnpm --filter @inside/web exec playwright install --with-deps chromium
-      - name: Lint
-        run: pnpm lint
-      - name: Typecheck
-        run: pnpm typecheck
-      - name: Test
-        run: pnpm test
-      - name: Build
-        run: pnpm build
-      - name: Smoke API health
-        run: pnpm smoke:health
+      - name: Verify repository and full stack
+        env:
+          API_HOST: 127.0.0.1
+          API_PORT: "3001"
+          BACKEND_BASE_URL: http://127.0.0.1:3001
+        run: pnpm check:full

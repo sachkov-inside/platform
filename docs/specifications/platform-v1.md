@@ -65,8 +65,9 @@ reusable visual baseline. [#45](https://github.com/sachkov-inside/platform/issue
 этого приложения отдельно mergeable, development-only UI laboratory; она владеет stories, typed
 presentation fixtures, components и semantic tokens, но не production routes, application data или
 business rules. [#46](https://github.com/sachkov-inside/platform/issues/46) применяет принятый UI к
-production shell, а #37–#39 соединяют те же client-safe presentation interfaces с реальными
-application interfaces своих capabilities.
+production shell. Production vertical slices #89, #90, #94 и #95 продвигают принятые
+client-safe presentation interfaces в owning FSD modules и соединяют их с реальными application
+interfaces без отдельного временного frontend path.
 
 Backend/headless capabilities и UI laboratory могут развиваться параллельно. Laboratory fixtures
 типизированы presentation props/view-model contracts и выражают representative состояния без fake
@@ -101,17 +102,31 @@ throwaway prototype:
 foundations. Их scope и acceptance распределены по vertical capability tickets
 [#30](https://github.com/sachkov-inside/platform/issues/30),
 [#31](https://github.com/sachkov-inside/platform/issues/31),
-[#28](https://github.com/sachkov-inside/platform/issues/28) и
+[#89](https://github.com/sachkov-inside/platform/issues/89),
+[#90](https://github.com/sachkov-inside/platform/issues/90),
+[#91](https://github.com/sachkov-inside/platform/issues/91),
+[#93](https://github.com/sachkov-inside/platform/issues/93) и
 [#29](https://github.com/sachkov-inside/platform/issues/29). Отдельных Kysely/Drizzle и
 ProseMirror/Portable Text comparison stages нет. Если implementation выявляет конкретный blocker,
 owning PR фиксирует evidence и migration impact и предлагает smallest production change; два
 параллельных data или document path не поддерживаются.
 
-Identity choice остаётся provisional. Текущая application target — Logto OSS с email code,
-branded redirect, Next BFF и Nest JWT; Better Auth является fallback при провале UX/protocol proof.
-Provider не считается принятым только на основании этой specification: сначала нужны application
-proof и отдельное owner decision, а hard-to-reverse trade-off при необходимости фиксируется в
-Platform ADR.
+Owner выбрал Logto OSS как единственный application proof target; Better Auth исключён и не
+остаётся fallback. Target использует отдельные Logto deployable/database/migration authority,
+owner-maintained Experience UI fork и external email connector. Browser проходит authorization
+code flow со state + S256 PKCE без nonce; BFF хранит provider context server-side и предъявляет
+Nest Logto access JWT для exact Platform audience + opaque local sessionRef. Platform JWT и второй
+signing-key lifecycle не вводятся. Platform Session имеет absolute maximum 7 days без sliding
+extension; access JWT и recent re-auth fact — maximum 5 minutes. Different external identity с уже
+известным verified email даёт hard `identity_conflict`, не second Principal или merge.
+
+Нормативные application flow и proof gates находятся в
+[`idp-application-flow-v1.md`](idp-application-flow-v1.md), module interface — в
+[`identity-principals-session-v1.md`](identity-principals-session-v1.md).
+Этот выбор разрешает local application proof, но не объявляет Logto/fork production-ready:
+production infrastructure, key/secret custody, email deliverability и upgrade/restore evidence
+остаются отдельными gates. Application ADR создаётся после успешного proof, когда hard-to-reverse
+production trade-off подтверждён evidence, а не заранее для ещё недоказанной topology.
 
 ## Engineering organization and write contract
 
@@ -296,16 +311,29 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 
 ### Sign-in, Platform Account и Member Profile
 
-1. Identity Provider доказывает External Identity; `IdentityPrincipals` сопоставляет trusted
-   identity с ровно одним Principal, а Platform Session только переносит authenticated context к
-   последующей Platform authorization. Provider roles/claims не дают Membership content access.
-2. Human Principal управляет private Platform Account с identity/security, Telegram linking,
+1. Forked Logto Experience UI доказывает human External Identity через email-code authorization
+   code flow. Next BFF владеет state/S256 PKCE, callback и protected provider context; browser
+   JavaScript не получает token или sessionRef.
+2. На первом callback Nest валидирует один Logto access JWT, exact issuer/audience/time/subject и
+   Logto-signed `inside_verified_email`, затем `IdentityPrincipals.establishHumanSession` atomically сопоставляет
+   `(issuer, subject)` с ровно одним Principal. Повторный request предъявляет server-to-server
+   access JWT + sessionRef; Nest снова валидирует identity, а module — active matching session.
+   Provider roles/claims не дают Platform permissions или Membership content access.
+3. Human и service identity используют разные application commands/adapters. Human sign-in может
+   создать Principal; service Principal только pre-provisioned и не наследует human Account,
+   Profile, Membership или grants. Duplicate verified email другой identity даёт
+   `identity_conflict` до audited recovery.
+4. Sign-out немедленно уничтожает persisted BFF context, затем bounded best-effort завершает local
+   session и provider refresh/end-session. Re-auth использует новый `prompt=login` access JWT с
+   `inside_interactive_at` не старше 5 minutes и one-time attempt, заранее связанный с sessionRef;
+   refresh grant не получает этот claim и assurance не обновляет.
+5. Human Principal управляет private Platform Account с identity/security, Telegram linking,
    Membership и recovery states. Service Principal не получает human Platform Account, Member
    Profile или Membership.
-3. `AccountProfiles` хранит и авторизует Member Profile отдельно от Platform Account. Exact fields,
+6. `AccountProfiles` хранит и авторизует Member Profile отдельно от Platform Account. Exact fields,
    avatar, moderation и discoverability утверждаются в
    [#51](https://github.com/sachkov-inside/platform/issues/51) до production implementation.
-4. Только active member получает accepted Member Profile projection другого участника. Anonymous,
+7. Только active member получает accepted Member Profile projection другого участника. Anonymous,
    non-member и crawler не получают projection; email, Platform/Telegram internal identifiers,
    Telegram username, link/evidence и security/audit state никогда в неё не входят.
 
@@ -412,11 +440,14 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    validation/renderer и private preview к owner-approved publish, public/free read, unpublish и
    restore. До кода owner отдельно утверждает lifecycle, projection, transaction и security design;
    readiness так же меняется с `ready-for-human` на `ready-for-agent` только после approval.
-5. **Parallel headless consumers:** после #31
-   [#28](https://github.com/sachkov-inside/platform/issues/28) поставляет Library/search/navigation,
-   а [#29](https://github.com/sachkov-inside/platform/issues/29) — safe agent authoring через thin
-   MCP adapter. Они используют принятый engineering contract; новый owner gate нужен только при
-   материальном отклонении.
+5. **Application consumers:** после #31 production Reader и Library поставляются законченными
+   vertical slices: [#89](https://github.com/sachkov-inside/platform/issues/89) соединяет public
+   Material read с production route, [#90](https://github.com/sachkov-inside/platform/issues/90)
+   поставляет real catalog, а [#91](https://github.com/sachkov-inside/platform/issues/91) и
+   [#93](https://github.com/sachkov-inside/platform/issues/93) последовательно добавляют RU/EN
+   search, URL facets/sort и Topic/Series/related navigation. Safe agent authoring
+   [#29](https://github.com/sachkov-inside/platform/issues/29) остаётся thin MCP adapter и ждёт
+   production IdentityPrincipals, ContentAccess и application-owned prepare-publication contract.
 6. **Technical frontend foundation:** завершённая
    [#36](https://github.com/sachkov-inside/platform/issues/36) создала в существующем `apps/web`
    App Router/FSD composition, server-only backend seam, root layouts, routes/navigation
@@ -426,7 +457,7 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    [#44](https://github.com/sachkov-inside/platform/issues/44)
    [#45](https://github.com/sachkov-inside/platform/issues/45) создаёт development-only component
    workshop, semantic tokens, bounded component set и typed presentation fixtures внутри
-   `apps/web`. Laboratory может идти параллельно #30/#31 и headless consumers #28/#29, не требует
+   `apps/web`. Laboratory может идти параллельно backend capabilities, не требует
    работающего backend и не создаёт fake API/client. Exact tool и dependencies проходят отдельный
    owner brief; cloud publishing, Chromatic и любые external services требуют отдельного owner
    approval.
@@ -434,14 +465,18 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    [#46](https://github.com/sachkov-inside/platform/issues/46) заменяет временную visual заглушку
    #36 принятыми components/tokens в production shell, не меняя routes или backend seam. Workshop
    runtime и fixtures не входят в production graph.
-9. **Production frontend surfaces:** [#37](https://github.com/sachkov-inside/platform/issues/37),
-   [#38](https://github.com/sachkov-inside/platform/issues/38) и
-   [#39](https://github.com/sachkov-inside/platform/issues/39) поставляют Material reader,
-   author editor/Preview и Library/search/Topic/Series после #46 и owning backend capabilities.
-   Каждый ticket использует принятые UI public interfaces/tokens, соединяет их с реальными
-   application interfaces и добавляет только component needs собственного surface; второй UI
-   system, fixture data path или browser-owned business rules запрещены. #20/#21 остаются
-   structural и owner-taste inputs, а закрытые #22/#23 и superseded #40 — provenance, не gates.
+9. **Production frontend surfaces:** завершённая #46 владеет shell foundation. Reader #89 и
+   Library #90 продвигают принятые presentation modules и real backend data каждый в одном
+   production vertical slice; #91 и #93 расширяют уже работающий Library journey. Для authoring
+   [#38](https://github.com/sachkov-inside/platform/issues/38) сначала получает отдельный
+   owner-accepted Storybook proof Editor/exact Preview; после proof и working Principal/session #49
+   [#94](https://github.com/sachkov-inside/platform/issues/94) поставляет production create + exact
+   Preview, а [#95](https://github.com/sachkov-inside/platform/issues/95) — safe revise и conflict
+   recovery. Каждый production ticket использует принятые UI public interfaces/tokens, соединяет
+   их с реальными application interfaces и добавляет только component needs собственного surface;
+   второй UI system, fixture data path или browser-owned business rules запрещены. #20/#21 остаются
+   structural и owner-taste inputs, а закрытые #22/#23, #28, #37, #39 и superseded #40 —
+   provenance, не gates.
 10. **Parallel Identity/Membership track:** отдельная root Specification
    [#48](https://github.com/sachkov-inside/platform/issues/48) владеет Platform identity,
    authorization, private Platform Account и Member Profile delivery. После repository-local sync

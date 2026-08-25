@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const destinations = [
   { path: "/", label: "Главная", heading: "Главная" },
@@ -8,14 +8,14 @@ const destinations = [
 ] as const;
 
 for (const destination of destinations) {
-  test(`${destination.label} resolves with current navigation`, async ({ page }) => {
+  test(`${destination.label} resolves with current navigation`, async ({ page }, testInfo) => {
     const response = await page.goto(destination.path);
 
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(destination.heading);
     await expect(page).toHaveTitle(new RegExp(`^${destination.label} · Inside$`, "u"));
 
-    const navigation = page.getByRole("navigation", { name: "Основная" });
+    const navigation = getPrimaryNavigation(page, testInfo.project.name);
     await expect(navigation.getByRole("link")).toHaveCount(3);
     await expect(
       navigation.getByRole("link", { name: destination.label, exact: true }),
@@ -36,10 +36,10 @@ for (const destination of destinations) {
   });
 }
 
-test("navigation works with pointer input", async ({ page }) => {
+test("navigation works with pointer input", async ({ page }, testInfo) => {
   await page.goto("/");
 
-  await page.getByRole("navigation", { name: "Основная" }).getByRole("link", {
+  await getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
     name: "Библиотека",
     exact: true,
   }).click();
@@ -48,19 +48,58 @@ test("navigation works with pointer input", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Библиотека");
 });
 
-test("keyboard order starts with skip link, brand and destinations", async ({ page }) => {
+test("desktop sidebar has no supplemental tooltip badges", async ({ page }, testInfo) => {
+  test.skip(navigationMode(testInfo.project.name) !== "desktop");
+  await page.goto("/");
+
+  const sidebar = page.getByRole("complementary", { name: "Боковая панель" });
+  const transition = await sidebar.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { duration: style.transitionDuration, property: style.transitionProperty };
+  });
+
+  expect(transition.property).toContain("width");
+  expect(transition.duration).not.toBe("0s");
+  await expect(sidebar.locator('[data-slot="tooltip-trigger"]')).toHaveCount(0);
+  await sidebar.hover();
+  await expect(page.locator('[data-slot="tooltip-content"]')).toHaveCount(0);
+});
+
+test("desktop sidebar closes after pointer navigation", async ({ page }, testInfo) => {
+  test.skip(navigationMode(testInfo.project.name) !== "desktop");
+  await page.goto("/");
+
+  const sidebar = page.getByRole("complementary", { name: "Боковая панель" });
+  const libraryLink = page
+    .getByRole("navigation", { name: "Основная" })
+    .getByRole("link", { name: "Библиотека", exact: true });
+
+  await hoverUntilSidebarOpens(page, sidebar, libraryLink);
+  await libraryLink.click();
+  await page.mouse.move(600, 500);
+
+  await expect(page).toHaveURL(/\/library$/u);
+  await expect(sidebar).toHaveCSS("width", "76px");
+});
+
+test("keyboard order starts with the skip link and visible navigation", async ({ page }, testInfo) => {
   await page.goto("/");
 
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Перейти к содержанию" })).toBeFocused();
 
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "Inside" })).toBeFocused();
+  if (navigationMode(testInfo.project.name) === "desktop") {
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: "Sachkov Inside" })).toBeFocused();
+
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "Закрепить сайдбар" })).toBeFocused();
+  }
 
   for (const destination of destinations) {
     await page.keyboard.press("Tab");
     await expect(
-      page.getByRole("navigation", { name: "Основная" }).getByRole("link", {
+      getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
         name: destination.label,
         exact: true,
       }),
@@ -68,13 +107,20 @@ test("keyboard order starts with skip link, brand and destinations", async ({ pa
   }
 });
 
-test("focused navigation has a visible indicator", async ({ page }) => {
+test("focused navigation has a visible indicator", async ({ page }, testInfo) => {
   await page.goto("/");
 
-  const libraryLink = page
-    .getByRole("navigation", { name: "Основная" })
-    .getByRole("link", { name: "Библиотека", exact: true });
-  await libraryLink.focus();
+  const libraryLink = getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
+    name: "Библиотека",
+    exact: true,
+  });
+  const tabsBeforeLibrary = navigationMode(testInfo.project.name) === "desktop" ? 5 : 3;
+
+  for (let tabIndex = 0; tabIndex < tabsBeforeLibrary; tabIndex += 1) {
+    await page.keyboard.press("Tab");
+  }
+
+  await expect(libraryLink).toBeFocused();
 
   const outline = await libraryLink.evaluate((element) => {
     const style = getComputedStyle(element);
@@ -85,20 +131,23 @@ test("focused navigation has a visible indicator", async ({ page }) => {
   expect(Number.parseFloat(outline.width)).toBeGreaterThanOrEqual(2);
 });
 
-test("shell exposes essential landmarks to assistive technology", async ({ page }) => {
+test("shell exposes essential landmarks to assistive technology", async ({ page }, testInfo) => {
   await page.goto("/");
 
   const accessibilityTree = await page.locator("body").ariaSnapshot();
 
-  expect(accessibilityTree).toContain("- banner:");
-  expect(accessibilityTree).toContain('- navigation "Основная":');
+  if (navigationMode(testInfo.project.name) === "desktop") {
+    expect(accessibilityTree).toContain('- complementary "Боковая панель":');
+    expect(accessibilityTree).toContain('- navigation "Основная":');
+  } else {
+    expect(accessibilityTree).toContain('- navigation "Мобильная навигация":');
+  }
   expect(accessibilityTree).toContain('- link "Главная":');
   expect(accessibilityTree).toContain("- main:");
   expect(accessibilityTree).toContain('- heading "Главная" [level=1]');
-  expect(accessibilityTree).toContain("- contentinfo:");
 });
 
-test("content reflows without horizontal page overflow at 200% text size", async ({ page }) => {
+test("content reflows without horizontal page overflow at 200% text size", async ({ page }, testInfo) => {
   await page.goto("/");
   await page.locator("html").evaluate((element) => {
     element.style.fontSize = "200%";
@@ -110,31 +159,65 @@ test("content reflows without horizontal page overflow at 200% text size", async
   }));
 
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
-  await expect(page.getByRole("navigation", { name: "Основная" })).toBeVisible();
+  await expect(getPrimaryNavigation(page, testInfo.project.name)).toBeVisible();
 });
 
-test("reduced motion removes navigation transitions", async ({ page }) => {
+test("reduced motion removes navigation transitions", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 
-  const durations = await page
-    .getByRole("navigation", { name: "Основная" })
+  const transitionProperty = await getPrimaryNavigation(page, testInfo.project.name)
     .getByRole("link", { name: "Главная", exact: true })
-    .evaluate((element) => ({
-      indicator: getComputedStyle(element, "::after").transitionDuration,
-      link: getComputedStyle(element).transitionDuration,
-    }));
+    .evaluate((element) => getComputedStyle(element).transitionProperty);
 
-  expect(durations).toEqual({ indicator: "0s", link: "0s" });
+  expect(transitionProperty).toBe("none");
+
+  if (navigationMode(testInfo.project.name) === "desktop") {
+    await expect(page.getByRole("complementary", { name: "Боковая панель" })).toHaveCSS(
+      "transition-property",
+      "none",
+    );
+  }
 });
 
-test("current destination indicator uses one short state transition", async ({ page }) => {
+test("current destination is visually distinct from the other links", async ({ page }, testInfo) => {
   await page.goto("/");
 
-  const duration = await page
-    .getByRole("navigation", { name: "Основная" })
+  const navigation = getPrimaryNavigation(page, testInfo.project.name);
+  const currentColor = await navigation
     .getByRole("link", { name: "Главная", exact: true })
-    .evaluate((element) => getComputedStyle(element, "::after").transitionDuration);
+    .evaluate((element) => getComputedStyle(element).color);
+  const inactiveColor = await navigation
+    .getByRole("link", { name: "Библиотека", exact: true })
+    .evaluate((element) => getComputedStyle(element).color);
 
-  expect(duration).toBe("0.16s");
+  expect(currentColor).not.toBe(inactiveColor);
 });
+
+function primaryNavigationName(projectName: string): "Мобильная навигация" | "Основная" {
+  return navigationMode(projectName) === "mobile" ? "Мобильная навигация" : "Основная";
+}
+
+function getPrimaryNavigation(page: Page, projectName: string) {
+  return page.getByRole("navigation", { name: primaryNavigationName(projectName) });
+}
+
+function navigationMode(projectName: string): "desktop" | "mobile" {
+  if (projectName === "desktop-chromium") {
+    return "desktop";
+  }
+
+  if (projectName === "mobile-chromium") {
+    return "mobile";
+  }
+
+  throw new Error(`No navigation mode configured for Playwright project ${projectName}`);
+}
+
+async function hoverUntilSidebarOpens(page: Page, sidebar: Locator, target: Locator) {
+  await expect(async () => {
+    await page.mouse.move(600, 500);
+    await target.hover();
+    await expect(sidebar).toHaveCSS("width", "256px", { timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
+}

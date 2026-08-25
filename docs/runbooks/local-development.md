@@ -30,6 +30,10 @@ worktrees on the same machine. Treat this environment as a singleton:
 - Only the current Compose owner may run `docker compose down --volumes`, after confirming that its
   local data can be discarded.
 
+Playwright does not use Compose. When another worktree owns its default port `3100`, run the gate
+with an available explicit port, for example `PLAYWRIGHT_PORT=3200 pnpm check`; never stop the
+other worktree's process.
+
 Check whether the shared environment is already running before claiming it:
 
 ```bash
@@ -45,6 +49,18 @@ version declared in `package.json`.
 cp .env.example .env
 pnpm install --frozen-lockfile
 ```
+
+The automated equivalent after dependency installation is:
+
+```bash
+pnpm local:setup
+```
+
+It creates `.env` only when missing, runs `pnpm platform:doctor`, starts PostgreSQL, applies
+migrations, seeds representative content and runs the live full-stack smoke. On success PostgreSQL
+remains running for development. On failure it stops Compose only when this invocation started it;
+it never removes the named data volume. It refuses to reuse an already running Compose project,
+because that environment belongs to another session under the singleton ownership rule.
 
 The checked-in `.env.example` contains local-only credentials. Keep personal overrides in the
 ignored root `.env`; already exported environment variables take precedence.
@@ -63,7 +79,9 @@ shared Platform database lifecycle:
 ```bash
 pnpm infra:up
 pnpm --filter @inside/backend db:migrate
+pnpm --filter @inside/backend db:seed
 pnpm smoke:health
+pnpm smoke:fullstack
 ```
 
 For an interactive API process, keep this command running in a separate terminal:
@@ -83,6 +101,13 @@ Expected health response:
 {"process":"api","status":"ok","database":"reachable"}
 ```
 
+`smoke:health` includes both in-process composition and an external regression that launches the
+documented `tsx watch` development entrypoint. `smoke:fullstack` starts the development API and a
+production-built web process, checks the live web route, then executes the web server-only backend
+adapter against the live API. It stops only those application processes and expects the singleton
+Compose PostgreSQL environment to be owned by the current session. The first real product
+Next-to-Nest route remains the Reader vertical slice; this setup does not invent a health BFF route.
+
 Stop application processes with `Ctrl+C`. Stop Compose without deleting local data:
 
 ```bash
@@ -96,6 +121,19 @@ Run the complete repository gate:
 ```bash
 pnpm check
 ```
+
+This gate covers lint, strict typecheck, backend architecture guardrails, unit/module/Storybook
+tests, Playwright, production builds and the Storybook build. It intentionally does not claim a
+real database.
+
+Run the complete code plus infrastructure gate used by CI:
+
+```bash
+pnpm check:full
+```
+
+It adds the isolated Testcontainers suite and live full-stack smoke. The shared Compose PostgreSQL
+must be running locally; CI supplies its own PostgreSQL service.
 
 Run the real-PostgreSQL backend suite:
 
@@ -137,6 +175,31 @@ Exit `psql` with `\q`.
 
 The Compose database is empty after its first migration. Integration-test Material data is not
 visible here because those tests intentionally use isolated temporary databases.
+
+Populate or refresh the stable local development fixture:
+
+```bash
+pnpm --filter @inside/backend db:seed
+```
+
+The seed refuses non-development mode, uses fixed idempotency keys and creates one free published
+Material at slug `inside-platform-overview`. Repeating it returns the same Material and revision.
+The Material itself is created, validated and published through the Materials application
+interface. Only its fixed local Topic/Format prerequisites use typed Kysely bootstrap because
+Platform has no product taxonomy-authoring capability yet; raw SQL is not used.
+
+## Diagnose prerequisites
+
+Run the read-only doctor before claiming Compose when setup fails:
+
+```bash
+pnpm platform:doctor
+```
+
+It checks the pinned Node and pnpm versions, `.env`, Docker CLI/Compose/daemon and ports 3000, 3001
+and 5432. Port 5432 is accepted as occupied only when the running `inside-platform` Compose project
+owns PostgreSQL. The `platform:` prefix is intentional because `pnpm doctor` is pnpm's own package
+manager diagnostic, not this repository check.
 
 ## Migration and generated-type checks
 

@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
-const baseURL = "http://127.0.0.1:3100";
+const port = process.env.PLAYWRIGHT_PORT ?? "3100";
+const baseURL = `http://127.0.0.1:${port}`;
 const captureEvidence = process.env.CAPTURE_EVIDENCE === "1";
 
 export default defineConfig({
@@ -35,8 +36,8 @@ export default defineConfig({
   ],
   webServer: {
     command: captureEvidence
-      ? "pnpm build && pnpm start --hostname 127.0.0.1 --port 3100"
-      : "pnpm dev --hostname 127.0.0.1 --port 3100",
+      ? `pnpm build && pnpm start --hostname 127.0.0.1 --port ${port}`
+      : `pnpm dev --hostname 127.0.0.1 --port ${port}`,
     url: baseURL,
     reuseExistingServer: false,
     stdout: "ignore",

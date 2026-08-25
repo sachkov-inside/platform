@@ -11,6 +11,7 @@
     "start:api": "node dist/entrypoints/api.js",
     "start:mcp": "node dist/entrypoints/mcp.js",
     "db:migrate": "tsx src/migrations/migrate.ts",
+    "db:seed": "tsx src/development/seed-local.ts",
     "db:types:generate": "kysely-codegen --env-file ../../.env --dialect postgres --default-schema public --include-pattern 'public.*' --exclude-pattern 'kysely_*' --out-file src/infrastructure/postgres/generated/database.ts",
     "db:types:check": "kysely-codegen --env-file ../../.env --dialect postgres --default-schema public --include-pattern 'public.*' --exclude-pattern 'kysely_*' --out-file src/infrastructure/postgres/generated/database.ts --verify",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p test/tsconfig.json --noEmit",
