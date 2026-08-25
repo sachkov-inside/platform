@@ -13,6 +13,10 @@ import {
   PLATFORM_DATABASE,
   type PlatformDatabase,
 } from "../src/infrastructure/postgres/index.js";
+import {
+  MATERIAL_AUTHORING,
+  PUBLISHED_MATERIAL_READER,
+} from "../src/modules/materials/index.js";
 
 const config = parsePlatformConfig({
   NODE_ENV: "test",
@@ -34,6 +38,8 @@ describe("backend process composition", () => {
     const database = api.get<PlatformDatabase>(PLATFORM_DATABASE);
     expect(api.get<PlatformDatabase>(PLATFORM_DATABASE)).toBe(database);
     expect(api.get(OperationalReadiness)).toBeInstanceOf(OperationalReadiness);
+    expect(api.get(MATERIAL_AUTHORING)).toBeDefined();
+    expect(api.get(PUBLISHED_MATERIAL_READER)).toBeDefined();
 
     const destroy = vi.spyOn(database, "destroy");
     await api.close();

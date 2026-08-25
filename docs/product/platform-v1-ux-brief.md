@@ -84,8 +84,8 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
 - После первого sign-in Platform сразу предлагает связать Telegram, но шаг можно пропустить.
   Linking также доступен в Account и повторяется контекстно при открытии closed Material.
 - Closed Material остаётся addressable public page с teaser и inline Membership offer. Primary CTA
-  `Вступить в Мастерскую` ведёт по внешней ссылке в Tribute; это outbound acquisition link, не
-  billing/Tribute integration и не источник Membership state.
+  `Вступить в Мастерскую` ведёт на внешний `https://sachkov.dev` landing; это outbound acquisition
+  link, не billing/Tribute integration и не источник Membership state.
 - Top-level navigation: `Главная`, `Библиотека`, `Карта`. Темы и Серии открываются контекстно из
   Home, cards и Materials.
 - Signed-in Home: conditional `Продолжить`, затем лента новых материалов, Темы, активные Серии и
@@ -221,8 +221,9 @@ states этого brief.
 1. **Discover and read free.** Public visitor lands on Home or an indexed card, moves through
    Library/Topic/Series/Roadmap, opens F1 and reads body/Resources without creating an account.
 2. **Understand a closed Material.** Public visitor opens F2/F3, receives the complete public
-   projection and teaser, but no closed bytes; inline offer gives `Вступить в Мастерскую` → Tribute
-   and `Войти` for an existing participant, preserving the Material return destination.
+   projection and teaser, but no closed bytes; inline offer gives `Вступить в Мастерскую` →
+   `https://sachkov.dev` and `Войти` for an existing participant, preserving the Material return
+   destination.
 3. **Link and unlock.** After email-code sign-in, Principal sees a skippable Telegram-link prompt.
    Linking remains in Account and the closed-Material flow; callback keeps link and Membership as
    separate states, then retries the original operation. Only current `ContentAccess` allow opens
@@ -259,7 +260,7 @@ states этого brief.
 | R07 | Editorial Roadmap | Любой actor понимает product directions и переходит к content | Roadmap | editorial body + curated/query links; partial links fail independently | [Workspace navigation roles][workspace-navigation-roles] |
 | R08 | Public card/teaser каждого published Material | Visitor оценивает состав до покупки | Cards на Home/Library/Topic/Series/Roadmap и Material | free/closed label, title, summary, taxonomy/series, safe media metadata; no closed body bytes | [Workspace public projection][workspace-public-projection] |
 | R09 | Полное чтение free Material без account | Visitor открывает free card | Material | body, code/table/callout/media/file/video as present; loading/error; related content | [ContentAccess matrix][access-matrix] |
-| R10 | Closed Material deny без утечки | Anonymous открывает closed card | Material | teaser + inline offer: `Вступить в Мастерскую` → Tribute and `Войти`; protected bytes absent | [Access copy boundary][access-copy] |
+| R10 | Closed Material deny без утечки | Anonymous открывает closed card | Material | teaser + inline offer: `Вступить в Мастерскую` → `https://sachkov.dev` and `Войти`; protected bytes absent | [Access copy boundary][access-copy] |
 | R11 | Authenticated non-member closed state | Signed-in non-member открывает closed Material | Material + Account | Membership required/not active, Link Telegram или Check again; free content remains available | [Membership UX][membership-ux] |
 | R12 | Active-member protected reading | Active member opens body/image/file/video | Material | allow exact published revision; read/download/play; independent resource unavailable state | [ContentAccess matrix][access-matrix] |
 | R13 | Expiry/removal preserves account context | Expired member returns to Platform | Material + Home/history + Account | closed access denied; account, Telegram link, history/read state preserved; Check again after rejoin | [Membership return flow][membership-return] |
@@ -283,7 +284,7 @@ states этого brief.
 | R31 | MCP parity | Owner agent creates/edits/validates/previews/prepares content | `No UI` for MCP; outcomes visible in Author surfaces | same semantic commands, validation and `409`; separate service Principal; recorded owner GO for publish | [Workspace MCP flow][workspace-mcp-flow] |
 | R32 | Manual recreation, no Telegram import | Author recreates current content in target structure | Author editor only; `No UI` for importer/migration | no import wizard, mapping report, dedupe or migration progress | [Workspace v1 scope][workspace-v1-scope] |
 | R33 | Telegram announcements/community remain external | Reader follows existing community lifecycle outside Platform | `No UI` required for messaging/comments; optional external link only after separate decision | no Platform comments, notification center, bot commands or mandatory per-Material discussion link | [Workspace v1 scope][workspace-v1-scope] |
-| R34 | Platform does not bill/manage subscription | Visitor sees inline Membership offer and completes acquisition externally | Closed Material offer; `No UI` for checkout/subscription management | `Вступить в Мастерскую` opens Tribute; no prices/plans/payment history/cancel controls or Tribute integration | [Platform actors][platform-brief-actors] |
+| R34 | Platform does not bill/manage subscription | Visitor sees inline Membership offer and completes acquisition externally | Closed Material offer; `No UI` for checkout/subscription management | `Вступить в Мастерскую` opens `https://sachkov.dev`; no prices/plans/payment history/cancel controls or Tribute integration | [Platform actors][platform-brief-actors] |
 | R35 | Single author, no editorial team/UGC | Кирилл completes whole publish flow | Author surfaces | no role assignment, review queue, collaborative cursors/comments or contributor onboarding | [Platform author][platform-brief-author] |
 | R36 | Safe public/protected separation | Any actor opens cached/public/protected path | All public/Material surfaces | public projection survives; protected content is private/no-store; dependency failure never falls back open | [Workspace read flow][workspace-read-flow] |
 | R37 | SEO for discoverable public value | Search crawler/public visitor reaches content | Home/Library/Topic/Series/Roadmap/cards/free Material | SSR, stable canonical URLs, metadata, sitemap, crawlable links; private surfaces noindex | [Workspace SEO][workspace-seo] |
@@ -334,9 +335,9 @@ states этого brief.
 | Series | Все | Ready / empty / partial / long ordered list | Открыть episode; authenticated actor видит read/unread | Не скрывать порядок closed Series и не вычислять percent complete |
 | Roadmap | Все | Ready / partial links / editorial empty | Следовать curated/query links в generated views и Materials | Не превращать Roadmap в Topic, Series или duplicated catalog |
 | Free Material | Все | Body ready / loading / long / resource partial | Read, play/download free Resources, открыть related; authenticated — mark read/unread | Не требовать account или Membership |
-| Closed Material | Public visitor | Public teaser + `membership_offer` | `Вступить в Мастерскую` → Tribute; `Войти` для existing participant | Не fetch/render closed body, Asset URL или Video token |
+| Closed Material | Public visitor | Public teaser + `membership_offer` | `Вступить в Мастерскую` → `https://sachkov.dev`; `Войти` для existing participant | Не fetch/render closed body, Asset URL или Video token |
 | Closed Material | Authenticated unlinked Principal | Public teaser + `link_required` | Связать Telegram, пропустить и продолжить free content, либо открыть Membership offer | Не считать login активным Membership |
-| Closed Material | Linked non-member | Public teaser + `membership_inactive` | Проверить снова; `Вступить в Мастерскую` → Tribute | Не показывать billing/subscription controls Platform |
+| Closed Material | Linked non-member | Public teaser + `membership_inactive` | Проверить снова; `Вступить в Мастерскую` → `https://sachkov.dev` | Не показывать billing/subscription controls Platform |
 | Closed Material | Expired member | Public teaser + `membership_expired` | Проверить снова после rejoin; открыть history/free content | Не удалять account, Telegram link, history или read state |
 | Closed Material | Active member | `allowed`, exact published revision | Read body; отдельно authorize image/download/video; mark read/unread | Не reuse одного allow для другой Resource/Action |
 | Closed Material | Author/admin | `allowed_by_permission` для read/preview | Read published или открыть explicit Preview revision | Не превращать permission в fake `MembershipEntitlement` |
@@ -634,7 +635,7 @@ ALLOWED                            DENIED / OFFER
 [body heading navigation]          [public teaser]
 [paragraph/callout/code/table]      [coarse state heading]
 [image + alt/caption]               [state explanation]
-[file label + Download]             [Вступить в Мастерскую -> Tribute]
+[file label + Download]             [Вступить в Мастерскую -> sachkov.dev]
 [video caption + player/status]     [Войти | Связать Telegram |
                                      Проверить снова — by outcome]
 [related Materials]                [public related Materials]
@@ -770,7 +771,7 @@ must additionally test a real narrow browser; a visual frame switch alone is not
 
 | Outcome | Heading | Explanation | Primary action |
 |---|---|---|---|
-| Anonymous closed Material | Материал доступен в Мастерской | Вступите в Мастерскую, чтобы открыть этот и другие закрытые материалы. Уже участвуете — войдите и свяжите Telegram. | Вступить в Мастерскую → Tribute; secondary Войти |
+| Anonymous closed Material | Материал доступен в Мастерской | Вступите, чтобы открыть этот и другие закрытые материалы. | Вступить в Мастерскую → `https://sachkov.dev` |
 | Signed in, Telegram unlinked | Свяжите Telegram | Связь с Telegram нужна, чтобы Platform могла проверить участие в закрытом чате Inside. | Связать Telegram |
 | Linked, Membership inactive | Membership не активен | Сейчас Platform не может подтвердить доступ к закрытым материалам. | Проверить снова; secondary Вступить в Мастерскую |
 | Historical entitlement expired | Доступ закончился | Аккаунт, история и отметки прочитанного сохранены. После возвращения в Inside проверьте доступ снова. | Проверить снова |
@@ -784,8 +785,8 @@ must additionally test a real narrow browser; a visual frame switch alone is not
 Controls use the same verb as their result: `Сохранить` → `Сохранено`, `Опубликовать` →
 `Опубликовано`, `Связать Telegram` → `Telegram связан`. Copy never claims payment/subscription
 state, provider failure or permanent access. `Вступить в Мастерскую` is an ordinary outbound link
-to the owner-controlled Tribute URL; Platform does not consume Tribute API/webhooks and never uses
-the click or payment page as `MembershipEvidence`.
+to the owner-controlled `https://sachkov.dev` landing; Platform does not consume Tribute
+API/webhooks and never uses the click or payment page as `MembershipEvidence`.
 
 ## 11. Remaining implementation inputs
 
@@ -803,7 +804,7 @@ Owner-approved UX structure is complete. Ни один оставшийся пу
 | Related Materials presentation | Metadata score + author pins confirmed | Count/order labels, distinction between pinned/generated if any, empty state | Material wireframe |
 | Long-content and resource limits | Corpus names current stress cases: 80+ character title, four-column table, code, long filename, 21:9 image | Add measured document/table/code/file limits after schema implementation evidence | Owning content/Material implementation |
 | Video unavailable/unsupported behavior | Text remains; no public fallback; controlled retry copy accepted | Choose supported-browser help destination; acceptable continued-play window comes from integration proof | Player implementation |
-| Tribute destination operations | Inline offer and `Вступить в Мастерскую` outbound action are fixed; no integration or access inference | Exact owner-controlled URL, link health/content ownership and safe operational update path | Production content/config |
+| Acquisition destination operations | Inline offer and `Вступить в Мастерскую` → `https://sachkov.dev` are fixed; no integration or access inference | Link health/content ownership and safe operational update path | Production content/config |
 
 Источник unresolved identity и UI decisions — merged specification и owning identity research.
 ([Workspace owner decisions][workspace-owner-decisions], [Identity open decisions][identity-open])

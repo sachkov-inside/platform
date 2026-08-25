@@ -52,8 +52,9 @@ consequences:
   получают projection или sensitive Platform Account/identity/link/evidence/security data;
 - PostgreSQL projections обеспечивают Library, Topic/Series navigation, search и related Materials;
 - ReadingState не участвует в access decision и сохраняется при окончании Membership;
-- owner-controlled Tribute URL является только outbound acquisition destination: Platform не
-  интегрируется с Tribute API/webhooks и не использует click/payment state как MembershipEvidence.
+- owner-controlled `https://sachkov.dev` landing является только outbound acquisition destination:
+  Platform не интегрируется с Tribute API/webhooks и не использует click/payment state как
+  MembershipEvidence.
 
 Identity provider, отдельная Telegram application и Kinescope являются внешними seams Platform;
 их provider types и credentials не входят в application modules. Production frontend развивается
@@ -167,9 +168,10 @@ production trade-off подтверждён evidence, а не заранее д�
   могут содержать `V1` внутри implementation.
 - Пока production `IdentityPrincipals` owner module не существует и ни один entrypoint не
   импортирует `MaterialsModule`, Nest adapter может принимать временный `AuthorPolicy` через
-  dynamic registration. Static module и его composition test появляются вместе с первым реальным
-  authorization provider/caller; placeholder/global policy ради декоративного static graph не
-  создаётся.
+  dynamic registration. С первым реальным caller он становится static, получает composition test
+  и явно связывает принятую anonymous/read-only baseline policy. Когда появляется production
+  authorization owner, static module импортирует его provider; placeholder/global policy ради
+  декоративного graph не создаётся.
 
 ### Validation, results and write atomicity
 

@@ -1,4 +1,4 @@
-import { type DynamicModule, Module } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 
 import {
   PLATFORM_DATABASE,
@@ -22,49 +22,50 @@ import {
 import { createMaterials, type Materials } from "./create-materials.js";
 
 const MATERIALS = Symbol("MATERIALS");
+const publicReaderPolicy: AuthorPolicy = {
+  canAuthor: () => false,
+  canPublish: () => false,
+};
 
-@Module({})
-export class MaterialsModule {
-  static register(authorPolicy: AuthorPolicy): DynamicModule {
-    return {
-      module: MaterialsModule,
-      imports: [PostgresModule],
-      providers: [
-        { provide: AUTHOR_POLICY, useValue: authorPolicy },
-        {
-          provide: CONTENT_ACCESS,
-          inject: [AUTHOR_POLICY],
-          useFactory: (policy: AuthorPolicy): ContentAccess =>
-            createBaselineContentAccess(policy),
-        },
-        {
-          provide: MATERIALS,
-          inject: [PLATFORM_DATABASE, AUTHOR_POLICY, CONTENT_ACCESS],
-          useFactory: (
-            database: PlatformDatabase,
-            policy: AuthorPolicy,
-            contentAccess: ContentAccess,
-          ): Materials =>
-            createMaterials({
-              database,
-              authorPolicy: policy,
-              contentAccess,
-            }),
-        },
-        {
-          provide: MATERIAL_AUTHORING,
-          inject: [MATERIALS],
-          useFactory: (materials: Materials): MaterialAuthoring =>
-            materials.authoring,
-        },
-        {
-          provide: PUBLISHED_MATERIAL_READER,
-          inject: [MATERIALS],
-          useFactory: (materials: Materials): PublishedMaterialReader =>
-            materials.publishedMaterialReader,
-        },
-      ],
-      exports: [MATERIAL_AUTHORING, PUBLISHED_MATERIAL_READER],
-    };
-  }
-}
+@Module({
+  imports: [PostgresModule],
+  providers: [
+    // The first production consumer is anonymous/read-only. IdentityPrincipals
+    // replaces this real baseline policy when its owning module is delivered.
+    { provide: AUTHOR_POLICY, useValue: publicReaderPolicy },
+    {
+      provide: CONTENT_ACCESS,
+      inject: [AUTHOR_POLICY],
+      useFactory: (policy: AuthorPolicy): ContentAccess =>
+        createBaselineContentAccess(policy),
+    },
+    {
+      provide: MATERIALS,
+      inject: [PLATFORM_DATABASE, AUTHOR_POLICY, CONTENT_ACCESS],
+      useFactory: (
+        database: PlatformDatabase,
+        policy: AuthorPolicy,
+        contentAccess: ContentAccess,
+      ): Materials =>
+        createMaterials({
+          database,
+          authorPolicy: policy,
+          contentAccess,
+        }),
+    },
+    {
+      provide: MATERIAL_AUTHORING,
+      inject: [MATERIALS],
+      useFactory: (materials: Materials): MaterialAuthoring =>
+        materials.authoring,
+    },
+    {
+      provide: PUBLISHED_MATERIAL_READER,
+      inject: [MATERIALS],
+      useFactory: (materials: Materials): PublishedMaterialReader =>
+        materials.publishedMaterialReader,
+    },
+  ],
+  exports: [MATERIAL_AUTHORING, PUBLISHED_MATERIAL_READER],
+})
+export class MaterialsModule {}
