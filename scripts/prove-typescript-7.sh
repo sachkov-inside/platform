@@ -28,29 +28,32 @@ fi
 rm -f "$negative_output"
 
 library_output="$(mktemp -t inside-platform-ts7-libraries.XXXXXX)"
-if "${tsc[@]}" -p apps/backend/tsconfig.json --noEmit --skipLibCheck false >"$library_output" 2>&1; then
-  rm -f "$library_output"
-  echo "Backend library diagnostics are now clean; reassess the documented TypeScript 7 hold." >&2
-  exit 1
-fi
-if ! grep --extended-regexp --quiet '@tiptap\+core|prosemirror-model|@vitest\+browser' "$library_output"; then
-  cat "$library_output" >&2
-  rm -f "$library_output"
-  echo "Backend TypeScript 7 library diagnostics changed unexpectedly" >&2
-  exit 1
-fi
+expect_library_diagnostics() {
+  local label="$1"
+  local tsconfig="$2"
+  local expected_pattern="$3"
 
-if "${tsc[@]}" -p apps/web/tsconfig.json --noEmit --skipLibCheck false >"$library_output" 2>&1; then
-  rm -f "$library_output"
-  echo "Web library diagnostics are now clean; reassess the documented TypeScript 7 hold." >&2
-  exit 1
-fi
-if ! grep --extended-regexp --quiet '@storybook\+react|@radix-ui\+react-select|ast-types' "$library_output"; then
-  cat "$library_output" >&2
-  rm -f "$library_output"
-  echo "Web TypeScript 7 library diagnostics changed unexpectedly" >&2
-  exit 1
-fi
+  if "${tsc[@]}" -p "$tsconfig" --noEmit --skipLibCheck false >"$library_output" 2>&1; then
+    rm -f "$library_output"
+    echo "$label library diagnostics are now clean; reassess the documented TypeScript 7 hold." >&2
+    exit 1
+  fi
+  if ! grep --extended-regexp --quiet "$expected_pattern" "$library_output"; then
+    cat "$library_output" >&2
+    rm -f "$library_output"
+    echo "$label TypeScript 7 library diagnostics changed unexpectedly" >&2
+    exit 1
+  fi
+}
+
+expect_library_diagnostics \
+  Backend \
+  apps/backend/tsconfig.json \
+  '@tiptap\+core|prosemirror-model|@vitest\+browser'
+expect_library_diagnostics \
+  Web \
+  apps/web/tsconfig.json \
+  '@storybook\+react|@radix-ui\+react-select|ast-types'
 rm -f "$library_output"
 
 echo "TypeScript ${typescript_version} project-source proof passed; known library diagnostics and the negative fixture were reproduced."
