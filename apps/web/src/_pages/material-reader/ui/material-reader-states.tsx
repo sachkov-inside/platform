@@ -79,7 +79,7 @@ export function MaterialReaderAccess({
         </p>
       </header>
       <section
-        className="relative mt-7 isolate overflow-hidden rounded-2xl bg-secondary px-6 py-7 shadow-card sm:px-8 sm:py-8"
+        className="relative mt-7 isolate overflow-clip rounded-2xl bg-secondary px-6 py-7 shadow-card sm:px-8 sm:py-8"
         aria-labelledby="access-heading"
       >
         <StatusHalo />
@@ -172,7 +172,7 @@ function ReaderStatus({
 }) {
   return (
     <section className="max-w-[48rem] pt-1 sm:pt-3" data-material-reader-state={state}>
-      <div className="relative isolate overflow-hidden rounded-2xl bg-secondary px-6 py-7 shadow-card sm:px-8 sm:py-9">
+      <div className="relative isolate overflow-clip rounded-2xl bg-secondary px-6 py-7 shadow-card sm:px-8 sm:py-9">
         <StatusHalo />
         <span className="relative grid size-12 place-items-center rounded-xl bg-background/80 text-accent [&_svg]:size-6">
           {icon}

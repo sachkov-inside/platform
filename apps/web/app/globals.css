@@ -140,13 +140,11 @@ body {
 
 @keyframes reader-status-halo-arrive {
   from {
-    filter: blur(1.75rem);
     opacity: 0.35;
     transform: scale(0.82);
   }
 
   to {
-    filter: blur(1.25rem);
     opacity: 1;
     transform: scale(1);
   }
@@ -154,6 +152,7 @@ body {
 
 .reader-status-halo {
   animation: reader-status-halo-arrive 700ms var(--motion-ease-out) both;
+  filter: blur(1.25rem);
 }
 
 ::selection {
