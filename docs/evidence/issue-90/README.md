@@ -21,4 +21,5 @@ and automated accessibility checks passed.
 - Operational stories cover ready, pagination, loading, empty, controlled infrastructure error and
   unexpected error. Every route-level state preserves the Library page heading and recovery path.
 - Agentation is enabled on the exact Storybook surface for interactive owner review.
-- Owner production visual GO: pending. Merge GO remains a separate decision.
+- Owner production visual GO: accepted on 2026-08-25 after reviewing this handoff evidence.
+- Owner merge GO: given separately on 2026-08-25 with the instruction to merge and close #90.
