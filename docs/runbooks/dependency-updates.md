@@ -8,8 +8,9 @@ an immutable multi-platform digest, and GitHub Actions use a commit SHA with a r
 
 Dependabot checks the pnpm workspace, Docker sources and GitHub Actions weekly. Patch and minor
 updates are grouped, with Next, Tiptap, Storybook and React families kept atomic. Major updates stay
-in separate pull requests. Security updates use their own groups. No dependency pull request is
-auto-merged: every one runs the complete pull-request CI and remains owner-controlled.
+in separate pull requests. Security patch/minor updates use their own groups; security majors are
+also separate pull requests. No dependency pull request is auto-merged: every one runs the complete
+pull-request CI and remains owner-controlled.
 
 `@types/node` stays on the same major as `.node-version`. A Node LTS major change updates the
 runtime, declarations, Docker base and CI as one reviewed migration.
@@ -28,17 +29,32 @@ Node `24.19.0` is the latest production LTS; Node 26 is Current and is not the p
 The status and production recommendation come from the
 [official Node.js release table](https://nodejs.org/en/about/previous-releases).
 
-TypeScript stays at `6.0.3`. TypeScript `7.0.2` successfully checked the backend source/build/test
-tsconfigs and the Next-generated web corpus, including Nest decorators and the negative
-architecture fixture. On this small repository the measured sequential proof was `3.86s`; the
-warm canonical TypeScript 6 workspace typecheck was `1.61s`, so there is no current end-to-end speed
-win.
+TypeScript stays at `6.0.3`. The checked-in proof is reproducible:
+
+```bash
+bash scripts/prove-typescript-7.sh
+bash scripts/prove-typescript-7.sh --with-alias-check
+```
+
+The first command runs the exact TypeScript `7.0.2` CLI over every repository tsconfig after Next
+type generation and requires the branded-ID negative fixture to retain diagnostic `TS2322`. That
+corpus covers backend source/build/tests and Vitest configs, Nest decorators, Kysely generated
+types, Next generated types, Storybook TypeScript config/stories, and Playwright config/specs.
+TypeScript itself does not parse MDX. MDX, Storybook runtime/build, Vitest, Playwright and Kysely
+code generation therefore require the package-level side-by-side contract rather than a CLI-only
+claim.
+
+The second command reproduces that official TypeScript 7 CLI/TypeScript 6 API alias in a disposable
+workspace. Strict dependency installation fails before those tool integrations can run, so they are
+explicitly **blocked**, not reported as TypeScript 7 passes. On this small repository the measured
+sequential CLI proof was `3.86s`; the warm canonical TypeScript 6 workspace typecheck was `1.61s`,
+so there is no current end-to-end speed win.
 
 More importantly, TypeScript 7 has no stable programmatic API until 7.1. The
 [official TypeScript 7 announcement](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/)
 recommends a TypeScript 6 compatibility alias for tools such as ESLint, while
 [`typescript-eslint` supports only TypeScript `<6.1`](https://typescript-eslint.io/users/dependency-versions/).
-In this repository that alias cannot regenerate the strict pnpm lockfile: the current
+In this repository that disposable alias proof cannot regenerate the strict pnpm lockfile: the current
 Storybook/Next/Vite chain includes `tsconfck@3.1.6`, whose TypeScript peer is `^5.0.0`, and the
 Storybook MCP chain also resolves `@valibot/to-json-schema@1.7.1` beside `valibot@1.2.0` although it
 requires `^1.4.0`. Unsupported peer overrides are deliberately not used.

@@ -4,13 +4,18 @@ set -euo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repository_root"
 
-api_health="$(curl --fail --silent --show-error http://127.0.0.1:3001/health)"
+api_base_url="${API_BASE_URL:-http://127.0.0.1:3001}"
+web_base_url="${WEB_BASE_URL:-http://127.0.0.1:3000}"
+
+api_health="$(curl --fail --silent --show-error "$api_base_url/health")"
 if [[ "$api_health" != '{"process":"api","status":"ok","database":"reachable"}' ]]; then
   echo "Unexpected API health response: $api_health" >&2
   exit 1
 fi
 
-curl --fail --silent --show-error --output /dev/null http://127.0.0.1:3000
+curl --fail --silent --show-error --output /dev/null "$api_base_url/openapi"
+
+curl --fail --silent --show-error --output /dev/null "$web_base_url"
 docker compose exec -T web pnpm --filter @inside/web smoke:backend
 
 if ! docker compose logs --no-color mcp | grep --quiet '"process":"mcp","status":"ok","database":"reachable"'; then

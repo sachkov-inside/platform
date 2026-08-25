@@ -196,9 +196,10 @@ The type commands read the repository `.env` and inspect only the product-owned 
 
 ## Diagnose prerequisites
 
-`pnpm platform:doctor` diagnoses the optional host loop: pinned Node/pnpm, `.env`, Docker and local
-ports. Docker-only startup reports its own image, dependency, health and port failures directly
-through `docker compose up` and `docker compose ps`.
+`bash scripts/doctor.sh` checks the same Docker-only prerequisites and Compose contract without
+requiring host Node.js, pnpm or `.env`. The `pnpm platform:doctor` alias is available only as a
+convenience when the optional host toolchain is already installed. Startup reports image,
+dependency, health and port failures through `docker compose up` and `docker compose ps`.
 
 Inspect service state and logs with:
 

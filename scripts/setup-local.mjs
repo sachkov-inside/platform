@@ -19,7 +19,7 @@ if (!existsSync(environmentPath)) {
   copyFileSync(resolve(repositoryRoot, ".env.example"), environmentPath);
   process.stdout.write("Created .env from .env.example\n");
 }
-let ownsCompose = false;
+let shouldCleanupCompose = false;
 let interruptedSignal;
 let shutdownPromise;
 const activeProcesses = new Set();
@@ -36,10 +36,10 @@ try {
       "The Platform Compose stack is already running and belongs to another session. Use that owner's handoff or stop it before local:setup.",
     );
   }
-  ownsCompose = true;
+  shouldCleanupCompose = true;
   await runPnpm(["compose:up"]);
   await runPnpm(["compose:smoke"]);
-  ownsCompose = false;
+  shouldCleanupCompose = false;
   process.stdout.write(
     "Local Platform is ready at http://127.0.0.1:3000; use pnpm infra:down when finished.\n",
   );
@@ -117,8 +117,8 @@ async function acquireSetupLock() {
 function shutdown() {
   shutdownPromise ??= (async () => {
     await Promise.all([...activeProcesses].map((child) => stopProcess(child)));
-    if (ownsCompose) {
-      ownsCompose = false;
+    if (shouldCleanupCompose) {
+      shouldCleanupCompose = false;
       await runCleanupPnpm(["infra:down"]).catch(() => undefined);
     }
   })();

@@ -9,7 +9,7 @@
     "dev:api": "pnpm --filter @inside/backend dev:api",
     "dev:mcp": "pnpm --filter @inside/backend dev:mcp",
     "storybook": "pnpm --filter @inside/web storybook",
-    "platform:doctor": "node scripts/doctor.mjs",
+    "platform:doctor": "bash scripts/doctor.sh",
     "local:setup": "node scripts/setup-local.mjs",
     "build": "pnpm --recursive --if-present build",
     "lint": "eslint .",
