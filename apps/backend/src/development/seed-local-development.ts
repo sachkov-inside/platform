@@ -30,9 +30,7 @@ export async function seedLocalDevelopment(
       canPublish: ({ principalId }) => principalId === actor,
     },
   });
-  const createCommand = {
-    actor,
-    idempotencyKey: createIdempotencyKey,
+  const representativeRevision = {
     metadata: {
       title: "Как устроен Inside Platform",
       summary: "Representative published Material для локальной full-stack разработки.",
@@ -219,27 +217,66 @@ export async function seedLocalDevelopment(
       },
     },
   } as const;
-  const created = await authoring.createDraft(createCommand);
-  let currentDraft;
-  if (created.ok) {
-    currentDraft = created.value;
-  } else if (created.error.code === "idempotency_key_reused") {
-    const existing = await database
-      .selectFrom("materials")
-      .select("id")
-      .where("slug", "=", slug)
-      .executeTakeFirst();
-    if (existing === undefined) {
-      throw new Error("Local Material idempotency record has no Material");
-    }
-    const loaded = await authoring.loadDraft({ actor, materialId: existing.id });
-    if (!loaded.ok) {
-      throw new Error(`Local Material draft failed: ${loaded.error.code}`);
-    }
-    currentDraft = loaded.value;
-  } else {
+  // Keep the original command stable so pre-Reader development volumes can
+  // replay it through the application idempotency contract.
+  const created = await authoring.createDraft({
+    actor,
+    idempotencyKey: createIdempotencyKey,
+    metadata: {
+      ...representativeRevision.metadata,
+      tagIds: [],
+      seriesMemberships: [],
+    },
+    body: {
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "heading",
+            attrs: {
+              level: 2,
+              nodeId: "72000000-0000-4000-8000-000000000010",
+            },
+            content: [{ type: "text", text: "Первый вертикальный срез" }],
+          },
+          {
+            type: "paragraph",
+            attrs: { nodeId: "72000000-0000-4000-8000-000000000011" },
+            content: [
+              {
+                type: "text",
+                text: "Этот материал создаётся идемпотентным local seed через application interface.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+  });
+  if (!created.ok) {
     throw new Error(`Local Material draft failed: ${created.error.code}`);
   }
+
+  const initialPublication = await authoring.publishRevision({
+    actor,
+    idempotencyKey: publishIdempotencyKey,
+    materialId: created.value.materialId,
+    revisionId: created.value.revisionId,
+    expectedPublishedRevisionId: null,
+  });
+  if (!initialPublication.ok) {
+    throw new Error(`Local Material publish failed: ${initialPublication.error.code}`);
+  }
+
+  const loaded = await authoring.loadDraft({
+    actor,
+    materialId: created.value.materialId,
+  });
+  if (!loaded.ok) {
+    throw new Error(`Local Material draft failed: ${loaded.error.code}`);
+  }
+  let currentDraft = loaded.value;
 
   if (!currentDraft.metadata.tagIds.includes(tagId)) {
     const revised = await authoring.reviseDraft({
@@ -252,7 +289,12 @@ export async function seedLocalDevelopment(
           tagIds: [tagId],
           seriesMemberships: [{ seriesId, ordinal: 1 }],
         },
-        body: [{ kind: "replace_document", document: createCommand.body }],
+        body: [
+          {
+            kind: "replace_document",
+            document: representativeRevision.body,
+          },
+        ],
       },
     });
     if (!revised.ok) {
@@ -270,25 +312,15 @@ export async function seedLocalDevelopment(
     throw new Error(`Local Material validation failed: ${validated.error.code}`);
   }
 
-  const publication = await database
-    .selectFrom("materials")
-    .select("current_published_revision_id")
-    .where("id", "=", currentDraft.materialId)
-    .executeTakeFirstOrThrow();
-  if (publication.current_published_revision_id !== currentDraft.revisionId) {
-    const published = await authoring.publishRevision({
-      actor,
-      idempotencyKey:
-        publication.current_published_revision_id === null
-          ? publishIdempotencyKey
-          : republishIdempotencyKey,
-      materialId: currentDraft.materialId,
-      revisionId: currentDraft.revisionId,
-      expectedPublishedRevisionId: publication.current_published_revision_id,
-    });
-    if (!published.ok) {
-      throw new Error(`Local Material publish failed: ${published.error.code}`);
-    }
+  const published = await authoring.publishRevision({
+    actor,
+    idempotencyKey: republishIdempotencyKey,
+    materialId: currentDraft.materialId,
+    revisionId: currentDraft.revisionId,
+    expectedPublishedRevisionId: created.value.revisionId,
+  });
+  if (!published.ok) {
+    throw new Error(`Local Material publish failed: ${published.error.code}`);
   }
 
   return Object.freeze({
