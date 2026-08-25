@@ -98,7 +98,7 @@ export function MaterialCard({
   return (
     <article
       className={cn(
-        "@container/material-card w-full max-w-[24rem]",
+        "@container/material-card w-full max-w-[28rem]",
         hasPreview ? "h-full" : "self-start",
       )}
       data-material-id={material.id}
