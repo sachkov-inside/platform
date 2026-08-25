@@ -3,7 +3,6 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
   anonymousSubject,
   createBaselineContentAccess,
-  createMaterials,
 } from "../../src/modules/materials/index.js";
 import {
   fullRepresentativeDocument,
@@ -13,6 +12,7 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import { createTestMaterials as createMaterials } from "./setup/create-test-materials.js";
 import {
   notStringMatching,
   stringMatching,

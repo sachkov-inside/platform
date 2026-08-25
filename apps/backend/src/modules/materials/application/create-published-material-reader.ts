@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type { MaterialBodyOperations } from "../domain/material-body/material-body.js";
-import { loadPublicMaterialProjection } from "../infrastructure/postgres/lifecycle-persistence.js";
 import { loadCurrentPublishedMaterialRevision } from "../infrastructure/postgres/material-persistence.js";
 import { recordMaterialAccessDecision } from "../infrastructure/postgres/access-audit-persistence.js";
 import {
@@ -13,6 +12,8 @@ import type { PlatformDatabase } from "../../../infrastructure/postgres/index.js
 import type { ContentAccess } from "./ports/content-access.js";
 import type { PublishedMaterialReader } from "./published-material-reader.interface.js";
 import { normalizedUuidSchema } from "../domain/uuid.js";
+import type { ContentLibrary } from "../../content-library/index.js";
+import { mapPostgresReadError } from "./shared/postgres-error-mapping.js";
 
 const readPublishedMaterialQuerySchema = z
   .object({
@@ -34,6 +35,7 @@ const readPublishedMaterialQuerySchema = z
 
 export function createPublishedMaterialReaderImplementation(dependencies: {
   readonly database: PlatformDatabase;
+  readonly contentLibrary: Pick<ContentLibrary, "findPublishedMaterial">;
   readonly contentAccess: ContentAccess;
   readonly materialBodyOperations: MaterialBodyOperations;
 }): PublishedMaterialReader {
@@ -45,7 +47,12 @@ export function createPublishedMaterialReaderImplementation(dependencies: {
       }
       const { subject, slug } = parsed.data;
       try {
-        const projection = await loadPublicMaterialProjection(dependencies.database, slug);
+        const projectionResult =
+          await dependencies.contentLibrary.findPublishedMaterial(slug);
+        if (!projectionResult.ok) {
+          return { ok: false, error: projectionResult.error };
+        }
+        const projection = projectionResult.value;
         if (projection === undefined) {
           return { ok: false, error: { code: "material_not_found" } };
         }
@@ -116,11 +123,8 @@ export function createPublishedMaterialReaderImplementation(dependencies: {
             body: rendered.value,
           },
         };
-      } catch {
-        return {
-          ok: false,
-          error: { code: "dependency_unavailable", retryable: true },
-        };
+      } catch (error) {
+        return { ok: false, error: mapPostgresReadError(error) };
       }
     },
   };

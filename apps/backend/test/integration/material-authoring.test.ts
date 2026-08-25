@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import {
-  createMaterials,
   type CreateDraftCommand,
   type LoadDraftQuery,
 } from "../../src/modules/materials/index.js";
@@ -13,6 +12,7 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import { createTestMaterials as createMaterials } from "./setup/create-test-materials.js";
 import { stringMatching } from "../support/matchers.js";
 
 const actor = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";

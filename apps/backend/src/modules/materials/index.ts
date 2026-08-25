@@ -48,8 +48,10 @@ export {
   type PublishedMaterialReadError,
   type PublishedMaterialReadResult,
   type PublishedMaterialReader,
-  type PublicMaterialProjectionDto,
 } from "./application/published-material-reader.interface.js";
+export type {
+  PublishedMaterialProjectionDto as PublicMaterialProjectionDto,
+} from "../content-library/index.js";
 export type {
   MaterialBodyChange,
   JsonObject,

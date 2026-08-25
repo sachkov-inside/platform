@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { createMaterials } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
+import { createTestMaterials as createMaterials } from "./setup/create-test-materials.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,

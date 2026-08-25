@@ -1,51 +1,19 @@
-import type { MaterialAccess } from "../domain/material-revision-metadata.js";
 import type { RenderedMaterialBody } from "../domain/material-body/material-body.js";
+import type { PublishedMaterialProjectionDto } from "../../content-library/index.js";
 import type { AccessDecision, Subject } from "./ports/content-access.js";
 import type { Result } from "../result.js";
-
-export interface PublicMaterialProjectionDto {
-  readonly materialId: string;
-  readonly revisionId: string;
-  readonly slug: string;
-  readonly title: string;
-  readonly summary: string;
-  readonly access: MaterialAccess;
-  readonly publishedAt: string;
-  readonly topic: {
-    readonly id: string;
-    readonly name: string;
-    readonly slug: string;
-  };
-  readonly format: {
-    readonly id: string;
-    readonly name: string;
-    readonly slug: string;
-  };
-  readonly tags: readonly {
-    readonly id: string;
-    readonly name: string;
-  }[];
-  readonly seriesMemberships: readonly {
-    readonly ordinal: number;
-    readonly series: {
-      readonly id: string;
-      readonly name: string;
-      readonly slug: string;
-    };
-  }[];
-}
 
 export type PublishedMaterialReadDto =
   | {
       readonly kind: "available";
       readonly cacheScope: "private-no-store" | "public";
-      readonly projection: PublicMaterialProjectionDto;
+      readonly projection: PublishedMaterialProjectionDto;
       readonly body: RenderedMaterialBody;
     }
   | {
       readonly kind: "teaser";
       readonly cacheScope: "private-no-store" | "public";
-      readonly projection: PublicMaterialProjectionDto;
+      readonly projection: PublishedMaterialProjectionDto;
       readonly access: Extract<AccessDecision, { readonly allowed: false }>;
     };
 

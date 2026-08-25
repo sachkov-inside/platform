@@ -1,4 +1,5 @@
 import type { PlatformDatabase } from "../../infrastructure/postgres/index.js";
+import type { ContentLibrary } from "../content-library/index.js";
 import { createMaterialAuthoringImplementation } from "./application/create-material-authoring.js";
 import { createPublishedMaterialReaderImplementation } from "./application/create-published-material-reader.js";
 import type { MaterialAuthoring } from "./application/material-authoring.interface.js";
@@ -17,6 +18,7 @@ export interface Materials {
 
 export function createMaterials(dependencies: {
   readonly database: PlatformDatabase;
+  readonly contentLibrary: Pick<ContentLibrary, "findPublishedMaterial">;
   readonly authorPolicy: AuthorPolicy;
   readonly contentAccess?: ContentAccess;
 }): Materials {
@@ -25,6 +27,7 @@ export function createMaterials(dependencies: {
     createBaselineContentAccess(dependencies.authorPolicy);
   const shared = {
     database: dependencies.database,
+    contentLibrary: dependencies.contentLibrary,
     authorPolicy: dependencies.authorPolicy,
     contentAccess,
     materialBodyOperations,

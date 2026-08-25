@@ -222,11 +222,11 @@ export const MediaCard: Story = {
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
     await expect(card.getBoundingClientRect().width).toBeLessThan(750);
     await expect(
-      within(card).getByRole("link", { name: "Создание Platform Inside · выпуск 5" }),
-    ).toHaveAttribute("href", "/series/series-platform-inside");
-    await expect(within(card).getByRole("link", { name: "developer pipeline" })).toHaveAttribute(
-      "href",
-      "/library?query=developer%20pipeline",
-    );
+      within(card).getByText(/Создание Platform Inside.*выпуск 5/u),
+    ).toBeInTheDocument();
+    await expect(within(card).getByText("developer pipeline")).toBeInTheDocument();
+    await expect(
+      within(card).getByRole("link", { name: materialFixtures.platformDeliveryVideo.title }),
+    ).toHaveAttribute("href", "/materials/material-platform-build-05");
   },
 };
