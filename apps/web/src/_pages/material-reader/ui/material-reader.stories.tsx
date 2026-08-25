@@ -304,8 +304,12 @@ export const AccessRequired: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Материал доступен участникам" }),
+      canvas.getByRole("heading", { name: "Материал доступен в Мастерской" }),
     ).toBeInTheDocument();
+    const membershipLink = canvas.getByRole("link", { name: "Вступить в Мастерскую" });
+    await expect(membershipLink).toHaveAttribute("href", "https://sachkov.dev");
+    await expect(membershipLink).toHaveAttribute("target", "_blank");
+    await expect(membershipLink).toHaveAttribute("rel", "noopener noreferrer");
     await expect(canvas.queryByText("Хороший skill начинается")).not.toBeInTheDocument();
   },
 };
@@ -315,7 +319,7 @@ export const AccessUnavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Проверка доступа временно недоступна" }),
+      canvas.getByRole("heading", { name: "Не удалось проверить доступ" }),
     ).toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "Проверить снова" })).toBeInTheDocument();
   },

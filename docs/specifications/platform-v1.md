@@ -52,8 +52,9 @@ consequences:
   получают projection или sensitive Platform Account/identity/link/evidence/security data;
 - PostgreSQL projections обеспечивают Library, Topic/Series navigation, search и related Materials;
 - ReadingState не участвует в access decision и сохраняется при окончании Membership;
-- owner-controlled Tribute URL является только outbound acquisition destination: Platform не
-  интегрируется с Tribute API/webhooks и не использует click/payment state как MembershipEvidence.
+- owner-controlled `https://sachkov.dev` landing является только outbound acquisition destination:
+  Platform не интегрируется с Tribute API/webhooks и не использует click/payment state как
+  MembershipEvidence.
 
 Identity provider, отдельная Telegram application и Kinescope являются внешними seams Platform;
 их provider types и credentials не входят в application modules. Production frontend развивается

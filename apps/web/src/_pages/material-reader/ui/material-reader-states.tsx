@@ -1,22 +1,24 @@
-import { ArrowLeft, LockKeyhole, SearchX, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, LockKeyhole, SearchX, ShieldAlert } from "lucide-react";
 
 import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/material-reader-view";
 import { Button } from "@/shared/ui/button";
 
 export function MaterialReaderLoading() {
   return (
-    <div aria-busy="true" aria-label="Материал загружается" data-material-reader-state="loading">
-      <div className="h-11 border-b border-border" />
-      <div className="mt-10 max-w-[56rem] animate-pulse motion-reduce:animate-none">
-        <div className="h-7 w-28 rounded-full bg-muted" />
-        <div className="mt-5 h-10 w-full max-w-xl rounded-lg bg-muted sm:h-12" />
-        <div className="mt-4 h-6 w-full max-w-2xl rounded-lg bg-muted" />
-        <div className="mt-8 h-24 w-full max-w-[70ch] rounded-xl bg-muted/70" />
-        <div className="mt-10 grid max-w-[70ch] gap-4">
-          <div className="h-7 w-2/3 rounded bg-muted" />
-          <div className="h-4 w-full rounded bg-muted/70" />
-          <div className="h-4 w-5/6 rounded bg-muted/70" />
-          <div className="h-4 w-3/4 rounded bg-muted/70" />
+    <div
+      aria-busy="true"
+      aria-label="Материал загружается"
+      className="max-w-[48rem] pt-1 sm:pt-3"
+      data-material-reader-state="loading"
+    >
+      <div className="animate-pulse rounded-2xl bg-secondary px-6 py-7 shadow-card motion-reduce:animate-none sm:px-8 sm:py-9">
+        <div className="size-12 rounded-xl bg-muted" />
+        <div className="mt-6 h-9 w-full max-w-lg rounded-xl bg-muted sm:h-11" />
+        <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-muted/80" />
+        <div className="mt-2 h-5 w-4/5 max-w-lg rounded-lg bg-muted/80" />
+        <div className="mt-7 flex gap-3">
+          <div className="h-11 w-32 rounded-xl bg-muted" />
+          <div className="h-11 w-40 rounded-xl bg-muted/80" />
         </div>
       </div>
       <p className="sr-only">Загружаем опубликованный материал</p>
@@ -35,9 +37,8 @@ export function MaterialReaderNotFound() {
           </a>
         </Button>
       }
-      eyebrow="Material · 404"
       icon={<SearchX aria-hidden="true" />}
-      message="Проверьте адрес или вернитесь в Библиотеку: возможно, материал ещё не опубликован."
+      message="Проверьте адрес или выберите другой материал в Библиотеке."
       state="not-found"
       title="Материал не найден"
     />
@@ -53,50 +54,63 @@ export function MaterialReaderAccess({
 }) {
   const unavailable = reason === "temporarily_unavailable";
   return (
-    <div data-material-reader-state={unavailable ? "access-unavailable" : "access-required"}>
-      <div className="flex min-h-11 items-center border-b border-border pb-3">
-        <Button asChild className="bg-background" size="lg" variant="outline">
+    <div
+      className="max-w-[52rem] pt-1 sm:pt-3"
+      data-material-reader-state={unavailable ? "access-unavailable" : "access-required"}
+    >
+      <div className="flex min-h-11 items-center">
+        <Button asChild size="lg" variant="outline">
           <a href="/library">
             <ArrowLeft aria-hidden="true" />
             В Библиотеку
           </a>
         </Button>
       </div>
-      <header className="mt-10 max-w-[56rem]">
-        <p className="font-mono text-[0.6875rem] text-muted-foreground">
-          {material.format.name} · {material.topic.name}
-        </p>
-        <h1 className="mt-5 max-w-[22ch] text-balance text-[1.75rem] font-semibold leading-[1.1] tracking-[-0.035em] sm:text-[2.25rem]">
+      <header className="mt-7 max-w-[48rem] sm:mt-8">
+        <div className="flex flex-wrap gap-2 text-xs font-semibold text-muted-foreground">
+          <span className="rounded-full bg-muted px-3 py-1.5">{material.format.name}</span>
+          <span className="rounded-full bg-muted px-3 py-1.5">{material.topic.name}</span>
+        </div>
+        <h1 className="mt-4 max-w-[22ch] text-balance text-[1.75rem] font-semibold leading-[1.12] tracking-[-0.03em] sm:text-[2.25rem]">
           {material.title}
         </h1>
         <p className="mt-4 max-w-[65ch] text-pretty leading-7 text-muted-foreground">
           {material.summary}
         </p>
       </header>
-      <section className="mt-10 max-w-[70ch] border-y border-border py-7" aria-labelledby="access-heading">
-        <div className="mb-5 h-1 w-16 rounded-full bg-accent" />
-        {unavailable ? (
-          <ShieldAlert aria-hidden="true" className="size-6 text-accent" />
-        ) : (
-          <LockKeyhole aria-hidden="true" className="size-6 text-accent" />
-        )}
-        <h2 className="mt-4 text-xl font-semibold tracking-[-0.025em]" id="access-heading">
-          {unavailable ? "Проверка доступа временно недоступна" : "Материал доступен участникам"}
+      <section
+        className="relative mt-7 isolate overflow-hidden rounded-2xl bg-secondary px-6 py-7 shadow-card sm:px-8 sm:py-8"
+        aria-labelledby="access-heading"
+      >
+        <StatusHalo />
+        <span className="relative grid size-12 place-items-center rounded-xl bg-background/80 text-accent [&_svg]:size-6">
+          {unavailable ? <ShieldAlert aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}
+        </span>
+        <h2 className="relative mt-5 text-xl font-semibold tracking-[-0.025em] sm:text-2xl" id="access-heading">
+          {unavailable ? "Не удалось проверить доступ" : "Материал доступен в Мастерской"}
         </h2>
-        <p className="mt-3 max-w-[62ch] leading-7 text-muted-foreground">
+        <p className="relative mt-3 max-w-[62ch] text-pretty leading-7 text-muted-foreground">
           {unavailable
-            ? "Закрытое содержимое не показано. Обновите страницу позже — доступ не откроется автоматически при сбое проверки."
-            : "Закрытое содержимое не передано в браузер. Вход и проверка Membership появятся в отдельном безопасном потоке."}
+            ? "Попробуйте ещё раз через несколько минут."
+            : "Вступите, чтобы открыть этот и другие закрытые материалы."}
         </p>
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="relative mt-6 flex flex-wrap gap-3">
           {unavailable ? (
             <Button asChild size="lg">
               <a href={`/materials/${material.slug}`}>Проверить снова</a>
             </Button>
-          ) : null}
-          <Button asChild size="lg" variant={unavailable ? "outline" : "default"}>
-            <a href="/library">Открыть Библиотеку</a>
-          </Button>
+          ) : (
+            <Button asChild className="h-11 rounded-xl px-4" size="lg">
+              <a href="https://sachkov.dev" rel="noopener noreferrer" target="_blank">
+                Вступить в Мастерскую
+                <ArrowUpRight
+                  aria-hidden="true"
+                  className="text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:-translate-y-0.5 group-hover/button:translate-x-0.5 motion-reduce:transition-none"
+                  data-icon="inline-end"
+                />
+              </a>
+            </Button>
+          )}
         </div>
       </section>
     </div>
@@ -116,9 +130,8 @@ export function MaterialReaderUnavailable({ slug }: { readonly slug: string }) {
           </Button>
         </div>
       }
-      eyebrow="Material · сервис недоступен"
       icon={<ShieldAlert aria-hidden="true" />}
-      message="Сервис чтения или его хранилище временно не отвечает. Повторите запрос через несколько минут."
+      message="Сервис чтения не отвечает. Попробуйте ещё раз через несколько минут."
       state="unavailable"
       title="Материал временно недоступен"
     />
@@ -136,9 +149,8 @@ export function MaterialReaderUnexpectedError({ onRetry }: { readonly onRetry: (
           </Button>
         </div>
       }
-      eyebrow="Material · ошибка загрузки"
       icon={<ShieldAlert aria-hidden="true" />}
-      message="Опубликованное содержимое не загрузилось. Повторите запрос; если ошибка сохранится, вернитесь позже."
+      message="Не удалось загрузить материал. Попробуйте ещё раз."
       state="unexpected-error"
       title="Материал сейчас недоступен"
     />
@@ -147,33 +159,39 @@ export function MaterialReaderUnexpectedError({ onRetry }: { readonly onRetry: (
 
 function ReaderStatus({
   action,
-  eyebrow,
   icon,
   message,
   state,
   title,
 }: {
   readonly action: React.ReactNode;
-  readonly eyebrow: string;
   readonly icon: React.ReactNode;
   readonly message: string;
   readonly state: string;
   readonly title: string;
 }) {
   return (
-    <section className="max-w-[70ch] pt-8 sm:pt-12" data-material-reader-state={state}>
-      <p className="font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-muted-foreground">
-        {eyebrow}
-      </p>
-      <div className="mt-8 border-y border-border py-8 sm:py-10">
-        <div className="mb-5 h-1 w-16 rounded-full bg-accent" />
-        <span className="block size-6 text-accent">{icon}</span>
-        <h1 className="mt-4 text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">
+    <section className="max-w-[48rem] pt-1 sm:pt-3" data-material-reader-state={state}>
+      <div className="relative isolate overflow-hidden rounded-2xl bg-secondary px-6 py-7 shadow-card sm:px-8 sm:py-9">
+        <StatusHalo />
+        <span className="relative grid size-12 place-items-center rounded-xl bg-background/80 text-accent [&_svg]:size-6">
+          {icon}
+        </span>
+        <h1 className="relative mt-5 max-w-[18ch] text-balance text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
           {title}
         </h1>
-        <p className="mt-4 max-w-[60ch] text-pretty leading-7 text-muted-foreground">{message}</p>
-        <div className="mt-7">{action}</div>
+        <p className="relative mt-4 max-w-[60ch] text-pretty leading-7 text-muted-foreground">{message}</p>
+        <div className="relative mt-7">{action}</div>
       </div>
     </section>
+  );
+}
+
+function StatusHalo() {
+  return (
+    <span
+      aria-hidden="true"
+      className="reader-status-halo absolute -right-10 -top-16 size-48 rounded-full bg-accent/15"
+    />
   );
 }

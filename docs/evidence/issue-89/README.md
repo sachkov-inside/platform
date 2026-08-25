@@ -6,6 +6,7 @@ Captured from the implementation branch on 2026-08-25 after `pnpm check:full` pa
 | --- | --- | --- |
 | Live PostgreSQL → Nest → Next route | [`live-desktop.png`](./live-desktop.png) | [`live-mobile.png`](./live-mobile.png) |
 | Exact production-owned Storybook component | [`storybook-desktop.png`](./storybook-desktop.png) | [`storybook-mobile.png`](./storybook-mobile.png) |
+| Membership offer state | [`access-required-desktop.png`](./access-required-desktop.png) | [`access-required-mobile.png`](./access-required-mobile.png) |
 
 - Live route: `/materials/inside-platform-overview`
 - Storybook: `Pages/Material/Reader` (`Desktop` and `Mobile`)
@@ -24,4 +25,6 @@ Captured from the implementation branch on 2026-08-25 after `pnpm check:full` pa
   navigation interaction.
 - Operational stories distinguish infrastructure `Unavailable`, access-policy unavailability and
   unexpected errors; topic, tags and series remain plain metadata until their owning routes ship.
+- Membership offer uses short owner-approved copy and sends `Вступить в Мастерскую` to the external
+  `https://sachkov.dev` landing.
 - Owner production visual GO: pending; this evidence does not self-approve it.

@@ -121,3 +121,23 @@ test("returns the production not-found state for an unpublished slug", async ({ 
   await expect(page.getByRole("heading", { name: "Материал не найден" })).toBeVisible();
   await expect(page.getByRole("link", { name: "В Библиотеку" })).toBeVisible();
 });
+
+test("keeps desktop shell fixed while main content owns scrolling", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+
+  await page.goto("/materials/inside-platform-overview");
+  const sidebar = page.getByRole("complementary", { name: "Боковая панель" });
+  const main = page.getByRole("main");
+
+  await sidebar.hover();
+  await page.mouse.wheel(0, 600);
+  await page.waitForTimeout(100);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await expect.poll(() => main.evaluate((element) => element.scrollTop)).toBe(0);
+
+  await main.hover({ position: { x: 600, y: 400 } });
+  await page.mouse.wheel(0, 600);
+  await page.waitForTimeout(100);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await expect.poll(() => main.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+});
