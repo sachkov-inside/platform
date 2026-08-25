@@ -67,3 +67,18 @@ jobs:
             --project-id PVT_kwDOEviKY84Bg8D6 \
             --field-id PVTSSF_lADOEviKY84Bg8D6zhf5tfs \
             --single-select-option-id 8a1118e3
+
+  close-completed-parent-chain:
+    if: github.event_name == 'issues' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.INSIDE_PROJECT_TOKEN }}
+      REPOSITORY: ${{ github.repository }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.INSIDE_PROJECT_TOKEN }}
+          persist-credentials: false
+      - name: Close completed parent issues
+        run: .github/scripts/close-completed-parents.sh

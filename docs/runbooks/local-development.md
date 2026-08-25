@@ -26,7 +26,7 @@ bootstrap; web waits for healthy API. Storybook is an optional profile on
 <http://127.0.0.1:6006>. Integration tests continue to use their own temporary PostgreSQL through
 Testcontainers and never share the Compose database.
 
-The production API exposes health, OpenAPI and the published Material Reader endpoint. Material
+The production API exposes health, OpenAPI, the published catalog and the Material Reader endpoint. Material
 authoring remains an application interface covered by integration tests; this Compose work does
 not invent a production authoring transport.
 
@@ -75,8 +75,8 @@ bash scripts/compose-stack-smoke.sh
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
-database-backed readiness, and exactly one seeded `inside-platform-overview` Material with its two
-stable lifecycle revisions exists. Repeating `docker compose down` and the detached startup
+database-backed readiness, one stable free `inside-platform-overview` Material with its two
+lifecycle revisions and one safe closed catalog Material. Repeating `docker compose down` and the detached startup
 preserves the database volume and proves the bootstrap seed does not create another revision.
 
 Stop without deleting data:
@@ -124,6 +124,8 @@ Inspect the running host fallback or Compose stack:
 - health: <http://127.0.0.1:3001/health>
 - OpenAPI UI: <http://127.0.0.1:3001/openapi>
 - published Material API: <http://127.0.0.1:3001/materials/inside-platform-overview>
+- published catalog API: <http://127.0.0.1:3001/library/materials>
+- production Library: <http://127.0.0.1:3000/library>
 - production Reader: <http://127.0.0.1:3000/materials/inside-platform-overview>
 
 The API health response is:
@@ -191,11 +193,13 @@ docker compose run --rm bootstrap
 ```
 
 The seed refuses non-development mode, uses versioned idempotency keys and creates one free,
-representative published Material at slug `inside-platform-overview`. Repeating it keeps the same
-Material and upgrades an older local fixture to the current revision without resetting the named
-volume. The Material itself is created, revised, validated and published through the Materials
-application interface. Only its fixed local Topic/Format/Tag/Series prerequisites use typed Kysely
-bootstrap because Platform has no product taxonomy-authoring capability yet; raw SQL is not used.
+representative published Material at slug `inside-platform-overview` plus one Membership Material
+whose body must remain absent from the public catalog. Repeating it keeps the same Materials and
+upgrades an older free fixture to the current revision without resetting the named volume. Both
+Materials are created and published through the Materials application interface; the free fixture
+is also revised and validated there. Only their fixed local Topic/Format/Tag/Series prerequisites
+use typed Kysely bootstrap because Platform has no product taxonomy-authoring capability yet; raw
+SQL is not used.
 
 ## Migration and generated-type checks
 

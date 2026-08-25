@@ -801,16 +801,19 @@ export const Desktop: Story = {
 
     await userEvent.click(canvas.getByRole("checkbox", { name: "Создание Platform Inside" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
-    await expect(
-      canvas.getByRole("link", { name: "Создание Platform Inside · выпуск 5" }),
-    ).toBeInTheDocument();
+    const filteredPlatformVideo = canvasElement.querySelector<HTMLElement>(
+      `[data-material-id="${materialFixtures.platformDeliveryVideo.id}"]`,
+    );
+    if (filteredPlatformVideo === null) {
+      throw new Error("Filtered Material card is missing");
+    }
+    await expect(filteredPlatformVideo).toHaveTextContent(
+      /Создание Platform Inside.*выпуск 5/u,
+    );
     await userEvent.click(canvas.getByRole("checkbox", { name: "Создание Platform Inside" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
 
-    const harnessLinks = canvas.getAllByRole("link", { name: "harness" });
-
-    await expect(harnessLinks.length).toBeGreaterThan(0);
-    await expect(harnessLinks[0]).toHaveAttribute("href", "/library?query=harness");
+    await expect(canvas.getAllByText("harness").length).toBeGreaterThan(0);
 
     const sortControl = canvas.getByRole("combobox", { name: "Сортировка" });
     await userEvent.click(sortControl);

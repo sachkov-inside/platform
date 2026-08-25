@@ -11,6 +11,9 @@ const seriesId = "72000000-0000-4000-8000-000000000007";
 const reviseIdempotencyKey = "72000000-0000-4000-8000-000000000008";
 const republishIdempotencyKey = "72000000-0000-4000-8000-000000000009";
 const slug = "inside-platform-overview";
+const membershipSlug = "membership-delivery-guide";
+const membershipCreateIdempotencyKey = "72000000-0000-4000-8000-000000000033";
+const membershipPublishIdempotencyKey = "72000000-0000-4000-8000-000000000034";
 
 export interface LocalDevelopmentSeed {
   readonly materialId: string;
@@ -323,11 +326,58 @@ export async function seedLocalDevelopment(
     throw new Error(`Local Material publish failed: ${published.error.code}`);
   }
 
+  await ensureMembershipCatalogMaterial(authoring);
+
   return Object.freeze({
     materialId: currentDraft.materialId,
     revisionId: currentDraft.revisionId,
     slug,
   });
+}
+
+async function ensureMembershipCatalogMaterial(
+  authoring: ReturnType<typeof createMaterials>["authoring"],
+): Promise<void> {
+  const created = await authoring.createDraft({
+    actor,
+    idempotencyKey: membershipCreateIdempotencyKey,
+    metadata: {
+      title: "Developer Pipeline без потери контекста",
+      summary: "Закрытый Material с публичным безопасным описанием для каталога.",
+      slug: membershipSlug,
+      access: "membership",
+      topicId,
+      formatId,
+      tagIds: [tagId],
+      seriesMemberships: [],
+    },
+    body: {
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            attrs: { nodeId: "72000000-0000-4000-8000-000000000035" },
+            content: [{ type: "text", text: "Закрытое содержимое для участников." }],
+          },
+        ],
+      },
+    },
+  });
+  if (!created.ok) {
+    throw new Error(`Local Membership Material draft failed: ${created.error.code}`);
+  }
+  const published = await authoring.publishRevision({
+    actor,
+    idempotencyKey: membershipPublishIdempotencyKey,
+    materialId: created.value.materialId,
+    revisionId: created.value.revisionId,
+    expectedPublishedRevisionId: null,
+  });
+  if (!published.ok) {
+    throw new Error(`Local Membership Material publish failed: ${published.error.code}`);
+  }
 }
 
 async function ensureReferenceData(database: PlatformDatabase): Promise<void> {

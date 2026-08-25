@@ -87,6 +87,33 @@ describe("published Material HTTP contract", () => {
     });
   });
 
+  test("returns the published catalog without Material body bytes", async () => {
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/library/materials",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("public, max-age=0, must-revalidate");
+    expect(response.json()).toEqual({
+      items: [
+        expect.objectContaining({
+          slug: "membership-delivery-guide",
+          title: "Developer Pipeline без потери контекста",
+          access: "membership",
+        }),
+        expect.objectContaining({
+          slug: "inside-platform-overview",
+          title: "Как устроен Inside Platform",
+          access: "free",
+        }),
+      ],
+      nextCursor: null,
+    });
+    expect(response.body).not.toContain("schemaVersion");
+    expect(response.body).not.toContain("blocks");
+  });
+
   test("returns a stable 404 outcome for an unpublished slug", async () => {
     const response = await app.getHttpAdapter().getInstance().inject({
       method: "GET",
@@ -119,6 +146,22 @@ describe("published Material HTTP contract", () => {
     });
   });
 
+  test("rejects a malformed catalog cursor", async () => {
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/library/materials?after=not-a-cursor",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.json()).toEqual({
+      type: "urn:inside:problem:invalid-request-shape",
+      title: "Invalid request shape",
+      status: 400,
+      code: "invalid_request_shape",
+    });
+  });
+
   test("returns a retryable 503 outcome when PostgreSQL is unavailable", async () => {
     const unavailableApp = await createApiApplication(
       parsePlatformConfig({
@@ -131,20 +174,25 @@ describe("published Material HTTP contract", () => {
     await unavailableApp.getHttpAdapter().getInstance().ready();
 
     try {
-      const response = await unavailableApp.getHttpAdapter().getInstance().inject({
-        method: "GET",
-        url: "/materials/inside-platform-overview",
-      });
+      for (const url of [
+        "/library/materials",
+        "/materials/inside-platform-overview",
+      ]) {
+        const response = await unavailableApp.getHttpAdapter().getInstance().inject({
+          method: "GET",
+          url,
+        });
 
-      expect(response.statusCode).toBe(503);
-      expect(response.headers["content-type"]).toContain("application/problem+json");
-      expect(response.json()).toEqual({
-        type: "urn:inside:problem:dependency-unavailable",
-        title: "Dependency unavailable",
-        status: 503,
-        code: "dependency_unavailable",
-        retryable: true,
-      });
+        expect(response.statusCode).toBe(503);
+        expect(response.headers["content-type"]).toContain("application/problem+json");
+        expect(response.json()).toEqual({
+          type: "urn:inside:problem:dependency-unavailable",
+          title: "Dependency unavailable",
+          status: 503,
+          code: "dependency_unavailable",
+          retryable: true,
+        });
+      }
     } finally {
       await unavailableApp.close();
     }

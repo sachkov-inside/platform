@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "package": "inside-engineering",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "managedSkills": [
     "ask-matt",
     "code-review",
@@ -39,7 +39,8 @@
   "snapshot": ".inside-harness/skills",
   "managedFiles": [
     "WORKFLOW.md",
-    "docs/agents/triage-labels.md"
+    "docs/agents/triage-labels.md",
+    ".github/scripts/close-completed-parents.sh"
   ],
   "targets": {
     "portable": ".agents/skills",
