@@ -67,9 +67,9 @@ bash scripts/compose-stack-smoke.sh
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
-database-backed readiness, and exactly one seeded `inside-platform-overview` Material and revision
-exist. Repeating `docker compose down` and the detached startup preserves the database volume and
-proves the bootstrap seed is idempotent.
+database-backed readiness, and exactly one seeded `inside-platform-overview` Material with its two
+stable lifecycle revisions exists. Repeating `docker compose down` and the detached startup
+preserves the database volume and proves the bootstrap seed does not create another revision.
 
 Stop without deleting data:
 

@@ -32,8 +32,8 @@ seed_snapshot="$(
     --no-align \
     --command "select (select count(*) from materials where slug = 'inside-platform-overview') || ':' || (select count(*) from material_revisions r join materials m on m.id = r.material_id where m.slug = 'inside-platform-overview');"
 )"
-if [[ "$seed_snapshot" != "1:1" ]]; then
-  echo "Expected one stable seeded Material and revision, received $seed_snapshot" >&2
+if [[ "$seed_snapshot" != "1:2" ]]; then
+  echo "Expected one stable seeded Material and two lifecycle revisions, received $seed_snapshot" >&2
   exit 1
 fi
 
