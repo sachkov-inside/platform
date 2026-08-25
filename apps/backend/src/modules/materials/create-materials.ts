@@ -1,13 +1,13 @@
 import type { PlatformDatabase } from "../../infrastructure/postgres/index.js";
 import { createMaterialAuthoringImplementation } from "./application/create-material-authoring.js";
-import { createPublishedMaterialReaderImplementation } from "./application/create-published-material-reader.js";
+import { createPublishedMaterialReader } from "./application/published-material-reader/create-published-material-reader.js";
 import type { MaterialAuthoring } from "./application/material-authoring.interface.js";
 import type { AuthorPolicy } from "./application/ports/author-policy.js";
 import {
   createBaselineContentAccess,
   type ContentAccess,
 } from "./application/ports/content-access.js";
-import type { PublishedMaterialReader } from "./application/published-material-reader.interface.js";
+import type { PublishedMaterialReader } from "./application/published-material-reader/published-material-reader.js";
 import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 
 export interface Materials {
@@ -31,6 +31,6 @@ export function createMaterials(dependencies: {
   };
   return Object.freeze({
     authoring: createMaterialAuthoringImplementation(shared),
-    publishedMaterialReader: createPublishedMaterialReaderImplementation(shared),
+    publishedMaterialReader: createPublishedMaterialReader(shared),
   });
 }

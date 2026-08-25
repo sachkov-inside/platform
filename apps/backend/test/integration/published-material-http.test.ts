@@ -94,7 +94,9 @@ describe("published Material HTTP contract", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.headers["cache-control"]).toBe("public, max-age=0, must-revalidate");
+    expect(response.headers["cache-control"]).toBe(
+      "public, max-age=30, stale-while-revalidate=60",
+    );
     expect(response.json()).toEqual({
       items: [
         expect.objectContaining({

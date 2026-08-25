@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
-import { createContentLibrary } from "../../src/modules/content-library/index.js";
+import { createListPublishedMaterialsOperation } from "../../src/modules/content-library/index.js";
 import { createMaterials } from "../../src/modules/materials/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
 
-describe("ContentLibrary", () => {
+describe("ListPublishedMaterials", () => {
   let testDatabase: TestDatabase;
 
   beforeAll(async () => {
@@ -25,9 +25,11 @@ describe("ContentLibrary", () => {
       database: testDatabase.database,
       authorPolicy: { canAuthor: () => false, canPublish: () => false },
     });
-    const contentLibrary = createContentLibrary({ publishedMaterialReader });
+    const listPublishedMaterials = createListPublishedMaterialsOperation({
+      publishedMaterialReader,
+    });
 
-    const firstPage = await contentLibrary.listPublishedMaterials({ first: 1 });
+    const firstPage = await listPublishedMaterials({ first: 1 });
     expect(firstPage).toMatchObject({
       ok: true,
       value: {
@@ -45,7 +47,7 @@ describe("ContentLibrary", () => {
       throw new Error("Expected the first catalog page to continue");
     }
 
-    const secondPage = await contentLibrary.listPublishedMaterials({
+    const secondPage = await listPublishedMaterials({
       after: firstPage.value.nextCursor,
       first: 1,
     });

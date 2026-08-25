@@ -1,22 +1,33 @@
-import { ArrowRight, DatabaseZap, RefreshCw } from "lucide-react";
+import { DatabaseZap, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
-import type { LibraryCatalogResult } from "@/_pages/library/model/library-view";
+import type { LibraryCatalogPage } from "@/_pages/library/model/library-view";
+import { formatMaterialCount } from "@/_pages/library/model/format-material-count";
 import { MaterialCard } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 
 export function LibraryPage({
+  catalog,
+  onRetry,
   result,
 }: {
-  readonly result: LibraryCatalogResult;
+  readonly catalog?: React.ReactNode;
+  readonly onRetry?: () => void;
+  readonly result: LibraryCatalogPage;
 }) {
   return (
     <div className="@container/library -mx-5 -mb-7 overflow-hidden bg-background sm:-mx-8 sm:-mb-10 md:m-0 md:overflow-visible md:bg-transparent">
       <LibraryHeader />
       <div className="px-5 pb-7 sm:px-8 sm:pb-10 md:px-0 md:pb-0">
-        {result.kind === "ready" ? <LibraryCatalog result={result} /> : null}
-        {result.kind === "empty" ? <LibraryEmpty firstHref={result.firstHref} /> : null}
-        {result.kind === "unavailable" ? <LibraryUnavailable /> : null}
+        {result.kind === "ready"
+          ? catalog ?? <LibraryCatalog items={result.items} />
+          : null}
+        {result.kind === "empty" ? <LibraryEmpty /> : null}
+        {result.kind === "unavailable" ? (
+          <LibraryUnavailable
+            {...(onRetry === undefined ? {} : { onRetry })}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -90,17 +101,14 @@ function LibraryHeader() {
       <h1 className="text-balance text-2xl font-semibold leading-7 tracking-[-0.03em] @min-[30rem]/library:text-3xl @min-[30rem]/library:leading-9 @min-[52rem]/library:text-5xl @min-[52rem]/library:leading-[1.1]">
         Библиотека
       </h1>
-      <p className="mt-3 max-w-[62ch] text-pretty text-sm leading-6 text-muted-foreground @min-[40rem]/library:text-base @min-[40rem]/library:leading-7">
-        Опубликованные материалы Inside — бесплатные и доступные участникам Мастерской.
-      </p>
     </header>
   );
 }
 
-function LibraryCatalog({
-  result,
+export function LibraryCatalog({
+  items,
 }: {
-  readonly result: Extract<LibraryCatalogResult, { readonly kind: "ready" }>;
+  readonly items: Extract<LibraryCatalogPage, { readonly kind: "ready" }>["items"];
 }) {
   return (
     <section aria-labelledby="materials-heading" className="mt-8 sm:mt-10" data-library-state="ready">
@@ -110,77 +118,72 @@ function LibraryCatalog({
             Материалы
           </h2>
           <p className="mt-1 font-mono text-xs text-muted-foreground">
-            {formatMaterialCount(result.items.length)} на странице
+            {formatMaterialCount(items.length)} загружено
           </p>
         </div>
       </div>
-      <ul
-        className="mt-4 grid grid-cols-1 items-start justify-items-center gap-4 @min-[40rem]/library:grid-cols-2 @min-[68rem]/library:grid-cols-3"
-        data-material-grid
-        role="list"
-      >
-        {result.items.map((material) => (
-          <li className="w-full max-w-[28rem]" key={material.slug}>
-            <MaterialCard headingLevel="h3" material={material} />
-          </li>
-        ))}
-      </ul>
-      {result.firstHref === null && result.nextHref === null ? null : (
-        <nav aria-label="Страницы каталога" className="mt-8 flex flex-wrap justify-center gap-3 sm:mt-10">
-          {result.firstHref === null ? null : (
-            <Button asChild size="lg" variant="ghost">
-              <Link href={result.firstHref}>К началу</Link>
-            </Button>
-          )}
-          {result.nextHref === null ? null : (
-            <Button asChild size="lg" variant="outline">
-              <Link href={result.nextHref} rel="next">
-                Следующая страница
-                <ArrowRight aria-hidden="true" />
-              </Link>
-            </Button>
-          )}
-        </nav>
-      )}
+      <LibraryMaterialGrid className="mt-4" items={items} />
     </section>
   );
 }
 
-function LibraryEmpty({ firstHref }: { readonly firstHref: "/library" | null }) {
+export function LibraryMaterialGrid({
+  className = "",
+  items,
+  label,
+}: {
+  readonly className?: string;
+  readonly items: Extract<LibraryCatalogPage, { readonly kind: "ready" }>["items"];
+  readonly label?: string;
+}) {
+  return (
+    <ul
+      {...(label === undefined ? {} : { "aria-label": label })}
+      className={`${className} grid grid-cols-1 items-start justify-items-center gap-4 @min-[40rem]/library:grid-cols-2 @min-[68rem]/library:grid-cols-3`}
+      data-material-grid
+      role="list"
+    >
+      {items.map((material) => (
+        <li className="w-full max-w-[28rem]" key={material.slug}>
+          <MaterialCard headingLevel="h3" material={material} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function LibraryEmpty() {
   return (
     <LibraryStatus
       action={
         <Button asChild size="lg" variant="outline">
-          <Link href={firstHref ?? "/map"}>
-            {firstHref === null ? "Открыть Карту" : "Открыть первую страницу"}
-          </Link>
+          <Link href="/map">Открыть Карту</Link>
         </Button>
       }
-      message={
-        firstHref === null
-          ? "После публикации материалы появятся здесь автоматически."
-          : "Эта страница больше не содержит материалов. Вернитесь к началу каталога."
-      }
+      message="После публикации материалы появятся здесь автоматически."
       state="empty"
-      title={
-        firstHref === null
-          ? "Опубликованных материалов пока нет"
-          : "Страница каталога опустела"
-      }
+      title="Опубликованных материалов пока нет"
     />
   );
 }
 
-function LibraryUnavailable() {
+function LibraryUnavailable({ onRetry }: { readonly onRetry?: () => void }) {
   return (
     <LibraryStatus
       action={
-        <Button asChild size="lg">
-          <Link href="/library">
+        onRetry === undefined ? (
+          <Button asChild size="lg">
+            <Link href="/library">
+              <RefreshCw aria-hidden="true" />
+              Повторить
+            </Link>
+          </Button>
+        ) : (
+          <Button onClick={onRetry} size="lg">
             <RefreshCw aria-hidden="true" />
             Повторить
-          </Link>
-        </Button>
+          </Button>
+        )
       }
       message="Каталог не отвечает. Попробуйте ещё раз через несколько минут."
       state="unavailable"
@@ -220,20 +223,4 @@ function LibraryStatus({
       </div>
     </section>
   );
-}
-
-function formatMaterialCount(count: number): string {
-  const lastTwoDigits = count % 100;
-  const lastDigit = count % 10;
-
-  if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
-    return `${String(count)} материалов`;
-  }
-  if (lastDigit === 1) {
-    return `${String(count)} материал`;
-  }
-  if (lastDigit >= 2 && lastDigit <= 4) {
-    return `${String(count)} материала`;
-  }
-  return `${String(count)} материалов`;
 }

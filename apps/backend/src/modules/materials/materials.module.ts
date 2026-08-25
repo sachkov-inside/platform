@@ -23,7 +23,7 @@ import {
 import {
   PUBLISHED_MATERIAL_READER,
   type PublishedMaterialReader,
-} from "./application/published-material-reader.interface.js";
+} from "./application/published-material-reader/published-material-reader.js";
 import { createMaterials, type Materials } from "./create-materials.js";
 import { createIdentityAuthorPolicy } from "./infrastructure/identity/identity-author-policy.js";
 

@@ -122,8 +122,8 @@ export const HybridCatalog: Story = {
       `[data-material-id="${materialFixtures.careerVideo.id}"]`,
     );
     const materialGrid = canvasElement.querySelector<HTMLElement>("[data-material-grid]");
-    const platformPosterLink = canvas.getByRole("link", {
-      name: `Открыть материал: ${materialFixtures.platformDeliveryVideo.title}`,
+    const platformCardLink = canvas.getByRole("link", {
+      name: materialFixtures.platformDeliveryVideo.title,
     });
 
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
@@ -149,12 +149,12 @@ export const HybridCatalog: Story = {
     await expect(platformVideo.getBoundingClientRect().width).toBeGreaterThanOrEqual(360);
     for (
       let tabIndex = 0;
-      tabIndex < 12 && canvasElement.ownerDocument.activeElement !== platformPosterLink;
+      tabIndex < 12 && canvasElement.ownerDocument.activeElement !== platformCardLink;
       tabIndex += 1
     ) {
       await userEvent.tab();
     }
-    await expect(platformPosterLink).toHaveFocus();
+    await expect(platformCardLink).toHaveFocus();
     await expect(within(guideCard).queryByRole("img")).not.toBeInTheDocument();
     await expect(within(guideCard).queryByRole("link", { name: /выпуск/ })).not.toBeInTheDocument();
     await expect(guideCard.getBoundingClientRect().width).toBeLessThan(750);

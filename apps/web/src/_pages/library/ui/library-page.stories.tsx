@@ -1,11 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 
+import { createLibraryCatalogQueryOptions } from "@/_pages/library/model/library-catalog-query";
+import type { LibraryCatalogPage } from "@/_pages/library/model/library-view";
 import {
   LibraryLoading,
   LibraryPage,
   LibraryUnexpectedError,
 } from "@/_pages/library/ui/library-page";
+import { LibraryCatalogQueryView } from "@/_pages/library/ui/library-page-query.client";
+import { VirtualizedLibraryCatalog } from "@/_pages/library/ui/virtualized-library-catalog.client";
 import type { MaterialPreview } from "@/entities/material";
 import {
   ApplicationShell,
@@ -59,6 +65,134 @@ const catalogItems = [
   },
 ] as const satisfies readonly MaterialPreview[];
 
+type ReadyCatalogPage = Extract<LibraryCatalogPage, { readonly kind: "ready" }>;
+
+function createCatalogPage(pageIndex: number, itemCount = 12): ReadyCatalogPage {
+  const source = catalogItems[pageIndex % catalogItems.length] ?? catalogItems[0];
+
+  return {
+    items: Array.from({ length: itemCount }, (_, itemIndex) => ({
+      ...source,
+      slug: `story-material-${String(pageIndex + 1)}-${String(itemIndex + 1)}`,
+      title: `Материал ${String(pageIndex + 1)}.${String(itemIndex + 1)}`,
+    })),
+    kind: "ready",
+    nextCursor: `story-cursor-${String(pageIndex + 1)}`,
+  };
+}
+
+function createCatalogPages(count: number): readonly ReadyCatalogPage[] {
+  return Array.from({ length: count }, (_, pageIndex) =>
+    createCatalogPage(pageIndex),
+  );
+}
+
+function AutoLoadCatalogHarness() {
+  const [pageCount, setPageCount] = useState(1);
+
+  return (
+    <VirtualizedLibraryCatalog
+      hasNextPage={pageCount < 2}
+      isFetchNextPageError={false}
+      isFetchingNextPage={false}
+      onLoadNextPage={() => {
+        setPageCount(2);
+      }}
+      pages={createCatalogPages(pageCount)}
+    />
+  );
+}
+
+function RetryCatalogHarness() {
+  const [attempts, setAttempts] = useState(0);
+
+  return (
+    <>
+      <output aria-label="Попыток повторной загрузки">{attempts}</output>
+      <VirtualizedLibraryCatalog
+        hasNextPage
+        isFetchNextPageError
+        isFetchingNextPage={false}
+        onLoadNextPage={() => {
+          setAttempts((current) => current + 1);
+        }}
+        pages={createCatalogPages(1)}
+      />
+    </>
+  );
+}
+
+function CachedCatalogNavigationHarness() {
+  const [screen, setScreen] = useState<"catalog" | "detail" | "idle">("idle");
+  const [requestCount, setRequestCount] = useState(0);
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: { retry: false, staleTime: 30_000 },
+        },
+      }),
+  );
+  const queryOptions = useMemo(
+    () =>
+      createLibraryCatalogQueryOptions(({ after }) => {
+        setRequestCount((current) => current + 1);
+        return Promise.resolve(
+          after === undefined
+            ? createCatalogPage(0)
+            : { ...createCatalogPage(1), nextCursor: null },
+        );
+      }),
+    [],
+  );
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <div className="fixed right-4 top-4 z-50 rounded-xl bg-background p-2 shadow-card">
+        <output aria-label="Запросов к каталогу" className="mr-3">
+          {requestCount}
+        </output>
+        {screen === "idle" ? (
+          <button
+            onClick={() => {
+              window.sessionStorage.removeItem("inside:library-scroll:v1");
+              queryClient.clear();
+              setScreen("catalog");
+            }}
+            type="button"
+          >
+            Начать проверку
+          </button>
+        ) : null}
+        {screen === "catalog" ? (
+          <button
+            onClick={() => {
+              setScreen("detail");
+            }}
+            type="button"
+          >
+            Открыть материал
+          </button>
+        ) : null}
+        {screen === "detail" ? (
+          <button
+            onClick={() => {
+              setScreen("catalog");
+            }}
+            type="button"
+          >
+            Вернуться в библиотеку
+          </button>
+        ) : null}
+      </div>
+      {screen === "catalog" ? (
+        <LibraryCatalogQueryView queryOptions={queryOptions} />
+      ) : null}
+      {screen === "detail" ? <p>Карточка материала</p> : null}
+    </QueryClientProvider>
+  );
+}
+
 function ProductionShell({ children }: { readonly children: React.ReactNode }) {
   return (
     <ApplicationShell
@@ -98,15 +232,23 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const ReadyDesktop: Story = {
-  args: { result: { kind: "ready", firstHref: null, items: catalogItems, nextHref: null } },
+  args: { result: { kind: "ready", items: catalogItems, nextCursor: null } },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Ready · desktop",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const cards = Array.from(canvasElement.querySelectorAll<HTMLElement>("article"));
+    const firstCard = cards[0];
     const grid = canvasElement.querySelector<HTMLElement>("[data-material-grid]");
 
     await expect(cards).toHaveLength(3);
+    if (firstCard === undefined) {
+      throw new Error("First Material card is missing");
+    }
+    await expect(within(firstCard).getAllByRole("link")).toHaveLength(1);
+    await expect(
+      within(firstCard).getByRole("link", { name: catalogItems[0].title }),
+    ).toContainElement(within(firstCard).getByText(catalogItems[0].summary));
     await expect(canvas.getByText("Бесплатно")).toBeInTheDocument();
     await expect(canvas.getAllByText("Для участников")).toHaveLength(2);
     await expect(
@@ -120,7 +262,7 @@ export const ReadyDesktop: Story = {
 };
 
 export const ReadyMobile: Story = {
-  args: { result: { kind: "ready", firstHref: null, items: catalogItems, nextHref: null } },
+  args: { result: { kind: "ready", items: catalogItems, nextCursor: null } },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Ready · mobile",
   play: async ({ canvasElement }) => {
@@ -136,7 +278,7 @@ export const ReadyMobile: Story = {
       canvasElement.ownerDocument.documentElement.clientWidth,
     );
     const firstCardLink = canvas.getByRole("link", {
-      name: `Открыть материал: ${catalogItems[0].title}`,
+      name: catalogItems[0].title,
     });
     for (
       let tabIndex = 0;
@@ -149,32 +291,128 @@ export const ReadyMobile: Story = {
   },
 };
 
-export const Pagination: Story = {
+export const ContinuedCatalog: Story = {
   args: {
     result: {
       kind: "ready",
-      firstHref: "/library",
       items: catalogItems,
-      nextHref: "/library?after=representative-cursor",
+      nextCursor: "representative-cursor",
     },
   },
   play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getAllByRole("article")).toHaveLength(3);
     await expect(
-      within(canvasElement).getByRole("link", { name: "Следующая страница" }),
-    ).toHaveAttribute("href", "/library?after=representative-cursor");
+      within(canvasElement).queryByRole("link", { name: "Следующая страница" }),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const AutoLoadsContinuation: Story = {
+  args: { result: { kind: "empty" } },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Infinite catalog · auto load",
+  render: () => <AutoLoadCatalogHarness />,
+  play: async ({ canvasElement }) => {
+    const main = canvasElement.querySelector<HTMLElement>("main");
+    if (main === null) {
+      throw new Error("Application shell main scroll container is missing");
+    }
+
+    main.scrollTo({ top: main.scrollHeight });
+    await waitFor(() =>
+      expect(within(canvasElement).getByText("24 материала загружено")).toBeInTheDocument(),
+    );
+  },
+};
+
+export const VirtualizesLoadedPages: Story = {
+  args: { result: { kind: "empty" } },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Infinite catalog · virtualization",
+  render: () => (
+    <VirtualizedLibraryCatalog
+      hasNextPage={false}
+      isFetchNextPageError={false}
+      isFetchingNextPage={false}
+      onLoadNextPage={() => undefined}
+      pages={createCatalogPages(8)}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const main = canvasElement.querySelector<HTMLElement>("main");
+    if (main === null) {
+      throw new Error("Application shell main scroll container is missing");
+    }
+
+    await expect(canvasElement.querySelectorAll("article").length).toBeLessThan(96);
+    main.scrollTo({ top: main.scrollHeight });
+    await waitFor(() =>
+      expect(within(canvasElement).getByText("Материал 8.12")).toBeInTheDocument(),
+    );
+  },
+};
+
+export const RetriesContinuationExplicitly: Story = {
+  args: { result: { kind: "empty" } },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Infinite catalog · retry",
+  render: () => <RetryCatalogHarness />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const attempts = canvas.getByRole("status", {
+      name: "Попыток повторной загрузки",
+    });
+
+    await expect(attempts).toHaveTextContent("0");
+    await userEvent.click(canvas.getByRole("button", { name: "Повторить" }));
+    await expect(attempts).toHaveTextContent("1");
+  },
+};
+
+export const RestoresCatalogScroll: Story = {
+  args: { result: { kind: "empty" } },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Infinite catalog · cached navigation restoration",
+  render: () => <CachedCatalogNavigationHarness />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const main = canvasElement.querySelector<HTMLElement>("main");
+    if (main === null) {
+      throw new Error("Application shell main scroll container is missing");
+    }
+
+    await userEvent.click(canvas.getByRole("button", { name: "Начать проверку" }));
+    await waitFor(() => expect(main.scrollHeight).toBeGreaterThan(1_000));
+    main.scrollTo({ top: main.scrollHeight });
+    await waitFor(() =>
+      expect(canvas.getByText("Материал 2.12")).toBeInTheDocument(),
+    );
     await expect(
-      within(canvasElement).getByRole("link", { name: "К началу" }),
-    ).toHaveAttribute("href", "/library");
+      canvas.getByRole("status", { name: "Запросов к каталогу" }),
+    ).toHaveTextContent("2");
+    main.scrollTo({ top: 1_000 });
+    await waitFor(() => expect(main.scrollTop).toBeGreaterThan(800));
+    await userEvent.click(canvas.getByRole("button", { name: "Открыть материал" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вернуться в библиотеку" }),
+    );
+    await waitFor(() =>
+      expect(canvas.getByText("Материал 2.12")).toBeInTheDocument(),
+    );
+    await expect(
+      canvas.getByRole("status", { name: "Запросов к каталогу" }),
+    ).toHaveTextContent("2");
+    await waitFor(() => expect(main.scrollTop).toBeGreaterThan(800));
   },
 };
 
 export const Loading: Story = {
-  args: { result: { kind: "empty", firstHref: null } },
+  args: { result: { kind: "empty" } },
   render: () => <LibraryLoading />,
 };
 
 export const Empty: Story = {
-  args: { result: { kind: "empty", firstHref: null } },
+  args: { result: { kind: "empty" } },
 };
 
 export const Unavailable: Story = {
@@ -183,7 +421,7 @@ export const Unavailable: Story = {
 };
 
 export const UnexpectedError: Story = {
-  args: { result: { kind: "empty", firstHref: null } },
+  args: { result: { kind: "empty" } },
   name: "Unexpected error",
   render: () => <LibraryUnexpectedError onRetry={() => undefined} />,
   play: async ({ canvasElement }) => {

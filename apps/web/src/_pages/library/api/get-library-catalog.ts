@@ -3,7 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import type {
-  LibraryCatalogResult,
+  LibraryCatalogPage,
   LibraryMaterialPreview,
 } from "@/_pages/library/model/library-view";
 import {
@@ -39,13 +39,17 @@ const catalogSchema = z
   })
   .strict();
 
-export async function getLibraryCatalog(after?: string): Promise<LibraryCatalogResult> {
+export async function getLibraryCatalogPage(
+  after: string | undefined,
+  signal?: AbortSignal,
+): Promise<LibraryCatalogPage> {
   let response: Response;
   try {
     response = await requestBackend(
       after === undefined
         ? "/library/materials"
         : `/library/materials?after=${encodeURIComponent(after)}`,
+      signal === undefined ? {} : { signal },
     );
   } catch (error) {
     if (error instanceof BackendConnectionError && error.code === "unavailable") {
@@ -73,19 +77,14 @@ export async function getLibraryCatalog(after?: string): Promise<LibraryCatalogR
     );
   }
   if (parsed.data.items.length === 0) {
-    return {
-      kind: "empty",
-      firstHref: after === undefined ? null : "/library",
-    };
+    return after === undefined
+      ? { kind: "empty" }
+      : { kind: "ready", items: [], nextCursor: null };
   }
   return {
     kind: "ready",
-    firstHref: after === undefined ? null : "/library",
     items: parsed.data.items.map(toMaterialPreview),
-    nextHref:
-      parsed.data.nextCursor === null
-        ? null
-        : `/library?after=${encodeURIComponent(parsed.data.nextCursor)}`,
+    nextCursor: parsed.data.nextCursor,
   };
 }
 

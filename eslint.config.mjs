@@ -1,5 +1,6 @@
 import eslint from "@eslint/js";
 import nextPlugin from "@next/eslint-plugin-next";
+import tanstackQuery from "@tanstack/eslint-plugin-query";
 import storybook from "eslint-plugin-storybook";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
@@ -219,6 +220,10 @@ export default tseslint.config(
     ...reactHooks.configs.flat["recommended-latest"],
     files: webTypeScriptFiles,
   },
+  ...tanstackQuery.configs["flat/recommended"].map((config) => ({
+    ...config,
+    files: webTypeScriptFiles,
+  })),
   {
     files: webClientFiles,
     rules: {

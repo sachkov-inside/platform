@@ -1,22 +1,23 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 
-import { getLibraryCatalog, LibraryPage } from "@/_pages/library.server";
+import { libraryCatalogServerQueryOptions } from "@/_pages/library.server";
+import { LibraryPageQuery } from "@/_pages/library";
+import { getQueryClient } from "@/shared/api/query-client";
 
 export const metadata: Metadata = {
   title: "Библиотека",
 };
 
-export default async function Page({
-  searchParams,
-}: {
-  readonly searchParams: Promise<{
-    readonly after?: string | readonly string[] | undefined;
-  }>;
-}) {
-  const { after } = await searchParams;
-  if (after !== undefined && typeof after !== "string") {
-    throw new TypeError("Library cursor must be singular");
-  }
-  const result = await getLibraryCatalog(after);
-  return <LibraryPage result={result} />;
+export default async function Page() {
+  await connection();
+  const queryClient = getQueryClient();
+  await queryClient.infiniteQuery(libraryCatalogServerQueryOptions());
+
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <LibraryPageQuery />
+    </HydrationBoundary>
+  );
 }

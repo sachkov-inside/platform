@@ -1,8 +1,8 @@
 import { sql } from "kysely";
 
-import type { PlatformDatabase } from "../../../../infrastructure/postgres/index.js";
-import type { PublishedMaterialProjectionDto } from "../../application/published-material-reader.interface.js";
-import type { MaterialId } from "../../domain/material-identifiers.js";
+import type { PlatformDatabase } from "../../../../../infrastructure/postgres/index.js";
+import type { PublishedMaterialProjectionDto } from "../../../application/published-material-reader/published-material-reader.js";
+import type { MaterialId } from "../../../domain/material-identifiers.js";
 
 export interface PublishedMaterialCursor {
   readonly materialId: MaterialId;
@@ -14,7 +14,7 @@ export interface PublishedMaterialProjectionPage {
   readonly hasNext: boolean;
 }
 
-export async function findPublishedMaterialProjection(
+export async function selectPublishedMaterialProjectionBySlug(
   database: PlatformDatabase,
   slug: string,
 ): Promise<PublishedMaterialProjectionDto | undefined> {
@@ -24,7 +24,7 @@ export async function findPublishedMaterialProjection(
   return row === undefined ? undefined : toProjection(row);
 }
 
-export async function listPublishedMaterialProjections(
+export async function selectPublishedMaterialProjectionPage(
   database: PlatformDatabase,
   values: {
     readonly after?: PublishedMaterialCursor;

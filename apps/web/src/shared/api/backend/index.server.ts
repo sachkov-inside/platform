@@ -79,19 +79,25 @@ export function readBackendBaseUrl(): string {
 
 export async function requestBackend(
   path: `/${string}`,
-  init: Pick<RequestInit, "headers" | "method"> = {},
+  options: Pick<RequestInit, "headers" | "method" | "signal"> = {},
 ): Promise<Response> {
   const baseUrl = readBackendBaseUrl();
+  const { signal, ...init } = options;
 
   try {
     return await fetch(`${baseUrl}${path}`, {
       ...init,
       cache: "no-store",
-      signal: AbortSignal.timeout(BACKEND_REQUEST_TIMEOUT_MS),
+      signal: combineAbortSignals(signal),
     });
   } catch (cause) {
     throw new BackendConnectionError("unavailable", "Backend request failed", { cause });
   }
+}
+
+function combineAbortSignals(signal: AbortSignal | undefined): AbortSignal {
+  const timeout = AbortSignal.timeout(BACKEND_REQUEST_TIMEOUT_MS);
+  return signal === undefined ? timeout : AbortSignal.any([signal, timeout]);
 }
 
 export async function getBackendHealth(): Promise<BackendHealth> {

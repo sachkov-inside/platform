@@ -5,19 +5,26 @@ import {
   PUBLISHED_MATERIAL_READER,
   type PublishedMaterialReader,
 } from "../materials/index.js";
-import { CONTENT_LIBRARY, type ContentLibrary } from "./content-library.interface.js";
-import { createContentLibrary } from "./create-content-library.js";
+import {
+  LIST_PUBLISHED_MATERIALS,
+  type ListPublishedMaterials,
+} from "./list-published-materials/list-published-materials.contract.js";
+import { ListPublishedMaterialsController } from "./list-published-materials/list-published-materials.controller.js";
+import { createListPublishedMaterialsOperation } from "./list-published-materials/list-published-materials.js";
 
 @Module({
   imports: [MaterialsModule],
+  controllers: [ListPublishedMaterialsController],
   providers: [
     {
-      provide: CONTENT_LIBRARY,
+      provide: LIST_PUBLISHED_MATERIALS,
       inject: [PUBLISHED_MATERIAL_READER],
-      useFactory: (publishedMaterialReader: PublishedMaterialReader): ContentLibrary =>
-        createContentLibrary({ publishedMaterialReader }),
+      useFactory: (
+        publishedMaterialReader: PublishedMaterialReader,
+      ): ListPublishedMaterials =>
+        createListPublishedMaterialsOperation({ publishedMaterialReader }),
     },
   ],
-  exports: [CONTENT_LIBRARY],
+  exports: [LIST_PUBLISHED_MATERIALS],
 })
 export class ContentLibraryModule {}

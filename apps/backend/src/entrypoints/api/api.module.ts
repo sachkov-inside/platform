@@ -7,13 +7,11 @@ import { PostgresModule } from "../../infrastructure/postgres/index.js";
 import { ContentLibraryModule } from "../../modules/content-library/index.js";
 import { IdentityPrincipalsModule } from "../../modules/identity-principals/index.js";
 import { MaterialsModule } from "../../modules/materials/index.js";
-import { ContentLibraryController } from "./content-library.controller.js";
 import { HealthController } from "./health.controller.js";
 import { PublishedMaterialsController } from "./published-materials.controller.js";
 
 @Module({
   controllers: [
-    ContentLibraryController,
     HealthController,
     PublishedMaterialsController,
   ],

@@ -19,18 +19,18 @@ import {
 import type { FastifyReply } from "fastify";
 
 import {
-  CONTENT_LIBRARY,
-  type ContentLibrary,
+  LIST_PUBLISHED_MATERIALS,
+  type ListPublishedMaterials,
   type PublishedMaterialCatalogError,
-} from "../../modules/content-library/index.js";
+} from "./list-published-materials.contract.js";
 
 const CATALOG_PAGE_SIZE = 12;
 
 @Controller("library")
-export class ContentLibraryController {
+export class ListPublishedMaterialsController {
   constructor(
-    @Inject(CONTENT_LIBRARY)
-    private readonly contentLibrary: ContentLibrary,
+    @Inject(LIST_PUBLISHED_MATERIALS)
+    private readonly listPublishedMaterials: ListPublishedMaterials,
   ) {}
 
   @Get("materials")
@@ -40,25 +40,31 @@ export class ContentLibraryController {
   @ApiBadRequestResponse({ description: "Catalog cursor is malformed" })
   @ApiInternalServerErrorResponse({ description: "Catalog failed internally" })
   @ApiServiceUnavailableResponse({ description: "Catalog dependency is unavailable" })
-  async list(
+  async handle(
     @Query("after") after: string | undefined,
     @Res({ passthrough: true }) response: FastifyReply,
   ) {
-    const result = await this.contentLibrary.listPublishedMaterials({
+    const result = await this.listPublishedMaterials({
       first: CATALOG_PAGE_SIZE,
       ...(after === undefined ? {} : { after }),
     });
     if (!result.ok) {
       response.type("application/problem+json");
-      throwContentLibraryError(result.error);
+      response.header("Cache-Control", "private, no-store");
+      throwListPublishedMaterialsError(result.error);
     }
 
-    response.header("Cache-Control", "public, max-age=0, must-revalidate");
+    response.header(
+      "Cache-Control",
+      "public, max-age=30, stale-while-revalidate=60",
+    );
     return result.value;
   }
 }
 
-export function throwContentLibraryError(error: PublishedMaterialCatalogError): never {
+function throwListPublishedMaterialsError(
+  error: PublishedMaterialCatalogError,
+): never {
   switch (error.code) {
     case "invalid_request_shape":
       throw new BadRequestException({

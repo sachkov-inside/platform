@@ -13,7 +13,7 @@ import {
   PLATFORM_DATABASE,
   type PlatformDatabase,
 } from "../src/infrastructure/postgres/index.js";
-import { CONTENT_LIBRARY } from "../src/modules/content-library/index.js";
+import { LIST_PUBLISHED_MATERIALS } from "../src/modules/content-library/index.js";
 import {
   MATERIAL_AUTHORING,
   PUBLISHED_MATERIAL_READER,
@@ -39,7 +39,7 @@ describe("backend process composition", () => {
     const database = api.get<PlatformDatabase>(PLATFORM_DATABASE);
     expect(api.get<PlatformDatabase>(PLATFORM_DATABASE)).toBe(database);
     expect(api.get(OperationalReadiness)).toBeInstanceOf(OperationalReadiness);
-    expect(api.get(CONTENT_LIBRARY)).toBeDefined();
+    expect(api.get(LIST_PUBLISHED_MATERIALS)).toBeDefined();
     expect(api.get(MATERIAL_AUTHORING)).toBeDefined();
     expect(api.get(PUBLISHED_MATERIAL_READER)).toBeDefined();
 

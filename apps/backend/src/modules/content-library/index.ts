@@ -1,11 +1,11 @@
 export {
-  CONTENT_LIBRARY,
-  type ContentLibrary,
+  LIST_PUBLISHED_MATERIALS,
+  type ListPublishedMaterials,
   type ListPublishedMaterialsQuery,
   type PublishedMaterialCatalogError,
+  type PublishedMaterialCatalogItemDto,
   type PublishedMaterialCatalogPageDto,
   type PublishedMaterialCatalogResult,
-  type PublishedMaterialProjectionDto,
-} from "./content-library.interface.js";
-export { createContentLibrary } from "./create-content-library.js";
+} from "./list-published-materials/list-published-materials.contract.js";
+export { createListPublishedMaterialsOperation } from "./list-published-materials/list-published-materials.js";
 export { ContentLibraryModule } from "./content-library.module.js";

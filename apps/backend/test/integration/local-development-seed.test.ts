@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
-import { createContentLibrary } from "../../src/modules/content-library/index.js";
+import { createListPublishedMaterialsOperation } from "../../src/modules/content-library/index.js";
 import {
   anonymousSubject,
   createMaterials,
@@ -35,9 +35,10 @@ describe("local development seed", () => {
         canPublish: () => false,
       },
     });
-    const catalog = await createContentLibrary({
+    const listPublishedMaterials = createListPublishedMaterialsOperation({
       publishedMaterialReader,
-    }).listPublishedMaterials({ first: 12 });
+    });
+    const catalog = await listPublishedMaterials({ first: 12 });
     expect(catalog).toMatchObject({
       ok: true,
       value: {

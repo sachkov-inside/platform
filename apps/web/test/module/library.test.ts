@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getLibraryCatalog } from "@/_pages/library.server";
+import { getLibraryCatalogPage } from "@/_pages/library.server";
 
 describe("Library server adapter", () => {
   afterEach(() => {
@@ -56,9 +56,8 @@ describe("Library server adapter", () => {
       ),
     );
 
-    await expect(getLibraryCatalog()).resolves.toEqual({
+    await expect(getLibraryCatalogPage(undefined)).resolves.toEqual({
       kind: "ready",
-      firstHref: null,
       items: [
         {
           slug: "inside-platform-overview",
@@ -73,7 +72,7 @@ describe("Library server adapter", () => {
           ],
         },
       ],
-      nextHref: "/library?after=opaque-cursor",
+      nextCursor: "opaque-cursor",
     });
     expect(fetch).toHaveBeenCalledWith(
       "https://platform-api.example.test/library/materials",
@@ -108,7 +107,7 @@ describe("Library server adapter", () => {
       ),
     );
 
-    await expect(getLibraryCatalog()).rejects.toMatchObject({
+    await expect(getLibraryCatalogPage(undefined)).rejects.toMatchObject({
       code: "invalid-response",
     });
   });
@@ -120,9 +119,10 @@ describe("Library server adapter", () => {
       vi.fn().mockResolvedValue(Response.json({ items: [], nextCursor: null })),
     );
 
-    await expect(getLibraryCatalog("page/cursor")).resolves.toEqual({
-      kind: "empty",
-      firstHref: "/library",
+    await expect(getLibraryCatalogPage("page/cursor")).resolves.toEqual({
+      kind: "ready",
+      items: [],
+      nextCursor: null,
     });
     expect(fetch).toHaveBeenCalledWith(
       "https://platform-api.example.test/library/materials?after=page%2Fcursor",
@@ -137,6 +137,8 @@ describe("Library server adapter", () => {
       vi.fn().mockResolvedValue(new Response("upstream unavailable", { status: 503 })),
     );
 
-    await expect(getLibraryCatalog()).resolves.toEqual({ kind: "unavailable" });
+    await expect(getLibraryCatalogPage(undefined)).resolves.toEqual({
+      kind: "unavailable",
+    });
   });
 });

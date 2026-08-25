@@ -1,6 +1,6 @@
-import type { RenderedMaterialBody } from "../domain/material-body/material-body.js";
-import type { AccessDecision, Subject } from "./ports/content-access.js";
-import type { Result } from "../result.js";
+import type { RenderedMaterialBody } from "../../domain/material-body/material-body.js";
+import type { Result } from "../../result.js";
+import type { AccessDecision, Subject } from "../ports/content-access.js";
 
 export interface PublishedMaterialProjectionDto {
   readonly materialId: string;

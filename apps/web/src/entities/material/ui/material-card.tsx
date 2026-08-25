@@ -23,6 +23,7 @@ export function MaterialCard({
 }: MaterialCardProps) {
   const hasPreview = material.preview !== undefined;
   const Heading = headingLevel;
+  const titleId = `material-${material.slug}-title`;
 
   return (
     <article
@@ -33,21 +34,18 @@ export function MaterialCard({
       data-material-id={material.slug}
       data-material-slug={material.slug}
     >
-      <div
+      <Link
+        aria-labelledby={titleId}
         className={cn(
-          "group/card grid overflow-hidden rounded-xl bg-card shadow-card transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
-          "hover:-translate-y-0.5 hover:shadow-card-hover focus-within:outline-ring active:translate-y-0 active:shadow-card",
+          "group/card grid overflow-hidden rounded-xl bg-card no-underline shadow-card transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
+          "hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-ring active:translate-y-0 active:shadow-card",
           hasPreview && "h-full",
         )}
+        href={`/materials/${material.slug}`}
+        prefetch={false}
       >
         {hasPreview ? (
-          <Link
-            aria-label={`Открыть материал: ${material.title}`}
-            className="min-w-0 no-underline focus-visible:outline-ring"
-            href={`/materials/${material.slug}`}
-          >
-            <MaterialPoster material={material} preview={material.preview} />
-          </Link>
+          <MaterialPoster material={material} preview={material.preview} />
         ) : null}
         <div
           className={cn(
@@ -56,13 +54,13 @@ export function MaterialCard({
           )}
         >
           <MaterialTaxonomy material={material} />
-          <Heading className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em]">
-            <Link
-              className="no-underline hover:underline hover:decoration-accent hover:underline-offset-4 focus-visible:outline-ring"
-              href={`/materials/${material.slug}`}
-            >
+          <Heading
+            className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em]"
+            id={titleId}
+          >
+            <span className="group-hover/card:underline group-hover/card:decoration-accent group-hover/card:underline-offset-4">
               {material.title}
-            </Link>
+            </span>
           </Heading>
           <p
             className={cn(
@@ -82,7 +80,7 @@ export function MaterialCard({
             <AccessLabel access={material.access} />
           </div>
         </div>
-      </div>
+      </Link>
     </article>
   );
 }
