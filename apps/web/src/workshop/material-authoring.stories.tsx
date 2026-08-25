@@ -8,16 +8,14 @@ import {
   type MaterialAuthoringActions,
   type MaterialAuthoringPresentation,
   type MaterialDraftField,
-  type MaterialPreviewBlock,
-  type MaterialPreviewMark,
-  type MaterialPreviewPresentation,
-  type MaterialPreviewText,
 } from "@/features/material-authoring";
 
 import {
   emptyMaterialAuthoringPresentation,
   invalidMaterialAuthoringPresentation,
   materialAuthoringPresentation,
+  savedAfterEditingPresentation,
+  savedRevisionId,
 } from "./material-authoring.fixtures";
 
 const noopActions = {
@@ -31,8 +29,6 @@ const noopActions = {
   onSave: fn(),
   onValidate: fn(),
 } satisfies MaterialAuthoringActions;
-
-const savedRevisionId = "rev_01JY7C6RE4M2W9PK5AHN";
 
 function MaterialAuthoringFixture({
   initialPresentation,
@@ -94,21 +90,7 @@ function MaterialAuthoringFixture({
     },
     onSave: () => {
       noopActions.onSave();
-      setPresentation((current) => {
-        const draft = {
-          ...current.draft,
-          materialId: current.draft.materialId ?? "mat_developer_pipeline",
-          revisionId: savedRevisionId,
-          status: "draft" as const,
-        };
-        return {
-          ...current,
-          draft,
-          preview: projectPreview(draft, savedRevisionId),
-          save: { kind: "saved", savedAtLabel: "12:41" },
-          validation: { kind: "unchecked" },
-        };
-      });
+      setPresentation(savedAfterEditingPresentation);
     },
     onValidate: () => {
       noopActions.onValidate();
@@ -116,10 +98,7 @@ function MaterialAuthoringFixture({
       window.setTimeout(() => {
         setPresentation((current) => ({
           ...current,
-          validation:
-            current.draft.title.trim().length === 0
-              ? invalidMaterialAuthoringPresentation.validation
-              : { kind: "valid", checkedAtLabel: "12:42" },
+          validation: { kind: "valid", checkedAtLabel: "12:42" },
         }));
       }, 120);
     },
@@ -205,8 +184,16 @@ export const Submitting: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("button", { name: "Сохранение…" })).toBeDisabled();
+    const saveButton = canvas.getByRole("button", { name: "Сохранение…" });
+    await expect(saveButton).toBeDisabled();
     await expect(canvas.getAllByText("Сохранение…").length).toBeGreaterThan(0);
+    const loader = saveButton.querySelector("svg");
+    await expect(loader).not.toBeNull();
+    if (loader !== null) {
+      const style = canvasElement.ownerDocument.defaultView?.getComputedStyle(loader);
+      await expect(style?.animationName).toBe("none");
+      await expect(style?.animationDuration).toBe("0s");
+    }
   },
 };
 
@@ -279,6 +266,20 @@ export const ExactPreview: Story = {
   },
 };
 
+export const ExactPreviewMobile: Story = {
+  args: {
+    presentation: { ...materialAuthoringPresentation, mode: "preview" },
+  },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Exact Preview · mobile",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("heading", { name: "Preview exact revision" })).toBeInTheDocument();
+    await expect(canvas.getAllByText(/rev_01JY7A2M4N8QF3T6V9XC/).length).toBeGreaterThan(0);
+    await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+
 export const Conflict: Story = {
   args: {
     presentation: {
@@ -347,74 +348,4 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
   await expect(canvasElement.ownerDocument.documentElement.scrollWidth).toBeLessThanOrEqual(
     storyWindow.innerWidth + 1,
   );
-}
-
-function projectPreview(
-  draft: MaterialAuthoringPresentation["draft"],
-  exactRevisionId: string,
-): MaterialPreviewPresentation {
-  return {
-    accessLabel: draft.access === "membership" ? "Для участников" : "Бесплатный",
-    blocks: projectBlocks(draft.document.content ?? []),
-    exactRevisionId,
-    format: draft.format,
-    summary: draft.summary,
-    tags: draft.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-    title: draft.title,
-    topic: draft.topic,
-  };
-}
-
-function projectBlocks(nodes: readonly JSONContent[]): readonly MaterialPreviewBlock[] {
-  return nodes.flatMap((node): readonly MaterialPreviewBlock[] => {
-    switch (node.type) {
-      case "paragraph":
-        return [{ content: projectInline(node.content ?? []), kind: "paragraph" }];
-      case "heading": {
-        const rawLevel = typeof node.attrs?.level === "number" ? node.attrs.level : 2;
-        const level = Math.min(4, Math.max(2, rawLevel)) as 2 | 3 | 4;
-        return [{ content: projectInline(node.content ?? []), kind: "heading", level }];
-      }
-      case "bulletList":
-      case "orderedList":
-        return [{
-          items: (node.content ?? []).map((item) => projectBlocks(item.content ?? [])),
-          kind: node.type === "bulletList" ? "bullet_list" : "ordered_list",
-        }];
-      case "blockquote":
-        return [{ content: projectBlocks(node.content ?? []), kind: "blockquote" }];
-      case "codeBlock":
-        return [{ kind: "code_block", text: collectText(node.content ?? []) }];
-      case "horizontalRule":
-        return [{ kind: "horizontal_rule" }];
-      case undefined:
-      default:
-        return [];
-    }
-  });
-}
-
-function projectInline(nodes: readonly JSONContent[]): readonly MaterialPreviewText[] {
-  return nodes.flatMap((node): readonly MaterialPreviewText[] => {
-    if (node.type !== "text" || typeof node.text !== "string") {
-      return [];
-    }
-    return [{
-      kind: "text",
-      marks: (node.marks ?? []).flatMap((mark): readonly MaterialPreviewMark[] => {
-        if (mark.type === "link" && typeof mark.attrs?.href === "string") {
-          return [{ href: mark.attrs.href, kind: "link" }];
-        }
-        if (mark.type === "bold" || mark.type === "code" || mark.type === "italic" || mark.type === "strike") {
-          return [{ kind: mark.type }];
-        }
-        return [];
-      }),
-      text: node.text,
-    }];
-  });
-}
-
-function collectText(nodes: readonly JSONContent[]): string {
-  return nodes.map((node) => node.text ?? collectText(node.content ?? [])).join("");
 }

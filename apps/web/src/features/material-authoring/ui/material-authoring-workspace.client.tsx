@@ -397,11 +397,6 @@ function ValidationPanel({ actions, presentation }: MaterialAuthoringWorkspacePr
         </Button>
       </div>
       <ValidationContent state={presentation.validation} />
-      <section aria-labelledby="resources-heading" className="mt-9 border-t border-border pt-7">
-        <h2 className="text-sm font-semibold" id="resources-heading">Resources</h2>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">В этой редакции нет изображений, файлов или видео.</p>
-        <Button className="mt-4" disabled type="button" variant="outline">Добавить resource</Button>
-      </section>
     </aside>
   );
 }
@@ -447,7 +442,7 @@ function ValidationContent({ state }: { readonly state: MaterialValidationState 
         <CircleAlert aria-hidden="true" className="mt-0.5 size-4.5 shrink-0 text-destructive" />
         <div>
           <p className="font-semibold">Материал пока нельзя опубликовать</p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">Исправьте отмеченные поля и blocks, затем повторите проверку.</p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">Исправьте отмеченные поля и фрагменты, затем повторите проверку.</p>
         </div>
       </div>
       <ul className="mt-5 space-y-3" role="list">
@@ -489,8 +484,8 @@ function BlockingState({ actions, presentation }: MaterialAuthoringWorkspaceProp
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => { actions.onConflictAction("compare"); }} type="button">Сравнить</Button>
-            <Button onClick={() => { actions.onConflictAction("reload"); }} type="button" variant="outline">Reload current</Button>
-            <Button onClick={() => { actions.onConflictAction("copy"); }} type="button" variant="ghost">Copy my changes</Button>
+            <Button onClick={() => { actions.onConflictAction("reload"); }} type="button" variant="outline">Загрузить текущую</Button>
+            <Button onClick={() => { actions.onConflictAction("copy"); }} type="button" variant="ghost">Скопировать мои изменения</Button>
           </div>
         </div>
       </div>
@@ -540,7 +535,7 @@ function ExactPreview({
             </Button>
             <div className="min-w-0">
               <h1 className="text-sm font-semibold" id="exact-preview-heading">Preview exact revision</h1>
-              <p className="truncate font-mono text-[0.6875rem] text-sidebar-foreground/70">{preview.exactRevisionId} · private · no-store</p>
+              <p className="truncate font-mono text-[0.6875rem] text-sidebar-foreground/70">{preview.exactRevisionId}</p>
               <PreviewValidationStatus state={presentation.validation} />
             </div>
           </div>

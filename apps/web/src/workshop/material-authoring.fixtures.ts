@@ -16,6 +16,7 @@ const paragraph = (value: string): MaterialPreviewBlock => ({
 });
 
 const revisionId = "rev_01JY7A2M4N8QF3T6V9XC";
+export const savedRevisionId = "rev_01JY7C6RE4M2W9PK5AHN";
 
 export const materialAuthoringPresentation = {
   authorization: { kind: "allowed" },
@@ -117,6 +118,22 @@ export const materialAuthoringPresentation = {
     topic: "AI для разработчиков",
   },
   save: { kind: "clean" },
+  validation: { kind: "unchecked" },
+} as const satisfies MaterialAuthoringPresentation;
+
+export const savedAfterEditingPresentation = {
+  ...materialAuthoringPresentation,
+  draft: {
+    ...materialAuthoringPresentation.draft,
+    revisionId: savedRevisionId,
+    title: "Новая редакция Developer Pipeline",
+  },
+  preview: {
+    ...materialAuthoringPresentation.preview,
+    exactRevisionId: savedRevisionId,
+    title: "Новая редакция Developer Pipeline",
+  },
+  save: { kind: "saved", savedAtLabel: "12:41" },
   validation: { kind: "unchecked" },
 } as const satisfies MaterialAuthoringPresentation;
 

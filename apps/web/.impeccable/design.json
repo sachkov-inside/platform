@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-25T06:30:32Z",
+  "generatedAt": "2026-08-25T06:49:39Z",
   "title": "Design System: Sachkov Inside Platform",
   "extensions": {
     "colorMeta": {
@@ -132,7 +132,7 @@
       { "name": "card-hover", "value": "0 1rem 2.5rem -1rem oklch(0.21 0.018 128 / 0.34)", "purpose": "Pointer-intent elevation paired with a slight card lift." }
     ],
     "motion": [
-      { "name": "duration-fast", "value": "160ms", "purpose": "Control and navigation state transitions." },
+      { "name": "duration-fast", "value": "160ms", "purpose": "Control and navigation state transitions; Storybook exercises their reduced-motion contract in a real browser context." },
       { "name": "duration-shell", "value": "240ms", "purpose": "Expandable desktop sidebar width transition." },
       { "name": "ease-out", "value": "cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Default purposeful deceleration for shell and control transitions." },
       { "name": "card-hover", "value": "200ms", "purpose": "Material card lift and shadow response." }
@@ -213,14 +213,14 @@
       "name": "Candidate Revision Rail",
       "kind": "custom",
       "refersTo": "candidate-revision-rail",
-      "description": "Issue #38 candidate pattern pending owner visual/interaction GO; it is evidence, not a globally approved mandate.",
+      "description": "Issue #38 candidate pattern pending owner visual/interaction GO; associated exact Preview now has desktop and 390 × 844 mobile evidence, not global approval.",
       "html": "<dl class=\"ds-revision-rail\"><div><dt>Редакция</dt><dd>rev_01JY7C6RE4M2W9PK5AHN</dd></div><div><dt>Сохранение</dt><dd>Сохранено 12:41</dd></div><div><dt>Проверка</dt><dd>Ошибок нет</dd></div></dl>",
       "css": ".ds-revision-rail { position:relative; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin:0; border-bottom:1px solid var(--border); background:var(--card); color:var(--foreground); padding:.75rem 1rem; font-family:var(--font-utility); font-size:.6875rem; } .ds-revision-rail::after { content:\"\"; position:absolute; right:1rem; bottom:-1px; left:1rem; height:1px; background:var(--accent); } .ds-revision-rail div { min-width:0; } .ds-revision-rail dt { color:var(--muted-foreground); } .ds-revision-rail dd { overflow:hidden; margin:.25rem 0 0; font-weight:600; text-overflow:ellipsis; white-space:nowrap; } .ds-revision-rail:focus-within { outline:.1875rem solid var(--ring); outline-offset:.1875rem; } @media (max-width:39.999rem) { .ds-revision-rail { grid-template-columns:1fr; gap:.5rem; } .ds-revision-rail div { display:flex; align-items:baseline; justify-content:space-between; gap:.75rem; } .ds-revision-rail dd { margin:0; } }"
     }
   ],
   "narrative": {
     "northStar": "Soft Technical Workshop",
-    "overview": "Sachkov Inside Platform — спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.\n\nЭто документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`, но его authoring layout и revision rail остаются candidate pattern до отдельного owner visual/interaction GO.",
+    "overview": "Sachkov Inside Platform — спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.\n\nЭто документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`; exact Preview теперь имеет bounded desktop и narrow-mobile evidence, но authoring layout и revision rail остаются candidate pattern до отдельного owner visual/interaction GO.",
     "keyCharacteristics": [
       "Warm light canvas with bounded charcoal work regions.",
       "Scarce orange proofing signal rather than ambient decoration.",

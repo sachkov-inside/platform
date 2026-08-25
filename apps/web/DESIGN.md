@@ -115,7 +115,7 @@ components:
 
 Sachkov Inside Platform — спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.
 
-Это документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`, но его authoring layout и revision rail остаются candidate pattern до отдельного owner visual/interaction GO.
+Это документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`; exact Preview теперь имеет bounded desktop и narrow-mobile evidence, но authoring layout и revision rail остаются candidate pattern до отдельного owner visual/interaction GO.
 
 **Key Characteristics:**
 
@@ -175,13 +175,13 @@ Sachkov Inside Platform — спокойная светлая инженерна
 
 The system is mobile-first. Narrow surfaces preserve content priority and a single semantic reading order, then add space-driven enhancements through min-width or container queries. The accepted application shell uses a continuous mobile canvas with a persistent compact bottom navigation; desktop adds the inset expandable charcoal sidebar and lets the main content own scrolling. Reading columns remain bounded near 70–72 characters, while application canvases use generous maximum widths appropriate to the task.
 
-The issue #38 authoring proof keeps metadata → document → validation in that order on narrow screens and expresses the same order as three desktop columns inside a wide workbench. Its sticky author header and orange revision rail are a candidate authoring pattern pending owner visual/interaction GO, not a required layout for other operate surfaces.
+The issue #38 authoring proof keeps metadata → document → validation in that order on narrow screens and expresses the same order as three desktop columns inside a wide workbench. Exact Preview now has desktop and 390 × 844 mobile evidence with the same exact-revision identity and no horizontal overflow. The sticky author header and orange revision rail remain a candidate authoring pattern pending owner visual/interaction GO, not a required layout for other operate surfaces.
 
 **The Mobile Semantic Order Rule.** Responsive changes may add columns, rails or contextual controls, but they must preserve the narrow-screen information order and primary actions.
 
 ## Elevation & Depth
 
-The system is mostly tonal and bordered. Resting content surfaces use canvas, card, muted fill and one-pixel dividers; restrained card shadows are reserved for interactive bounded objects such as accepted Material cards and popover content. Charcoal regions create structural depth without glow, glass or gradients. Hover lift is slight and disabled for reduced-motion users.
+The system is mostly tonal and bordered. Resting content surfaces use canvas, card, muted fill and one-pixel dividers; restrained card shadows are reserved for interactive bounded objects such as accepted Material cards and popover content. Charcoal regions create structural depth without glow, glass or gradients. Hover lift is slight and disabled for reduced-motion users; Storybook exercises that contract in a real reduced-motion browser context.
 
 ### Shadow Vocabulary
 
@@ -229,7 +229,7 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 
 - **Status:** candidate pattern from issue #38; finish verdict is `ship`, but global adoption awaits owner visual/interaction GO.
 - **Composition:** sticky author header, revision rail, and metadata → document → validation semantic order; desktop may render the order as three columns.
-- **State:** exact revision, save and validation facts remain literal; Preview names the exact immutable revision and never implies publication.
+- **State:** exact revision, save and validation facts remain literal; Preview names the exact immutable revision, never adds unowned transport/security claims, never implies publication and now has desktop plus narrow-mobile proof.
 
 **The Owner Gate Candidate Rule.** Treat the issue #38 authoring layout and revision rail as reusable evidence to review, not as an approved global mandate, until owner visual/interaction GO is recorded.
 
