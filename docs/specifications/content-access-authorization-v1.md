@@ -9,7 +9,9 @@ ADR.
 
 ## Решение
 
-Platform создаёт один глубокий `ContentAccess` module с единственным внешним interface:
+Platform создаёт один глубокий batch-first `ContentAccess` module. Module разделяет
+неавторитетную availability для presentation и авторитетную authorization непосредственно перед
+protected delivery, но обе операции используют одну policy matrix и одни Platform facts:
 
 ```ts
 type AccessCaller =
@@ -26,19 +28,27 @@ type AccessAuditContext = Readonly<{
   correlationId: CorrelationId;
 }>;
 
-type AccessRequest = Readonly<{
-  subject: Subject;
+type AccessOperation = Readonly<{
+  itemId: AccessItemId;
   resource: Resource;
   action: Action;
+}>;
+
+type AccessBatchRequest = Readonly<{
+  subject: Subject;
+  operations: readonly AccessOperation[];
 }> & AccessAuditContext;
 
 interface ContentAccess {
-  authorize(input: AccessRequest): Promise<AccessDecision>;
+  availabilityMany(input: AccessBatchRequest): Promise<readonly AccessAvailability[]>;
+  authorizeMany(input: AccessBatchRequest): Promise<readonly AccessDecision[]>;
 }
 ```
 
-Caller сообщает trusted `Subject`, opaque local `Resource` reference, одну `Action` и
-audit context `caller`/`correlationId`. Audit context не влияет на policy outcome.
+Одна operation является batch из одного элемента. Caller сообщает один trusted `Subject`,
+bounded collection opaque local `Resource` references с `Action` и audit context
+`caller`/`correlationId`. `itemId` только связывает input и result, не является resource identity
+или credential. Audit context не влияет на policy outcome.
 `AccessCaller` — stable audit taxonomy конкретной boundary, запросившей decision: она
 намеренно включает transport callers и resource-delivery adapters и не моделирует
 resource или action — для них есть отдельные fields.
@@ -48,15 +58,23 @@ Telegram state или provider claims. IdP аутентифицирует Extern
 авторизует каждую operation. Ни IdP role/claim, ни факт login/linking, ни Telegram decision сами
 по себе не дают content access.
 
+`availabilityMany` возвращает только `available | locked | sign_in_required` для UI и никогда не
+разрешает загрузить body, private locator, redirect или credential. `authorizeMany` возвращает
+finite reasoned decision для каждой operation; только этот result может немедленно продолжить ту
+же application operation к protected load. Ни availability, ни decision не сериализуются как
+bearer capability и не кэшируются между requests.
+
 Этот interface заменяет текущий Materials-local baseline `ContentAccess`, а не оборачивает его.
 Если module удалить, Principal/resource/entitlement policy, reason ordering, freshness и
 fail-closed rules разойдутся по Material Reader, preview и будущим delivery callers; поэтому seam
-даёт leverage и locality. Tests проходят через тот же `authorize`, что production callers.
+даёт leverage и locality. Tests проходят через тот же `authorizeMany`, что production callers.
 Транспортный `TrustedSubject` из `IdentityPrincipals` сужается до access-oriented
 `Subject`; current Principal state и grants проверяются за границей caller и не
 переносятся в `ContentAccess` как trusted permission snapshot.
 
-`MembershipEntitlements` остаётся отдельным глубоким Platform module за внутренним seam
+Canonical test surface использует `authorizeMany`; single-operation helpers являются только
+caller convenience wrappers. `MembershipEntitlements` остаётся отдельным глубоким Platform module
+за внутренним seam
 `ContentAccess`. Он скрывает validation versioned evidence, projection, persistence, freshness,
 single-flight и outage behavior за одной access-oriented operation. Внешний Telegram dependency
 получает узкий `TelegramMembership` port: deterministic test adapter в #50 и production HTTP
@@ -94,7 +112,7 @@ floating dependency на `workspace/main`.
 
 | Surface | Реальность на `30bf750` | Следствие для #50 |
 |---|---|---|
-| Published Material body | Реальный PostgreSQL-backed [`PublishedMaterialReader`](../../apps/backend/src/modules/materials/application/create-published-material-reader.ts) сначала загружает allowlisted public projection, вызывает Materials-local `ContentAccess`, и только после allow загружает exact published revision/body. Closed deny возвращает teaser; интеграционные tests доказывают отсутствие protected bytes и `private-no-store` для allow. | Первый реальный protected consumer уже существует. #50 заменяет injected baseline новым module и сохраняет authorize-before-body-load. #31 закрыт и больше не blocker. |
+| Published Material body | Реальный PostgreSQL-backed [`PublishedMaterialReader`](../../apps/backend/src/modules/materials/application/create-published-material-reader.ts) сначала загружает allowlisted public projection, вызывает Materials-local singular `ContentAccess`, и только после allow загружает exact published revision/body. Closed deny возвращает teaser; интеграционные tests доказывают отсутствие protected bytes и `private-no-store` для allow. | Первый реальный protected consumer уже существует. #50 заменяет injected baseline batch-first module, сохраняет protected-load-after-allow и добавляет read/readMany fixed-I/O proof. #31 закрыт и больше не blocker. |
 | Material preview | Реальный `previewRevision` вызывает `ContentAccess` до body load, но сначала читает revision header и передаёт caller-supplied `publication/access` facts в policy. | Первый real privileged consumer существует. #50 переносит resource-fact resolution внутрь `ContentAccess`, чтобы private revision metadata не была pre-authorization dependency caller. |
 | Current ContentAccess | [`content-access.ts`](../../apps/backend/src/modules/materials/application/ports/content-access.ts) поддерживает только anonymous/principal, Material body, `preview/read` и baseline public/author outcomes. `createMaterials` допускает injection, а `MaterialsModule.register` создаёт baseline из `AuthorPolicy`. | Файл является временным seam из #31, не target ownership. Новый Platform-owned module заменяет типы/policy; параллельный compatibility policy не сохраняется. Static composition появляется вместе с #49/#50 real providers. |
 | Public projection/cache | `published_materials` и `PublishedMaterialReader` уже отделяют title/summary/taxonomy от body; public/free body может быть `public`, protected result — `private-no-store`. | Сохранить public lookup до authorization, но никогда не добавлять в projection body, private locator, entitlement, decision или credential. |
@@ -162,9 +180,47 @@ Valid pairs:
 `read/download/play` никогда не открывают draft resource, даже admin. Create, revise, validate,
 publish, unpublish, taxonomy и owner GO остаются в `MaterialAuthoring` policy.
 
-### Finite AccessDecision
+### Requirement, grant и activity facts
+
+Policy сопоставляет четыре finite axis:
 
 ```ts
+type ContentAccessRequirement =
+  | Readonly<{ kind: "public" }>
+  | Readonly<{ kind: "membership"; membership: "inside" }>;
+
+type ContentGrantScope =
+  | Readonly<{ kind: "platform" }>
+  | Readonly<{ kind: "series"; seriesId: SeriesId }>
+  | Readonly<{ kind: "material"; materialId: MaterialId }>;
+```
+
+- owning resource module хранит current publication/attachment facts и requirement;
+- `IdentityPrincipals` хранит current Principal state и permissions;
+- `MembershipEntitlements` хранит одну bounded `MembershipEntitlement` projection на Principal;
+- `ContentAccess` сопоставляет `Subject × Resource facts × Action × current grants` и владеет
+  decision semantics.
+
+V1 не создаёт `Principal × Material` access rows: одна active Membership открывает весь
+`membership` class независимо от числа Materials. Будущие tier, purchase или manual grants
+добавляются consumer-led как compact scoped facts (`platform | series | material`) с source,
+version и finite validity; public interface и batch planner от этого не меняются. Generic policy
+DSL, JSON boolean tree и заранее материализованная строка на каждый effective Principal/Resource
+rejected.
+
+`ReadingState`, будущие `PracticeAttempt`/completion facts и другие activity projections не
+являются authorization inputs и сохраняются после окончания Membership. Если activity когда-либо
+должна породить доступ, owning module создаёт отдельный explicit grant fact; `ContentAccess` не
+читает mutable progress history в policy.
+
+### Availability и finite AccessDecision
+
+```ts
+type AccessAvailability = Readonly<{
+  itemId: AccessItemId;
+  availability: "available" | "locked" | "sign_in_required";
+}>;
+
 type AllowReason =
   | "public_resource"
   | "active_membership"
@@ -185,6 +241,7 @@ type DenyReason =
   | "dependency_unavailable";
 
 type AccessDecisionBase = Readonly<{
+  itemId: AccessItemId;
   decisionId: AccessDecisionId;
   policyVersion: PolicyVersion;
   decidedAt: Instant;
@@ -205,6 +262,12 @@ type AccessDecision =
       reason: DenyReason;
     }>);
 ```
+
+Batch содержит один Subject, имеет bounded item count и возвращает ровно один ordered result на
+каждый unique `itemId`. Implementation может deduplicate одинаковые Resource/Action facts, но
+сохраняет input cardinality/order. Empty batch, duplicate `itemId`, malformed operation и
+превышение item/aggregate-byte limit являются request errors; неизвестный Resource и unavailable
+policy fact остаются per-item fail-closed decisions.
 
 Reason codes являются repository-local lower-snake-case representation owner-confirmed Workspace
 semantics; adapters не создают новые reasons. `policyVersion` меняется при semantic matrix change,
@@ -353,56 +416,85 @@ The #50 deterministic adapter scripts named responses/concurrency and passes the
 corpus. #52 production HTTP adapter later adds authentication, timeout/retry and wire validation at
 the same port; raw Telegram models never enter Platform domain.
 
-## Authorize-before-load, cache and credentials
+## Batch execution, query selection, cache and credentials
 
-### Material body and preview
+### Performance contract
 
-Published delivery order:
+Implementation запрещает database/provider I/O внутри loop по resources. Для batch из `N`
+operations и `K` реально присутствующих resource kinds:
 
-1. Resolve optional trusted Subject.
-2. Load only allowlisted `PublicMaterialProjection` by slug.
-3. Call `authorize(subject, material_body(revisionId), read)`; `ContentAccess` independently
-   verifies current published pointer/access.
-4. On deny, return projection + coarse state. Do not load revision/body.
-5. On allow, load exact revision/body and render.
-6. Public free result may enter shared cache; every Subject/permission/Membership allow is
-   `private, no-store`.
+```text
+database/provider round trips = O(K), not O(N)
+policy CPU                     = O(N)
+memory                         = O(N)
+```
 
-Preview order:
+Batch planner validates/deduplicates operations, группирует их по resource kind, bulk-загружает
+facts одним query на kind, один раз разрешает Principal/permissions и только при необходимости один
+раз Membership, затем pure-evaluates policy и batch-пишет audit. Future scoped grants также
+загружаются одним query по Principal и всем relevant Material/Series keys. Integration test для
+`N=1` и `N=100` обязан доказать, что query/provider call count не растёт линейно. Большие sets
+используют bounded cursor pages; delivery дополнительно ограничивает aggregate protected bytes.
 
-1. Resolve trusted human/service Subject and parse opaque Material/revision IDs.
-2. Call `authorize(..., preview)` before revision header, metadata or body is loaded by caller.
-3. On allow, load exact revision and render with `private, no-store`; on deny return no revision
-   projection.
+### Library, activity и availability
 
-Caller не кэширует `AccessDecision`. `ContentAccess` may cache internal resource facts only by
-version/current-published pointer and entitlement only to its `validUntil`; policy-version or
-resource-pointer change invalidates relevant internal entry. Protected speculative prefetch,
-static generation, shared route/data cache and `Vary: Cookie` as sole protection are forbidden.
+Library, Topic/Series navigation, search и related Materials читают allowlisted
+`PublicMaterialProjection`; это не protected body delivery. Для page projections module вызывает
+`availabilityMany` один раз и получает замочки всей страницы. Current site-wide Membership может
+быть hidden-optimized до одного viewer-level entitlement resolution и одного in-memory pass;
+никаких per-card Membership/provider calls и protected audit events нет.
 
-### Asset/download/video ordering
+Availability является presentation hint: `ContentLibrary` может shared-cache public projections и
+накладывать personalized availability после cache, но открытие Material всегда создаёт новую
+authoritative operation. `ReadingState` или future practice/progress query может set-based join-ить
+свои facts с PublishedMaterial projections, а затем одним batch получить availability; activity
+остаётся видимой как locked после окончания Membership.
 
-When real consumers appear:
+Если будущий query должен найти только доступные resources до pagination, post-filter page
+некорректен. Owning query module тогда использует purpose-built PostgreSQL access selection:
+set-based `JOIN/EXISTS` compact current grants/requirements или materialized permission projection.
+Этот relational matcher остаётся hidden implementation, проходит тот же conformance corpus и не
+выдаёт route/frontend SQL fragment, reusable access profile или bearer scope. V1 не строит такой
+generic query framework без первого реального per-resource selection consumer.
 
-1. Parse opaque local Asset/Video ID; do not load private locator/provider metadata.
-2. `ContentAccess` resolves safe minimal mapping facts and authorizes exact Subject/Resource/Action.
-3. Deny returns no private metadata, bytes, redirect, player config or credential.
-4. Allow then loads private locator/provider mapping.
-5. Delivery adapter mints a credential bound to the exact Subject, Resource and Action with expiry
-   `min(decision.validUntil, adapterDeliveryCap)`; public free delivery follows its separate public
-   object policy.
-6. Playback callback re-authorizes; any deny, timeout or dependency failure denies playback.
+### Published body, preview и bulk delivery
 
-Object-storage/Kinescope mechanism and exact delivery caps belong to their owning production
-proofs. #50 does not invent those adapters.
+Published Material order:
+
+1. Resolve optional trusted Subject and load only allowlisted public projection by slug.
+2. Call `authorizeMany` с одним `material_body/read` operation либо bounded batch для bulk read.
+3. On deny return projection + coarse state; do not load protected body.
+4. On allow load all allowed bodies одним bulk query, обязательно связывая exact revision с
+   `current_published_revision_id`; stale/unpublished pointer returns no protected bytes.
+5. Render through Materials and preserve one ordered outcome per requested item.
+
+Preview использует exact revision IDs в одном `authorizeMany` batch. Safe minimal resource facts
+могут быть загружены внутри `ContentAccess` до decision; caller не получает revision metadata или
+body на deny. Normal `read/download/play` никогда не превращает preview permission в draft access.
+
+Для Asset/Video batch planner делает не более одного facts query на owning kind, проверяет
+attachment/current revision без private locator, затем delivery module одним bulk query загружает
+locators только для allow items. Credential bound to exact Subject/Resource/Action expires at
+`min(decision.validUntil, adapterDeliveryCap)`; playback callback/renewal re-authorizes. Concrete
+object-storage/Kinescope adapters и caps появляются только с real consumers.
+
+Caller не кэширует availability или `AccessDecision` между requests. `ContentAccess` may memoize
+subject facts только внутри одной application operation и cache internal entitlement не дольше
+authoritative `validUntil`; this profile не экспортируется и не сериализуется. Public projections и
+free bodies могут быть shared-cacheable. Membership/permission body, decision и credential всегда
+`private, no-store`. Protected speculative prefetch, static generation, shared route/data cache и
+`Vary: Cookie` как единственная защита запрещены.
 
 ## Audit and correlation
 
-`ContentAccess` обязательно эмитит audit event для каждого protected allow/deny,
-author/admin preview и dependency failure. High-volume `public_resource` allow может быть
-metrics-only; public deny аудируется, если он показывает probing или configuration
-error. Internal `AccessAudit` port получает событие из того же module, который
-сформировал decision; route или delivery adapter не собирает duplicate audit сам.
+`ContentAccess` обязательно формирует audit event для каждого explicit protected allow/deny,
+author/admin preview, credential issue и dependency failure, но сохраняет batch одним append.
+Library/activity availability создаёт максимум query-summary metrics/event с counts; database rows,
+которые пользователь не запрашивал как protected delivery, не превращаются в сотни artificial
+deny events. High-volume `public_resource` allow может быть metrics-only; public deny аудируется,
+если он показывает probing или configuration error. Internal `AccessAudit` port получает событие
+из того же module, который сформировал decision; route или delivery adapter не собирает duplicate
+audit сам.
 
 Minimum event содержит `decisionId`, `decidedAt`, `effect`, `reason`, `action`, `caller`,
 opaque Subject/resource identifiers, `policyVersion`, `correlationId`, latency class и — только
@@ -421,7 +513,7 @@ Recommended ownership after #49 merge:
 
 ```text
 apps/backend/src/modules/
-  content-access/             # external authorize interface + policy implementation
+  content-access/             # batch availability/authorization + policy implementation
   membership-entitlements/   # evidence projection, refresh coordination, TelegramMembership port
   identity-principals/       # #49 trusted Subject, status and permission facts
   materials/                 # Material facts/reader/preview consumer; no Membership policy
@@ -439,6 +531,13 @@ port; будущие Assets/Videos добавляют свои facts adapters т
 consumers. Generic `ResourceRepository`, policy engine, UoW или in-memory Materials store
 остаются rejected hypothetical seams. Tests адаптера используют real PostgreSQL.
 
+V1 хранит requirement в owning immutable MaterialRevision и published projection; отдельная
+generic `resource_access_policies` copy не создаётся. Membership остаётся одной current projection
+на Principal. Future `content_grants` table появляется только с первым tier/purchase/manual-grant
+consumer и хранит compact `Principal × scope`, никогда effective `Principal × every Material`.
+Purpose-built query-time access selection может join-ить такую локальную projection через
+ContentAccess-owned internal PostgreSQL adapter; owning application interfaces не раскрывают SQL.
+
 The only new remote port is `TelegramMembership`, justified by deterministic test and production
 HTTP adapters. Clock/ID sources and contract fixture adapter are internal test seams, not exported
 through `ContentAccess`. Nest entrypoints bind one canonical assembly; page/REST/MCP never import
@@ -446,7 +545,10 @@ implementation or persistence paths.
 
 Required tests:
 
-- pure exhaustive policy table for every allow/deny reason through `ContentAccess.authorize`;
+- pure exhaustive policy table for every availability/allow/deny outcome through batch interface;
+- `N=1`/`N=100` query/provider counters prove no I/O growth per Material and no await in item loop;
+- input order, duplicate Resource deduplication, duplicate `itemId`, empty/oversized batch and
+  aggregate-byte limit behavior;
 - real-PostgreSQL Material Reader/preview acceptance proving no body/private metadata load on deny;
 - vendored Workspace fixtures through `MembershipEntitlements.resolveForAccess` and deterministic
   `TelegramMembership` adapter;
@@ -466,16 +568,20 @@ interface. Existing Materials lifecycle tests are adapted, not layered with a se
 
 ## Consumer-led slices for #50
 
-1. **Contract and vocabulary.** Vendor exact v1 schema/fixtures with source commit metadata; add
-   branded IDs, finite Subject/Resource/Action/Decision and versioned conformance builder. No
-   production adapter.
-2. **MembershipEntitlements core.** Add PostgreSQL projection/migration, strict evidence validation,
-   deterministic adapter, clock, monotonic replay/removal/rejoin behavior and durable single-flight
-   tests. This slice waits for #49's `PrincipalId`/trusted Subject ownership, но сам владеет
-   consumer-side opaque Membership binding и не создаёт duplicate identity table.
-3. **Platform ContentAccess core.** Implement reason precedence against #49 Principal/permission
-   facts, current Material resource facts and MembershipEntitlements. Prove the full Material rows
-   plus unavailable/disabled/service cases through one interface.
+1. **Batch contract and real Material proof.** After #49 supplies canonical Principal/Subject
+   types, add branded batch/item IDs, `availabilityMany`/`authorizeMany`, deterministic Principal
+   and Membership facts adapters, a real-PostgreSQL bulk `MaterialResourceFacts` adapter and one
+   PublishedMaterial read/readMany acceptance path. Prove anonymous/non-member/member, teaser/body
+   separation, cache scope, ordered outcomes and `N=1`/`N=100` fixed I/O count. This is an enabling
+   capability, not login or production Membership.
+2. **MembershipEntitlements core.** Vendor exact v1 schema/fixtures with source commit metadata;
+   add PostgreSQL projection/migration, strict evidence validation, deterministic adapter, clock,
+   monotonic replay/removal/rejoin behavior and durable single-flight tests. It owns consumer-side
+   opaque Membership binding and does not create duplicate identity.
+3. **Platform ContentAccess completion.** Implement reason precedence against #49
+   Principal/permission facts, current Material resource facts and MembershipEntitlements. Prove
+   unavailable/disabled/service cases through one batch interface and choose the finite permission
+   decision cap before enabling author/admin allows.
 4. **Replace the real Material consumers.** Remove `createBaselineContentAccess`, caller-supplied
    access/publication facts and preview header-before-authorization. Bind one production
    `ContentAccess` into `createMaterials`/Nest composition; preserve public teaser, exact published
@@ -484,9 +590,11 @@ interface. Existing Materials lifecycle tests are adapted, not layered with a se
    checks, guardrails and Standards + Spec review. Record explicit TODO links to #89, #29 and future
    Asset/Video owners; do not scaffold their adapters.
 
-Slices 2–4 may be separate commits inside one #50 PR, but they are not independently releasable
-alternate policies. The stopping condition is one provider-neutral protected Material path on the
-real reader/preview consumers plus stable interfaces for future consumers.
+Slices are tracked as dependency-aware child tickets under #50 rather than one blocked monolith.
+The first slice may merge as an enabling capability after #49/#84 without production login or
+Telegram; later slices replace its deterministic facts adapters at the same seams. The aggregate
+stopping condition is one provider-neutral protected Material path on real reader/preview consumers
+plus stable batch interfaces for future consumers.
 
 ## Blockers, caveats and rejected alternatives
 
@@ -494,9 +602,10 @@ Design #84 не заблокирован. Для #50:
 
 - [#31](https://github.com/sachkov-inside/platform/issues/31) уже closed и real protected Material
   path существует;
-- [#49](https://github.com/sachkov-inside/platform/issues/49) design contract уже merged, но production
-  implementation остаётся hard blocker для trusted human/service Subject, Principal status и
-  current permissions; opaque Membership binding принадлежит #50/#52, а не #49;
+- [#49](https://github.com/sachkov-inside/platform/issues/49) design contract уже merged, а production
+  implementation supplies canonical trusted human/service Subject, Principal status and current
+  permissions. It blocks the first implementation child from inventing duplicate identity, but no
+  longer forces Membership persistence/provider delivery into the same slice;
 - Assets/Videos/page/REST/MCP не blockers для core Material implementation; они отсутствующие
   consumers и подключаются своими owning tickets;
 - production Telegram HTTP adapter и credentialed integration принадлежат #52, поэтому outage and
@@ -511,7 +620,9 @@ Rejected:
 - IdP/Telegram roles, session `isMember` или route-local Membership middleware;
 - caller-supplied resource access/publication metadata;
 - второй compatibility policy поверх Materials baseline;
-- generic RBAC/ABAC/policy DSL, multiple tiers or delegated service Membership;
+- generic RBAC/ABAC/policy DSL, speculative tier/purchase tables or delegated service Membership;
+- exported SQL predicate, reusable access profile/capability или policy copied into every query;
+- per-resource I/O loop and precomputed effective `Principal × Material` matrix;
 - fake Asset/Video production resources, signed URL/Kinescope placeholders;
 - provider call inside a long PostgreSQL transaction;
 - stale-positive grace extension, allow-on-error or shared caching of protected outcomes.
@@ -529,9 +640,11 @@ delivery, Kinescope enforcement и operational retention также могут �
 | #50 / shared requirement | Specification contract |
 |---|---|
 | IdP authenticates; Platform authorizes | Authority section; Subject contains no roles/claims; Principal facts are Platform-owned. |
-| One interface for protected resources/callers | Single `authorize` interface с non-policy caller/correlation context; inventory names real and absent consumers. |
+| One authority for protected resources/callers | Batch-first availability/authorization interface with one policy matrix and non-policy caller/correlation context; inventory names real and absent consumers. |
 | Anonymous/non-member/member/expired/author/admin/service outcomes | Stable matrix and deterministic reason precedence. |
-| Authorize before body/private metadata/credentials | Explicit Material/preview and future delivery ordering. |
+| Authorize before body/private metadata/credentials | Explicit Material/preview/bulk delivery ordering; availability never grants delivery. |
+| No N+1 authorization | Bulk facts/grants/audit, `O(K)` I/O for `K` resource kinds, `N=1`/`N=100` counter acceptance. |
+| Large accessible queries | Purpose-built relational selection only when filtering must precede pagination; no exported SQL/access scope. |
 | Five-minute positive bound | Entitlement validation and `validUntil` cap. |
 | Finite author/admin allow | `permissionDecisionCap` обязателен; exact value — explicit #50 owner blocker и policy-version input. |
 | Removal/expiry/rejoin/replay | Monotonic projection rules and vendored fixtures. |

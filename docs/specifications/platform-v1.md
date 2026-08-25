@@ -227,7 +227,7 @@ Entry points вызывают одни application use cases и не созда�
 | `AccountProfiles` | предоставить private Platform Account и управлять отдельной member-visible Member Profile projection | owner Platform Account projection, Member Profile visibility/content/version |
 | `Materials` | `MaterialAuthoring` создаёт, изменяет, проверяет, preview/publish/restore-ит Material; `PublishedMaterialReader` читает exact published revision | revision/publication pointers, author policy, internal body schemas, safe public/search projections |
 | `ContentLibrary` | читать projections, search и навигацию, находить related Materials | published projections, ranking и explicit related pins |
-| [`ContentAccess`](content-access-authorization-v1.md) | `authorize(Subject, Resource, Action) -> AccessDecision` | provider-neutral policy и reason codes |
+| [`ContentAccess`](content-access-authorization-v1.md) | batch `availabilityMany` для presentation и `authorizeMany` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
 | `MembershipEntitlements` | принять MembershipEvidence и построить Platform-owned entitlement | state, validity и refresh coordination |
 | `Assets` | начать/finalize upload, связать с revision и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
@@ -303,9 +303,12 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 
 ### Public и closed read
 
-1. Public route читает только public projection; free body может быть shared-cacheable.
-2. Closed route получает Subject из trusted identity и вызывает `ContentAccess` до загрузки body.
-3. Deny возвращает public teaser и coarse state; allow читает exact published revision.
+1. Library/search route читает safe public projections и одним batch накладывает неавторитетную
+   availability для замочков; free body может быть shared-cacheable.
+2. Closed route получает Subject из trusted identity и вызывает authoritative batch
+   `ContentAccess` до загрузки body; один Material является batch из одного элемента.
+3. Deny возвращает public teaser и coarse state; allow одним bulk query читает только exact current
+   published revisions разрешённых operations.
 4. Closed body, access decision и delivery credentials имеют `private, no-store`; protected
    speculative prefetch запрещён.
 
@@ -369,6 +372,9 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 - PostgreSQL FTS ранжирует title выше summary/headings, затем taxonomy/body/assets и проверяется на
   bounded representative RU/EN corpus;
 - filters появляются только из реально используемых Topic, Format и Series;
+- query, который должен скрыть недоступные resources до pagination, использует purpose-built
+  relational access selection (`JOIN/EXISTS` compact current grants), а не per-row authorization
+  calls или exported access scope;
 - related выдача сочетает metadata score и explicit author pins без AI dependency.
 
 ### MCP
@@ -419,6 +425,8 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 - Library search p95 не выше 300 ms на 10 000 Material projections и representative RU/EN set;
 - public critical pages укладываются в LCP 2.5 s, INP 200 ms и CLS 0.1 на согласованном mobile profile;
 - query plans, pool limits и payload/document limits измеряются до добавления cache/service;
+- ContentAccess batch из `N` operations делает `O(K)` database/provider round trips для `K`
+  присутствующих resource kinds, не `O(N)`; `N=1` и `N=100` acceptance считает queries/calls;
 - correctness scenarios из [testing contract](#testing-enforcement-and-adr-timing) входят в
   согласованный fixture corpus и repeatable setup.
 
