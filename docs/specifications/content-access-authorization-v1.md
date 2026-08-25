@@ -2,7 +2,7 @@
 
 Статус: decision-ready repository-local specification для
 [#84](https://github.com/sachkov-inside/platform/issues/84), подготовленный по
-`origin/main` `30bf750f30dcc7e72363f1a9d5a2caf03b192634` от 2026-08-25. После owner approval
+`origin/main` `6c19c057c792c2e470607000c9a7f28ce803b932` от 2026-08-25. После owner approval
 и merge он является repository-local implementation contract для
 [#50](https://github.com/sachkov-inside/platform/issues/50), но не production implementation и не
 ADR.
@@ -14,17 +14,17 @@ Platform создаёт один глубокий batch-first `ContentAccess` mo
 protected delivery, но обе операции используют одну policy matrix и одни Platform facts:
 
 ```ts
-type AccessCaller =
-  | "web"
-  | "rest"
-  | "mcp"
-  | "asset"
-  | "download"
-  | "playbackToken"
-  | "videoAuthorization";
+type AccessBoundary =
+  | "published_material_read"
+  | "material_preview"
+  | "mcp_material_read"
+  | "asset_delivery"
+  | "download_delivery"
+  | "playback_token_issue"
+  | "video_authorization_callback";
 
 type AccessAuditContext = Readonly<{
-  caller: AccessCaller;
+  boundary: AccessBoundary;
   correlationId: CorrelationId;
 }>;
 
@@ -47,18 +47,19 @@ interface ContentAccess {
 
 Одна operation является batch из одного элемента. Caller сообщает один trusted `Subject`,
 bounded collection opaque local `Resource` references с `Action` и audit context
-`caller`/`correlationId`. `itemId` только связывает input и result, не является resource identity
+`boundary`/`correlationId`. `itemId` только связывает input и result, не является resource identity
 или credential. Audit context не влияет на policy outcome.
-`AccessCaller` — stable audit taxonomy конкретной boundary, запросившей decision: она
-намеренно включает transport callers и resource-delivery adapters и не моделирует
-resource или action — для них есть отдельные fields.
+`AccessBoundary` — stable lower-snake-case taxonomy enforcement point, запросившей decision. Она
+не смешивает transport с resource/action и не моделирует их повторно — для них есть отдельные
+fields. Если operational audit должен различать web/REST/MCP origin одного application use case,
+transport добавляет отдельный telemetry attribute, не новый policy input.
 Module сам читает актуальные Platform facts о Principal, publication/resource mapping и
 `MembershipEntitlement`; caller не передаёт роли, access class, publication state, email,
 Telegram state или provider claims. IdP аутентифицирует External Identity, а Platform
 авторизует каждую operation. Ни IdP role/claim, ни факт login/linking, ни Telegram decision сами
 по себе не дают content access.
 
-`availabilityMany` возвращает только `available | locked | sign_in_required` для UI и никогда не
+`availabilityMany` возвращает только `available | locked | sign_in_required | unavailable` для UI и никогда не
 разрешает загрузить body, private locator, redirect или credential. `authorizeMany` возвращает
 finite reasoned decision для каждой operation; только этот result может немедленно продолжить ту
 же application operation к protected load. Ни availability, ни decision не сериализуются как
@@ -110,21 +111,22 @@ floating dependency на `workspace/main`.
 
 ## Инвентаризация `origin/main`
 
-| Surface | Реальность на `30bf750` | Следствие для #50 |
+| Surface | Реальность на `6c19c05` | Следствие для #50 |
 |---|---|---|
 | Published Material body | Реальный PostgreSQL-backed [`PublishedMaterialReader`](../../apps/backend/src/modules/materials/application/create-published-material-reader.ts) сначала загружает allowlisted public projection, вызывает Materials-local singular `ContentAccess`, и только после allow загружает exact published revision/body. Closed deny возвращает teaser; интеграционные tests доказывают отсутствие protected bytes и `private-no-store` для allow. | Первый реальный protected consumer уже существует. #50 заменяет injected baseline batch-first module, сохраняет protected-load-after-allow и добавляет read/readMany fixed-I/O proof. #31 закрыт и больше не blocker. |
 | Material preview | Реальный `previewRevision` вызывает `ContentAccess` до body load, но сначала читает revision header и передаёт caller-supplied `publication/access` facts в policy. | Первый real privileged consumer существует. #50 переносит resource-fact resolution внутрь `ContentAccess`, чтобы private revision metadata не была pre-authorization dependency caller. |
-| Current ContentAccess | [`content-access.ts`](../../apps/backend/src/modules/materials/application/ports/content-access.ts) поддерживает только anonymous/principal, Material body, `preview/read` и baseline public/author outcomes. `createMaterials` допускает injection, а `MaterialsModule.register` создаёт baseline из `AuthorPolicy`. | Файл является временным seam из #31, не target ownership. Новый Platform-owned module заменяет типы/policy; параллельный compatibility policy не сохраняется. Static composition появляется вместе с #49/#50 real providers. |
+| Current ContentAccess | [`content-access.ts`](../../apps/backend/src/modules/materials/application/ports/content-access.ts) поддерживает только anonymous/principal, Material body, `preview/read` и baseline public/author outcomes. Static `MaterialsModule` создаёт anonymous/read-only baseline из `AuthorPolicy`; `createMaterials` допускает injection. | Файл является временным seam из #31/#89, не target ownership. Новый Platform-owned module заменяет provider/types/policy; параллельный compatibility policy не сохраняется. #112 меняет реальный static composition после #49. |
 | Public projection/cache | `published_materials` и `PublishedMaterialReader` уже отделяют title/summary/taxonomy от body; public/free body может быть `public`, protected result — `private-no-store`. | Сохранить public lookup до authorization, но никогда не добавлять в projection body, private locator, entitlement, decision или credential. |
-| Access audit | `material_access_audit_events` записывает только action, actor, resource ids и coarse allow/deny для read/preview. | #50 заменяет или мигрирует этот временный consumer в обязательный ContentAccess audit с stable reason, caller, policy/decision/correlation fields; email, provider refs/tokens и credentials не логируются. Audit не становится authorization input. |
+| Access audit | `material_access_audit_events` записывает только action, actor, resource ids и coarse allow/deny для read/preview. | #50 заменяет или мигрирует этот временный consumer в обязательный ContentAccess audit с stable reason, enforcement boundary, policy/decision/correlation fields; email, provider refs/tokens и credentials не логируются. Audit не становится authorization input. |
 | Asset/Image/File | MaterialBody умеет validate/render local `assetId` references и safe labels. Отдельных `Assets` module, persistence, ready-state, private metadata, upload или delivery interface/endpoints нет. | `Resource` vocabulary резервирует `asset`, но #50 не создаёт Asset adapter, signed URL или dummy production resource. Asset slice начинается только с owning real consumer. |
 | Video | MaterialBody умеет validate/render local `videoId` и caption. `Videos` module, Kinescope mapping/status, playback-token и callback отсутствуют. Storybook `Video` fixtures — presentation-only. | `Resource` vocabulary резервирует `video`, но #50 не создаёт Video/Kinescope adapter. `play` conformance активируется с первым owning Video consumer. |
-| Web page | Production routes `/`, `/library`, `/map` не читают Material. Material route и real backend adapter отсутствуют; #67 closed as superseded without implementation, а [#89](https://github.com/sachkov-inside/platform/issues/89) теперь владеет одним finished production Reader slice. | #50 не создаёт page. `PublishedMaterialReader` остаётся application test surface; #89 использует его outcome и не повторяет policy. |
-| REST | API process содержит только `/health` и result mapping helper; Materials module/controller/read endpoint не подключены. | REST adapter отсутствует. Не создавать speculative controller; первый real REST consumer вызывает тот же `ContentAccess` через owning application interface и получает reason mapping из этой specification. |
+| Web page | Closed [#89](https://github.com/sachkov-inside/platform/issues/89) поставил production `/materials/[slug]` RSC route, server-only backend adapter и finished available/access/not-found/unavailable states. Current web call не передаёт authenticated Subject и использует `no-store` до publish invalidation path. | Page является real consumer результата `PublishedMaterialReader`. #112 сохраняет presentation contract и доказывает, что замок/teaser не является delivery permission; authenticated composition приходит после #49. |
+| REST | API process имеет production `GET /materials/:slug` controller, exhaustive result mapping и cache headers; `ApiModule` statically imports `MaterialsModule`. Controller пока всегда передаёт `anonymousSubject`. | REST является real enforcement entrypoint и интеграционным consumer #112. Он вызывает owning `PublishedMaterialReader`, не `ContentAccess` implementation; trusted Subject mapping подключается после #49 без route-local policy. |
 | MCP | MCP process содержит config, PostgreSQL и readiness; Materials resources/tools отсутствуют. [#29](https://github.com/sachkov-inside/platform/issues/29) владеет future Material MCP adapter. | Не создавать speculative MCP resource. Service Principal и preview/read semantics фиксируются сейчас, adapter появляется consumer-led в #29. |
 
-`Asset`, `Video`, page, REST и MCP являются подтверждёнными contract consumers, но не существующими
-code consumers. Type vocabulary не является разрешением создать их adapters заранее.
+Page и REST уже являются real code consumers. `Asset`, `Video` и MCP остаются только
+подтверждёнными contract consumers; type vocabulary не является разрешением создать их adapters
+заранее.
 
 ## Внешний interface
 
@@ -218,7 +220,7 @@ rejected.
 ```ts
 type AccessAvailability = Readonly<{
   itemId: AccessItemId;
-  availability: "available" | "locked" | "sign_in_required";
+  availability: "available" | "locked" | "sign_in_required" | "unavailable";
 }>;
 
 type AllowReason =
@@ -268,6 +270,22 @@ Batch содержит один Subject, имеет bounded item count и воз
 сохраняет input cardinality/order. Empty batch, duplicate `itemId`, malformed operation и
 превышение item/aggregate-byte limit являются request errors; неизвестный Resource и unavailable
 policy fact остаются per-item fail-closed decisions.
+
+Availability является coarse deterministic projection тех же facts, но намеренно не раскрывает
+internal deny reason или resource oracle:
+
+| Authoritative facts/outcome | Availability |
+|---|---|
+| Published public resource для любого Subject, включая disabled Principal | `available` |
+| Protected resource + active Membership или required content/admin permission | `available` |
+| Protected resource + anonymous Subject | `sign_in_required` |
+| Protected resource + non-member, expired member, disabled Principal или human/service без required permission | `locked` |
+| Stale/unavailable required dependency | `unavailable` |
+| Unknown/mismatched/unpublished resource или invalid Resource/Action | `unavailable`; owning Library/page omits stale card or shows coarse retry state |
+
+Author/admin preview следует тем же rows: required permission даёт `available`, её отсутствие —
+`locked`. `availabilityMany` не эмитит `decisionId`, `validUntil` или reason. Любой subsequent body,
+Asset, download или Video delivery вызывает `authorizeMany` заново с authoritative resource facts.
 
 Reason codes являются repository-local lower-snake-case representation owner-confirmed Workspace
 semantics; adapters не создают новые reasons. `policyVersion` меняется при semantic matrix change,
@@ -496,11 +514,11 @@ deny events. High-volume `public_resource` allow может быть metrics-onl
 из того же module, который сформировал decision; route или delivery adapter не собирает duplicate
 audit сам.
 
-Minimum event содержит `decisionId`, `decidedAt`, `effect`, `reason`, `action`, `caller`,
+Minimum event содержит `decisionId`, `decidedAt`, `effect`, `reason`, `action`, `boundary`,
 opaque Subject/resource identifiers, `policyVersion`, `correlationId`, latency class и — только
 если entitlement участвовал — evidence reference/version/`validUntil`. Email, names, raw
 Platform/Telegram identifiers, sessions, authorization headers, signed URLs, JWTs, query strings,
-provider tokens, IP и User-Agent запрещены. `caller` и `correlationId` — audit context, а не
+provider tokens, IP и User-Agent запрещены. `boundary` и `correlationId` — audit context, а не
 policy inputs.
 
 Audit sink outage не превращает deny в allow и не меняет уже вычисленный decision:
@@ -557,11 +575,11 @@ Required tests:
 - concurrent stale requests prove one adapter call, durable lease takeover after failure and
   monotonic final state;
 - service Principal never consumes Membership; disabled Principal loses private permissions;
-- cross-caller corpus expands only when page/REST/MCP/Asset/Video adapters actually exist;
+- cross-boundary corpus expands only when page/REST/MCP/Asset/Video adapters actually exist;
 - cache/response tests prove closed bytes/IDs/credentials absent and Subject A never receives
   Subject B protected result;
 - every protected allow/deny, preview и dependency failure проходят через `AccessAudit`
-  с exact `caller`/`correlationId`/reason/policy fields и без prohibited identity, session и provider data.
+  с exact `boundary`/`correlationId`/reason/policy fields и без prohibited identity, session и provider data.
 
 Old baseline-policy unit tests are deleted once equivalent tests pass through the new external
 interface. Existing Materials lifecycle tests are adapted, not layered with a second policy fake.
@@ -640,7 +658,7 @@ delivery, Kinescope enforcement и operational retention также могут �
 | #50 / shared requirement | Specification contract |
 |---|---|
 | IdP authenticates; Platform authorizes | Authority section; Subject contains no roles/claims; Principal facts are Platform-owned. |
-| One authority for protected resources/callers | Batch-first availability/authorization interface with one policy matrix and non-policy caller/correlation context; inventory names real and absent consumers. |
+| One authority for protected resources/callers | Batch-first availability/authorization interface with one policy matrix and non-policy boundary/correlation context; inventory names real and absent consumers. |
 | Anonymous/non-member/member/expired/author/admin/service outcomes | Stable matrix and deterministic reason precedence. |
 | Authorize before body/private metadata/credentials | Explicit Material/preview/bulk delivery ordering; availability never grants delivery. |
 | No N+1 authorization | Bulk facts/grants/audit, `O(K)` I/O for `K` resource kinds, `N=1`/`N=100` counter acceptance. |
