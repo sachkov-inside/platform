@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import {
   MaterialAuthoringWorkspace,
@@ -12,7 +12,6 @@ import {
 
 import {
   emptyMaterialAuthoringPresentation,
-  invalidMaterialAuthoringPresentation,
   materialAuthoringPresentation,
   savedAfterEditingPresentation,
   savedRevisionId,
@@ -27,7 +26,6 @@ const noopActions = {
   onRetry: fn(),
   onReturnToEditor: fn(),
   onSave: fn(),
-  onValidate: fn(),
 } satisfies MaterialAuthoringActions;
 
 function MaterialAuthoringFixture({
@@ -92,16 +90,6 @@ function MaterialAuthoringFixture({
       noopActions.onSave();
       setPresentation(savedAfterEditingPresentation);
     },
-    onValidate: () => {
-      noopActions.onValidate();
-      setPresentation((current) => ({ ...current, validation: { kind: "checking" } }));
-      window.setTimeout(() => {
-        setPresentation((current) => ({
-          ...current,
-          validation: { kind: "valid", checkedAtLabel: "12:42" },
-        }));
-      }, 120);
-    },
   } satisfies MaterialAuthoringActions;
 
   return <MaterialAuthoringWorkspace actions={actions} presentation={presentation} />;
@@ -157,6 +145,12 @@ export const Editing: Story = {
     const title = canvas.getByLabelText("Название");
     await userEvent.clear(title);
     await userEvent.type(title, "Новая редакция Developer Pipeline");
+    await userEvent.click(canvas.getByLabelText("Тема"));
+    await userEvent.click(within(canvasElement.ownerDocument.body).getByRole("option", { name: "Архитектура" }));
+    await waitFor(async () => {
+      await expect(canvasElement).not.toHaveAttribute("aria-hidden");
+    });
+    await expect(canvas.getByLabelText("Тема")).toHaveTextContent("Архитектура");
     await expect(canvas.getAllByText("Есть несохранённые изменения", { exact: true }).length).toBeGreaterThan(0);
     await expect(canvas.getByRole("button", { name: "Preview" })).toBeDisabled();
     await userEvent.click(canvas.getByRole("button", { name: "Сохранить" }));
@@ -202,10 +196,8 @@ export const Saved: Story = {
     presentation: {
       ...materialAuthoringPresentation,
       save: { kind: "saved", savedAtLabel: "12:41" },
-      validation: { kind: "valid", checkedAtLabel: "12:40" },
     },
   },
-  name: "Saved and validated",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getAllByText("Сохранено 12:41", { exact: true }).length).toBeGreaterThan(0);
@@ -216,18 +208,6 @@ export const Saved: Story = {
     await userEvent.tab();
     await expect(canvas.getByRole("button", { name: "Preview" })).toHaveFocus();
     await userEvent.tab();
-    await expect(canvas.getByLabelText("Название")).toHaveFocus();
-  },
-};
-
-export const ValidationError: Story = {
-  args: { presentation: invalidMaterialAuthoringPresentation },
-  name: "Validation error",
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const titleIssue = canvas.getByRole("button", { name: /Название/ });
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Материал пока нельзя опубликовать");
-    await userEvent.click(titleIssue);
     await expect(canvas.getByLabelText("Название")).toHaveFocus();
   },
 };
@@ -260,9 +240,6 @@ export const ExactPreview: Story = {
       "Preview не меняет опубликованную редакцию.",
     );
     await expect(canvas.getByRole("heading", { name: "Developer Pipeline без магии" })).toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Проверить" }));
-    await expect(canvas.getByText("Проверяем exact revision…")).toBeInTheDocument();
-    await expect(await canvas.findByText("Ошибок нет · 12:42")).toBeInTheDocument();
   },
 };
 
@@ -322,7 +299,6 @@ export const MobileTextZoom: Story = {
     presentation: {
       ...materialAuthoringPresentation,
       save: { kind: "saved", savedAtLabel: "12:41" },
-      validation: { kind: "valid", checkedAtLabel: "12:40" },
     },
   },
   globals: { viewport: { isRotated: false, value: "mobile390" } },

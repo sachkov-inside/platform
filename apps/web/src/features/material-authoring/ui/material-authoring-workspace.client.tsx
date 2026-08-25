@@ -34,7 +34,6 @@ import type {
   MaterialAuthoringActions,
   MaterialAuthoringPresentation,
   MaterialSaveState,
-  MaterialValidationState,
 } from "../model/presentation";
 import { MaterialRevisionPreview } from "./material-revision-preview";
 
@@ -59,7 +58,6 @@ export function MaterialAuthoringWorkspace({
     return (
       <ExactPreview
         onReturnToEditor={actions.onReturnToEditor}
-        onValidate={actions.onValidate}
         presentation={presentation}
       />
     );
@@ -76,7 +74,7 @@ export function MaterialAuthoringWorkspace({
       <BlockingState actions={actions} presentation={presentation} />
 
       <form
-        className="mx-auto grid w-full max-w-[92rem] min-w-0 gap-0 px-4 pb-14 pt-6 sm:px-6 @min-[68rem]/material-authoring:grid-cols-[minmax(14rem,0.72fr)_minmax(28rem,1.8fr)_minmax(15rem,0.8fr)] @min-[68rem]/material-authoring:px-8"
+        className="mx-auto grid w-full max-w-[52rem] min-w-0 gap-0 px-4 pb-14 pt-7 sm:px-6 @min-[68rem]/material-authoring:max-w-[80rem] @min-[68rem]/material-authoring:grid-cols-[minmax(17rem,0.72fr)_minmax(32rem,1.55fr)] @min-[68rem]/material-authoring:px-8"
         onSubmit={(event) => {
           event.preventDefault();
           actions.onSave();
@@ -84,7 +82,6 @@ export function MaterialAuthoringWorkspace({
       >
         <MetadataPanel actions={actions} presentation={presentation} />
         <DocumentPanel actions={actions} presentation={presentation} />
-        <ValidationPanel actions={actions} presentation={presentation} />
       </form>
     </section>
   );
@@ -98,12 +95,11 @@ function EditorHeader({
     presentation.draft.revisionId === null ||
     presentation.save.kind === "dirty" ||
     presentation.save.kind === "submitting" ||
-    presentation.validation.kind === "invalid" ||
     presentation.blocking.kind !== "none";
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card/95 px-4 py-3 backdrop-blur-sm supports-[backdrop-filter]:bg-card/88 sm:px-6">
-      <div className="mx-auto flex w-full max-w-[92rem] flex-wrap items-center justify-between gap-3">
+      <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <Button aria-label="Вернуться к материалам" onClick={actions.onBack} size="icon-lg" type="button" variant="ghost">
             <ArrowLeft aria-hidden="true" />
@@ -142,11 +138,10 @@ function EditorHeader({
 
 function RevisionRail({ presentation }: { readonly presentation: MaterialAuthoringPresentation }) {
   return (
-    <div className="border-b border-border bg-card px-4 sm:px-6">
-      <dl className="relative mx-auto grid w-full max-w-[92rem] grid-cols-1 gap-2 py-3 font-mono text-[0.6875rem] sm:grid-cols-3 sm:gap-4 before:absolute before:bottom-0 before:left-0 before:h-px before:w-full before:bg-accent">
+    <div className="bg-background px-4 pt-3 sm:px-6">
+      <dl className="mx-auto grid w-full max-w-[80rem] grid-cols-1 gap-2 rounded-2xl bg-secondary/65 px-4 py-3 font-mono text-[0.6875rem] sm:grid-cols-2 sm:gap-5 sm:px-5">
         <RevisionFact label="Редакция" value={presentation.draft.revisionId ?? "ещё не создана"} />
         <RevisionFact label="Сохранение" value={saveStateLabel(presentation.save)} />
-        <RevisionFact label="Проверка" value={validationStateLabel(presentation.validation)} />
       </dl>
     </div>
   );
@@ -154,9 +149,9 @@ function RevisionRail({ presentation }: { readonly presentation: MaterialAuthori
 
 function RevisionFact({ label, value }: { readonly label: string; readonly value: string }) {
   return (
-    <div className="flex min-w-0 items-baseline justify-between gap-3 sm:block">
+    <div className="min-w-0">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="truncate font-semibold text-foreground sm:mt-1">{value}</dd>
+      <dd className="mt-1 min-w-0 truncate font-semibold text-foreground">{value}</dd>
     </div>
   );
 }
@@ -166,18 +161,13 @@ function MetadataPanel({
   presentation,
 }: MaterialAuthoringWorkspaceProps) {
   const disabled = presentation.save.kind === "submitting" || presentation.blocking.kind !== "none";
-  const titleIssueId = validationIssueId(presentation.validation, "material-title");
-  const summaryIssueId = validationIssueId(presentation.validation, "material-summary");
-  const topicIssueId = validationIssueId(presentation.validation, "material-topic");
 
   return (
     <fieldset className="min-w-0 border-0 border-b border-border pb-7 @min-[68rem]/material-authoring:border-b-0 @min-[68rem]/material-authoring:border-r @min-[68rem]/material-authoring:pb-0 @min-[68rem]/material-authoring:pr-7" disabled={disabled}>
       <legend className="text-sm font-semibold">Параметры материала</legend>
-      <div className="mt-5 space-y-5">
+      <div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2 @min-[68rem]/material-authoring:grid-cols-1">
         <Field label="Название" targetId="material-title">
           <input
-            aria-describedby={titleIssueId}
-            aria-invalid={titleIssueId === undefined ? undefined : true}
             className={fieldClassName}
             id="material-title"
             onChange={(event) => {
@@ -188,8 +178,6 @@ function MetadataPanel({
         </Field>
         <Field label="Краткое описание" targetId="material-summary">
           <textarea
-            aria-describedby={summaryIssueId}
-            aria-invalid={summaryIssueId === undefined ? undefined : true}
             className={cn(fieldClassName, "min-h-28 resize-y py-3 leading-6")}
             id="material-summary"
             onChange={(event) => {
@@ -199,16 +187,22 @@ function MetadataPanel({
           />
         </Field>
         <Field label="Тема" targetId="material-topic">
-          <input
-            aria-describedby={topicIssueId}
-            aria-invalid={topicIssueId === undefined ? undefined : true}
-            className={fieldClassName}
-            id="material-topic"
-            onChange={(event) => {
-              actions.onFieldChange("topic", event.currentTarget.value);
+          <Select
+            disabled={disabled}
+            onValueChange={(value) => {
+              actions.onFieldChange("topic", value);
             }}
             value={presentation.draft.topic}
-          />
+          >
+            <SelectTrigger id="material-topic">
+              <SelectValue placeholder="Выберите тему" />
+            </SelectTrigger>
+            <SelectContent>
+              {presentation.availableTopics.map((topic) => (
+                <SelectItem key={topic.value} value={topic.value}>{topic.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field label="Формат" targetId="material-format">
           <Select
@@ -272,7 +266,7 @@ function Field({
   readonly targetId: string;
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <label className="text-sm font-medium" htmlFor={targetId}>{label}</label>
         {hint === undefined ? null : <span className="font-mono text-[0.6875rem] text-muted-foreground">{hint}</span>}
@@ -287,17 +281,11 @@ const fieldClassName =
 
 function DocumentPanel({ actions, presentation }: MaterialAuthoringWorkspaceProps) {
   return (
-    <section aria-labelledby="document-heading" className="min-w-0 border-b border-border py-7 @min-[68rem]/material-authoring:border-b-0 @min-[68rem]/material-authoring:px-8 @min-[68rem]/material-authoring:py-0">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-sm font-semibold" id="document-heading">Содержимое редакции</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Изменения войдут в следующую immutable revision после сохранения.</p>
-        </div>
-      </div>
+    <section aria-labelledby="document-heading" className="min-w-0 py-8 @min-[68rem]/material-authoring:px-8 @min-[68rem]/material-authoring:py-0">
+      <h2 className="text-sm font-semibold" id="document-heading">Содержимое редакции</h2>
       <MaterialDocumentEditor
         disabled={presentation.save.kind === "submitting" || presentation.blocking.kind !== "none"}
         document={presentation.draft.document}
-        invalidIssueId={validationIssueId(presentation.validation, "material-body")}
         onChange={actions.onDocumentChange}
       />
     </section>
@@ -307,12 +295,10 @@ function DocumentPanel({ actions, presentation }: MaterialAuthoringWorkspaceProp
 function MaterialDocumentEditor({
   disabled,
   document,
-  invalidIssueId,
   onChange,
 }: {
   readonly disabled: boolean;
   readonly document: MaterialAuthoringPresentation["draft"]["document"];
-  readonly invalidIssueId: string | undefined;
   readonly onChange: MaterialAuthoringActions["onDocumentChange"];
 }) {
   const editor = useEditor({
@@ -322,9 +308,6 @@ function MaterialDocumentEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        ...(invalidIssueId === undefined
-          ? {}
-          : { "aria-describedby": invalidIssueId, "aria-invalid": "true" }),
         "aria-label": "Содержимое редакции материала",
         "aria-multiline": "true",
         id: "material-body",
@@ -387,85 +370,6 @@ function ToolbarButton({
   );
 }
 
-function ValidationPanel({ actions, presentation }: MaterialAuthoringWorkspaceProps) {
-  return (
-    <aside aria-labelledby="validation-heading" className="min-w-0 pt-7 @min-[68rem]/material-authoring:border-l @min-[68rem]/material-authoring:border-border @min-[68rem]/material-authoring:pl-7 @min-[68rem]/material-authoring:pt-0">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold" id="validation-heading">Проверка</h2>
-        <Button disabled={presentation.save.kind === "submitting" || presentation.validation.kind === "checking" || presentation.blocking.kind !== "none"} onClick={actions.onValidate} size="sm" type="button" variant="outline">
-          {presentation.validation.kind === "checking" ? "Проверяем…" : "Проверить"}
-        </Button>
-      </div>
-      <ValidationContent state={presentation.validation} />
-    </aside>
-  );
-}
-
-function ValidationContent({ state }: { readonly state: MaterialValidationState }) {
-  if (state.kind === "unchecked") {
-    return <p className="mt-4 text-sm leading-6 text-muted-foreground">Проверка ещё не запускалась для этой редакции.</p>;
-  }
-  if (state.kind === "checking") {
-    return (
-      <div aria-live="polite" className="mt-4 flex gap-3 text-sm" role="status">
-        <LoaderCircle aria-hidden="true" className="mt-0.5 size-4.5 shrink-0 animate-spin text-accent motion-reduce:animate-none" />
-        <p className="font-semibold">Проверяем редакцию…</p>
-      </div>
-    );
-  }
-  if (state.kind === "valid") {
-    return (
-      <div className="mt-4 flex gap-3 text-sm" role="status">
-        <Check aria-hidden="true" className="mt-0.5 size-4.5 shrink-0 text-accent" />
-        <div>
-          <p className="font-semibold">Ошибок нет</p>
-          <p className="mt-1 font-mono text-[0.6875rem] text-muted-foreground">Проверено {state.checkedAtLabel}</p>
-        </div>
-      </div>
-    );
-  }
-  if (state.kind === "failed") {
-    return (
-      <div className="mt-4 flex gap-3 text-sm" role="alert">
-        <CloudOff aria-hidden="true" className="mt-0.5 size-4.5 shrink-0 text-destructive" />
-        <div>
-          <p className="font-semibold">Проверка недоступна</p>
-          <p className="mt-1 leading-6 text-muted-foreground">{state.message}</p>
-          <p className="mt-2 font-mono text-[0.6875rem] text-muted-foreground">Код обращения: {state.correlationId}</p>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="mt-4" role="alert">
-      <div className="flex gap-3">
-        <CircleAlert aria-hidden="true" className="mt-0.5 size-4.5 shrink-0 text-destructive" />
-        <div>
-          <p className="font-semibold">Материал пока нельзя опубликовать</p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">Исправьте отмеченные поля и фрагменты, затем повторите проверку.</p>
-        </div>
-      </div>
-      <ul className="mt-5 space-y-3" role="list">
-        {state.issues.map((issue) => (
-          <li key={issue.id}>
-            <button
-              className="block w-full rounded-lg bg-destructive/10 px-3 py-3 text-left text-sm hover:bg-destructive/15 focus-visible:outline-ring"
-              id={`validation-issue-${issue.id}`}
-              onClick={() => {
-                focusValidationTarget(issue.targetId);
-              }}
-              type="button"
-            >
-              <span className="font-semibold text-destructive">{issue.label}</span>
-              <span className="mt-1 block text-foreground">{issue.message}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function BlockingState({ actions, presentation }: MaterialAuthoringWorkspaceProps) {
   if (presentation.blocking.kind === "none") {
     return null;
@@ -513,11 +417,9 @@ function BlockingState({ actions, presentation }: MaterialAuthoringWorkspaceProp
 
 function ExactPreview({
   onReturnToEditor,
-  onValidate,
   presentation,
 }: {
   readonly onReturnToEditor: () => void;
-  readonly onValidate: () => void;
   readonly presentation: MaterialAuthoringPresentation;
 }) {
   const preview = presentation.preview;
@@ -536,15 +438,9 @@ function ExactPreview({
             <div className="min-w-0">
               <h1 className="text-sm font-semibold" id="exact-preview-heading">Preview exact revision</h1>
               <p className="truncate font-mono text-[0.6875rem] text-sidebar-foreground/70">{preview.exactRevisionId}</p>
-              <PreviewValidationStatus state={presentation.validation} />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button className="border-sidebar-border bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-border" disabled={presentation.validation.kind === "checking"} onClick={onValidate} type="button" variant="outline">
-              {presentation.validation.kind === "checking" ? "Проверяем…" : "Проверить"}
-            </Button>
-            <Button className="bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/85" onClick={onReturnToEditor} type="button">Вернуться в редактор</Button>
-          </div>
+          <Button className="bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/85" onClick={onReturnToEditor} type="button">Вернуться в редактор</Button>
         </div>
       </header>
       <div className="border-b border-border bg-card px-4 py-3 text-center font-mono text-[0.6875rem] text-muted-foreground" data-preview-revision-banner>
@@ -552,20 +448,6 @@ function ExactPreview({
       </div>
       <MaterialRevisionPreview preview={preview} />
     </section>
-  );
-}
-
-function PreviewValidationStatus({ state }: { readonly state: MaterialValidationState }) {
-  const summary = validationStatePresentation(state);
-  return (
-    <span
-      aria-live={summary.checking ? "polite" : undefined}
-      className="mt-1 flex items-center gap-1.5 text-[0.6875rem] text-sidebar-foreground/80"
-      role={summary.role}
-    >
-      {summary.checking ? <LoaderCircle aria-hidden="true" className="size-3 animate-spin motion-reduce:animate-none" /> : null}
-      {summary.previewLabel}
-    </span>
   );
 }
 
@@ -605,70 +487,4 @@ function saveStateLabel(state: MaterialSaveState): string {
     case "saved":
       return `Сохранено ${state.savedAtLabel}`;
   }
-}
-
-function validationStateLabel(state: MaterialValidationState): string {
-  return validationStatePresentation(state).railLabel;
-}
-
-function validationStatePresentation(state: MaterialValidationState): {
-  readonly checking: boolean;
-  readonly previewLabel: string;
-  readonly railLabel: string;
-  readonly role: "alert" | "status" | undefined;
-} {
-  switch (state.kind) {
-    case "unchecked":
-      return {
-        checking: false,
-        previewLabel: "Проверка не запускалась",
-        railLabel: "Не запускалась",
-        role: undefined,
-      };
-    case "checking":
-      return {
-        checking: true,
-        previewLabel: "Проверяем exact revision…",
-        railLabel: "Выполняется…",
-        role: "status",
-      };
-    case "valid":
-      return {
-        checking: false,
-        previewLabel: `Ошибок нет · ${state.checkedAtLabel}`,
-        railLabel: "Ошибок нет",
-        role: "status",
-      };
-    case "invalid":
-      return {
-        checking: false,
-        previewLabel: `Найдено ошибок: ${String(state.issues.length)}`,
-        railLabel: `${String(state.issues.length)} ${state.issues.length === 1 ? "ошибка" : "ошибки"}`,
-        role: "status",
-      };
-    case "failed":
-      return {
-        checking: false,
-        previewLabel: `Проверка недоступна · ${state.correlationId}`,
-        railLabel: "Недоступна",
-        role: "alert",
-      };
-  }
-}
-
-function validationIssueId(
-  state: MaterialValidationState,
-  targetId: string,
-): string | undefined {
-  if (state.kind !== "invalid") {
-    return undefined;
-  }
-  const issue = state.issues.find((candidate) => candidate.targetId === targetId);
-  return issue === undefined ? undefined : `validation-issue-${issue.id}`;
-}
-
-function focusValidationTarget(targetId: string): void {
-  const target = document.getElementById(targetId);
-  target?.scrollIntoView({ block: "center" });
-  target?.focus({ preventScroll: true });
 }

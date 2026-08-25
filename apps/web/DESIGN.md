@@ -124,7 +124,7 @@ Sachkov Inside Platform — спокойная светлая инженерна
 - Rounded controls and containers with explicit grouping purpose.
 - Manrope for product and reading; JetBrains Mono only for technical facts.
 - Mobile-first semantic order preserved as space adds columns.
-- Exact revision, validation, save and publication facts stay visible and literal.
+- Exact revision, save and publication facts stay visible and literal.
 
 ## Colors
 
@@ -146,7 +146,7 @@ Sachkov Inside Platform — спокойная светлая инженерна
 - **Charcoal Ink** (`foreground`) и **Quiet Technical Ink** (`muted-foreground`): основной и вторичный текст.
 - **Soft Workbench Divider** (`border`, `input`): структура через тонкие линии без card-everywhere.
 - **Bounded Workbench** (`sidebar`) с **Workbench Chalk** (`sidebar-foreground`): code, media, navigation и другие сфокусированные dark regions.
-- **Destructive Red** (`destructive`): validation, authorization, conflict and infrastructure failure only.
+- **Destructive Red** (`destructive`): authorization, conflict and infrastructure failure only.
 
 **The Orange Proof Signal Rule.** Orange marks current state, focus or a meaningful product accent; if it does not help the user verify or act, do not use it.
 
@@ -175,7 +175,7 @@ Sachkov Inside Platform — спокойная светлая инженерна
 
 The system is mobile-first. Narrow surfaces preserve content priority and a single semantic reading order, then add space-driven enhancements through min-width or container queries. The accepted application shell uses a continuous mobile canvas with a persistent compact bottom navigation; desktop adds the inset expandable charcoal sidebar and lets the main content own scrolling. Reading columns remain bounded near 70–72 characters, while application canvases use generous maximum widths appropriate to the task.
 
-The issue #38 authoring proof keeps metadata → document → validation in that order on narrow screens and expresses the same order as three desktop columns inside a wide workbench. Exact Preview now has desktop and 390 × 844 mobile evidence with the same exact-revision identity and no horizontal overflow. The sticky author header and orange revision rail remain a candidate authoring pattern pending owner visual/interaction GO, not a required layout for other operate surfaces.
+The issue #38 authoring proof keeps metadata → document in that order on narrow screens and expresses the same order as two desktop columns inside a bounded workbench. Intermediate widths keep the form near `52rem` and use a compact two-column metadata grid instead of stretching fields across the viewport. Exact Preview has desktop and 390 × 844 mobile evidence with the same exact-revision identity and no horizontal overflow. The sticky author header and soft rounded revision group remain a candidate authoring pattern pending owner visual/interaction GO, not a required layout for other operate surfaces.
 
 **The Mobile Semantic Order Rule.** Responsive changes may add columns, rails or contextual controls, but they must preserve the narrow-screen information order and primary actions.
 
@@ -228,8 +228,8 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 ### Candidate Authoring Workbench
 
 - **Status:** candidate pattern from issue #38; finish verdict is `ship`, but global adoption awaits owner visual/interaction GO.
-- **Composition:** sticky author header, revision rail, and metadata → document → validation semantic order; desktop may render the order as three columns.
-- **State:** exact revision, save and validation facts remain literal; Preview names the exact immutable revision, never adds unowned transport/security claims, never implies publication and now has desktop plus narrow-mobile proof.
+- **Composition:** sticky author header, a soft rounded revision group, and metadata → document semantic order; desktop may render the order as two bounded columns.
+- **State:** exact revision and save facts remain literal; Preview names the exact immutable revision, never adds unowned transport/security claims, never implies publication and now has desktop plus narrow-mobile proof.
 
 **The Owner Gate Candidate Rule.** Treat the issue #38 authoring layout and revision rail as reusable evidence to review, not as an approved global mandate, until owner visual/interaction GO is recorded.
 
@@ -238,10 +238,10 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 ### Do:
 
 - **Do** keep the warm light canvas dominant and bound charcoal to navigation, code, media or focused work regions.
-- **Do** reserve orange for current state, validation/focus evidence and the next meaningful action.
+- **Do** reserve orange for current state, focus evidence and the next meaningful action.
 - **Do** use Manrope for product copy and JetBrains Mono for exact technical facts.
 - **Do** preserve the same semantic information order from narrow mobile to desktop.
-- **Do** expose save, validation, conflict, authorization and exact-revision truth with text as well as color.
+- **Do** expose save, conflict, authorization and exact-revision truth with text as well as color.
 - **Do** use the accepted shared primitives and Storybook proofs before introducing a new visual dialect.
 
 ### Don't:

@@ -6,26 +6,10 @@ export type MaterialSaveState =
   | { readonly kind: "submitting" }
   | { readonly kind: "saved"; readonly savedAtLabel: string };
 
-export interface MaterialValidationIssue {
-  readonly id: string;
+export interface MaterialSelectOption {
   readonly label: string;
-  readonly message: string;
-  readonly targetId: string;
+  readonly value: string;
 }
-
-export type MaterialValidationState =
-  | { readonly kind: "unchecked" }
-  | { readonly kind: "checking" }
-  | { readonly kind: "valid"; readonly checkedAtLabel: string }
-  | {
-      readonly kind: "invalid";
-      readonly issues: readonly MaterialValidationIssue[];
-    }
-  | {
-      readonly correlationId: string;
-      readonly kind: "failed";
-      readonly message: string;
-    };
 
 export interface MaterialDraftPresentation {
   readonly access: "free" | "membership";
@@ -101,6 +85,7 @@ export type MaterialWorkspaceBlockingState =
     };
 
 export interface MaterialAuthoringPresentation {
+  readonly availableTopics: readonly MaterialSelectOption[];
   readonly authorization:
     | { readonly kind: "allowed" }
     | { readonly kind: "unauthorized" };
@@ -109,7 +94,6 @@ export interface MaterialAuthoringPresentation {
   readonly mode: "editor" | "preview";
   readonly preview: MaterialPreviewPresentation | null;
   readonly save: MaterialSaveState;
-  readonly validation: MaterialValidationState;
 }
 
 export type MaterialDraftField =
@@ -130,5 +114,4 @@ export interface MaterialAuthoringActions {
   readonly onRetry: () => void;
   readonly onReturnToEditor: () => void;
   readonly onSave: () => void;
-  readonly onValidate: () => void;
 }

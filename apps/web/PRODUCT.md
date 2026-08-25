@@ -11,8 +11,9 @@ web
 - Публичный посетитель находит и читает бесплатные материалы и понимает состав Membership.
 - Участник Membership находит и читает доступные материалы, управляет минимальным reading state и
   приватным Platform Account.
-- Единственный автор первой версии — Кирилл. Он создаёт и изменяет Material, проверяет validation и
-  exact Preview выбранной MaterialRevision, а затем отдельно даёт явный GO на публикацию.
+- Единственный автор первой версии — Кирилл. Он выбирает тему из доступного каталога, создаёт и
+  изменяет Material, проверяет exact Preview выбранной MaterialRevision, а затем отдельно даёт
+  явный GO на публикацию.
 - Owner agent выполняет тот же bounded authoring workflow через MCP и общие application rules, но
   не публикует автономно.
 
@@ -25,8 +26,8 @@ reading и authoring так, чтобы опубликованный конте�
 ## Positioning
 
 Материал хранит инженерную практику вместе с контекстом решений и связанными artifacts. Browser UI
-и owner agent используют один application contract, revision identity, validation и conflict
-semantics; интерфейс не создаёт параллельную content authority.
+и owner agent используют один application contract, revision identity и conflict semantics;
+интерфейс не создаёт параллельную content authority.
 
 ## Operating Context
 
@@ -44,8 +45,8 @@ semantics; интерфейс не создаёт параллельную conte
 - Preview всегда относится к явно названной exact MaterialRevision, не меняет publication state и
   не создаёт впечатление просмотра latest revision.
 - Authoring полностью доступен на narrow mobile. Editor показывает dirty, submitting, saved,
-  validation, authorization, conflict и infrastructure failure states без копирования backend
-  business rules.
+  authorization, conflict и infrastructure failure states без копирования backend business rules.
+- Тема Material выбирается из доступного каталога, а не вводится произвольной строкой.
 - Publish execute остаётся отдельным owner gate; autonomous publish, collaborative realtime
   editing, multi-author review и content import не входят в v1.
 - UI contracts скрывают backend transport DTO и остаются малыми, serializable и пригодными для
@@ -81,5 +82,5 @@ semantics; интерфейс не создаёт параллельную conte
 ## Accessibility & Inclusion
 
 Critical journeys support semantic landmarks and headings, keyboard operation, visible focus,
-programmatically announced validation/errors, screen-reader names, 200% text zoom, narrow
-viewports and reduced-motion preferences. Color is never the only state indicator.
+programmatically announced status/errors, screen-reader names, 200% text zoom, narrow viewports
+and reduced-motion preferences. Color is never the only state indicator.

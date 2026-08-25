@@ -19,6 +19,12 @@ const revisionId = "rev_01JY7A2M4N8QF3T6V9XC";
 export const savedRevisionId = "rev_01JY7C6RE4M2W9PK5AHN";
 
 export const materialAuthoringPresentation = {
+  availableTopics: [
+    { label: "AI для разработчиков", value: "ai-for-developers" },
+    { label: "Инженерный менеджмент", value: "engineering-management" },
+    { label: "Архитектура", value: "architecture" },
+    { label: "Developer experience", value: "developer-experience" },
+  ],
   authorization: { kind: "allowed" },
   blocking: { kind: "none" },
   draft: {
@@ -72,7 +78,7 @@ export const materialAuthoringPresentation = {
     summary: "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
     tags: "developer pipeline, agents, delivery",
     title: "Developer Pipeline без магии",
-    topic: "AI для разработчиков",
+    topic: "ai-for-developers",
   },
   mode: "editor",
   preview: {
@@ -118,7 +124,6 @@ export const materialAuthoringPresentation = {
     topic: "AI для разработчиков",
   },
   save: { kind: "clean" },
-  validation: { kind: "unchecked" },
 } as const satisfies MaterialAuthoringPresentation;
 
 export const savedAfterEditingPresentation = {
@@ -134,7 +139,6 @@ export const savedAfterEditingPresentation = {
     title: "Новая редакция Developer Pipeline",
   },
   save: { kind: "saved", savedAtLabel: "12:41" },
-  validation: { kind: "unchecked" },
 } as const satisfies MaterialAuthoringPresentation;
 
 export const emptyMaterialAuthoringPresentation = {
@@ -154,26 +158,4 @@ export const emptyMaterialAuthoringPresentation = {
     topic: "",
   },
   preview: null,
-} as const satisfies MaterialAuthoringPresentation;
-
-export const invalidMaterialAuthoringPresentation = {
-  ...materialAuthoringPresentation,
-  save: { kind: "dirty" },
-  validation: {
-    kind: "invalid",
-    issues: [
-      {
-        id: "missing-title-detail",
-        label: "Название",
-        message: "Уточните название: оно должно отличать Material в Библиотеке.",
-        targetId: "material-title",
-      },
-      {
-        id: "short-body",
-        label: "Содержимое редакции",
-        message: "Добавьте итоговый следующий шаг в последнюю секцию.",
-        targetId: "material-body",
-      },
-    ],
-  },
 } as const satisfies MaterialAuthoringPresentation;

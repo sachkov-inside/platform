@@ -141,7 +141,7 @@
       { "name": "application-navigation", "value": "48rem" },
       { "name": "reader-local-navigation", "value": "40rem" },
       { "name": "library-wide-composition", "value": "52rem" },
-      { "name": "authoring-three-column-container", "value": "68rem" }
+      { "name": "authoring-two-column-container", "value": "68rem" }
     ]
   },
   "components": [
@@ -214,8 +214,8 @@
       "kind": "custom",
       "refersTo": "candidate-revision-rail",
       "description": "Issue #38 candidate pattern pending owner visual/interaction GO; associated exact Preview now has desktop and 390 × 844 mobile evidence, not global approval.",
-      "html": "<dl class=\"ds-revision-rail\"><div><dt>Редакция</dt><dd>rev_01JY7C6RE4M2W9PK5AHN</dd></div><div><dt>Сохранение</dt><dd>Сохранено 12:41</dd></div><div><dt>Проверка</dt><dd>Ошибок нет</dd></div></dl>",
-      "css": ".ds-revision-rail { position:relative; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin:0; border-bottom:1px solid var(--border); background:var(--card); color:var(--foreground); padding:.75rem 1rem; font-family:var(--font-utility); font-size:.6875rem; } .ds-revision-rail::after { content:\"\"; position:absolute; right:1rem; bottom:-1px; left:1rem; height:1px; background:var(--accent); } .ds-revision-rail div { min-width:0; } .ds-revision-rail dt { color:var(--muted-foreground); } .ds-revision-rail dd { overflow:hidden; margin:.25rem 0 0; font-weight:600; text-overflow:ellipsis; white-space:nowrap; } .ds-revision-rail:focus-within { outline:.1875rem solid var(--ring); outline-offset:.1875rem; } @media (max-width:39.999rem) { .ds-revision-rail { grid-template-columns:1fr; gap:.5rem; } .ds-revision-rail div { display:flex; align-items:baseline; justify-content:space-between; gap:.75rem; } .ds-revision-rail dd { margin:0; } }"
+      "html": "<dl class=\"ds-revision-rail\"><div><dt>Редакция</dt><dd>rev_01JY7C6RE4M2W9PK5AHN</dd></div><div><dt>Сохранение</dt><dd>Сохранено 12:41</dd></div></dl>",
+      "css": ".ds-revision-rail { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.25rem; margin:0; border-radius:calc(var(--radius,.875rem)*1.35); background:var(--secondary); color:var(--foreground); padding:.75rem 1.25rem; font-family:var(--font-utility); font-size:.6875rem; } .ds-revision-rail div { min-width:0; } .ds-revision-rail dt { color:var(--muted-foreground); } .ds-revision-rail dd { overflow:hidden; margin:.25rem 0 0; font-weight:600; text-overflow:ellipsis; white-space:nowrap; } .ds-revision-rail:focus-within { outline:.1875rem solid var(--ring); outline-offset:.1875rem; } @media (max-width:39.999rem) { .ds-revision-rail { grid-template-columns:1fr; gap:.5rem; } }"
     }
   ],
   "narrative": {
@@ -227,7 +227,7 @@
       "Rounded controls and containers with explicit grouping purpose.",
       "Manrope for product and reading; JetBrains Mono only for technical facts.",
       "Mobile-first semantic order preserved as space adds columns.",
-      "Exact revision, validation, save and publication facts stay visible and literal."
+      "Exact revision, save and publication facts stay visible and literal."
     ],
     "rules": [
       { "name": "The Orange Proof Signal Rule", "body": "Orange marks current state, focus or a meaningful product accent; if it does not help the user verify or act, do not use it.", "section": "colors" },
@@ -238,10 +238,10 @@
     ],
     "dos": [
       "Do keep the warm light canvas dominant and bound charcoal to navigation, code, media or focused work regions.",
-      "Do reserve orange for current state, validation/focus evidence and the next meaningful action.",
+      "Do reserve orange for current state, focus evidence and the next meaningful action.",
       "Do use Manrope for product copy and JetBrains Mono for exact technical facts.",
       "Do preserve the same semantic information order from narrow mobile to desktop.",
-      "Do expose save, validation, conflict, authorization and exact-revision truth with text as well as color.",
+      "Do expose save, conflict, authorization and exact-revision truth with text as well as color.",
       "Do use the accepted shared primitives and Storybook proofs before introducing a new visual dialect."
     ],
     "donts": [
