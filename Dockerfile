@@ -15,6 +15,8 @@ FROM toolchain AS dependencies
 
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY --chown=node:node apps/backend/package.json ./apps/backend/package.json
+COPY --chown=node:node apps/backend/prisma.config.ts ./apps/backend/prisma.config.ts
+COPY --chown=node:node apps/backend/prisma ./apps/backend/prisma
 COPY --chown=node:node apps/web/package.json ./apps/web/package.json
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy

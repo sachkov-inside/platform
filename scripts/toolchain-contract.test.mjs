@@ -26,6 +26,24 @@ describe("supported toolchain contract", () => {
     );
   });
 
+  it("copies Prisma generation inputs before dependency postinstall", () => {
+    const dockerfile = read("Dockerfile");
+    const installPosition = dockerfile.indexOf("pnpm install --frozen-lockfile");
+
+    assert.ok(installPosition > 0);
+    for (const input of [
+      "apps/backend/prisma.config.ts",
+      "apps/backend/prisma ./apps/backend/prisma",
+    ]) {
+      const copyPosition = dockerfile.indexOf(input);
+      assert.ok(copyPosition >= 0, `Dockerfile must copy ${input}`);
+      assert.ok(
+        copyPosition < installPosition,
+        `Dockerfile must copy ${input} before pnpm install`,
+      );
+    }
+  });
+
   it("keeps TypeScript exact and Node declarations on the runtime major", () => {
     const nodeMajor = nodeVersion.split(".")[0];
     const packages = [rootPackage, backendPackage, webPackage];
