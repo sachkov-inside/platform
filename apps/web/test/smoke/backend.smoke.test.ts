@@ -28,7 +28,7 @@ describe("real backend connection", () => {
     }
 
     expect(document.info.title).toBe("Inside Platform API");
-    expect(document.info.version).toBe("0.0.0");
+    expect(document.info.version).toBe("1.0.0");
     expect(isRecord(document.paths)).toBe(true);
     if (!isRecord(document.paths)) {
       return;
