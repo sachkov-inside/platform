@@ -25,6 +25,17 @@ const fakes = vi.hoisted(() => ({
   },
   cookieSet: vi.fn(),
   cookieGet: vi.fn(() => ({ value: "encrypted-logto-session" })),
+  clearLogtoSessionCookie: vi.fn((config: { appId: string; cookieSecure: boolean }) => {
+    fakes.cookieSet(`logto_${config.appId}`, "", {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+      secure: config.cookieSecure,
+      expires: new Date(0),
+      maxAge: 0,
+    });
+    return Promise.resolve();
+  }),
   createSignInAttempt: vi.fn(() => ({
     id: "72000000-0000-4000-8000-000000000010",
     expiresAt: "2026-08-25T06:10:00.000Z",
@@ -122,6 +133,7 @@ vi.mock("next/headers", () => ({
 
 vi.mock("@/shared/auth/index.server", () => ({
   readLogtoBffConfig: () => fakes.config,
+  clearLogtoSessionCookie: fakes.clearLogtoSessionCookie,
   isSameOriginMutation: (request: Request, baseUrl: string) =>
     request.headers.get("origin") === new URL(baseUrl).origin,
   logtoSessionCookieName: (appId: string) => `logto_${appId}`,

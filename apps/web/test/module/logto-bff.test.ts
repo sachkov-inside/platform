@@ -4,6 +4,7 @@ import { AudienceBoundLogtoClient } from "@/shared/auth/audience-bound-logto-cli
 
 import {
   bindAuthorizationCodeResource,
+  clearLogtoSessionCookie,
   createSignInAttempt,
   decodeSignInAttemptCookie,
   encodeSignInAttemptCookie,
@@ -16,6 +17,7 @@ const secret = "logto-bff-test-cookie-secret-32characters";
 const sdkFake = vi.hoisted<{ nodeClient: unknown }>(() => ({
   nodeClient: undefined,
 }));
+const cookieSet = vi.hoisted(() => vi.fn());
 
 vi.mock("@logto/next/server-actions", () => ({
   default: class LogtoClient {
@@ -24,6 +26,10 @@ vi.mock("@logto/next/server-actions", () => ({
     }
   },
   getAccessToken: vi.fn(),
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(() => Promise.resolve({ set: cookieSet })),
 }));
 
 describe("Logto BFF configuration", () => {
@@ -139,6 +145,19 @@ describe("Logto BFF configuration", () => {
         "https://inside.example.test",
       ),
     ).toBe(false);
+  });
+
+  it("clears the provider cookie through one security definition", async () => {
+    await clearLogtoSessionCookie({ appId: "inside-web", cookieSecure: true });
+
+    expect(cookieSet).toHaveBeenCalledWith("logto_inside-web", "", {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+      secure: true,
+      expires: new Date(0),
+      maxAge: 0,
+    });
   });
 });
 

@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 
 import { resolveIdentitySubject } from "@/shared/api/backend/index.server";
 import { getPlatformAccessToken } from "@/shared/auth/platform-access-token.server";
 import {
+  clearLogtoSessionCookie,
   clearPlatformSession,
-  logtoSessionCookieName,
   readLogtoBffConfig,
   readPlatformSession,
 } from "@/shared/auth/index.server";
@@ -31,14 +30,7 @@ export async function GET(): Promise<Response> {
     if (isInvalidGrant(error)) {
       await clearPlatformSession();
       const config = readLogtoBffConfig();
-      (await cookies()).set(logtoSessionCookieName(config.appId), "", {
-        httpOnly: true,
-        path: "/",
-        sameSite: "lax",
-        secure: config.cookieSecure,
-        expires: new Date(0),
-        maxAge: 0,
-      });
+      await clearLogtoSessionCookie(config);
       return statusResponse("guest");
     }
     return statusResponse("unavailable");

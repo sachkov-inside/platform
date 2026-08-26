@@ -186,6 +186,19 @@ test("Management API bootstrap converges after partial state and a repeated run"
   assert.equal(state.connectors[0].connectorId, "simple-mail-transfer-protocol");
 });
 
+test("Management API bootstrap rejects malformed resource and application payloads", async () => {
+  await assert.rejects(
+    ensureResource(async () => [
+      { indicator: "http://127.0.0.1:3001", name: "missing id" },
+    ]),
+    /Logto resources response is invalid/u,
+  );
+  await assert.rejects(
+    ensureApplication(async () => [{ id: "application-without-name" }]),
+    /Logto applications response is invalid/u,
+  );
+});
+
 function managementApiFake(state) {
   return async (path, { method = "GET", body } = {}) => {
     const collection = path === "/resources"

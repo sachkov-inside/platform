@@ -69,13 +69,14 @@ and reviewable.
 5. Run `pnpm identity:proof:up` against a fresh disposable volume and repeat the mobile/desktop
    email-code, failure, callback and logout corpus before accepting the update.
 
-## Remaining proof gates
+## Production-hardening follow-up
 
 The clean-volume email-code, callback, authenticated navigation, persisted session and logout
-journey has passed against the pinned runtime. The pull request remains draft until committed,
-executable coverage also proves the pinned-runtime negative callback corpus, controlled
-Logto/email/refresh outage recovery, and real-Logto re-authentication claim/session binding. Manual
-exploration complements those security assertions; it does not replace them.
+journey has passed against the pinned runtime. Platform issue #116 owns the post-#49 executable
+proof for resend throttling, the pinned-runtime negative callback corpus, controlled
+Logto/email/refresh outage recovery, and real-Logto re-authentication claim/session binding. Those
+production-hardening gates do not block the application-ready Principal/session foundation.
+Manual exploration complements those later security assertions; it does not replace them.
 
 The fork is not declared production-ready by this proof. DNS/TLS, credential custody, monitoring,
 backup/restore, email deliverability and release operations remain future infrastructure gates.

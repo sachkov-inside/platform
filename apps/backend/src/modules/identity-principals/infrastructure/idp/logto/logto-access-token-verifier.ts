@@ -20,6 +20,8 @@ const MAX_ACCESS_TOKEN_LIFETIME_SECONDS = minutesInSeconds(5);
 const MAX_TOKEN_LENGTH = 16_384;
 const MAX_INTERACTIVE_IAT_SKEW_SECONDS = 60;
 const REMOTE_JWKS_CACHE_LIFETIME_MS = minutesInMilliseconds(10);
+const REMOTE_JWKS_REQUEST_TIMEOUT_MS = secondsInMilliseconds(2);
+const REMOTE_JWKS_COOLDOWN_MS = secondsInMilliseconds(30);
 
 type ProofErrorCode = "dependency_unavailable" | "invalid_proof";
 
@@ -106,10 +108,10 @@ export function createLogtoAccessTokenVerifier(
 
       return {
         ok: true,
-        identity: humanSessionIdentity(
-          verified.payload.iss,
-          verified.payload.sub,
-        ),
+        identity: verifiedHumanSessionIdentity({
+          issuer: verified.payload.iss,
+          subject: verified.payload.sub,
+        }),
       };
     },
 
@@ -231,8 +233,8 @@ function createKeyResolver(config: LogtoVerifierConfig): JWTVerifyGetKey {
     throw new TypeError("jwksUrl must use HTTPS outside loopback development");
   }
   return createRemoteJWKSet(jwksUrl, {
-    timeoutDuration: 2_000,
-    cooldownDuration: 30_000,
+    timeoutDuration: REMOTE_JWKS_REQUEST_TIMEOUT_MS,
+    cooldownDuration: REMOTE_JWKS_COOLDOWN_MS,
     cacheMaxAge: REMOTE_JWKS_CACHE_LIFETIME_MS,
   });
 }
@@ -259,13 +261,6 @@ function validVerifiedEmail(value: unknown): value is string {
     value.length <= 320 &&
     value.includes("@")
   );
-}
-
-function humanSessionIdentity(
-  issuer: string,
-  subject: string,
-): VerifiedHumanSessionIdentity {
-  return verifiedHumanSessionIdentity({ issuer, subject });
 }
 
 function invalidProof(): ProofFailure {
@@ -296,4 +291,8 @@ function minutesInSeconds(minutes: number): number {
 
 function minutesInMilliseconds(minutes: number): number {
   return minutesInSeconds(minutes) * 1_000;
+}
+
+function secondsInMilliseconds(seconds: number): number {
+  return seconds * 1_000;
 }

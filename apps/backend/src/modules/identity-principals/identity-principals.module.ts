@@ -1,4 +1,4 @@
-import { Inject, Module } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 
 import {
   PLATFORM_CONFIG,
@@ -50,8 +50,4 @@ import {
   ],
   exports: [IDENTITY_PRINCIPALS],
 })
-export class IdentityPrincipalsModule {
-  constructor(
-    @Inject(IDENTITY_PRINCIPALS) readonly identityPrincipals: IdentityPrincipals,
-  ) {}
-}
+export class IdentityPrincipalsModule {}

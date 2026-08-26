@@ -36,6 +36,7 @@ import {
 
 const SESSION_LIFETIME_MS = daysInMilliseconds(7);
 const REAUTHENTICATION_LIFETIME_MS = minutesInMilliseconds(5);
+const MAX_FUTURE_REAUTHENTICATION_SKEW_MS = secondsInMilliseconds(30);
 const permissionValues = new Set<PlatformPermission>([
   "identity:admin",
   "materials:author",
@@ -44,6 +45,10 @@ const permissionValues = new Set<PlatformPermission>([
 
 function minutesInMilliseconds(minutes: number): number {
   return minutes * 60_000;
+}
+
+function secondsInMilliseconds(seconds: number): number {
+  return seconds * 1_000;
 }
 
 function daysInMilliseconds(days: number): number {
@@ -716,7 +721,8 @@ async function completeHumanReauthentication(
     const reauthenticatedAt = new Date(command.proof.reauthenticatedAt);
     if (
       attempt.expires_at.getTime() <= now.getTime() ||
-      reauthenticatedAt.getTime() > now.getTime() + 30_000 ||
+      reauthenticatedAt.getTime() >
+        now.getTime() + MAX_FUTURE_REAUTHENTICATION_SKEW_MS ||
       now.getTime() - reauthenticatedAt.getTime() > REAUTHENTICATION_LIFETIME_MS ||
       reauthenticatedAt.getTime() <= owned.authenticated_at.getTime() ||
       reauthenticatedAt.getTime() < attempt.created_at.getTime()

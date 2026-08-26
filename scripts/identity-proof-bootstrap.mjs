@@ -8,6 +8,7 @@ import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, URLSearchParams } from "node:url";
+import { z } from "zod";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const composeFile = resolve(root, "infra/identity/logto/compose.yaml");
@@ -18,6 +19,29 @@ const platformResource = "http://127.0.0.1:3001";
 const webBaseUrl = "http://127.0.0.1:3000";
 const applicationName = "Inside Web";
 const smtpConnectorId = "simple-mail-transfer-protocol";
+const platformAccessTokenTtlSeconds = minutesInSeconds(5);
+const bootstrapMaxAttempts = 20;
+const bootstrapRetryDelayMilliseconds = 500;
+
+const managementAccessTokenSchema = z.object({
+  access_token: z.string().min(1),
+});
+const resourceSchema = z.object({
+  id: z.string().min(1),
+  indicator: z.string(),
+});
+const applicationSchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+});
+const connectorSchema = z.object({
+  id: z.string().min(1),
+  connectorId: z.string(),
+});
+const applicationSecretSchema = z.object({
+  name: z.string(),
+  value: z.string().min(1),
+});
 
 const smtpConfig = Object.freeze({
   host: "mailpit",
@@ -103,15 +127,11 @@ async function fetchManagementAccessToken(secret) {
     },
     body,
   });
-  const payload = await readResponse(response, "Management API token request");
-  if (
-    typeof payload !== "object" ||
-    payload === null ||
-    !("access_token" in payload) ||
-    typeof payload.access_token !== "string"
-  ) {
-    throw new Error("Management API token response has no access token");
-  }
+  const payload = parseManagementPayload(
+    managementAccessTokenSchema,
+    await readResponse(response, "Management API token request"),
+    "Management API token response",
+  );
   return payload.access_token;
 }
 
@@ -130,12 +150,16 @@ function createManagementApi(accessToken) {
 }
 
 export async function ensureResource(api) {
-  const resources = await api("/resources");
+  const resources = parseManagementPayload(
+    z.array(resourceSchema),
+    await api("/resources"),
+    "Logto resources response",
+  );
   const resource = findSingle(resources, ({ indicator }) => indicator === platformResource);
   const body = {
     name: "Inside Platform API",
     indicator: platformResource,
-    accessTokenTtl: 300,
+    accessTokenTtl: platformAccessTokenTtlSeconds,
   };
   if (resource === undefined) {
     await api("/resources", { method: "POST", body });
@@ -148,7 +172,11 @@ export async function ensureResource(api) {
 }
 
 export async function ensureApplication(api) {
-  const applications = await api("/applications");
+  const applications = parseManagementPayload(
+    z.array(applicationSchema),
+    await api("/applications"),
+    "Logto applications response",
+  );
   const current = findSingle(applications, ({ name }) => name === applicationName);
   const oidcClientMetadata = {
     redirectUris: [
@@ -158,19 +186,31 @@ export async function ensureApplication(api) {
     postLogoutRedirectUris: [`${webBaseUrl}/`],
   };
   if (current === undefined) {
-    return api("/applications", {
-      method: "POST",
-      body: { name: applicationName, type: "Traditional", oidcClientMetadata },
-    });
+    return parseManagementPayload(
+      applicationSchema,
+      await api("/applications", {
+        method: "POST",
+        body: { name: applicationName, type: "Traditional", oidcClientMetadata },
+      }),
+      "Logto application creation response",
+    );
   }
-  return api(`/applications/${current.id}`, {
-    method: "PATCH",
-    body: { name: applicationName, oidcClientMetadata },
-  });
+  return parseManagementPayload(
+    applicationSchema,
+    await api(`/applications/${current.id}`, {
+      method: "PATCH",
+      body: { name: applicationName, oidcClientMetadata },
+    }),
+    "Logto application update response",
+  );
 }
 
 export async function ensureEmailConnector(api) {
-  const connectors = await api("/connectors");
+  const connectors = parseManagementPayload(
+    z.array(connectorSchema),
+    await api("/connectors"),
+    "Logto connectors response",
+  );
   const connector = findSingle(
     connectors,
     ({ connectorId }) => connectorId === smtpConnectorId,
@@ -227,9 +267,13 @@ async function ensureJwtCustomizer(api) {
 }
 
 async function readApplicationSecret(api, applicationId) {
-  const secrets = await api(`/applications/${applicationId}/secrets`);
+  const secrets = parseManagementPayload(
+    z.array(applicationSecretSchema),
+    await api(`/applications/${applicationId}/secrets`),
+    "Logto application secrets response",
+  );
   const secret = findSingle(secrets, ({ name }) => name === "Default secret");
-  if (secret === undefined || typeof secret.value !== "string") {
+  if (secret === undefined) {
     throw new Error("Inside Web application has no default secret");
   }
   return secret.value;
@@ -304,14 +348,19 @@ function parseEnv(source) {
 }
 
 function findSingle(values, predicate) {
-  if (!Array.isArray(values)) {
-    throw new TypeError("Logto Management API returned a non-array collection");
-  }
   const matches = values.filter(predicate);
   if (matches.length > 1) {
     throw new Error("Disposable Logto contains duplicate proof resources");
   }
   return matches[0];
+}
+
+function parseManagementPayload(schema, payload, operation) {
+  const result = schema.safeParse(payload);
+  if (!result.success) {
+    throw new Error(`${operation} is invalid`, { cause: result.error });
+  }
+  return result.data;
 }
 
 async function readResponse(response, operation) {
@@ -337,15 +386,19 @@ function randomSecret() {
 
 async function retry(operation) {
   let lastError;
-  for (let attempt = 1; attempt <= 20; attempt += 1) {
+  for (let attempt = 1; attempt <= bootstrapMaxAttempts; attempt += 1) {
     try {
       return await operation();
     } catch (error) {
       lastError = error;
-      await delay(500);
+      await delay(bootstrapRetryDelayMilliseconds);
     }
   }
   throw new Error("Logto did not become ready for bootstrap", { cause: lastError });
+}
+
+function minutesInSeconds(minutes) {
+  return minutes * 60;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

@@ -1,4 +1,5 @@
 export { bindAuthorizationCodeResource } from "./authorization-code-resource.server";
+export { clearLogtoSessionCookie } from "./clear-logto-session-cookie.server";
 export {
   clearPlatformSession,
   decodePlatformSessionCookie,

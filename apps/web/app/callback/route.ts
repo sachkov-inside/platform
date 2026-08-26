@@ -1,13 +1,12 @@
 import { getAccessToken } from "@logto/next/server-actions";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { AudienceBoundLogtoClient } from "@/shared/auth/audience-bound-logto-client.server";
 import { completePlatformSignIn } from "@/shared/auth/complete-platform-sign-in.server";
 import {
+  clearLogtoSessionCookie,
   clearPlatformSession,
   clearSignInAttempt,
-  logtoSessionCookieName,
   providerCallbackUrl,
   readLogtoBffConfig,
   readSignInAttempt,
@@ -81,15 +80,7 @@ async function clearPartialAuthentication(
 ): Promise<void> {
   await clearPlatformSession();
   await clearSignInAttempt();
-  const store = await cookies();
-  store.set(logtoSessionCookieName(config.appId), "", {
-    httpOnly: true,
-    path: "/",
-    sameSite: "lax",
-    secure: config.cookieSecure,
-    expires: new Date(0),
-    maxAge: 0,
-  });
+  await clearLogtoSessionCookie(config);
 }
 
 function localRedirect(baseUrl: string, error?: string): NextResponse {

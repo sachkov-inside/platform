@@ -1,14 +1,13 @@
 import { randomUUID } from "node:crypto";
 
 import LogtoClient, { getAccessToken } from "@logto/next/server-actions";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { endIdentitySession } from "@/shared/api/backend/index.server";
 import {
+  clearLogtoSessionCookie,
   clearPlatformSession,
   isSameOriginMutation,
-  logtoSessionCookieName,
   readLogtoBffConfig,
   readPlatformSession,
 } from "@/shared/auth/index.server";
@@ -51,7 +50,7 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     // The provider session is best-effort after local authority is revoked.
   }
-  await clearLogtoCookie(config);
+  await clearLogtoSessionCookie(config);
   return signOutRedirect(incompleteLogoutUrl(config.baseUrl));
 }
 
@@ -79,19 +78,6 @@ async function withinBestEffort<T>(operation: Promise<T>): Promise<T | undefined
       clearTimeout(timeoutId);
     }
   }
-}
-
-async function clearLogtoCookie(
-  config: ReturnType<typeof readLogtoBffConfig>,
-): Promise<void> {
-  (await cookies()).set(logtoSessionCookieName(config.appId), "", {
-    httpOnly: true,
-    path: "/",
-    sameSite: "lax",
-    secure: config.cookieSecure,
-    expires: new Date(0),
-    maxAge: 0,
-  });
 }
 
 function signOutRedirect(url: string): NextResponse {

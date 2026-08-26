@@ -1,13 +1,12 @@
 import { getAccessToken } from "@logto/next/server-actions";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { completeIdentityReauthentication } from "@/shared/api/backend/index.server";
 import { AudienceBoundLogtoClient } from "@/shared/auth/audience-bound-logto-client.server";
 import {
+  clearLogtoSessionCookie,
   clearPlatformSession,
   clearSignInAttempt,
-  logtoSessionCookieName,
   providerCallbackUrl,
   readLogtoBffConfig,
   readPlatformSession,
@@ -65,14 +64,7 @@ async function clearPartialAuthentication(
 ): Promise<void> {
   await clearPlatformSession();
   await clearSignInAttempt();
-  (await cookies()).set(logtoSessionCookieName(config.appId), "", {
-    httpOnly: true,
-    path: "/",
-    sameSite: "lax",
-    secure: config.cookieSecure,
-    expires: new Date(0),
-    maxAge: 0,
-  });
+  await clearLogtoSessionCookie(config);
 }
 
 function localRedirect(baseUrl: string, error?: string): NextResponse {
