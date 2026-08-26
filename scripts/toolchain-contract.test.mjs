@@ -56,6 +56,25 @@ describe("supported toolchain contract", () => {
     }
   });
 
+  it("keeps VS Code and Nest decorators on the configured TypeScript project", () => {
+    const editorSettings = JSON.parse(read(".vscode/settings.json"));
+    const backendTypeScript = JSON.parse(read("apps/backend/tsconfig.json"));
+
+    assert.equal(
+      editorSettings["js/ts.tsdk.path"],
+      "./node_modules/typescript/lib",
+    );
+    assert.equal(
+      editorSettings["js/ts.tsdk.promptToUseWorkspaceVersion"],
+      true,
+    );
+    assert.equal(
+      backendTypeScript.compilerOptions.experimentalDecorators,
+      true,
+    );
+    assert.ok(backendTypeScript.include.includes("src/**/*.ts"));
+  });
+
   it("pins every container image by digest and every GitHub Action by commit", () => {
     for (const path of ["compose.yaml", ".github/workflows/application-ci.yml"]) {
       const imageLines = read(path)
