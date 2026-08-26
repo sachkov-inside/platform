@@ -235,7 +235,7 @@ Entry points вызывают одни application use cases и не созда�
 | `AccountProfiles` | предоставить private Account и управлять отдельной member-visible Member Profile projection | owner Account projection, Member Profile visibility/content/version |
 | `Materials` | `MaterialAuthoring` создаёт, изменяет, проверяет, preview/publish/restore-ит Material; `PublishedMaterialReader` читает exact published revision | revision/publication pointers, author policy, internal body schemas, safe public/search projections |
 | `ContentLibrary` | читать projections, search и навигацию, находить related Materials | published projections, ranking и explicit related pins |
-| [`ContentAccess`](content-access-authorization-v1.md) | batch `availabilityMany` для presentation и `authorizeMany` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
+| [`ContentAccess`](content-access-authorization-v1.md) | batch `checkAvailabilityMany` для presentation и `authorizeMany` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
 | `MembershipEntitlements` | принять MembershipEvidence и построить Platform-owned entitlement | state, validity и refresh coordination |
 | `Assets` | начать/finalize upload, связать с revision и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
