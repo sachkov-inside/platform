@@ -8,7 +8,7 @@ import type {
 } from "./publish-revision.contract.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
-import { authorizePublish, type AuthorPolicy } from "../../ports/author-policy.js";
+import { authorizeManager, type AuthorPolicy } from "../../ports/author-policy.js";
 import {
   executeAuthoringTransaction,
   failure,
@@ -19,7 +19,7 @@ import {
   materialIdSchema,
   materialRevisionIdSchema,
   parseCommand,
-  principalId,
+  accountId,
 } from "../../shared/command-validation.js";
 import { mapPostgresLifecycleError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
@@ -40,7 +40,7 @@ import type { MaterialsPrismaTransaction } from "../../../../infrastructure/pris
 
 const publishRevisionCommand = z
   .object({
-    actor: principalId,
+    actor: accountId,
     idempotencyKey: idempotencyKeySchema,
     materialId: materialIdSchema,
     revisionId: materialRevisionIdSchema,
@@ -63,14 +63,9 @@ export function assemblePublishRevision(
       return failure(parsed.error);
     }
     const command = parsed.value;
-    const authorization = await authorizePublish(
+    const authorization = await authorizeManager(
       dependencies.authorPolicy,
-      {
-        action: "publish",
-        principalId: command.actor,
-        materialId: command.materialId,
-        revisionId: command.revisionId,
-      },
+      command.actor,
     );
     if (!authorization.ok) {
       return failure(authorization.error);

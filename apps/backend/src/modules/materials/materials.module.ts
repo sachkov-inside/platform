@@ -14,8 +14,7 @@ import { assemblePublishedMaterialReader } from "./facets/published-material-rea
 import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 
 const publicReaderPolicy: AuthorPolicy = {
-  canAuthor: () => false,
-  canPublish: () => false,
+  canManage: () => false,
 };
 
 @Module({
@@ -27,7 +26,7 @@ const publicReaderPolicy: AuthorPolicy = {
       useFactory: (prisma: PrismaClientProvider): PublishedMaterialReader =>
         assemblePublishedMaterialReader({
           prisma,
-          // IdentityPrincipals replaces this baseline when it becomes a real
+          // Accounts replaces this baseline when it becomes a real
           // production dependency of published reading.
           contentAccess: assembleBaselineContentAccess(publicReaderPolicy),
           materialBodyOperations,

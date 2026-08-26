@@ -23,7 +23,7 @@ describe("ListPublishedMaterials", () => {
   test("continues through deterministic pages of safe published projections", async () => {
     const { publishedMaterialReader } = assembleMaterials({
       prisma: testDatabase.prisma,
-      authorPolicy: { canAuthor: () => false, canPublish: () => false },
+      authorPolicy: { canManage: () => false },
     });
     const firstPage = await listPublishedMaterials(
       publishedMaterialReader,

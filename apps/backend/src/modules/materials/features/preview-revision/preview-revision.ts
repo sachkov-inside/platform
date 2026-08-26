@@ -13,7 +13,7 @@ import {
   materialIdSchema,
   materialRevisionIdSchema,
   parseCommand,
-  principalId,
+  accountId,
 } from "../../shared/command-validation.js";
 import {
   loadCurrentRevisionId,
@@ -23,7 +23,7 @@ import { loadMaterialRevision } from "../../infrastructure/postgres/material-rev
 
 const previewRevisionQuery = z
   .object({
-    actor: principalId,
+    actor: accountId,
     materialId: materialIdSchema,
     revisionId: materialRevisionIdSchema,
   })
@@ -59,7 +59,7 @@ export function assemblePreviewRevision(
           code: currentRevisionId === undefined ? "material_not_found" : "revision_not_found",
         });
       }
-      const subject = { kind: "principal", principalId: query.actor } as const;
+      const subject = { kind: "account", accountId: query.actor } as const;
       const decision = await dependencies.contentAccess.authorize({
         subject,
         action: "preview",
@@ -76,7 +76,7 @@ export function assemblePreviewRevision(
           id: randomUUID(),
           materialId: query.materialId,
           revisionId: query.revisionId,
-          actorId: subject.principalId,
+          actorId: subject.accountId,
           action: "preview",
           decision: decision.allowed ? "allow" : "deny",
         },

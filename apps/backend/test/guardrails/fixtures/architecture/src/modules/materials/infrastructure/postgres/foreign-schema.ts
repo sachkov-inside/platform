@@ -9,8 +9,8 @@ declare const Prisma: {
 };
 
 Prisma.sql`select * from materials`;
-Prisma.sql`select * from "identity_principals"."principals"`;
+Prisma.sql`select * from "accounts"."accounts"`;
 
-const dynamicTable = "identity_principals.principals";
+const dynamicTable = "accounts.accounts";
 Prisma.sql`select * from ${dynamicTable}`;
 Prisma.raw(dynamicTable);

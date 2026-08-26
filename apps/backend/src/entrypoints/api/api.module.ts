@@ -5,7 +5,7 @@ import type { PlatformConfig } from "../../config/platform-config.js";
 import { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import { ListPublishedMaterialsController } from "../../modules/content-library/index.js";
-import { IdentityPrincipalsModule } from "../../modules/identity-principals/index.js";
+import { AccountsModule } from "../../modules/accounts/index.js";
 import {
   MaterialsModule,
   ReadPublishedMaterialController,
@@ -27,7 +27,7 @@ export class ApiModule {
       imports: [
         PlatformConfigModule.forRoot(config),
         PrismaModule,
-        IdentityPrincipalsModule,
+        AccountsModule,
         MaterialsModule,
       ],
     };

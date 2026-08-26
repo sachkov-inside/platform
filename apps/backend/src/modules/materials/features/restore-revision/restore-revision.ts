@@ -8,7 +8,7 @@ import type {
 } from "./restore-revision.contract.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
-import { authorizeAuthor, type AuthorPolicy } from "../../ports/author-policy.js";
+import { authorizeManager, type AuthorPolicy } from "../../ports/author-policy.js";
 import {
   executeAuthoringTransaction,
   failure,
@@ -19,7 +19,7 @@ import {
   materialIdSchema,
   materialRevisionIdSchema,
   parseCommand,
-  principalId,
+  accountId,
 } from "../../shared/command-validation.js";
 import { toMaterialRevisionDto } from "../../shared/material-revision-dto.js";
 import { mapPostgresLifecycleError } from "../../shared/postgres-error-mapping.js";
@@ -40,7 +40,7 @@ import {
 
 const restoreRevisionCommand = z
   .object({
-    actor: principalId,
+    actor: accountId,
     idempotencyKey: idempotencyKeySchema,
     materialId: materialIdSchema,
     revisionId: materialRevisionIdSchema,
@@ -63,7 +63,7 @@ export function assembleRestoreRevision(
       return failure(parsed.error);
     }
     const command = parsed.value;
-    const authorization = await authorizeAuthor(
+    const authorization = await authorizeManager(
       dependencies.authorPolicy,
       command.actor,
     );

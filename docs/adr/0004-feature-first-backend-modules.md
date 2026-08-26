@@ -25,7 +25,7 @@ feature-local persistence is not forced through a horizontal repository layer.
 `features/` adds navigation hierarchy only. It does not create an interface, provider, or import
 seam; the capability `index.ts` remains the external interface. This keeps feature slices visually
 separate from horizontal `domain`, `infrastructure`, `ports`, and `shared` implementation.
-Deep multi-operation interfaces such as `MaterialAuthoring` and `IdentityPrincipals` live under
+Deep multi-operation interfaces such as `MaterialAuthoring` and `Accounts` live under
 `facets/`; they are not mislabeled as one action slice. Transport adapters for such facets live
 under `adapters/` until an endpoint owns a genuinely independent use case.
 

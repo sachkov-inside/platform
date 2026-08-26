@@ -29,8 +29,7 @@ export async function seedLocalDevelopment(
   const { authoring } = assembleMaterials({
     prisma,
     authorPolicy: {
-      canAuthor: (principalId) => principalId === actor,
-      canPublish: ({ principalId }) => principalId === actor,
+      canManage: (accountId) => accountId === actor,
     },
   });
   await ensureCatalogContinuationMaterials(authoring);

@@ -9,7 +9,7 @@ import {
 import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
 import { materialRevisionId } from "../../domain/material-identifiers.js";
 import { loadMaterialRevision } from "../../infrastructure/postgres/material-revision-reader.js";
-import { authorizeAuthor, type AuthorPolicy } from "../../ports/author-policy.js";
+import { authorizeManager, type AuthorPolicy } from "../../ports/author-policy.js";
 import {
   executeAuthoringTransaction,
   failure,
@@ -19,7 +19,7 @@ import {
   materialIdSchema,
   materialRevisionIdSchema,
   parseCommand,
-  principalId,
+  accountId,
 } from "../../shared/command-validation.js";
 import { mapPostgresValidationError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
@@ -35,7 +35,7 @@ const currentDraftRowsSchema = z.array(
 
 export const validateRevisionQuery = z
   .object({
-    actor: principalId,
+    actor: accountId,
     materialId: materialIdSchema,
     revisionId: materialRevisionIdSchema,
   })
@@ -56,7 +56,7 @@ export function assembleValidateRevision(
       return failure(parsed.error);
     }
     const query = parsed.value;
-    const authorization = await authorizeAuthor(
+    const authorization = await authorizeManager(
       dependencies.authorPolicy,
       query.actor,
     );

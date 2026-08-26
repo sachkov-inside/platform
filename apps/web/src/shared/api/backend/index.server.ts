@@ -32,17 +32,13 @@ export interface BackendHealth {
   readonly database: "reachable";
 }
 
-const identitySubjectSchema = z.object({
-  principalId: z.uuid(),
-  principalKind: z.enum(["human", "service"]),
-  sessionRef: z.uuid(),
-  authenticatedAt: z.iso.datetime({ offset: true }),
-  expiresAt: z.iso.datetime({ offset: true }),
-  permissions: z.array(
-    z.enum(["identity:admin", "materials:author", "materials:publish"]),
-  ).readonly(),
-});
-export type IdentitySubject = Readonly<z.infer<typeof identitySubjectSchema>>;
+const authenticatedAccountSchema = z.object({ accountId: z.uuid() }).strict();
+const accountResponseSchema = z
+  .object({ account: authenticatedAccountSchema })
+  .strict();
+export type AuthenticatedAccount = Readonly<
+  z.infer<typeof authenticatedAccountSchema>
+>;
 
 export function readBackendBaseUrl(): string {
   const configuredUrl = nonEmpty(process.env.BACKEND_BASE_URL?.trim());
@@ -134,136 +130,53 @@ export async function getBackendHealth(): Promise<BackendHealth> {
   return payload;
 }
 
-export async function establishIdentitySession(command: {
-  readonly accessToken: string;
-  readonly idempotencyKey: string;
-}): Promise<IdentitySubject> {
-  return requestIdentitySubject("/identity/sessions/human", {
+export async function establishAccount(
+  accessToken: string,
+): Promise<AuthenticatedAccount> {
+  return requestAccount("/accounts", {
     method: "POST",
-    headers: {
-      authorization: `Bearer ${command.accessToken}`,
-      "idempotency-key": command.idempotencyKey,
-    },
+    headers: { authorization: `Bearer ${accessToken}` },
   });
 }
 
-export async function resolveIdentitySubject(query: {
-  readonly accessToken: string;
-  readonly sessionRef: string;
-}): Promise<IdentitySubject> {
-  return requestIdentitySubject("/identity/subject", {
+export async function resolveAccount(
+  accessToken: string,
+): Promise<AuthenticatedAccount> {
+  return requestAccount("/accounts/current", {
     method: "GET",
-    headers: {
-      authorization: `Bearer ${query.accessToken}`,
-      "x-platform-session": query.sessionRef,
-    },
+    headers: { authorization: `Bearer ${accessToken}` },
   });
 }
 
-export async function beginIdentityReauthentication(command: {
-  readonly accessToken: string;
-  readonly idempotencyKey: string;
-  readonly sessionRef: string;
-}): Promise<{ readonly attemptId: string; readonly expiresAt: string }> {
-  const response = await requestIdentityBackend("/identity/reauthentication-attempts", {
-    method: "POST",
-    headers: identitySessionHeaders(command),
-  });
-  const payload = await readJson(response);
-  if (
-    !isRecord(payload) ||
-    typeof payload.attemptId !== "string" ||
-    typeof payload.expiresAt !== "string" ||
-    !Number.isFinite(Date.parse(payload.expiresAt))
-  ) {
-    throw invalidBackendResponse("Identity re-authentication response is invalid");
-  }
-  return { attemptId: payload.attemptId, expiresAt: payload.expiresAt };
-}
-
-export async function completeIdentityReauthentication(command: {
-  readonly accessToken: string;
-  readonly attemptId: string;
-  readonly idempotencyKey: string;
-  readonly sessionRef: string;
-}): Promise<IdentitySubject> {
-  return requestIdentitySubject(
-    `/identity/reauthentication-attempts/${encodeURIComponent(command.attemptId)}/complete`,
-    { method: "POST", headers: identitySessionHeaders(command) },
-  );
-}
-
-export async function endIdentitySession(command: {
-  readonly accessToken: string;
-  readonly idempotencyKey: string;
-  readonly sessionRef: string;
-}): Promise<void> {
-  const response = await requestIdentityBackend("/identity/sessions/current", {
-    method: "DELETE",
-    headers: {
-      authorization: `Bearer ${command.accessToken}`,
-      "idempotency-key": command.idempotencyKey,
-      "x-platform-session": command.sessionRef,
-    },
-  });
-  const payload = await readJson(response);
-  if (!isRecord(payload) || payload.ended !== true) {
-    throw invalidBackendResponse("Identity session end response does not match the contract");
-  }
-}
-
-function identitySessionHeaders(command: {
-  readonly accessToken: string;
-  readonly idempotencyKey: string;
-  readonly sessionRef: string;
-}): Record<string, string> {
-  return {
-    authorization: `Bearer ${command.accessToken}`,
-    "idempotency-key": command.idempotencyKey,
-    "x-platform-session": command.sessionRef,
-  };
-}
-
-async function requestIdentitySubject(
+async function requestAccount(
   path: `/${string}`,
   init: Pick<RequestInit, "headers" | "method">,
-): Promise<IdentitySubject> {
-  const response = await requestIdentityBackend(path, init);
-  const payload = await readJson(response);
-  if (!isRecord(payload) || !isIdentitySubject(payload.subject)) {
-    throw invalidBackendResponse("Identity response does not match the contract");
-  }
-  return payload.subject;
-}
-
-async function requestIdentityBackend(
-  path: `/${string}`,
-  init: Pick<RequestInit, "headers" | "method">,
-): Promise<Response> {
+): Promise<AuthenticatedAccount> {
   const response = await requestBackend(path, init);
   if (!response.ok) {
     throw new BackendConnectionError(
       response.status >= 500 ? "unavailable" : "rejected",
-      `Backend identity request returned ${String(response.status)}`,
+      `Backend Account request returned ${String(response.status)}`,
     );
   }
-  return response;
+  const payload = await readJson(response);
+  const parsed = accountResponseSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw invalidBackendResponse("Account response does not match the contract");
+  }
+  return parsed.data.account;
 }
 
 async function readJson(response: Response): Promise<unknown> {
   try {
     return await response.json();
   } catch (cause) {
-    throw invalidBackendResponse("Backend identity response is not valid JSON", cause);
+    throw invalidBackendResponse("Backend Account response is not valid JSON", cause);
   }
 }
 
 function invalidBackendResponse(message: string, cause?: unknown): BackendConnectionError {
   return new BackendConnectionError("invalid-response", message, { cause });
-}
-
-function isIdentitySubject(value: unknown): value is IdentitySubject {
-  return identitySubjectSchema.safeParse(value).success;
 }
 
 function isBackendHealth(value: unknown): value is BackendHealth {

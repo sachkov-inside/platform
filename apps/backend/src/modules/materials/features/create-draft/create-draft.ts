@@ -8,7 +8,7 @@ import type {
 } from "./create-draft.contract.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
-import { authorizeAuthor, type AuthorPolicy } from "../../ports/author-policy.js";
+import { authorizeManager, type AuthorPolicy } from "../../ports/author-policy.js";
 import {
   executeAuthoringTransaction,
   failure,
@@ -18,7 +18,7 @@ import { executeIdempotentRevision } from "../../shared/idempotent-operation.js"
 import {
   idempotencyKeySchema,
   parseCommand,
-  principalId,
+  accountId,
 } from "../../shared/command-validation.js";
 import { toMaterialRevisionDto } from "../../shared/material-revision-dto.js";
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
@@ -37,7 +37,7 @@ import {
 
 const createDraftCommand = z
   .object({
-    actor: principalId,
+    actor: accountId,
     idempotencyKey: idempotencyKeySchema,
     metadata: z.unknown(),
     body: z.unknown(),
@@ -63,7 +63,7 @@ export function assembleCreateDraft(
     if (!metadata.ok) {
       return failure(metadata.error);
     }
-    const authorization = await authorizeAuthor(
+    const authorization = await authorizeManager(
       dependencies.authorPolicy,
       command.actor,
     );

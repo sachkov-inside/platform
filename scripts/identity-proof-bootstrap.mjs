@@ -179,10 +179,7 @@ export async function ensureApplication(api) {
   );
   const current = findSingle(applications, ({ name }) => name === applicationName);
   const oidcClientMetadata = {
-    redirectUris: [
-      `${webBaseUrl}/callback`,
-      `${webBaseUrl}/reauthentication-callback`,
-    ],
+    redirectUris: [`${webBaseUrl}/callback`],
     postLogoutRedirectUris: [`${webBaseUrl}/`],
   };
   if (current === undefined) {

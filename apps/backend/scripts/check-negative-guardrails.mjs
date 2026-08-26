@@ -39,8 +39,8 @@ expectFailure(
   [
     "TS2322",
     "TS2345",
-    "identityPrincipal",
-    "identity_principals.principals",
+    "account",
+    "accounts.accounts",
     "material",
     "Cannot find name 'describe'",
   ],
@@ -78,7 +78,7 @@ expectFailure(
     "database table references must stay inside the owning Module schema",
     "database table references must use statically declared identifiers",
     "application schema references must stay inside the owning Module",
-    'identity_principals.principals',
+    'accounts.accounts',
   ],
 );
 

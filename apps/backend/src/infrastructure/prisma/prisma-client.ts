@@ -26,19 +26,11 @@ export type MaterialsPrismaTransaction = MaterialsPrisma;
 export type MaterialsPrismaClient = MaterialsPrisma &
   TransactionClient<MaterialsPrismaTransaction>;
 
-export type IdentityPrincipalsPrisma = Pick<
+export type AccountsPrisma = Pick<
   PlatformPrisma,
-  | "$queryRaw"
-  | "externalIdentity"
-  | "identityAuditEvent"
-  | "identityIdempotency"
-  | "identityPrincipal"
-  | "identityReauthenticationAttempt"
-  | "platformSession"
-  | "principalPermission"
+  "$queryRaw" | "account" | "accountAuditEvent" | "accountPermission"
 >;
-export type IdentityPrincipalsPrismaClient = IdentityPrincipalsPrisma &
-  TransactionClient<IdentityPrincipalsPrisma>;
+export type AccountsPrismaClient = AccountsPrisma & TransactionClient<AccountsPrisma>;
 
 interface TransactionClient<Transaction> {
   $transaction<Result>(

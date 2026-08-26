@@ -22,8 +22,7 @@ const ownerId = "71000000-0000-4000-8000-000000000001";
 const topicId = "71000000-0000-4000-8000-000000000002";
 const formatId = "71000000-0000-4000-8000-000000000003";
 const denyAllAuthorPolicy = {
-  canAuthor: () => false,
-  canPublish: () => false,
+  canManage: () => false,
 };
 
 describe("Material lifecycle", () => {
@@ -45,9 +44,7 @@ describe("Material lifecycle", () => {
 
   test("validates, previews, publishes and publicly reads one exact free revision", async () => {
     const authorPolicy = {
-      canAuthor: (principalId: string) => principalId === ownerId,
-      canPublish: ({ principalId }: { principalId: string }) =>
-        principalId === ownerId,
+      canManage: (accountId: string) => accountId === ownerId,
     };
     const contentAccess = assembleBaselineContentAccess(authorPolicy);
     const { authoring } = assembleMaterials({
@@ -228,9 +225,7 @@ describe("Material lifecycle", () => {
 
   test("restores an historical revision as a new draft and unpublishes without losing history", async () => {
     const authorPolicy = {
-      canAuthor: (principalId: string) => principalId === ownerId,
-      canPublish: ({ principalId }: { principalId: string }) =>
-        principalId === ownerId,
+      canManage: (accountId: string) => accountId === ownerId,
     };
     const contentAccess = assembleBaselineContentAccess(authorPolicy);
     const { authoring } = assembleMaterials({
@@ -504,7 +499,7 @@ describe("Material lifecycle", () => {
   test("loads an exact membership body only after an explicit allow decision", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
-      authorPolicy: { canAuthor: () => true, canPublish: () => true },
+      authorPolicy: { canManage: () => true },
     });
     const created = await authoring.createDraft({
       actor: ownerId,
@@ -548,7 +543,7 @@ describe("Material lifecycle", () => {
 
     expect(
       await publishedMaterials.read({
-        subject: { kind: "principal", principalId: ownerId },
+        subject: { kind: "account", accountId: ownerId },
         slug: "membership-delivery",
       }),
     ).toMatchObject({
@@ -570,7 +565,7 @@ describe("Material lifecycle", () => {
     });
     expect(decisions).toEqual([
       {
-        subject: { kind: "principal", principalId: ownerId },
+        subject: { kind: "account", accountId: ownerId },
         action: "read",
         resource: {
           kind: "material_body",
@@ -589,17 +584,10 @@ describe("Material lifecycle", () => {
     ).toEqual([{ action: "read", actorId: ownerId, decision: "allow" }]);
   });
 
-  test("requires a distinct owner permission before recording publication GO", async () => {
-    const publishAuthorizationRequests: unknown[] = [];
+  test("rechecks materials:manage before recording publication GO", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
-      authorPolicy: {
-        canAuthor: (principalId: string) => principalId === ownerId,
-        canPublish: (request) => {
-          publishAuthorizationRequests.push(request);
-          return false;
-        },
-      },
+      authorPolicy: { canManage: (accountId: string) => accountId === ownerId },
     });
     const created = await authoring.createDraft({
       actor: ownerId,
@@ -620,8 +608,18 @@ describe("Material lifecycle", () => {
       throw new Error(created.error.code);
     }
 
+    const permissionChecks: string[] = [];
+    const { authoring: deniedAuthoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: {
+        canManage: (accountId) => {
+          permissionChecks.push(accountId);
+          return false;
+        },
+      },
+    });
     expect(
-      await authoring.publishRevision({
+      await deniedAuthoring.publishRevision({
         actor: ownerId,
         idempotencyKey: "71000000-0000-4000-8000-000000000041",
         materialId: created.value.materialId,
@@ -629,14 +627,7 @@ describe("Material lifecycle", () => {
         expectedPublishedRevisionId: null,
       }),
     ).toEqual({ ok: false, error: { code: "forbidden" } });
-    expect(publishAuthorizationRequests).toEqual([
-      {
-        action: "publish",
-        principalId: ownerId,
-        materialId: created.value.materialId,
-        revisionId: created.value.revisionId,
-      },
-    ]);
+    expect(permissionChecks).toEqual([ownerId]);
     expect(
       await testDatabase.prisma.materialPublicationEvent.findMany({
         where: { materialId: created.value.materialId },
@@ -648,7 +639,7 @@ describe("Material lifecycle", () => {
   test("distinguishes an unknown revision from a stale existing revision", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
-      authorPolicy: { canAuthor: () => true, canPublish: () => true },
+      authorPolicy: { canManage: () => true },
     });
     const created = await authoring.createDraft({
       actor: ownerId,
@@ -709,7 +700,7 @@ describe("Material lifecycle", () => {
   test("serializes concurrent publish commands and rejects the stale contender", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
-      authorPolicy: { canAuthor: () => true, canPublish: () => true },
+      authorPolicy: { canManage: () => true },
     });
     const created = await authoring.createDraft({
       actor: ownerId,
@@ -761,7 +752,7 @@ describe("Material lifecycle", () => {
   test("rolls back every publication fact when a projection constraint fails", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
-      authorPolicy: { canAuthor: () => true, canPublish: () => true },
+      authorPolicy: { canManage: () => true },
     });
     const first = await authoring.createDraft({
       actor: ownerId,
@@ -877,7 +868,7 @@ describe("Material lifecycle", () => {
   test("replaces the published search projection when a newer revision is published", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
-      authorPolicy: { canAuthor: () => true, canPublish: () => true },
+      authorPolicy: { canManage: () => true },
     });
     const created = await authoring.createDraft({
       actor: ownerId,

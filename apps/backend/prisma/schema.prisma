@@ -8,95 +8,39 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["identity_principals", "materials"]
+  schemas  = ["accounts", "materials"]
 }
 
-model IdentityPrincipal {
-  id              String   @id @db.Uuid
-  kind            String
-  state           String   @default("active")
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
-  securityVersion Int      @default(1) @map("security_version")
-
-  @@map("principals")
-  @@schema("identity_principals")
-}
-
-model ExternalIdentity {
+model Account {
   id               String   @id @db.Uuid
-  principalId      String   @map("principal_id") @db.Uuid
-  issuer           String
-  subject          String
-  emailFingerprint String?  @unique(map: "external_identities_email_fingerprint_unique") @map("email_fingerprint") @db.VarChar(67)
+  logtoIssuer      String   @map("logto_issuer")
+  logtoSubject     String   @map("logto_subject")
+  emailFingerprint String?  @unique(map: "accounts_email_fingerprint_unique") @map("email_fingerprint") @db.VarChar(67)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  @@unique([issuer, subject], map: "external_identities_issuer_subject_unique")
-  @@map("external_identities")
-  @@schema("identity_principals")
+  @@unique([logtoIssuer, logtoSubject], map: "accounts_logto_identity_unique")
+  @@map("accounts")
+  @@schema("accounts")
 }
 
-model PrincipalPermission {
-  principalId String   @map("principal_id") @db.Uuid
-  permission  String
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+model AccountPermission {
+  accountId  String   @map("account_id") @db.Uuid
+  permission String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  @@id([principalId, permission], map: "principal_permissions_primary")
-  @@map("principal_permissions")
-  @@schema("identity_principals")
+  @@id([accountId, permission], map: "account_permissions_primary")
+  @@map("account_permissions")
+  @@schema("accounts")
 }
 
-model PlatformSession {
-  id              String    @id @db.Uuid
-  principalId     String    @map("principal_id") @db.Uuid
-  createdAt       DateTime  @map("created_at") @db.Timestamptz
-  expiresAt       DateTime  @map("expires_at") @db.Timestamptz
-  authenticatedAt DateTime  @map("authenticated_at") @db.Timestamptz
-  endedAt         DateTime? @map("ended_at") @db.Timestamptz
-  securityVersion Int       @map("security_version")
+model AccountAuditEvent {
+  id        String   @id @db.Uuid
+  event     String
+  accountId String?  @map("account_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  @@map("platform_sessions")
-  @@schema("identity_principals")
-}
-
-model IdentityIdempotency {
-  operation          String
-  idempotencyKey     String    @map("idempotency_key") @db.VarChar(200)
-  requestFingerprint String    @map("request_fingerprint") @db.Char(64)
-  principalId        String?   @map("principal_id") @db.Uuid
-  sessionId          String?   @map("session_id") @db.Uuid
-  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
-
-  @@id([operation, idempotencyKey], map: "identity_idempotency_primary")
-  @@map("identity_idempotency")
-  @@schema("identity_principals")
-}
-
-model IdentityReauthenticationAttempt {
-  id                         String    @id @db.Uuid
-  sessionId                  String    @map("session_id") @db.Uuid
-  createdAt                  DateTime  @map("created_at") @db.Timestamptz
-  expiresAt                  DateTime  @map("expires_at") @db.Timestamptz
-  consumedAt                 DateTime? @map("consumed_at") @db.Timestamptz
-  tokenFingerprint           String?   @unique(map: "identity_reauthentication_attempts_token_fingerprint_key") @map("token_fingerprint") @db.Char(64)
-  beginIdempotencyKey        String    @unique(map: "identity_reauthentication_attempts_begin_idempotency_key_key") @map("begin_idempotency_key") @db.VarChar(200)
-  beginRequestFingerprint    String    @map("begin_request_fingerprint") @db.Char(64)
-  completeIdempotencyKey     String?   @unique(map: "identity_reauthentication_attempts_complete_idempotency_key_key") @map("complete_idempotency_key") @db.VarChar(200)
-  completeRequestFingerprint String?   @map("complete_request_fingerprint") @db.Char(64)
-
-  @@map("identity_reauthentication_attempts")
-  @@schema("identity_principals")
-}
-
-model IdentityAuditEvent {
-  id          String   @id @db.Uuid
-  operation   String
-  outcome     String
-  principalId String?  @map("principal_id") @db.Uuid
-  sessionId   String?  @map("session_id") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
-
-  @@map("identity_audit_events")
-  @@schema("identity_principals")
+  @@map("account_audit_events")
+  @@schema("accounts")
 }
 
 model Topic {

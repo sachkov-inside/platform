@@ -7,12 +7,12 @@ import type {
 } from "./load-draft.contract.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
-import { authorizeAuthor, type AuthorPolicy } from "../../ports/author-policy.js";
+import { authorizeManager, type AuthorPolicy } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
 import {
   materialIdSchema,
   parseCommand,
-  principalId,
+  accountId,
 } from "../../shared/command-validation.js";
 import { toMaterialRevisionDto } from "../../shared/material-revision-dto.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
@@ -20,7 +20,7 @@ import { loadCurrentDraftRevision } from "../../infrastructure/postgres/material
 
 const loadDraftQuery = z
   .object({
-    actor: principalId,
+    actor: accountId,
     materialId: materialIdSchema,
   })
   .strict();
@@ -40,7 +40,7 @@ export function assembleLoadDraft(
       return failure(parsedQuery.error);
     }
     const query = parsedQuery.value;
-    const authorization = await authorizeAuthor(
+    const authorization = await authorizeManager(
       dependencies.authorPolicy,
       query.actor,
     );
