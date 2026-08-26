@@ -106,9 +106,9 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
 | Actor | Подтверждённое состояние | Основная v1 job | Важная граница |
 |---|---|---|---|
 | Public visitor | Anonymous Subject, Account не требуется | Понять состав Membership, найти материал, прочитать free Material, увидеть teaser закрытого Material | Видит public projection, но closed body/assets/video не загружаются |
-| Authenticated non-member | Account без активного entitlement: Telegram ещё не связан, Membership не найден либо evidence недоступно/устарело | Связать Telegram, проверить Membership, продолжать пользоваться public/free content | Сам факт login или Telegram link не даёт Membership |
+| Authenticated non-member | Account без активного entitlement: Telegram ещё не связан, Membership не найден либо evidence недоступно/устарело | Связать Telegram, видеть текущий Membership state, продолжать пользоваться public/free content | Сам факт login или Telegram link не даёт Membership |
 | Active member | Account с current bounded `MembershipEntitlement` | Найти, прочитать, скачать и посмотреть доступный closed content; управлять read status/history | Каждая новая protected operation повторно проверяет доступ |
-| Expired member | Account и Telegram link/history сохранены, но entitlement не активен | Понять причину закрытого состояния, проверить Membership после rejoin, продолжать читать free content | Потеря Membership не удаляет account, link, history или read states |
+| Expired member | Account и Telegram link/history сохранены, но entitlement не активен | Понять причину закрытого состояния, дождаться автоматического обновления после rejoin, продолжать читать free content | Потеря Membership не удаляет account, link, history или read states |
 | Author | Account с `materials:manage`; в v1 фактически Кирилл | Создать/revise Material, управлять metadata/resources, validate, preview, получить owner GO и publish | Permission не является `MembershipEntitlement`; preview не заменяет recorded owner GO |
 | Owner agent | User-delegated OAuth от owner Account | Выполнить те же semantic authoring commands и получить те же validation/conflict outcomes | Использует тот же `materials:manage`; autonomous publish запрещён |
 
@@ -183,7 +183,7 @@ local IDs и исключает raw HTML/MDX, iframe markup, provider tokens и 
 | Roadmap | Все | Понять направления продукта и перейти к Topics/Series/Materials | Editorial `NavigationPage` с curated/query links |
 | Material | Все с actor-dependent body state | Прочитать teaser/free/closed body, использовать image/file/video, related Materials и read status | Всегда exact published revision; public projection отделена от protected body |
 | Sign-in handoff | Anonymous | Создать или открыть account одним email-code flow | После успеха — skippable Telegram-link prompt, затем return destination; separate sign-up form отсутствует |
-| Account | Authenticated human | Видеть account, Telegram link и coarse Membership state; запускать link/check-again/recovery-supported actions | Account не управляет billing/subscription и не хранит Membership rule в UI |
+| Account | Authenticated human | Видеть account, Telegram link и coarse Membership state; запускать link/local-state-update/recovery-supported actions | Account не управляет billing/subscription и не хранит Membership rule в UI |
 | Telegram link callback/result | Authenticated human | Завершить OIDC link, увидеть linked-member / linked-not-member / denied / conflict / unavailable outcome | Linking не является login и само по себе не даёт access |
 | Recent history / reading state | Authenticated human | Вернуться к недавно просмотренному, вручную mark read/unread | Последний/короткий список на Home, полная bounded history в Account; auto-mark отсутствует |
 | Author material list | Author/admin | Найти draft/published Materials, создать Material, открыть editor/revision | Private, noindex; list не становится second content authority |
@@ -227,9 +227,10 @@ states этого brief.
    Linking remains in Account and the closed-Material flow; callback keeps link and Membership as
    separate states, then retries the original operation. Only current `ContentAccess` allow opens
    the body.
-4. **Lose and restore access.** Expired member sees closed teaser plus preserved history/read state,
-   rejoins externally, chooses `Проверить снова`, and regains new protected operations after fresh
-   evidence without relinking or recreating the account.
+4. **Lose and restore access.** Expired member sees closed teaser plus preserved history/read state
+   and rejoins externally. Telegram event или background reconciliation производит fresh evidence;
+   после его принятия Platform следующий local read показывает восстановленный доступ без relinking,
+   recreating the account или request-triggered provider check.
 5. **Find across language and metadata.** Any actor searches a RU/EN or typo probe, narrows results
    with only actually populated facets, opens one canonical Material, then follows its Topic,
    Series or related links without encountering duplicated copies.
@@ -239,6 +240,10 @@ states этого brief.
 7. **Recover from concurrent editing.** Editor save with stale base receives `409`; the author
    compares current and intended changes, explicitly reloads/reapplies, and creates a new revision
    without silent overwrite.
+
+Во всех Membership surfaces действие `Обновить состояние` означает только новый local Platform
+read. Оно не вызывает Telegram, не запускает reconciliation и не ждёт provider; свежий status
+появляется после независимого event/reconciliation evidence ingestion.
 8. **Publish with owner GO.** Admin or MCP prepares a validated revision; owner reviews exact
    Preview and gives recorded GO; publish moves the pointer atomically, refreshes generated/search
    views, and exposes only the published projection/resources.
@@ -260,13 +265,13 @@ states этого brief.
 | R08 | Public card/teaser каждого published Material | Visitor оценивает состав до покупки | Cards на Home/Library/Topic/Series/Roadmap и Material | free/closed label, title, summary, taxonomy/series, safe media metadata; no closed body bytes | [Workspace public projection][workspace-public-projection] |
 | R09 | Полное чтение free Material без account | Visitor открывает free card | Material | body, code/table/callout/media/file/video as present; loading/error; related content | [ContentAccess matrix][access-matrix] |
 | R10 | Closed Material deny без утечки | Anonymous открывает closed card | Material | teaser + inline offer: `Вступить в Мастерскую` → `https://sachkov.dev` and `Войти`; protected bytes absent | [Access copy boundary][access-copy] |
-| R11 | Authenticated non-member closed state | Signed-in non-member открывает closed Material | Material + Account | Membership required/not active, Link Telegram или Check again; free content remains available | [Membership UX][membership-ux] |
+| R11 | Authenticated non-member closed state | Signed-in non-member открывает closed Material | Material + Account | Membership required/not active, Link Telegram или Membership offer; free content remains available | [Membership UX][membership-ux] |
 | R12 | Active-member protected reading | Active member opens body/image/file/video | Material | allow exact published revision; read/download/play; independent resource unavailable state | [ContentAccess matrix][access-matrix] |
-| R13 | Expiry/removal preserves account context | Expired member returns to Platform | Material + Home/history + Account | closed access denied; account, Telegram link, history/read state preserved; Check again after rejoin | [Membership return flow][membership-return] |
+| R13 | Expiry/removal preserves account context | Expired member returns to Platform | Material + Home/history + Account | closed access denied; account, Telegram link, history/read state preserved; automatic recovery after fresh evidence | [Membership return flow][membership-return] |
 | R14 | One closed access tier | Visitor/member crosses access boundary | Material/Account | only free vs Membership; no plan selector, upsell matrix or per-series purchase state | [Workspace v1 scope][workspace-v1-scope] |
 | R15 | Email registration/sign-in | Visitor creates/resumes Platform identity | Sign-in handoff | one email-code flow creates/opens account; delivery/input/resend/rate/error/success; then skippable linking prompt | [Identity UX proof][identity-flow] |
 | R16 | Explicit Telegram link after login | Authenticated human links identity | Account → Telegram OIDC → callback/result | never linked, pending redirect, linked+member, linked+not-member, consent denied/expired, replay/invalid callback, conflict, unavailable | [Membership UX][membership-ux], [membership failures][membership-failures] |
-| R17 | Membership refresh/rejoin | Linked non-member/expired member requests new evidence | Account and protected Material | rate-limited Check again, checking, member restored, not member, fresh prior evidence, stale/unavailable fail-closed | [Membership states][membership-states] |
+| R17 | Membership projection/rejoin | Linked non-member/expired member rejoins externally | Account and protected Material | local current state, automatic update after accepted event/reconciliation evidence, stale/unavailable fail-closed; optional `Обновить состояние` only repeats local read | [Membership states][membership-states] |
 | R18 | Secure unlink/recovery boundary | Authenticated human handles exceptional link problem | Account/support handoff | no casual replace; explicit confirmation/recent re-auth where allowed; conflict requires audited owner recovery | [Telegram link invariants][membership-link-invariants] |
 | R19 | Read/unread state | Member explicitly toggles status for a Material | Material card/page; personal history | manual read/unread with mutation feedback; no auto-scroll/time/video trigger, percent, position or achievements | [Platform navigation][platform-brief-navigation] |
 | R20 | Minimal recent history | Member returns to recently viewed content | Short Home layer + full Account history | empty/populated; survives Membership expiry; length/retention and unpublish behavior remain implementation inputs | [Platform actors][platform-brief-actors] |
@@ -336,11 +341,11 @@ states этого brief.
 | Free Material | Все | Body ready / loading / long / resource partial | Read, play/download free Resources, открыть related; authenticated — mark read/unread | Не требовать account или Membership |
 | Closed Material | Public visitor | Public teaser + `membership_offer` | `Вступить в Мастерскую` → `https://sachkov.dev`; `Войти` для existing participant | Не fetch/render closed body, Asset URL или Video token |
 | Closed Material | Authenticated unlinked Account | Public teaser + `link_required` | Связать Telegram, пропустить и продолжить free content, либо открыть Membership offer | Не считать login активным Membership |
-| Closed Material | Linked non-member | Public teaser + `membership_inactive` | Проверить снова; `Вступить в Мастерскую` → `https://sachkov.dev` | Не показывать billing/subscription controls Platform |
-| Closed Material | Expired member | Public teaser + `membership_expired` | Проверить снова после rejoin; открыть history/free content | Не удалять account, Telegram link, history или read state |
+| Closed Material | Linked non-member | Public teaser + `membership_inactive` | `Вступить в Мастерскую` → `https://sachkov.dev`; обновить только local state | Не показывать billing/subscription controls Platform и не запускать provider check |
+| Closed Material | Expired member | Public teaser + `membership_expired` | Дождаться автоматического обновления после rejoin; открыть history/free content | Не удалять account, Telegram link, history или read state |
 | Closed Material | Active member | `allowed`, exact published revision | Read body; отдельно authorize image/download/video; mark read/unread | Не reuse одного allow для другой Resource/Action |
 | Closed Material | Author | `allowed_by_permission` для read/preview | Read published или открыть explicit Preview revision | Не превращать permission в fake `MembershipEntitlement` |
-| Closed Material | Любой protected actor | `temporarily_unavailable` после stale/outage | Retry/Check again; продолжить public/free navigation | Не fail open и не раскрывать provider/internal reason |
+| Closed Material | Любой protected actor | `temporarily_unavailable` после stale/outage | Повторить local read; продолжить public/free navigation | Не fail open, не запускать provider check и не раскрывать provider/internal reason |
 | Resource внутри allowed Material | Allowed actor | Loading / ready / unavailable; Video также processing/unsupported | Read/download/play только конкретную Resource; retry bounded failure | Не делать весь text body недоступным из-за одного Video/Asset |
 | Related Materials | Все | Populated / empty / partial | Открыть public card | Не объяснять internal score и не обещать AI recommendations |
 
@@ -350,8 +355,8 @@ states этого brief.
 |---|---|---|---|---|
 | Sign-in handoff | Public visitor | Start / code sent / input / rate-limited / failed / success | Ввести email/code, resend when allowed; после success связать Telegram или пропустить; return | Не принимать Membership решение внутри identity UI |
 | Account | Authenticated unlinked Account | `telegram_not_linked` | Start Telegram link, sign out | Не предлагать заменить уже связанную identity без recovery policy |
-| Account | Linked non-member / expired | Linked identity + inactive/expired/unavailable coarse state | Check again, открыть approved recovery destination | Не показывать raw Telegram status/evidence timestamps как authority |
-| Account | Active member | Linked + active coarse state | Check again when allowed, open Library/history | Не давать Platform subscription management |
+| Account | Linked non-member / expired | Linked identity + inactive/expired/unavailable coarse state | Обновить только local state, открыть approved recovery destination | Не запускать provider check и не показывать raw Telegram status/evidence timestamps как authority |
+| Account | Active member | Linked + active coarse state | Open Library/history | Не давать Platform subscription management |
 | Telegram callback/result | Authenticated human | Pending / linked-active / linked-inactive / denied / expired / replay / conflict / unavailable | Finish, retry safe step, return to Account; conflict — support/owner recovery | Не auto-merge two Accounts или silently replace link |
 | Recent history | Authenticated human | Empty / populated / referenced Material unpublished | Open still-visible Material, mark read/unread, return to Library | Не grant closed access from historical presence |
 | Author material list | Author | Loading / empty / populated / controlled failure | Create Material, open draft/published item | Не показывать author actions обычному member |
@@ -636,7 +641,7 @@ ALLOWED                            DENIED / OFFER
 [image + alt/caption]               [state explanation]
 [file label + Download]             [Вступить в Мастерскую -> sachkov.dev]
 [video caption + player/status]     [Войти | Связать Telegram |
-                                     Проверить снова — by outcome]
+                                     Обновить состояние — local read, by outcome]
 [related Materials]                [public related Materials]
 ```
 
@@ -663,7 +668,7 @@ order does not interrupt heading/body sequence.
 [h1 Аккаунт]
 [email identity]
 [h2 Telegram]
-[link state: not linked | checking | linked]
+[link state: not linked | linking callback pending | linked]
 [Membership coarse state]
 [primary recovery action]
 [safe explanation: what linking does / does not do]
@@ -772,9 +777,9 @@ must additionally test a real narrow browser; a visual frame switch alone is not
 |---|---|---|---|
 | Anonymous closed Material | Материал доступен в Мастерской | Вступите, чтобы открыть этот и другие закрытые материалы. | Вступить в Мастерскую → `https://sachkov.dev` |
 | Signed in, Telegram unlinked | Свяжите Telegram | Связь с Telegram нужна, чтобы Platform могла проверить участие в закрытом чате Inside. | Связать Telegram |
-| Linked, Membership inactive | Membership не активен | Сейчас Platform не может подтвердить доступ к закрытым материалам. | Проверить снова; secondary Вступить в Мастерскую |
-| Historical entitlement expired | Доступ закончился | Аккаунт, история и отметки прочитанного сохранены. После возвращения в Inside проверьте доступ снова. | Проверить снова |
-| Protected dependency unavailable | Временно недоступно | Не удалось безопасно проверить доступ. Закрытый материал пока не открыт. | Повторить |
+| Linked, Membership inactive | Membership не активен | Сейчас Platform не может подтвердить доступ к закрытым материалам. После вступления статус обновится автоматически. | Вступить в Мастерскую; secondary Обновить состояние |
+| Historical entitlement expired | Доступ закончился | Аккаунт, история и отметки прочитанного сохранены. После возвращения в Inside статус обновится автоматически. | Обновить состояние |
+| Protected dependency unavailable | Временно недоступно | Не удалось безопасно прочитать текущий статус доступа. Закрытый материал пока не открыт. | Повторить local read |
 | Video unavailable inside allowed body | Видео временно недоступно | Текст материала и другие доступные файлы остаются на странице. | Повторить |
 | Search no results | Ничего не найдено | Измените запрос или сбросьте фильтры. | Сбросить фильтры |
 | Empty history | Здесь появятся недавние материалы | Откройте материал, чтобы быстро вернуться к нему позже. | Открыть Библиотеку |
