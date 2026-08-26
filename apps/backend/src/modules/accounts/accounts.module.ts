@@ -17,6 +17,7 @@ import {
   createLogtoAccessTokenVerifier,
   type LogtoAccessTokenVerifier,
 } from "./infrastructure/idp/logto/logto-access-token-verifier.js";
+import { AccountGuard } from "./adapters/nest/account.guard.js";
 
 @Module({
   imports: [PrismaModule],
@@ -44,6 +45,8 @@ import {
           jwksUrl: config.identity.jwksUrl,
         }),
     },
+    AccountGuard,
   ],
+  exports: [ACCOUNTS, LOGTO_ACCESS_TOKEN_VERIFIER, AccountGuard],
 })
 export class AccountsModule {}

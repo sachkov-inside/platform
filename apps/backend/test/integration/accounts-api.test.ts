@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { migrateToLatest } from "../../src/migrations/index.js";
+import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createTestDatabase,
   type TestDatabase,
@@ -94,6 +95,133 @@ describe("Accounts API", () => {
     expect(machine.json()).toMatchObject({ code: "invalid_proof" });
   });
 
+  test("protects and executes the complete Material authoring HTTP lifecycle", async () => {
+    const token = await signToken({
+      subject: "material-author-001",
+      email: "author@example.test",
+    });
+    const established = await inject("POST", "/accounts", token);
+    expect(established.statusCode).toBe(201);
+    const accountId = readAccountId(established.json<unknown>());
+    const authorization = { authorization: `Bearer ${token}` };
+
+    const forbidden = await app.getHttpAdapter().getInstance().inject({
+      method: "POST",
+      url: "/authoring/materials",
+      headers: {
+        ...authorization,
+        "idempotency-key": "authoring-forbidden-001",
+      },
+      payload: materialDraftPayload(
+        "Forbidden draft",
+        "forbidden-draft",
+        "Forbidden.",
+      ),
+    });
+    expect(forbidden.statusCode).toBe(403);
+    expect(forbidden.headers["content-type"]).toContain(
+      "application/problem+json",
+    );
+    expect(forbidden.json()).toMatchObject({ code: "forbidden" });
+
+    await database.prisma.accountPermission.create({
+      data: { accountId, permission: "materials:manage" },
+    });
+    await database.prisma.topic.create({
+      data: { id: topicId, name: "Architecture", slug: "architecture" },
+    });
+    await database.prisma.format.create({
+      data: { id: formatId, name: "Guide", slug: "guide" },
+    });
+
+    const created = await app.getHttpAdapter().getInstance().inject({
+      method: "POST",
+      url: "/authoring/materials",
+      headers: {
+        ...authorization,
+        "idempotency-key": "authoring-create-001",
+      },
+      payload: materialDraftPayload(
+        "Generated API contract",
+        "generated-api-contract",
+        "Initial API contract.",
+      ),
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.headers["cache-control"]).toBe("private, no-store");
+    const initial = readMaterialRevision(created.json<unknown>());
+
+    const loaded = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: `/authoring/materials/${initial.materialId}/draft`,
+      headers: authorization,
+    });
+    expect(loaded.statusCode).toBe(200);
+    expect(loaded.json()).toEqual(created.json());
+
+    const revised = await app.getHttpAdapter().getInstance().inject({
+      method: "POST",
+      url: `/authoring/materials/${initial.materialId}/revisions`,
+      headers: {
+        ...authorization,
+        "idempotency-key": "authoring-revise-001",
+      },
+      payload: {
+        baseRevisionId: initial.revisionId,
+        changes: { metadata: { title: "Generated API contract v2" } },
+      },
+    });
+    expect(revised.statusCode).toBe(201);
+    const current = readMaterialRevision(revised.json<unknown>());
+
+    for (const endpoint of ["validation", "preview"] as const) {
+      const response = await app.getHttpAdapter().getInstance().inject({
+        method: "GET",
+        url: `/authoring/materials/${current.materialId}/revisions/${current.revisionId}/${endpoint}`,
+        headers: authorization,
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.headers["cache-control"]).toBe("private, no-store");
+    }
+
+    const published = await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      url: `/authoring/materials/${current.materialId}/publication`,
+      headers: {
+        ...authorization,
+        "idempotency-key": "authoring-publish-001",
+      },
+      payload: {
+        revisionId: current.revisionId,
+        expectedPublishedRevisionId: null,
+      },
+    });
+    expect(published.statusCode).toBe(200);
+    expect(published.json()).toMatchObject(current);
+
+    const restored = await app.getHttpAdapter().getInstance().inject({
+      method: "POST",
+      url: `/authoring/materials/${initial.materialId}/revisions/${initial.revisionId}/restore`,
+      headers: {
+        ...authorization,
+        "idempotency-key": "authoring-restore-001",
+      },
+      payload: { baseRevisionId: current.revisionId },
+    });
+    expect(restored.statusCode).toBe(201);
+
+    const unpublished = await app.getHttpAdapter().getInstance().inject({
+      method: "DELETE",
+      url: `/authoring/materials/${initial.materialId}/publication`,
+      headers: {
+        ...authorization,
+        "idempotency-key": "authoring-unpublish-001",
+      },
+      payload: { expectedPublishedRevisionId: current.revisionId },
+    });
+    expect(unpublished.statusCode).toBe(200);
+  });
+
   function inject(method: "GET" | "POST", url: string, token: string) {
     return app.getHttpAdapter().getInstance().inject({
       method,
@@ -103,11 +231,15 @@ describe("Accounts API", () => {
   }
 
   async function signToken(
-    overrides: { readonly subject?: string; readonly clientId?: string } = {},
+    overrides: {
+      readonly subject?: string;
+      readonly clientId?: string;
+      readonly email?: string;
+    } = {},
   ): Promise<string> {
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({
-      inside_verified_email: "member@example.test",
+      inside_verified_email: overrides.email ?? "member@example.test",
       ...(overrides.clientId === undefined ? {} : { client_id: overrides.clientId }),
     })
       .setProtectedHeader({ alg: "ES384", kid: "api-key-1" })
@@ -119,6 +251,25 @@ describe("Accounts API", () => {
       .sign(privateKey);
   }
 });
+
+const topicId = "73000000-0000-4000-8000-000000000001";
+const formatId = "73000000-0000-4000-8000-000000000002";
+
+function materialDraftPayload(title: string, slug: string, text: string) {
+  return {
+    metadata: {
+      title,
+      summary: "A Material authoring API integration fixture.",
+      slug,
+      access: "free",
+      topicId,
+      formatId,
+      tagIds: [],
+      seriesMemberships: [],
+    },
+    body: representativeDocument(text),
+  };
+}
 
 function readAccountId(value: unknown): string {
   if (
@@ -133,4 +284,21 @@ function readAccountId(value: unknown): string {
     throw new TypeError("Accounts API response has no accountId");
   }
   return value.account.accountId;
+}
+
+function readMaterialRevision(value: unknown): {
+  readonly materialId: string;
+  readonly revisionId: string;
+} {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("materialId" in value) ||
+    typeof value.materialId !== "string" ||
+    !("revisionId" in value) ||
+    typeof value.revisionId !== "string"
+  ) {
+    throw new TypeError("Material authoring response has no revision identity");
+  }
+  return { materialId: value.materialId, revisionId: value.revisionId };
 }

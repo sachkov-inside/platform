@@ -12,6 +12,16 @@ export class AccountProblemDetailsFilter implements ExceptionFilter {
     const status = exception.getStatus();
     const response = exception.getResponse();
     const fields = isRecord(response) ? response : {};
+    if (isProblemDetails(fields, status)) {
+      host
+        .switchToHttp()
+        .getResponse<FastifyReply>()
+        .status(status)
+        .header("Cache-Control", "private, no-store")
+        .type("application/problem+json")
+        .send(fields);
+      return;
+    }
     const code =
       typeof fields.code === "string" ? fields.code : "account_request_failed";
     const correlationId =
@@ -22,6 +32,7 @@ export class AccountProblemDetailsFilter implements ExceptionFilter {
       .switchToHttp()
       .getResponse<FastifyReply>()
       .status(status)
+      .header("Cache-Control", "private, no-store")
       .type("application/problem+json")
       .send({
         type: `https://inside.sachkov.com/problems/accounts/${code.replaceAll("_", "-")}`,
@@ -32,6 +43,18 @@ export class AccountProblemDetailsFilter implements ExceptionFilter {
         ...(correlationId === undefined ? {} : { correlationId }),
       });
   }
+}
+
+function isProblemDetails(
+  fields: Readonly<Record<string, unknown>>,
+  status: number,
+): boolean {
+  return (
+    typeof fields.type === "string" &&
+    typeof fields.title === "string" &&
+    fields.status === status &&
+    typeof fields.code === "string"
+  );
 }
 
 function titleFor(status: number): string {

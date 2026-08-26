@@ -1,6 +1,7 @@
 export {
   type MaterialAuthoring,
 } from "./facets/material-authoring/material-authoring.js";
+export { MATERIAL_AUTHORING } from "./facets/material-authoring/material-authoring.token.js";
 export type {
   MaterialRevisionMetadataChanges,
   MaterialRevisionMetadataDto,
@@ -95,3 +96,16 @@ export type {
 export { MaterialsModule } from "./materials.module.js";
 export { assembleMaterials, type Materials } from "./assemble-materials.js";
 export { ReadPublishedMaterialController } from "./features/read-published-material/read-published-material.controller.js";
+export { CreateDraftController } from "./features/create-draft/create-draft.controller.js";
+export { LoadDraftController } from "./features/load-draft/load-draft.controller.js";
+export { PreviewRevisionController } from "./features/preview-revision/preview-revision.controller.js";
+export { PublishRevisionController } from "./features/publish-revision/publish-revision.controller.js";
+export { RestoreRevisionController } from "./features/restore-revision/restore-revision.controller.js";
+export { ReviseDraftController } from "./features/revise-draft/revise-draft.controller.js";
+export { UnpublishMaterialController } from "./features/unpublish-material/unpublish-material.controller.js";
+export { ValidateRevisionController } from "./features/validate-revision/validate-revision.controller.js";
+export {
+  publishedMaterialProblemHttpSchema,
+  publishedMaterialProjectionHttpSchema,
+  publishedMaterialReadHttpSchema,
+} from "./adapters/nest/published-material-http.js";

@@ -1,11 +1,22 @@
 import { Controller, Get, Inject } from "@nestjs/common";
-import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
+import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { z } from "zod";
 
+import { toOpenApiSchema } from "../../infrastructure/http/zod-openapi.js";
 import {
   OperationalReadiness,
   type ReadinessReport,
 } from "../../infrastructure/operational-readiness.js";
 
+const healthResponseSchema = z
+  .object({
+    process: z.literal("api"),
+    status: z.literal("ok"),
+    database: z.literal("reachable"),
+  })
+  .strict();
+
+@ApiTags("Operations")
 @Controller()
 export class HealthController {
   constructor(
@@ -14,8 +25,8 @@ export class HealthController {
   ) {}
 
   @Get("health")
-  @ApiOperation({ summary: "Check API and database readiness" })
-  @ApiOkResponse({ description: "The API and PostgreSQL are ready" })
+  @ApiOperation({ operationId: "getApiHealth", summary: "Check API and database readiness" })
+  @ApiOkResponse({ description: "The API and PostgreSQL are ready", schema: toOpenApiSchema(healthResponseSchema) })
   check(): Promise<ReadinessReport> {
     return this.readiness.check("api");
   }

@@ -1,0 +1,1 @@
+export const MATERIAL_AUTHORING = Symbol("MATERIAL_AUTHORING");

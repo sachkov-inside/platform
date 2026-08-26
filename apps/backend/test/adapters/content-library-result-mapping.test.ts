@@ -1,8 +1,11 @@
 import { Module } from "@nestjs/common";
+import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
 import { NestFactory } from "@nestjs/core";
 import { afterEach, describe, expect, test } from "vitest";
 
+import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
+import { ProblemDetailsFilter } from "../../src/infrastructure/http/problem-details.filter.js";
 import { PUBLISHED_MATERIAL_READER } from "../../src/modules/materials/index.js";
 import { ListPublishedMaterialsController } from "../../src/modules/content-library/features/list-published-materials/list-published-materials.controller.js";
 
@@ -20,6 +23,8 @@ const publishedMaterialReader = {
   controllers: [ListPublishedMaterialsController],
   providers: [
     { provide: PUBLISHED_MATERIAL_READER, useValue: publishedMaterialReader },
+    { provide: APP_FILTER, useClass: ProblemDetailsFilter },
+    { provide: APP_INTERCEPTOR, useClass: HttpCachePolicyInterceptor },
   ],
 })
 class ListPublishedMaterialsHttpTestModule {

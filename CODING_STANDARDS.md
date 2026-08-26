@@ -123,6 +123,17 @@ changes. Follow the verification matrix in `apps/backend/AGENTS.md` for each bac
 Structural refactors preserve behaviour: update import paths and composition tests, then prove the
 same unit, adapter, integration, and HTTP outcomes before changing product behaviour.
 
+## REST API contracts
+
+- Every public Nest endpoint has one stable `operationId`, explicit path/query/header/body schemas,
+  concrete success and error response schemas, and the applicable security scheme. A description
+  without a schema is not a consumable OpenAPI contract.
+- Controllers derive actor identity from the trusted authentication adapter. Never accept an
+  `actor`, Principal ID, permission or Membership decision from a request body.
+- Express cache intent with the shared semantic cache-policy decorators. Controllers do not write
+  `Cache-Control` values or success/error media types directly; the API interceptor and exception
+  filters own those protocol details.
+
 ## Validation owns external shapes
 
 - Treat cookie payloads, HTTP responses, token claims, persisted JSON, and other boundary values as
