@@ -123,8 +123,14 @@ describe("Logto access token verifier", () => {
     });
   });
 
-  test("distinguishes a remote JWKS outage", async () => {
-    const server = createServer((_request, response) => response.writeHead(503).end());
+  test("fails closed during a remote JWKS outage and verifies again after recovery", async () => {
+    let available = false;
+    const server = createServer((_request, response) => {
+      if (!available) return void response.writeHead(503).end();
+      response
+        .writeHead(200, { "content-type": "application/json" })
+        .end(JSON.stringify({ keys: [publicJwk] }));
+    });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const address = server.address();
     if (address === null || typeof address === "string") throw new Error("missing port");
@@ -137,6 +143,17 @@ describe("Logto access token verifier", () => {
       await expect(verifier.verifyAccount(await signToken())).resolves.toEqual({
         ok: false,
         error: { code: "dependency_unavailable" },
+      });
+
+      available = true;
+      const recoveredVerifier = createLogtoAccessTokenVerifier({
+        issuer,
+        audience,
+        jwksUrl: `http://127.0.0.1:${String(address.port)}/jwks`,
+      });
+      await expect(recoveredVerifier.verifyAccount(await signToken())).resolves.toMatchObject({
+        ok: true,
+        identity: { issuer, subject: "human-001" },
       });
     } finally {
       await new Promise<void>((resolve, reject) =>

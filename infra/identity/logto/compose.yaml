@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: inside/logto-proof:1.41.0-inside.1
+    image: inside/logto-proof:1.41.0-inside.2
     depends_on:
       logto-postgres:
         condition: service_healthy
@@ -16,15 +16,15 @@ services:
         "npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm start",
       ]
     environment:
-      ADMIN_ENDPOINT: https://identity.inside.localhost:3302
+      ADMIN_ENDPOINT: https://identity.inside.localhost:${IDENTITY_PROOF_LOGTO_ADMIN_PORT:-3302}
       DB_URL: postgres://logto:inside-proof@logto-postgres:5432/logto
-      ENDPOINT: https://identity.inside.localhost:3301
+      ENDPOINT: https://identity.inside.localhost:${IDENTITY_PROOF_LOGTO_PORT:-3301}
       HTTPS_CERT_PATH: /proof-tls/certificate.pem
       HTTPS_KEY_PATH: /proof-tls/private-key.pem
       TRUST_PROXY_HEADER: "0"
     ports:
-      - "127.0.0.1:3301:3001"
-      - "127.0.0.1:3302:3002"
+      - "127.0.0.1:${IDENTITY_PROOF_LOGTO_PORT:-3301}:3001"
+      - "127.0.0.1:${IDENTITY_PROOF_LOGTO_ADMIN_PORT:-3302}:3002"
     volumes:
       - ../../../.identity-proof/tls:/proof-tls:ro
 
@@ -48,8 +48,8 @@ services:
       MP_DATABASE: /data/mailpit.db
       MP_MAX_MESSAGES: "100"
     ports:
-      - "127.0.0.1:1026:1025"
-      - "127.0.0.1:8026:8025"
+      - "127.0.0.1:${IDENTITY_PROOF_SMTP_PORT:-1026}:1025"
+      - "127.0.0.1:${IDENTITY_PROOF_MAILPIT_PORT:-8026}:8025"
     volumes:
       - mailpit-data:/data
 

@@ -4,7 +4,7 @@
     "image": "ghcr.io/logto-io/logto:1.41.0",
     "digest": "sha256:7f79547e3d1fe569a3ecae757968a7cfc579687aa8164eec35113c0adc983c5b",
     "upstreamRevision": "91e55698a42f99438cd41ec2b16a1fc51dbdab8a",
-    "forkRevision": "inside.1"
+    "forkRevision": "inside.2"
   },
   "logtoNext": "4.2.10",
   "jose": "6.2.10",

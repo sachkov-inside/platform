@@ -19,7 +19,9 @@ export async function GET(request: Request): Promise<Response> {
       providerCallbackUrl(request.url, config.baseUrl),
     );
     const outcome = await completePlatformSignIn(
-      await getAccessToken(config, config.audience),
+      // The pinned SDK stores the authorization-code token under its default cache key even when
+      // the exchange is audience-bound. Read that exact fresh token before later resource refreshes.
+      await getAccessToken(config),
     );
     return localRedirect(
       config.baseUrl,

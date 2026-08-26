@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { resolveAccount } from "@/shared/api/backend/index.server";
-import { getPlatformAccessToken } from "@/shared/auth/platform-access-token.server";
+import {
+  getPlatformAccessToken,
+  LogtoSessionUnavailableError,
+} from "@/shared/auth/platform-access-token.server";
 import {
   clearLogtoSessionCookie,
   readLogtoBffConfig,
@@ -15,6 +18,9 @@ export async function GET(): Promise<Response> {
     await resolveAccount(await getPlatformAccessToken(config));
     return statusResponse("authenticated");
   } catch (error) {
+    if (error instanceof LogtoSessionUnavailableError) {
+      return statusResponse("guest");
+    }
     if (isInvalidGrant(error)) {
       await clearLogtoSessionCookie(config);
       return statusResponse("guest");
