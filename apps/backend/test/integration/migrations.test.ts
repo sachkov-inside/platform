@@ -3,6 +3,7 @@ import { Migrator, type Migration, type MigrationProvider } from "kysely/migrati
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { migrateToLatest } from "../../src/migrations/index.js";
+import * as identityPrincipalsMigration from "../../src/modules/identity-principals/infrastructure/postgres/migrations/0004_identity_principals.js";
 import * as materialAuthoringMigration from "../../src/modules/materials/infrastructure/postgres/migrations/0001_content_authoring.js";
 import * as materialLifecycleMigration from "../../src/modules/materials/infrastructure/postgres/migrations/0002_material_lifecycle.js";
 import * as materialsSchemaMigration from "../../src/modules/materials/infrastructure/postgres/migrations/0003_materials_schema.js";
@@ -31,6 +32,7 @@ describe("material authoring migrations", () => {
         "0001_content_authoring",
         "0002_material_lifecycle",
         "0003_materials_schema",
+        "0004_identity_principals",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -41,9 +43,22 @@ describe("material authoring migrations", () => {
       .filter(({ name }) => !name.startsWith("kysely_"))
       .sort((left, right) => left.name.localeCompare(right.name));
 
+    const identityTables = new Set([
+      "external_identities",
+      "identity_audit_events",
+      "identity_idempotency",
+      "identity_reauthentication_attempts",
+      "platform_sessions",
+      "principal_permissions",
+      "principals",
+    ]);
     expect(contentTables).toEqual([
       "authoring_idempotency",
+      "external_identities",
       "formats",
+      "identity_audit_events",
+      "identity_idempotency",
+      "identity_reauthentication_attempts",
       "material_access_audit_events",
       "material_publication_events",
       "material_revision_series_memberships",
@@ -52,6 +67,9 @@ describe("material authoring migrations", () => {
       "material_search_documents",
       "material_tags",
       "materials",
+      "platform_sessions",
+      "principal_permissions",
+      "principals",
       "published_material_series_memberships",
       "published_material_tags",
       "published_materials",
@@ -59,7 +77,10 @@ describe("material authoring migrations", () => {
       "series_memberships",
       "tags",
       "topics",
-    ].map((name) => ({ name, schema: "materials" })));
+    ].map((name) => ({
+      name,
+      schema: identityTables.has(name) ? "identity_principals" : "materials",
+    })));
     const functions = await sql<{ readonly schema: string }>`
       select namespace.nspname as schema
       from pg_proc as procedure
@@ -177,7 +198,7 @@ describe("material authoring migrations", () => {
       });
 
       expect(await migrateToLatest(database.database)).toEqual({
-        appliedMigrations: ["0003_materials_schema"],
+        appliedMigrations: ["0003_materials_schema", "0004_identity_principals"],
       });
       const preserved = await sql<{
         readonly materials: number;
@@ -215,16 +236,21 @@ describe("material authoring migrations", () => {
             "0001_content_authoring": materialAuthoringMigration,
             "0002_material_lifecycle": materialLifecycleMigration,
             "0003_materials_schema": materialsSchemaMigration,
+            "0004_identity_principals": identityPrincipalsMigration,
           }),
       };
-      const rollback = await new Migrator({
+      const migrator = new Migrator({
         db: database.database,
         provider,
-      }).migrateDown();
-      if (rollback.error !== undefined) {
-        // Kysely preserves the original migration failure as unknown.
-        // eslint-disable-next-line @typescript-eslint/only-throw-error
-        throw rollback.error;
+      });
+      for (const migration of ["IdentityPrincipals", "Materials"]) {
+        const rollback = await migrator.migrateDown();
+        if (rollback.error !== undefined) {
+          // Kysely preserves the original migration failure as unknown.
+          // eslint-disable-next-line @typescript-eslint/only-throw-error
+          throw rollback.error;
+        }
+        expect(rollback.results?.[0]?.status, migration).toBe("Success");
       }
 
       const tables = await database.database.introspection.getTables();

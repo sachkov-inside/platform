@@ -36,6 +36,51 @@ for (const destination of destinations) {
   });
 }
 
+test("guest shell exposes a server-owned sign-in mutation on desktop and mobile", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  const signIn = page.locator("button:visible", { hasText: "Войти" });
+  await expect(signIn).toHaveCount(1);
+  await expect(signIn).toBeEnabled();
+  await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute(
+    "action",
+    "/auth/sign-in",
+  );
+  await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute("method", "post");
+});
+
+test("auth control hydrates without a server-client mismatch", async ({ page }) => {
+  const hydrationErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && message.text().includes("hydrated")) {
+      hydrationErrors.push(message.text());
+    }
+  });
+
+  await page.goto("/");
+  await expect(page.locator("button:visible", { hasText: "Войти" })).toBeEnabled();
+
+  expect(hydrationErrors).toEqual([]);
+});
+
+test("failed authentication returns a visible recoverable state", async ({ page }) => {
+  await page.goto("/?authentication=failed");
+
+  await expect(page.getByRole("status")).toContainText(
+    "Вход не завершён. Повторите попытку",
+  );
+});
+
+test("incomplete global logout is reported without claiming success", async ({ page }) => {
+  await page.goto("/?authentication=logout-incomplete");
+
+  await expect(page.getByRole("status")).toContainText(
+    "Локальная сессия завершена, но глобальный выход не подтверждён",
+  );
+});
+
 test("navigation works with pointer input", async ({ page }, testInfo) => {
   await page.goto("/");
 

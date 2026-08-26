@@ -4,6 +4,7 @@
 !.env.example
 .next/
 .impeccable/review/
+.identity-proof/
 .playwright-cli/
 playwright-report/
 test-results/

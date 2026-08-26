@@ -13,6 +13,14 @@ The default stack contains:
 - the long-running MCP process over the same application and database lifecycle;
 - Next.js web on <http://127.0.0.1:3000>.
 
+The optional Logto email-code proof is a separate, disposable Compose project with isolated ports
+and volumes. Its pinned build, automated Management API bootstrap and Mailpit capture are
+documented in [`infra/identity/logto/README.md`](../../infra/identity/logto/README.md). Run
+`pnpm identity:proof:start`; it starts the shared Platform PostgreSQL, applies normal repository
+migrations and runs the application without Logto Console setup. The launcher claims the same
+machine-wide ownership lock as `local:setup`, refuses an already running Platform or proof Compose
+project, and stops only the environments it claimed when the process exits.
+
 API and web expose real healthchecks. API and MCP wait for healthy PostgreSQL and a successful
 bootstrap; web waits for healthy API. Storybook is an optional profile on
 <http://127.0.0.1:6006>. Integration tests continue to use their own temporary PostgreSQL through

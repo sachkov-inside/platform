@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@fontsource-variable/manrope/wght.css";
 
-import { AppShell } from "@/_app";
+import { AppShell, AuthAccountSlot, AuthControlFallback } from "@/_app";
 
 import "./globals.css";
 
@@ -20,7 +20,20 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <html lang="ru">
       <body>
-        <AppShell>{children}</AppShell>
+        <AppShell
+          desktopAccountSlot={
+            <Suspense fallback={<AuthControlFallback presentation="desktop" />}>
+              <AuthAccountSlot presentation="desktop" />
+            </Suspense>
+          }
+          mobileAccountSlot={
+            <Suspense fallback={<AuthControlFallback presentation="mobile" />}>
+              <AuthAccountSlot presentation="mobile" />
+            </Suspense>
+          }
+        >
+          {children}
+        </AppShell>
       </body>
     </html>
   );

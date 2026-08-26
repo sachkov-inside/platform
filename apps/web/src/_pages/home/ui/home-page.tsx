@@ -1,4 +1,17 @@
-export function HomePage() {
+interface HomePageProps {
+  readonly authenticationError?: string | undefined;
+}
+
+export function HomePage({ authenticationError }: HomePageProps) {
+  const authenticationMessage =
+    authenticationError === "logout-incomplete"
+      ? "Локальная сессия завершена, но глобальный выход не подтверждён. Закройте браузер или завершите сессию у провайдера входа."
+      : authenticationError === "retryable"
+        ? "Провайдер подтвердил вход, но Platform временно не ответила. Нажмите «Войти» ещё раз: попытка продолжится без создания новой сессии."
+        : authenticationError === "in-progress"
+          ? "Вход уже начат в этой вкладке. Завершите открытый шаг у провайдера или дождитесь истечения попытки."
+          : "Вход не завершён. Повторите попытку; если ошибка сохраняется, попробуйте позже.";
+
   return (
     <>
       <header className="max-w-3xl">
@@ -9,6 +22,14 @@ export function HomePage() {
           Точка входа в материалы Inside: новые публикации, темы и активные серии.
         </p>
       </header>
+      {authenticationError === undefined ? null : (
+        <p
+          className="mt-7 max-w-3xl border-y border-border py-3 text-sm leading-6 text-destructive"
+          role="status"
+        >
+          {authenticationMessage}
+        </p>
+      )}
       <section
         aria-labelledby="home-empty-heading"
         className="mt-12 max-w-3xl border-y border-border py-6 sm:py-8"

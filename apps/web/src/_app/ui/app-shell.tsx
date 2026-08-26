@@ -10,6 +10,8 @@ import {
 
 interface AppShellProps {
   readonly children: ReactNode;
+  readonly desktopAccountSlot?: ReactNode | undefined;
+  readonly mobileAccountSlot?: ReactNode | undefined;
 }
 
 const navigationItems = [
@@ -19,13 +21,15 @@ const navigationItems = [
 ] satisfies readonly ApplicationNavigationItem[];
 
 /** Connects the accepted application shell to App Router route state. */
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, desktopAccountSlot, mobileAccountSlot }: AppShellProps) {
   const pathname = usePathname();
 
   return (
     <ApplicationShell
       accountLabel="Гость"
       currentPath={pathname}
+      desktopAccountSlot={desktopAccountSlot}
+      mobileAccountSlot={mobileAccountSlot}
       navigationItems={navigationItems}
     >
       {children}

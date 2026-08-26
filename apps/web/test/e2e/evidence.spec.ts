@@ -6,7 +6,7 @@ const outputByProject: Readonly<Record<string, string>> = {
   "mobile-chromium": "mobile.png",
 };
 
-test("capture the issue 46 production shell evidence", async ({ page }, testInfo) => {
+test("capture the issue 49 real authenticated-shell evidence", async ({ page }, testInfo) => {
   const outputName = outputByProject[testInfo.project.name];
 
   if (outputName === undefined) {
@@ -16,9 +16,10 @@ test("capture the issue 46 production shell evidence", async ({ page }, testInfo
   const response = await page.goto("/");
 
   expect(response?.status()).toBe(200);
+  await expect(page.locator("button:visible", { hasText: "Выйти" })).toBeEnabled();
   await page.screenshot({
     animations: "disabled",
     fullPage: true,
-    path: resolve(process.cwd(), "../../docs/evidence/issue-46", outputName),
+    path: resolve(process.cwd(), "../../docs/evidence/issue-49", outputName),
   });
 });

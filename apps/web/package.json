@@ -19,6 +19,7 @@
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "5.3.0",
     "@fontsource-variable/manrope": "5.3.0",
+    "@logto/next": "4.2.10",
     "@tiptap/core": "3.30.3",
     "@tiptap/pm": "3.30.3",
     "@tiptap/react": "3.30.3",

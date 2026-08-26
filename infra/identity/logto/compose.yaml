@@ -1,0 +1,58 @@
+name: inside-identity-proof
+
+services:
+  logto:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: inside/logto-proof:1.41.0-inside.1
+    depends_on:
+      logto-postgres:
+        condition: service_healthy
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm start",
+      ]
+    environment:
+      ADMIN_ENDPOINT: https://identity.inside.localhost:3302
+      DB_URL: postgres://logto:inside-proof@logto-postgres:5432/logto
+      ENDPOINT: https://identity.inside.localhost:3301
+      HTTPS_CERT_PATH: /proof-tls/certificate.pem
+      HTTPS_KEY_PATH: /proof-tls/private-key.pem
+      TRUST_PROXY_HEADER: "0"
+    ports:
+      - "127.0.0.1:3301:3001"
+      - "127.0.0.1:3302:3002"
+    volumes:
+      - ../../../.identity-proof/tls:/proof-tls:ro
+
+  logto-postgres:
+    image: postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+    environment:
+      POSTGRES_DB: logto
+      POSTGRES_PASSWORD: inside-proof
+      POSTGRES_USER: logto
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logto -d logto"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - logto-postgres-data:/var/lib/postgresql/data
+
+  mailpit:
+    image: ghcr.io/axllent/mailpit:v1.30.6@sha256:7f33095f80e901f6ad08028f06ca284aa58fe84942be5496008d041d3b9f4d4d
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: "100"
+    ports:
+      - "127.0.0.1:1026:1025"
+      - "127.0.0.1:8026:8025"
+    volumes:
+      - mailpit-data:/data
+
+volumes:
+  logto-postgres-data:
+  mailpit-data:

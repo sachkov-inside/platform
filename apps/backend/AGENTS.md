@@ -12,8 +12,8 @@ durable job. Put behaviour behind capability interfaces.
   application, domain, and infrastructure files remain implementation details.
 - Keep application results transport-neutral and discriminated. Each operation exposes its actual
   error union, and every adapter mapping is exhaustive.
-- Treat external input as `unknown` until the owning module validates it. Public DTOs keep
-  serializable string identifiers; domain and persistence code use checked branded identifiers.
+- Public DTOs keep serializable string identifiers; domain and persistence code use checked
+  branded identifiers.
 - Keep application and domain code independent of Nest, Kysely, `pg`, and generated database
   shapes. Raw persistence imports live only in paths approved by the architecture guardrail.
 - Keep `MaterialBody` validation, versioning, rendering, and extraction inside Materials until an

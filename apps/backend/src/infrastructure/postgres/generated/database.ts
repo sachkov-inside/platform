@@ -23,6 +23,70 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface IdentityPrincipalsExternalIdentities {
+  created_at: Generated<Timestamp>;
+  email_fingerprint: string | null;
+  id: string;
+  issuer: string;
+  principal_id: string;
+  subject: string;
+}
+
+export interface IdentityPrincipalsIdentityAuditEvents {
+  created_at: Generated<Timestamp>;
+  id: string;
+  operation: string;
+  outcome: string;
+  principal_id: string | null;
+  session_id: string | null;
+}
+
+export interface IdentityPrincipalsIdentityIdempotency {
+  created_at: Generated<Timestamp>;
+  idempotency_key: string;
+  operation: string;
+  principal_id: string | null;
+  request_fingerprint: string;
+  session_id: string | null;
+}
+
+export interface IdentityPrincipalsIdentityReauthenticationAttempts {
+  begin_idempotency_key: string;
+  begin_request_fingerprint: string;
+  complete_idempotency_key: string | null;
+  complete_request_fingerprint: string | null;
+  consumed_at: Timestamp | null;
+  created_at: Timestamp;
+  expires_at: Timestamp;
+  id: string;
+  session_id: string;
+  token_fingerprint: string | null;
+}
+
+export interface IdentityPrincipalsPlatformSessions {
+  authenticated_at: Timestamp;
+  created_at: Timestamp;
+  ended_at: Timestamp | null;
+  expires_at: Timestamp;
+  id: string;
+  principal_id: string;
+  security_version: number;
+}
+
+export interface IdentityPrincipalsPrincipalPermissions {
+  created_at: Generated<Timestamp>;
+  permission: string;
+  principal_id: string;
+}
+
+export interface IdentityPrincipalsPrincipals {
+  created_at: Generated<Timestamp>;
+  id: string;
+  kind: string;
+  security_version: Generated<number>;
+  state: Generated<string>;
+}
+
 export interface MaterialsAuthoringIdempotency {
   actor_id: string;
   created_at: Generated<Timestamp>;
@@ -157,6 +221,13 @@ export interface MaterialsTopics {
 }
 
 export interface DB {
+  "identity_principals.external_identities": IdentityPrincipalsExternalIdentities;
+  "identity_principals.identity_audit_events": IdentityPrincipalsIdentityAuditEvents;
+  "identity_principals.identity_idempotency": IdentityPrincipalsIdentityIdempotency;
+  "identity_principals.identity_reauthentication_attempts": IdentityPrincipalsIdentityReauthenticationAttempts;
+  "identity_principals.platform_sessions": IdentityPrincipalsPlatformSessions;
+  "identity_principals.principal_permissions": IdentityPrincipalsPrincipalPermissions;
+  "identity_principals.principals": IdentityPrincipalsPrincipals;
   "materials.authoring_idempotency": MaterialsAuthoringIdempotency;
   "materials.formats": MaterialsFormats;
   "materials.material_access_audit_events": MaterialsMaterialAccessAuditEvents;
