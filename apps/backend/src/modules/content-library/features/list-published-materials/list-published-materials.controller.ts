@@ -19,7 +19,10 @@ import {
 import { z } from "zod";
 
 import { PublicCatalogCache } from "../../../../infrastructure/http/http-cache-policy.js";
-import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
+import {
+  problemDetailsContent,
+  toOpenApiSchema,
+} from "../../../../infrastructure/http/zod-openapi.js";
 import {
   PUBLISHED_MATERIAL_READER,
   publishedMaterialProblemHttpSchema,
@@ -55,9 +58,9 @@ export class ListPublishedMaterialsController {
   @ApiOperation({ operationId: "listPublishedMaterials", summary: "List safe published Material projections" })
   @ApiQuery({ name: "after", required: false, schema: toOpenApiSchema(z.string().min(1).max(512)) })
   @ApiOkResponse({ description: "A deterministic page of published Materials", schema: toOpenApiSchema(catalogPageSchema) })
-  @ApiBadRequestResponse({ description: "Catalog cursor is malformed", schema: toOpenApiSchema(publishedMaterialProblemHttpSchema) })
-  @ApiInternalServerErrorResponse({ description: "Catalog failed internally", schema: toOpenApiSchema(publishedMaterialProblemHttpSchema) })
-  @ApiServiceUnavailableResponse({ description: "Catalog dependency is unavailable", schema: toOpenApiSchema(publishedMaterialProblemHttpSchema) })
+  @ApiBadRequestResponse({ description: "Catalog cursor is malformed", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
+  @ApiInternalServerErrorResponse({ description: "Catalog failed internally", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
+  @ApiServiceUnavailableResponse({ description: "Catalog dependency is unavailable", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
   async handle(
     @Query("after") after: string | undefined,
   ) {

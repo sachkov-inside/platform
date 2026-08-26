@@ -21,7 +21,10 @@ import {
 import { z } from "zod";
 
 import { PublishedMaterialCache } from "../../../../infrastructure/http/http-cache-policy.js";
-import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
+import {
+  problemDetailsContent,
+  toOpenApiSchema,
+} from "../../../../infrastructure/http/zod-openapi.js";
 import {
   publishedMaterialProblemHttpSchema,
   publishedMaterialReadHttpSchema,
@@ -46,10 +49,10 @@ export class ReadPublishedMaterialController {
   @ApiOperation({ operationId: "readPublishedMaterial", summary: "Read the current published Material revision" })
   @ApiParam({ name: "slug", schema: toOpenApiSchema(z.string().min(1).max(120)) })
   @ApiOkResponse({ description: "Published Material body or an access-safe teaser", schema: toOpenApiSchema(publishedMaterialReadHttpSchema) })
-  @ApiBadRequestResponse({ description: "Published Material request is malformed", schema: toOpenApiSchema(publishedMaterialProblemHttpSchema) })
-  @ApiNotFoundResponse({ description: "Published Material does not exist", schema: toOpenApiSchema(publishedMaterialProblemHttpSchema) })
-  @ApiServiceUnavailableResponse({ description: "Published Material dependency is unavailable", schema: toOpenApiSchema(publishedMaterialProblemHttpSchema) })
-  @ApiInternalServerErrorResponse({ description: "Published Material read failed unexpectedly", schema: toOpenApiSchema(publishedMaterialProblemHttpSchema) })
+  @ApiBadRequestResponse({ description: "Published Material request is malformed", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
+  @ApiNotFoundResponse({ description: "Published Material does not exist", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
+  @ApiServiceUnavailableResponse({ description: "Published Material dependency is unavailable", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
+  @ApiInternalServerErrorResponse({ description: "Published Material read failed unexpectedly", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
   async read(
     @Param("slug") slug: string,
   ) {

@@ -19,6 +19,8 @@
     "db:schema:check": "pnpm prisma:validate && pnpm prisma:generate",
     "typecheck": "pnpm prisma:generate && tsc -p tsconfig.json --noEmit && tsc -p test/tsconfig.json --noEmit",
     "guardrails": "node scripts/check-backend-architecture.mjs src && node scripts/check-negative-guardrails.mjs",
+    "openapi:generate": "tsx scripts/generate-openapi.ts",
+    "openapi:check": "tsx scripts/generate-openapi.ts --check",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "smoke:health": "vitest run --config vitest.smoke.config.mts"

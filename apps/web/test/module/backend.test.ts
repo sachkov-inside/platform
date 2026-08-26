@@ -77,10 +77,7 @@ describe("backend server interface", () => {
       status: "ok",
       database: "reachable",
     });
-    expect(fetch).toHaveBeenCalledWith(
-      "https://platform-api.example.test/health",
-      expect.objectContaining({ cache: "no-store" }),
-    );
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it("rejects a response outside the health contract", async () => {
@@ -88,12 +85,54 @@ describe("backend server interface", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ process: "api", status: "ok" }), { status: 200 }),
+        new Response(
+          JSON.stringify({
+            process: "api",
+            status: "ok",
+            database: "reachable",
+            undocumented: true,
+          }),
+          { status: 200 },
+        ),
       ),
     );
 
     await expect(getBackendHealth()).rejects.toMatchObject({
       code: "invalid-response",
+    } satisfies Partial<BackendConnectionError>);
+  });
+
+  it("maps only validated health Problem Details to unavailable", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    const unavailableProblem = {
+      type: "about:blank",
+      title: "Service unavailable",
+      status: 503,
+      code: "dependency_unavailable",
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json(unavailableProblem, {
+            status: 503,
+            headers: { "Content-Type": "application/problem+json" },
+          }),
+        )
+        .mockResolvedValueOnce(
+          Response.json({ ...unavailableProblem, status: 500 }, {
+            status: 503,
+            headers: { "Content-Type": "application/problem+json" },
+          }),
+        ),
+    );
+
+    await expect(getBackendHealth()).rejects.toMatchObject({
+      code: "unavailable",
+    } satisfies Partial<BackendConnectionError>);
+    await expect(getBackendHealth()).rejects.toMatchObject({
+      code: "backend-error",
     } satisfies Partial<BackendConnectionError>);
   });
 });

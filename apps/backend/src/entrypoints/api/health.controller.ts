@@ -1,8 +1,22 @@
-import { Controller, Get, Inject } from "@nestjs/common";
-import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  Controller,
+  Get,
+  Inject,
+  ServiceUnavailableException,
+} from "@nestjs/common";
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiServiceUnavailableResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 import { z } from "zod";
 
-import { toOpenApiSchema } from "../../infrastructure/http/zod-openapi.js";
+import { PrivateNoStore } from "../../infrastructure/http/http-cache-policy.js";
+import {
+  problemDetailsContent,
+  toOpenApiSchema,
+} from "../../infrastructure/http/zod-openapi.js";
 import {
   OperationalReadiness,
   type ReadinessReport,
@@ -16,7 +30,17 @@ const healthResponseSchema = z
   })
   .strict();
 
+const healthUnavailableProblemSchema = z
+  .object({
+    type: z.literal("about:blank"),
+    title: z.literal("Service unavailable"),
+    status: z.literal(503),
+    code: z.literal("dependency_unavailable"),
+  })
+  .strict();
+
 @ApiTags("Operations")
+@PrivateNoStore()
 @Controller()
 export class HealthController {
   constructor(
@@ -27,7 +51,18 @@ export class HealthController {
   @Get("health")
   @ApiOperation({ operationId: "getApiHealth", summary: "Check API and database readiness" })
   @ApiOkResponse({ description: "The API and PostgreSQL are ready", schema: toOpenApiSchema(healthResponseSchema) })
-  check(): Promise<ReadinessReport> {
-    return this.readiness.check("api");
+  @ApiServiceUnavailableResponse({
+    description: "PostgreSQL readiness check failed",
+    content: problemDetailsContent(healthUnavailableProblemSchema),
+  })
+  async check(): Promise<ReadinessReport> {
+    try {
+      return await this.readiness.check("api");
+    } catch (cause) {
+      throw new ServiceUnavailableException(
+        { code: "dependency_unavailable" },
+        { cause },
+      );
+    }
   }
 }

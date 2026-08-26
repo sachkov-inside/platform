@@ -81,7 +81,17 @@ describe("backend process composition", () => {
       url: "/health",
     });
 
-    expect(response.statusCode).toBe(500);
+    expect(response.statusCode).toBe(503);
+    expect(response.headers["content-type"]).toContain(
+      "application/problem+json",
+    );
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(response.json()).toEqual({
+      type: "about:blank",
+      title: "Service unavailable",
+      status: 503,
+      code: "dependency_unavailable",
+    });
     expect(queryRaw).toHaveBeenCalled();
   });
 });

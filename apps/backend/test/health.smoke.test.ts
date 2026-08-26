@@ -22,6 +22,7 @@ describe("API health smoke", () => {
     });
 
     expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
     expect(response.json()).toEqual({
       process: "api",
       status: "ok",

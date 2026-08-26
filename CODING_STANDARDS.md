@@ -134,6 +134,28 @@ same unit, adapter, integration, and HTTP outcomes before changing product behav
   `Cache-Control` values or success/error media types directly; the API interceptor and exception
   filters own those protocol details.
 
+## Nest-Web transport seam
+
+- Nest owns the HTTP wire contract. Commit the deterministic schema and generated Web transport
+  types, and run `pnpm api:generate` after changing an operation. `pnpm api:check` is the drift
+  fitness function used by CI.
+- `apps/web/src/shared/api/backend` owns direct Nest requests, `openapi-fetch`, generated types,
+  backend URL configuration and request timeouts. Application code imports that module's interface;
+  it does not duplicate Nest URLs or import the codegen runtime or generated artifacts directly.
+- Treat generated response types as compile-time guidance, not runtime proof. Feature adapters keep
+  external response bodies as `unknown`, validate focused wire schemas with Zod, and then map known
+  Problem Details into feature outcomes and success bodies into presentation models.
+- React Server Components may call Nest directly through the server-only transport. Browser code
+  calls same-origin, feature-owned Next BFF routes. Do not add a universal proxy, generated TanStack
+  hooks, generated Zod schemas or generated UI models without a concrete consumer and a new owner
+  decision.
+- `pnpm --filter @inside/web guardrails` owns this seam's import and browser-bypass fitness
+  functions, including the negative fixture. Focused Web tests own transport error mapping and
+  TanStack hydration behaviour.
+- Keep editor and explicit CLI checks on a committed TypeScript project that excludes stale
+  `.next/dev` artifacts. If Next requires a managed project for route generation, give it a
+  separate config and keep production checking independent of a prior development session.
+
 ## Validation owns external shapes
 
 - Treat cookie payloads, HTTP responses, token claims, persisted JSON, and other boundary values as
