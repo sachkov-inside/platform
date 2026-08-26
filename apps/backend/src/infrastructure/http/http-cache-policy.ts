@@ -1,6 +1,7 @@
 import {
   type CallHandler,
   type ExecutionContext,
+  Inject,
   Injectable,
   type NestInterceptor,
   SetMetadata,
@@ -35,7 +36,7 @@ export const PublishedMaterialCache = () =>
 
 @Injectable()
 export class HttpCachePolicyInterceptor implements NestInterceptor {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const policy = this.reflector.getAllAndOverride<HttpCachePolicy>(
