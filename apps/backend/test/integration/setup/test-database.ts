@@ -4,13 +4,13 @@ import { Pool } from "pg";
 import { inject } from "vitest";
 
 import {
-  createPlatformDatabase,
-  type PlatformDatabase,
-} from "../../../src/infrastructure/postgres/index.js";
+  createPrismaClient,
+  type PlatformPrisma,
+} from "../../../src/infrastructure/prisma/index.js";
 import { migrateToLatest } from "../../../src/migrations/index.js";
 
 export interface TestDatabase {
-  readonly database: PlatformDatabase;
+  readonly prisma: PlatformPrisma;
   readonly url: string;
   dispose(): Promise<void>;
 }
@@ -24,13 +24,13 @@ export async function createTestDatabase(): Promise<TestDatabase> {
 
   const url = new URL(adminUrl);
   url.pathname = `/${databaseName}`;
-  const database = createPlatformDatabase(url.toString());
+  const prisma = createPrismaClient(url.toString());
 
   return {
-    database,
+    prisma,
     url: url.toString(),
     async dispose() {
-      await database.destroy();
+      await prisma.$disconnect();
       const cleanupPool = new Pool({ connectionString: adminUrl, max: 1 });
       await cleanupPool.query(`DROP DATABASE ${databaseName} WITH (FORCE)`);
       await cleanupPool.end();
@@ -40,6 +40,6 @@ export async function createTestDatabase(): Promise<TestDatabase> {
 
 export async function createMigratedTestDatabase(): Promise<TestDatabase> {
   const testDatabase = await createTestDatabase();
-  await migrateToLatest(testDatabase.database);
+  await migrateToLatest(testDatabase.url);
   return testDatabase;
 }

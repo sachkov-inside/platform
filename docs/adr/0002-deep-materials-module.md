@@ -6,8 +6,9 @@ status: accepted
 
 Platform exposes one `Materials` capability with two caller-oriented facets:
 `MaterialAuthoring` for the editorial lifecycle and `PublishedMaterialReader` for exact published
-delivery. One `createMaterials` assembly builds both facets; the Nest module only binds that runtime
-to provider tokens. Transport callers do not coordinate validation, rendering, persistence or
+delivery. One framework-agnostic `assembleMaterials` function builds both facets for tests, seeds,
+and non-Nest entrypoints; Nest binds only facets with real production consumers directly, as
+described in ADR 0004. Transport callers do not coordinate validation, rendering, persistence or
 publication rules themselves.
 
 Dynamic Nest registration was a temporary bootstrap state, not part of the enduring Module
@@ -24,9 +25,9 @@ suffixes such as `StoredMaterialBodyV1` are limited to codecs and migrations. A 
 
 The implementation uses selective domain objects and TypeScript-native discriminated unions:
 metadata and body values prevent invalid state, the immutable `Material` aggregate owns only draft
-and publication transitions, and each operation exposes its actual error union. Kysely transactions
-and semantic PostgreSQL helpers remain internal; generic repositories, Unit of Work wrappers,
-command buses, base entities and one-interface-per-class are not part of the design.
+and publication transitions, and each operation exposes its actual error union. Prisma transaction
+access follows ADR 0005; generic repositories, Unit of Work wrappers, command buses, base entities
+and one-interface-per-class are not part of the design.
 
 Public command and response DTOs keep serializable string identifiers. Runtime codecs validate
 them at the module boundary and convert them to branded `MaterialId` and `MaterialRevisionId`

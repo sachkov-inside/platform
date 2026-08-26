@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import {
-  createMaterials,
+  assembleMaterials,
   type CreateDraftCommand,
   type LoadDraftQuery,
 } from "../../src/modules/materials/index.js";
@@ -27,25 +27,21 @@ describe("MaterialAuthoring", () => {
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    await testDatabase.database
-      .insertInto("materials.topics")
-      .values({ id: topicId, slug: "engineering", name: "Engineering" })
-      .execute();
-    await testDatabase.database
-      .insertInto("materials.formats")
-      .values({ id: formatId, slug: "guide", name: "Guide" })
-      .execute();
-    await testDatabase.database
-      .insertInto("materials.tags")
-      .values([
-        { id: firstTagId, name: "Platform", normalized_name: "platform" },
-        { id: secondTagId, name: "Delivery", normalized_name: "delivery" },
-      ])
-      .execute();
-    await testDatabase.database
-      .insertInto("materials.series")
-      .values({ id: seriesId, slug: "inside-platform", name: "Inside Platform" })
-      .execute();
+    await testDatabase.prisma.topic.create({
+      data: { id: topicId, slug: "engineering", name: "Engineering" },
+    });
+    await testDatabase.prisma.format.create({
+      data: { id: formatId, slug: "guide", name: "Guide" },
+    });
+    await testDatabase.prisma.tag.createMany({
+      data: [
+        { id: firstTagId, name: "Platform", normalizedName: "platform" },
+        { id: secondTagId, name: "Delivery", normalizedName: "delivery" },
+      ],
+    });
+    await testDatabase.prisma.series.create({
+      data: { id: seriesId, slug: "inside-platform", name: "Inside Platform" },
+    });
   });
 
   afterAll(async () => {
@@ -54,8 +50,8 @@ describe("MaterialAuthoring", () => {
 
   test("rejects a malformed runtime command before policy or database work", async () => {
     let policyCalled = false;
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: {
         canAuthor: () => {
           policyCalled = true;
@@ -179,8 +175,8 @@ describe("MaterialAuthoring", () => {
   });
 
   test("creates, loads and revises a representative draft through one interface", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: (principalId) => principalId === actor, canPublish: () => false },
     });
     const initialBody = fullRepresentativeDocument();
@@ -257,8 +253,8 @@ describe("MaterialAuthoring", () => {
   });
 
   test("replays the original effect and rejects reuse of a key for another payload", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const command = {
@@ -302,8 +298,8 @@ describe("MaterialAuthoring", () => {
   });
 
   test("assigns stable block IDs for create and replace-document inputs", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const created = await authoring.createDraft({
@@ -394,8 +390,8 @@ describe("MaterialAuthoring", () => {
   });
 
   test("treats different semantic requests with the same result as idempotency reuse", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const body = representativeDocument();
@@ -439,8 +435,8 @@ describe("MaterialAuthoring", () => {
   });
 
   test("allows one concurrent revision and returns the winner for the stale base", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const created = await authoring.createDraft({
@@ -496,8 +492,8 @@ describe("MaterialAuthoring", () => {
   });
 
   test("collapses concurrent retries with the same idempotency key to one effect", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const command = {
@@ -525,8 +521,8 @@ describe("MaterialAuthoring", () => {
   });
 
   test("rolls back an invalid revision and allows a corrected retry with the same key", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const created = await authoring.createDraft({

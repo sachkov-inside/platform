@@ -39,7 +39,9 @@ expectFailure(
   [
     "TS2322",
     "TS2345",
+    "identityPrincipal",
     "identity_principals.principals",
+    "material",
     "Cannot find name 'describe'",
   ],
 );
@@ -67,7 +69,9 @@ expectFailure(
   ],
   [
     "capability index.ts",
+    "capability implementation cannot import Nest adapters",
     "raw persistence imports",
+    "Kysely is forbidden",
     "src/infrastructure/operational-readiness.ts",
     "(pg)",
     "database table references must be schema-qualified",

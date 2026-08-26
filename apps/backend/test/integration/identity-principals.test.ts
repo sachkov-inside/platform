@@ -2,10 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import {
-  createIdentityPrincipals,
-  type IdentityPrincipals,
-} from "../../src/modules/identity-principals/index.js";
+import type { IdentityPrincipals } from "../../src/modules/identity-principals/index.js";
+import { assembleIdentityPrincipals } from "../../src/modules/identity-principals/index.js";
 import { createDeterministicExternalIdentityProof } from "../../src/modules/identity-principals/infrastructure/idp/fake/deterministic-external-identity-proof.js";
 import {
   createMigratedTestDatabase,
@@ -18,8 +16,8 @@ describe("IdentityPrincipals", () => {
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    identityPrincipals = createIdentityPrincipals({
-      database: testDatabase.database,
+    identityPrincipals = assembleIdentityPrincipals({
+      prisma: testDatabase.prisma,
       emailFingerprintKey: "test-email-fingerprint-key",
     });
   });
@@ -193,13 +191,14 @@ describe("IdentityPrincipals", () => {
     ).resolves.toEqual({ ok: false, error: { code: "identity_conflict" } });
 
     await expect(
-      testDatabase.database
-        .selectFrom("identity_principals.identity_audit_events")
-        .select(["principal_id", "session_id"])
-        .where("operation", "=", "establish_human_session")
-        .where("outcome", "=", "identity_conflict_duplicate_email")
-        .executeTakeFirst(),
-    ).resolves.toEqual({ principal_id: null, session_id: null });
+      testDatabase.prisma.identityAuditEvent.findFirst({
+        where: {
+          operation: "establish_human_session",
+          outcome: "identity_conflict_duplicate_email",
+        },
+        select: { principalId: true, sessionId: true },
+      }),
+    ).resolves.toEqual({ principalId: null, sessionId: null });
   });
 
   test("keeps the original email observation and audits a changed-email conflict", async () => {
@@ -233,16 +232,17 @@ describe("IdentityPrincipals", () => {
     });
 
     await expect(
-      testDatabase.database
-        .selectFrom("identity_principals.identity_audit_events")
-        .select(["principal_id", "session_id"])
-        .where("operation", "=", "establish_human_session")
-        .where("outcome", "=", "email_observation_conflict")
-        .where("principal_id", "=", originalSession.subject.principalId)
-        .executeTakeFirst(),
+      testDatabase.prisma.identityAuditEvent.findFirst({
+        where: {
+          operation: "establish_human_session",
+          outcome: "email_observation_conflict",
+          principalId: originalSession.subject.principalId,
+        },
+        select: { principalId: true, sessionId: true },
+      }),
     ).resolves.toEqual({
-      principal_id: originalSession.subject.principalId,
-      session_id: null,
+      principalId: originalSession.subject.principalId,
+      sessionId: null,
     });
   });
 
@@ -314,13 +314,12 @@ describe("IdentityPrincipals", () => {
       }),
     ).resolves.toEqual({ ok: true, allowed: false });
 
-    await testDatabase.database
-      .insertInto("identity_principals.principal_permissions")
-      .values({
-        principal_id: established.subject.principalId,
+    await testDatabase.prisma.principalPermission.create({
+      data: {
+        principalId: established.subject.principalId,
         permission: "materials:author",
-      })
-      .execute();
+      },
+    });
     await expect(
       identityPrincipals.checkPermission({
         principalId: established.subject.principalId,
@@ -328,11 +327,10 @@ describe("IdentityPrincipals", () => {
       }),
     ).resolves.toEqual({ ok: true, allowed: true });
 
-    await testDatabase.database
-      .updateTable("identity_principals.principals")
-      .set({ state: "disabled", security_version: 2 })
-      .where("id", "=", established.subject.principalId)
-      .execute();
+    await testDatabase.prisma.identityPrincipal.update({
+      where: { id: established.subject.principalId },
+      data: { state: "disabled", securityVersion: 2 },
+    });
     await expect(
       identityPrincipals.resolveSubject({
         identity: verified.sessionIdentity,
@@ -366,24 +364,21 @@ describe("IdentityPrincipals", () => {
     ).resolves.toEqual({ ok: false, error: { code: "identity_not_found" } });
 
     const principalId = randomUUID();
-    await testDatabase.database
-      .insertInto("identity_principals.principals")
-      .values({ id: principalId, kind: "service", state: "active" })
-      .execute();
-    await testDatabase.database
-      .insertInto("identity_principals.external_identities")
-      .values({
+    await testDatabase.prisma.identityPrincipal.create({
+      data: { id: principalId, kind: "service", state: "active" },
+    });
+    await testDatabase.prisma.externalIdentity.create({
+      data: {
         id: randomUUID(),
-        principal_id: principalId,
+        principalId,
         issuer: verified.identity.issuer,
         subject: verified.identity.subject,
-        email_fingerprint: null,
-      })
-      .execute();
-    await testDatabase.database
-      .insertInto("identity_principals.principal_permissions")
-      .values({ principal_id: principalId, permission: "materials:author" })
-      .execute();
+        emailFingerprint: null,
+      },
+    });
+    await testDatabase.prisma.principalPermission.create({
+      data: { principalId, permission: "materials:author" },
+    });
 
     const knownServiceCommand = {
       identity: verified.identity,

@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
-import { createListPublishedMaterialsOperation } from "../../src/modules/content-library/index.js";
-import { createMaterials } from "../../src/modules/materials/index.js";
+import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
+import { assembleMaterials } from "../../src/modules/materials/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -13,7 +13,7 @@ describe("ListPublishedMaterials", () => {
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    await seedLocalDevelopment(testDatabase.database);
+    await seedLocalDevelopment(testDatabase.prisma);
   });
 
   afterAll(async () => {
@@ -21,15 +21,14 @@ describe("ListPublishedMaterials", () => {
   });
 
   test("continues through deterministic pages of safe published projections", async () => {
-    const { publishedMaterialReader } = createMaterials({
-      database: testDatabase.database,
+    const { publishedMaterialReader } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => false, canPublish: () => false },
     });
-    const listPublishedMaterials = createListPublishedMaterialsOperation({
+    const firstPage = await listPublishedMaterials(
       publishedMaterialReader,
-    });
-
-    const firstPage = await listPublishedMaterials({ first: 1 });
+      { first: 1 },
+    );
     expect(firstPage).toMatchObject({
       ok: true,
       value: {
@@ -47,11 +46,14 @@ describe("ListPublishedMaterials", () => {
       throw new Error("Expected the first catalog page to continue");
     }
 
-    const secondPage = await listPublishedMaterials({
-      after: firstPage.value.nextCursor,
-      first: 1,
-    });
-    expect(secondPage).toEqual({
+    const secondPage = await listPublishedMaterials(
+      publishedMaterialReader,
+      {
+        after: firstPage.value.nextCursor,
+        first: 1,
+      },
+    );
+    expect(secondPage).toMatchObject({
       ok: true,
       value: {
         items: [
@@ -61,9 +63,11 @@ describe("ListPublishedMaterials", () => {
             access: "free",
           }),
         ],
-        nextCursor: null,
       },
     });
+    expect(
+      secondPage.ok && typeof secondPage.value.nextCursor === "string",
+    ).toBe(true);
     expect(JSON.stringify([firstPage, secondPage])).not.toContain("schemaVersion");
     expect(JSON.stringify([firstPage, secondPage])).not.toContain("blocks");
   });

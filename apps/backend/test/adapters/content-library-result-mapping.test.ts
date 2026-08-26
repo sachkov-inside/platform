@@ -3,25 +3,23 @@ import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fa
 import { NestFactory } from "@nestjs/core";
 import { afterEach, describe, expect, test } from "vitest";
 
-import {
-  LIST_PUBLISHED_MATERIALS,
-  type ListPublishedMaterials,
-} from "../../src/modules/content-library/index.js";
-import { ListPublishedMaterialsController } from "../../src/modules/content-library/list-published-materials/list-published-materials.controller.js";
+import { PUBLISHED_MATERIAL_READER } from "../../src/modules/materials/index.js";
+import { ListPublishedMaterialsController } from "../../src/modules/content-library/features/list-published-materials/list-published-materials.controller.js";
 
-const listPublishedMaterials: ListPublishedMaterials = () =>
-  Promise.resolve({
+const publishedMaterialReader = {
+  listProjections: () => Promise.resolve({
     ok: false,
     error: {
       code: "internal_error",
       correlationId: "72000000-0000-4000-8000-000000000090",
     },
-  });
+  }),
+};
 
 @Module({
   controllers: [ListPublishedMaterialsController],
   providers: [
-    { provide: LIST_PUBLISHED_MATERIALS, useValue: listPublishedMaterials },
+    { provide: PUBLISHED_MATERIAL_READER, useValue: publishedMaterialReader },
   ],
 })
 class ListPublishedMaterialsHttpTestModule {

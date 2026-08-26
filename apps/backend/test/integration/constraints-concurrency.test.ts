@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { createMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,
@@ -19,25 +19,21 @@ describe("material authoring integrity contract", () => {
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    await testDatabase.database
-      .insertInto("materials.topics")
-      .values({ id: topicId, slug: "product", name: "Product" })
-      .execute();
-    await testDatabase.database
-      .insertInto("materials.formats")
-      .values({ id: formatId, slug: "text", name: "Text" })
-      .execute();
-    await testDatabase.database
-      .insertInto("materials.tags")
-      .values({ id: tagId, name: "Platform", normalized_name: "platform" })
-      .execute();
-    await testDatabase.database
-      .insertInto("materials.series")
-      .values([
+    await testDatabase.prisma.topic.create({
+      data: { id: topicId, slug: "product", name: "Product" },
+    });
+    await testDatabase.prisma.format.create({
+      data: { id: formatId, slug: "text", name: "Text" },
+    });
+    await testDatabase.prisma.tag.create({
+      data: { id: tagId, name: "Platform", normalizedName: "platform" },
+    });
+    await testDatabase.prisma.series.createMany({
+      data: [
         { id: seriesId, slug: "build", name: "Build" },
         { id: secondSeriesId, slug: "operate", name: "Operate" },
-      ])
-      .execute();
+      ],
+    });
   });
 
   afterAll(async () => {
@@ -45,8 +41,8 @@ describe("material authoring integrity contract", () => {
   });
 
   test("rolls back invalid references including the idempotency claim", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const idempotencyKey = "a0000000-0000-4000-8000-000000000010";
@@ -99,8 +95,8 @@ describe("material authoring integrity contract", () => {
   });
 
   test("maps unique slug, duplicate Tag and occupied Series ordinal consistently", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const metadata = {
@@ -187,8 +183,8 @@ describe("material authoring integrity contract", () => {
   });
 
   test("arbitrates a concurrent Series ordinal race with stable conflict details", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const create = (side: "left" | "right", key: string) =>
@@ -224,8 +220,8 @@ describe("material authoring integrity contract", () => {
   });
 
   test("keeps persisted MaterialRevision snapshots immutable", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const created = await authoring.createDraft({
@@ -248,12 +244,11 @@ describe("material authoring integrity contract", () => {
     }
 
     await expect(
-      testDatabase.database
-        .updateTable("materials.material_revisions")
-        .set({ title: "Mutated" })
-        .where("id", "=", created.value.revisionId)
-        .execute(),
-    ).rejects.toMatchObject({ code: "55000" });
+      testDatabase.prisma.materialRevision.update({
+        where: { id: created.value.revisionId },
+        data: { title: "Mutated" },
+      }),
+    ).rejects.toThrow("material revision data is immutable");
     expect(
       await authoring.loadDraft({ actor, materialId: created.value.materialId }),
     ).toEqual({ ok: true, value: created.value });

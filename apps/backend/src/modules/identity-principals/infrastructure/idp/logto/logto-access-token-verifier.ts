@@ -13,7 +13,7 @@ import {
   verifiedHumanSessionIdentity,
   verifiedServiceSessionIdentity,
   type VerifiedHumanSessionIdentity,
-} from "../../../application/verified-external-identity.js";
+} from "../../../facets/identity-principals/verified-external-identity.js";
 import { parseReauthenticationAttemptId } from "../../../domain/identity-identifiers.js";
 
 const MAX_ACCESS_TOKEN_LIFETIME_SECONDS = minutesInSeconds(5);

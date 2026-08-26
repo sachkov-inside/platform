@@ -14,8 +14,8 @@ machine-local dependency.
 - For readiness-label triage, read `docs/agents/triage-labels.md`.
 - For product context, terminology or ADR placement, read `docs/agents/domain.md`.
 - For frontend delivery or Storybook review, read `docs/agents/frontend-delivery.md`.
-- When writing or reviewing application code or verification scripts, read the repository rules
-  in `CODING_STANDARDS.md`.
+- When changing or reviewing application code or verification scripts, read
+  `CODING_STANDARDS.md`; nested `AGENTS.md` files add surface-specific context and verification.
 
 ## Commands
 

@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import {
   anonymousSubject,
-  createBaselineContentAccess,
-  createMaterials,
+  assembleBaselineContentAccess,
+  assembleMaterials,
 } from "../../src/modules/materials/index.js";
 import {
   fullRepresentativeDocument,
@@ -31,14 +31,12 @@ describe("Material lifecycle", () => {
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    await testDatabase.database
-      .insertInto("materials.topics")
-      .values({ id: topicId, slug: "engineering", name: "Engineering" })
-      .execute();
-    await testDatabase.database
-      .insertInto("materials.formats")
-      .values({ id: formatId, slug: "guide", name: "Guide" })
-      .execute();
+    await testDatabase.prisma.topic.create({
+      data: { id: topicId, slug: "engineering", name: "Engineering" },
+    });
+    await testDatabase.prisma.format.create({
+      data: { id: formatId, slug: "guide", name: "Guide" },
+    });
   });
 
   afterAll(async () => {
@@ -51,15 +49,15 @@ describe("Material lifecycle", () => {
       canPublish: ({ principalId }: { principalId: string }) =>
         principalId === ownerId,
     };
-    const contentAccess = createBaselineContentAccess(authorPolicy);
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const contentAccess = assembleBaselineContentAccess(authorPolicy);
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy,
       contentAccess,
     });
     let readAuthorizationCalls = 0;
-    const { publishedMaterialReader: publishedMaterials } = createMaterials({
-      database: testDatabase.database,
+    const { publishedMaterialReader: publishedMaterials } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: denyAllAuthorPolicy,
       contentAccess: {
         authorize: (request) => {
@@ -125,18 +123,23 @@ describe("Material lifecycle", () => {
       },
     });
     expect(
-      await testDatabase.database
-        .selectFrom("materials.material_access_audit_events")
-        .select(["action", "actor_id", "decision", "material_id", "revision_id"])
-        .where("material_id", "=", created.value.materialId)
-        .execute(),
+      await testDatabase.prisma.materialAccessAuditEvent.findMany({
+        where: { materialId: created.value.materialId },
+        select: {
+          action: true,
+          actorId: true,
+          decision: true,
+          materialId: true,
+          revisionId: true,
+        },
+      }),
     ).toEqual([
       {
         action: "preview",
-        actor_id: ownerId,
+        actorId: ownerId,
         decision: "allow",
-        material_id: created.value.materialId,
-        revision_id: created.value.revisionId,
+        materialId: created.value.materialId,
+        revisionId: created.value.revisionId,
       },
     ]);
 
@@ -159,25 +162,29 @@ describe("Material lifecycle", () => {
       throw new Error(published.error.code);
     }
     expect(
-      await testDatabase.database
-        .selectFrom("materials.material_publication_events")
-        .select(["material_id", "revision_id", "kind", "actor_id", "created_at"])
-        .where("id", "=", published.value.publicationEventId)
-        .executeTakeFirstOrThrow(),
+      await testDatabase.prisma.materialPublicationEvent.findUniqueOrThrow({
+        where: { id: published.value.publicationEventId },
+        select: {
+          materialId: true,
+          revisionId: true,
+          kind: true,
+          actorId: true,
+          createdAt: true,
+        },
+      }),
     ).toEqual({
-      material_id: created.value.materialId,
-      revision_id: created.value.revisionId,
+      materialId: created.value.materialId,
+      revisionId: created.value.revisionId,
       kind: "publish",
-      actor_id: ownerId,
-      created_at: published.value.recordedAt,
+      actorId: ownerId,
+      createdAt: published.value.recordedAt,
     });
     await expect(
-      testDatabase.database
-        .updateTable("materials.material_publication_events")
-        .set({ actor_id: topicId })
-        .where("id", "=", published.value.publicationEventId)
-        .execute(),
-    ).rejects.toMatchObject({ code: "55000" });
+      testDatabase.prisma.materialPublicationEvent.update({
+        where: { id: published.value.publicationEventId },
+        data: { actorId: topicId },
+      }),
+    ).rejects.toThrow("material revision data is immutable");
     expect(
       await authoring.publishRevision({
         actor: ownerId,
@@ -225,14 +232,14 @@ describe("Material lifecycle", () => {
       canPublish: ({ principalId }: { principalId: string }) =>
         principalId === ownerId,
     };
-    const contentAccess = createBaselineContentAccess(authorPolicy);
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const contentAccess = assembleBaselineContentAccess(authorPolicy);
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy,
       contentAccess,
     });
-    const { publishedMaterialReader: publishedMaterials } = createMaterials({
-      database: testDatabase.database,
+    const { publishedMaterialReader: publishedMaterials } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: denyAllAuthorPolicy,
       contentAccess,
     });
@@ -337,12 +344,11 @@ describe("Material lifecycle", () => {
       },
     });
     expect(
-      await testDatabase.database
-        .selectFrom("materials.material_revisions")
-        .select("restored_from_revision_id")
-        .where("id", "=", restored.value.revisionId)
-        .executeTakeFirstOrThrow(),
-    ).toEqual({ restored_from_revision_id: original.value.revisionId });
+      await testDatabase.prisma.materialRevision.findUniqueOrThrow({
+        where: { id: restored.value.revisionId },
+        select: { restoredFromRevisionId: true },
+      }),
+    ).toEqual({ restoredFromRevisionId: original.value.revisionId });
     expect(
       await publishedMaterials.read({ subject: anonymousSubject, slug: "restore-lifecycle" }),
     ).toMatchObject({
@@ -408,55 +414,51 @@ describe("Material lifecycle", () => {
   test("returns a safe teaser without loading a closed body when access is unavailable", async () => {
     const materialId = "71000000-0000-4000-8000-000000000030";
     const revisionId = "71000000-0000-4000-8000-000000000031";
-    await testDatabase.database.transaction().execute(async (transaction) => {
-      await transaction
-        .insertInto("materials.materials")
-        .values({
+    await testDatabase.prisma.$transaction(async (transaction) => {
+      await transaction.material.create({
+        data: {
           id: materialId,
           slug: "closed-corrupt-body",
-          current_draft_revision_id: revisionId,
-          current_published_revision_id: null,
-        })
-        .execute();
-      await transaction
-        .insertInto("materials.material_revisions")
-        .values({
+          currentDraftRevisionId: revisionId,
+          currentPublishedRevisionId: null,
+        },
+      });
+      await transaction.materialRevision.create({
+        data: {
           id: revisionId,
-          material_id: materialId,
+          materialId,
           title: "Closed safe teaser",
           summary: "The public projection remains available.",
           slug: "closed-corrupt-body",
           access: "membership",
-          topic_id: topicId,
-          format_id: formatId,
-          schema_version: 1,
+          topicId,
+          formatId,
+          schemaVersion: 1,
           body: { type: "rawHtml", html: "<script>private()</script>" },
-          created_by: ownerId,
-          restored_from_revision_id: null,
-        })
-        .execute();
-      await transaction
-        .insertInto("materials.published_materials")
-        .values({
-          material_id: materialId,
-          revision_id: revisionId,
+          createdBy: ownerId,
+          restoredFromRevisionId: null,
+        },
+      });
+      await transaction.publishedMaterial.create({
+        data: {
+          materialId,
+          revisionId,
           slug: "closed-corrupt-body",
           title: "Closed safe teaser",
           summary: "The public projection remains available.",
           access: "membership",
-          topic_id: topicId,
-          format_id: formatId,
-          published_by: ownerId,
-        })
-        .execute();
-      await transaction
-        .updateTable("materials.materials")
-        .set({ current_published_revision_id: revisionId })
-        .where("id", "=", materialId)
-        .execute();
+          topicId,
+          formatId,
+          publishedBy: ownerId,
+        },
+      });
+      await transaction.material.update({
+        where: { id: materialId },
+        data: { currentPublishedRevisionId: revisionId },
+      });
     });
-    const { publishedMaterialReader: publishedMaterials } = createMaterials({
-      database: testDatabase.database,
+    const { publishedMaterialReader: publishedMaterials } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: denyAllAuthorPolicy,
       contentAccess: {
         authorize: () => {
@@ -492,17 +494,16 @@ describe("Material lifecycle", () => {
     });
     expect(JSON.stringify(result)).not.toContain("private()");
     expect(
-      await testDatabase.database
-        .selectFrom("materials.material_access_audit_events")
-        .select(["action", "actor_id", "decision"])
-        .where("material_id", "=", materialId)
-        .execute(),
-    ).toEqual([{ action: "read", actor_id: null, decision: "deny" }]);
+      await testDatabase.prisma.materialAccessAuditEvent.findMany({
+        where: { materialId },
+        select: { action: true, actorId: true, decision: true },
+      }),
+    ).toEqual([{ action: "read", actorId: null, decision: "deny" }]);
   });
 
   test("loads an exact membership body only after an explicit allow decision", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const created = await authoring.createDraft({
@@ -534,8 +535,8 @@ describe("Material lifecycle", () => {
       throw new Error(published.error.code);
     }
     const decisions: unknown[] = [];
-    const { publishedMaterialReader: publishedMaterials } = createMaterials({
-      database: testDatabase.database,
+    const { publishedMaterialReader: publishedMaterials } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: denyAllAuthorPolicy,
       contentAccess: {
         authorize: (request) => {
@@ -581,18 +582,17 @@ describe("Material lifecycle", () => {
       },
     ]);
     expect(
-      await testDatabase.database
-        .selectFrom("materials.material_access_audit_events")
-        .select(["action", "actor_id", "decision"])
-        .where("material_id", "=", created.value.materialId)
-        .execute(),
-    ).toEqual([{ action: "read", actor_id: ownerId, decision: "allow" }]);
+      await testDatabase.prisma.materialAccessAuditEvent.findMany({
+        where: { materialId: created.value.materialId },
+        select: { action: true, actorId: true, decision: true },
+      }),
+    ).toEqual([{ action: "read", actorId: ownerId, decision: "allow" }]);
   });
 
   test("requires a distinct owner permission before recording publication GO", async () => {
     const publishAuthorizationRequests: unknown[] = [];
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: {
         canAuthor: (principalId: string) => principalId === ownerId,
         canPublish: (request) => {
@@ -638,17 +638,16 @@ describe("Material lifecycle", () => {
       },
     ]);
     expect(
-      await testDatabase.database
-        .selectFrom("materials.material_publication_events")
-        .select("id")
-        .where("material_id", "=", created.value.materialId)
-        .execute(),
+      await testDatabase.prisma.materialPublicationEvent.findMany({
+        where: { materialId: created.value.materialId },
+        select: { id: true },
+      }),
     ).toEqual([]);
   });
 
   test("distinguishes an unknown revision from a stale existing revision", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const created = await authoring.createDraft({
@@ -708,8 +707,8 @@ describe("Material lifecycle", () => {
   });
 
   test("serializes concurrent publish commands and rejects the stale contender", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const created = await authoring.createDraft({
@@ -752,17 +751,16 @@ describe("Material lifecycle", () => {
       },
     });
     expect(
-      await testDatabase.database
-        .selectFrom("materials.material_publication_events")
-        .select("id")
-        .where("material_id", "=", created.value.materialId)
-        .execute(),
+      await testDatabase.prisma.materialPublicationEvent.findMany({
+        where: { materialId: created.value.materialId },
+        select: { id: true },
+      }),
     ).toHaveLength(1);
   });
 
   test("rolls back every publication fact when a projection constraint fails", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const first = await authoring.createDraft({
@@ -834,32 +832,28 @@ describe("Material lifecycle", () => {
       error: { code: "slug_conflict", slug: "publication-rollback" },
     });
     expect(
-      await testDatabase.database
-        .selectFrom("materials.materials")
-        .select("current_published_revision_id")
-        .where("id", "=", contender.value.materialId)
-        .executeTakeFirstOrThrow(),
-    ).toEqual({ current_published_revision_id: null });
+      await testDatabase.prisma.material.findUniqueOrThrow({
+        where: { id: contender.value.materialId },
+        select: { currentPublishedRevisionId: true },
+      }),
+    ).toEqual({ currentPublishedRevisionId: null });
     expect(
-      await testDatabase.database
-        .selectFrom("materials.published_materials")
-        .select("material_id")
-        .where("material_id", "=", contender.value.materialId)
-        .execute(),
+      await testDatabase.prisma.publishedMaterial.findMany({
+        where: { materialId: contender.value.materialId },
+        select: { materialId: true },
+      }),
     ).toEqual([]);
     expect(
-      await testDatabase.database
-        .selectFrom("materials.material_publication_events")
-        .select("id")
-        .where("material_id", "=", contender.value.materialId)
-        .execute(),
+      await testDatabase.prisma.materialPublicationEvent.findMany({
+        where: { materialId: contender.value.materialId },
+        select: { id: true },
+      }),
     ).toEqual([]);
     expect(
-      await testDatabase.database
-        .selectFrom("materials.authoring_idempotency")
-        .select("idempotency_key")
-        .where("idempotency_key", "=", failedCommand.idempotencyKey)
-        .execute(),
+      await testDatabase.prisma.authoringIdempotency.findMany({
+        where: { idempotencyKey: failedCommand.idempotencyKey },
+        select: { idempotencyKey: true },
+      }),
     ).toEqual([]);
 
     const unpublished = await authoring.unpublishMaterial({
@@ -881,8 +875,8 @@ describe("Material lifecycle", () => {
   });
 
   test("replaces the published search projection when a newer revision is published", async () => {
-    const { authoring } = createMaterials({
-      database: testDatabase.database,
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: { canAuthor: () => true, canPublish: () => true },
     });
     const created = await authoring.createDraft({
@@ -947,14 +941,13 @@ describe("Material lifecycle", () => {
       },
     });
     expect(
-      await testDatabase.database
-        .selectFrom("materials.material_search_documents")
-        .select(["revision_id", "plain_text"])
-        .where("material_id", "=", created.value.materialId)
-        .executeTakeFirstOrThrow(),
+      await testDatabase.prisma.materialSearchDocument.findUniqueOrThrow({
+        where: { materialId: created.value.materialId },
+        select: { revisionId: true, plainText: true },
+      }),
     ).toEqual({
-      revision_id: revised.value.revisionId,
-      plain_text: "Developer Pipeline\n\nSecond searchable body.",
+      revisionId: revised.value.revisionId,
+      plainText: "Developer Pipeline\n\nSecond searchable body.",
     });
   });
 });

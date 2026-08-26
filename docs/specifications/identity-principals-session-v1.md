@@ -51,25 +51,26 @@ Design следует repository-local
 [application specification](platform-v1.md),
 [MVP brief](../product/platform-mvp-brief.md), [`CONTEXT.md`](../../CONTEXT.md) и принятым
 [ADR 0001](../adr/0001-one-backend-multiple-entrypoints.md) /
-[ADR 0002](../adr/0002-deep-materials-module.md). Инвентаризация обновлена на `origin/main`
-`5fb0025` от 2026-08-24.
+[ADR 0002](../adr/0002-deep-materials-module.md). Таблица ниже описывает текущий production path;
+commit hash не является частью архитектурного контракта.
 
 | Concern | Реальный current seam | Следствие для #49 |
 |---|---|---|
 | Backend topology | один `apps/backend`, process entrypoints `api` и `mcp`; generic worker удалён | identity остаётся capability module, новый process/package не появляется |
-| Composition | `ApiModule.forRoot` и `McpModule.forRoot` получают один immutable `PlatformConfig`, импортируют один `PostgresModule` | `IdentityPrincipalsModule` становится static capability import только у реального consumer; provider options не передаются через application module |
-| PostgreSQL | один `PLATFORM_DATABASE` / `PostgresModule` lifecycle на process | identity persistence использует тот же Kysely pool; собственного pool или generic repository нет |
+| Composition | `ApiModule.forRoot` и `McpModule.forRoot` получают один immutable `PlatformConfig`; `PrismaModule` владеет application lifecycle, а capability modules получают scoped client surface | `IdentityPrincipalsModule` остаётся static capability import только у реального consumer; provider options не передаются через application module |
+| PostgreSQL | один `PrismaModule` / `@prisma/adapter-pg` pool обслуживает Materials и Identity; capability types закрывают чужие delegates | второй ORM, второй pool, generic repository и Unit of Work отсутствуют |
 | Migrations | `src/migrations/index.ts` — единый authority; capability migrations импортируются от owning module | identity migration живёт под `modules/identity-principals/.../migrations`, затем явно включается следующим ordered key в central provider |
-| Generated types | один checked-in `infrastructure/postgres/generated/database.ts` | новые tables добавляются через migration, затем generated types регенерируются и проверяются на drift |
+| Generated mappings | `prisma/schema.prisma` map-ит Materials и Identity поверх checked-in SQL authority | schema mapping проверяется real-PostgreSQL tests; generated client остаётся ignored build artifact |
 | Application tests | Testcontainers PostgreSQL 18.4 один на integration run, отдельная migrated database на suite | interface scenarios идут через real PostgreSQL и independent connections для races; fake нужен только внешнему proof port |
-| Materials | один `createMaterials`; временный `AuthorPolicy` и dynamic `MaterialsModule.register` ожидают production identity owner | #49 даёт реальный permissions adapter и переводит Materials на static composition без route-local policy |
+| Materials | framework-agnostic `assembleMaterials`; static `MaterialsModule` экспортирует только реально потребляемый `PublishedMaterialReader` и использует baseline policy | identity permission facet импортируется только при появлении production consumer |
 | Web | один server-only `apps/web/src/shared/api/backend/index.server.ts`, `no-store`, bounded timeout и typed errors | BFF session adapter расширяет эту server-only seam; browser graph не получает provider secret, token или authorization rule |
 | Guardrails | backend strict TypeScript, typed lint и architecture import checks уже действуют | public index остаётся единственной точкой импорта, framework/provider/storage imports остаются internal/adapters |
 
-Frozen migrations не редактируются. Identity получает новую migration после
-`0002_material_lifecycle`; semantic name и номер выбираются на реализации по актуальному migration
-head. `migrations.test.ts` должен ожидать полный ordered list и новый table set. Compose для design
-не нужен; implementation tests используют изолированный Testcontainers lifecycle.
+Применённые migrations не редактируются: Identity schema создаёт `0002_identity_principals`, а
+следующее изменение catalog index живёт в отдельной `0003_published_materials_cursor_index`.
+Central runner хранит position и checksum каждого statement и требует exact registry prefix;
+`migrations.test.ts` проверяет ordered replay, table set и отказ при drift, gap, unknown migration
+или checksum-less ledger. Integration tests используют изолированный Testcontainers lifecycle.
 
 ## Module depth и seams
 
@@ -109,8 +110,9 @@ Seams классифицируются так:
   используют один interface.
 - **True-external internal seam:** proof adapter к IdP. Production и deterministic fake adapters
   оправдывают variation. Module получает только normalized verified fact.
-- **Local-substitutable internal seam:** PostgreSQL. Kysely transaction и semantic persistence
-  functions остаются implementation details; tests используют real PostgreSQL.
+- **Local-substitutable internal seam:** PostgreSQL. Prisma callback transaction, parameterized raw
+  SQL для locks и semantic identity persistence остаются implementation details; tests используют
+  real PostgreSQL.
 - **Transport seams:** Next BFF cookie/session и Nest trusted-token adapters. BFF server graph
   предъявляет Logto access JWT + local sessionRef; Nest проверяет exact issuer/audience/signature/
   time/subject, после чего module связывает external identity и session. Ни JWT, ни sessionRef по
@@ -350,7 +352,7 @@ policy всё равно остаётся в owning module.
 
 ## Transaction и idempotency contract
 
-`establishHumanSession` владеет одной Kysely transaction:
+`establishHumanSession` владеет одной Prisma callback transaction:
 
 1. canonicalize и fingerprint trusted command;
 2. claim `(operation, idempotencyKey)` с bounded caller/attempt scope;
@@ -528,31 +530,28 @@ import direction обязательны:
 apps/backend/src/modules/identity-principals/
   index.ts                              # public DTO/results/token/module only
   identity-principals.module.ts         # static Nest composition
-  create-identity-principals.ts         # canonical assembly for Nest + tests
-  application/
-    identity-principals.interface.ts
-    establish-session.ts
-    resolve-subject.ts
-    begin-reauthentication.ts
-    complete-reauthentication.ts
-    end-session.ts
-    ports/external-identity-proof.ts     # internal true-external seam
+  facets/identity-principals/
+    identity-principals.interface.ts     # deep multi-operation public facet
+    verified-external-identity.ts        # normalized provider-neutral fact
+  features/
+    establish-session/                   # operation + human/service HTTP endpoint
+    resolve-subject/                     # operation + human/service HTTP endpoint
+    begin-human-reauthentication/
+    complete-human-reauthentication/
+    end-session/                         # operation + human/service HTTP endpoint
+    check-permission/                    # transport-neutral application operation
+  adapters/nest/
+    identity-http.ts                     # shared transport mapping
+    identity-problem-details.filter.ts
   domain/
-    principal.ts
-    external-identity.ts
-    platform-session.ts
-    permissions.ts
-  infrastructure/
-    postgres/
-      migrations/0003_identity_principals.ts
-      principal-persistence.ts
-      session-persistence.ts
-      idempotency.ts
-      audit.ts
-    idp/logto/                           # owner-approved production adapter
-    idp/fake/
-  adapters/
-    nest/trusted-session.ts
+    identity-identifiers.ts
+  infrastructure/idp/                   # production + deterministic proof adapters
+  infrastructure/postgres/              # shared locks/audit/idempotency/hydration + migration
+    migrations/0002_identity_principals.ts
+    advisory-locks.ts
+    identity-audit.ts
+    identity-idempotency.ts
+    subject-hydration.ts
 
 apps/web/src/shared/auth/                # server-only BFF adapter; no domain policy
 apps/backend/test/integration/identity-principals.test.ts
@@ -611,7 +610,7 @@ points одного #49 PR, а не отдельными packages или deploya
    web/API/MCP используют одну mapping path, disabled/revoked permission fails closed и service не
    наследует human Membership.
 5. **Final #49 proof.** Полный adapter/application/real-PG/composition corpus, migration/generated
-   type drift, app-shell evidence и repository gates. Stop, когда все #49 criteria трассируются
+   identity mapping checks, app-shell evidence и repository gates. Stop, когда все #49 criteria трассируются
    evidence, а deployment/credentials/operations остаются единственными перечисленными unknowns.
 
 Provider claim или raw token в `IdentityPrincipals` остаются architectural mismatch; Logto details
@@ -633,7 +632,7 @@ Provider claim или raw token в `IdentityPrincipals` остаются archite
 | service Principal не наследует human Membership | immutable kind, pre-provision only, explicit grants | service fixture + MCP/material permission tests |
 | provider outage/retry не дублирует Principal/session | no call before proof; atomic idempotency replay after proof | scripted fake outage + uncertain-response retry tests |
 | focused application/protocol/real-PG tests | test placement and slices above | unit/adapter/integration/composition reports |
-| migration/composition соответствует repository | central migration authority, generated types, one pool, static modules | migration replay/drift + API/MCP composition tests |
+| migration/composition соответствует repository | central append-only migration authority с checksum, Prisma mapping обоих schemas, static modules | migration replay/drift/mapping + API/MCP composition tests |
 
 ## Решения и remaining risks
 

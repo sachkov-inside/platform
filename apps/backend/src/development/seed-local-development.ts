@@ -1,5 +1,5 @@
-import type { PlatformDatabase } from "../infrastructure/postgres/index.js";
-import { createMaterials } from "../modules/materials/index.js";
+import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
+import { assembleMaterials } from "../modules/materials/index.js";
 
 const actor = "72000000-0000-4000-8000-000000000001";
 const topicId = "72000000-0000-4000-8000-000000000002";
@@ -22,17 +22,18 @@ export interface LocalDevelopmentSeed {
 }
 
 export async function seedLocalDevelopment(
-  database: PlatformDatabase,
+  prisma: PlatformPrisma,
 ): Promise<LocalDevelopmentSeed> {
-  await ensureReferenceData(database);
+  await ensureReferenceData(prisma);
 
-  const { authoring } = createMaterials({
-    database,
+  const { authoring } = assembleMaterials({
+    prisma,
     authorPolicy: {
       canAuthor: (principalId) => principalId === actor,
       canPublish: ({ principalId }) => principalId === actor,
     },
   });
+  await ensureCatalogContinuationMaterials(authoring);
   const representativeRevision = {
     metadata: {
       title: "Как устроен Inside Platform",
@@ -335,8 +336,57 @@ export async function seedLocalDevelopment(
   });
 }
 
+async function ensureCatalogContinuationMaterials(
+  authoring: ReturnType<typeof assembleMaterials>["authoring"],
+): Promise<void> {
+  for (let index = 1; index <= 11; index += 1) {
+    const sequence = String(index).padStart(2, "0");
+    const nodeId = `73000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+    const created = await authoring.createDraft({
+      actor,
+      idempotencyKey: `local-catalog-create-${sequence}`,
+      metadata: {
+        title: `Архитектурная заметка ${sequence}`,
+        summary: "Дополнительный published Material для проверки infinite catalog.",
+        slug: `architecture-note-${sequence}`,
+        access: "free",
+        topicId,
+        formatId,
+        tagIds: [],
+        seriesMemberships: [],
+      },
+      body: {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              attrs: { nodeId },
+              content: [{ type: "text", text: `Материал ${sequence}.` }],
+            },
+          ],
+        },
+      },
+    });
+    if (!created.ok) {
+      throw new Error(`Local catalog draft failed: ${created.error.code}`);
+    }
+    const published = await authoring.publishRevision({
+      actor,
+      idempotencyKey: `local-catalog-publish-${sequence}`,
+      materialId: created.value.materialId,
+      revisionId: created.value.revisionId,
+      expectedPublishedRevisionId: null,
+    });
+    if (!published.ok) {
+      throw new Error(`Local catalog publish failed: ${published.error.code}`);
+    }
+  }
+}
+
 async function ensureMembershipCatalogMaterial(
-  authoring: ReturnType<typeof createMaterials>["authoring"],
+  authoring: ReturnType<typeof assembleMaterials>["authoring"],
 ): Promise<void> {
   const created = await authoring.createDraft({
     actor,
@@ -380,25 +430,33 @@ async function ensureMembershipCatalogMaterial(
   }
 }
 
-async function ensureReferenceData(database: PlatformDatabase): Promise<void> {
-  await database
-    .insertInto("materials.topics")
-    .values({ id: topicId, slug: "platform", name: "Platform" })
-    .onConflict((conflict) => conflict.column("id").doNothing())
-    .execute();
-  await database
-    .insertInto("materials.formats")
-    .values({ id: formatId, slug: "guide", name: "Guide" })
-    .onConflict((conflict) => conflict.column("id").doNothing())
-    .execute();
-  await database
-    .insertInto("materials.tags")
-    .values({ id: tagId, name: "Full stack", normalized_name: "full stack" })
-    .onConflict((conflict) => conflict.column("id").doNothing())
-    .execute();
-  await database
-    .insertInto("materials.series")
-    .values({ id: seriesId, slug: "platform-inside", name: "Создание Platform Inside" })
-    .onConflict((conflict) => conflict.column("id").doNothing())
-    .execute();
+async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
+  await prisma.topic.upsert({
+    where: { id: topicId },
+    create: { id: topicId, slug: "platform", name: "Platform" },
+    update: {},
+  });
+  await prisma.format.upsert({
+    where: { id: formatId },
+    create: { id: formatId, slug: "guide", name: "Guide" },
+    update: {},
+  });
+  await prisma.tag.upsert({
+    where: { id: tagId },
+    create: {
+      id: tagId,
+      name: "Full stack",
+      normalizedName: "full stack",
+    },
+    update: {},
+  });
+  await prisma.series.upsert({
+    where: { id: seriesId },
+    create: {
+      id: seriesId,
+      slug: "platform-inside",
+      name: "Создание Platform Inside",
+    },
+    update: {},
+  });
 }

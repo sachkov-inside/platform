@@ -5,13 +5,16 @@ import {
   type PlatformConfig,
 } from "../../config/platform-config.js";
 import {
-  PLATFORM_DATABASE,
-  PostgresModule,
-  type PlatformDatabase,
-} from "../../infrastructure/postgres/index.js";
-import { IdentityController } from "./adapters/nest/identity.controller.js";
-import type { IdentityPrincipals } from "./application/identity-principals.interface.js";
-import { createIdentityPrincipals } from "./create-identity-principals.js";
+  PrismaClientProvider,
+  PrismaModule,
+} from "../../infrastructure/prisma/index.js";
+import { BeginHumanReauthenticationController } from "./features/begin-human-reauthentication/begin-human-reauthentication.controller.js";
+import { CompleteHumanReauthenticationController } from "./features/complete-human-reauthentication/complete-human-reauthentication.controller.js";
+import { EndSessionController } from "./features/end-session/end-session.controller.js";
+import { EstablishSessionController } from "./features/establish-session/establish-session.controller.js";
+import { ResolveSubjectController } from "./features/resolve-subject/resolve-subject.controller.js";
+import type { IdentityPrincipals } from "./facets/identity-principals/identity-principals.interface.js";
+import { assembleIdentityPrincipals } from "./facets/identity-principals/assemble-identity-principals.js";
 import {
   IDENTITY_PRINCIPALS,
   LOGTO_ACCESS_TOKEN_VERIFIER,
@@ -22,18 +25,24 @@ import {
 } from "./infrastructure/idp/logto/logto-access-token-verifier.js";
 
 @Module({
-  imports: [PostgresModule],
-  controllers: [IdentityController],
+  imports: [PrismaModule],
+  controllers: [
+    BeginHumanReauthenticationController,
+    CompleteHumanReauthenticationController,
+    EndSessionController,
+    EstablishSessionController,
+    ResolveSubjectController,
+  ],
   providers: [
     {
       provide: IDENTITY_PRINCIPALS,
-      inject: [PLATFORM_DATABASE, PLATFORM_CONFIG],
+      inject: [PrismaClientProvider, PLATFORM_CONFIG],
       useFactory: (
-        database: PlatformDatabase,
+        prisma: PrismaClientProvider,
         config: PlatformConfig,
       ): IdentityPrincipals =>
-        createIdentityPrincipals({
-          database,
+        assembleIdentityPrincipals({
+          prisma,
           emailFingerprintKey: config.identity.emailFingerprintKey,
         }),
     },
@@ -48,6 +57,5 @@ import {
         }),
     },
   ],
-  exports: [IDENTITY_PRINCIPALS],
 })
 export class IdentityPrincipalsModule {}

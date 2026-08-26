@@ -2,7 +2,7 @@ import {
   verifiedHumanSignIn,
   verifiedHumanReauthentication,
   verifiedServiceSessionIdentity,
-} from "../../../application/verified-external-identity.js";
+} from "../../../facets/identity-principals/verified-external-identity.js";
 
 interface VerifiedHumanFixture {
   readonly outcome: "verified";

@@ -15,7 +15,7 @@ describe("published Material HTTP contract", () => {
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    await seedLocalDevelopment(testDatabase.database);
+    await seedLocalDevelopment(testDatabase.prisma);
     app = await createApiApplication(
       parsePlatformConfig({
         NODE_ENV: "test",
@@ -97,21 +97,22 @@ describe("published Material HTTP contract", () => {
     expect(response.headers["cache-control"]).toBe(
       "public, max-age=30, stale-while-revalidate=60",
     );
-    expect(response.json()).toEqual({
-      items: [
-        expect.objectContaining({
-          slug: "membership-delivery-guide",
-          title: "Developer Pipeline без потери контекста",
-          access: "membership",
-        }),
-        expect.objectContaining({
-          slug: "inside-platform-overview",
-          title: "Как устроен Inside Platform",
-          access: "free",
-        }),
-      ],
-      nextCursor: null,
-    });
+    const catalog = response.json<{
+      readonly items: readonly { readonly access: string; readonly slug: string }[];
+      readonly nextCursor: string | null;
+    }>();
+    expect(catalog.items).toHaveLength(12);
+    expect(catalog.items.slice(0, 2)).toMatchObject([
+      {
+        slug: "membership-delivery-guide",
+        access: "membership",
+      },
+      {
+        slug: "inside-platform-overview",
+        access: "free",
+      },
+    ]);
+    expect(typeof catalog.nextCursor).toBe("string");
     expect(response.body).not.toContain("schemaVersion");
     expect(response.body).not.toContain("blocks");
   });

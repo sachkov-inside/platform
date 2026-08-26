@@ -1,4 +1,4 @@
-import type { AuthoringTransaction } from "./database.js";
+import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
 
 export type AuthoringOperation =
   | "create_draft"
@@ -19,7 +19,7 @@ export type IdempotencyClaim =
   | { readonly kind: "incomplete" };
 
 export async function claimIdempotency(
-  transaction: AuthoringTransaction,
+  transaction: MaterialsPrismaTransaction,
   values: {
     readonly actor: string;
     readonly operation: AuthoringOperation;
@@ -27,56 +27,51 @@ export async function claimIdempotency(
     readonly fingerprint: string;
   },
 ): Promise<IdempotencyClaim> {
-  const inserted = await transaction
-    .insertInto("materials.authoring_idempotency")
-    .values({
-      actor_id: values.actor,
+  const inserted = await transaction.authoringIdempotency.createMany({
+    data: {
+      actorId: values.actor,
       operation: values.operation,
-      idempotency_key: values.key,
-      request_fingerprint: values.fingerprint,
-      material_id: null,
-      publication_event_id: null,
-      revision_id: null,
-    })
-    .onConflict((conflict) =>
-      conflict.columns(["actor_id", "operation", "idempotency_key"]).doNothing(),
-    )
-    .returning("request_fingerprint")
-    .executeTakeFirst();
-
-  if (inserted !== undefined) {
+      idempotencyKey: values.key,
+      requestFingerprint: values.fingerprint,
+    },
+    skipDuplicates: true,
+  });
+  if (inserted.count === 1) {
     return { kind: "claimed" };
   }
 
-  const existing = await transaction
-    .selectFrom("materials.authoring_idempotency")
-    .select([
-      "request_fingerprint",
-      "material_id",
-      "revision_id",
-      "publication_event_id",
-    ])
-    .where("actor_id", "=", values.actor)
-    .where("operation", "=", values.operation)
-    .where("idempotency_key", "=", values.key)
-    .executeTakeFirstOrThrow();
+  const existing = await transaction.authoringIdempotency.findUniqueOrThrow({
+    where: {
+      actorId_operation_idempotencyKey: {
+        actorId: values.actor,
+        operation: values.operation,
+        idempotencyKey: values.key,
+      },
+    },
+    select: {
+      requestFingerprint: true,
+      materialId: true,
+      revisionId: true,
+      publicationEventId: true,
+    },
+  });
 
-  if (existing.request_fingerprint.trim() !== values.fingerprint) {
+  if (existing.requestFingerprint.trim() !== values.fingerprint) {
     return { kind: "reused" };
   }
-  if (existing.material_id === null || existing.revision_id === null) {
+  if (existing.materialId === null || existing.revisionId === null) {
     return { kind: "incomplete" };
   }
   return {
     kind: "replay",
-    materialId: existing.material_id,
-    revisionId: existing.revision_id,
-    publicationEventId: existing.publication_event_id,
+    materialId: existing.materialId,
+    revisionId: existing.revisionId,
+    publicationEventId: existing.publicationEventId,
   };
 }
 
 export async function completeIdempotency(
-  transaction: AuthoringTransaction,
+  transaction: MaterialsPrismaTransaction,
   values: {
     readonly actor: string;
     readonly operation: AuthoringOperation;
@@ -86,15 +81,18 @@ export async function completeIdempotency(
     readonly revisionId: string;
   },
 ): Promise<void> {
-  await transaction
-    .updateTable("materials.authoring_idempotency")
-    .set({
-      material_id: values.materialId,
-      publication_event_id: values.publicationEventId ?? null,
-      revision_id: values.revisionId,
-    })
-    .where("actor_id", "=", values.actor)
-    .where("operation", "=", values.operation)
-    .where("idempotency_key", "=", values.key)
-    .executeTakeFirstOrThrow();
+  await transaction.authoringIdempotency.update({
+    where: {
+      actorId_operation_idempotencyKey: {
+        actorId: values.actor,
+        operation: values.operation,
+        idempotencyKey: values.key,
+      },
+    },
+    data: {
+      materialId: values.materialId,
+      publicationEventId: values.publicationEventId ?? null,
+      revisionId: values.revisionId,
+    },
+  });
 }

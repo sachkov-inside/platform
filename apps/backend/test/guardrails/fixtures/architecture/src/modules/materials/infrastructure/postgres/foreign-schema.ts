@@ -1,18 +1,16 @@
-declare const database: {
-  selectFrom(table: string): unknown;
-};
+import type { Kysely } from "kysely";
+import type { Pool } from "pg";
 
-database.selectFrom("materials");
-database.selectFrom("identity_principals.principals");
+export type ForbiddenPersistence = Kysely<unknown> | Pool;
 
-const dynamicTable = "identity_principals.principals";
-database.selectFrom(dynamicTable);
-
-declare const sql: {
-  (parts: TemplateStringsArray): unknown;
+declare const Prisma: {
+  sql(parts: TemplateStringsArray): unknown;
   raw(value: string): unknown;
 };
 
-sql`select * from "identity_principals"."principals"`;
-sql.raw("select * from identity_principals.principals");
-sql.raw(dynamicTable);
+Prisma.sql`select * from materials`;
+Prisma.sql`select * from "identity_principals"."principals"`;
+
+const dynamicTable = "identity_principals.principals";
+Prisma.sql`select * from ${dynamicTable}`;
+Prisma.raw(dynamicTable);

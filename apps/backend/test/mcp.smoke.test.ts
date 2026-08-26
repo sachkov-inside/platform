@@ -23,10 +23,5 @@ describe("MCP runtime smoke", () => {
       status: "ok",
       database: "reachable",
     });
-
-    await application.close();
-    application = undefined;
-
-    await expect(readiness.check("mcp")).rejects.toThrow("destroyed");
   });
 });

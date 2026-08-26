@@ -167,7 +167,7 @@ pnpm test:integration
 ```
 
 Its disposable Testcontainers database covers create/load/revise, immutable revisions, rollback
-and constraints, idempotency, concurrent stale writes, migration replay and generated-type drift.
+and constraints, idempotency, concurrent stale writes, migration replay and Prisma schema mapping.
 
 ## Inspect PostgreSQL
 
@@ -179,7 +179,9 @@ Useful read-only commands:
 
 ```sql
 \dt materials.*
-select name, timestamp from public.kysely_migration order by name;
+select position, name, checksum, applied_at
+from public.platform_migrations
+order by position;
 select id, slug, current_draft_revision_id from materials.materials order by created_at;
 select id, material_id, title, schema_version, created_at
 from materials.material_revisions
@@ -192,33 +194,35 @@ The seed is safe to repeat manually:
 docker compose run --rm bootstrap
 ```
 
-The seed refuses non-development mode, uses versioned idempotency keys and creates one free,
-representative published Material at slug `inside-platform-overview` plus one Membership Material
-whose body must remain absent from the public catalog. Repeating it keeps the same Materials and
-upgrades an older free fixture to the current revision without resetting the named volume. Both
-Materials are created and published through the Materials application interface; the free fixture
-is also revised and validated there. Only their fixed local Topic/Format/Tag/Series prerequisites
-use typed Kysely bootstrap because Platform has no product taxonomy-authoring capability yet; raw
-SQL is not used.
+The seed refuses non-development mode, uses stable idempotency keys, and creates twelve free
+published Materials for catalog pagination: `inside-platform-overview` plus eleven architecture
+notes. It also creates one Membership Material whose body remains absent from the public catalog.
+Repeating the seed keeps the same Materials and upgrades the representative fixture without
+resetting the named volume. Materials are created and published through the Materials application
+interface; only fixed local Topic/Format/Tag/Series prerequisites use Prisma model operations
+because Platform has no product taxonomy-authoring capability yet.
 
-## Migration and generated-type checks
+## Migration and Prisma schema checks
 
 With the host fallback database running:
 
 ```bash
 pnpm --filter @inside/backend db:migrate
-pnpm --filter @inside/backend db:types:check
+pnpm --filter @inside/backend db:schema:check
 ```
 
-Only migration authors regenerate the checked-in Kysely type file:
+`db:schema:check` validates `prisma/schema.prisma` and regenerates the ignored TypeScript client.
+The same generation runs during install, build, and typecheck:
 
 ```bash
-pnpm --filter @inside/backend db:types:generate
+pnpm --filter @inside/backend prisma:generate
 ```
 
-The type commands read the repository `.env` and inspect only the product-owned `materials` schema.
-Generated `DB` keys remain schema-qualified so a query cannot compile after silently dropping the
-Module ownership prefix.
+The Prisma schema maps both product-owned `materials` and `identity_principals` schemas. Checked-in,
+append-only SQL migrations remain the database authority. Their explicit positions and checksums
+must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
+generated client files are not committed or edited. A pre-Prisma local volume must be recreated
+with the destructive reset below rather than supported by application compatibility code.
 
 ## Diagnose prerequisites
 

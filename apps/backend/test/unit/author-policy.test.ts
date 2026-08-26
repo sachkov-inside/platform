@@ -4,7 +4,7 @@ import {
   authorizeAuthor,
   authorizePublish,
   type AuthorPolicy,
-} from "../../src/modules/materials/application/ports/author-policy.js";
+} from "../../src/modules/materials/ports/author-policy.js";
 
 describe("AuthorPolicy", () => {
   test("distinguishes a denied action from an unavailable policy", async () => {

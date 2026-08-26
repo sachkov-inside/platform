@@ -18,19 +18,35 @@ test("server-renders the safe PostgreSQL catalog through Nest", async ({
 
   expect(documentResponse.status()).toBe(200);
   expect(initialHtml).toContain("Developer Pipeline без потери контекста");
-  expect(initialHtml).toContain("Как устроен Inside Platform");
   expect(initialHtml).not.toContain("Закрытое содержимое для участников");
 
+  const continuation = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/library/materials?after=") &&
+      response.status() === 200,
+  );
   const browserResponse = await page.goto("/library");
   expect(browserResponse?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Библиотека", level: 1 })).toBeVisible();
-  await expect(page.getByRole("article")).toHaveCount(2);
   await expect(page.getByText("Для участников")).toBeVisible();
-  await expect(page.getByText("Бесплатно")).toBeVisible();
+  await expect(page.getByText("Бесплатно").first()).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Developer Pipeline без потери контекста" }),
   ).toHaveAttribute("href", "/materials/membership-delivery-guide");
   await expect(page).toHaveTitle("Библиотека · Inside");
+
+  await page.getByRole("main").evaluate((element) => {
+    element.scrollTo({ top: element.scrollHeight });
+  });
+  await page.evaluate(() => {
+    window.scrollTo({ top: document.documentElement.scrollHeight });
+  });
+  await continuation;
+  await expect(page.getByRole("article")).toHaveCount(13);
+  await expect(
+    page.getByRole("link", { name: "Как устроен Inside Platform" }),
+  ).toBeVisible();
+  await expect(page.getByText("13 материалов загружено")).toBeVisible();
 
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Перейти к содержанию" })).toBeFocused();

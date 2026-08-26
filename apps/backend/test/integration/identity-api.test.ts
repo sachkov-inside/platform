@@ -40,7 +40,7 @@ describe("identity API", () => {
     }
 
     testDatabase = await createTestDatabase();
-    await migrateToLatest(testDatabase.database);
+    await migrateToLatest(testDatabase.url);
     const config = parsePlatformConfig({
       NODE_ENV: "test",
       DATABASE_URL: testDatabase.url,
@@ -178,24 +178,21 @@ describe("identity API", () => {
 
   test("maps a pre-provisioned M2M identity only through the service boundary", async () => {
     const principalId = "72000000-0000-4000-8000-000000000101";
-    await testDatabase.database
-      .insertInto("identity_principals.principals")
-      .values({ id: principalId, kind: "service", state: "active" })
-      .execute();
-    await testDatabase.database
-      .insertInto("identity_principals.external_identities")
-      .values({
+    await testDatabase.prisma.identityPrincipal.create({
+      data: { id: principalId, kind: "service", state: "active" },
+    });
+    await testDatabase.prisma.externalIdentity.create({
+      data: {
         id: "72000000-0000-4000-8000-000000000102",
-        principal_id: principalId,
+        principalId,
         issuer,
         subject: "service-api-001",
-        email_fingerprint: null,
-      })
-      .execute();
-    await testDatabase.database
-      .insertInto("identity_principals.principal_permissions")
-      .values({ principal_id: principalId, permission: "materials:author" })
-      .execute();
+        emailFingerprint: null,
+      },
+    });
+    await testDatabase.prisma.principalPermission.create({
+      data: { principalId, permission: "materials:author" },
+    });
     const token = await signHumanToken({
       clientId: "service-api-001",
       subject: "service-api-001",

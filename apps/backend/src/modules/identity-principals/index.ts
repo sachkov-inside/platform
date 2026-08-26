@@ -1,3 +1,4 @@
+export { assembleIdentityPrincipals } from "./facets/identity-principals/assemble-identity-principals.js";
 export {
   type BeginReauthenticationResult,
   type CompleteReauthenticationResult,
@@ -9,9 +10,7 @@ export {
   type PlatformPermission,
   type ResolveSubjectResult,
   type TrustedSubject,
-} from "./application/identity-principals.interface.js";
-export { createIdentityPrincipals } from "./create-identity-principals.js";
+} from "./facets/identity-principals/identity-principals.interface.js";
 export {
   IdentityPrincipalsModule,
 } from "./identity-principals.module.js";
-export { IDENTITY_PRINCIPALS } from "./identity-principals.tokens.js";

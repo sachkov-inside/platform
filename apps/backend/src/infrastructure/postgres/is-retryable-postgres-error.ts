@@ -1,8 +1,12 @@
 interface ErrorShape {
   readonly code?: unknown;
   readonly cause?: unknown;
+  readonly driverAdapterError?: unknown;
   readonly errors?: unknown;
+  readonly kind?: unknown;
   readonly message?: unknown;
+  readonly meta?: unknown;
+  readonly originalCode?: unknown;
 }
 
 const retryableConnectionCodes = new Set([
@@ -19,6 +23,18 @@ const retryableConnectionCodes = new Set([
   "57P01",
   "57P02",
   "57P03",
+  "P1001",
+  "P1002",
+  "P1008",
+  "P1017",
+  "P2024",
+  "P2034",
+  "P2037",
+  "ConnectionClosed",
+  "DatabaseNotReachable",
+  "SocketTimeout",
+  "TooManyConnections",
+  "TransactionWriteConflict",
 ]);
 
 const retryableClientMessages = new Set([
@@ -49,11 +65,17 @@ function errorSignals(
     typeof error === "object" && error !== null ? error : {};
   const children = [
     ...(shape.cause === undefined ? [] : [shape.cause]),
+    ...(shape.driverAdapterError === undefined
+      ? []
+      : [shape.driverAdapterError]),
+    ...(shape.meta === undefined ? [] : [shape.meta]),
     ...(isUnknownArray(shape.errors) ? shape.errors : []),
   ].map((child) => errorSignals(child, depth + 1));
   return {
     codes: [
       ...(typeof shape.code === "string" ? [shape.code] : []),
+      ...(typeof shape.originalCode === "string" ? [shape.originalCode] : []),
+      ...(typeof shape.kind === "string" ? [shape.kind] : []),
       ...children.flatMap((child) => child.codes),
     ],
     messages: [

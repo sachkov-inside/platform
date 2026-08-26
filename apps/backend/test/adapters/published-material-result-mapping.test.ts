@@ -1,14 +1,14 @@
 import { HttpException } from "@nestjs/common";
 import { describe, expect, test } from "vitest";
 
-import { throwPublishedMaterialError } from "../../src/entrypoints/api/published-materials.controller.js";
+import { throwReadPublishedMaterialError } from "../../src/modules/materials/features/read-published-material/read-published-material.controller.js";
 
 describe("published Material REST result mapping", () => {
   test("maps an internal result to opaque RFC 9457 Problem Details", () => {
     expect.assertions(3);
 
     try {
-      throwPublishedMaterialError({
+      throwReadPublishedMaterialError({
         code: "internal_error",
         correlationId: "72000000-0000-4000-8000-000000000099",
       });

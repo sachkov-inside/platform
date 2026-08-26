@@ -1,5 +1,5 @@
-declare const database: {
-  selectFrom(table: string): unknown;
+declare const Prisma: {
+  sql(parts: TemplateStringsArray): unknown;
 };
 
-database.selectFrom("materials.materials");
+Prisma.sql`select * from materials.materials`;

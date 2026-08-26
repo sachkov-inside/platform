@@ -1,5 +1,5 @@
 import { loadPlatformConfig } from "../config/load-platform-config.js";
-import { createPlatformDatabase } from "../infrastructure/postgres/create-platform-database.js";
+import { createPrismaClient } from "../infrastructure/prisma/index.js";
 import { seedLocalDevelopment } from "./seed-local-development.js";
 
 async function main(): Promise<void> {
@@ -8,12 +8,12 @@ async function main(): Promise<void> {
     throw new Error("Local seed runs only with NODE_ENV=development");
   }
 
-  const database = createPlatformDatabase(config.database.url);
+  const prisma = createPrismaClient(config.database.url);
   try {
-    const seed = await seedLocalDevelopment(database);
+    const seed = await seedLocalDevelopment(prisma);
     process.stdout.write(`${JSON.stringify(seed)}\n`);
   } finally {
-    await database.destroy();
+    await prisma.$disconnect();
   }
 }
 

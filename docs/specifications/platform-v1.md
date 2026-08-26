@@ -92,7 +92,7 @@ throwaway prototype:
 | Backend | один NestJS + Fastify codebase с thin demand-driven process entrypoints; сейчас `api` и `mcp` |
 | Application contract | REST + OpenAPI; transports не владеют application rules |
 | Transactional store | PostgreSQL 18 |
-| Data access | Kysely + `pg`, checked-in migrations as authority и generated DB types |
+| Data access | Prisma 7 + `@prisma/adapter-pg` — единственный application ORM для всех persistent capabilities; capability-scoped clients ограничивают delegates; checked-in append-only SQL migrations с checksum остаются authority |
 | Jobs | `pg-boss`; dependency, capability-specific worker и queue появляются вместе с первым durable job |
 | Search | PostgreSQL FTS с bounded RU/EN normalization и ranking fixtures |
 | Content document | versioned ProseMirror JSON, Tiptap adapter, immutable revisions, safe renderer и semantic commands |
@@ -107,7 +107,7 @@ foundations. Их scope и acceptance распределены по vertical cap
 [#90](https://github.com/sachkov-inside/platform/issues/90),
 [#91](https://github.com/sachkov-inside/platform/issues/91),
 [#93](https://github.com/sachkov-inside/platform/issues/93) и
-[#29](https://github.com/sachkov-inside/platform/issues/29). Отдельных Kysely/Drizzle и
+[#29](https://github.com/sachkov-inside/platform/issues/29). Отдельных ORM comparison stages и
 ProseMirror/Portable Text comparison stages нет. Если implementation выявляет конкретный blocker,
 owning PR фиксирует evidence и migration impact и предлагает smallest production change; два
 параллельных data или document path не поддерживаются.
@@ -156,8 +156,8 @@ production trade-off подтверждён evidence, а не заранее д�
 
 - Один `apps/backend` остаётся modular monolith. Capability modules имеют малые public interfaces,
   internal implementations и явно объявленные dependencies; entrypoints остаются thin adapters.
-- Platform-owned PostgreSQL pool/Kysely composition, generated types и один migration authority
-  принадлежат `infrastructure/postgres`; capability persistence остаётся internal.
+- Platform-owned Prisma client/driver lifecycle и один migration authority принадлежат shared
+  infrastructure; capability-scoped Prisma types and persistence remain internal.
 - Каждый capability Module с persistent application state владеет одной PostgreSQL schema с
   module-derived именем. Только implementation и migrations владельца обращаются к её объектам;
   cross-schema queries, views, foreign keys и writes между Modules запрещены, а взаимодействие
@@ -167,17 +167,17 @@ production trade-off подтверждён evidence, а не заранее д�
 - Новый workspace package, process или separately deployable module допустим только после доказанной
   operational/domain seam. Speculative packages и generic layer folders запрещены.
 - Один глубокий `Materials` module предоставляет caller-oriented facets `MaterialAuthoring` и
-  `PublishedMaterialReader`; generic command bus не вводится. `createMaterials` является одной
-  canonical assembly для Nest adapter и acceptance tests.
+  `PublishedMaterialReader`; generic command bus не вводится. `assembleMaterials` является одной
+  canonical framework-agnostic assembly для acceptance tests, seeds и non-Nest entrypoints; Nest
+  напрямую связывает только facets с реальными production consumers.
 - Public interface использует domain names без storage suffix: `MaterialBodySnapshot` и
   `RenderedMaterialBody`. Persisted body сохраняет явный schema discriminator, а exact codec names
   могут содержать `V1` внутри implementation.
-- Пока production `IdentityPrincipals` owner module не существует и ни один entrypoint не
-  импортирует `MaterialsModule`, Nest adapter может принимать временный `AuthorPolicy` через
-  dynamic registration. С первым реальным caller он становится static, получает composition test
-  и явно связывает принятую anonymous/read-only baseline policy. Когда появляется production
-  authorization owner, static module импортирует его provider; placeholder/global policy ради
-  декоративного graph не создаётся.
+- Production `IdentityPrincipals` owner module использует тот же singleton Prisma lifecycle через
+  capability-scoped client. `MaterialsModule` ещё не потребляет этот facet и
+  использует принятую anonymous/read-only baseline policy внутри published-reading assembly.
+  Межмодульный provider export и static import появятся вместе с первым реальным authorization
+  consumer; placeholder/global policy ради декоративного graph не создаётся.
 
 ### Validation, results and write atomicity
 
@@ -193,7 +193,7 @@ production trade-off подтверждён evidence, а не заранее д�
 - Application operations возвращают discriminated transport-neutral results со stable codes.
   Каждая operation экспортирует только собственный error union.
   REST отображает их в RFC 9457 Problem Details; MCP использует те же codes без HTTP vocabulary.
-- Application operation владеет Kysely transaction. `baseRevisionId` реализует optimistic
+- Materials application operation владеет Prisma transaction. `baseRevisionId` реализует optimistic
   compare-and-set; stale base возвращает conflict, blind partial retry и last-write-wins запрещены.
 - Idempotency scope — Principal + operation + key. Request fingerprint, stable result/effect и write
   сохраняются в одной transaction; повтор с тем же payload воспроизводит result, другой payload с
@@ -211,7 +211,7 @@ production trade-off подтверждён evidence, а не заранее д�
   integration run с isolation, сохраняющей real commit/rollback и multiple-connection semantics.
   Exact dependency version и isolation mechanics принадлежат #30 implementation brief.
 - Platform-local shared strict TypeScript base, type-aware typescript-eslint, frontend/backend
-  import rules и generated DB type drift checks приняты как future enforcement. #27 не добавляет
+  import rules и Prisma schema mapping checks приняты как future enforcement. #27 не добавляет
   dependencies, lint/config/CI rules и не меняет shared harness.
 - Для engineering choices #27 не создаёт ADR и отдельные prototype/proof tickets. #30 фиксирует
   exact versions, types, SQL и test isolation в required implementation brief и доказывает их
@@ -438,7 +438,7 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    [Research artifact](../research/platform-v1-engineering-contract.md) сохраняет evidence и
    rationale; #27 не меняет harness, agent instructions или production code.
 3. **Create и revise draft:** [#30](https://github.com/sachkov-inside/platform/issues/30) одним
-   production slice добавляет create/load/revise Material, минимальные PostgreSQL/Kysely migrations,
+   production slice добавляет create/load/revise Material, минимальные PostgreSQL migrations,
    versioned ProseMirror/Tiptap document path, immutable revisions, metadata, idempotency и conflicts.
    До кода owner утверждает implementation brief с modules/interfaces, file layout, validation flow,
    transaction boundary и tests. До этого решения ticket имеет `ready-for-human`; после approval

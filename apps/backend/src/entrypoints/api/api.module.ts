@@ -3,17 +3,20 @@ import { type DynamicModule, Module } from "@nestjs/common";
 import { PlatformConfigModule } from "../../config/platform-config.module.js";
 import type { PlatformConfig } from "../../config/platform-config.js";
 import { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
-import { PostgresModule } from "../../infrastructure/postgres/index.js";
-import { ContentLibraryModule } from "../../modules/content-library/index.js";
+import { PrismaModule } from "../../infrastructure/prisma/index.js";
+import { ListPublishedMaterialsController } from "../../modules/content-library/index.js";
 import { IdentityPrincipalsModule } from "../../modules/identity-principals/index.js";
-import { MaterialsModule } from "../../modules/materials/index.js";
+import {
+  MaterialsModule,
+  ReadPublishedMaterialController,
+} from "../../modules/materials/index.js";
 import { HealthController } from "./health.controller.js";
-import { PublishedMaterialsController } from "./published-materials.controller.js";
 
 @Module({
   controllers: [
     HealthController,
-    PublishedMaterialsController,
+    ListPublishedMaterialsController,
+    ReadPublishedMaterialController,
   ],
   providers: [OperationalReadiness],
 })
@@ -23,8 +26,7 @@ export class ApiModule {
       module: ApiModule,
       imports: [
         PlatformConfigModule.forRoot(config),
-        PostgresModule,
-        ContentLibraryModule,
+        PrismaModule,
         IdentityPrincipalsModule,
         MaterialsModule,
       ],

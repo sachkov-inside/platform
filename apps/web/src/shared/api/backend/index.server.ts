@@ -95,9 +95,11 @@ export async function requestBackend(
   }
 }
 
-function combineAbortSignals(signal: AbortSignal | undefined): AbortSignal {
+function combineAbortSignals(signal: AbortSignal | null | undefined): AbortSignal {
   const timeout = AbortSignal.timeout(BACKEND_REQUEST_TIMEOUT_MS);
-  return signal === undefined ? timeout : AbortSignal.any([signal, timeout]);
+  return signal === undefined || signal === null
+    ? timeout
+    : AbortSignal.any([signal, timeout]);
 }
 
 export async function getBackendHealth(): Promise<BackendHealth> {

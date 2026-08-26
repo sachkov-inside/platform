@@ -42,19 +42,8 @@ function moduleSpecifiers(sourceFile) {
   return specifiers;
 }
 
-const tableReferenceMethods = new Set([
-  "deleteFrom",
-  "fullJoin",
-  "innerJoin",
-  "insertInto",
-  "leftJoin",
-  "rightJoin",
-  "selectFrom",
-  "updateTable",
-]);
-
 const sqlTableReference = new RegExp(
-  String.raw`\b(?:from|join|update|into)\s+((?:"[a-z_][a-z0-9_]*"|[a-z_][a-z0-9_]*)(?:\s*\.\s*(?:"[a-z_][a-z0-9_]*"|[a-z_][a-z0-9_]*))?)`,
+  String.raw`(?:\bfrom|\bjoin|(?<!\bfor\s)\bupdate|\binto)\s+((?:"[a-z_][a-z0-9_]*"|[a-z_][a-z0-9_]*)(?:\s*\.\s*(?:"[a-z_][a-z0-9_]*"|[a-z_][a-z0-9_]*))?)`,
   "giu",
 );
 
@@ -68,12 +57,6 @@ function referencesFromSql(sqlText) {
   );
 }
 
-function staticString(node) {
-  return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
-    ? node.text
-    : undefined;
-}
-
 function databaseTableReferences(sourceFile) {
   const references = [];
   const unresolved = [];
@@ -81,39 +64,32 @@ function databaseTableReferences(sourceFile) {
     if (
       ts.isCallExpression(node) &&
       ts.isPropertyAccessExpression(node.expression) &&
-      tableReferenceMethods.has(node.expression.name.text) &&
-      node.arguments.length > 0
+      node.expression.getText(sourceFile) === "Prisma.raw"
     ) {
-      const table = staticString(node.arguments[0]);
-      if (table === undefined) {
-        unresolved.push(node.expression.name.text);
-      } else {
-        references.push(table.split(/\s+/u)[0]);
+      unresolved.push("Prisma.raw");
+    }
+    if (
+      ts.isTaggedTemplateExpression(node) &&
+      node.tag.getText(sourceFile) === "Prisma.sql"
+    ) {
+      const sqlText = node.template.getText(sourceFile);
+      references.push(...referencesFromSql(sqlText));
+      if (
+        /(?:\bfrom|\bjoin|(?<!\bfor\s)\bupdate|\binto)\s+\$\{/iu.test(
+          sqlText,
+        )
+      ) {
+        unresolved.push("sql template table identifier");
       }
     }
     if (
       ts.isCallExpression(node) &&
       ts.isPropertyAccessExpression(node.expression) &&
-      node.expression.getText(sourceFile) === "sql.raw"
+      ["$executeRawUnsafe", "$queryRawUnsafe"].includes(
+        node.expression.name.text,
+      )
     ) {
-      const rawSql = node.arguments[0] === undefined
-        ? undefined
-        : staticString(node.arguments[0]);
-      if (rawSql === undefined) {
-        unresolved.push("sql.raw");
-      } else {
-        references.push(...referencesFromSql(rawSql));
-      }
-    }
-    if (
-      ts.isTaggedTemplateExpression(node) &&
-      node.tag.getText(sourceFile).startsWith("sql")
-    ) {
-      const sqlText = node.template.getText(sourceFile);
-      references.push(...referencesFromSql(sqlText));
-      if (/\b(?:from|join|update|into)\s+\$\{/iu.test(sqlText)) {
-        unresolved.push("sql template table identifier");
-      }
+      unresolved.push(node.expression.name.text);
     }
     ts.forEachChild(node, visit);
   }
@@ -143,14 +119,10 @@ function owningSchema(moduleName) {
   return moduleName.replaceAll("-", "_");
 }
 
-function isApprovedPersistenceImport(file, specifier) {
+function isNestAdapter(file) {
   return (
-    file.startsWith("src/infrastructure/postgres/") ||
-    /^src\/modules\/[^/]+\/infrastructure\/postgres\//.test(file) ||
-    file.startsWith("src/migrations/") ||
-    // The shared readiness service owns the single cross-runtime database probe.
-    (file === "src/infrastructure/operational-readiness.ts" &&
-      specifier === "kysely")
+    file.includes("/adapters/nest/") ||
+    /\.(?:controller|filter|module)\.[cm]?ts$/u.test(file)
   );
 }
 
@@ -184,21 +156,33 @@ function violationsFor(source, specifier) {
     violations.push("a capability internal module was imported from outside its owner");
   }
 
-  const importsRawPersistence =
-    specifier === "kysely" ||
-    specifier.startsWith("kysely/") ||
-    specifier === "pg" ||
-    specifier.startsWith("pg/") ||
+  const importsKysely = specifier === "kysely" || specifier.startsWith("kysely/");
+  if (importsKysely) {
+    violations.push("Kysely is forbidden; Prisma is the only application ORM");
+  }
+
+  const importsPrismaPackage =
+    specifier === "@prisma/client" ||
+    specifier.startsWith("@prisma/client/") ||
+    specifier.startsWith("@prisma/adapter-");
+  const importsPg = specifier === "pg" || specifier.startsWith("pg/");
+  const importsDeletedGeneratedPersistence =
     importedPath?.includes("/infrastructure/postgres/generated/") === true;
-  if (importsRawPersistence && !isApprovedPersistenceImport(sourcePath, specifier)) {
+  if (
+    (importsPrismaPackage && !sourcePath.startsWith("src/infrastructure/prisma/")) ||
+    (importsPg &&
+      sourcePath !== "src/infrastructure/postgres/migrate-to-latest.ts") ||
+    importsDeletedGeneratedPersistence
+  ) {
     violations.push("raw persistence imports require an approved postgres owner path");
   }
 
   if (
-    /^src\/modules\/[^/]+\/(?:application|domain)\//.test(sourcePath) &&
+    sourceModule !== undefined &&
+    !isNestAdapter(sourcePath) &&
     specifier.startsWith("@nestjs/")
   ) {
-    violations.push("application and domain code cannot import Nest adapters");
+    violations.push("capability implementation cannot import Nest adapters");
   }
 
   return violations;

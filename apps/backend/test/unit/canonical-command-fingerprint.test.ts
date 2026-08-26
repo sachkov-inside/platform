@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { fingerprintCommand } from "../../src/modules/materials/application/shared/canonical-command-fingerprint.js";
+import { fingerprintCommand } from "../../src/modules/materials/shared/canonical-command-fingerprint.js";
 
 describe("MaterialAuthoring command fingerprint", () => {
   test("fingerprints a canonical, versioned request envelope", () => {
