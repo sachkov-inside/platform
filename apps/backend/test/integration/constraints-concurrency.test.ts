@@ -43,7 +43,7 @@ describe("material authoring integrity contract", () => {
   test("rolls back invalid references including the idempotency claim", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
-      authorPolicy: { canAuthor: () => true, canPublish: () => true },
+      authorPolicy: { canManage: () => true },
     });
     const idempotencyKey = "a0000000-0000-4000-8000-000000000010";
     const base = {
@@ -97,7 +97,7 @@ describe("material authoring integrity contract", () => {
   test("maps unique slug, duplicate Tag and occupied Series ordinal consistently", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
-      authorPolicy: { canAuthor: () => true, canPublish: () => true },
+      authorPolicy: { canManage: () => true },
     });
     const metadata = {
       title: "Constraint owner",
@@ -185,7 +185,7 @@ describe("material authoring integrity contract", () => {
   test("arbitrates a concurrent Series ordinal race with stable conflict details", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
-      authorPolicy: { canAuthor: () => true, canPublish: () => true },
+      authorPolicy: { canManage: () => true },
     });
     const create = (side: "left" | "right", key: string) =>
       authoring.createDraft({
@@ -222,7 +222,7 @@ describe("material authoring integrity contract", () => {
   test("keeps persisted MaterialRevision snapshots immutable", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
-      authorPolicy: { canAuthor: () => true, canPublish: () => true },
+      authorPolicy: { canManage: () => true },
     });
     const created = await authoring.createDraft({
       actor,

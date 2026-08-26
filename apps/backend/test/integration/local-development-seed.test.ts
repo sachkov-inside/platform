@@ -31,8 +31,7 @@ describe("local development seed", () => {
     const { publishedMaterialReader } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: {
-        canAuthor: () => false,
-        canPublish: () => false,
+        canManage: () => false,
       },
     });
     const catalog = await listPublishedMaterials(

@@ -3,19 +3,19 @@ import type {
   MaterialRevisionId,
 } from "../../../../src/modules/materials/domain/material-identifiers.js";
 import type {
-  IdentityPrincipalsPrisma,
+  AccountsPrisma,
   MaterialsPrismaClient,
 } from "../../../../src/infrastructure/prisma/index.js";
 declare const revisionId: MaterialRevisionId;
 declare function materialsTable(table: "materials.materials"): void;
-declare const identityPrisma: IdentityPrincipalsPrisma;
+declare const accountsPrisma: AccountsPrisma;
 declare const materialsPrisma: MaterialsPrismaClient;
 
 const materialId: MaterialId = revisionId;
-materialsTable("identity_principals.principals");
+materialsTable("accounts.accounts");
 await materialsPrisma.$transaction(async (transaction) =>
-  transaction.identityPrincipal.count(),
+  transaction.account.count(),
 );
-await identityPrisma.material.count();
+await accountsPrisma.material.count();
 
 describe("production code", () => materialId);

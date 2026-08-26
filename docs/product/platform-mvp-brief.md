@@ -24,7 +24,7 @@ Authority этого brief находится в этом Platform repository. �
 
 Public landing и Platform application являются разными surfaces. Landing объясняет предложение
 Inside и ведёт в application/Мастерскую; application владеет discovery, free/closed Materials,
-private Platform Account, member-only Member Profile и reading experience. `sachkov.dev` и
+private Account, member-only Member Profile и reading experience. `sachkov.dev` и
 `app.sachkov.dev` являются рабочими примерами этой границы, а exact production domains определяются
 будущей release specification.
 
@@ -40,20 +40,20 @@ private Platform Account, member-only Member Profile и reading experience. `sac
 
 ### Участник Membership
 
-- создаёт или открывает Platform Account одним email-code sign-in flow без отдельной registration
+- создаёт или открывает Account одним email-code sign-in flow без отдельной registration
   form;
-- управляет private Platform Account и отдельным Member Profile;
+- управляет private Account и отдельным Member Profile;
 - видит Member Profiles других действующих участников;
-- после первого входа получает предложение связать Platform Account с Telegram, но может
+- после первого входа получает предложение связать Account с Telegram, но может
   пропустить шаг и продолжить с бесплатным контентом;
-- может позже связать Telegram из Platform Account или закрытого Material;
+- может позже связать Telegram из Account или закрытого Material;
 - получает доступ на основании внешнего признака активного Membership;
 - имеет один уровень закрытого доступа без тарифной матрицы;
-- после окончания Membership сохраняет Platform Account, Member Profile, историю и статусы
+- после окончания Membership сохраняет Account, Member Profile, историю и статусы
   прочтения, но до возобновления Membership теряет доступ к закрытым материалам и Member Profiles
   других участников.
 
-Platform Account является приватной surface владельца: в ней находятся identity/security state,
+Account является приватной surface владельца: в ней находятся identity/security state,
 Telegram linking, Membership state и recovery actions. Member Profile — отдельная проекция для
 других действующих участников. Anonymous visitor, non-member и search crawler её не получают;
 profile не индексируется и никогда не содержит email, Platform или Telegram internal identifiers,
@@ -178,7 +178,7 @@ deduplication и migration pipeline не нужны.
 - публичная главная, страницы тем и серий, Библиотека;
 - публичные карточки закрытых материалов и полностью бесплатные материалы;
 - полнотекстовый поиск и фильтры;
-- email sign-in, private Platform Account и связь с Telegram Membership;
+- email sign-in, private Account и связь с Telegram Membership;
 - отдельный Member Profile, видимый только действующим участникам;
 - чтение закрытого контента участником;
 - статусы прочтения и минимальная история просмотра;
@@ -209,7 +209,7 @@ deduplication и migration pipeline не нужны.
   UI laboratory и production frontend integration; application specification владеет delivery
   order и provenance отменённых pre-production gates.
 - [Platform #48](https://github.com/sachkov-inside/platform/issues/48) — root Specification для
-  Identity, Platform Account, Member Profile, authorization и Membership delivery.
+  Identity, Account, Member Profile, authorization и Membership delivery.
 - [Workspace #65](https://github.com/sachkov-inside/workspace/issues/65) и завершённая
   [#66](https://github.com/sachkov-inside/workspace/issues/66) — cross-repository authority и
   provenance для Platform/Telegram contract; Platform build и runtime от Workspace не зависят.

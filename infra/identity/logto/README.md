@@ -18,8 +18,8 @@ to ignored `.identity-proof/platform.env`, and starts the web/backend developmen
 refuses to reuse a Compose environment owned by another session. No Console setup,
 real email, deployment or production credential is involved.
 
-The bootstrap registers both `/callback` and `/reauthentication-callback`; the latter starts with
-`prompt=login` and completes the one-time Platform re-authentication attempt.
+The bootstrap registers `/callback` as the only application redirect URI. Authentication session
+state remains owned by the official Logto BFF integration.
 
 After startup, use any disposable email address in the application. Read its verification code in
 Mailpit. The public endpoints are:
@@ -75,7 +75,7 @@ The clean-volume email-code, callback, authenticated navigation, persisted sessi
 journey has passed against the pinned runtime. Platform issue #116 owns the post-#49 executable
 proof for resend throttling, the pinned-runtime negative callback corpus, controlled
 Logto/email/refresh outage recovery, and real-Logto re-authentication claim/session binding. Those
-production-hardening gates do not block the application-ready Principal/session foundation.
+production-hardening gates do not block the application-ready Account foundation.
 Manual exploration complements those later security assertions; it does not replace them.
 
 The fork is not declared production-ready by this proof. DNS/TLS, credential custody, monitoring,

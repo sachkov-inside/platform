@@ -1,0 +1,2 @@
+export const ACCOUNTS = Symbol("ACCOUNTS");
+export const LOGTO_ACCESS_TOKEN_VERIFIER = Symbol("LOGTO_ACCESS_TOKEN_VERIFIER");

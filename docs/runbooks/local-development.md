@@ -218,11 +218,26 @@ The same generation runs during install, build, and typecheck:
 pnpm --filter @inside/backend prisma:generate
 ```
 
-The Prisma schema maps both product-owned `materials` and `identity_principals` schemas. Checked-in,
+The Prisma schema maps both product-owned `materials` and `accounts` schemas. Checked-in,
 append-only SQL migrations remain the database authority. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
 generated client files are not committed or edited. A pre-Prisma local volume must be recreated
 with the destructive reset below rather than supported by application compatibility code.
+
+## Owner Account release bootstrap
+
+After migrations and before serving production traffic, confirm that the owner exists in Logto and
+run the explicit idempotent release command with that exact identity:
+
+```bash
+OWNER_LOGTO_ISSUER=https://auth.example.com/oidc \
+OWNER_LOGTO_SUBJECT=<opaque-logto-subject> \
+pnpm --filter @inside/backend release:bootstrap-owner
+```
+
+The command ensures one Account and `materials:manage`, writes only redacted Account audit events,
+and prints a JSON summary. It does not run from an application startup hook or public route and does
+not need the owner's email. Repeating it reports that no Account or permission was created.
 
 ## Diagnose prerequisites
 

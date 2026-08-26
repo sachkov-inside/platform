@@ -1,3 +1,5 @@
+import { createServer } from "node:http";
+
 import {
   exportJWK,
   generateKeyPair,
@@ -5,10 +7,9 @@ import {
   type CryptoKey,
   type JWK,
 } from "jose";
-import { createServer } from "node:http";
 import { beforeAll, describe, expect, test } from "vitest";
 
-import { createLogtoAccessTokenVerifier } from "../../src/modules/identity-principals/infrastructure/idp/logto/logto-access-token-verifier.js";
+import { createLogtoAccessTokenVerifier } from "../../src/modules/accounts/infrastructure/idp/logto/logto-access-token-verifier.js";
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.inside.example.test";
@@ -21,36 +22,31 @@ describe("Logto access token verifier", () => {
   beforeAll(async () => {
     const pair = await generateKeyPair("ES384");
     privateKey = pair.privateKey;
-    publicJwk = { ...(await exportJWK(pair.publicKey)), alg: "ES384", kid: "proof-key-1" };
+    publicJwk = {
+      ...(await exportJWK(pair.publicKey)),
+      alg: "ES384",
+      kid: "proof-key-1",
+    };
   });
 
-  test("normalizes one valid human sign-in proof and discards provider authorization claims", async () => {
-    const verifier = createLogtoAccessTokenVerifier({
-      issuer,
-      audience,
-      jwks: { keys: [publicJwk] },
-    });
-    const interactiveAt = new Date(now * 1_000).toISOString();
+  test("normalizes a verified human sign-in and discards provider authorization", async () => {
     const token = await signToken({
       inside_verified_email: "Member@Example.Test",
-      inside_interactive_at: interactiveAt,
       roles: ["admin", "member"],
       permissions: ["identity:admin"],
     });
-
-    const result = await verifier.verifyHumanSignIn(token);
+    const result = await localVerifier(publicJwk).verifyAccountSignIn(token);
 
     expect(result).toMatchObject({
       ok: true,
       identity: {
-        type: "human_sign_in",
+        type: "account_sign_in",
         issuer,
         subject: "human-001",
-        authenticatedAt: interactiveAt,
         verifiedEmail: "Member@Example.Test",
       },
-      sessionIdentity: {
-        type: "human_session",
+      accountIdentity: {
+        type: "account_identity",
         issuer,
         subject: "human-001",
       },
@@ -62,142 +58,130 @@ describe("Logto access token verifier", () => {
   test.each([
     ["issuer", { issuer: "https://attacker.example.test" }],
     ["audience", { audience: "https://another-api.example.test" }],
+    ["multiple audiences", { audience: [audience, "https://other.example.test"] }],
     ["expired", { issuedAt: now - 601, expiresAt: now - 301 }],
+    ["future issued-at", { issuedAt: now + 60 }],
+    ["future not-before", { notBefore: now + 60 }],
     ["lifetime", { issuedAt: now, expiresAt: now + 301 }],
     ["subject", { subject: "" }],
     ["verified email", { insideVerifiedEmail: undefined }],
-    ["interactive fact", { insideInteractiveAt: undefined }],
   ])("fails closed for an invalid %s", async (_name, overrides) => {
-    const verifier = createLogtoAccessTokenVerifier({
-      issuer,
-      audience,
-      jwks: { keys: [publicJwk] },
-    });
     const token = await signToken({}, overrides);
-
-    await expect(verifier.verifyHumanSignIn(token)).resolves.toEqual({
+    await expect(localVerifier(publicJwk).verifyAccountSignIn(token)).resolves.toEqual({
       ok: false,
       error: { code: "invalid_proof" },
     });
   });
 
-  test("rejects a token signed by an unknown key", async () => {
-    const verifier = createLogtoAccessTokenVerifier({
-      issuer,
-      audience,
-      jwks: { keys: [publicJwk] },
+  test("rejects machine tokens on both Account paths", async () => {
+    const token = await signToken(
+      { client_id: "service-001" },
+      { subject: "service-001" },
+    );
+    const verifier = localVerifier(publicJwk);
+    await expect(verifier.verifyAccountSignIn(token)).resolves.toMatchObject({
+      ok: false,
+      error: { code: "invalid_proof" },
     });
-    const attacker = await generateKeyPair("ES384");
-    const token = await signToken({}, {}, attacker.privateKey, "attacker-key");
-
-    await expect(verifier.verifyHumanSession(token)).resolves.toEqual({
+    await expect(verifier.verifyAccount(token)).resolves.toMatchObject({
       ok: false,
       error: { code: "invalid_proof" },
     });
   });
 
-  test("rejects RS256 outside the pinned Logto algorithm allowlist", async () => {
-    const pair = await generateKeyPair("RS256");
+  test("rejects another algorithm, an invalid signature and an unknown key", async () => {
+    const rsa = await generateKeyPair("RS256");
     const rsaJwk = {
-      ...(await exportJWK(pair.publicKey)),
+      ...(await exportJWK(rsa.publicKey)),
       alg: "RS256",
-      kid: "proof-rsa-key",
+      kid: "rsa-key",
     };
-    const verifier = createLogtoAccessTokenVerifier({
-      issuer,
-      audience,
-      jwks: { keys: [rsaJwk] },
+    const rsaToken = await signToken({}, {}, rsa.privateKey, "rsa-key", "RS256");
+    await expect(localVerifier(rsaJwk).verifyAccount(rsaToken)).resolves.toMatchObject({
+      ok: false,
+      error: { code: "invalid_proof" },
     });
-    const token = await signToken({}, {}, pair.privateKey, "proof-rsa-key", "RS256");
 
-    await expect(verifier.verifyHumanSignIn(token)).resolves.toEqual({
+    const attacker = await generateKeyPair("ES384");
+    const invalidSignature = await signToken(
+      {},
+      {},
+      attacker.privateKey,
+      "proof-key-1",
+    );
+    await expect(
+      localVerifier(publicJwk).verifyAccount(invalidSignature),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: { code: "invalid_proof" },
+    });
+
+    const attackerToken = await signToken({}, {}, attacker.privateKey, "attacker");
+    await expect(localVerifier(publicJwk).verifyAccount(attackerToken)).resolves.toMatchObject({
       ok: false,
       error: { code: "invalid_proof" },
     });
   });
 
-  test("maps only a machine-to-machine client token through the service proof path", async () => {
-    const verifier = createLogtoAccessTokenVerifier({
-      issuer,
-      audience,
-      jwks: { keys: [publicJwk] },
-    });
-    const token = await signToken({ client_id: "service-001" }, { subject: "service-001" });
-
-    await expect(verifier.verifyServiceSession(token)).resolves.toMatchObject({
-      ok: true,
-      identity: { type: "service_session", issuer, subject: "service-001" },
-    });
-    await expect(verifier.verifyHumanSession(token)).resolves.toEqual({
-      ok: false,
-      error: { code: "invalid_proof" },
-    });
-  });
-
-  test("distinguishes a remote JWKS outage from an invalid proof", async () => {
-    const server = createServer((_request, response) => {
-      response.writeHead(503).end();
-    });
+  test("distinguishes a remote JWKS outage", async () => {
+    const server = createServer((_request, response) => response.writeHead(503).end());
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const address = server.address();
-    if (address === null || typeof address === "string") {
-      throw new Error("JWKS outage server did not bind a TCP port");
-    }
+    if (address === null || typeof address === "string") throw new Error("missing port");
     try {
       const verifier = createLogtoAccessTokenVerifier({
         issuer,
         audience,
         jwksUrl: `http://127.0.0.1:${String(address.port)}/jwks`,
       });
-      const token = await signToken();
-
-      await expect(verifier.verifyHumanSession(token)).resolves.toEqual({
+      await expect(verifier.verifyAccount(await signToken())).resolves.toEqual({
         ok: false,
         error: { code: "dependency_unavailable" },
       });
     } finally {
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) => (error === undefined ? resolve() : reject(error)));
-      });
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error === undefined ? resolve() : reject(error))),
+      );
     }
   });
+
+  function localVerifier(jwk: JWK) {
+    return createLogtoAccessTokenVerifier({ issuer, audience, jwks: { keys: [jwk] } });
+  }
 
   async function signToken(
     claims: Record<string, unknown> = {},
     overrides: {
       readonly issuer?: string;
-      readonly audience?: string;
+      readonly audience?: string | string[];
+      readonly subject?: string;
       readonly issuedAt?: number;
       readonly expiresAt?: number;
-      readonly subject?: string;
+      readonly notBefore?: number;
       readonly insideVerifiedEmail?: string | undefined;
-      readonly insideInteractiveAt?: string | undefined;
     } = {},
-    signingKey = privateKey,
+    key: CryptoKey = privateKey,
     kid = "proof-key-1",
-    algorithm: "RS256" | "ES384" = "ES384",
+    algorithm: "ES384" | "RS256" = "ES384",
   ): Promise<string> {
     const issuedAt = overrides.issuedAt ?? now;
-    const tokenClaims = {
+    const token = new SignJWT({
       inside_verified_email:
+        overrides.insideVerifiedEmail === undefined &&
         "insideVerifiedEmail" in overrides
-          ? overrides.insideVerifiedEmail
-          : "member@example.test",
-      inside_interactive_at:
-        "insideInteractiveAt" in overrides
-          ? overrides.insideInteractiveAt
-          : new Date(issuedAt * 1_000).toISOString(),
+          ? undefined
+          : (overrides.insideVerifiedEmail ?? "member@example.test"),
       ...claims,
-    };
-
-    return new SignJWT(tokenClaims)
+    })
       .setProtectedHeader({ alg: algorithm, kid })
       .setIssuer(overrides.issuer ?? issuer)
       .setAudience(overrides.audience ?? audience)
       .setSubject(overrides.subject ?? "human-001")
-      .setJti("jwt-001")
       .setIssuedAt(issuedAt)
-      .setExpirationTime(overrides.expiresAt ?? issuedAt + 300)
-      .sign(signingKey);
+      .setExpirationTime(overrides.expiresAt ?? issuedAt + 300);
+    if (overrides.notBefore !== undefined) {
+      token.setNotBefore(overrides.notBefore);
+    }
+    return token.sign(key);
   }
 });

@@ -40,10 +40,11 @@ scan and every negative fixture pass.
   [`docs/adr/0001-one-backend-multiple-entrypoints.md`](../../docs/adr/0001-one-backend-multiple-entrypoints.md)
   and the backend contract in
   [`docs/specifications/platform-v1.md`](../../docs/specifications/platform-v1.md).
-- When changing principal, session, permission, Logto, or identity persistence behaviour, read
+- When changing Account, permission, Logto, or identity persistence behaviour, read
   [`docs/specifications/identity-principals-session-v1.md`](../../docs/specifications/identity-principals-session-v1.md)
   and
-  [`docs/specifications/idp-application-flow-v1.md`](../../docs/specifications/idp-application-flow-v1.md).
+  [`docs/specifications/idp-application-flow-v1.md`](../../docs/specifications/idp-application-flow-v1.md),
+  plus [`ADR 0006`](../../docs/adr/0006-logto-session-and-local-account.md).
 - When changing migrations, the Prisma schema/client, or local PostgreSQL workflows, follow
   [`docs/runbooks/local-development.md`](../../docs/runbooks/local-development.md). Frozen
   migrations stay self-contained; generated Prisma client files are never edited or committed.

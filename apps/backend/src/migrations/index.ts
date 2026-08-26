@@ -7,6 +7,10 @@ import {
   statement as identityPrincipalsMigrationStatement,
 } from "../modules/identity-principals/infrastructure/postgres/migrations/0002_identity_principals.js";
 import {
+  name as accountsMigrationName,
+  statement as accountsMigrationStatement,
+} from "../modules/accounts/infrastructure/postgres/migrations/0004_accounts.js";
+import {
   name as materialsMigrationName,
   statement as materialsMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0001_materials.js";
@@ -27,6 +31,10 @@ const migrations = [
   {
     name: publishedMaterialsCursorIndexMigrationName,
     statement: publishedMaterialsCursorIndexMigrationStatement,
+  },
+  {
+    name: accountsMigrationName,
+    statement: accountsMigrationStatement,
   },
 ] as const;
 

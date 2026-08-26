@@ -24,6 +24,5 @@ const getCustomJwtClaims = async ({ token, context, api }) => {
 
   return {
     inside_verified_email: verifiedEmail,
-    inside_interactive_at: new Date().toISOString(),
   };
 };

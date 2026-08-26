@@ -1,9 +1,9 @@
 import type { MaterialAccess } from "../domain/material-revision-metadata.js";
-import { authorizeAuthor, type AuthorPolicy } from "./author-policy.js";
+import { authorizeManager, type AuthorPolicy } from "./author-policy.js";
 
 export type Subject =
   | { readonly kind: "anonymous" }
-  | { readonly kind: "principal"; readonly principalId: string };
+  | { readonly kind: "account"; readonly accountId: string };
 
 export const anonymousSubject: Subject = Object.freeze({ kind: "anonymous" });
 
@@ -36,10 +36,10 @@ export function assembleBaselineContentAccess(authorPolicy: AuthorPolicy): Conte
       if (action === "read" && resource.publication === "published" && resource.access === "free") {
         return { allowed: true, reason: "public" };
       }
-      if (subject.kind === "principal") {
-        const authorization = await authorizeAuthor(
+      if (subject.kind === "account") {
+        const authorization = await authorizeManager(
           authorPolicy,
-          subject.principalId,
+          subject.accountId,
         );
         if (authorization.ok) {
           return { allowed: true, reason: "author" };

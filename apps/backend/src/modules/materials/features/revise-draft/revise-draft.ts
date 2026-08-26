@@ -8,7 +8,7 @@ import type {
 } from "./revise-draft.contract.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
-import { authorizeAuthor, type AuthorPolicy } from "../../ports/author-policy.js";
+import { authorizeManager, type AuthorPolicy } from "../../ports/author-policy.js";
 import {
   executeAuthoringTransaction,
   failure,
@@ -21,7 +21,7 @@ import {
   materialIdSchema,
   materialRevisionIdSchema,
   parseCommand,
-  principalId,
+  accountId,
 } from "../../shared/command-validation.js";
 import { toMaterialRevisionDto } from "../../shared/material-revision-dto.js";
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
@@ -70,7 +70,7 @@ const documentChange = z.discriminatedUnion("kind", [
 
 const reviseDraftCommand = z
   .object({
-    actor: principalId,
+    actor: accountId,
     idempotencyKey: idempotencyKeySchema,
     materialId: materialIdSchema,
     baseRevisionId: materialRevisionIdSchema,
@@ -104,7 +104,7 @@ export function assembleReviseDraft(
     if (!metadataChanges.ok) {
       return failure(metadataChanges.error);
     }
-    const authorization = await authorizeAuthor(
+    const authorization = await authorizeManager(
       dependencies.authorPolicy,
       command.actor,
     );

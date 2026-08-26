@@ -23,8 +23,8 @@ const querySchema = z
       z.object({ kind: z.literal("anonymous") }).strict(),
       z
         .object({
-          kind: z.literal("principal"),
-          principalId: normalizedUuidSchema,
+          kind: z.literal("account"),
+          accountId: normalizedUuidSchema,
         })
         .strict(),
     ]),
@@ -85,7 +85,7 @@ export async function readPublishedMaterial(
           materialId: materialId(projection.materialId),
           revisionId: materialRevisionId(projection.revisionId),
           actorId:
-            subject.kind === "principal" ? subject.principalId : null,
+            subject.kind === "account" ? subject.accountId : null,
           action: "read",
           decision: access.allowed ? "allow" : "deny",
         },

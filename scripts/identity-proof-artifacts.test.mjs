@@ -109,7 +109,7 @@ test("custom access-token claims require a matching fresh email-code interaction
     api,
   });
   assert.equal(claims.inside_verified_email, "member@example.test");
-  assert.ok(Number.isFinite(Date.parse(claims.inside_interactive_at)));
+  assert.equal("inside_interactive_at" in claims, false);
   assert.deepEqual(
     await getCustomJwtClaims({ token: { gty: "refresh_token" }, context: {}, api }),
     {},
@@ -180,7 +180,6 @@ test("Management API bootstrap converges after partial state and a repeated run"
   assert.equal(state.applications[0].name, "Inside Web");
   assert.deepEqual(state.applications[0].oidcClientMetadata.redirectUris, [
     "http://127.0.0.1:3000/callback",
-    "http://127.0.0.1:3000/reauthentication-callback",
   ]);
   assert.equal(state.connectors.length, 1);
   assert.equal(state.connectors[0].connectorId, "simple-mail-transfer-protocol");

@@ -1,4 +1,6 @@
-import { readPlatformSession } from "@/shared/auth/index.server";
+import { cookies } from "next/headers";
+
+import { hasLogtoSessionCookie } from "@/shared/auth/index.server";
 import { type AuthControlState } from "@/widgets/auth-control";
 
 import { AuthStatusControl } from "./auth-status-control.client";
@@ -17,8 +19,8 @@ export function AuthControlFallback({ presentation }: AuthAccountSlotProps) {
 }
 
 async function resolveAuthControlState(): Promise<AuthControlState> {
-  const session = await readPlatformSession();
-  return session === undefined ? "guest" : "authenticated";
+  const cookieNames = (await cookies()).getAll().map(({ name }) => name);
+  return hasLogtoSessionCookie(cookieNames) ? "authenticated" : "guest";
 }
 
 function renderControl(

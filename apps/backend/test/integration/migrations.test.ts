@@ -27,14 +27,10 @@ const materialTables = [
   "topics",
 ] as const;
 
-const identityTables = [
-  "external_identities",
-  "identity_audit_events",
-  "identity_idempotency",
-  "identity_reauthentication_attempts",
-  "platform_sessions",
-  "principal_permissions",
-  "principals",
+const accountTables = [
+  "account_audit_events",
+  "account_permissions",
+  "accounts",
 ] as const;
 
 describe("Platform migrations", () => {
@@ -57,12 +53,14 @@ describe("Platform migrations", () => {
         "0001_materials",
         "0002_identity_principals",
         "0003_published_materials_cursor_index",
+        "0004_accounts",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
 
     await expectTables(testDatabase, "materials", materialTables);
-    await expectTables(testDatabase, "identity_principals", identityTables);
+    await expectTables(testDatabase, "accounts", accountTables);
+    await expectTables(testDatabase, "identity_principals", []);
 
     const functions = await testDatabase.prisma.$queryRaw<
       readonly { readonly schema: string }[]
@@ -144,11 +142,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 4, repeat('0', 64))
+        values ('9999_unknown', 5, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 4",
+        "Migration ledger is not an exact registry prefix at position 5",
       );
     } finally {
       await database.dispose();
@@ -176,7 +174,7 @@ describe("Platform migrations", () => {
 
 async function expectTables(
   database: TestDatabase,
-  schema: "identity_principals" | "materials",
+  schema: "accounts" | "identity_principals" | "materials",
   expected: readonly string[],
 ): Promise<void> {
   const tables = await database.prisma.$queryRaw<

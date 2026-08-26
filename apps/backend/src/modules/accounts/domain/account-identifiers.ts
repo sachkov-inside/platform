@@ -1,0 +1,19 @@
+import { randomUUID } from "node:crypto";
+
+import { z } from "zod";
+
+declare const accountIdBrand: unique symbol;
+export type AccountId = string & { readonly [accountIdBrand]: true };
+
+export function newAccountId(): AccountId {
+  // This is the single constructor for UUIDs produced by the trusted runtime.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return randomUUID() as AccountId;
+}
+
+export function parseAccountId(value: unknown): AccountId | undefined {
+  const result = z.uuid().safeParse(value);
+  // Zod is the checked boundary for values read from storage or transport.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return result.success ? (result.data as AccountId) : undefined;
+}

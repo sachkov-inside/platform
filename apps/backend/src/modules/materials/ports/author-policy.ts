@@ -1,13 +1,5 @@
-export interface PublicationAuthorizationRequest {
-  readonly action: "publish" | "unpublish";
-  readonly principalId: string;
-  readonly materialId: string;
-  readonly revisionId: string;
-}
-
 export interface AuthorPolicy {
-  canAuthor(principalId: string): boolean | Promise<boolean>;
-  canPublish(request: PublicationAuthorizationRequest): boolean | Promise<boolean>;
+  canManage(accountId: string): boolean | Promise<boolean>;
 }
 
 export type AuthorAuthorization =
@@ -19,11 +11,12 @@ export type AuthorAuthorization =
         | { readonly code: "dependency_unavailable"; readonly retryable: true };
     };
 
-async function authorize(
-  check: () => boolean | Promise<boolean>,
+export async function authorizeManager(
+  policy: AuthorPolicy,
+  accountId: string,
 ): Promise<AuthorAuthorization> {
   try {
-    return (await check())
+    return (await policy.canManage(accountId))
       ? { ok: true }
       : { ok: false, error: { code: "forbidden" } };
   } catch {
@@ -32,18 +25,4 @@ async function authorize(
       error: { code: "dependency_unavailable", retryable: true },
     };
   }
-}
-
-export function authorizePublish(
-  policy: AuthorPolicy,
-  request: PublicationAuthorizationRequest,
-): Promise<AuthorAuthorization> {
-  return authorize(() => policy.canPublish(request));
-}
-
-export function authorizeAuthor(
-  policy: AuthorPolicy,
-  principalId: string,
-): Promise<AuthorAuthorization> {
-  return authorize(() => policy.canAuthor(principalId));
 }

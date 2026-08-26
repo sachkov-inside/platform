@@ -5,9 +5,7 @@ import { AudienceBoundLogtoClient } from "@/shared/auth/audience-bound-logto-cli
 import {
   bindAuthorizationCodeResource,
   clearLogtoSessionCookie,
-  createSignInAttempt,
-  decodeSignInAttemptCookie,
-  encodeSignInAttemptCookie,
+  hasLogtoSessionCookie,
   isSameOriginMutation,
   logtoSessionCookieName,
   parseLogtoBffConfig,
@@ -121,6 +119,8 @@ describe("Logto BFF configuration", () => {
 
   it("derives the SDK cookie key and accepts only same-origin mutations", () => {
     expect(logtoSessionCookieName("inside-web")).toBe("logto_inside-web");
+    expect(hasLogtoSessionCookie(["theme", "logto_inside-web"])).toBe(true);
+    expect(hasLogtoSessionCookie(["theme", "logto_"])).toBe(false);
     expect(
       isSameOriginMutation(
         new Request("https://inside.example.test/auth/sign-in", {
@@ -158,38 +158,5 @@ describe("Logto BFF configuration", () => {
       expires: new Date(0),
       maxAge: 0,
     });
-  });
-});
-
-describe("sign-in callback attempt", () => {
-  it("creates an opaque provider attempt with a ten-minute lifetime", () => {
-    const attempt = createSignInAttempt(new Date("2026-08-25T06:00:00.000Z"));
-
-    expect(attempt).toMatchObject({
-      expiresAt: "2026-08-25T06:10:00.000Z",
-      kind: "sign_in",
-      phase: "provider_pending",
-    });
-    expect(attempt.id).toMatch(/^[0-9a-f-]{36}$/u);
-  });
-
-  it("binds one opaque idempotency attempt and rejects tampering or expiry", () => {
-    const attempt = {
-      id: "72000000-0000-4000-8000-000000000010",
-      expiresAt: "2026-08-25T06:10:00.000Z",
-      kind: "sign_in" as const,
-      phase: "provider_pending" as const,
-    };
-    const encoded = encodeSignInAttemptCookie(attempt, secret);
-
-    expect(
-      decodeSignInAttemptCookie(encoded, secret, new Date("2026-08-25T06:00:00.000Z")),
-    ).toEqual(attempt);
-    expect(
-      decodeSignInAttemptCookie(`${encoded}x`, secret, new Date("2026-08-25T06:00:00.000Z")),
-    ).toBeUndefined();
-    expect(
-      decodeSignInAttemptCookie(encoded, secret, new Date("2026-08-25T06:10:00.000Z")),
-    ).toBeUndefined();
   });
 });
