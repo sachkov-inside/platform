@@ -105,16 +105,15 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
 
 | Actor | Подтверждённое состояние | Основная v1 job | Важная граница |
 |---|---|---|---|
-| Public visitor | Anonymous Subject, Platform account не требуется | Понять состав Membership, найти материал, прочитать free Material, увидеть teaser закрытого Material | Видит public projection, но closed body/assets/video не загружаются |
-| Authenticated non-member | Enabled Principal без активного entitlement: Telegram ещё не связан, Membership не найден либо evidence недоступно/устарело | Связать Telegram, проверить Membership, продолжать пользоваться public/free content | Сам факт login или Telegram link не даёт Membership |
-| Active member | Enabled Principal с current bounded `MembershipEntitlement` | Найти, прочитать, скачать и посмотреть доступный closed content; управлять read status/history | Каждая новая protected operation повторно проверяет доступ |
-| Expired member | Principal и Telegram link/history сохранены, но entitlement не активен | Понять причину закрытого состояния, проверить Membership после rejoin, продолжать читать free content | Потеря Membership не удаляет account, link, history или read states |
-| Author | Enabled Principal с explicit content permission; в v1 фактически Кирилл | Создать/revise Material, управлять metadata/resources, validate, preview, получить owner GO и publish | Author permission не является `MembershipEntitlement`; preview не означает publish authority |
-| Admin | Principal с explicit Platform administration permission; может совпадать с автором | Выполнять только подтверждённые privileged Platform operations | Policy tests различают author и admin, даже если обе permissions выданы Кириллу |
-| Owner agent | Service Principal через MCP с explicit permissions | Выполнить те же semantic authoring commands и получить те же validation/conflict outcomes | Не наследует browser session или human Membership; autonomous publish запрещён |
+| Public visitor | Anonymous Subject, Account не требуется | Понять состав Membership, найти материал, прочитать free Material, увидеть teaser закрытого Material | Видит public projection, но closed body/assets/video не загружаются |
+| Authenticated non-member | Account без активного entitlement: Telegram ещё не связан, Membership не найден либо evidence недоступно/устарело | Связать Telegram, проверить Membership, продолжать пользоваться public/free content | Сам факт login или Telegram link не даёт Membership |
+| Active member | Account с current bounded `MembershipEntitlement` | Найти, прочитать, скачать и посмотреть доступный closed content; управлять read status/history | Каждая новая protected operation повторно проверяет доступ |
+| Expired member | Account и Telegram link/history сохранены, но entitlement не активен | Понять причину закрытого состояния, проверить Membership после rejoin, продолжать читать free content | Потеря Membership не удаляет account, link, history или read states |
+| Author | Account с `materials:manage`; в v1 фактически Кирилл | Создать/revise Material, управлять metadata/resources, validate, preview, получить owner GO и publish | Permission не является `MembershipEntitlement`; preview не заменяет recorded owner GO |
+| Owner agent | User-delegated OAuth от owner Account | Выполнить те же semantic authoring commands и получить те же validation/conflict outcomes | Использует тот же `materials:manage`; autonomous publish запрещён |
 
 Access distinctions подтверждены общей matrix для anonymous, authenticated, active, expired,
-author и admin. ([ContentAccess matrix][access-matrix]) Email login, явное Telegram linking и
+author. ([ContentAccess matrix][access-matrix]) Email login, явное Telegram linking и
 сохранение account/history после окончания Membership заданы продуктовым brief.
 ([Platform actors][platform-brief-actors])
 
@@ -124,8 +123,8 @@ author и admin. ([ContentAccess matrix][access-matrix]) Email login, явное
 
 | Термин | Подтверждённое значение | Не называть/не моделировать как |
 |---|---|---|
-| `Principal` | Person или machine identity, распознанная Inside application | универсальный «user», если важно различать человека и service Principal |
-| `Subject` | Anonymous visitor или authenticated Principal, для которого принимается access decision | Telegram user или browser session |
+| `Account` | Stable local identity одного человека, authenticated через Logto | provider subject, email, session или machine identity |
+| `Subject` | Anonymous visitor или authenticated Account, для которого принимается access decision | Telegram user или browser session |
 | Membership signal | Наличие связанной Telegram identity в одном canonical closed Inside chat | Tribute subscription или payment status |
 | `MembershipEvidence` | Нормализованное наблюдение Membership signal с конечным сроком действия | raw Telegram status или permanent member flag |
 | `MembershipEntitlement` | Ограниченный по времени Platform grant для closed content | IdP/Telegram role или subscription |
@@ -154,7 +153,7 @@ mapping и resource mismatch пользователю не раскрывают�
 | `Video` | Local identity с Kinescope mapping; revision ссылается по local ID | Provider status не заменяет publication/access state |
 | `ExternalLink` | Typed label + normalized URL, 0..N на revision | Link — часть Material, не отдельный Format и не entity by URL |
 | `NavigationPage` | Editorial title/body + curated/query links | Roadmap — editorial/navigation page, а не Material, Topic или duplicated library table |
-| `ReadingState` | Не более одного current state на Principal/Material | Только `прочитано / не прочитано`; history — отдельный bounded personal projection |
+| `ReadingState` | Не более одного current state на Account/Material | Только `прочитано / не прочитано`; history — отдельный bounded personal projection |
 
 Cardinalities и roles закреплены repository-local application specification.
 ([Platform logical model][platform-spec-logical-model]) «Создание Platform Inside» подтверждена как
@@ -224,7 +223,7 @@ states этого brief.
    projection and teaser, but no closed bytes; inline offer gives `Вступить в Мастерскую` →
    `https://sachkov.dev` and `Войти` for an existing participant, preserving the Material return
    destination.
-3. **Link and unlock.** After email-code sign-in, Principal sees a skippable Telegram-link prompt.
+3. **Link and unlock.** After email-code sign-in, Account sees a skippable Telegram-link prompt.
    Linking remains in Account and the closed-Material flow; callback keeps link and Membership as
    separate states, then retries the original operation. Only current `ContentAccess` allow opens
    the body.
@@ -281,7 +280,7 @@ states этого brief.
 | R28 | Validation and exact revision preview | Author checks publishability and rendered result | Editor + Preview | valid, warnings, structured errors, dependency unavailable; preview exact revision, no-store | [Workspace authoring flow][workspace-authoring-flow] |
 | R29 | Optimistic conflict | Author/MCP edits stale base revision | Editor conflict state; MCP structured outcome | `409`, current revision, no last-write-wins; recover/reapply decision without silent overwrite | [Workspace authoring flow][workspace-authoring-flow] |
 | R30 | Revisions, restore, publish/unpublish | Author manages lifecycle | Editor/revision history + Preview + publish confirmation | compare/select/restore, final validation, explicit owner GO, success/failure; draft remains private | [Workspace authoring flow][workspace-authoring-flow], [Stage 1 contract][workspace-stage1] |
-| R31 | MCP parity | Owner agent creates/edits/validates/previews/prepares content | `No UI` for MCP; outcomes visible in Author surfaces | same semantic commands, validation and `409`; separate service Principal; recorded owner GO for publish | [Workspace MCP flow][workspace-mcp-flow] |
+| R31 | MCP parity | Owner agent creates/edits/validates/previews/prepares content | `No UI` for MCP; outcomes visible in Author surfaces | same semantic commands, validation and `409`; user-delegated owner Account; recorded owner GO for publish | [Workspace MCP flow][workspace-mcp-flow] |
 | R32 | Manual recreation, no Telegram import | Author recreates current content in target structure | Author editor only; `No UI` for importer/migration | no import wizard, mapping report, dedupe or migration progress | [Workspace v1 scope][workspace-v1-scope] |
 | R33 | Telegram announcements/community remain external | Reader follows existing community lifecycle outside Platform | `No UI` required for messaging/comments; optional external link only after separate decision | no Platform comments, notification center, bot commands or mandatory per-Material discussion link | [Workspace v1 scope][workspace-v1-scope] |
 | R34 | Platform does not bill/manage subscription | Visitor sees inline Membership offer and completes acquisition externally | Closed Material offer; `No UI` for checkout/subscription management | `Вступить в Мастерскую` opens `https://sachkov.dev`; no prices/plans/payment history/cancel controls or Tribute integration | [Platform actors][platform-brief-actors] |
@@ -329,18 +328,18 @@ states этого brief.
 | Surface | Actor | Observable state | Разрешённые действия | Запрещённое следствие |
 |---|---|---|---|---|
 | Home | Public visitor | Public composition: ready / loading / partial / empty | Открыть Library, Roadmap, Topic, Series или Material | Не показывать fake personal progress |
-| Home | Any authenticated human Principal | Public composition + empty/populated recent/read layer | Открыть доступный Material, вручную mark read/unread, открыть Account; author area только при permission | History/permission не grant-ят closed access и не создают общий course percentage |
+| Home | Any authenticated human Account | Public composition + empty/populated recent/read layer | Открыть доступный Material, вручную mark read/unread, открыть Account; author area только при permission | History/permission не grant-ят closed access и не создают общий course percentage |
 | Library/search | Все | Initial / searching / results / no results / controlled failure | Ввести query, применить/сбросить доступные real-data filters, открыть card | Не искать client-side по закрытому body и не выдумывать facets |
 | Topic | Все | Ready / empty / partial | Открыть Series или Material, перейти в Library с Topic context | Не хранить отдельную копию Material metadata |
 | Series | Все | Ready / empty / partial / long ordered list | Открыть episode; authenticated actor видит read/unread | Не скрывать порядок closed Series и не вычислять percent complete |
 | Roadmap | Все | Ready / partial links / editorial empty | Следовать curated/query links в generated views и Materials | Не превращать Roadmap в Topic, Series или duplicated catalog |
 | Free Material | Все | Body ready / loading / long / resource partial | Read, play/download free Resources, открыть related; authenticated — mark read/unread | Не требовать account или Membership |
 | Closed Material | Public visitor | Public teaser + `membership_offer` | `Вступить в Мастерскую` → `https://sachkov.dev`; `Войти` для existing participant | Не fetch/render closed body, Asset URL или Video token |
-| Closed Material | Authenticated unlinked Principal | Public teaser + `link_required` | Связать Telegram, пропустить и продолжить free content, либо открыть Membership offer | Не считать login активным Membership |
+| Closed Material | Authenticated unlinked Account | Public teaser + `link_required` | Связать Telegram, пропустить и продолжить free content, либо открыть Membership offer | Не считать login активным Membership |
 | Closed Material | Linked non-member | Public teaser + `membership_inactive` | Проверить снова; `Вступить в Мастерскую` → `https://sachkov.dev` | Не показывать billing/subscription controls Platform |
 | Closed Material | Expired member | Public teaser + `membership_expired` | Проверить снова после rejoin; открыть history/free content | Не удалять account, Telegram link, history или read state |
 | Closed Material | Active member | `allowed`, exact published revision | Read body; отдельно authorize image/download/video; mark read/unread | Не reuse одного allow для другой Resource/Action |
-| Closed Material | Author/admin | `allowed_by_permission` для read/preview | Read published или открыть explicit Preview revision | Не превращать permission в fake `MembershipEntitlement` |
+| Closed Material | Author | `allowed_by_permission` для read/preview | Read published или открыть explicit Preview revision | Не превращать permission в fake `MembershipEntitlement` |
 | Closed Material | Любой protected actor | `temporarily_unavailable` после stale/outage | Retry/Check again; продолжить public/free navigation | Не fail open и не раскрывать provider/internal reason |
 | Resource внутри allowed Material | Allowed actor | Loading / ready / unavailable; Video также processing/unsupported | Read/download/play только конкретную Resource; retry bounded failure | Не делать весь text body недоступным из-за одного Video/Asset |
 | Related Materials | Все | Populated / empty / partial | Открыть public card | Не объяснять internal score и не обещать AI recommendations |
@@ -350,14 +349,14 @@ states этого brief.
 | Surface | Actor | Observable state | Разрешённые действия | Запрещённое следствие |
 |---|---|---|---|---|
 | Sign-in handoff | Public visitor | Start / code sent / input / rate-limited / failed / success | Ввести email/code, resend when allowed; после success связать Telegram или пропустить; return | Не принимать Membership решение внутри identity UI |
-| Account | Authenticated unlinked Principal | `telegram_not_linked` | Start Telegram link, sign out | Не предлагать заменить уже связанную identity без recovery policy |
+| Account | Authenticated unlinked Account | `telegram_not_linked` | Start Telegram link, sign out | Не предлагать заменить уже связанную identity без recovery policy |
 | Account | Linked non-member / expired | Linked identity + inactive/expired/unavailable coarse state | Check again, открыть approved recovery destination | Не показывать raw Telegram status/evidence timestamps как authority |
 | Account | Active member | Linked + active coarse state | Check again when allowed, open Library/history | Не давать Platform subscription management |
-| Telegram callback/result | Authenticated human | Pending / linked-active / linked-inactive / denied / expired / replay / conflict / unavailable | Finish, retry safe step, return to Account; conflict — support/owner recovery | Не auto-merge two Principals или silently replace link |
+| Telegram callback/result | Authenticated human | Pending / linked-active / linked-inactive / denied / expired / replay / conflict / unavailable | Finish, retry safe step, return to Account; conflict — support/owner recovery | Не auto-merge two Accounts или silently replace link |
 | Recent history | Authenticated human | Empty / populated / referenced Material unpublished | Open still-visible Material, mark read/unread, return to Library | Не grant closed access from historical presence |
-| Author material list | Author/admin | Loading / empty / populated / controlled failure | Create Material, open draft/published item | Не показывать author actions обычному member |
-| Author editor | Author/admin | Clean / dirty / saving / saved | Edit document/metadata; validate; attach ready Resources; open Preview | Не save/publish invalid or processing Resource optimistically |
-| Author editor | Author/admin | Validation warning/error | Navigate to field/block, fix, validate again | Не сводить structured errors к одному toast |
+| Author material list | Author | Loading / empty / populated / controlled failure | Create Material, open draft/published item | Не показывать author actions обычному member |
+| Author editor | Author | Clean / dirty / saving / saved | Edit document/metadata; validate; attach ready Resources; open Preview | Не save/publish invalid or processing Resource optimistically |
+| Author editor | Author | Validation warning/error | Navigate to field/block, fix, validate again | Не сводить structured errors к одному toast |
 | Author editor | Author/admin | Uploading / processing / failed / ready | Pause/retry where supported, edit metadata, attach only when ready | Не сохранять blob/provider URL в canonical document |
 | Author editor | Author/admin | `409 conflict` | Compare current/base, copy/reapply intended change, reload exact current revision | Не last-write-wins и не overwrite молча |
 | Author preview | Author/admin | Loading / exact revision / resource unavailable / validation blocked | Inspect responsive reading, return to same revision, request final validation | Не mutate draft или published pointer |

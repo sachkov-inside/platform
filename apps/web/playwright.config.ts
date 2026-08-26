@@ -14,6 +14,7 @@ export default defineConfig({
   use: {
     baseURL,
     screenshot: "only-on-failure",
+    storageState: process.env.EVIDENCE_STORAGE_STATE,
     trace: "retain-on-failure",
   },
   projects: [
@@ -38,6 +39,10 @@ export default defineConfig({
     command: captureEvidence
       ? `pnpm build && pnpm start --hostname 127.0.0.1 --port ${port}`
       : `pnpm dev --hostname 127.0.0.1 --port ${port}`,
+    env: {
+      BACKEND_BASE_URL:
+        process.env.PLAYWRIGHT_BACKEND_BASE_URL ?? "http://127.0.0.1:1",
+    },
     url: baseURL,
     reuseExistingServer: false,
     stdout: "ignore",

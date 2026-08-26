@@ -6,7 +6,7 @@
 [Platform #58](https://github.com/sachkov-inside/platform/issues/58) Materials boundary decision,
 [Platform #19](https://github.com/sachkov-inside/platform/issues/19) parallel UI laboratory и
 production frontend integration, а также отдельным
-[Platform #48](https://github.com/sachkov-inside/platform/issues/48) Identity, Platform Account и
+[Platform #48](https://github.com/sachkov-inside/platform/issues/48) Identity, Account и
 Member Profile track.
 
 Дата: 2026-08-23.
@@ -15,7 +15,7 @@ Member Profile track.
 
 Platform v1 является каноническим домом материалов Inside. Автор вручную создаёт и публикует
 материалы; публичный посетитель находит и читает открытый контент; участник управляет private
-Platform Account и отдельным Member Profile, связывает Platform Account с Telegram и получает
+Account и отдельным Member Profile, связывает Account с Telegram и получает
 закрытый контент, пока состоит в каноническом закрытом chat.
 
 Этот документ владеет application contract: capability modules, logical model, flows,
@@ -44,12 +44,12 @@ consequences:
 - один provider-neutral `ContentAccess` является final Platform authority для read, preview,
   asset/download и video access, а `MembershipEntitlements` только строит bounded Platform grant
   из принятого evidence;
-- Identity Provider доказывает External Identity, но только Platform сопоставляет её с Principal,
-  создаёт Platform Session и решает permissions/content access;
-- private Platform Account не является member-visible projection, а Member Profile не является
+- Identity Provider доказывает Logto Identity, но только Platform сопоставляет её с Account и
+  решает permissions, Membership и content access;
+- private Account не является member-visible projection, а Member Profile не является
   identity, Membership или authorization input;
 - Member Profile доступен только active members; anonymous visitor, non-member и crawler не
-  получают projection или sensitive Platform Account/identity/link/evidence/security data;
+  получают projection или sensitive Account/identity/link/evidence/security data;
 - PostgreSQL projections обеспечивают Library, Topic/Series navigation, search и related Materials;
 - ReadingState не участвует в access decision и сохраняется при окончании Membership;
 - owner-controlled `https://sachkov.dev` landing является только outbound acquisition destination:
@@ -92,7 +92,7 @@ throwaway prototype:
 | Backend | один NestJS + Fastify codebase с thin demand-driven process entrypoints; сейчас `api` и `mcp` |
 | Application contract | REST + OpenAPI; transports не владеют application rules |
 | Transactional store | PostgreSQL 18 |
-| Data access | Kysely + `pg`, checked-in migrations as authority и generated DB types |
+| Data access | Prisma 7 + `@prisma/adapter-pg` — единственный application ORM для всех persistent capabilities; capability-scoped clients ограничивают delegates; checked-in append-only SQL migrations с checksum остаются authority |
 | Jobs | `pg-boss`; dependency, capability-specific worker и queue появляются вместе с первым durable job |
 | Search | PostgreSQL FTS с bounded RU/EN normalization и ranking fixtures |
 | Content document | versioned ProseMirror JSON, Tiptap adapter, immutable revisions, safe renderer и semantic commands |
@@ -107,7 +107,7 @@ foundations. Их scope и acceptance распределены по vertical cap
 [#90](https://github.com/sachkov-inside/platform/issues/90),
 [#91](https://github.com/sachkov-inside/platform/issues/91),
 [#93](https://github.com/sachkov-inside/platform/issues/93) и
-[#29](https://github.com/sachkov-inside/platform/issues/29). Отдельных Kysely/Drizzle и
+[#29](https://github.com/sachkov-inside/platform/issues/29). Отдельных ORM comparison stages и
 ProseMirror/Portable Text comparison stages нет. Если implementation выявляет конкретный blocker,
 owning PR фиксирует evidence и migration impact и предлагает smallest production change; два
 параллельных data или document path не поддерживаются.
@@ -115,11 +115,11 @@ owning PR фиксирует evidence и migration impact и предлагае�
 Owner выбрал Logto OSS как единственный application proof target; Better Auth исключён и не
 остаётся fallback. Target использует отдельные Logto deployable/database/migration authority,
 owner-maintained Experience UI fork и external email connector. Browser проходит authorization
-code flow со state + S256 PKCE без nonce; BFF хранит provider context server-side и предъявляет
-Nest Logto access JWT для exact Platform audience + opaque local sessionRef. Platform JWT и второй
-signing-key lifecycle не вводятся. Platform Session имеет absolute maximum 7 days без sliding
-extension; access JWT и recent re-auth fact — maximum 5 minutes. Different external identity с уже
-известным verified email даёт hard `identity_conflict`, не second Principal или merge.
+code flow со state + S256 PKCE без nonce; BFF хранит provider context только в official
+`@logto/next` cookie и предъявляет Nest Logto access JWT для exact Platform audience. Platform JWT,
+second session cookie/database row и второй signing-key lifecycle не вводятся. Access JWT живёт не
+более 5 minutes. Different Logto identity с уже известным verified email даёт hard
+`identity_conflict`, не second Account или merge.
 
 Нормативные application flow и proof gates находятся в
 [`idp-application-flow-v1.md`](idp-application-flow-v1.md), module interface — в
@@ -156,29 +156,35 @@ production trade-off подтверждён evidence, а не заранее д�
 
 - Один `apps/backend` остаётся modular monolith. Capability modules имеют малые public interfaces,
   internal implementations и явно объявленные dependencies; entrypoints остаются thin adapters.
-- Platform-owned PostgreSQL pool/Kysely composition, generated types и один migration authority
-  принадлежат `infrastructure/postgres`; capability persistence остаётся internal.
+- Platform-owned Prisma client/driver lifecycle и один migration authority принадлежат shared
+  infrastructure; capability-scoped Prisma types and persistence remain internal.
+- Каждый capability Module с persistent application state владеет одной PostgreSQL schema с
+  module-derived именем. Только implementation и migrations владельца обращаются к её объектам;
+  cross-schema queries, views, foreign keys и writes между Modules запрещены, а взаимодействие
+  проходит через public interfaces. Stateless Modules не получают пустые schemas. Это
+  архитектурная граница владения поверх общей runtime role, а не security boundary; полный rationale
+  зафиксирован в [ADR 0003](../adr/0003-one-postgresql-schema-per-state-owning-module.md).
 - Новый workspace package, process или separately deployable module допустим только после доказанной
   operational/domain seam. Speculative packages и generic layer folders запрещены.
 - Один глубокий `Materials` module предоставляет caller-oriented facets `MaterialAuthoring` и
-  `PublishedMaterialReader`; generic command bus не вводится. `createMaterials` является одной
-  canonical assembly для Nest adapter и acceptance tests.
+  `PublishedMaterialReader`; generic command bus не вводится. `assembleMaterials` является одной
+  canonical framework-agnostic assembly для acceptance tests, seeds и non-Nest entrypoints; Nest
+  напрямую связывает только facets с реальными production consumers.
 - Public interface использует domain names без storage suffix: `MaterialBodySnapshot` и
   `RenderedMaterialBody`. Persisted body сохраняет явный schema discriminator, а exact codec names
   могут содержать `V1` внутри implementation.
-- Пока production `IdentityPrincipals` owner module не существует и ни один entrypoint не
-  импортирует `MaterialsModule`, Nest adapter может принимать временный `AuthorPolicy` через
-  dynamic registration. С первым реальным caller он становится static, получает composition test
-  и явно связывает принятую anonymous/read-only baseline policy. Когда появляется production
-  authorization owner, static module импортирует его provider; placeholder/global policy ради
-  декоративного graph не создаётся.
+- Production `Accounts` owner module использует тот же singleton Prisma lifecycle через
+  capability-scoped client. `MaterialsModule` ещё не потребляет этот facet и
+  использует принятую anonymous/read-only baseline policy внутри published-reading assembly.
+  Межмодульный provider export и static import появятся вместе с первым реальным authorization
+  consumer; placeholder/global policy ради декоративного graph не создаётся.
 
 ### Validation, results and write atomicity
 
 - Transport adapter проверяет protocol и input shape и сопоставляет trusted identity с
-  `PrincipalId`; он не владеет business rules.
+  `AccountId`; он не владеет business rules.
 - `MaterialAuthoring` владеет permissions, author workflow, metadata policy и координацией reference
-  preconditions через public interfaces `IdentityPrincipals`, `Assets` и `Videos`.
+  preconditions через public interfaces `Accounts`, `Assets` и `Videos`.
 - Internal `MaterialBody` module владеет versioned document schema, validation, migration, safe
   render и extraction. Отдельный public `ContentSchema` capability появляется только вместе с
   независимым caller; единственная Tiptap implementation не оборачивается в speculative port.
@@ -187,9 +193,9 @@ production trade-off подтверждён evidence, а не заранее д�
 - Application operations возвращают discriminated transport-neutral results со stable codes.
   Каждая operation экспортирует только собственный error union.
   REST отображает их в RFC 9457 Problem Details; MCP использует те же codes без HTTP vocabulary.
-- Application operation владеет Kysely transaction. `baseRevisionId` реализует optimistic
+- Materials application operation владеет Prisma transaction. `baseRevisionId` реализует optimistic
   compare-and-set; stale base возвращает conflict, blind partial retry и last-write-wins запрещены.
-- Idempotency scope — Principal + operation + key. Request fingerprint, stable result/effect и write
+- Idempotency scope — Account + operation + key. Request fingerprint, stable result/effect и write
   сохраняются в одной transaction; повтор с тем же payload воспроизводит result, другой payload с
   тем же key возвращает mismatch. Caller повторяет uncertain request с тем же key.
 
@@ -205,7 +211,7 @@ production trade-off подтверждён evidence, а не заранее д�
   integration run с isolation, сохраняющей real commit/rollback и multiple-connection semantics.
   Exact dependency version и isolation mechanics принадлежат #30 implementation brief.
 - Platform-local shared strict TypeScript base, type-aware typescript-eslint, frontend/backend
-  import rules и generated DB type drift checks приняты как future enforcement. #27 не добавляет
+  import rules и Prisma schema mapping checks приняты как future enforcement. #27 не добавляет
   dependencies, lint/config/CI rules и не меняет shared harness.
 - Для engineering choices #27 не создаёт ADR и отдельные prototype/proof tickets. #30 фиксирует
   exact versions, types, SQL и test isolation в required implementation brief и доказывает их
@@ -225,15 +231,15 @@ Entry points вызывают одни application use cases и не созда�
 
 | Module | Малый interface | Owned facts |
 |---|---|---|
-| `IdentityPrincipals` | сопоставить trusted external identity/session с local Principal, Subject и permissions | Principal, identity/session mapping, security status и permissions |
-| `AccountProfiles` | предоставить private Platform Account и управлять отдельной member-visible Member Profile projection | owner Platform Account projection, Member Profile visibility/content/version |
+| `Accounts` | establish/resolve trusted Logto identity в local Account и проверить exact permission | Account mapping, email fingerprint, permissions и redacted audit |
+| `AccountProfiles` | предоставить private Account и управлять отдельной member-visible Member Profile projection | owner Account projection, Member Profile visibility/content/version |
 | `Materials` | `MaterialAuthoring` создаёт, изменяет, проверяет, preview/publish/restore-ит Material; `PublishedMaterialReader` читает exact published revision | revision/publication pointers, author policy, internal body schemas, safe public/search projections |
 | `ContentLibrary` | читать projections, search и навигацию, находить related Materials | published projections, ranking и explicit related pins |
 | [`ContentAccess`](content-access-authorization-v1.md) | batch `availabilityMany` для presentation и `authorizeMany` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
 | `MembershipEntitlements` | принять MembershipEvidence и построить Platform-owned entitlement | state, validity и refresh coordination |
 | `Assets` | начать/finalize upload, связать с revision и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
-| `ReadingActivity` | idempotently mark read/unread и вернуть recent history | Principal-to-Material reading state; не content access |
+| `ReadingActivity` | idempotently mark read/unread и вернуть recent history | Account-to-Material reading state; не content access |
 
 Transaction semantics принадлежат единому
 [write atomicity contract](#validation-results-and-write-atomicity), а verification seams —
@@ -241,7 +247,7 @@ Transaction semantics принадлежат единому
 ports и test adapters. Generic
 multi-provider abstraction появляется только со вторым реальным adapter; `ContentAccess` является
 provider-neutral потому, что его policy используют несколько delivery callers.
-`AccountProfiles` координирует две projections одного human Principal, но Platform Account и Member
+`AccountProfiles` координирует две projections одного human Account, но Account и Member
 Profile имеют независимые authorization и view contracts: ни одна projection не строится из
 другой и не разделяет с ней sensitive fields.
 
@@ -252,10 +258,8 @@ entities и invariants v1:
 
 | Entity | Cardinality / invariant |
 |---|---|
-| `Principal` | одна local identity; 0..1 Telegram link; roles и permissions принадлежат Platform |
-| `ExternalIdentity` | trusted provider identity принадлежит ровно одному Principal; changeable profile data не является merge key |
-| `PlatformAccount` | не более одного private Platform Account на human Principal; identity/security/linking state не публикуется |
-| `MemberProfile` | 0..1 member-visible projection на human Principal; active members only; никогда не authorization input |
+| `Account` | одна local human identity; unique Logto issuer + subject; 0..1 Telegram link; permissions принадлежат Platform |
+| `MemberProfile` | 0..1 member-visible projection на Account; active members only; никогда не authorization input |
 | `Material` | stable identity и slug; ровно один current draft; 0..1 published revision |
 | `MaterialRevision` | immutable full snapshot; принадлежит ровно одному Material |
 | `Topic` | Material имеет ровно один Topic; dictionary одноуровневый |
@@ -267,8 +271,8 @@ entities и invariants v1:
 | `Video` | local identity с одним Kinescope provider mapping; MaterialRevision ссылается на 0..N Videos |
 | `ExternalLink` | typed label + normalized URL; MaterialRevision содержит 0..N links |
 | `NavigationPage` | editorial content и curated/query links; Roadmap использует эту роль |
-| `MembershipEntitlement` | не более одного current `inside_membership` projection на Principal; validity bounded |
-| `ReadingState` | не более одного current state на пару Principal/Material |
+| `MembershipEntitlement` | не более одного current `inside_membership` projection на Account; validity bounded |
+| `ReadingState` | не более одного current state на пару Account/Material |
 
 `MaterialRevision` содержит application-owned versioned document, metadata snapshot и local
 Asset/Video references. HTML, React tree, search text, signed URLs, provider tokens и editor state
@@ -292,7 +296,7 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 
 1. Admin или MCP вызывает explicit application operation с identifiers, concurrency и idempotency
    inputs из [write atomicity contract](#validation-results-and-write-atomicity).
-2. `MaterialAuthoring` проверяет permissions через `IdentityPrincipals`, владеет workflow/metadata
+2. `MaterialAuthoring` проверяет permissions через `Accounts`, владеет workflow/metadata
    policy, координирует reference preconditions через `Assets`/`Videos`, делегирует document
    validation/migration во внутренний `MaterialBody` module и сохраняет immutable revision в одной
    transaction.
@@ -314,28 +318,23 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 4. Closed body, access decision и delivery credentials имеют `private, no-store`; protected
    speculative prefetch запрещён.
 
-### Sign-in, Platform Account и Member Profile
+### Sign-in, Account и Member Profile
 
-1. Forked Logto Experience UI доказывает human External Identity через email-code authorization
-   code flow. Next BFF владеет state/S256 PKCE, callback и protected provider context; browser
-   JavaScript не получает token или sessionRef.
+1. Forked Logto Experience UI доказывает human Logto Identity через email-code authorization
+   code flow. Official Next BFF SDK владеет state/S256 PKCE, callback и protected provider context;
+   browser JavaScript не получает token.
 2. На первом callback Nest валидирует один Logto access JWT, exact issuer/audience/time/subject и
-   Logto-signed `inside_verified_email`, затем `IdentityPrincipals.establishHumanSession` atomically сопоставляет
-   `(issuer, subject)` с ровно одним Principal. Повторный request предъявляет server-to-server
-   access JWT + sessionRef; Nest снова валидирует identity, а module — active matching session.
+   Logto-signed `inside_verified_email`, затем `Accounts.establishAccount` atomically сопоставляет
+   `(issuer, subject)` с ровно одним Account. Повторный request предъявляет server-to-server access
+   JWT и может только разрешить уже существующий Account.
    Provider roles/claims не дают Platform permissions или Membership content access.
-3. Human и service identity используют разные application commands/adapters. Human sign-in может
-   создать Principal; service Principal только pre-provisioned и не наследует human Account,
-   Profile, Membership или grants. Duplicate verified email другой identity даёт
-   `identity_conflict` до audited recovery.
-4. Sign-out немедленно уничтожает persisted BFF context, затем bounded best-effort завершает local
-   session и provider refresh/end-session. Re-auth использует новый `prompt=login` access JWT с
-   `inside_interactive_at` не старше 5 minutes и one-time attempt, заранее связанный с sessionRef;
-   refresh grant не получает этот claim и assurance не обновляет.
-5. Human Principal управляет private Platform Account с identity/security, Telegram linking,
-   Membership и recovery states. Service Principal не получает human Platform Account, Member
-   Profile или Membership.
-6. `AccountProfiles` хранит и авторизует Member Profile отдельно от Platform Account. Exact fields,
+3. Duplicate verified email другой identity даёт `identity_conflict` до audited recovery. Обычный
+   protected request никогда не provision-ит Account.
+4. Sign-out делегируется official Logto SDK: local provider context очищается, refresh revoke и
+   provider end-session выполняются provider flow. Local Platform session отсутствует.
+5. Account позже получает private projection с profile, Telegram linking, Membership и recovery;
+   эти поля не входят в identity foundation.
+6. `AccountProfiles` хранит и авторизует Member Profile отдельно от Account. Exact fields,
    avatar, moderation и discoverability утверждаются в
    [#51](https://github.com/sachkov-inside/platform/issues/51) до production implementation.
 7. Только active member получает accepted Member Profile projection другого участника. Anonymous,
@@ -344,8 +343,8 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 
 ### Membership linking и refresh
 
-1. После email-code sign-in Platform предлагает skippable linking; signed-in Principal начинает
-   short-lived link transaction сразу, позже из Platform Account или из closed-Material recovery
+1. После email-code sign-in Platform предлагает skippable linking; signed-in Account начинает
+   short-lived link transaction сразу, позже из Account или из closed-Material recovery
    flow.
 2. Отдельная Telegram application проверяет Telegram identity, uniqueness и Membership в
    каноническом закрытом chat.
@@ -381,9 +380,10 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 
 ### MCP
 
-- MCP аутентифицируется как отдельный service Principal с explicit author permissions;
+- MCP сначала аутентифицируется user-delegated OAuth token владельца Account с
+  `materials:manage`; отдельная technical identity не создаётся без independent consumer;
 - tools вызывают те же semantic commands, validation results и conflicts, что admin;
-- read/preview resources проходят `ContentAccess`; service Principal не наследует human Membership;
+- read/preview resources проходят `ContentAccess`;
 - publish разделён на prepare/execute с отдельным recorded owner GO; autonomous publish запрещён.
 
 ## Application NFR
@@ -391,7 +391,7 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 ### Security и privacy
 
 - protected paths fail closed; identity, Telegram и provider role не заменяют Platform authorization;
-- private Platform Account и member-visible Member Profile используют разные projections; email,
+- private Account и member-visible Member Profile используют разные projections; email,
   provider claims, internal/Telegram identifiers, link/evidence и security/audit state не
   публикуются;
 - cookie session использует `Secure`, `HttpOnly` и explicit `SameSite`; mutations проверяют CSRF и Origin;
@@ -406,7 +406,7 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
   server-rendered metadata, sitemap и crawlable internal links;
 - closed card может индексироваться, но closed body отсутствует в HTML, RSC, structured data,
   search response и shared cache;
-- draft, preview, admin, Platform Account, Member Profile и MCP surfaces имеют `noindex` и не
+- draft, preview, admin, Account, Member Profile и MCP surfaces имеют `noindex` и не
   входят в sitemap.
 
 ### Accessibility и responsive behavior
@@ -440,7 +440,7 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    [Research artifact](../research/platform-v1-engineering-contract.md) сохраняет evidence и
    rationale; #27 не меняет harness, agent instructions или production code.
 3. **Create и revise draft:** [#30](https://github.com/sachkov-inside/platform/issues/30) одним
-   production slice добавляет create/load/revise Material, минимальные PostgreSQL/Kysely migrations,
+   production slice добавляет create/load/revise Material, минимальные PostgreSQL migrations,
    versioned ProseMirror/Tiptap document path, immutable revisions, metadata, idempotency и conflicts.
    До кода owner утверждает implementation brief с modules/interfaces, file layout, validation flow,
    transaction boundary и tests. До этого решения ticket имеет `ready-for-human`; после approval
@@ -457,7 +457,7 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    [#93](https://github.com/sachkov-inside/platform/issues/93) последовательно добавляют RU/EN
    search, URL facets/sort и Topic/Series/related navigation. Safe agent authoring
    [#29](https://github.com/sachkov-inside/platform/issues/29) остаётся thin MCP adapter и ждёт
-   production IdentityPrincipals, ContentAccess и application-owned prepare-publication contract.
+   production Accounts, ContentAccess и application-owned prepare-publication contract.
 6. **Technical frontend foundation:** завершённая
    [#36](https://github.com/sachkov-inside/platform/issues/36) создала в существующем `apps/web`
    App Router/FSD composition, server-only backend seam, root layouts, routes/navigation
@@ -479,7 +479,7 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    Library #90 продвигают принятые presentation modules и real backend data каждый в одном
    production vertical slice; #91 и #93 расширяют уже работающий Library journey. Для authoring
    [#38](https://github.com/sachkov-inside/platform/issues/38) сначала получает отдельный
-   owner-accepted Storybook proof Editor/exact Preview; после proof и working Principal/session #49
+   owner-accepted Storybook proof Editor/exact Preview; после proof и working Account #49
    [#94](https://github.com/sachkov-inside/platform/issues/94) поставляет production create + exact
    Preview, а [#95](https://github.com/sachkov-inside/platform/issues/95) — safe revise и conflict
    recovery. Каждый production ticket использует принятые UI public interfaces/tokens, соединяет
@@ -489,10 +489,10 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    provenance, не gates.
 10. **Parallel Identity/Membership track:** отдельная root Specification
    [#48](https://github.com/sachkov-inside/platform/issues/48) владеет Platform identity,
-   authorization, private Platform Account и Member Profile delivery. После repository-local sync
+   authorization, private Account и Member Profile delivery. После repository-local sync
    #53
    [#49](https://github.com/sachkov-inside/platform/issues/49) начинается поверх завершённой #30 и
-   доказывает External Identity → Principal → Platform Session path параллельно #31 и UI lane.
+   доказывает Logto Identity → Account path параллельно #31 и UI lane.
    [#50](https://github.com/sachkov-inside/platform/issues/50) ждёт #49/#31 и проводит реальные
    protected resources через `ContentAccess` и test Membership adapter. Member Profile brief
    [#51](https://github.com/sachkov-inside/platform/issues/51) может идти сразу параллельно;
@@ -518,12 +518,12 @@ flowchart TD
     C66 --> P53[Platform #53: local contract sync]
     C66 --> B60[Workspace #60: Telegram repository bootstrap]
 
-    DRAFT[Platform #30: create/revise] --> ID49[Platform #49: IdP + Principal + session]
+    DRAFT[Platform #30: create/revise] --> ID49[Platform #49: IdP + Account]
     P53 --> ID49
     ID49 --> ACCESS50[Platform #50: ContentAccess + test adapter]
     LIFE[Platform #31: publish/read] --> ACCESS50
 
-    S65 --> PROFILE51[Platform #51: Platform Account + Member Profile brief]
+    S65 --> PROFILE51[Platform #51: Account + Member Profile brief]
     ID49 -. persistence input .-> PROFILE51
     LAB[Platform #45] --> SHELL[Platform #46]
     SHELL -. production UI input .-> PROFILE51

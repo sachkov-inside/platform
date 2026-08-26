@@ -18,7 +18,8 @@ if (existsSync(environmentPath)) {
 const apiPort = process.env.API_PORT ?? "3001";
 const apiBaseUrl =
   process.env.BACKEND_BASE_URL ?? `http://127.0.0.1:${apiPort}`;
-const webBaseUrl = "http://127.0.0.1:3000";
+const webPort = process.env.FULLSTACK_WEB_PORT ?? "3000";
+const webBaseUrl = `http://127.0.0.1:${webPort}`;
 const childEnvironment = { ...process.env };
 childEnvironment.NODE_ENV ??= "development";
 const processes = [];
@@ -51,7 +52,7 @@ try {
         "--hostname",
         "127.0.0.1",
         "--port",
-        "3000",
+        webPort,
       ],
       {
         ...childEnvironment,
@@ -74,7 +75,7 @@ try {
   });
 
   process.stdout.write(
-    `Full-stack smoke passed: Reader ${webBaseUrl}/materials/inside-platform-overview; live API ${apiBaseUrl}; PostgreSQL reachable\n`,
+    `Full-stack smoke passed: Library ${webBaseUrl}/library; Reader ${webBaseUrl}/materials/inside-platform-overview; live API ${apiBaseUrl}; PostgreSQL reachable\n`,
   );
 } catch (error) {
   if (interruptedSignal === undefined) {

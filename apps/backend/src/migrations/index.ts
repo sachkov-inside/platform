@@ -1,26 +1,45 @@
-import type { Migration, MigrationProvider } from "kysely/migration";
-
 import {
   runMigrationsToLatest,
   type MigrationOutcome,
 } from "../infrastructure/postgres/migrate-to-latest.js";
-import type { PlatformDatabase } from "../infrastructure/postgres/platform-database.js";
-import * as materialAuthoringMigration from "../modules/materials/infrastructure/postgres/migrations/0001_content_authoring.js";
-import * as materialLifecycleMigration from "../modules/materials/infrastructure/postgres/migrations/0002_material_lifecycle.js";
+import {
+  name as identityPrincipalsMigrationName,
+  statement as identityPrincipalsMigrationStatement,
+} from "../modules/identity-principals/infrastructure/postgres/migrations/0002_identity_principals.js";
+import {
+  name as accountsMigrationName,
+  statement as accountsMigrationStatement,
+} from "../modules/accounts/infrastructure/postgres/migrations/0004_accounts.js";
+import {
+  name as materialsMigrationName,
+  statement as materialsMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0001_materials.js";
+import {
+  name as publishedMaterialsCursorIndexMigrationName,
+  statement as publishedMaterialsCursorIndexMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0003_published_materials_cursor_index.js";
 
-const migrations: Record<string, Migration> = {
-  "0001_content_authoring": materialAuthoringMigration,
-  "0002_material_lifecycle": materialLifecycleMigration,
-};
-
-const platformMigrationProvider: MigrationProvider = {
-  getMigrations() {
-    return Promise.resolve(migrations);
+const migrations = [
+  {
+    name: materialsMigrationName,
+    statement: materialsMigrationStatement,
   },
-};
+  {
+    name: identityPrincipalsMigrationName,
+    statement: identityPrincipalsMigrationStatement,
+  },
+  {
+    name: publishedMaterialsCursorIndexMigrationName,
+    statement: publishedMaterialsCursorIndexMigrationStatement,
+  },
+  {
+    name: accountsMigrationName,
+    statement: accountsMigrationStatement,
+  },
+] as const;
 
 export function migrateToLatest(
-  database: PlatformDatabase,
+  connectionString: string,
 ): Promise<MigrationOutcome> {
-  return runMigrationsToLatest(database, platformMigrationProvider);
+  return runMigrationsToLatest(connectionString, migrations);
 }

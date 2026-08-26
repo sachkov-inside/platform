@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-25T06:49:39Z",
+  "title": "Design System: Sachkov Inside Platform",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Warm Workshop Canvas",
+        "canonical": "oklch(0.965 0.008 112)",
+        "tonalRamp": ["oklch(0.15 0.008 112)", "oklch(0.26 0.008 112)", "oklch(0.38 0.008 112)", "oklch(0.5 0.008 112)", "oklch(0.62 0.008 112)", "oklch(0.74 0.008 112)", "oklch(0.86 0.008 112)", "oklch(0.95 0.008 112)"]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Charcoal Ink",
+        "canonical": "oklch(0.205 0.014 129)",
+        "tonalRamp": ["oklch(0.15 0.014 129)", "oklch(0.26 0.014 129)", "oklch(0.38 0.014 129)", "oklch(0.5 0.014 129)", "oklch(0.62 0.014 129)", "oklch(0.74 0.014 129)", "oklch(0.86 0.014 129)", "oklch(0.95 0.014 129)"]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Chalk Card",
+        "canonical": "oklch(0.99 0.004 112)",
+        "tonalRamp": ["oklch(0.15 0.004 112)", "oklch(0.26 0.004 112)", "oklch(0.38 0.004 112)", "oklch(0.5 0.004 112)", "oklch(0.62 0.004 112)", "oklch(0.74 0.004 112)", "oklch(0.86 0.004 112)", "oklch(0.95 0.004 112)"]
+      },
+      "popover": {
+        "role": "neutral",
+        "displayName": "Popover Paper",
+        "canonical": "oklch(0.995 0.003 112)",
+        "tonalRamp": ["oklch(0.15 0.003 112)", "oklch(0.26 0.003 112)", "oklch(0.38 0.003 112)", "oklch(0.5 0.003 112)", "oklch(0.62 0.003 112)", "oklch(0.74 0.003 112)", "oklch(0.86 0.003 112)", "oklch(0.95 0.003 112)"]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Workshop Charcoal",
+        "canonical": "oklch(0.29 0.018 132)",
+        "tonalRamp": ["oklch(0.15 0.018 132)", "oklch(0.26 0.018 132)", "oklch(0.38 0.018 132)", "oklch(0.5 0.018 132)", "oklch(0.62 0.018 132)", "oklch(0.74 0.018 132)", "oklch(0.86 0.018 132)", "oklch(0.95 0.018 132)"]
+      },
+      "primary-foreground": {
+        "role": "neutral",
+        "displayName": "Primary Chalk",
+        "canonical": "oklch(0.985 0.004 112)",
+        "tonalRamp": ["oklch(0.15 0.004 112)", "oklch(0.26 0.004 112)", "oklch(0.38 0.004 112)", "oklch(0.5 0.004 112)", "oklch(0.62 0.004 112)", "oklch(0.74 0.004 112)", "oklch(0.86 0.004 112)", "oklch(0.95 0.004 112)"]
+      },
+      "secondary": {
+        "role": "secondary",
+        "displayName": "Warm Utility Wash",
+        "canonical": "oklch(0.93 0.012 117)",
+        "tonalRamp": ["oklch(0.15 0.012 117)", "oklch(0.26 0.012 117)", "oklch(0.38 0.012 117)", "oklch(0.5 0.012 117)", "oklch(0.62 0.012 117)", "oklch(0.74 0.012 117)", "oklch(0.86 0.012 117)", "oklch(0.95 0.012 117)"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Quiet Surface Wash",
+        "canonical": "oklch(0.925 0.01 115)",
+        "tonalRamp": ["oklch(0.15 0.01 115)", "oklch(0.26 0.01 115)", "oklch(0.38 0.01 115)", "oklch(0.5 0.01 115)", "oklch(0.62 0.01 115)", "oklch(0.74 0.01 115)", "oklch(0.86 0.01 115)", "oklch(0.95 0.01 115)"]
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "Quiet Technical Ink",
+        "canonical": "oklch(0.49 0.018 128)",
+        "tonalRamp": ["oklch(0.15 0.018 128)", "oklch(0.26 0.018 128)", "oklch(0.38 0.018 128)", "oklch(0.5 0.018 128)", "oklch(0.62 0.018 128)", "oklch(0.74 0.018 128)", "oklch(0.86 0.018 128)", "oklch(0.95 0.018 128)"]
+      },
+      "accent": {
+        "role": "tertiary",
+        "displayName": "Proof Orange",
+        "canonical": "oklch(0.66 0.19 39)",
+        "tonalRamp": ["oklch(0.15 0.19 39)", "oklch(0.26 0.19 39)", "oklch(0.38 0.19 39)", "oklch(0.5 0.19 39)", "oklch(0.62 0.19 39)", "oklch(0.74 0.19 39)", "oklch(0.86 0.19 39)", "oklch(0.95 0.19 39)"]
+      },
+      "accent-foreground": {
+        "role": "neutral",
+        "displayName": "Accent Chalk",
+        "canonical": "oklch(0.995 0.003 112)",
+        "tonalRamp": ["oklch(0.15 0.003 112)", "oklch(0.26 0.003 112)", "oklch(0.38 0.003 112)", "oklch(0.5 0.003 112)", "oklch(0.62 0.003 112)", "oklch(0.74 0.003 112)", "oklch(0.86 0.003 112)", "oklch(0.95 0.003 112)"]
+      },
+      "destructive": {
+        "role": "tertiary",
+        "displayName": "Destructive Red",
+        "canonical": "oklch(0.5 0.2 27)",
+        "tonalRamp": ["oklch(0.15 0.2 27)", "oklch(0.26 0.2 27)", "oklch(0.38 0.2 27)", "oklch(0.5 0.2 27)", "oklch(0.62 0.2 27)", "oklch(0.74 0.2 27)", "oklch(0.86 0.2 27)", "oklch(0.95 0.2 27)"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Soft Workbench Divider",
+        "canonical": "oklch(0.86 0.015 118)",
+        "tonalRamp": ["oklch(0.15 0.015 118)", "oklch(0.26 0.015 118)", "oklch(0.38 0.015 118)", "oklch(0.5 0.015 118)", "oklch(0.62 0.015 118)", "oklch(0.74 0.015 118)", "oklch(0.86 0.015 118)", "oklch(0.95 0.015 118)"]
+      },
+      "input": {
+        "role": "neutral",
+        "displayName": "Input Divider",
+        "canonical": "oklch(0.86 0.015 118)",
+        "tonalRamp": ["oklch(0.15 0.015 118)", "oklch(0.26 0.015 118)", "oklch(0.38 0.015 118)", "oklch(0.5 0.015 118)", "oklch(0.62 0.015 118)", "oklch(0.74 0.015 118)", "oklch(0.86 0.015 118)", "oklch(0.95 0.015 118)"]
+      },
+      "ring": {
+        "role": "tertiary",
+        "displayName": "Focus Orange",
+        "canonical": "oklch(0.62 0.17 39)",
+        "tonalRamp": ["oklch(0.15 0.17 39)", "oklch(0.26 0.17 39)", "oklch(0.38 0.17 39)", "oklch(0.5 0.17 39)", "oklch(0.62 0.17 39)", "oklch(0.74 0.17 39)", "oklch(0.86 0.17 39)", "oklch(0.95 0.17 39)"]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Bounded Workbench",
+        "canonical": "oklch(0.27 0.014 128)",
+        "tonalRamp": ["oklch(0.15 0.014 128)", "oklch(0.26 0.014 128)", "oklch(0.38 0.014 128)", "oklch(0.5 0.014 128)", "oklch(0.62 0.014 128)", "oklch(0.74 0.014 128)", "oklch(0.86 0.014 128)", "oklch(0.95 0.014 128)"]
+      },
+      "sidebar-foreground": {
+        "role": "neutral",
+        "displayName": "Workbench Chalk",
+        "canonical": "oklch(0.94 0.008 112)",
+        "tonalRamp": ["oklch(0.15 0.008 112)", "oklch(0.26 0.008 112)", "oklch(0.38 0.008 112)", "oklch(0.5 0.008 112)", "oklch(0.62 0.008 112)", "oklch(0.74 0.008 112)", "oklch(0.86 0.008 112)", "oklch(0.95 0.008 112)"]
+      },
+      "sidebar-accent": {
+        "role": "neutral",
+        "displayName": "Workbench Active Surface",
+        "canonical": "oklch(0.34 0.015 128)",
+        "tonalRamp": ["oklch(0.15 0.015 128)", "oklch(0.26 0.015 128)", "oklch(0.38 0.015 128)", "oklch(0.5 0.015 128)", "oklch(0.62 0.015 128)", "oklch(0.74 0.015 128)", "oklch(0.86 0.015 128)", "oklch(0.95 0.015 128)"]
+      },
+      "sidebar-primary": {
+        "role": "tertiary",
+        "displayName": "Workbench Proof Orange",
+        "canonical": "oklch(0.68 0.19 40)",
+        "tonalRamp": ["oklch(0.15 0.19 40)", "oklch(0.26 0.19 40)", "oklch(0.38 0.19 40)", "oklch(0.5 0.19 40)", "oklch(0.62 0.19 40)", "oklch(0.74 0.19 40)", "oklch(0.86 0.19 40)", "oklch(0.95 0.19 40)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Restrained page and exact-preview titles." },
+      "headline": { "displayName": "Headline", "purpose": "Reading and section hierarchy." },
+      "title": { "displayName": "Title", "purpose": "Compact card, panel and authoring titles." },
+      "body": { "displayName": "Body", "purpose": "Product copy and long-form reading." },
+      "label": { "displayName": "Label", "purpose": "Controls and form labels." },
+      "technical": { "displayName": "Technical Fact", "purpose": "Revision IDs, state, timestamps, duration and code-adjacent notation." }
+    },
+    "shadows": [
+      { "name": "card", "value": "0 0.75rem 2rem -1rem oklch(0.21 0.018 128 / 0.28)", "purpose": "Resting separation for interactive bounded cards and popovers." },
+      { "name": "card-hover", "value": "0 1rem 2.5rem -1rem oklch(0.21 0.018 128 / 0.34)", "purpose": "Pointer-intent elevation paired with a slight card lift." }
+    ],
+    "motion": [
+      { "name": "duration-fast", "value": "160ms", "purpose": "Control and navigation state transitions; Storybook exercises their reduced-motion contract in a real browser context." },
+      { "name": "duration-shell", "value": "240ms", "purpose": "Expandable desktop sidebar width transition." },
+      { "name": "ease-out", "value": "cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Default purposeful deceleration for shell and control transitions." },
+      { "name": "card-hover", "value": "200ms", "purpose": "Material card lift and shadow response." }
+    ],
+    "breakpoints": [
+      { "name": "application-navigation", "value": "48rem" },
+      { "name": "reader-local-navigation", "value": "40rem" },
+      { "name": "library-wide-composition", "value": "52rem" },
+      { "name": "authoring-two-column-container", "value": "68rem" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single highest-priority action in a local task; authoring Save uses it only while dirty.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Сохранить</button>",
+      "css": ".ds-btn-primary { display:inline-flex; height:2rem; align-items:center; justify-content:center; border:1px solid transparent; border-radius:var(--radius,.875rem); background:var(--primary); color:var(--primary-foreground); padding:0 .625rem; font-family:var(--font-body); font-size:.875rem; font-weight:500; transition:background 160ms cubic-bezier(.22,1,.36,1),transform 160ms cubic-bezier(.22,1,.36,1); } .ds-btn-primary:hover { background:color-mix(in oklch,var(--primary) 80%,transparent); } .ds-btn-primary:focus-visible { outline:.1875rem solid var(--ring); outline-offset:.1875rem; } .ds-btn-primary:active { transform:translateY(1px); } .ds-btn-primary:disabled { pointer-events:none; opacity:.5; } @media (prefers-reduced-motion:reduce) { .ds-btn-primary { transition:none; } .ds-btn-primary:active { transform:none; } }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "A clear alternative action that preserves the local primary hierarchy.",
+      "html": "<button class=\"ds-btn-outline\" type=\"button\">Preview</button>",
+      "css": ".ds-btn-outline { display:inline-flex; height:2rem; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:var(--radius,.875rem); background:var(--background); color:var(--foreground); padding:0 .625rem; font-family:var(--font-body); font-size:.875rem; font-weight:500; transition:background 160ms cubic-bezier(.22,1,.36,1),transform 160ms cubic-bezier(.22,1,.36,1); } .ds-btn-outline:hover { background:var(--muted); } .ds-btn-outline:focus-visible { outline:.1875rem solid var(--ring); outline-offset:.1875rem; } .ds-btn-outline:active { transform:translateY(1px); } @media (prefers-reduced-motion:reduce) { .ds-btn-outline { transition:none; } .ds-btn-outline:active { transform:none; } }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A safe selected or supporting action that does not compete with primary intent.",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\">Выбрано</button>",
+      "css": ".ds-btn-secondary { display:inline-flex; height:2rem; align-items:center; justify-content:center; border:1px solid transparent; border-radius:var(--radius,.875rem); background:var(--secondary); color:var(--foreground); padding:0 .625rem; font-family:var(--font-body); font-size:.875rem; font-weight:500; transition:background 160ms cubic-bezier(.22,1,.36,1),transform 160ms cubic-bezier(.22,1,.36,1); } .ds-btn-secondary:hover { background:color-mix(in oklch,var(--secondary),var(--foreground) 5%); } .ds-btn-secondary:focus-visible { outline:.1875rem solid var(--ring); outline-offset:.1875rem; } .ds-btn-secondary:active { transform:translateY(1px); } @media (prefers-reduced-motion:reduce) { .ds-btn-secondary { transition:none; } .ds-btn-secondary:active { transform:none; } }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "A receding toolbar or navigation action that gains a surface only on intent.",
+      "html": "<button class=\"ds-btn-ghost\" type=\"button\">Вернуться</button>",
+      "css": ".ds-btn-ghost { display:inline-flex; height:2rem; align-items:center; justify-content:center; border:1px solid transparent; border-radius:var(--radius,.875rem); background:transparent; color:var(--foreground); padding:0 .625rem; font-family:var(--font-body); font-size:.875rem; font-weight:500; transition:background 160ms cubic-bezier(.22,1,.36,1),transform 160ms cubic-bezier(.22,1,.36,1); } .ds-btn-ghost:hover { background:var(--muted); } .ds-btn-ghost:focus-visible { outline:.1875rem solid var(--ring); outline-offset:.1875rem; } .ds-btn-ghost:active { transform:translateY(1px); } @media (prefers-reduced-motion:reduce) { .ds-btn-ghost { transition:none; } .ds-btn-ghost:active { transform:none; } }"
+    },
+    {
+      "name": "Select Trigger",
+      "kind": "input",
+      "refersTo": "select-trigger",
+      "description": "The accepted custom accessible select trigger for compact known option sets.",
+      "html": "<button aria-expanded=\"false\" class=\"ds-select-trigger\" type=\"button\"><span>По релевантности</span><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path d=\"m6 9 6 6 6-6\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"/></svg></button>",
+      "css": ".ds-select-trigger { display:flex; min-height:2.75rem; width:16rem; align-items:center; justify-content:space-between; gap:.5rem; border:1px solid var(--input); border-radius:calc(var(--radius,.875rem)*1.35); background:var(--background); color:var(--foreground); padding:0 .75rem; text-align:left; font-family:var(--font-body); font-size:.875rem; font-weight:500; transition:background 160ms cubic-bezier(.22,1,.36,1),border-color 160ms cubic-bezier(.22,1,.36,1); } .ds-select-trigger svg { width:1rem; height:1rem; flex:none; color:var(--muted-foreground); } .ds-select-trigger:hover,.ds-select-trigger[aria-expanded=\"true\"] { background:var(--muted); border-color:var(--ring); } .ds-select-trigger:focus-visible { outline:.1875rem solid var(--ring); outline-offset:.1875rem; }"
+    },
+    {
+      "name": "Tooltip",
+      "kind": "custom",
+      "refersTo": "tooltip",
+      "description": "Compact non-essential help revealed by pointer hover or keyboard focus.",
+      "html": "<span class=\"ds-tooltip-wrap\"><button class=\"ds-tooltip-trigger\" type=\"button\">?</button><span class=\"ds-tooltip\" role=\"tooltip\">Точное состояние редакции</span></span>",
+      "css": ".ds-tooltip-wrap { position:relative; display:inline-grid; place-items:center; font-family:var(--font-body); } .ds-tooltip-trigger { display:grid; width:2rem; height:2rem; place-items:center; border:0; border-radius:var(--radius,.875rem); background:transparent; color:var(--foreground); font-weight:600; } .ds-tooltip-trigger:hover { background:var(--muted); } .ds-tooltip-trigger:focus-visible { outline:.1875rem solid var(--ring); outline-offset:.1875rem; } .ds-tooltip { position:absolute; bottom:calc(100% + .5rem); left:50%; width:max-content; max-width:20rem; transform:translate(-50%,.25rem) scale(.95); border-radius:calc(var(--radius,.875rem)*.82); background:var(--foreground); color:var(--background); padding:.375rem .75rem; font-size:.75rem; opacity:0; pointer-events:none; transition:opacity 160ms cubic-bezier(.22,1,.36,1),transform 160ms cubic-bezier(.22,1,.36,1); } .ds-tooltip-wrap:hover .ds-tooltip,.ds-tooltip-wrap:focus-within .ds-tooltip { opacity:1; transform:translate(-50%,0) scale(1); } @media (prefers-reduced-motion:reduce) { .ds-tooltip { transition:none; } }"
+    },
+    {
+      "name": "Material Card",
+      "kind": "card",
+      "refersTo": "material-card",
+      "description": "The accepted bounded Material preview with real optional media and exact format/access facts.",
+      "html": "<article class=\"ds-material-card\"><div class=\"ds-material-poster\"><span>VIDEO</span><strong>Issue → Checks → GO</strong><time>38:42</time></div><div class=\"ds-material-body\"><span class=\"ds-material-topic\">Product engineering</span><h3>Developer Pipeline и owner-controlled delivery</h3><p>Проверяемый путь от ready issue до merge.</p><small>Видео · Для участников</small></div></article>",
+      "css": ".ds-material-card { width:min(100%,24rem); overflow:hidden; border-radius:calc(var(--radius,.875rem)*1.35); background:var(--card); color:var(--foreground); box-shadow:var(--elevation-card); font-family:var(--font-body); transition:box-shadow 200ms,transform 200ms; } .ds-material-card:hover { transform:translateY(-.125rem); box-shadow:var(--elevation-card-hover); } .ds-material-card:focus-within { outline:.1875rem solid var(--ring); outline-offset:.1875rem; } .ds-material-poster { position:relative; display:grid; aspect-ratio:16/9; place-items:center; background:var(--sidebar); color:var(--sidebar-foreground); padding:1rem; } .ds-material-poster>span { position:absolute; top:.75rem; left:1rem; color:color-mix(in oklch,var(--sidebar-foreground) 55%,transparent); font-family:var(--font-utility); font-size:.625rem; letter-spacing:.16em; } .ds-material-poster>strong { border:1px solid var(--sidebar-border); border-radius:var(--radius,.875rem); background:var(--sidebar-accent); padding:.75rem; font-family:var(--font-utility); font-size:.6875rem; } .ds-material-poster>time { position:absolute; right:.75rem; bottom:.75rem; border-radius:calc(var(--radius,.875rem)*.82); background:var(--sidebar-foreground); color:var(--sidebar); padding:.25rem .5rem; font-family:var(--font-utility); font-size:.6875rem; font-weight:600; } .ds-material-body { padding:1rem; } .ds-material-topic { display:inline-flex; border-radius:calc(var(--radius,.875rem)*.82); background:color-mix(in oklch,var(--accent) 10%,transparent); padding:.25rem .5rem; font-size:.6875rem; font-weight:600; } .ds-material-body h3 { margin:.75rem 0 .5rem; font-size:1rem; line-height:1.3; letter-spacing:-.02em; } .ds-material-body p { margin:0; color:var(--muted-foreground); font-size:.875rem; line-height:1.25rem; } .ds-material-body small { display:block; margin-top:.75rem; color:var(--muted-foreground); font-family:var(--font-utility); font-size:.6875rem; } @media (prefers-reduced-motion:reduce) { .ds-material-card { transition:none; } .ds-material-card:hover { transform:none; } }"
+    },
+    {
+      "name": "Current Navigation Item",
+      "kind": "nav",
+      "refersTo": "application-navigation",
+      "description": "An accepted desktop sidebar item; the orange mark is current-location evidence.",
+      "html": "<a aria-current=\"page\" class=\"ds-nav-current\" href=\"#\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path d=\"M3 11.5 12 4l9 7.5v8a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\" fill=\"none\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"2\"/></svg><span>Главная</span><i aria-hidden=\"true\"></i></a>",
+      "css": ".ds-nav-current { display:flex; min-height:2.75rem; width:13rem; align-items:center; gap:.75rem; border-radius:calc(var(--radius,.875rem)*1.35); background:var(--sidebar-accent); color:var(--sidebar-accent-foreground); padding:0 .75rem; font-family:var(--font-body); font-size:.875rem; font-weight:500; text-decoration:none; transition:background 160ms cubic-bezier(.22,1,.36,1); } .ds-nav-current svg { width:1.25rem; height:1.25rem; color:var(--sidebar-primary); } .ds-nav-current i { width:.375rem; height:.375rem; margin-left:auto; border-radius:9999px; background:var(--sidebar-primary); } .ds-nav-current:hover { background:color-mix(in oklch,var(--sidebar-accent),var(--sidebar-foreground) 4%); } .ds-nav-current:focus-visible { outline:.1875rem solid var(--sidebar-ring); outline-offset:.1875rem; }"
+    },
+    {
+      "name": "Candidate Revision Rail",
+      "kind": "custom",
+      "refersTo": "candidate-revision-rail",
+      "description": "Issue #38 candidate pattern pending owner visual/interaction GO; associated exact Preview now has desktop and 390 × 844 mobile evidence, not global approval.",
+      "html": "<dl class=\"ds-revision-rail\"><div><dt>Редакция</dt><dd>rev_01JY7C6RE4M2W9PK5AHN</dd></div><div><dt>Сохранение</dt><dd>Сохранено 12:41</dd></div></dl>",
+      "css": ".ds-revision-rail { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.25rem; margin:0; border-radius:calc(var(--radius,.875rem)*1.35); background:var(--secondary); color:var(--foreground); padding:.75rem 1.25rem; font-family:var(--font-utility); font-size:.6875rem; } .ds-revision-rail div { min-width:0; } .ds-revision-rail dt { color:var(--muted-foreground); } .ds-revision-rail dd { overflow:hidden; margin:.25rem 0 0; font-weight:600; text-overflow:ellipsis; white-space:nowrap; } .ds-revision-rail:focus-within { outline:.1875rem solid var(--ring); outline-offset:.1875rem; } @media (max-width:39.999rem) { .ds-revision-rail { grid-template-columns:1fr; gap:.5rem; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Soft Technical Workshop",
+    "overview": "Sachkov Inside Platform — спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.\n\nЭто документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`; exact Preview теперь имеет bounded desktop и narrow-mobile evidence, но authoring layout и revision rail остаются candidate pattern до отдельного owner visual/interaction GO.",
+    "keyCharacteristics": [
+      "Warm light canvas with bounded charcoal work regions.",
+      "Scarce orange proofing signal rather than ambient decoration.",
+      "Rounded controls and containers with explicit grouping purpose.",
+      "Manrope for product and reading; JetBrains Mono only for technical facts.",
+      "Mobile-first semantic order preserved as space adds columns.",
+      "Exact revision, save and publication facts stay visible and literal."
+    ],
+    "rules": [
+      { "name": "The Orange Proof Signal Rule", "body": "Orange marks current state, focus or a meaningful product accent; if it does not help the user verify or act, do not use it.", "section": "colors" },
+      { "name": "The Mono Is Evidence Rule", "body": "Use JetBrains Mono only for revision/state facts, code, duration, technical notation and compact metadata; never use it as decorative body copy.", "section": "typography" },
+      { "name": "The Mobile Semantic Order Rule", "body": "Responsive changes may add columns, rails or contextual controls, but they must preserve the narrow-screen information order and primary actions.", "section": "layout" },
+      { "name": "The Flat-by-Default Rule", "body": "Keep reading and authoring surfaces flat at rest; use elevation only when it communicates an interactive bounded object or overlay.", "section": "elevation" },
+      { "name": "The Owner Gate Candidate Rule", "body": "Treat the issue #38 authoring layout and revision rail as reusable evidence to review, not as an approved global mandate, until owner visual/interaction GO is recorded.", "section": "components" }
+    ],
+    "dos": [
+      "Do keep the warm light canvas dominant and bound charcoal to navigation, code, media or focused work regions.",
+      "Do reserve orange for current state, focus evidence and the next meaningful action.",
+      "Do use Manrope for product copy and JetBrains Mono for exact technical facts.",
+      "Do preserve the same semantic information order from narrow mobile to desktop.",
+      "Do expose save, conflict, authorization and exact-revision truth with text as well as color.",
+      "Do use the accepted shared primitives and Storybook proofs before introducing a new visual dialect."
+    ],
+    "donts": [
+      "Don't turn reading or authoring into a generic dashboard of decorative cards.",
+      "Don't use gradients, glow, glass or ambient animation without product meaning.",
+      "Don't make orange a default decoration or destructive red a brand accent.",
+      "Don't use JetBrains Mono for long-form prose or ornamental headings.",
+      "Don't promote the issue #38 authoring columns or revision rail to a global pattern before owner visual/interaction GO.",
+      "Don't imply that Preview is latest or published; always identify the exact immutable revision."
+    ]
+  }
+}

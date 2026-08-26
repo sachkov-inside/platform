@@ -26,6 +26,24 @@ describe("supported toolchain contract", () => {
     );
   });
 
+  it("copies Prisma generation inputs before dependency postinstall", () => {
+    const dockerfile = read("Dockerfile");
+    const installPosition = dockerfile.indexOf("pnpm install --frozen-lockfile");
+
+    assert.ok(installPosition > 0);
+    for (const input of [
+      "apps/backend/prisma.config.ts",
+      "apps/backend/prisma ./apps/backend/prisma",
+    ]) {
+      const copyPosition = dockerfile.indexOf(input);
+      assert.ok(copyPosition >= 0, `Dockerfile must copy ${input}`);
+      assert.ok(
+        copyPosition < installPosition,
+        `Dockerfile must copy ${input} before pnpm install`,
+      );
+    }
+  });
+
   it("keeps TypeScript exact and Node declarations on the runtime major", () => {
     const nodeMajor = nodeVersion.split(".")[0];
     const packages = [rootPackage, backendPackage, webPackage];
@@ -36,6 +54,25 @@ describe("supported toolchain contract", () => {
     for (const manifest of [backendPackage, webPackage]) {
       assert.equal(manifest.devDependencies["@types/node"].split(".")[0], nodeMajor);
     }
+  });
+
+  it("keeps VS Code and Nest decorators on the configured TypeScript project", () => {
+    const editorSettings = JSON.parse(read(".vscode/settings.json"));
+    const backendTypeScript = JSON.parse(read("apps/backend/tsconfig.json"));
+
+    assert.equal(
+      editorSettings["js/ts.tsdk.path"],
+      "./node_modules/typescript/lib",
+    );
+    assert.equal(
+      editorSettings["js/ts.tsdk.promptToUseWorkspaceVersion"],
+      true,
+    );
+    assert.equal(
+      backendTypeScript.compilerOptions.experimentalDecorators,
+      true,
+    );
+    assert.ok(backendTypeScript.include.includes("src/**/*.ts"));
   });
 
   it("pins every container image by digest and every GitHub Action by commit", () => {
@@ -67,6 +104,14 @@ describe("supported toolchain contract", () => {
     for (const [, name, body] of groupBodies) {
       assert.match(body, /^\s{8}update-types: \[minor, patch\]$/mu, `${name} can mix major updates`);
     }
+  });
+
+  it("schema-qualifies Materials tables in the Compose smoke query", () => {
+    const smoke = read("scripts/compose-stack-smoke.sh");
+
+    assert.match(smoke, /from materials\.materials\b/u);
+    assert.match(smoke, /from materials\.material_revisions\b/u);
+    assert.doesNotMatch(smoke, /\b(?:from|join) (?:materials|material_revisions)\b(?!\.)/u);
   });
 });
 

@@ -10,11 +10,10 @@ import { createApiApplication } from "../src/entrypoints/api/create-api-applicat
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
 import { OperationalReadiness } from "../src/infrastructure/operational-readiness.js";
 import {
-  PLATFORM_DATABASE,
-  type PlatformDatabase,
-} from "../src/infrastructure/postgres/index.js";
+  PrismaClientProvider,
+  type PlatformPrisma,
+} from "../src/infrastructure/prisma/index.js";
 import {
-  MATERIAL_AUTHORING,
   PUBLISHED_MATERIAL_READER,
 } from "../src/modules/materials/index.js";
 
@@ -30,22 +29,21 @@ describe("backend process composition", () => {
     await application?.close();
   });
 
-  it("binds one immutable config and one Platform database lifecycle in the API", async () => {
+  it("binds one immutable config and one Prisma lifecycle in the API", async () => {
     const api = await createApiApplication(config, { logger: false });
     application = api;
 
     expect(api.get(PLATFORM_CONFIG)).toBe(config);
-    const database = api.get<PlatformDatabase>(PLATFORM_DATABASE);
-    expect(api.get<PlatformDatabase>(PLATFORM_DATABASE)).toBe(database);
+    const prisma = api.get<PlatformPrisma>(PrismaClientProvider);
+    expect(api.get<PlatformPrisma>(PrismaClientProvider)).toBe(prisma);
     expect(api.get(OperationalReadiness)).toBeInstanceOf(OperationalReadiness);
-    expect(api.get(MATERIAL_AUTHORING)).toBeDefined();
     expect(api.get(PUBLISHED_MATERIAL_READER)).toBeDefined();
 
-    const destroy = vi.spyOn(database, "destroy");
+    const disconnect = vi.spyOn(prisma, "$disconnect");
     await api.close();
     application = undefined;
 
-    expect(destroy).toHaveBeenCalledOnce();
+    expect(disconnect).toHaveBeenCalledOnce();
   });
 
   it("uses the same required bindings for the MCP context", async () => {
@@ -53,17 +51,17 @@ describe("backend process composition", () => {
     application = mcp;
 
     expect(mcp.get(PLATFORM_CONFIG)).toBe(config);
-    const database = mcp.get<PlatformDatabase>(PLATFORM_DATABASE);
-    expect(mcp.get<PlatformDatabase>(PLATFORM_DATABASE)).toBe(database);
+    const prisma = mcp.get<PlatformPrisma>(PrismaClientProvider);
+    expect(mcp.get<PlatformPrisma>(PrismaClientProvider)).toBe(prisma);
     expect(mcp.get(OperationalReadiness)).toBeInstanceOf(
       OperationalReadiness,
     );
 
-    const destroy = vi.spyOn(database, "destroy");
+    const disconnect = vi.spyOn(prisma, "$disconnect");
     await mcp.close();
     application = undefined;
 
-    expect(destroy).toHaveBeenCalledOnce();
+    expect(disconnect).toHaveBeenCalledOnce();
   });
 
   it("keeps the API running while health reports an unreachable database", async () => {
@@ -73,8 +71,10 @@ describe("backend process composition", () => {
     application = api;
     await api.init();
     await api.getHttpAdapter().getInstance().ready();
-    const database = api.get<PlatformDatabase>(PLATFORM_DATABASE);
-    const getExecutor = vi.spyOn(database, "getExecutor");
+    const prisma = api.get<PlatformPrisma>(PrismaClientProvider);
+    const queryRaw = vi
+      .spyOn(prisma, "$queryRaw")
+      .mockRejectedValueOnce(new Error("database unavailable"));
 
     const response = await api.getHttpAdapter().getInstance().inject({
       method: "GET",
@@ -82,6 +82,6 @@ describe("backend process composition", () => {
     });
 
     expect(response.statusCode).toBe(500);
-    expect(getExecutor).toHaveBeenCalled();
+    expect(queryRaw).toHaveBeenCalled();
   });
 });

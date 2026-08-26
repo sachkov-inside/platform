@@ -15,7 +15,7 @@ describe("published Material HTTP contract", () => {
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    await seedLocalDevelopment(testDatabase.database);
+    await seedLocalDevelopment(testDatabase.prisma);
     app = await createApiApplication(
       parsePlatformConfig({
         NODE_ENV: "test",
@@ -87,6 +87,36 @@ describe("published Material HTTP contract", () => {
     });
   });
 
+  test("returns the published catalog without Material body bytes", async () => {
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/library/materials",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe(
+      "public, max-age=30, stale-while-revalidate=60",
+    );
+    const catalog = response.json<{
+      readonly items: readonly { readonly access: string; readonly slug: string }[];
+      readonly nextCursor: string | null;
+    }>();
+    expect(catalog.items).toHaveLength(12);
+    expect(catalog.items.slice(0, 2)).toMatchObject([
+      {
+        slug: "membership-delivery-guide",
+        access: "membership",
+      },
+      {
+        slug: "inside-platform-overview",
+        access: "free",
+      },
+    ]);
+    expect(typeof catalog.nextCursor).toBe("string");
+    expect(response.body).not.toContain("schemaVersion");
+    expect(response.body).not.toContain("blocks");
+  });
+
   test("returns a stable 404 outcome for an unpublished slug", async () => {
     const response = await app.getHttpAdapter().getInstance().inject({
       method: "GET",
@@ -119,6 +149,22 @@ describe("published Material HTTP contract", () => {
     });
   });
 
+  test("rejects a malformed catalog cursor", async () => {
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/library/materials?after=not-a-cursor",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.json()).toEqual({
+      type: "urn:inside:problem:invalid-request-shape",
+      title: "Invalid request shape",
+      status: 400,
+      code: "invalid_request_shape",
+    });
+  });
+
   test("returns a retryable 503 outcome when PostgreSQL is unavailable", async () => {
     const unavailableApp = await createApiApplication(
       parsePlatformConfig({
@@ -131,20 +177,25 @@ describe("published Material HTTP contract", () => {
     await unavailableApp.getHttpAdapter().getInstance().ready();
 
     try {
-      const response = await unavailableApp.getHttpAdapter().getInstance().inject({
-        method: "GET",
-        url: "/materials/inside-platform-overview",
-      });
+      for (const url of [
+        "/library/materials",
+        "/materials/inside-platform-overview",
+      ]) {
+        const response = await unavailableApp.getHttpAdapter().getInstance().inject({
+          method: "GET",
+          url,
+        });
 
-      expect(response.statusCode).toBe(503);
-      expect(response.headers["content-type"]).toContain("application/problem+json");
-      expect(response.json()).toEqual({
-        type: "urn:inside:problem:dependency-unavailable",
-        title: "Dependency unavailable",
-        status: 503,
-        code: "dependency_unavailable",
-        retryable: true,
-      });
+        expect(response.statusCode).toBe(503);
+        expect(response.headers["content-type"]).toContain("application/problem+json");
+        expect(response.json()).toEqual({
+          type: "urn:inside:problem:dependency-unavailable",
+          title: "Dependency unavailable",
+          status: 503,
+          code: "dependency_unavailable",
+          retryable: true,
+        });
+      }
     } finally {
       await unavailableApp.close();
     }

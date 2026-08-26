@@ -1,43 +1,22 @@
 import { describe, expect, test } from "vitest";
 
 import {
-  authorizeAuthor,
-  authorizePublish,
+  authorizeManager,
   type AuthorPolicy,
-} from "../../src/modules/materials/application/ports/author-policy.js";
+} from "../../src/modules/materials/ports/author-policy.js";
 
 describe("AuthorPolicy", () => {
-  test("distinguishes a denied action from an unavailable policy", async () => {
-    const publishRequest = {
-      action: "publish" as const,
-      principalId: "principal",
-      materialId: "material",
-      revisionId: "revision",
-    };
-    const denied: AuthorPolicy = {
-      canAuthor: () => false,
-      canPublish: () => false,
-    };
+  test("distinguishes a denied materials:manage check from unavailable Accounts", async () => {
+    const denied: AuthorPolicy = { canManage: () => false };
     const unavailable: AuthorPolicy = {
-      canAuthor: () => {
-        throw new Error("Identity is unavailable");
-      },
-      canPublish: () => Promise.reject(new Error("Identity is unavailable")),
+      canManage: () => Promise.reject(new Error("Accounts is unavailable")),
     };
 
-    await expect(authorizeAuthor(denied, "principal")).resolves.toEqual({
+    await expect(authorizeManager(denied, "account")).resolves.toEqual({
       ok: false,
       error: { code: "forbidden" },
     });
-    await expect(authorizePublish(denied, publishRequest)).resolves.toEqual({
-      ok: false,
-      error: { code: "forbidden" },
-    });
-    await expect(authorizeAuthor(unavailable, "principal")).resolves.toEqual({
-      ok: false,
-      error: { code: "dependency_unavailable", retryable: true },
-    });
-    await expect(authorizePublish(unavailable, publishRequest)).resolves.toEqual({
+    await expect(authorizeManager(unavailable, "account")).resolves.toEqual({
       ok: false,
       error: { code: "dependency_unavailable", retryable: true },
     });

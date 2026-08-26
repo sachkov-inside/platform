@@ -4,6 +4,7 @@
 !.env.example
 .next/
 .impeccable/review/
+.identity-proof/
 .playwright-cli/
 playwright-report/
 test-results/
@@ -11,6 +12,7 @@ coverage/
 dist/
 node_modules/
 *.tsbuildinfo
+apps/backend/src/infrastructure/prisma/generated/
 
 *storybook.log
 storybook-static

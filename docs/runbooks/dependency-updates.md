@@ -39,7 +39,7 @@ bash scripts/prove-typescript-7.sh --with-alias-check
 The first command runs the exact TypeScript `7.0.2` CLI over every repository tsconfig after Next
 type generation and requires the branded-ID negative fixture to retain diagnostic `TS2322`. That
 project-source corpus covers backend source/build/tests and Vitest configs, Nest decorators,
-Kysely generated types, Next generated types, Storybook TypeScript config/stories, and Playwright
+Prisma generated types, Next generated types, Storybook TypeScript config/stories, and Playwright
 config/specs. It then explicitly disables `skipLibCheck` and requires the known declaration
 failures to remain visible: the backend's DOM-free config exposes Tiptap, ProseMirror and Vitest
 browser DOM declarations, while web exposes Storybook, Radix and `ast-types` incompatibilities
@@ -47,9 +47,8 @@ browser DOM declarations, while web exposes Storybook, Radix and `ast-types` inc
 TypeScript 6 shares part of this third-party declaration debt, so only the project-source TS7 pass
 is claimed.
 
-TypeScript itself does not parse MDX. MDX, Storybook runtime/build, Vitest, Playwright and Kysely
-code generation therefore require the package-level side-by-side contract rather than a CLI-only
-claim.
+TypeScript itself does not parse MDX. MDX, Storybook runtime/build, Vitest, Playwright and Prisma
+generation therefore require the package-level side-by-side contract rather than a CLI-only claim.
 
 The second command reproduces that official TypeScript 7 CLI/TypeScript 6 API alias in a disposable
 workspace. Strict dependency installation fails before those tool integrations can run, so they are
@@ -72,7 +71,7 @@ Retry TypeScript 7 when all of these are true:
 2. Storybook/MDX and its Next/Vite chain publish a compatible peer contract;
 3. the official side-by-side alias, if still needed, passes strict frozen installation;
 4. project and library diagnostics are reviewed without adding new skips, and canonical and
-   compatibility diagnostics, Next typegen, Storybook, Vitest, Playwright, Kysely generated types
+   compatibility diagnostics, Next typegen, Storybook, Vitest, Playwright, Prisma generated types
    and architecture fixtures all agree under the full gate.
 
 pnpm remains at `11.22.0` for the same reproducible lock-refresh reason: `11.23.0` turns those

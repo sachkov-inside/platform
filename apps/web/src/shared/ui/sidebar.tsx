@@ -44,7 +44,8 @@ export function Sidebar({ children, defaultPinned = false }: SidebarProps) {
   return (
     <SidebarContext.Provider value={{ open, pinned, setPinned }}>
       <div
-        className="hidden h-svh shrink-0 bg-card md:block md:self-stretch md:py-3 md:pl-3"
+        className="group/sidebar relative z-30 hidden h-svh shrink-0 bg-card transition-[width] duration-[var(--motion-duration-shell)] ease-[var(--motion-ease-out)] md:block md:self-stretch md:py-3 md:pl-3 motion-reduce:transition-none"
+        data-state={open ? "expanded" : "collapsed"}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) {
             setFocused(false);
@@ -59,6 +60,7 @@ export function Sidebar({ children, defaultPinned = false }: SidebarProps) {
         onMouseLeave={() => {
           setHovered(false);
         }}
+        style={{ width: pinned ? "16rem" : "4.75rem" }}
       >
         {children}
       </div>

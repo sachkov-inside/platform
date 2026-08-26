@@ -6,15 +6,17 @@ status: accepted
 
 Platform exposes one `Materials` capability with two caller-oriented facets:
 `MaterialAuthoring` for the editorial lifecycle and `PublishedMaterialReader` for exact published
-delivery. One `createMaterials` assembly builds both facets; the Nest module only binds that runtime
-to provider tokens. Transport callers do not coordinate validation, rendering, persistence or
+delivery. One framework-agnostic `assembleMaterials` function builds both facets for tests, seeds,
+and non-Nest entrypoints; Nest binds only facets with real production consumers directly, as
+described in ADR 0004. Transport callers do not coordinate validation, rendering, persistence or
 publication rules themselves.
 
-The Nest adapter remains dynamically registered only until its first real API/MCP consumer. At
-that point it becomes static and binds the owner-approved anonymous/read-only baseline policy while
-the real authorization owner module does not exist. When that owner is delivered, the static
-Materials module imports its provider instead. A placeholder authorization module or global
-provider would make the graph look complete without a production policy and remains forbidden.
+Dynamic Nest registration was a temporary bootstrap state, not part of the enduring Module
+interface. Issue #49 implements the already accepted static-composition decision when it introduces
+the first real API/MCP consumer; it does not reopen that decision. The first real authorization
+owner replaces the approved anonymous/read-only baseline policy through an explicit Module import.
+A placeholder authorization Module or global provider would make the graph look complete without a
+production policy and remains forbidden.
 
 `MaterialBody` is an internal validated representation. Public callers exchange a serializable
 `MaterialBodySnapshot`; persisted data retains an explicit schema discriminator, and version
@@ -23,9 +25,9 @@ suffixes such as `StoredMaterialBodyV1` are limited to codecs and migrations. A 
 
 The implementation uses selective domain objects and TypeScript-native discriminated unions:
 metadata and body values prevent invalid state, the immutable `Material` aggregate owns only draft
-and publication transitions, and each operation exposes its actual error union. Kysely transactions
-and semantic PostgreSQL helpers remain internal; generic repositories, Unit of Work wrappers,
-command buses, base entities and one-interface-per-class are not part of the design.
+and publication transitions, and each operation exposes its actual error union. Prisma transaction
+access follows ADR 0005; generic repositories, Unit of Work wrappers, command buses, base entities
+and one-interface-per-class are not part of the design.
 
 Public command and response DTOs keep serializable string identifiers. Runtime codecs validate
 them at the module boundary and convert them to branded `MaterialId` and `MaterialRevisionId`

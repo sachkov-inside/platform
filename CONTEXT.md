@@ -59,37 +59,24 @@ _Avoid_: Material, generated index
 
 ## Access and activity
 
-**Principal**:
-A person or service whose identity and permissions Platform recognizes.
-_Avoid_: External Identity, Platform Account, Platform Session
-
-**External Identity**:
-A provider-verified identity bound to one Principal independently of changeable profile data.
-_Avoid_: Email address, login, Member Profile
-
-**Platform Session**:
-A finite authentication context through which Platform recognizes a Principal for subsequent
-authorization.
-_Avoid_: Principal, Membership, permission
-
-**Platform Account**:
-The private Platform state through which a human Principal manages identity, security, linking and
-recovery.
-_Avoid_: Member Profile, Principal, Membership
+**Account**:
+Platform's stable local identity for one human authenticated by Logto. It owns Platform permissions
+and is independent of mutable profile data and Membership.
+_Avoid_: Principal, External Identity, Platform Account, Platform Session, user
 
 **Member Profile**:
-A presentation of a human Principal that is visible only to active Inside members and never grants
+A presentation of an Account that is visible only to active Inside members and never grants
 identity, Membership or content access.
-_Avoid_: Platform Account, public internet profile, identity record
+_Avoid_: Account, public internet profile, identity record
 
 **MembershipEvidence**:
-A time-limited statement about a Principal's Membership in the canonical closed Telegram chat.
+A time-limited statement about an Account's Membership in the canonical closed Telegram chat.
 _Avoid_: MembershipEntitlement, Tribute subscription
 
 **MembershipEntitlement**:
-Platform's time-bounded conclusion that a Principal currently has Inside Membership access.
+Platform's time-bounded conclusion that an Account currently has Inside Membership access.
 _Avoid_: Subscription, Telegram membership status
 
 **ReadingState**:
-The current read or unread relationship between a Principal and a Material.
+The current read or unread relationship between an Account and a Material.
 _Avoid_: Progress, completion percentage

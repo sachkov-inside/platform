@@ -15,7 +15,18 @@ fi
 
 curl --fail --silent --show-error --output /dev/null "$api_base_url/openapi"
 
+catalog_response="$(curl --fail --silent --show-error "$api_base_url/library/materials")"
+if [[ "$catalog_response" != *'"slug":"membership-delivery-guide"'* || "$catalog_response" != *'"slug":"inside-platform-overview"'* ]]; then
+  echo "Published catalog is missing the representative free or closed Material" >&2
+  exit 1
+fi
+if [[ "$catalog_response" == *"Закрытое содержимое для участников"* ]]; then
+  echo "Published catalog leaked closed Material body content" >&2
+  exit 1
+fi
+
 curl --fail --silent --show-error --output /dev/null "$web_base_url"
+curl --fail --silent --show-error --output /dev/null "$web_base_url/library"
 docker compose exec -T web pnpm --filter @inside/web smoke:backend
 
 if ! docker compose logs --no-color mcp | grep --quiet '"process":"mcp","status":"ok","database":"reachable"'; then
@@ -30,11 +41,11 @@ seed_snapshot="$(
     --dbname "${POSTGRES_DB:-inside}" \
     --tuples-only \
     --no-align \
-    --command "select (select count(*) from materials where slug = 'inside-platform-overview') || ':' || (select count(*) from material_revisions r join materials m on m.id = r.material_id where m.slug = 'inside-platform-overview');"
+    --command "select (select count(*) from materials.materials where slug = 'inside-platform-overview') || ':' || (select count(*) from materials.material_revisions r join materials.materials m on m.id = r.material_id where m.slug = 'inside-platform-overview');"
 )"
 if [[ "$seed_snapshot" != "1:2" ]]; then
   echo "Expected one stable seeded Material and two lifecycle revisions, received $seed_snapshot" >&2
   exit 1
 fi
 
-echo "Compose stack smoke passed: web -> API -> PostgreSQL, MCP ready, seed $seed_snapshot"
+echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP ready, seed $seed_snapshot"

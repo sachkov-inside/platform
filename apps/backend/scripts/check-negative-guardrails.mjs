@@ -36,7 +36,14 @@ expectFailure(
     "--pretty",
     "false",
   ],
-  ["TS2322", "Cannot find name 'describe'"],
+  [
+    "TS2322",
+    "TS2345",
+    "account",
+    "accounts.accounts",
+    "material",
+    "Cannot find name 'describe'",
+  ],
 );
 
 expectFailure(
@@ -62,9 +69,16 @@ expectFailure(
   ],
   [
     "capability index.ts",
+    "capability implementation cannot import Nest adapters",
     "raw persistence imports",
+    "Kysely is forbidden",
     "src/infrastructure/operational-readiness.ts",
     "(pg)",
+    "database table references must be schema-qualified",
+    "database table references must stay inside the owning Module schema",
+    "database table references must use statically declared identifiers",
+    "application schema references must stay inside the owning Module",
+    'accounts.accounts',
   ],
 );
 

@@ -13,12 +13,20 @@ The default stack contains:
 - the long-running MCP process over the same application and database lifecycle;
 - Next.js web on <http://127.0.0.1:3000>.
 
+The optional Logto email-code proof is a separate, disposable Compose project with isolated ports
+and volumes. Its pinned build, automated Management API bootstrap and Mailpit capture are
+documented in [`infra/identity/logto/README.md`](../../infra/identity/logto/README.md). Run
+`pnpm identity:proof:start`; it starts the shared Platform PostgreSQL, applies normal repository
+migrations and runs the application without Logto Console setup. The launcher claims the same
+machine-wide ownership lock as `local:setup`, refuses an already running Platform or proof Compose
+project, and stops only the environments it claimed when the process exits.
+
 API and web expose real healthchecks. API and MCP wait for healthy PostgreSQL and a successful
 bootstrap; web waits for healthy API. Storybook is an optional profile on
 <http://127.0.0.1:6006>. Integration tests continue to use their own temporary PostgreSQL through
 Testcontainers and never share the Compose database.
 
-The production API exposes health, OpenAPI and the published Material Reader endpoint. Material
+The production API exposes health, OpenAPI, the published catalog and the Material Reader endpoint. Material
 authoring remains an application interface covered by integration tests; this Compose work does
 not invent a production authoring transport.
 
@@ -67,8 +75,8 @@ bash scripts/compose-stack-smoke.sh
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
-database-backed readiness, and exactly one seeded `inside-platform-overview` Material with its two
-stable lifecycle revisions exists. Repeating `docker compose down` and the detached startup
+database-backed readiness, one stable free `inside-platform-overview` Material with its two
+lifecycle revisions and one safe closed catalog Material. Repeating `docker compose down` and the detached startup
 preserves the database volume and proves the bootstrap seed does not create another revision.
 
 Stop without deleting data:
@@ -116,6 +124,8 @@ Inspect the running host fallback or Compose stack:
 - health: <http://127.0.0.1:3001/health>
 - OpenAPI UI: <http://127.0.0.1:3001/openapi>
 - published Material API: <http://127.0.0.1:3001/materials/inside-platform-overview>
+- published catalog API: <http://127.0.0.1:3001/library/materials>
+- production Library: <http://127.0.0.1:3000/library>
 - production Reader: <http://127.0.0.1:3000/materials/inside-platform-overview>
 
 The API health response is:
@@ -157,7 +167,7 @@ pnpm test:integration
 ```
 
 Its disposable Testcontainers database covers create/load/revise, immutable revisions, rollback
-and constraints, idempotency, concurrent stale writes, migration replay and generated-type drift.
+and constraints, idempotency, concurrent stale writes, migration replay and Prisma schema mapping.
 
 ## Inspect PostgreSQL
 
@@ -168,11 +178,13 @@ docker compose exec postgres psql -U inside -d inside
 Useful read-only commands:
 
 ```sql
-\dt
-select name, timestamp from kysely_migration order by name;
-select id, slug, current_draft_revision_id from materials order by created_at;
+\dt materials.*
+select position, name, checksum, applied_at
+from public.platform_migrations
+order by position;
+select id, slug, current_draft_revision_id from materials.materials order by created_at;
 select id, material_id, title, schema_version, created_at
-from material_revisions
+from materials.material_revisions
 order by created_at;
 ```
 
@@ -182,29 +194,50 @@ The seed is safe to repeat manually:
 docker compose run --rm bootstrap
 ```
 
-The seed refuses non-development mode, uses versioned idempotency keys and creates one free,
-representative published Material at slug `inside-platform-overview`. Repeating it keeps the same
-Material and upgrades an older local fixture to the current revision without resetting the named
-volume. The Material itself is created, revised, validated and published through the Materials
-application interface. Only its fixed local Topic/Format/Tag/Series prerequisites use typed Kysely
-bootstrap because Platform has no product taxonomy-authoring capability yet; raw SQL is not used.
+The seed refuses non-development mode, uses stable idempotency keys, and creates twelve free
+published Materials for catalog pagination: `inside-platform-overview` plus eleven architecture
+notes. It also creates one Membership Material whose body remains absent from the public catalog.
+Repeating the seed keeps the same Materials and upgrades the representative fixture without
+resetting the named volume. Materials are created and published through the Materials application
+interface; only fixed local Topic/Format/Tag/Series prerequisites use Prisma model operations
+because Platform has no product taxonomy-authoring capability yet.
 
-## Migration and generated-type checks
+## Migration and Prisma schema checks
 
 With the host fallback database running:
 
 ```bash
 pnpm --filter @inside/backend db:migrate
-pnpm --filter @inside/backend db:types:check
+pnpm --filter @inside/backend db:schema:check
 ```
 
-Only migration authors regenerate the checked-in Kysely type file:
+`db:schema:check` validates `prisma/schema.prisma` and regenerates the ignored TypeScript client.
+The same generation runs during install, build, and typecheck:
 
 ```bash
-pnpm --filter @inside/backend db:types:generate
+pnpm --filter @inside/backend prisma:generate
 ```
 
-The type commands read the repository `.env` and inspect only the product-owned `public` schema.
+The Prisma schema maps both product-owned `materials` and `accounts` schemas. Checked-in,
+append-only SQL migrations remain the database authority. Their explicit positions and checksums
+must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
+generated client files are not committed or edited. A pre-Prisma local volume must be recreated
+with the destructive reset below rather than supported by application compatibility code.
+
+## Owner Account release bootstrap
+
+After migrations and before serving production traffic, confirm that the owner exists in Logto and
+run the explicit idempotent release command with that exact identity:
+
+```bash
+OWNER_LOGTO_ISSUER=https://auth.example.com/oidc \
+OWNER_LOGTO_SUBJECT=<opaque-logto-subject> \
+pnpm --filter @inside/backend release:bootstrap-owner
+```
+
+The command ensures one Account and `materials:manage`, writes only redacted Account audit events,
+and prints a JSON summary. It does not run from an application startup hook or public route and does
+not need the owner's email. Repeating it reports that no Account or permission was created.
 
 ## Diagnose prerequisites
 

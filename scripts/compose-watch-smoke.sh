@@ -65,16 +65,27 @@ fi
 
 wait_for_body() {
   local url="$1"
-  local expected="$2"
-  local description="$3"
+  local marker="$2"
+  local expected_state="$3"
+  local description="$4"
   local deadline body
   deadline=$((SECONDS + 60))
 
   while ((SECONDS < deadline)); do
     watch_is_running
-    body="$(curl --silent --show-error "$url" 2>/dev/null || true)"
-    if [[ "$body" == *"$expected"* ]]; then
-      return
+    if body="$(curl --silent --show-error --fail "$url" 2>/dev/null)"; then
+      case "$expected_state" in
+        contains)
+          [[ "$body" == *"$marker"* ]] && return
+          ;;
+        omits)
+          [[ "$body" != *"$marker"* ]] && return
+          ;;
+        *)
+          echo "Unsupported body expectation: $expected_state" >&2
+          exit 2
+          ;;
+      esac
     fi
     sleep 0.25
   done
@@ -87,9 +98,9 @@ wait_for_body() {
 # Change an API response so the proof observes tsx watch restarting the process,
 # not only the file synchronization performed by Compose Watch.
 perl -0pi -e 's/status: "ok"/status: "compose-watch-ok"/g' "$backend_source"
-wait_for_body "$api_base_url/health" '"status":"compose-watch-ok"' "backend live reload"
+wait_for_body "$api_base_url/health" '"status":"compose-watch-ok"' contains "backend live reload"
 cp "$backend_backup" "$backend_source"
-wait_for_body "$api_base_url/health" '"status":"ok"' "backend source restoration"
+wait_for_body "$api_base_url/health" '"status":"ok"' contains "backend source restoration"
 
 # Replace the route transiently and require the marker in rendered HTML so the
 # proof observes a Next.js rebuild and response, rather than a copied byte count.
@@ -104,22 +115,9 @@ printf '%s\n' \
   '    </>' \
   '  );' \
   '}' >"$web_source"
-wait_for_body "$web_base_url" compose-watch-web-live "frontend live reload"
+wait_for_body "$web_base_url" compose-watch-web-live contains "frontend live reload"
 cp "$web_backup" "$web_source"
-
-deadline=$((SECONDS + 60))
-while ((SECONDS < deadline)); do
-  watch_is_running
-  if ! curl --silent --show-error "$web_base_url" 2>/dev/null | grep --quiet compose-watch-web-live; then
-    break
-  fi
-  sleep 0.25
-done
-if curl --silent --show-error "$web_base_url" 2>/dev/null | grep --quiet compose-watch-web-live; then
-  cat "$watch_log" >&2
-  echo "Timed out waiting for frontend source restoration" >&2
-  exit 1
-fi
+wait_for_body "$web_base_url" compose-watch-web-live omits "frontend source restoration"
 
 api_before="$(docker compose ps --quiet api)"
 printf '\n' >>apps/backend/package.json

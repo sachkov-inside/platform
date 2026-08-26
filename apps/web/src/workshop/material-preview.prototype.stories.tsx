@@ -2,7 +2,7 @@
 
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import type { ReactNode } from "react";
-import { expect, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import {
   ApplicationShell,
@@ -21,15 +21,15 @@ function HybridCatalogBoard() {
     <WorkshopShell>
       <div data-prototype="material-card-candidate">
         <header className="max-w-3xl">
-          <h1 className="text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
+          <h1 className="break-words text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
             Библиотека
           </h1>
           <p className="mt-4 max-w-[66ch] text-pretty text-base leading-7 text-muted-foreground">
             Видео с превью и текстовые материалы без искусственных заглушек.
           </p>
         </header>
-        <section aria-labelledby="materials-heading" className="mt-9 max-w-5xl">
-          <div className="flex items-center justify-between gap-4">
+        <section aria-labelledby="materials-heading" className="@container/material-catalog mt-9 max-w-[80rem]">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <h2 className="text-xl font-semibold tracking-[-0.025em]" id="materials-heading">
               Новые материалы
             </h2>
@@ -37,7 +37,10 @@ function HybridCatalogBoard() {
               3 материала
             </span>
           </div>
-          <div className="mt-5 grid items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          <div
+            className="mt-5 grid grid-cols-1 items-stretch justify-items-center gap-5 @min-[36rem]/material-catalog:grid-cols-2 @min-[72rem]/material-catalog:grid-cols-3"
+            data-material-grid
+          >
             <MaterialCard material={materialFixtures.platformDeliveryVideo} />
             <MaterialCard material={materialFixtures.publicAgentGuide} />
             <MaterialCard material={materialFixtures.careerVideo} />
@@ -102,7 +105,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const HybridCatalog: Story = {
-  name: "Mixed-format catalog",
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Mixed-format catalog · desktop",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const account = canvas.queryByRole("group", { name: "Текущий профиль: Кирилл" });
@@ -117,6 +121,10 @@ export const HybridCatalog: Story = {
     const careerVideo = canvasElement.querySelector<HTMLElement>(
       `[data-material-id="${materialFixtures.careerVideo.id}"]`,
     );
+    const materialGrid = canvasElement.querySelector<HTMLElement>("[data-material-grid]");
+    const platformCardLink = canvas.getByRole("link", {
+      name: materialFixtures.platformDeliveryVideo.title,
+    });
 
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
     await expect(canvas.getAllByRole("img")).toHaveLength(2);
@@ -126,10 +134,27 @@ export const HybridCatalog: Story = {
       ).toBeLessThanOrEqual(16);
     }
 
-    if (guideCard === null || platformVideo === null || careerVideo === null) {
+    if (
+      guideCard === null ||
+      platformVideo === null ||
+      careerVideo === null ||
+      materialGrid === null
+    ) {
       throw new Error("Material cards are missing");
     }
 
+    await expect(
+      getComputedStyle(materialGrid).gridTemplateColumns.split(" "),
+    ).toHaveLength(2);
+    await expect(platformVideo.getBoundingClientRect().width).toBeGreaterThanOrEqual(360);
+    for (
+      let tabIndex = 0;
+      tabIndex < 12 && canvasElement.ownerDocument.activeElement !== platformCardLink;
+      tabIndex += 1
+    ) {
+      await userEvent.tab();
+    }
+    await expect(platformCardLink).toHaveFocus();
     await expect(within(guideCard).queryByRole("img")).not.toBeInTheDocument();
     await expect(within(guideCard).queryByRole("link", { name: /выпуск/ })).not.toBeInTheDocument();
     await expect(guideCard.getBoundingClientRect().width).toBeLessThan(750);
@@ -146,6 +171,45 @@ export const HybridCatalog: Story = {
   render: () => <HybridCatalogBoard />,
 };
 
+export const HybridCatalogMobile: Story = {
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Mixed-format catalog · mobile",
+  play: async ({ canvasElement }) => {
+    const materialGrid = canvasElement.querySelector<HTMLElement>("[data-material-grid]");
+
+    if (materialGrid === null) {
+      throw new Error("Material grid is missing");
+    }
+
+    await expect(
+      getComputedStyle(materialGrid).gridTemplateColumns.split(" "),
+    ).toHaveLength(1);
+    await expect(canvasElement.ownerDocument.documentElement.scrollWidth).toBeLessThanOrEqual(
+      canvasElement.ownerDocument.documentElement.clientWidth,
+    );
+  },
+  render: () => <HybridCatalogBoard />,
+};
+
+export const HybridCatalogTextZoom: Story = {
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Mixed-format catalog · 200% text zoom",
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.ownerDocument.documentElement;
+    const originalFontSize = root.style.fontSize;
+
+    try {
+      root.style.fontSize = "200%";
+      await waitFor(async () => {
+        await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+      });
+    } finally {
+      root.style.fontSize = originalFontSize;
+    }
+  },
+  render: () => <HybridCatalogBoard />,
+};
+
 export const MediaCard: Story = {
   name: "Video material",
   play: async ({ canvasElement }) => {
@@ -158,11 +222,11 @@ export const MediaCard: Story = {
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
     await expect(card.getBoundingClientRect().width).toBeLessThan(750);
     await expect(
-      within(card).getByRole("link", { name: "Создание Platform Inside · выпуск 5" }),
-    ).toHaveAttribute("href", "/series/series-platform-inside");
-    await expect(within(card).getByRole("link", { name: "developer pipeline" })).toHaveAttribute(
-      "href",
-      "/library?query=developer%20pipeline",
-    );
+      within(card).getByText(/Создание Platform Inside.*выпуск 5/u),
+    ).toBeInTheDocument();
+    await expect(within(card).getByText("developer pipeline")).toBeInTheDocument();
+    await expect(
+      within(card).getByRole("link", { name: materialFixtures.platformDeliveryVideo.title }),
+    ).toHaveAttribute("href", "/materials/material-platform-build-05");
   },
 };

@@ -1,5 +1,6 @@
 import eslint from "@eslint/js";
 import nextPlugin from "@next/eslint-plugin-next";
+import tanstackQuery from "@tanstack/eslint-plugin-query";
 import storybook from "eslint-plugin-storybook";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
@@ -23,6 +24,7 @@ export default tseslint.config(
       "**/test-results/**",
       "apps/backend/test/guardrails/fixtures/architecture/**",
       "apps/backend/test/guardrails/fixtures/typescript/**",
+      "apps/backend/src/infrastructure/prisma/generated/**",
     ],
   },
   eslint.configs.recommended,
@@ -65,8 +67,7 @@ export default tseslint.config(
   },
   {
     files: [
-      "apps/backend/src/modules/*/application/**/*.ts",
-      "apps/backend/src/modules/*/domain/**/*.ts",
+      "apps/backend/src/modules/**/*.ts",
       "apps/backend/test/guardrails/fixtures/eslint/**/*.ts",
     ],
     rules: {
@@ -77,15 +78,19 @@ export default tseslint.config(
             {
               group: [
                 "@nestjs/**",
+                "@prisma/client",
+                "@prisma/client/**",
+                "@prisma/adapter-**",
                 "kysely",
                 "kysely/**",
                 "pg",
                 "pg/**",
                 "**/infrastructure/postgres/generated/**",
+                "**/infrastructure/prisma/generated/**",
                 "**/modules/*/internal/**",
               ],
               message:
-                "Application and domain modules cannot depend on framework or persistence internals.",
+                "Capability implementation cannot depend on framework or persistence internals.",
             },
           ],
         },
@@ -102,11 +107,13 @@ export default tseslint.config(
             {
               group: [
                 "@nestjs/**",
+                "@prisma/**",
                 "kysely",
                 "kysely/**",
                 "pg",
                 "pg/**",
                 "**/infrastructure/postgres/generated/**",
+                "**/infrastructure/prisma/**",
                 "**/modules/*/internal/**",
               ],
               message: "Domain models cannot depend on Nest or persistence adapters.",
@@ -126,6 +133,63 @@ export default tseslint.config(
             {
               group: ["**/modules/*/internal/**"],
               message: "Capability infrastructure cannot import another module's internals.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/backend/src/modules/**/*.module.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@prisma/client",
+                "@prisma/client/**",
+                "@prisma/adapter-**",
+                "kysely",
+                "kysely/**",
+                "pg",
+                "pg/**",
+                "**/infrastructure/postgres/generated/**",
+                "**/infrastructure/prisma/generated/**",
+                "**/modules/*/internal/**",
+              ],
+              message:
+                "Nest modules may compose shared providers, not raw persistence internals.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "apps/backend/src/modules/**/*.controller.ts",
+      "apps/backend/src/modules/**/*.filter.ts",
+      "apps/backend/src/modules/*/adapters/nest/**/*.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "kysely",
+                "kysely/**",
+                "pg",
+                "pg/**",
+                "**/infrastructure/postgres/generated/**",
+                "**/infrastructure/prisma/**",
+                "**/modules/*/internal/**",
+              ],
+              message:
+                "Nest adapters may use the module interface, not persistence internals.",
             },
           ],
         },
@@ -157,7 +221,7 @@ export default tseslint.config(
   {
     // Generated database shapes and frozen migrations are external/immutable inputs.
     files: [
-      "apps/backend/src/infrastructure/postgres/generated/**/*.ts",
+      "apps/backend/src/infrastructure/prisma/generated/**/*.ts",
       "apps/backend/src/modules/*/infrastructure/postgres/migrations/**/*.ts",
     ],
     rules: {
@@ -219,6 +283,10 @@ export default tseslint.config(
     ...reactHooks.configs.flat["recommended-latest"],
     files: webTypeScriptFiles,
   },
+  ...tanstackQuery.configs["flat/recommended"].map((config) => ({
+    ...config,
+    files: webTypeScriptFiles,
+  })),
   {
     files: webClientFiles,
     rules: {

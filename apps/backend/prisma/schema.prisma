@@ -1,0 +1,240 @@
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/infrastructure/prisma/generated"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+  importFileExtension    = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["accounts", "materials"]
+}
+
+model Account {
+  id               String   @id @db.Uuid
+  logtoIssuer      String   @map("logto_issuer")
+  logtoSubject     String   @map("logto_subject")
+  emailFingerprint String?  @unique(map: "accounts_email_fingerprint_unique") @map("email_fingerprint") @db.VarChar(67)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([logtoIssuer, logtoSubject], map: "accounts_logto_identity_unique")
+  @@map("accounts")
+  @@schema("accounts")
+}
+
+model AccountPermission {
+  accountId  String   @map("account_id") @db.Uuid
+  permission String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@id([accountId, permission], map: "account_permissions_primary")
+  @@map("account_permissions")
+  @@schema("accounts")
+}
+
+model AccountAuditEvent {
+  id        String   @id @db.Uuid
+  event     String
+  accountId String?  @map("account_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("account_audit_events")
+  @@schema("accounts")
+}
+
+model Topic {
+  id   String @id @db.Uuid
+  slug String @unique(map: "topics_slug_unique")
+  name String
+
+  @@map("topics")
+  @@schema("materials")
+}
+
+model Format {
+  id   String @id @db.Uuid
+  slug String @unique(map: "formats_slug_unique")
+  name String
+
+  @@map("formats")
+  @@schema("materials")
+}
+
+model Tag {
+  id             String @id @db.Uuid
+  name           String
+  normalizedName String @unique(map: "tags_normalized_name_unique") @map("normalized_name")
+
+  @@map("tags")
+  @@schema("materials")
+}
+
+model Series {
+  id   String @id @db.Uuid
+  slug String @unique(map: "series_slug_unique")
+  name String
+
+  @@map("series")
+  @@schema("materials")
+}
+
+model Material {
+  id                         String    @id @db.Uuid
+  slug                       String    @unique(map: "materials_slug_unique")
+  currentDraftRevisionId     String    @map("current_draft_revision_id") @db.Uuid
+  currentPublishedRevisionId String?   @map("current_published_revision_id") @db.Uuid
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@map("materials")
+  @@schema("materials")
+}
+
+model MaterialRevision {
+  id                     String   @id @db.Uuid
+  materialId             String   @map("material_id") @db.Uuid
+  title                  String
+  summary                String
+  slug                   String
+  topicId                String   @map("topic_id") @db.Uuid
+  formatId               String   @map("format_id") @db.Uuid
+  schemaVersion          Int      @map("schema_version") @db.SmallInt
+  body                   Json
+  createdBy              String   @map("created_by") @db.Uuid
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
+  access                 String
+  restoredFromRevisionId String?  @map("restored_from_revision_id") @db.Uuid
+
+  @@unique([materialId, id], map: "material_revisions_material_and_id_unique")
+  @@map("material_revisions")
+  @@schema("materials")
+}
+
+model MaterialTag {
+  materialId String @map("material_id") @db.Uuid
+  tagId      String @map("tag_id") @db.Uuid
+
+  @@id([materialId, tagId], map: "material_tags_primary")
+  @@map("material_tags")
+  @@schema("materials")
+}
+
+model SeriesMembership {
+  seriesId   String @map("series_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  ordinal    Int
+
+  @@id([seriesId, materialId], map: "series_memberships_primary")
+  @@unique([seriesId, ordinal], map: "series_memberships_ordinal_unique")
+  @@map("series_memberships")
+  @@schema("materials")
+}
+
+model MaterialRevisionTag {
+  revisionId String @map("revision_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  tagId      String @map("tag_id") @db.Uuid
+
+  @@id([revisionId, tagId], map: "material_revision_tags_primary")
+  @@map("material_revision_tags")
+  @@schema("materials")
+}
+
+model MaterialRevisionSeriesMembership {
+  revisionId String @map("revision_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  seriesId   String @map("series_id") @db.Uuid
+  ordinal    Int
+
+  @@id([revisionId, seriesId], map: "material_revision_series_primary")
+  @@map("material_revision_series_memberships")
+  @@schema("materials")
+}
+
+model AuthoringIdempotency {
+  actorId            String    @map("actor_id") @db.Uuid
+  operation          String
+  idempotencyKey     String    @map("idempotency_key")
+  requestFingerprint String    @map("request_fingerprint") @db.Char(64)
+  materialId         String?   @map("material_id") @db.Uuid
+  revisionId         String?   @map("revision_id") @db.Uuid
+  publicationEventId String?   @map("publication_event_id") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@id([actorId, operation, idempotencyKey], map: "authoring_idempotency_primary")
+  @@map("authoring_idempotency")
+  @@schema("materials")
+}
+
+model PublishedMaterial {
+  materialId String   @id @map("material_id") @db.Uuid
+  revisionId String   @map("revision_id") @db.Uuid
+  slug       String   @unique(map: "published_materials_slug_unique")
+  title      String
+  summary    String
+  access     String
+  topicId    String   @map("topic_id") @db.Uuid
+  formatId   String   @map("format_id") @db.Uuid
+  publishedBy String  @map("published_by") @db.Uuid
+  publishedAt DateTime @default(now()) @map("published_at") @db.Timestamptz
+
+  @@unique([materialId, revisionId], map: "published_materials_material_revision_unique")
+  @@index([publishedAt(sort: Desc), materialId(sort: Desc)], map: "published_materials_cursor_idx")
+  @@map("published_materials")
+  @@schema("materials")
+}
+
+model PublishedMaterialTag {
+  materialId String @map("material_id") @db.Uuid
+  tagId      String @map("tag_id") @db.Uuid
+
+  @@id([materialId, tagId], map: "published_material_tags_primary")
+  @@map("published_material_tags")
+  @@schema("materials")
+}
+
+model PublishedMaterialSeriesMembership {
+  materialId String @map("material_id") @db.Uuid
+  seriesId   String @map("series_id") @db.Uuid
+  ordinal    Int
+
+  @@id([materialId, seriesId], map: "published_material_series_primary")
+  @@unique([seriesId, ordinal], map: "published_material_series_ordinal_unique")
+  @@map("published_material_series_memberships")
+  @@schema("materials")
+}
+
+model MaterialSearchDocument {
+  materialId String @id @map("material_id") @db.Uuid
+  revisionId String @map("revision_id") @db.Uuid
+  plainText  String @map("plain_text")
+
+  @@map("material_search_documents")
+  @@schema("materials")
+}
+
+model MaterialPublicationEvent {
+  id         String   @id @db.Uuid
+  materialId String   @map("material_id") @db.Uuid
+  revisionId String   @map("revision_id") @db.Uuid
+  kind       String
+  actorId    String   @map("actor_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("material_publication_events")
+  @@schema("materials")
+}
+
+model MaterialAccessAuditEvent {
+  id         String   @id @db.Uuid
+  materialId String   @map("material_id") @db.Uuid
+  revisionId String   @map("revision_id") @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String
+  decision   String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("material_access_audit_events")
+  @@schema("materials")
+}

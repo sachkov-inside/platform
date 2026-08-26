@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
-import { anonymousSubject, createMaterials } from "../../src/modules/materials/index.js";
+import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
+import {
+  anonymousSubject,
+  assembleMaterials,
+} from "../../src/modules/materials/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -18,19 +22,34 @@ describe("local development seed", () => {
     await testDatabase.dispose();
   });
 
-  test("publishes one stable representative Material when repeated", async () => {
-    const first = await seedLocalDevelopment(testDatabase.database);
-    const second = await seedLocalDevelopment(testDatabase.database);
+  test("publishes a stable multi-page free and closed catalog when repeated", async () => {
+    const first = await seedLocalDevelopment(testDatabase.prisma);
+    const second = await seedLocalDevelopment(testDatabase.prisma);
 
     expect(second).toEqual(first);
 
-    const { publishedMaterialReader } = createMaterials({
-      database: testDatabase.database,
+    const { publishedMaterialReader } = assembleMaterials({
+      prisma: testDatabase.prisma,
       authorPolicy: {
-        canAuthor: () => false,
-        canPublish: () => false,
+        canManage: () => false,
       },
     });
+    const catalog = await listPublishedMaterials(
+      publishedMaterialReader,
+      { first: 12 },
+    );
+    expect(catalog.ok).toBe(true);
+    if (!catalog.ok) {
+      throw new Error("Expected the local catalog seed to be readable");
+    }
+    expect(catalog.value.items).toHaveLength(12);
+    expect(catalog.value.items.slice(0, 2)).toMatchObject([
+      { slug: "membership-delivery-guide", access: "membership" },
+      { slug: "inside-platform-overview", access: "free" },
+    ]);
+    expect(typeof catalog.value.nextCursor).toBe("string");
+    expect(await testDatabase.prisma.publishedMaterial.count()).toBe(13);
+
     await expect(
       publishedMaterialReader.read({
         subject: anonymousSubject,

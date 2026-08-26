@@ -1,10 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { sql } from "kysely";
 
 import {
-  PLATFORM_DATABASE,
-  type PlatformDatabase,
-} from "./postgres/index.js";
+  Prisma,
+  PrismaClientProvider,
+} from "./prisma/index.js";
 
 export type RuntimeProcess = "api" | "mcp";
 
@@ -17,12 +16,12 @@ export interface ReadinessReport {
 @Injectable()
 export class OperationalReadiness {
   constructor(
-    @Inject(PLATFORM_DATABASE)
-    private readonly database: PlatformDatabase,
+    @Inject(PrismaClientProvider)
+    private readonly prisma: PrismaClientProvider,
   ) {}
 
   async check(process: RuntimeProcess): Promise<ReadinessReport> {
-    await sql`select 1`.execute(this.database);
+    await this.prisma.$queryRaw(Prisma.sql`select 1`);
 
     return {
       process,
