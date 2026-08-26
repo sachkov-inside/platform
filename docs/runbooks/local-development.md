@@ -125,6 +125,7 @@ Inspect the running host fallback or Compose stack:
 - OpenAPI UI: <http://127.0.0.1:3001/openapi>
 - published Material API: <http://127.0.0.1:3001/materials/inside-platform-overview>
 - published catalog API: <http://127.0.0.1:3001/library/materials>
+- Material authoring OpenAPI group: <http://127.0.0.1:3001/openapi#/Material%20authoring>
 - production Library: <http://127.0.0.1:3000/library>
 - production Reader: <http://127.0.0.1:3000/materials/inside-platform-overview>
 

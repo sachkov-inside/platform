@@ -5,7 +5,6 @@ import {
   Inject,
   InternalServerErrorException,
   Query,
-  Res,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import {
@@ -15,11 +14,16 @@ import {
   ApiOperation,
   ApiQuery,
   ApiServiceUnavailableResponse,
+  ApiTags,
 } from "@nestjs/swagger";
-import type { FastifyReply } from "fastify";
+import { z } from "zod";
 
+import { PublicCatalogCache } from "../../../../infrastructure/http/http-cache-policy.js";
+import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import {
   PUBLISHED_MATERIAL_READER,
+  publishedMaterialProblemHttpSchema,
+  publishedMaterialProjectionHttpSchema,
   type PublishedMaterialReader,
 } from "../../../materials/index.js";
 import {
@@ -28,7 +32,15 @@ import {
 import { listPublishedMaterials } from "./list-published-materials.js";
 
 const CATALOG_PAGE_SIZE = 12;
+const catalogPageSchema = z
+  .object({
+    items: z.array(publishedMaterialProjectionHttpSchema),
+    nextCursor: z.string().min(1).max(512).nullable(),
+  })
+  .strict();
 
+@ApiTags("Content library")
+@PublicCatalogCache()
 @Controller("library")
 export class ListPublishedMaterialsController {
   constructor(
@@ -40,15 +52,14 @@ export class ListPublishedMaterialsController {
   ) {}
 
   @Get("materials")
-  @ApiOperation({ summary: "List safe published Material projections" })
-  @ApiQuery({ name: "after", required: false })
-  @ApiOkResponse({ description: "A deterministic page of published Materials" })
-  @ApiBadRequestResponse({ description: "Catalog cursor is malformed" })
-  @ApiInternalServerErrorResponse({ description: "Catalog failed internally" })
-  @ApiServiceUnavailableResponse({ description: "Catalog dependency is unavailable" })
+  @ApiOperation({ operationId: "listPublishedMaterials", summary: "List safe published Material projections" })
+  @ApiQuery({ name: "after", required: false, schema: toOpenApiSchema(z.string().min(1).max(512)) })
+  @ApiOkResponse({ description: "A deterministic page of published Materials", schema: toOpenApiSchema(catalogPageSchema) })
+  @ApiBadRequestResponse({ description: "Catalog cursor is malformed", schema: toOpenApiSchema(publishedMaterialProblemHttpSchema) })
+  @ApiInternalServerErrorResponse({ description: "Catalog failed internally", schema: toOpenApiSchema(publishedMaterialProblemHttpSchema) })
+  @ApiServiceUnavailableResponse({ description: "Catalog dependency is unavailable", schema: toOpenApiSchema(publishedMaterialProblemHttpSchema) })
   async handle(
     @Query("after") after: string | undefined,
-    @Res({ passthrough: true }) response: FastifyReply,
   ) {
     const result = await listPublishedMaterials(
       this.publishedMaterialReader,
@@ -58,15 +69,8 @@ export class ListPublishedMaterialsController {
       },
     );
     if (!result.ok) {
-      response.type("application/problem+json");
-      response.header("Cache-Control", "private, no-store");
       throwListPublishedMaterialsError(result.error);
     }
-
-    response.header(
-      "Cache-Control",
-      "public, max-age=30, stale-while-revalidate=60",
-    );
     return result.value;
   }
 }

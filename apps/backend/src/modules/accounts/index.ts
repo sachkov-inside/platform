@@ -1,4 +1,8 @@
 export { AccountsModule } from "./accounts.module.js";
+export { ACCOUNTS } from "./accounts.tokens.js";
+export { AccountGuard } from "./adapters/nest/account.guard.js";
+export { CurrentAccount } from "./adapters/nest/current-account.js";
+export { AccountProblemDetailsFilter } from "./adapters/nest/account-problem-details.filter.js";
 export { assembleAccounts } from "./facets/accounts/assemble-accounts.js";
 export {
   bootstrapOwnerAccount,

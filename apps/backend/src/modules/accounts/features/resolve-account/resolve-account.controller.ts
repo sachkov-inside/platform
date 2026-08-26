@@ -1,12 +1,17 @@
-import { Controller, Get, Headers, Inject, UseFilters } from "@nestjs/common";
+import { Controller, Get, Headers, Inject } from "@nestjs/common";
 import { ApiOperation, ApiResponse } from "@nestjs/swagger";
 
+import {
+  AccountEndpoint,
+  ApiAccountErrors,
+} from "../../adapters/nest/account-endpoint.js";
 import {
   bearerToken,
   throwAccountError,
   throwProofError,
 } from "../../adapters/nest/account-http.js";
-import { AccountProblemDetailsFilter } from "../../adapters/nest/account-problem-details.filter.js";
+import { accountResponseSchema } from "../../adapters/nest/account-http.contract.js";
+import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import type { Accounts } from "../../facets/accounts/accounts.interface.js";
 import {
   ACCOUNTS,
@@ -15,7 +20,7 @@ import {
 import type { LogtoAccessTokenVerifier } from "../../infrastructure/idp/logto/logto-access-token-verifier.js";
 
 @Controller("accounts/current")
-@UseFilters(AccountProblemDetailsFilter)
+@AccountEndpoint()
 export class ResolveAccountController {
   constructor(
     @Inject(ACCOUNTS) private readonly accounts: Accounts,
@@ -24,8 +29,12 @@ export class ResolveAccountController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: "Resolve an existing Account from a Logto access token" })
-  @ApiResponse({ status: 200 })
+  @ApiOperation({
+    operationId: "resolveCurrentAccount",
+    summary: "Resolve an existing Account from a Logto access token",
+  })
+  @ApiResponse({ status: 200, schema: toOpenApiSchema(accountResponseSchema) })
+  @ApiAccountErrors(400, 401, 500, 503)
   async resolve(
     @Headers("authorization") authorization: string | undefined,
   ): Promise<object> {

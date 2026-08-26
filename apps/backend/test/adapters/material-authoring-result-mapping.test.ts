@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { statusForMaterialAuthoringError } from "../../src/entrypoints/api/material-authoring-result-mapping.js";
+import { statusForMaterialAuthoringError } from "../../src/modules/materials/adapters/nest/material-authoring-http.js";
 
 describe("material authoring transport mapping", () => {
   test("maps stable application codes without owning authoring rules", () => {

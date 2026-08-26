@@ -1,14 +1,25 @@
 import { type DynamicModule, Module } from "@nestjs/common";
+import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 
 import { PlatformConfigModule } from "../../config/platform-config.module.js";
 import type { PlatformConfig } from "../../config/platform-config.js";
+import { HttpCachePolicyInterceptor } from "../../infrastructure/http/http-cache-policy.js";
+import { ProblemDetailsFilter } from "../../infrastructure/http/problem-details.filter.js";
 import { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import { ListPublishedMaterialsController } from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
 import {
+  CreateDraftController,
+  LoadDraftController,
   MaterialsModule,
+  PreviewRevisionController,
+  PublishRevisionController,
   ReadPublishedMaterialController,
+  RestoreRevisionController,
+  ReviseDraftController,
+  UnpublishMaterialController,
+  ValidateRevisionController,
 } from "../../modules/materials/index.js";
 import { HealthController } from "./health.controller.js";
 
@@ -17,8 +28,20 @@ import { HealthController } from "./health.controller.js";
     HealthController,
     ListPublishedMaterialsController,
     ReadPublishedMaterialController,
+    CreateDraftController,
+    LoadDraftController,
+    ReviseDraftController,
+    ValidateRevisionController,
+    PreviewRevisionController,
+    PublishRevisionController,
+    RestoreRevisionController,
+    UnpublishMaterialController,
   ],
-  providers: [OperationalReadiness],
+  providers: [
+    OperationalReadiness,
+    { provide: APP_FILTER, useClass: ProblemDetailsFilter },
+    { provide: APP_INTERCEPTOR, useClass: HttpCachePolicyInterceptor },
+  ],
 })
 export class ApiModule {
   static forRoot(config: PlatformConfig): DynamicModule {
