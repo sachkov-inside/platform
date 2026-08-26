@@ -10,7 +10,7 @@ owner approval и merge он становится implementation contract для
 
 Platform создаёт один глубокий batch-first module `ContentAccess`. Он разделяет:
 
-- `availabilityMany` — неавторитетную подсказку presentation layer;
+- `checkAvailabilityMany` — неавторитетную подсказку presentation layer;
 - `authorizeMany` — единственный авторитетный путь перед protected delivery.
 
 Обе операции используют одну policy matrix и Platform-owned facts. IdP только аутентифицирует;
@@ -28,6 +28,15 @@ type Resource =
 
 type Action = "read" | "preview" | "download" | "play";
 
+type EnforcementPoint =
+  | "published_material_read"
+  | "material_preview"
+  | "mcp_material_read"
+  | "asset_delivery"
+  | "download_delivery"
+  | "playback_token_issue"
+  | "video_authorization_callback";
+
 type AccessOperation = Readonly<{
   itemId: AccessItemId;
   resource: Resource;
@@ -37,24 +46,39 @@ type AccessOperation = Readonly<{
 type AccessBatchRequest = Readonly<{
   subject: Subject;
   operations: readonly AccessOperation[];
-  boundary: AccessBoundary;
+  enforcementPoint: EnforcementPoint;
   correlationId: CorrelationId;
 }>;
 
+type AccessBatchError = Readonly<{
+  code: "empty_batch" | "duplicate_item_id" | "batch_too_large";
+}>;
+
+type AvailabilityBatchResult =
+  | Readonly<{ ok: true; items: readonly AccessAvailability[] }>
+  | Readonly<{ ok: false; error: AccessBatchError }>;
+
+type AuthorizationBatchResult =
+  | Readonly<{ ok: true; items: readonly AccessDecision[] }>
+  | Readonly<{ ok: false; error: AccessBatchError }>;
+
 interface ContentAccess {
-  availabilityMany(input: AccessBatchRequest): Promise<readonly AccessAvailability[]>;
-  authorizeMany(input: AccessBatchRequest): Promise<readonly AccessDecision[]>;
+  checkAvailabilityMany(input: AccessBatchRequest): Promise<AvailabilityBatchResult>;
+  authorizeMany(input: AccessBatchRequest): Promise<AuthorizationBatchResult>;
 }
 ```
 
 Одна operation — batch из одного элемента. Batch содержит один trusted `Subject`, не более 100
 operations и возвращает один result на каждый input в исходном порядке. Implementation может
 deduplicate одинаковые resource/action lookups, но duplicate `itemId`, пустой или oversized batch
-являются request errors.
+возвращают соответствующий transport-neutral `AccessBatchError`; operation их не бросает и не
+смешивает с per-item authorization deny.
 
-`itemId`, `boundary` и `correlationId` нужны только для correlation/audit и не влияют на policy.
-Opaque local resource ID — единственное утверждение caller о resource. Publication, access class,
-attachment, owner, profile, email, Telegram state и provider claims caller не передаёт.
+`itemId`, `enforcementPoint` и `correlationId` нужны только для correlation/audit и не влияют на
+policy. `EnforcementPoint` — finite vocabulary application operations, которые запрашивают
+решение; transport при необходимости остаётся отдельным telemetry attribute. Opaque local
+resource ID — единственное утверждение caller о resource. Publication, access class, attachment,
+owner, profile, email, Telegram state и provider claims caller не передаёт.
 
 ## Принятые authorities
 
@@ -134,11 +158,6 @@ type AccessAvailability = Readonly<{
   availability: "available" | "locked" | "sign_in_required" | "unavailable";
 }>;
 
-type AllowReason =
-  | "public_resource"
-  | "active_membership"
-  | "materials_manager";
-
 type DenyReason =
   | "authentication_required"
   | "membership_required"
@@ -157,7 +176,15 @@ type AccessDecision = Readonly<{
   policyVersion: PolicyVersion;
   decidedAt: Instant;
 }> & (
-  | Readonly<{ effect: "allow"; reason: AllowReason; validUntil?: Instant }>
+  | Readonly<{
+      effect: "allow";
+      reason: "public_resource" | "materials_manager";
+    }>
+  | Readonly<{
+      effect: "allow";
+      reason: "active_membership";
+      validUntil: Instant;
+    }>
   | Readonly<{ effect: "deny"; reason: DenyReason }>
 );
 ```
@@ -192,7 +219,7 @@ Deterministic reason precedence:
 Active Membership не даёт preview, authoring или publish. Permission не создаёт fake
 `MembershipEntitlement`. Profile и activity facts не меняют ни одну строку matrix.
 
-`availabilityMany` coarse-проецирует те же current facts:
+`checkAvailabilityMany` coarse-проецирует те же current facts:
 
 - allow → `available`;
 - anonymous protected resource → `sign_in_required`;
@@ -286,8 +313,9 @@ path всегда `private, no-store`; protected prefetch, static generation и 
 issue и dependency failure и сохраняет их одним batch append. Availability создаёт только summary
 metrics, а не сотни artificial deny rows. Public allows могут быть metrics-only.
 
-Minimum protected event: decision ID/time, effect/reason, action, boundary, opaque Account/resource
-IDs, policy version, correlation ID и — если Membership участвовал — evidence version/validity.
+Minimum protected event: decision ID/time, effect/reason, action, enforcement point, opaque
+Account/resource IDs, policy version, correlation ID и — если Membership участвовал — evidence
+version/validity.
 Email, profile, issuer/subject, JWT, Logto cookie, Telegram raw ID, authorization header, signed URL,
 provider token, IP и User-Agent запрещены. Audit context не является policy input. Sink failure не
 может превратить deny в allow; production readiness отдельно доказывает bounded delivery и alerting.
@@ -331,10 +359,11 @@ Required evidence:
 
 1. **#112 — real Material proof.** Add batch types/module, deterministic Account/Membership facts,
    real-PostgreSQL bulk Material facts, reader/readMany integration and `N=1`/`N=100` proof.
-2. **#119 — Membership core.** Vendor exact contract fixtures; add bounded PostgreSQL projection,
-   strict validation, deterministic adapter and monotonic expiry/removal/rejoin behavior.
-3. **#120 — refresh hardening.** Add durable single-flight lease/generation, outage and takeover
-   tests without remote call inside transaction.
+2. **#119 — Membership core and refresh.** Vendor exact contract fixtures; add bounded PostgreSQL
+   projection, strict validation, deterministic adapter, monotonic expiry/removal/rejoin behavior
+   and durable single-flight lease/generation without a remote call inside transaction.
+3. **#120 — policy matrix and batch audit.** Complete the finite Account/resource/action reason
+   matrix, current permission/Membership coordination and one redacted audit append per batch.
 4. **#121 — production convergence.** Bind one canonical ContentAccess into reader/preview,
    remove baseline/caller-supplied policy facts and prove current permission/audit/cache behavior.
 5. **#29 and future delivery owners.** Add user-delegated MCP and Asset/Video adapters only when
