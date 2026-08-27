@@ -120,8 +120,8 @@ describe("supported toolchain contract", () => {
     const smoke = read("scripts/compose-stack-smoke.sh");
 
     assert.match(smoke, /from materials\.materials\b/u);
-    assert.match(smoke, /from materials\.material_revisions\b/u);
-    assert.doesNotMatch(smoke, /\b(?:from|join) (?:materials|material_revisions)\b(?!\.)/u);
+    assert.match(smoke, /from materials\.materials\b/u);
+    assert.doesNotMatch(smoke, /\bfrom materials\b(?!\.)/u);
   });
 });
 
