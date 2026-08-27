@@ -7,31 +7,26 @@ product and application work.
 ## Language
 
 **Material**:
-A durable, independently discoverable unit of Inside content. In Russian product language:
-«Материал».
+A durable, independently discoverable unit of Inside content with one current mutable body,
+metadata, access class and publication state. In Russian product language: «Материал».
 _Avoid_: Post, publication, lesson, публикация
 
-**MaterialRevision**:
-A complete state of one Material's content and metadata at a point in its editorial history. In
-Russian product language: «Редакция материала».
-_Avoid_: Edit, versioned post, ревизия материала, версия материала
-
-**CurrentDraft**:
-The MaterialRevision selected for continued editorial work on one Material. In Russian product
-language: «Текущая черновая редакция».
-_Avoid_: Mutable draft entity, отдельный черновик
-
-**PublishedMaterial**:
-The read-only projection of the exact MaterialRevision currently selected for delivery. It may
-expose a safe teaser without exposing a protected body. In Russian product language:
-«Опубликованный материал».
-_Avoid_: Publication entity, mutable published copy
+**PublicationState**:
+The current visibility lifecycle of a Material: Draft has never been published, Published is
+reader-visible, and Unpublished was previously visible but is now hidden.
+_Avoid_: Revision pointer, publication entity
 
 **MaterialBody**:
-The validated structured content snapshot owned by a MaterialRevision. Its persisted schema is
-versioned, while the domain term itself is not version-suffixed. In Russian product language:
-«Содержимое редакции материала».
+The current validated structured content owned by a Material. Its persisted schema is versioned,
+while the domain term itself is not version-suffixed. In Russian product language:
+«Содержимое материала».
 _Avoid_: MaterialDocumentV1, HTML blob, editor state
+
+**Public Material Projection**:
+The indexable body-free view of a Published Material: title, description, cover, author, taxonomy
+and publication date. A membership Material remains discoverable through this projection while its
+body and body-linked resources stay protected.
+_Avoid_: Teaser revision, public body, access decision
 
 **Topic**:
 The single subject area to which a Material belongs. Topics are one level deep in v1.
@@ -76,6 +71,11 @@ _Avoid_: MembershipEntitlement, Tribute subscription
 **MembershipEntitlement**:
 Platform's time-bounded conclusion that an Account currently has Inside Membership access.
 _Avoid_: Subscription, Telegram membership status
+
+**ContentAccess**:
+Platform's authority for availability and protected delivery. It batch-projects card availability
+and separately authorizes one Material or body-linked resource before protected bytes are loaded.
+_Avoid_: Paywall middleware, UI lock state, Membership role
 
 **ReadingState**:
 The current read or unread relationship between an Account and a Material.

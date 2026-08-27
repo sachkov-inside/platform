@@ -87,8 +87,10 @@ on the same unique Account.
 
 ## Authorization boundary
 
-`materials:manage` is the only v1 Platform permission. It covers create, revise, validate, preview,
-publish, unpublish and restore; Materials still owns workflow validation and recorded owner GO.
+`materials:manage` is the only v1 Platform permission. It covers create, full-state Save, validate,
+preview, publish, unpublish, access change and never-published draft deletion. Materials still owns
+validation, publication-state and stale-content-version rules; no separate owner GO exists inside
+the product workflow.
 There are no roles and no `identity:admin`, `materials:author` or `materials:publish` grants.
 
 The protected Materials operation calls `Accounts.checkPermission(accountId,

@@ -7,9 +7,10 @@
 [Platform #19](https://github.com/sachkov-inside/platform/issues/19) parallel UI laboratory и
 production frontend integration, а также отдельным
 [Platform #48](https://github.com/sachkov-inside/platform/issues/48) Identity, Account и
-Member Profile track.
+Member Profile track и [Platform #132](https://github.com/sachkov-inside/platform/issues/132)
+mutable Material/access decision.
 
-Дата: 2026-08-23.
+Дата: 2026-08-27.
 
 ## Результат и authority
 
@@ -35,12 +36,12 @@ checkout или Workspace.
 MVP brief задаёт product scope; здесь зафиксированы только его Platform-owned implementation
 consequences:
 
-- Material и его revisions являются единственным canonical content write/read path;
+- один mutable Material является единственным canonical content write/read path;
 - актуальные Materials создаются вручную, поэтому application model не содержит Telegram source
   identity, import mapping, migration pipeline, deduplication или loss report;
 - material-specific Telegram discussion relation не является обязательным полем или application
   invariant;
-- admin, REST и MCP используют одни commands, validation, conflicts и publish policy;
+- admin, REST и MCP используют один full-state Save contract, validation и conflict policy;
 - один provider-neutral `ContentAccess` является final Platform authority для read, preview,
   asset/download и video access, а `MembershipEntitlements` только строит bounded Platform grant
   из принятого evidence;
@@ -52,7 +53,7 @@ consequences:
   получают projection или sensitive Account/identity/link/evidence/security data;
 - PostgreSQL projections обеспечивают Library, Topic/Series navigation, search и related Materials;
 - ReadingState не участвует в access decision и сохраняется при окончании Membership;
-- owner-controlled `https://sachkov.dev` landing является только outbound acquisition destination:
+- одна Platform-configured Tribute URL является только outbound acquisition destination:
   Platform не интегрируется с Tribute API/webhooks и не использует click/payment state как
   MembershipEvidence.
 
@@ -95,7 +96,7 @@ throwaway prototype:
 | Data access | Prisma 7 + `@prisma/adapter-pg` — единственный application ORM для всех persistent capabilities; capability-scoped clients ограничивают delegates; checked-in append-only SQL migrations с checksum остаются authority |
 | Jobs | `pg-boss`; dependency, capability-specific worker и queue появляются вместе с первым durable job |
 | Search | PostgreSQL FTS с bounded RU/EN normalization и ranking fixtures |
-| Content document | versioned ProseMirror JSON, Tiptap adapter, immutable revisions, safe renderer и semantic commands |
+| Content document | versioned ProseMirror JSON schema, Tiptap adapter, one mutable Material, safe renderer и full-state Save |
 | Video | Kinescope за application-owned authorization adapter |
 
 [Platform #17](https://github.com/sachkov-inside/platform/issues/17) и
@@ -185,16 +186,17 @@ production trade-off подтверждён evidence, а не заранее д�
   `AccountId`; он не владеет business rules.
 - `MaterialAuthoring` владеет permissions, author workflow, metadata policy и координацией reference
   preconditions через public interfaces `Accounts`, `Assets` и `Videos`.
-- Internal `MaterialBody` module владеет versioned document schema, validation, migration, safe
+- Internal `MaterialBody` module владеет current document schema, validation, migration, safe
   render и extraction. Отдельный public `ContentSchema` capability появляется только вместе с
   независимым caller; единственная Tiptap implementation не оборачивается в speculative port.
-- PostgreSQL constraints владеют durable uniqueness, foreign keys, revision consistency и финальным
+- PostgreSQL constraints владеют durable uniqueness, foreign keys, lifecycle consistency и финальным
   race arbitration.
 - Application operations возвращают discriminated transport-neutral results со stable codes.
   Каждая operation экспортирует только собственный error union.
   REST отображает их в RFC 9457 Problem Details; MCP использует те же codes без HTTP vocabulary.
-- Materials application operation владеет Prisma transaction. `baseRevisionId` реализует optimistic
-  compare-and-set; stale base возвращает conflict, blind partial retry и last-write-wins запрещены.
+- Materials application operation владеет Prisma transaction. `expectedContentVersion` реализует
+  optimistic compare-and-set; stale version возвращает conflict, blind partial retry и
+  last-write-wins запрещены.
 - Idempotency scope — Account + operation + key. Request fingerprint, stable result/effect и write
   сохраняются в одной transaction; повтор с тем же payload воспроизводит result, другой payload с
   тем же key возвращает mismatch. Caller повторяет uncertain request с тем же key.
@@ -225,7 +227,7 @@ production trade-off подтверждён evidence, а не заранее д�
 | `web` | SSR/RSC public, member и admin surfaces; BFF session; coarse access states | Membership policy, provider secrets, direct database access |
 | `api` | REST/OpenAPI adapters, identity mapping, uploads/callbacks и application commands | route-local domain rules |
 | `<capability>-worker` | конкретные durable projection, reconciliation или provider jobs | generic job graph, отдельная domain model или write path |
-| `mcp` | authenticated tools/resources поверх application interfaces | SQL, autonomous publish или human Membership identity |
+| `mcp` | authenticated tools/resources поверх application interfaces | SQL или human Membership identity |
 
 Entry points вызывают одни application use cases и не создают параллельные rule sets.
 
@@ -233,11 +235,11 @@ Entry points вызывают одни application use cases и не созда�
 |---|---|---|
 | `Accounts` | establish/resolve trusted Logto identity в local Account и проверить exact permission | Account mapping, email fingerprint, permissions и redacted audit |
 | `AccountProfiles` | предоставить private Account и управлять отдельной member-visible Member Profile projection | owner Account projection, Member Profile visibility/content/version |
-| `Materials` | `MaterialAuthoring` создаёт, изменяет, проверяет, preview/publish/restore-ит Material; `PublishedMaterialReader` читает exact published revision | revision/publication pointers, author policy, internal body schemas, safe public/search projections |
+| `Materials` | `MaterialAuthoring` создаёт и full-state-save-ит current Material; reader возвращает published current state | content/metadata, publication/access state, content version, author policy, internal body schemas, safe public/search projections |
 | `ContentLibrary` | читать projections, search и навигацию, находить related Materials | published projections, ranking и explicit related pins |
-| [`ContentAccess`](content-access-authorization-v1.md) | batch `checkAvailabilityMany` для presentation и `authorizeMany` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
+| [`ContentAccess`](content-access-authorization-v1.md) | batch `checkAvailabilityMany` для presentation и single `authorize` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
 | `MembershipEntitlements` | принять MembershipEvidence и построить Platform-owned entitlement | state, validity и monotonic evidence application |
-| `Assets` | начать/finalize upload, связать с revision и ограничить delivery | Asset identity, readiness и immutable resource references |
+| `Assets` | начать/finalize upload, связать с current Material и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
 | `ReadingActivity` | idempotently mark read/unread и вернуть recent history | Account-to-Material reading state; не content access |
 
@@ -260,23 +262,27 @@ entities и invariants v1:
 |---|---|
 | `Account` | одна local human identity; unique Logto issuer + subject; 0..1 Telegram link; permissions принадлежат Platform |
 | `MemberProfile` | 0..1 member-visible projection на Account; active members only; никогда не authorization input |
-| `Material` | stable identity и slug; ровно один current draft; 0..1 published revision |
-| `MaterialRevision` | immutable full snapshot; принадлежит ровно одному Material |
+| `Material` | stable identity; one mutable body/metadata/access; `draft | published | unpublished`; monotonically increasing content version |
 | `Topic` | Material имеет ровно один Topic; dictionary одноуровневый |
 | `Format` | Material имеет ровно один Format; это primary consumption mode, не Asset kind |
 | `Tag` | Material имеет 0..N Tags; managed dictionary поддерживает rename/merge без synonyms-duplicates |
 | `Series` | имеет 0..N ordered memberships; Material входит в 0..N Series |
 | `SeriesMembership` | пара Series/Material уникальна; ordinal уникален внутри Series |
-| `Asset` | принадлежит Platform; MaterialRevision ссылается на 0..N Assets |
-| `Video` | local identity с одним Kinescope provider mapping; MaterialRevision ссылается на 0..N Videos |
-| `ExternalLink` | typed label + normalized URL; MaterialRevision содержит 0..N links |
+| `Asset` | принадлежит Platform; current Material ссылается на 0..N Assets |
+| `Video` | local identity с одним Kinescope provider mapping; current Material ссылается на 0..N Videos |
+| `ExternalLink` | typed label + normalized URL; current Material содержит 0..N links |
 | `NavigationPage` | editorial content и curated/query links; Roadmap использует эту роль |
 | `MembershipEntitlement` | не более одного current `inside_membership` projection на Account; validity bounded |
 | `ReadingState` | не более одного current state на пару Account/Material |
 
-`MaterialRevision` содержит application-owned versioned document, metadata snapshot и local
-Asset/Video references. HTML, React tree, search text, signed URLs, provider tokens и editor state
-являются производными или ephemeral.
+`Material` содержит current application-owned versioned document, metadata и local Asset/Video
+references. `contentVersion` является concurrency/binding token, а не исторической редакцией.
+HTML, React tree, search text, signed URLs, provider tokens и editor state являются производными
+или ephemeral. Platform не хранит старые bodies, restore history или durable mutation journal.
+
+Publication lifecycle finite: never-published `draft` скрыт и может быть hard-deleted; `published`
+видим; `unpublished` раньше был видим, теперь скрыт и сохраняет identity/ReadingState. Slug можно
+менять только до первой публикации. Direct public read `draft | unpublished` возвращает `404`.
 
 Topic, Format, Tag и Series создаются по мере реального authoring; результаты аудита служат
 fixtures, а не заранее заданной ontology. Для v1 подтверждены роли:
@@ -286,35 +292,42 @@ fixtures, а не заранее заданной ontology. Для v1 подтв
 - Library — generated view над Materials, не отдельная entity или duplicated content store;
 - material-specific Telegram discussion relation отсутствует.
 
-Public Material projection содержит title, summary/teaser, taxonomy, Series и safe media metadata,
-но не closed body, private object locator или delivery credential. Published body читается только
-через exact published revision; draft resource недоступен через обычные read/download/play paths.
+Public Material projection содержит author-controlled title, description, cover, author, taxonomy,
+Series и `publishedAt`, но не closed body, body-linked resource locator или delivery credential.
+Published membership projection доступна Library/internal search и external indexing с замком.
+Published body читается только для current `published` state; draft/unpublished недоступны через
+обычные read/download/play paths.
 
 ## Application flows
 
 ### Authoring и publish
 
-1. Admin или MCP вызывает explicit application operation с identifiers, concurrency и idempotency
-   inputs из [write atomicity contract](#validation-results-and-write-atomicity).
-2. `MaterialAuthoring` проверяет permissions через `Accounts`, владеет workflow/metadata
-   policy, координирует reference preconditions через `Assets`/`Videos`, делегирует document
-   validation/migration во внутренний `MaterialBody` module и сохраняет immutable revision в одной
-   transaction.
-3. Preview читает explicit revision и использует тот же safe renderer и `ContentAccess`, что
-   published delivery.
-4. Publish только после recorded owner GO повторяет validation и atomically меняет published
-   revision вместе с public/search projections и необходимым durable job fact.
-5. Concurrency, idempotency и transport outcomes следуют единому
+1. Admin или MCP с current `materials:manage` отправляет full desired Material state и
+   `expectedContentVersion` через один Save contract.
+2. `MaterialAuthoring` проверяет permission, reference preconditions и structural body validity.
+   Draft может не иметь publish-required fields; current или target `published` state проходит
+   полную validation и требует ready references.
+3. Save atomically меняет content, metadata, `free | membership`, publication state,
+   `contentVersion` и public/search projections. Stale version возвращает conflict без записи;
+   published Save сразу виден читателю и не создаёт history/audit snapshot.
+4. Preview читает current saved Material. Вход в `published` устанавливает `publishedAt`; обычный live
+   Save его не меняет, повторный вход после unpublish устанавливает новую publication date.
+5. Agent имеет тот же full management contract: отдельный prepare/owner-GO gate отсутствует.
+6. Concurrency, idempotency и transport outcomes следуют единому
    [write atomicity contract](#validation-results-and-write-atomicity).
 
 ### Public и closed read
 
 1. Library/search route читает safe public projections и одним batch накладывает неавторитетную
-   availability для замочков; free body может быть shared-cacheable.
-2. Closed route получает Subject из trusted identity и вызывает authoritative batch
-   `ContentAccess` до загрузки body; один Material является batch из одного элемента.
-3. Deny возвращает public teaser и coarse state; allow одним bulk query читает только exact current
-   published revisions разрешённых operations.
+   availability для замочков; published membership cards доступны discovery без Membership, а для
+   active member или `materials:manage` отображаются unlocked. Free body может быть shared-cacheable.
+2. Material route получает Subject из trusted identity и вызывает single authoritative
+   `ContentAccess.authorize(materialId, read)` до загрузки protected body.
+3. Deny возвращает indexable public teaser, единое coarse state `locked` и CTA `Получить доступ` на
+   общую configured Tribute URL; точная internal reason не раскрывается. `materials:manage` даёт
+   bypass Membership для published reader. Allow условно читает одно body только пока
+   Material остаётся `published` с тем же accepted `contentVersion`; concurrent Save заставляет
+   запрос повторно авторизоваться или fail closed.
 4. Closed body, access decision и delivery credentials имеют `private, no-store`; protected
    speculative prefetch запрещён.
 
@@ -344,8 +357,8 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 ### Membership linking и projection
 
 1. После email-code sign-in Platform предлагает skippable linking; signed-in Account начинает
-   short-lived link transaction сразу, позже из Account или из closed-Material recovery
-   flow.
+   short-lived link transaction сразу или позже из Account. Locked Material не создаёт второй
+   linking/recovery flow.
 2. Отдельная Telegram application проверяет Telegram identity, uniqueness и Membership в
    каноническом закрытом chat.
 3. При linking Telegram application выполняет initial check, затем durably принимает member-status
@@ -371,23 +384,25 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 
 ### Search, navigation и related Materials
 
-- publish transaction обновляет search projection из title, summary, body/headings, asset labels и
-  current metadata; closed body index остаётся server-side;
-- PostgreSQL FTS ранжирует title выше summary/headings, затем taxonomy/body/assets и проверяется на
+- Save transaction обновляет public search projection из title, description и current metadata;
+  body/headings/asset labels остаются отдельным server-side protected index;
+- PostgreSQL FTS ранжирует title выше description/headings, затем taxonomy/body/assets и проверяется на
   bounded representative RU/EN corpus;
 - filters появляются только из реально используемых Topic, Format и Series;
-- query, который должен скрыть недоступные resources до pagination, использует purpose-built
-  relational access selection (`JOIN/EXISTS` compact current grants), а не per-row authorization
-  calls или exported access scope;
+- anonymous/non-member search сопоставляет только public projection и всё равно показывает
+  membership results с замком; active Membership или `materials:manage` дополнительно включает
+  protected body index. Одна current Membership применяется ко всем membership-материалам, без
+  `Account × Material` grants и per-row authorization calls;
 - related выдача сочетает metadata score и explicit author pins без AI dependency.
 
 ### MCP
 
 - MCP сначала аутентифицируется user-delegated OAuth token владельца Account с
   `materials:manage`; отдельная technical identity не создаётся без independent consumer;
-- tools вызывают те же semantic commands, validation results и conflicts, что admin;
+- tools вызывают тот же full-state Save, validation results и conflicts, что admin;
 - read/preview resources проходят `ContentAccess`;
-- publish разделён на prepare/execute с отдельным recorded owner GO; autonomous publish запрещён.
+- current `materials:manage` разрешает agent менять content, metadata, access и publication state
+  без отдельного owner GO.
 
 ## Application NFR
 
@@ -430,9 +445,10 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 - Library search p95 не выше 300 ms на 10 000 Material projections и representative RU/EN set;
 - public critical pages укладываются в LCP 2.5 s, INP 200 ms и CLS 0.1 на согласованном mobile profile;
 - query plans, pool limits и payload/document limits измеряются до добавления cache/service;
-- ContentAccess batch из `N` operations делает `O(K)` database round trips для `K`
-  присутствующих resource kinds, не `O(N)`; Membership facts загружаются одним локальным чтением,
-  provider calls в request path равны нулю; `N=1` и `N=100` acceptance считает queries/calls;
+- Library availability batch из `N <= 100` Materials делает один bulk facts load и не более одного
+  Account facts и одного local Membership facts read; provider calls в request path равны нулю;
+  authoritative delivery загружает одно Material body; `N=1` и `N=100` acceptance считает
+  queries/calls;
 - correctness scenarios из [testing contract](#testing-enforcement-and-adr-timing) входят в
   согласованный fixture corpus и repeatable setup.
 
@@ -443,17 +459,13 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    варианты и зафиксировал [engineering organization and write contract](#engineering-organization-and-write-contract).
    [Research artifact](../research/platform-v1-engineering-contract.md) сохраняет evidence и
    rationale; #27 не меняет harness, agent instructions или production code.
-3. **Create и revise draft:** [#30](https://github.com/sachkov-inside/platform/issues/30) одним
-   production slice добавляет create/load/revise Material, минимальные PostgreSQL migrations,
-   versioned ProseMirror/Tiptap document path, immutable revisions, metadata, idempotency и conflicts.
-   До кода owner утверждает implementation brief с modules/interfaces, file layout, validation flow,
-   transaction boundary и tests. До этого решения ticket имеет `ready-for-human`; после approval
-   его переводят в `ready-for-agent` перед production implementation.
-4. **Validate, preview, publish и read:**
-   [#31](https://github.com/sachkov-inside/platform/issues/31) проводит exact revision через safe
-   validation/renderer и private preview к owner-approved publish, public/free read, unpublish и
-   restore. До кода owner отдельно утверждает lifecycle, projection, transaction и security design;
-   readiness так же меняется с `ready-for-human` на `ready-for-agent` только после approval.
+3. **Historical revision baseline:** завершённые [#30](https://github.com/sachkov-inside/platform/issues/30)
+   и [#31](https://github.com/sachkov-inside/platform/issues/31) поставили versioned body codec,
+   validation/renderer и первоначальный revision-based authoring/read path. Owner decision #132 и
+   ADR 0009 supersede-ят revision lifecycle, но сохраняют deep Materials module и body schema.
+4. **Mutable Material convergence:** #133 переносит текущее published содержимое в один mutable
+   Material, удаляет revision/history interfaces и поставляет full-state Save, finite publication
+   states, contentVersion conflicts и immediate projections до начала MaterialId-based #112.
 5. **Application consumers:** после #31 production Reader и Library поставляются законченными
    vertical slices: [#89](https://github.com/sachkov-inside/platform/issues/89) соединяет public
    Material read с production route, [#90](https://github.com/sachkov-inside/platform/issues/90)
@@ -461,7 +473,7 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    [#93](https://github.com/sachkov-inside/platform/issues/93) последовательно добавляют RU/EN
    search, URL facets/sort и Topic/Series/related navigation. Safe agent authoring
    [#29](https://github.com/sachkov-inside/platform/issues/29) остаётся thin MCP adapter и ждёт
-   production Accounts, ContentAccess и application-owned prepare-publication contract.
+   production Accounts, ContentAccess и application-owned full-state Save contract.
 6. **Technical frontend foundation:** завершённая
    [#36](https://github.com/sachkov-inside/platform/issues/36) создала в существующем `apps/web`
    App Router/FSD composition, server-only backend seam, root layouts, routes/navigation
@@ -483,9 +495,9 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    Library #90 продвигают принятые presentation modules и real backend data каждый в одном
    production vertical slice; #91 и #93 расширяют уже работающий Library journey. Для authoring
    [#38](https://github.com/sachkov-inside/platform/issues/38) сначала получает отдельный
-   owner-accepted Storybook proof Editor/exact Preview; после proof и working Account #49
-   [#94](https://github.com/sachkov-inside/platform/issues/94) поставляет production create + exact
-   Preview, а [#95](https://github.com/sachkov-inside/platform/issues/95) — safe revise и conflict
+   owner-accepted Storybook proof Editor/current-state Preview; после proof и working Account #49
+   [#94](https://github.com/sachkov-inside/platform/issues/94) поставляет production create + saved
+   Draft Preview, а [#95](https://github.com/sachkov-inside/platform/issues/95) — full-state Save и conflict
    recovery. Каждый production ticket использует принятые UI public interfaces/tokens, соединяет
    их с реальными application interfaces и добавляет только component needs собственного surface;
    второй UI system, fixture data path или browser-owned business rules запрещены. #20/#21 остаются
@@ -554,7 +566,7 @@ Application ADR создаётся только если production work обн�
 choice, неочевидный контекст и реальный trade-off. Возможные inputs, но не обязательные ADR:
 
 - migrations/data authority и transaction seam;
-- canonical document schema, revision model, safe renderer и semantic commands;
+- canonical document schema, mutable Material lifecycle, safe renderer и semantic commands;
 - identity provider, BFF и token mapping после proof;
 - `ContentAccess` placement и conformance surface;
 - private Asset delivery mechanism;

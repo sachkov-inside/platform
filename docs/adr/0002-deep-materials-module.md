@@ -4,6 +4,9 @@ status: accepted
 
 # One deep Materials module with an internal versioned body schema
 
+ADR 0009 supersedes only the immutable aggregate/revision identifier and publication-pointer parts
+below. The deep Materials module, internal body schema and caller-oriented facets remain accepted.
+
 Platform exposes one `Materials` capability with two caller-oriented facets:
 `MaterialAuthoring` for the editorial lifecycle and `PublishedMaterialReader` for exact published
 delivery. One framework-agnostic `assembleMaterials` function builds both facets for tests, seeds,
