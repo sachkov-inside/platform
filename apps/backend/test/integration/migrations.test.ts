@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
@@ -55,6 +56,34 @@ const legacyMigrations = [
   { name: cursorMigrationName, statement: cursorMigrationStatement },
   { name: accountsMigrationName, statement: accountsMigrationStatement },
 ] as const;
+
+const migratedMaterialRowsSchema = z.array(
+  z
+    .object({
+      access: z.string(),
+      body: z.unknown(),
+      content_version: z.bigint(),
+      first_published_at: z.date().nullable(),
+      publication_state: z.string(),
+      published_at: z.date().nullable(),
+      slug: z.string(),
+      title: z.string(),
+    })
+    .strict(),
+);
+const migratedTagRowsSchema = z.array(
+  z.object({ tag_id: z.uuid() }).strict(),
+);
+const migratedSearchRowsSchema = z.array(
+  z
+    .object({ content_version: z.bigint(), plain_text: z.string() })
+    .strict(),
+);
+const migratedSeriesRowsSchema = z.array(
+  z
+    .object({ material_id: z.uuid(), ordinal: z.number().int() })
+    .strict(),
+);
 
 describe("Platform migrations", () => {
   let testDatabase: TestDatabase;
@@ -251,6 +280,15 @@ describe("Platform migrations", () => {
             '10000000-0000-4000-8000-000000000001',
             '2026-08-27T08:01:00.000Z'
           );
+          insert into materials.published_material_series_memberships (
+            material_id,
+            series_id,
+            ordinal
+          ) values (
+            '60000000-0000-4000-8000-000000000001',
+            '50000000-0000-4000-8000-000000000001',
+            1
+          );
           insert into materials.material_search_documents (material_id, revision_id, plain_text)
           values (
             '60000000-0000-4000-8000-000000000001',
@@ -266,7 +304,7 @@ describe("Platform migrations", () => {
           ) values
           (
             '60000000-0000-4000-8000-000000000002',
-            'never-published-draft',
+            'visible-material',
             '70000000-0000-4000-8000-000000000003',
             null
           ),
@@ -294,7 +332,7 @@ describe("Platform migrations", () => {
             '60000000-0000-4000-8000-000000000002',
             'Draft title',
             'Draft summary',
-            'never-published-draft',
+            'visible-material',
             '20000000-0000-4000-8000-000000000001',
             '30000000-0000-4000-8000-000000000001',
             1,
@@ -328,6 +366,26 @@ describe("Platform migrations", () => {
             '10000000-0000-4000-8000-000000000001',
             'membership'
           );
+          insert into materials.material_revision_series_memberships (
+            revision_id,
+            material_id,
+            series_id,
+            ordinal
+          ) values (
+            '70000000-0000-4000-8000-000000000003',
+            '60000000-0000-4000-8000-000000000002',
+            '50000000-0000-4000-8000-000000000001',
+            1
+          );
+          insert into materials.series_memberships (
+            series_id,
+            material_id,
+            ordinal
+          ) values (
+            '50000000-0000-4000-8000-000000000001',
+            '60000000-0000-4000-8000-000000000002',
+            1
+          );
           insert into materials.material_publication_events (
             id,
             material_id,
@@ -359,18 +417,8 @@ describe("Platform migrations", () => {
         appliedMigrations: ["0005_mutable_materials"],
       });
 
-      const materials = await database.prisma.$queryRaw<
-        readonly {
-          readonly access: string;
-          readonly body: unknown;
-          readonly content_version: bigint;
-          readonly first_published_at: Date | null;
-          readonly publication_state: string;
-          readonly published_at: Date | null;
-          readonly slug: string;
-          readonly title: string;
-        }[]
-      >(Prisma.sql`
+      const materials = migratedMaterialRowsSchema.parse(
+        await database.prisma.$queryRaw(Prisma.sql`
         select
           access,
           body,
@@ -382,7 +430,8 @@ describe("Platform migrations", () => {
           title
         from materials.materials
         order by id
-      `);
+      `),
+      );
       expect(materials).toEqual([
         {
           access: "membership",
@@ -409,7 +458,7 @@ describe("Platform migrations", () => {
           first_published_at: null,
           publication_state: "draft",
           published_at: null,
-          slug: "never-published-draft",
+          slug: "visible-material-migrated-1",
           title: "Draft title",
         },
         {
@@ -434,21 +483,37 @@ describe("Platform migrations", () => {
         },
       ]);
 
-      const tags = await database.prisma.$queryRaw<
-        readonly { readonly tag_id: string }[]
-      >(Prisma.sql`select tag_id from materials.material_tags`);
+      const tags = migratedTagRowsSchema.parse(
+        await database.prisma.$queryRaw(
+          Prisma.sql`select tag_id from materials.material_tags`,
+        ),
+      );
       expect(tags).toEqual([
         { tag_id: "40000000-0000-4000-8000-000000000001" },
       ]);
-      const search = await database.prisma.$queryRaw<
-        readonly {
-          readonly content_version: bigint;
-          readonly plain_text: string;
-        }[]
-      >(Prisma.sql`
-        select content_version, plain_text
-        from materials.material_search_documents
-      `);
+      const seriesMemberships = migratedSeriesRowsSchema.parse(
+        await database.prisma.$queryRaw(Prisma.sql`
+          select material_id, ordinal
+          from materials.series_memberships
+          order by material_id
+        `),
+      );
+      expect(seriesMemberships).toEqual([
+        {
+          material_id: "60000000-0000-4000-8000-000000000001",
+          ordinal: 1,
+        },
+        {
+          material_id: "60000000-0000-4000-8000-000000000002",
+          ordinal: 2,
+        },
+      ]);
+      const search = migratedSearchRowsSchema.parse(
+        await database.prisma.$queryRaw(Prisma.sql`
+          select content_version, plain_text
+          from materials.material_search_documents
+        `),
+      );
       expect(search).toEqual([
         { content_version: 1n, plain_text: "visible body" },
       ]);

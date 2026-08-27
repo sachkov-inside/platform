@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
+import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import {
   anonymousSubject,
   assembleBaselineContentAccess,
@@ -162,6 +163,30 @@ describe("Material lifecycle", () => {
         },
       },
     });
+
+    expect(
+      await listPublishedMaterials(publishedMaterialReader, { first: 24 }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        items: [
+          {
+            materialId: created.value.materialId,
+            contentVersion: 3,
+            title: "Live title",
+          },
+        ],
+      },
+    });
+    const searchDocument =
+      await testDatabase.prisma.materialSearchDocument.findUnique({
+        where: { materialId: created.value.materialId },
+      });
+    expect(searchDocument).toMatchObject({
+      materialId: created.value.materialId,
+      contentVersion: 3n,
+    });
+    expect(searchDocument?.plainText).toContain("Live body.");
   });
 
   test("hard-deletes a never-published draft and rejects deletion after publication", async () => {

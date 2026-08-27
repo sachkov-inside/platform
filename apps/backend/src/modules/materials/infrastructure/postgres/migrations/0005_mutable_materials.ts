@@ -18,6 +18,7 @@ inner join materials.materials as materials
  and materials.current_published_revision_id = search_documents.revision_id;
 
 alter table materials.materials
+  drop constraint materials_slug_unique,
   alter column slug drop not null,
   add column title text,
   add column summary text,
@@ -95,6 +96,49 @@ inner join materials.material_revisions as revision
  and revision.id = source.revision_id
 where materials.id = source.material_id;
 
+do $$
+declare
+  conflicted record;
+  candidate text;
+  attempt integer;
+begin
+  for conflicted in
+    select ranked.material_id, ranked.slug
+    from (
+      select
+        id as material_id,
+        slug,
+        row_number() over (
+          partition by slug
+          order by (publication_state = 'published') desc, id
+        ) as priority
+      from materials.materials
+      where slug is not null
+    ) as ranked
+    where ranked.priority > 1
+    order by ranked.material_id
+  loop
+    attempt := 1;
+    loop
+      candidate := left(
+        conflicted.slug,
+        greatest(1, 110 - length(attempt::text))
+      ) || '-migrated-' || attempt::text;
+      exit when not exists (
+        select 1
+        from materials.materials as material
+        where material.id <> conflicted.material_id
+          and material.slug = candidate
+      );
+      attempt := attempt + 1;
+    end loop;
+    update materials.materials
+    set slug = candidate
+    where id = conflicted.material_id;
+  end loop;
+end;
+$$;
+
 delete from materials.material_tags;
 insert into materials.material_tags (material_id, tag_id)
 select source.material_id, revision_tag.tag_id
@@ -103,13 +147,46 @@ inner join materials.material_revision_tags as revision_tag
   on revision_tag.material_id = source.material_id
  and revision_tag.revision_id = source.revision_id;
 
-delete from materials.series_memberships;
-insert into materials.series_memberships (series_id, material_id, ordinal)
-select revision_series.series_id, source.material_id, revision_series.ordinal
+create temporary table mutable_material_series_sources on commit drop as
+select
+  revision_series.series_id,
+  source.material_id,
+  revision_series.ordinal,
+  (material.publication_state = 'published') as published
 from mutable_material_sources as source
 inner join materials.material_revision_series_memberships as revision_series
   on revision_series.material_id = source.material_id
- and revision_series.revision_id = source.revision_id;
+ and revision_series.revision_id = source.revision_id
+inner join materials.materials as material
+  on material.id = source.material_id;
+
+delete from materials.series_memberships;
+do $$
+declare
+  membership record;
+  available_ordinal integer;
+begin
+  for membership in
+    select series_id, material_id, ordinal
+    from mutable_material_series_sources
+    order by published desc, series_id, ordinal, material_id
+  loop
+    available_ordinal := membership.ordinal;
+    while exists (
+      select 1
+      from materials.series_memberships as current_membership
+      where current_membership.series_id = membership.series_id
+        and current_membership.ordinal = available_ordinal
+    ) loop
+      available_ordinal := available_ordinal + 1;
+    end loop;
+    insert into materials.series_memberships (series_id, material_id, ordinal)
+    values (membership.series_id, membership.material_id, available_ordinal);
+  end loop;
+end;
+$$;
+
+set constraints all immediate;
 
 drop table materials.material_search_documents;
 drop table materials.published_material_series_memberships;
@@ -137,6 +214,7 @@ alter table materials.materials
   alter column access set not null,
   alter column publication_state set not null,
   alter column content_version set not null,
+  add constraint materials_slug_unique unique (slug),
   add constraint materials_topic_fk foreign key (topic_id)
     references materials.topics (id),
   add constraint materials_format_fk foreign key (format_id)
