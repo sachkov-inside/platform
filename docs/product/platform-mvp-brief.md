@@ -1,6 +1,6 @@
 # Sachkov Inside — brief первой версии платформы
 
-Статус: подтверждённые owner decisions от 2026-08-21. Документ фиксирует продуктовую границу
+Статус: подтверждённые owner decisions по 2026-08-27. Документ фиксирует продуктовую границу
 первой версии будущего Inside-приложения. Он является входом в отдельные bootstrap, technical
 discovery и delivery, но не выбирает stack, архитектуру или repository layout.
 
@@ -33,10 +33,10 @@ private Account, member-only Member Profile и reading experience. `sachkov.dev`
 - без регистрации просматривает главную, темы, серии и Библиотеку;
 - использует полнотекстовый поиск и фильтры;
 - полностью читает выбранные бесплатные материалы;
-- видит карточку и описание каждого закрытого материала;
+- видит индексируемую карточку и публичные metadata каждого закрытого материала с замком;
 - видит описание, порядок и карточки всех выпусков закрытой серии;
-- на закрытом материале видит предложение вступить в Мастерскую и external CTA на
-  owner-controlled `https://sachkov.dev` landing.
+- на закрытом материале при любой причине deny видит один external CTA `Получить доступ` на общую
+  Platform-configured Tribute URL; protected body и связанные ресурсы не загружаются.
 
 ### Участник Membership
 
@@ -46,7 +46,7 @@ private Account, member-only Member Profile и reading experience. `sachkov.dev`
 - видит Member Profiles других действующих участников;
 - после первого входа получает предложение связать Account с Telegram, но может
   пропустить шаг и продолжить с бесплатным контентом;
-- может позже связать Telegram из Account или закрытого Material;
+- может позже связать Telegram из Account;
 - получает доступ на основании внешнего признака активного Membership;
 - имеет один уровень закрытого доступа без тарифной матрицы;
 - после окончания Membership сохраняет Account, Member Profile, историю и статусы
@@ -61,8 +61,8 @@ Telegram username, linking/evidence, security или audit data. Exact поля,
 moderation и delete/disable policy утверждаются владельцем до production implementation и не
 расширяют этот brief до публичной социальной сети.
 
-Платформа не принимает оплату и не управляет подпиской. Outbound link ведёт на owner-controlled
-`https://sachkov.dev` landing: Platform не читает Tribute API/webhooks и не делает access decision
+Платформа не принимает оплату и не управляет подпиской. Один outbound CTA ведёт на
+Platform-configured Tribute URL: Platform не читает Tribute API/webhooks и не делает access decision
 по клику или payment state. Trial, промокоды, подарки, временные доступы и продажа отдельных серий
 не входят в первую версию. Внешним признаком Membership является участие в единственном
 каноническом закрытом Telegram chat. Platform не выдаёт доступ по данным Tribute или другого
@@ -143,21 +143,25 @@ gamification не нужны.
 
 ## Публикация и agent-first contract
 
-Платформа имеет собственную закрытую админку для создания и редактирования материалов, metadata,
-series membership, assets, preview, draft и publish workflow.
+Платформа имеет собственную закрытую админку для создания и редактирования текущего состояния
+Material: content, metadata, series membership, assets, access и publication state.
 
 MCP является обязательной частью первой версии. Админка и MCP используют один application API и
 одни domain rules; MCP не обращается к базе напрямую. Agent interface должен позволять:
 
-- создать draft из предоставленного текста или файла;
+- создать never-published draft из предоставленного текста или файла;
 - читать и изменять материал;
 - загружать и привязывать assets;
 - назначать тему, формат, теги и серии;
-- получать preview и состояние validation;
-- подготовить материал к публикации.
+- получать preview текущего сохранённого draft и состояние validation;
+- одним full-state Save изменять content, metadata, `free | membership` и
+  `draft | published | unpublished`.
 
-Агент обладает технической возможностью провести материал через весь workflow, но публикация
-пользовательского контента выполняется только после явного owner GO.
+Агент с current `materials:manage` может самостоятельно выполнить тот же Save, включая первую или
+повторную публикацию, unpublish и изменение access. Отдельного owner GO внутри product workflow
+нет. Draft скрыт до первой публикации; после неё каждый успешный Save немедленно меняет живой
+Material и его Library/search projection. Platform не хранит старые bodies, restore history или
+durable mutation journal; stale concurrent Save отклоняется по current content version.
 
 ## Создание актуальных материалов
 
@@ -197,7 +201,7 @@ deduplication и migration pipeline не нужны.
 - редакционные команды и материалы участников;
 - сложный learning progress, задания, achievements и gamification;
 - внутренние и email-уведомления;
-- AI-поиск и автономная публикация агентом.
+- AI-поиск и отдельный autonomous content generation workflow вне user-delegated MCP Save.
 
 ## Связанные application-документы
 

@@ -1,17 +1,16 @@
 # ContentAccess authorization specification v1
 
-Статус: decision-ready repository-local specification для
-[#84](https://github.com/sachkov-inside/platform/issues/84). Документ подготовлен поверх
-`origin/main` после принятия [ADR 0006](../adr/0006-logto-session-and-local-account.md). После
-owner approval и merge он становится implementation contract для
-[#50](https://github.com/sachkov-inside/platform/issues/50), но сам не добавляет production code.
+Статус: repository-local implementation contract для
+[#50](https://github.com/sachkov-inside/platform/issues/50), уточнённый решением
+[#132](https://github.com/sachkov-inside/platform/issues/132) о едином mutable `Material`.
+Документ не добавляет production code.
 
 ## Решение
 
-Platform создаёт один глубокий batch-first module `ContentAccess`. Он разделяет:
+Platform создаёт один глубокий module `ContentAccess`. Он разделяет:
 
-- `checkAvailabilityMany` — неавторитетную подсказку presentation layer;
-- `authorizeMany` — единственный авторитетный путь перед protected delivery.
+- `checkAvailabilityMany` — неавторитетную batch-подсказку presentation layer для карточек;
+- `authorize` — единственный авторитетный single-resource путь перед protected delivery.
 
 Обе операции используют одну policy matrix и Platform-owned facts. IdP только аутентифицирует;
 provider claims, Logto roles и BFF cookie сами по себе не дают content access.
@@ -22,7 +21,7 @@ type Subject =
   | Readonly<{ kind: "account"; accountId: AccountId }>;
 
 type Resource =
-  | Readonly<{ kind: "material_body"; revisionId: MaterialRevisionId }>
+  | Readonly<{ kind: "material"; materialId: MaterialId }>
   | Readonly<{ kind: "asset"; assetId: AssetId }>
   | Readonly<{ kind: "video"; videoId: VideoId }>;
 
@@ -50,6 +49,14 @@ type AccessBatchRequest = Readonly<{
   correlationId: CorrelationId;
 }>;
 
+type AccessRequest = Readonly<{
+  subject: Subject;
+  resource: Resource;
+  action: Action;
+  enforcementPoint: EnforcementPoint;
+  correlationId: CorrelationId;
+}>;
+
 type AccessBatchError = Readonly<{
   code: "empty_batch" | "duplicate_item_id" | "batch_too_large";
 }>;
@@ -58,24 +65,21 @@ type AvailabilityBatchResult =
   | Readonly<{ ok: true; items: readonly AccessAvailability[] }>
   | Readonly<{ ok: false; error: AccessBatchError }>;
 
-type AuthorizationBatchResult =
-  | Readonly<{ ok: true; items: readonly AccessDecision[] }>
-  | Readonly<{ ok: false; error: AccessBatchError }>;
-
 interface ContentAccess {
   checkAvailabilityMany(input: AccessBatchRequest): Promise<AvailabilityBatchResult>;
-  authorizeMany(input: AccessBatchRequest): Promise<AuthorizationBatchResult>;
+  authorize(input: AccessRequest): Promise<AccessDecision>;
 }
 ```
 
-Одна operation — batch из одного элемента. Batch содержит один trusted `Subject`, не более 100
-operations и возвращает один result на каждый input в исходном порядке. Implementation может
-deduplicate одинаковые resource/action lookups, но duplicate `itemId`, пустой или oversized batch
-возвращают соответствующий transport-neutral `AccessBatchError`; operation их не бросает и не
-смешивает с per-item authorization deny.
+Availability batch содержит один trusted `Subject`, не более 100 operations и возвращает один
+result на каждый input в исходном порядке. Implementation может deduplicate одинаковые
+resource/action lookups, но duplicate `itemId`, пустой или oversized batch возвращают
+соответствующий transport-neutral `AccessBatchError`; operation их не бросает и не смешивает с
+per-item authorization deny. Полные тела не имеют `readMany`, а `authorize` не имитируется batch из
+одного элемента.
 
-`itemId`, `enforcementPoint` и `correlationId` нужны только для correlation/audit и не влияют на
-policy. `EnforcementPoint` — finite vocabulary application operations, которые запрашивают
+`itemId` нужен только для сопоставления availability results. `enforcementPoint` и `correlationId`
+нужны для correlation/audit и не влияют на policy. `EnforcementPoint` — finite vocabulary application operations, которые запрашивают
 решение; transport при необходимости остаётся отдельным telemetry attribute. Opaque local
 resource ID — единственное утверждение caller о resource. Publication, access class, attachment,
 owner, profile, email, Telegram state и provider claims caller не передаёт.
@@ -99,8 +103,8 @@ owner, profile, email, Telegram state и provider claims caller не перед�
 
 | Surface | Состояние | Contract |
 |---|---|---|
-| Published Material body | Реальный PostgreSQL-backed reader уже отделяет public teaser от protected body. | Сначала public projection, затем `authorizeMany`, затем exact current published body только для allow. |
-| Material preview | Реальный privileged path уже существует. | Exact revision preview требует свежей проверки `materials:manage` до body/private metadata load. |
+| Published Material body | Реальный PostgreSQL-backed reader уже отделяет public teaser от protected body. | Сначала public projection, затем single-resource `authorize`, затем current body только для allow и неизменившейся `contentVersion`. |
+| Material preview | Реальный privileged path уже существует. | Preview текущего сохранённого Material требует свежей проверки `materials:manage` до body/private metadata load. |
 | Web page и REST | Реальные entrypoints используют Published Material reader. | Они передают trusted Account либо anonymous; route-local policy запрещена. |
 | MCP | Materials tools ещё отсутствуют. | Первый adapter использует user-delegated owner Account и ту же permission; service identity не создаётся. |
 | Asset и Video | Owning modules и delivery adapters отсутствуют. | Vocabulary зарезервирован для conformance, но production adapters появляются только с реальным consumer. |
@@ -119,8 +123,8 @@ protected application operation `ContentAccess` вызывает:
 Accounts.checkPermission({ accountId, permission: "materials:manage" })
 ```
 
-Это current indexed DB lookup. Результат можно reuse только внутри текущего вызова
-`authorizeMany`; его нельзя переносить в JWT, Logto cookie, React state, следующую request или
+Это current indexed DB lookup. Результат можно reuse только внутри текущего вызова `authorize` или
+одного availability batch; его нельзя переносить в JWT, Logto cookie, React state, следующую request или
 `validUntil`-lease. Revocation действует на следующую protected operation.
 
 `MembershipEntitlement` — отдельное time-bounded заключение Platform о доступе Account к closed
@@ -129,16 +133,15 @@ practice/progress и Telegram presentation data не участвуют в autho
 
 ## Resource и Action
 
-Owning resource adapter bulk-разрешает opaque IDs в минимальные internal facts:
+Owning resource adapter разрешает opaque IDs в минимальные internal facts:
 
-- owning Material и exact revision;
-- draft/published и соответствие current published pointer;
+- owning Material, его `draft | published | unpublished` state и current `contentVersion`;
 - `free | membership` requirement;
 - attachment relationship и вид Asset/Video, когда такие modules реально появятся.
 
-Caller не передаёт slug, access class, publication state, storage key, signed URL, Kinescope ID или
-private locator. Unknown ID, non-current published revision, cross-revision attachment и invalid
-resource/action pair fail closed.
+Caller не передаёт slug, access class, publication state, content version, storage key, signed URL,
+Kinescope ID или private locator. Unknown ID, unpublished resource, attachment другого Material и
+invalid resource/action pair fail closed.
 
 Valid pairs:
 
@@ -147,16 +150,17 @@ Valid pairs:
 - downloadable Asset: `download | preview`;
 - Video: `play | preview`.
 
-Normal `read | download | play` никогда не открывают draft. `preview` выбирает exact revision и
-требует `materials:manage`. Эта permission также покрывает authoring workflow, но owner GO,
-validation и publish invariants остаются в Materials и не становятся частью `ContentAccess`.
+Normal `read | download | play` никогда не открывают `draft` или `unpublished`. `preview` выбирает
+текущее сохранённое состояние Material и требует `materials:manage`. Эта permission также покрывает
+полный authoring workflow, включая publish, unpublish и смену access class; validation и lifecycle
+invariants остаются в Materials и не становятся частью `ContentAccess`.
 
 ## Finite decisions
 
 ```ts
 type AccessAvailability = Readonly<{
   itemId: AccessItemId;
-  availability: "available" | "locked" | "sign_in_required" | "unavailable";
+  availability: "available" | "locked" | "unavailable";
 }>;
 
 type DenyReason =
@@ -172,7 +176,6 @@ type DenyReason =
   | "dependency_unavailable";
 
 type AccessDecision = Readonly<{
-  itemId: AccessItemId;
   decisionId: AccessDecisionId;
   policyVersion: PolicyVersion;
   decidedAt: Instant;
@@ -180,11 +183,13 @@ type AccessDecision = Readonly<{
   | Readonly<{
       effect: "allow";
       reason: "public_resource" | "materials_manager";
+      checkedContentVersion: ContentVersion;
     }>
   | Readonly<{
       effect: "allow";
       reason: "active_membership";
       validUntil: Instant;
+      checkedContentVersion: ContentVersion;
     }>
   | Readonly<{ effect: "deny"; reason: DenyReason }>
 );
@@ -203,7 +208,8 @@ Deterministic reason precedence:
 2. Published free normal delivery: `public_resource`; Account/Membership lookup не нужен.
 3. Protected anonymous operation: `authentication_required`.
 4. Read current `materials:manage`; dependency failure: `dependency_unavailable`.
-5. Current `materials:manage`: `materials_manager`, включая exact preview.
+5. Current `materials:manage`: `materials_manager`, включая current saved preview и обычное чтение
+   published membership-материала без Membership.
 6. Preview без permission: `permission_required`.
 7. Closed normal delivery: resolve current Membership; active даёт `active_membership`, absence —
    `membership_required`, confirmed expiry/removal — `membership_expired`, stale positive после
@@ -214,7 +220,7 @@ Deterministic reason precedence:
 |---|---|---|---|---|---|
 | Published free `read/download/play` | public | public | public | public | public |
 | Published membership `read/download/play` | authentication required | membership required | active membership | membership expired | materials manager |
-| Exact free/membership `preview` | authentication required | permission required | permission required | permission required | materials manager |
+| Current free/membership `preview` | authentication required | permission required | permission required | permission required | materials manager |
 | Draft `preview` | authentication required | permission required | permission required | permission required | materials manager |
 | Draft normal delivery | unpublished | unpublished | unpublished | unpublished | unpublished |
 
@@ -224,14 +230,22 @@ Active Membership не даёт preview, authoring или publish. Permission н
 `checkAvailabilityMany` coarse-проецирует те же current facts:
 
 - allow → `available`;
-- anonymous protected resource → `sign_in_required`;
-- known authenticated deny → `locked`;
-- invalid/unpublished/unknown resource или dependency outage → `unavailable`.
+- любой известный published membership-resource без доказанного allow, включая dependency outage,
+  → `locked`;
+- invalid/unpublished/unknown resource → `unavailable`.
 
 Availability не возвращает reason, decision ID или validity и не разрешает body, private locator,
-redirect, signed URL или playback token. Любая последующая delivery вызывает `authorizeMany`
-заново. Transport обычно маппит missing authentication в `401`, known deny в `403`, unsafe
-unknown/mismatch в `404`, outage в `503`; UI не получает internal resource oracle.
+redirect, signed URL или playback token. Любая последующая delivery вызывает `authorize` заново.
+Public reader маппит deny известного published membership-материала в индексируемый teaser со
+статусом `locked` и успешным page response; draft/unpublished/unknown остаются `404`, outage —
+тот же fail-closed `locked`. UI не получает internal Membership reason или resource oracle.
+
+Safe public projection содержит author-controlled `title`, `description`, `cover`, author,
+taxonomy и `publishedAt`. Library и внутренний search показывают такие published membership-
+материалы с замком, а внешний индекс может индексировать их teaser. Body, inline media, downloads,
+video locators и иные связанные с body ресурсы в projection не входят. Любой locked teaser
+показывает один CTA «Получить доступ» на общую Platform-owned Tribute URL setting; эта ссылка не
+является полем Material и не доказывает Membership.
 
 ## MembershipEntitlements
 
@@ -278,10 +292,10 @@ conformance corpus. #52 добавляет production authenticated evidence ing
 convergence с отдельно реализованным provider. Durable Telegram member-status ingestion и
 `getChatMember` reconciliation transport принадлежат Telegram application под Workspace #60.
 
-## Batch execution и protected loading
+## Availability batch и protected loading
 
-В loop по operations запрещён database/provider I/O. Для `N` operations и `K` реально
-присутствующих resource kinds:
+В availability loop по operations запрещён database/provider I/O. Для `N <= 100` operations и `K`
+реально присутствующих resource kinds:
 
 ```text
 resource database round trips = O(K), not O(N)
@@ -293,21 +307,25 @@ memory                         = O(N)
 
 Planner validates/deduplicates input, bulk-loads resource facts одним query на kind, один раз на
 batch читает current Account permission и только при необходимости один раз Membership, затем
-pure-evaluates policy и batch-appends audit. Tests для `N=1` и `N=100` доказывают, что query/provider
-call count не растёт на каждый Material; order, duplicates и cardinality сохраняются.
+pure-evaluates policy. Tests для `N=1` и `N=100` доказывают, что query/provider call count не растёт
+на каждый Material; order, duplicates и cardinality сохраняются. Batch никогда не читает полные
+bodies, поэтому aggregate body-byte limit и `readMany` в v1 не нужны.
 
 Published Material delivery order:
 
 1. Resolve optional trusted Subject и загрузить только allowlisted public projection by slug.
-2. Вызвать `authorizeMany` для `material_body/read`.
-3. На deny вернуть teaser/coarse state без protected body.
-4. На allow одним bulk query загрузить allowed bodies, повторно связывая revision с exact current
-   published pointer.
-5. Render через Materials и вернуть один ordered outcome на item.
+2. Вызвать `authorize` для `material/read` по `materialId`.
+3. На deny вернуть индексируемый public teaser, `locked` и общий CTA без запроса protected body.
+4. На allow получить `checkedContentVersion` и одним conditional query загрузить ровно один body,
+   только если Material всё ещё `published` и его `contentVersion` не изменился.
+5. При mismatch ограниченно повторить resolve/authorize либо fail closed; затем render через
+   Materials.
 
-Preview передаёт exact revision ID и также загружает body только после allow. Будущие Asset/Video
-adapters сначала bulk-load safe relationship facts, а private locator/credential получают только
-для allow items.
+Preview передаёт `materialId`, требует current `materials:manage` и загружает текущее сохранённое
+состояние только после allow. Обычный public reader даже для manager не открывает draft/unpublished:
+для них используется Preview. Будущие Asset/Video adapters сначала load safe relationship facts, а
+private locator/credential получают только после single-resource authorize. Cover остаётся частью
+public projection; inline media, downloads и video наследуют защиту owning Material.
 
 Public projections и free bodies могут быть shared-cacheable. Personalized availability
 накладывается после public cache. Membership body, protected decision, credential и permission
@@ -316,9 +334,9 @@ path всегда `private, no-store`; protected prefetch, static generation и 
 
 ## Audit и privacy
 
-`authorizeMany` формирует event для каждого explicit protected allow/deny, preview, credential
-issue и dependency failure и сохраняет их одним batch append. Availability создаёт только summary
-metrics, а не сотни artificial deny rows. Public allows могут быть metrics-only.
+`authorize` формирует один event для explicit protected allow/deny, preview, credential issue или
+dependency failure. Availability создаёт только summary metrics, а не сотни artificial deny rows.
+Public allows могут быть metrics-only.
 
 Minimum protected event: decision ID/time, effect/reason, action, enforcement point, opaque
 Account/resource IDs, policy version, correlation ID и — если Membership участвовал — evidence
@@ -338,7 +356,8 @@ apps/backend/src/modules/
 ```
 
 `ContentAccess` объявляет access-oriented `MaterialResourceFacts` port; Materials реализует его
-поверх своей persistence и возвращает только minimal policy facts. `ContentAccess` не читает
+поверх своей persistence и возвращает только minimal policy facts без protected body. Port
+поддерживает bulk facts для availability и single facts для authorize. `ContentAccess` не читает
 Materials tables напрямую, а Materials transport не импортирует policy implementation.
 Asset/Video ports появляются только вместе с owning real consumers.
 
@@ -350,9 +369,12 @@ grant получает собственный compact fact и ADR/consumer; Memb
 
 Required evidence:
 
-- exhaustive pure policy matrix через batch interface;
-- `N=1`/`N=100` fixed-I/O counters, ordering, duplicate/resource dedup and batch limits;
-- real-PostgreSQL reader/preview tests: deny не загружает body/private facts;
+- exhaustive pure policy matrix для single `authorize` и coarse availability projection;
+- availability `N=1`/`N=100` fixed-I/O counters, ordering, duplicate/resource dedup and batch limits;
+- real-PostgreSQL reader/preview tests: deny не загружает body/private facts, allow загружает ровно
+  один body только при совпадающих `published` state и `contentVersion`;
+- Library/search показывают published membership cards как locked, manager — как available;
+- public locked reader возвращает индексируемые metadata, единый CTA и ни одного body/resource byte;
 - current `materials:manage` grant/revoke changes the next protected operation;
 - provider role/claim and Profile/ReadingState never alter decisions;
 - vendored Membership fixtures: boundary time, removal, expiry, rejoin, retry, replay, mismatch,
@@ -360,22 +382,28 @@ Required evidence:
 - concurrency proof: duplicate/out-of-order evidence consumers converge monotonically, inbox retry
   is idempotent and user-facing requests make zero provider calls;
 - page/REST conformance, private-no-store and no cross-Account cache leakage;
-- audit batch contains exact stable fields and none of the prohibited identity/provider data;
+- single authorize audit содержит exact stable fields и ни одного запрещённого identity/provider
+  field; availability создаёт только summary metrics;
 - repository checks, architecture fitness functions and Standards + Spec review.
 
 ## Consumer-led implementation slices
 
-1. **#112 — real Material proof.** Add batch types/module, deterministic Account/Membership facts,
-   real-PostgreSQL bulk Material facts, reader/readMany integration and `N=1`/`N=100` proof.
-2. **#119 — Membership core and projection.** Vendor exact contract fixtures; add bounded
+1. **#133 — mutable Material migration.** Remove persisted revision lifecycle, introduce atomic
+   full-state Save with optimistic `contentVersion`, and expose body-free current Material facts.
+2. **#112 — real Material proof.** Add availability batch plus single authorize, deterministic
+   Account/Membership facts, real-PostgreSQL Material facts, conditional one-body reader integration
+   and availability `N=1`/`N=100` proof.
+3. **#119 — Membership core and projection.** Vendor exact contract fixtures; add bounded
    PostgreSQL projection, strict validation, deterministic evidence-acceptance adapters, monotonic
    expiry/removal/rejoin behavior and durable inbox/deduplication without any provider call from
    Platform consumers or user-facing reads.
-3. **#120 — policy matrix and batch audit.** Complete the finite Account/resource/action reason
-   matrix, current permission/Membership coordination and one redacted audit append per batch.
-4. **#121 — production convergence.** Bind one canonical ContentAccess into reader/preview,
-   remove baseline/caller-supplied policy facts and prove current permission/audit/cache behavior.
-5. **#29 and future delivery owners.** Add user-delegated MCP and Asset/Video adapters only when
+4. **#120 — policy matrix and authorize audit.** Complete the finite Account/resource/action reason
+   matrix, current permission/Membership coordination, one redacted event per authorize and
+   availability summary metrics.
+5. **#121 — production convergence.** Bind one canonical ContentAccess into reader/preview and
+   Library/search availability, remove baseline/caller-supplied policy facts and prove current
+   permission/audit/cache behavior.
+6. **#29 and future delivery owners.** Add user-delegated MCP and Asset/Video adapters only when
    their real consumer exists; all use the same module and conformance corpus.
 
 #50 stops when one provider-neutral protected Material path uses this module on real consumers,
@@ -390,8 +418,13 @@ tier/purchase persistence or speculative delivery adapters.
 - caller-supplied publication/access facts;
 - generic Principal, service identity, author/admin roles or permission decision lease;
 - per-resource I/O, provider call inside long transaction or precomputed effective access matrix;
+- batch authorization/body delivery, `readMany` или aggregate protected-body byte budget;
+- revision ID как authorization resource или caller-supplied `contentVersion`;
+- разные публичные denial CTA/reasons, per-Material purchase URL или скрытие published membership
+  cards от Library/search;
 - stale-positive grace, allow-on-error or shared caching of protected outcomes;
 - fake Asset/Video/MCP production adapters before an owning consumer.
 
 Owner approval of this specification authorizes implementation planning for #50. It does not
-approve production credentials/deploy, Telegram HTTP calls, new identity kinds or merge of PR #85.
+approve production credentials/deploy, Telegram HTTP calls, new identity kinds or merge of an
+implementation PR.
