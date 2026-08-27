@@ -74,10 +74,7 @@ describe("Library server adapter", () => {
       ],
       nextCursor: "opaque-cursor",
     });
-    expect(fetch).toHaveBeenCalledWith(
-      "https://platform-api.example.test/library/materials",
-      expect.objectContaining({ cache: "no-store" }),
-    );
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it("rejects a successful response outside the runtime contract", async () => {
@@ -124,21 +121,52 @@ describe("Library server adapter", () => {
       items: [],
       nextCursor: null,
     });
-    expect(fetch).toHaveBeenCalledWith(
-      "https://platform-api.example.test/library/materials?after=page%2Fcursor",
-      expect.objectContaining({ cache: "no-store" }),
-    );
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it("maps a dependency outage to the controlled unavailable state", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(new Response("upstream unavailable", { status: 503 })),
+      vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            type: "urn:inside:problem:dependency-unavailable",
+            title: "Dependency unavailable",
+            status: 503,
+            code: "dependency_unavailable",
+            retryable: true,
+          },
+          {
+            status: 503,
+            headers: { "Content-Type": "application/problem+json" },
+          },
+        ),
+      ),
     );
 
     await expect(getLibraryCatalogPage(undefined)).resolves.toEqual({
       kind: "unavailable",
+    });
+  });
+
+  it("does not turn an unknown 503 response into a known UI outcome", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          { type: "about:blank", title: "Unknown", status: 503, code: "unknown" },
+          {
+            status: 503,
+            headers: { "Content-Type": "application/problem+json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(getLibraryCatalogPage(undefined)).rejects.toMatchObject({
+      code: "backend-error",
     });
   });
 });

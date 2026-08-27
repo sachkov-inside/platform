@@ -5,8 +5,14 @@ const nextConfig: NextConfig = {
   logging: {
     incomingRequests: { ignore: [/^\/callback(?:[/?]|$)/u] },
   },
+  experimental: {
+    useTypeScriptCli: false,
+  },
   poweredByHeader: false,
   typedRoutes: true,
+  typescript: {
+    tsconfigPath: "tsconfig.next.json",
+  },
 };
 
 export default nextConfig;
