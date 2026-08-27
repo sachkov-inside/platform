@@ -12,10 +12,14 @@ import {
 } from "./library-page";
 import { VirtualizedLibraryCatalog } from "./virtualized-library-catalog.client";
 
-export function LibraryPageQuery() {
+export function LibraryPageQuery({
+  viewerScope,
+}: {
+  readonly viewerScope: string;
+}) {
   return (
     <LibraryCatalogQueryView
-      queryOptions={libraryCatalogBrowserQueryOptions()}
+      queryOptions={libraryCatalogBrowserQueryOptions(viewerScope)}
     />
   );
 }

@@ -20,6 +20,7 @@ const projectionSchema = z
     title: z.string(),
     summary: z.string(),
     access: z.enum(["free", "membership"]),
+    availability: z.enum(["available", "locked", "unavailable"]),
     publishedAt: z.iso.datetime({ offset: true }),
     topic: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
     format: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
@@ -42,11 +43,15 @@ const catalogSchema = z
 
 export async function getLibraryCatalogPage(
   after: string | undefined,
+  accessToken?: string,
   signal?: AbortSignal,
 ): Promise<LibraryCatalogPage> {
   let result: Awaited<ReturnType<typeof requestPublishedMaterialCatalog>>;
   try {
-    result = await requestPublishedMaterialCatalog(after, signal);
+    result = await requestPublishedMaterialCatalog(after, {
+      ...(accessToken === undefined ? {} : { accessToken }),
+      ...(signal === undefined ? {} : { signal }),
+    });
   } catch (error) {
     if (error instanceof BackendConnectionError && error.code === "unavailable") {
       return { kind: "unavailable" };
@@ -92,6 +97,7 @@ function toMaterialPreview(
     title: projection.title,
     summary: projection.summary,
     access: projection.access,
+    availability: projection.availability,
     topic: projection.topic.name,
     format: projection.format.name,
     tags: projection.tags.map(({ name }) => name),

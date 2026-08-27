@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
+import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import { assembleMaterials } from "../../src/modules/materials/index.js";
 import {
   createMigratedTestDatabase,
@@ -21,13 +22,14 @@ describe("ListPublishedMaterials", () => {
   });
 
   test("continues through deterministic pages of safe published projections", async () => {
-    const { publishedMaterialReader } = assembleMaterials({
+    const { contentAccess, publishedMaterialReader } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => false },
     });
     const firstPage = await listPublishedMaterials(
       publishedMaterialReader,
-      { first: 1 },
+      contentAccess,
+      { subject: anonymousSubject, first: 1 },
     );
     expect(firstPage).toMatchObject({
       ok: true,
@@ -48,7 +50,9 @@ describe("ListPublishedMaterials", () => {
 
     const secondPage = await listPublishedMaterials(
       publishedMaterialReader,
+      contentAccess,
       {
+        subject: anonymousSubject,
         after: firstPage.value.nextCursor,
         first: 1,
       },

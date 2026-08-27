@@ -4,13 +4,19 @@ import { getMaterialReader } from "@/_pages/material-reader/api/get-material-rea
 import { MaterialReaderAccess, MaterialReaderUnavailable } from "./material-reader-states";
 import { MaterialReaderView } from "./material-reader-view";
 
-export async function MaterialReaderPage({ slug }: { readonly slug: string }) {
-  const result = await getMaterialReader(slug);
+export async function MaterialReaderPage({
+  accessToken,
+  slug,
+}: {
+  readonly accessToken?: string;
+  readonly slug: string;
+}) {
+  const result = await getMaterialReader(slug, accessToken);
   if (result.kind === "not-found") {
     notFound();
   }
   if (result.kind === "access") {
-    return <MaterialReaderAccess material={result.material} reason={result.reason} />;
+    return <MaterialReaderAccess cta={result.cta} material={result.material} />;
   }
   if (result.kind === "unavailable") {
     return <MaterialReaderUnavailable slug={slug} />;

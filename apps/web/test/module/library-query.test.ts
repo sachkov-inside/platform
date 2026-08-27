@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { dehydrate, hydrate, QueryClient } from "@tanstack/react-query";
 
 import { GET } from "../../app/api/library/materials/route";
+import { handleLibraryCatalogRequest } from "@/_pages/library.server";
 import { libraryCatalogQueryKey } from "@/_pages/library";
 import { getQueryClient } from "@/shared/api/query-client";
 import { requestLibraryCatalogPage } from "../../src/_pages/library/api/request-library-catalog";
@@ -13,6 +14,7 @@ const readyCatalog = {
   items: [
     {
       access: "free",
+      availability: "available",
       format: "Гайд",
       seriesMemberships: [],
       slug: "inside-platform-overview",
@@ -24,6 +26,7 @@ const readyCatalog = {
   ],
   nextCursor: null,
 } as const;
+const viewerScope = "viewer-request-1";
 
 describe("Library TanStack Query interface", () => {
   afterEach(() => {
@@ -32,7 +35,14 @@ describe("Library TanStack Query interface", () => {
   });
 
   it("uses one deterministic query key for every cursor page", () => {
-    expect(libraryCatalogQueryKey).toEqual(["library", "catalog"]);
+    expect(libraryCatalogQueryKey(viewerScope)).toEqual([
+      "library",
+      "catalog",
+      viewerScope,
+    ]);
+    expect(libraryCatalogQueryKey("viewer-request-2")).not.toEqual(
+      libraryCatalogQueryKey(viewerScope),
+    );
   });
 
   it("isolates QueryClient caches between server requests", () => {
@@ -50,7 +60,7 @@ describe("Library TanStack Query interface", () => {
     const queryClient = new QueryClient();
 
     const data = await queryClient.infiniteQuery({
-      ...libraryCatalogBrowserQueryOptions(),
+      ...libraryCatalogBrowserQueryOptions(viewerScope),
       pages: 2,
     });
 
@@ -62,7 +72,9 @@ describe("Library TanStack Query interface", () => {
       "/api/library/materials?after=next%2Fcursor",
     );
     expect(fetchMock.mock.calls[1]?.[1]?.signal).toBeInstanceOf(AbortSignal);
-    expect(queryClient.getQueryData(libraryCatalogQueryKey)).toEqual(data);
+    expect(
+      queryClient.getQueryData(libraryCatalogQueryKey(viewerScope)),
+    ).toEqual(data);
   });
 
   it("reuses the fresh server-hydrated first page without an initial browser request", async () => {
@@ -71,7 +83,10 @@ describe("Library TanStack Query interface", () => {
     } as const;
     const serverClient = new QueryClient(queryClientOptions);
     await serverClient.infiniteQuery(
-      createLibraryCatalogQueryOptions(() => Promise.resolve(readyCatalog)),
+      createLibraryCatalogQueryOptions(
+        () => Promise.resolve(readyCatalog),
+        viewerScope,
+      ),
     );
 
     const browserClient = new QueryClient(queryClientOptions);
@@ -80,7 +95,9 @@ describe("Library TanStack Query interface", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      browserClient.infiniteQuery(libraryCatalogBrowserQueryOptions()),
+      browserClient.infiniteQuery(
+        libraryCatalogBrowserQueryOptions(viewerScope),
+      ),
     ).resolves.toMatchObject({ pages: [readyCatalog] });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -165,5 +182,25 @@ describe("Library TanStack Query interface", () => {
 
     expect(response.status).toBe(400);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("forwards an authenticated viewer and prevents shared BFF caching", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    const fetchMock = vi.fn((request: Request) => {
+      expect(request.headers.get("authorization")).toBe(
+        "Bearer platform-access-token",
+      );
+      return Promise.resolve(Response.json({ items: [], nextCursor: null }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await handleLibraryCatalogRequest(
+      new Request("https://platform-web.example.test/api/library/materials"),
+      "platform-access-token",
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 });

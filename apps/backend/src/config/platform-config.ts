@@ -6,6 +6,7 @@ const DEFAULT_LOGTO_ISSUER = "https://identity.inside.localhost:3301/oidc";
 const DEFAULT_LOGTO_AUDIENCE = "http://127.0.0.1:3001";
 const DEFAULT_LOGTO_JWKS_URL = "https://identity.inside.localhost:3301/oidc/jwks";
 const DEFAULT_EMAIL_FINGERPRINT_KEY = "inside-local-email-fingerprint-key";
+const DEFAULT_MEMBERSHIP_ACQUISITION_URL = "https://t.me/tribute";
 
 export const PLATFORM_CONFIG = Symbol("PLATFORM_CONFIG");
 
@@ -25,6 +26,9 @@ export interface PlatformConfig {
     audience: string;
     jwksUrl: string;
     emailFingerprintKey: string;
+  }>;
+  readonly contentAccess: Readonly<{
+    membershipAcquisitionUrl: string;
   }>;
 }
 
@@ -48,7 +52,8 @@ function readRuntimeValue(
     | "IDENTITY_EMAIL_FINGERPRINT_KEY"
     | "LOGTO_AUDIENCE"
     | "LOGTO_ISSUER"
-    | "LOGTO_JWKS_URL",
+    | "LOGTO_JWKS_URL"
+    | "MEMBERSHIP_ACQUISITION_URL",
   mode: PlatformMode,
   localDefault: string,
 ): string {
@@ -149,8 +154,19 @@ export function parsePlatformConfig(
     ),
   });
   const identity = parseIdentityConfig(environment, mode);
+  const contentAccess = Object.freeze({
+    membershipAcquisitionUrl: validateHttpUrl(
+      readRuntimeValue(
+        environment,
+        "MEMBERSHIP_ACQUISITION_URL",
+        mode,
+        DEFAULT_MEMBERSHIP_ACQUISITION_URL,
+      ),
+      "MEMBERSHIP_ACQUISITION_URL",
+    ),
+  });
 
-  return Object.freeze({ mode, database, api, identity });
+  return Object.freeze({ mode, database, api, identity, contentAccess });
 }
 
 export function parsePlatformDatabaseConfig(

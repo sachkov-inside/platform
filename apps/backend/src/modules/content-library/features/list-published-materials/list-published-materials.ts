@@ -1,9 +1,16 @@
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
+import type {
+  AccessAvailability,
+  ContentAccess,
+} from "../../../content-access/index.js";
 import type {
   PublishedMaterialProjectionDto,
   PublishedMaterialReader,
 } from "../../../materials/index.js";
+import { materialId as checkedMaterialId } from "../../../materials/index.js";
 import type {
   ListPublishedMaterialsQuery,
   PublishedMaterialCatalogItemDto,
@@ -12,6 +19,12 @@ import type {
 
 const querySchema = z
   .object({
+    subject: z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("anonymous") }).strict(),
+      z
+        .object({ kind: z.literal("account"), accountId: z.uuid() })
+        .strict(),
+    ]),
     after: z.string().min(1).max(512).optional(),
     first: z.number().int().min(1).max(24),
   })
@@ -27,6 +40,7 @@ const cursorSchema = z
 
 export async function listPublishedMaterials(
   publishedMaterialReader: Pick<PublishedMaterialReader, "listProjections">,
+  contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
   query: ListPublishedMaterialsQuery,
 ): Promise<PublishedMaterialCatalogResult> {
     const parsed = querySchema.safeParse(query);
@@ -51,10 +65,49 @@ export async function listPublishedMaterials(
     }
 
     const lastItem = page.value.items.at(-1);
+    const availability =
+      page.value.items.length === 0
+        ? { ok: true as const, items: [] }
+        : await contentAccess.checkAvailabilityMany({
+            subject: query.subject,
+            operations: page.value.items.map(({ materialId }) => ({
+              itemId: materialId,
+              resource: {
+                kind: "material" as const,
+                materialId: checkedMaterialId(materialId),
+              },
+              action: "read" as const,
+            })),
+            enforcementPoint: "published_material_read",
+            correlationId: randomUUID(),
+          });
+    if (!availability.ok) {
+      return {
+        ok: false,
+        error: { code: "internal_error", correlationId: randomUUID() },
+      };
+    }
+    const availabilityById = new Map(
+      availability.items.map((item) => [item.itemId, item]),
+    );
+    const items = page.value.items.map((projection) => {
+      const itemAvailability = availabilityById.get(projection.materialId);
+      return itemAvailability === undefined
+        ? undefined
+        : toCatalogItem(projection, itemAvailability.availability);
+    });
+    if (items.some((item) => item === undefined)) {
+      return {
+        ok: false,
+        error: { code: "internal_error", correlationId: randomUUID() },
+      };
+    }
     return {
       ok: true,
       value: {
-        items: page.value.items.map(toCatalogItem),
+        items: items.filter(
+          (item): item is PublishedMaterialCatalogItemDto => item !== undefined,
+        ),
         nextCursor:
           page.value.hasNext && lastItem !== undefined
             ? encodeCursor({
@@ -100,6 +153,7 @@ function encodeCursor(value: PublishedMaterialCursor): string {
 
 function toCatalogItem(
   projection: PublishedMaterialProjectionDto,
+  availability: AccessAvailability["availability"],
 ): PublishedMaterialCatalogItemDto {
   return {
     materialId: projection.materialId,
@@ -108,6 +162,7 @@ function toCatalogItem(
     title: projection.title,
     summary: projection.summary,
     access: projection.access,
+    availability,
     publishedAt: projection.publishedAt,
     topic: {
       id: projection.topic.id,

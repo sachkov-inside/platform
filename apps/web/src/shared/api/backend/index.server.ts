@@ -113,26 +113,38 @@ export function readBackendBaseUrl(): string {
 
 export function requestPublishedMaterialCatalog(
   after: string | undefined,
-  signal?: AbortSignal,
+  options: {
+    readonly accessToken?: string;
+    readonly signal?: AbortSignal;
+  } = {},
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest((client) =>
     client.GET("/library/materials", {
+      ...(options.accessToken === undefined
+        ? {}
+        : { headers: { authorization: `Bearer ${options.accessToken}` } }),
       params: {
         query: after === undefined ? {} : { after },
       },
-      ...(signal === undefined ? {} : { signal }),
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
     }),
   );
 }
 
 export function requestPublishedMaterial(
   slug: string,
-  signal?: AbortSignal,
+  options: {
+    readonly accessToken?: string;
+    readonly signal?: AbortSignal;
+  } = {},
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest((client) =>
     client.GET("/materials/{slug}", {
+      ...(options.accessToken === undefined
+        ? {}
+        : { headers: { authorization: `Bearer ${options.accessToken}` } }),
       params: { path: { slug } },
-      ...(signal === undefined ? {} : { signal }),
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
     }),
   );
 }

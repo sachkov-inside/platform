@@ -40,4 +40,32 @@ describe("generated backend transport", () => {
     });
     expect(fetchMock).toHaveBeenCalledOnce();
   });
+
+  it("forwards a trusted BFF access token to the optional-auth reader", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    const fetchMock = vi.fn((request: Request) => {
+      expect(request.headers.get("authorization")).toBe(
+        "Bearer platform-access-token",
+      );
+      return Promise.resolve(
+        Response.json(
+          {
+            type: "urn:inside:problem:material-not-found",
+            title: "Material not found",
+            status: 404,
+            code: "material_not_found",
+          },
+          { status: 404 },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await requestPublishedMaterial(
+      "missing-material",
+      { accessToken: "platform-access-token" },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
 });

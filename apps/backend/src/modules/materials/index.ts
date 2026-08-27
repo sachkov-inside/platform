@@ -1,8 +1,13 @@
 export type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
+export {
+  materialId,
+  type MaterialId,
+} from "./domain/material-identifiers.js";
 export type {
   MaterialAccessFacts,
   MaterialContent,
 } from "./facets/material-content/material-content.js";
+export { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
 export { MATERIAL_AUTHORING } from "./facets/material-authoring/material-authoring.token.js";
 export type {
   MaterialDto,
@@ -64,6 +69,7 @@ export type {
 } from "./features/list-published-material-projections/list-published-material-projections.contract.js";
 export type { PublishedMaterialProjectionDto } from "./facets/published-material-reader/published-material.contract.js";
 export type {
+  LockedMaterialAccessDto,
   PublishedMaterialReadDto,
   PublishedMaterialReadError,
   PublishedMaterialReadResult,

@@ -22,6 +22,7 @@ describe("Library server adapter", () => {
               title: "Как устроен Inside Platform",
               summary: "Один реальный published Material.",
               access: "membership",
+              availability: "locked",
               publishedAt: "2026-08-25T05:00:00.000Z",
               topic: {
                 id: "72000000-0000-4000-8000-000000000002",
@@ -64,6 +65,7 @@ describe("Library server adapter", () => {
           title: "Как устроен Inside Platform",
           summary: "Один реальный published Material.",
           access: "membership",
+          availability: "locked",
           topic: "Platform",
           format: "Гайд",
           tags: ["Architecture"],
@@ -91,6 +93,7 @@ describe("Library server adapter", () => {
               title: "Как устроен Inside Platform",
               summary: "Один реальный published Material.",
               access: "membership",
+              availability: "locked",
               publishedAt: "2026-08-25T05:00:00.000Z",
               topic: { id: "topic", name: "Platform", slug: "platform" },
               format: { id: "format", name: "Гайд", slug: "guide" },

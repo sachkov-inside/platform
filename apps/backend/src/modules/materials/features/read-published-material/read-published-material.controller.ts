@@ -23,13 +23,21 @@ import { z } from "zod";
 import { PublishedMaterialCache } from "../../../../infrastructure/http/http-cache-policy.js";
 import {
   problemDetailsContent,
+  problemDetailsOneOfContent,
   toOpenApiSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
 import {
   publishedMaterialProblemHttpSchema,
   publishedMaterialReadHttpSchema,
 } from "../../adapters/nest/published-material-http.js";
-import { anonymousSubject } from "../../ports/content-access.js";
+import {
+  accountId as checkedAccountId,
+  accountProblemSchema,
+  OptionalAccountEndpoint,
+  OptionalCurrentAccount,
+  type AuthenticatedAccount,
+} from "../../../accounts/index.js";
+import { anonymousSubject } from "../../../content-access/index.js";
 import {
   PUBLISHED_MATERIAL_READER,
   type PublishedMaterialReader,
@@ -38,6 +46,7 @@ import type { PublishedMaterialReadError } from "./read-published-material.contr
 
 @ApiTags("Published materials")
 @PublishedMaterialCache()
+@OptionalAccountEndpoint()
 @Controller("materials")
 export class ReadPublishedMaterialController {
   constructor(
@@ -51,13 +60,20 @@ export class ReadPublishedMaterialController {
   @ApiOkResponse({ description: "Published Material body or an access-safe teaser", schema: toOpenApiSchema(publishedMaterialReadHttpSchema) })
   @ApiBadRequestResponse({ description: "Published Material request is malformed", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
   @ApiNotFoundResponse({ description: "Published Material does not exist", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
-  @ApiServiceUnavailableResponse({ description: "Published Material dependency is unavailable", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
-  @ApiInternalServerErrorResponse({ description: "Published Material read failed unexpectedly", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
+  @ApiServiceUnavailableResponse({ description: "Published Material or Account proof dependency is unavailable", content: problemDetailsOneOfContent(publishedMaterialProblemHttpSchema, accountProblemSchema) })
+  @ApiInternalServerErrorResponse({ description: "Published Material read or Account resolution failed unexpectedly", content: problemDetailsOneOfContent(publishedMaterialProblemHttpSchema, accountProblemSchema) })
   async read(
+    @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("slug") slug: string,
   ) {
     const result = await this.publishedMaterials.read({
-      subject: anonymousSubject,
+      subject:
+        account === undefined
+          ? anonymousSubject
+          : {
+              kind: "account",
+              accountId: checkedAccountId(account.accountId),
+            },
       slug,
     });
     if (!result.ok) {

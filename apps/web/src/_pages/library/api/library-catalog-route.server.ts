@@ -13,6 +13,7 @@ const PRIVATE_NO_STORE_HEADERS = {
 /** Feature-owned BFF adapter for browser continuations of the public catalog. */
 export async function handleLibraryCatalogRequest(
   request: Request,
+  accessToken?: string,
 ): Promise<Response> {
   const afterValues = new URL(request.url).searchParams.getAll("after");
   if (
@@ -30,7 +31,7 @@ export async function handleLibraryCatalogRequest(
     );
   }
 
-  const page = await getLibraryCatalogPage(afterValues[0]);
+  const page = await getLibraryCatalogPage(afterValues[0], accessToken);
   if (page.kind === "unavailable") {
     return Response.json(
       {
@@ -42,5 +43,10 @@ export async function handleLibraryCatalogRequest(
     );
   }
 
-  return Response.json(page, { headers: PUBLIC_CATALOG_HEADERS });
+  return Response.json(page, {
+    headers:
+      accessToken === undefined
+        ? PUBLIC_CATALOG_HEADERS
+        : PRIVATE_NO_STORE_HEADERS,
+  });
 }

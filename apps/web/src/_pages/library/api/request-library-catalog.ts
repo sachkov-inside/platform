@@ -5,6 +5,7 @@ import type { LibraryCatalogPage } from "../model/library-view";
 const materialPreviewSchema = z
   .object({
     access: z.enum(["free", "membership"]),
+    availability: z.enum(["available", "locked", "unavailable"]),
     format: z.string(),
     seriesMemberships: z.array(
       z.object({ name: z.string(), ordinal: z.number().int().positive() }).strict(),

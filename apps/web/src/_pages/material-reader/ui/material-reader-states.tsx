@@ -46,17 +46,19 @@ export function MaterialReaderNotFound() {
 }
 
 export function MaterialReaderAccess({
+  cta,
   material,
-  reason,
 }: {
+  readonly cta: {
+    readonly label: "Получить доступ";
+    readonly url: string;
+  };
   readonly material: MaterialReaderMetadata;
-  readonly reason: "forbidden" | "membership_required" | "temporarily_unavailable";
 }) {
-  const unavailable = reason === "temporarily_unavailable";
   return (
     <div
       className="max-w-[52rem] pt-1 sm:pt-3"
-      data-material-reader-state={unavailable ? "access-unavailable" : "access-required"}
+      data-material-reader-state="access-required"
     >
       <div className="flex min-h-11 items-center">
         <Button asChild size="lg" variant="outline">
@@ -84,33 +86,25 @@ export function MaterialReaderAccess({
       >
         <StatusHalo />
         <span className="relative grid size-12 place-items-center rounded-xl bg-background/80 text-accent [&_svg]:size-6">
-          {unavailable ? <ShieldAlert aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}
+          <LockKeyhole aria-hidden="true" />
         </span>
         <h2 className="relative mt-5 text-xl font-semibold tracking-[-0.025em] sm:text-2xl" id="access-heading">
-          {unavailable ? "Не удалось проверить доступ" : "Материал доступен в Мастерской"}
+          Материал доступен в Мастерской
         </h2>
         <p className="relative mt-3 max-w-[62ch] text-pretty leading-7 text-muted-foreground">
-          {unavailable
-            ? "Попробуйте ещё раз через несколько минут."
-            : "Вступите, чтобы открыть этот и другие закрытые материалы."}
+          Вступите, чтобы открыть этот и другие закрытые материалы.
         </p>
         <div className="relative mt-6 flex flex-wrap gap-3">
-          {unavailable ? (
-            <Button asChild size="lg">
-              <a href={`/materials/${material.slug}`}>Проверить снова</a>
-            </Button>
-          ) : (
-            <Button asChild className="h-11 rounded-xl px-4" size="lg">
-              <a href="https://sachkov.dev" rel="noopener noreferrer" target="_blank">
-                Вступить в Мастерскую
-                <ArrowUpRight
-                  aria-hidden="true"
-                  className="text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:-translate-y-0.5 group-hover/button:translate-x-0.5 motion-reduce:transition-none"
-                  data-icon="inline-end"
-                />
-              </a>
-            </Button>
-          )}
+          <Button asChild className="h-11 rounded-xl px-4" size="lg">
+            <a href={cta.url} rel="noopener noreferrer" target="_blank">
+              {cta.label}
+              <ArrowUpRight
+                aria-hidden="true"
+                className="text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:-translate-y-0.5 group-hover/button:translate-x-0.5 motion-reduce:transition-none"
+                data-icon="inline-end"
+              />
+            </a>
+          </Button>
         </div>
       </section>
     </div>

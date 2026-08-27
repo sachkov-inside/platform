@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
+import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import {
-  anonymousSubject,
   assembleMaterials,
 } from "../../src/modules/materials/index.js";
 import {
@@ -28,7 +28,7 @@ describe("local development seed", () => {
 
     expect(second).toEqual(first);
 
-    const { publishedMaterialReader } = assembleMaterials({
+    const { contentAccess, publishedMaterialReader } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: {
         canManage: () => false,
@@ -36,7 +36,8 @@ describe("local development seed", () => {
     });
     const catalog = await listPublishedMaterials(
       publishedMaterialReader,
-      { first: 12 },
+      contentAccess,
+      { subject: anonymousSubject, first: 12 },
     );
     expect(catalog.ok).toBe(true);
     if (!catalog.ok) {

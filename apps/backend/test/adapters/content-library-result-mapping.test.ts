@@ -6,6 +6,9 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
 import { ProblemDetailsFilter } from "../../src/infrastructure/http/problem-details.filter.js";
+import { CONTENT_ACCESS } from "../../src/modules/content-access/index.js";
+import { ACCOUNTS } from "../../src/modules/accounts/index.js";
+import { LOGTO_ACCESS_TOKEN_VERIFIER } from "../../src/modules/accounts/accounts.tokens.js";
 import { PUBLISHED_MATERIAL_READER } from "../../src/modules/materials/index.js";
 import { ListPublishedMaterialsController } from "../../src/modules/content-library/features/list-published-materials/list-published-materials.controller.js";
 
@@ -23,6 +26,15 @@ const publishedMaterialReader = {
   controllers: [ListPublishedMaterialsController],
   providers: [
     { provide: PUBLISHED_MATERIAL_READER, useValue: publishedMaterialReader },
+    {
+      provide: CONTENT_ACCESS,
+      useValue: {
+        checkAvailabilityMany: () =>
+          Promise.resolve({ ok: true, items: [] }),
+      },
+    },
+    { provide: ACCOUNTS, useValue: {} },
+    { provide: LOGTO_ACCESS_TOKEN_VERIFIER, useValue: {} },
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
     { provide: APP_INTERCEPTOR, useClass: HttpCachePolicyInterceptor },
   ],
@@ -42,7 +54,7 @@ describe("ListPublishedMaterials REST result mapping", () => {
     application = await NestFactory.create<NestFastifyApplication>(
       ListPublishedMaterialsHttpTestModule,
       new FastifyAdapter(),
-      { logger: false },
+      { abortOnError: false, logger: false },
     );
     await application.init();
     await application.getHttpAdapter().getInstance().ready();

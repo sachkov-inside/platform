@@ -1,3 +1,5 @@
+import type { Subject } from "../../../content-access/index.js";
+
 export interface PublishedMaterialCatalogItemDto {
   readonly materialId: string;
   readonly contentVersion: number;
@@ -5,6 +7,7 @@ export interface PublishedMaterialCatalogItemDto {
   readonly title: string;
   readonly summary: string;
   readonly access: "free" | "membership";
+  readonly availability: "available" | "locked" | "unavailable";
   readonly publishedAt: string;
   readonly topic: {
     readonly id: string;
@@ -45,6 +48,7 @@ export type PublishedMaterialCatalogResult =
   | { readonly ok: false; readonly error: PublishedMaterialCatalogError };
 
 export interface ListPublishedMaterialsQuery {
+  readonly subject: Subject;
   readonly after?: string;
   readonly first: number;
 }

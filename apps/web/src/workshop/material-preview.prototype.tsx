@@ -87,6 +87,7 @@ export interface MaterialCardProps {
 export function MaterialCard({ headingLevel, material }: MaterialCardProps) {
   const presentation: MaterialPreview = {
     access: material.access,
+    availability: material.access === "free" ? "available" : "locked",
     format: material.format,
     slug: material.id,
     summary: material.summary,

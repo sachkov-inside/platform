@@ -28,3 +28,13 @@ export const CurrentAccount = createParamDecorator(
     return account;
   },
 );
+
+export const OptionalCurrentAccount = createParamDecorator(
+  (
+    _data: unknown,
+    context: ExecutionContext,
+  ): AuthenticatedAccount | undefined => {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    return request[currentAccountRequestProperty];
+  },
+);

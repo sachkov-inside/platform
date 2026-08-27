@@ -72,10 +72,13 @@ describe("OpenAPI contract", () => {
       ],
     });
     expect(hasResponseSchema(library, "200", "application/json")).toBe(true);
-    for (const status of ["400", "500", "503"] as const) {
+    for (const status of ["400", "401", "500", "503"] as const) {
       expect(hasResponseSchema(library, status, "application/problem+json")).toBe(true);
     }
-    expect(library.security).toBeUndefined();
+    for (const status of ["500", "503"] as const) {
+      expect(hasMaterialAndAccountProblemSchemas(library, status)).toBe(true);
+    }
+    expect(library.security).toEqual([{}, { logto: [] }]);
 
     const reader = operation(document, "/materials/{slug}", "get");
     expect(reader).toMatchObject({
@@ -90,10 +93,13 @@ describe("OpenAPI contract", () => {
       ],
     });
     expect(hasResponseSchema(reader, "200", "application/json")).toBe(true);
-    for (const status of ["400", "404", "500", "503"] as const) {
+    for (const status of ["400", "401", "404", "500", "503"] as const) {
       expect(hasResponseSchema(reader, status, "application/problem+json")).toBe(true);
     }
-    expect(reader.security).toBeUndefined();
+    for (const status of ["500", "503"] as const) {
+      expect(hasMaterialAndAccountProblemSchemas(reader, status)).toBe(true);
+    }
+    expect(reader.security).toEqual([{}, { logto: [] }]);
 
     for (const [path, method, operationId] of [
       ["/accounts", "post", "establishAccount"],
@@ -148,6 +154,33 @@ function hasResponseSchema(
   if (!isRecord(response) || !isRecord(response.content)) return false;
   const media = response.content[mediaType];
   return isRecord(media) && isRecord(media.schema);
+}
+
+function hasMaterialAndAccountProblemSchemas(
+  operation: Readonly<Record<string, unknown>>,
+  status: string,
+): boolean {
+  const responses = operation.responses;
+  if (!isRecord(responses)) return false;
+  const response = responses[status];
+  if (!isRecord(response) || !isRecord(response.content)) return false;
+  const media = response.content["application/problem+json"];
+  if (!isRecord(media) || !isRecord(media.schema)) return false;
+  const alternatives = media.schema.oneOf;
+  if (!Array.isArray(alternatives) || alternatives.length !== 2) return false;
+  const requiredFields = alternatives.map((alternative) =>
+    isRecord(alternative) && Array.isArray(alternative.required)
+      ? alternative.required.filter(
+          (field: unknown): field is string => typeof field === "string",
+        )
+      : [],
+  );
+  return (
+    requiredFields.some((required) => required.includes("detail")) &&
+    requiredFields.some(
+      (required) => required.includes("code") && !required.includes("detail"),
+    )
+  );
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
