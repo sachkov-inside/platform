@@ -10,40 +10,8 @@ const rootPackage = JSON.parse(read("package.json"));
 const backendPackage = JSON.parse(read("apps/backend/package.json"));
 const webPackage = JSON.parse(read("apps/web/package.json"));
 const nodeVersion = read(".node-version").trim();
-const pnpmVersion = rootPackage.packageManager.replace(/^pnpm@/u, "");
 
 describe("supported toolchain contract", () => {
-  it("keeps Docker on the repository Node and pnpm pins", () => {
-    const dockerfile = read("Dockerfile");
-
-    assert.match(
-      dockerfile,
-      new RegExp(`^FROM node:${escapeRegExp(nodeVersion)}-alpine\\d+\\.\\d+@sha256:[a-f0-9]{64} AS toolchain$`, "mu"),
-    );
-    assert.match(
-      dockerfile,
-      new RegExp(`corepack install --global pnpm@${escapeRegExp(pnpmVersion)}(?:\\s|$)`, "u"),
-    );
-  });
-
-  it("copies Prisma generation inputs before dependency postinstall", () => {
-    const dockerfile = read("Dockerfile");
-    const installPosition = dockerfile.indexOf("pnpm install --frozen-lockfile");
-
-    assert.ok(installPosition > 0);
-    for (const input of [
-      "apps/backend/prisma.config.ts",
-      "apps/backend/prisma ./apps/backend/prisma",
-    ]) {
-      const copyPosition = dockerfile.indexOf(input);
-      assert.ok(copyPosition >= 0, `Dockerfile must copy ${input}`);
-      assert.ok(
-        copyPosition < installPosition,
-        `Dockerfile must copy ${input} before pnpm install`,
-      );
-    }
-  });
-
   it("keeps TypeScript exact and Node declarations on the runtime major", () => {
     const nodeMajor = nodeVersion.split(".")[0];
     const packages = [rootPackage, backendPackage, webPackage];
@@ -85,18 +53,7 @@ describe("supported toolchain contract", () => {
     assert.match(nextConfig, /tsconfigPath: "tsconfig\.next\.json"/u);
   });
 
-  it("pins every container image by digest and every GitHub Action by commit", () => {
-    for (const path of ["compose.yaml", ".github/workflows/application-ci.yml"]) {
-      const imageLines = read(path)
-        .split("\n")
-        .filter((line) => /^\s*image:/u.test(line));
-      assert.ok(imageLines.length > 0, `${path} must declare at least one image`);
-      assert.ok(
-        imageLines.every((line) => /:\d[^\s]*@sha256:[a-f0-9]{64}$/u.test(line.trim())),
-        `${path} contains an unpinned image`,
-      );
-    }
-
+  it("pins every GitHub Action by commit", () => {
     const actionLines = read(".github/workflows/application-ci.yml")
       .split("\n")
       .filter((line) => /^\s*uses:/u.test(line));
@@ -115,16 +72,4 @@ describe("supported toolchain contract", () => {
       assert.match(body, /^\s{8}update-types: \[minor, patch\]$/mu, `${name} can mix major updates`);
     }
   });
-
-  it("schema-qualifies Materials tables in the Compose smoke query", () => {
-    const smoke = read("scripts/compose-stack-smoke.sh");
-
-    assert.match(smoke, /from materials\.materials\b/u);
-    assert.match(smoke, /from materials\.material_revisions\b/u);
-    assert.doesNotMatch(smoke, /\b(?:from|join) (?:materials|material_revisions)\b(?!\.)/u);
-  });
 });
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-}

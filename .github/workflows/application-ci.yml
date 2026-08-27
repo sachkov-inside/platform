@@ -47,31 +47,3 @@ jobs:
           API_PORT: "3001"
           BACKEND_BASE_URL: http://127.0.0.1:3001
         run: pnpm check:full
-
-  compose-development-stack:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Validate and build every development image
-        run: |
-          docker compose --profile storybook config --quiet
-          docker compose --profile storybook build
-      - name: Start a clean development stack
-        run: docker compose up --detach --wait
-      - name: Verify the live stack
-        run: bash scripts/compose-stack-smoke.sh
-      - name: Stop while preserving PostgreSQL data
-        run: docker compose down
-      - name: Restart against the preserved volume
-        run: docker compose up --detach --wait
-      - name: Verify idempotent bootstrap and Compose Watch
-        run: |
-          bash scripts/compose-stack-smoke.sh
-          bash scripts/compose-watch-smoke.sh
-      - name: Stop the development stack
-        if: always()
-        run: docker compose down --remove-orphans
-      - name: Reject orphan application containers
-        if: always()
-        run: test -z "$(docker compose ps --all --quiet)"

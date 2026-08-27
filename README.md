@@ -19,25 +19,32 @@ The repository is a pnpm workspace with two applications:
 The process-layout decision is recorded in
 [`ADR 0001`](docs/adr/0001-one-backend-multiple-entrypoints.md).
 
-## Start the development stack
+## Recording baseline
 
-A fresh clone needs Docker with Compose; host Node.js is not required for the primary path.
+This checkpoint intentionally removes the finished application Dockerfile and Compose topology so
+the Docker delivery can be rebuilt from first principles. The separate Logto proof under
+`infra/identity/logto` is unchanged.
+
+Use the Node.js and pnpm versions pinned by the repository:
 
 ```bash
-docker compose up --build --watch
+pnpm install --frozen-lockfile
+cp .env.example .env
 ```
 
-This starts PostgreSQL, a one-shot migration/seed bootstrap, Nest API, MCP and Next web. Open web at
-<http://127.0.0.1:3000>, API health/OpenAPI at <http://127.0.0.1:3001/health> and
-<http://127.0.0.1:3001/openapi>. Source changes synchronize through Compose Watch without host
-`node_modules`; manifest and lockfile changes rebuild the affected images.
+Repository checks do not require a shared application database. To run the application, provide a
+PostgreSQL instance through `DATABASE_URL`, apply migrations and the development seed, then start
+the host processes:
+
+```bash
+pnpm --filter @inside/backend db:migrate
+pnpm --filter @inside/backend db:seed
+pnpm dev
+```
 
 ## Commands
 
 ```bash
-pnpm compose:up    # optional host-pnpm wrapper for detached full Compose
-pnpm compose:smoke
-
 pnpm dev          # web and API
 pnpm dev:web
 pnpm dev:api
@@ -51,27 +58,12 @@ pnpm check
 pnpm check:full
 ```
 
-`pnpm check` is the normal code/build/UI gate and does not require the shared Compose database.
-`pnpm check:full` additionally runs isolated real-PostgreSQL integration tests and the live local
-stack smoke. For that optional host gate, stop the full Compose stack and use postgres-only
-`pnpm infra:up`, because the smoke owns host ports 3000 and 3001. Run `bash scripts/doctor.sh` for a
-read-only Docker-only prerequisite and Compose-contract diagnosis. It does not require host Node,
-pnpm or `.env`; `pnpm platform:doctor` is only a convenience alias for an installed host toolchain.
+`pnpm check` is the normal code/build/UI gate and does not require a shared database.
+`pnpm check:full` additionally runs isolated real-PostgreSQL integration tests and the host
+full-stack smoke; that smoke needs the configured PostgreSQL and free ports `3000` and `3001`.
 
 The API listens on `127.0.0.1:3001`, exposes `GET /health`, and serves OpenAPI
 UI at `/openapi`.
-
-## Docker-only smoke and shutdown
-
-```bash
-docker compose up --detach --build --wait
-bash scripts/compose-stack-smoke.sh
-docker compose down
-```
-
-The smoke verifies web → API → PostgreSQL, OpenAPI, MCP readiness and the idempotent seeded
-Material. Normal shutdown preserves the named PostgreSQL volume; `docker compose down --volumes`
-is an explicit destructive reset.
 
 For migrations, integration tests, manual database inspection and reset procedures, see the
 [local development runbook](docs/runbooks/local-development.md). Version policy and current

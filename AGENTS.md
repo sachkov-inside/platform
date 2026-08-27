@@ -19,19 +19,21 @@ machine-local dependency.
 
 ## Commands
 
-The primary development stack requires Docker with Compose; host Node.js and pnpm are an optional
-fallback and use the versions pinned in `.node-version` and `packageManager`.
+This recording-baseline checkpoint intentionally has no root application Dockerfile or Compose
+contract. Use the host Node.js and pnpm versions pinned in `.node-version` and `packageManager` for
+repository checks. Runtime commands additionally require PostgreSQL through `DATABASE_URL`.
 
 ```bash
-docker compose up --build --watch
-bash scripts/compose-stack-smoke.sh
-docker compose down
+pnpm install --frozen-lockfile
+pnpm check
+pnpm --filter @inside/backend db:migrate
+pnpm dev
 ```
 
-Run optional host process adapters through the root `dev:web`, `dev:api` and `dev:mcp` scripts.
-Keep Compose shutdown in the verification path after a successful or failed smoke.
-Before an agent runs repository Compose commands from any worktree, it must read and follow the
-[singleton Compose ownership rule](docs/runbooks/local-development.md#parallel-worktrees-and-compose-ownership).
+Run individual host process adapters through the root `dev:web`, `dev:api` and `dev:mcp` scripts.
+The separate Logto proof under `infra/identity/logto` remains outside the application contour.
+Do not operate an existing `inside-platform` Compose project from another checkout; follow the
+[singleton ownership rule](docs/runbooks/local-development.md#parallel-worktrees-and-runtime-ownership).
 
 <!-- inside-product-harness:start -->
 ## Inside product harness
