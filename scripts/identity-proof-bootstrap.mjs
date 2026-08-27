@@ -12,14 +12,16 @@ import { z } from "zod";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const composeFile = resolve(root, "infra/identity/logto/compose.yaml");
-const endpoint = "https://identity.inside.localhost:3301";
-const adminEndpoint = "https://identity.inside.localhost:3302";
+const endpoint = `https://identity.inside.localhost:${readPort("IDENTITY_PROOF_LOGTO_PORT", 3301)}`;
+const adminEndpoint = `https://identity.inside.localhost:${readPort("IDENTITY_PROOF_LOGTO_ADMIN_PORT", 3302)}`;
 const managementResource = "https://default.logto.app/api";
-const platformResource = "http://127.0.0.1:3001";
-const webBaseUrl = "http://127.0.0.1:3000";
+const platformResource = `http://127.0.0.1:${readPort("IDENTITY_PROOF_API_PORT", 3001)}`;
+const webBaseUrl = `http://127.0.0.1:${readPort("IDENTITY_PROOF_WEB_PORT", 3000)}`;
 const applicationName = "Inside Web";
 const smtpConnectorId = "simple-mail-transfer-protocol";
-const platformAccessTokenTtlSeconds = minutesInSeconds(5);
+const platformAccessTokenTtlSeconds = readAccessTokenTtl();
+const mailpitPort = readPort("IDENTITY_PROOF_MAILPIT_PORT", 8026);
+const platformPostgresPort = readPort("IDENTITY_PROOF_POSTGRES_PORT", 5432);
 const bootstrapMaxAttempts = 20;
 const bootstrapRetryDelayMilliseconds = 500;
 
@@ -50,6 +52,10 @@ const smtpConfig = Object.freeze({
   fromEmail: "inside@identity.inside.localhost",
   secure: false,
   ignoreTLS: true,
+  connectionTimeout: 2_000,
+  greetingTimeout: 2_000,
+  socketTimeout: 2_000,
+  dnsTimeout: 2_000,
   templates: [
     template("SignIn", "Inside sign-in code"),
     template("Register", "Inside registration code"),
@@ -78,7 +84,7 @@ async function main() {
     [
       "Identity proof configured through the Logto Management API.",
       `Application: ${applicationName} (${application.id})`,
-      "Mailpit: http://127.0.0.1:8026",
+      `Mailpit: http://127.0.0.1:${mailpitPort}`,
       `Platform: ${webBaseUrl}`,
       "",
     ].join("\n"),
@@ -289,7 +295,7 @@ async function writeRuntimeEnvironment(applicationId, applicationSecret) {
   const existing = parseEnv(current);
   const updates = {
     NODE_ENV: "development",
-    DATABASE_URL: "postgresql://inside:inside@127.0.0.1:5432/inside",
+    DATABASE_URL: `postgresql://inside:inside@127.0.0.1:${platformPostgresPort}/inside`,
     BACKEND_BASE_URL: platformResource,
     LOGTO_ENDPOINT: endpoint,
     LOGTO_ISSUER: `${endpoint}/oidc`,
@@ -396,6 +402,26 @@ async function retry(operation) {
 
 function minutesInSeconds(minutes) {
   return minutes * 60;
+}
+
+function readPort(name, fallback) {
+  const value = process.env[name];
+  if (value === undefined) return fallback;
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(`${name} must be a valid TCP port`);
+  }
+  return port;
+}
+
+function readAccessTokenTtl() {
+  const value = process.env.IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS;
+  if (value === undefined) return minutesInSeconds(5);
+  const seconds = Number(value);
+  if (!Number.isInteger(seconds) || seconds < 60 || seconds > minutesInSeconds(5)) {
+    throw new Error("IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS must be between 60 and 300");
+  }
+  return seconds;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

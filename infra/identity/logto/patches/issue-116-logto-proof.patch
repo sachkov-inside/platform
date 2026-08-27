@@ -1,0 +1,356 @@
+--- a/packages/connectors/connector-smtp/src/index.ts
++++ b/packages/connectors/connector-smtp/src/index.ts
+@@ -82,11 +82,8 @@
+ 
+     try {
+       return await transporter.sendMail(mailOptions);
+-    } catch (error: unknown) {
+-      throw new ConnectorError(
+-        ConnectorErrorCodes.General,
+-        error instanceof Error ? error.message : ''
+-      );
++    } catch {
++      throw new ConnectorError(ConnectorErrorCodes.General);
+     }
+   };
+ 
+--- a/packages/core/src/middleware/koa-audit-log.ts
++++ b/packages/core/src/middleware/koa-audit-log.ts
+@@ -13,9 +13,36 @@
+ const isRecord = (value: unknown): value is Record<string, unknown> =>
+   typeof value === 'object' && value !== null && !Array.isArray(value);
+ 
+-const sensitiveDataKeys = Object.freeze(['password', 'secret']);
++const redactedValue = '[redacted]';
++const sensitiveDataKeyWords = new Set([
++  'code',
++  'cookie',
++  'email',
++  'identifier',
++  'ip',
++  'otp',
++  'passcode',
++  'password',
++  'phone',
++  'secret',
++  'state',
++  'token',
++  'verification',
++]);
+ 
+-const sanitise = (value: unknown): unknown => {
++const isSensitiveDataKey = (key: string): boolean =>
++  key
++    .replaceAll(/([a-z\d])([A-Z])/g, '$1 $2')
++    .split(/[^a-z\d]+/iu)
++    .some((word) => {
++      const normalizedWord = word.toLowerCase();
++      return (
++        sensitiveDataKeyWords.has(normalizedWord) ||
++        (normalizedWord.endsWith('s') && sensitiveDataKeyWords.has(normalizedWord.slice(0, -1)))
++      );
++    });
++
++export const sanitise = (value: unknown): unknown => {
+   if (Array.isArray(value)) {
+     return value.map((element) => sanitise(element));
+   }
+@@ -23,7 +50,7 @@
+   if (isRecord(value)) {
+     return Object.fromEntries(
+       Object.entries(value).map(([key, element]) => {
+-        return [key, sensitiveDataKeys.includes(key) ? '******' : sanitise(element)];
++        return [key, isSensitiveDataKey(key) ? redactedValue : sanitise(element)];
+       })
+     );
+   }
+@@ -66,7 +93,7 @@
+ const filterSensitiveData = (data: Record<string, unknown>): Record<string, unknown> => {
+   return Object.fromEntries(
+     Object.entries(data).map(([key, value]) => {
+-      return [key, sensitiveDataKeys.includes(key) ? '******' : sanitise(value)];
++      return [key, isSensitiveDataKey(key) ? redactedValue : sanitise(value)];
+     })
+   );
+ };
+@@ -223,8 +250,8 @@
+           return insertLog({
+             id: generateStandardId(),
+             key: payload.key,
+-            // eslint-disable-next-line no-restricted-syntax -- structural identity transform preserves the payload shape
+-            payload: stripNullCharacters(fullPayload) as typeof fullPayload,
++            // eslint-disable-next-line no-restricted-syntax -- recursive redaction preserves the payload shape
++            payload: stripNullCharacters(sanitise(fullPayload)) as typeof fullPayload,
+           });
+         })
+       );
+--- a/packages/core/src/queries/sentinel-activities.ts
++++ b/packages/core/src/queries/sentinel-activities.ts
+@@ -19,18 +19,21 @@
+   windowSeconds: number;
+ };
+ 
++type ReserveActivityQuery = CountActivitiesQuery & { maxActivities: number };
++
+ export const createSentinelActivitiesQueries = (pool: CommonQueryMethods) => {
+   /**
+    * Insert a sentinel activity row. Reused by both the failure-based sentinel and the
+    * message rate guard — the table is a shared activity log.
+    */
+   const insertActivity = buildInsertIntoWithPool(pool)(SentinelActivities);
++  type ActivityInput = Parameters<typeof insertActivity>[0];
+ 
+   /**
+    * Count the activities matching the given target and action within the rolling window.
+    * Used by the message rate guard to evaluate the per-recipient send cap.
+    */
+-  const countActivities = async ({
++  const countActivitiesWithPool = async (connection: CommonQueryMethods, {
+     targetType,
+     targetHash,
+     action,
+@@ -38,7 +41,7 @@
+   }: CountActivitiesQuery): Promise<number> =>
+     // Postgres returns count(*) as a bigint that Slonik surfaces as a string; coerce to a number.
+     Number(
+-      await pool.oneFirst<string>(sql`
++      await connection.oneFirst<string>(sql`
+         select count(*)
+         from ${table}
+         where ${fields.targetType} = ${targetType}
+@@ -48,7 +51,29 @@
+       `)
+     );
+ 
++  const countActivities = async (query: CountActivitiesQuery): Promise<number> =>
++    countActivitiesWithPool(pool, query);
++
+   /**
++   * Atomically reserve one slot before provider I/O. The transaction-scoped advisory lock keeps
++   * parallel requests for the same normalized recipient/action from crossing the rolling cap.
++   */
++  const reserveActivity = async ({
++    maxActivities,
++    activity,
++    ...query
++  }: ReserveActivityQuery & { activity: ActivityInput }): Promise<string | undefined> =>
++    pool.transaction(async (transaction) => {
++      const lockKey = `${query.targetType}:${query.targetHash}:${query.action}`;
++      await transaction.query(sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
++      if ((await countActivitiesWithPool(transaction, query)) >= maxActivities) {
++        return undefined;
++      }
++      await buildInsertIntoWithPool(transaction)(SentinelActivities)(activity);
++      return activity.id;
++    });
++
++  /**
+    * Delete all records in the `sentinel_activities` table that match the given target within
+    * 1 hour. This should unblock the user if they are locked.
+    */
+@@ -67,6 +92,7 @@
+   return {
+     insertActivity,
+     countActivities,
++    reserveActivity,
+     deleteActivities,
+   };
+ };
+--- a/packages/core/src/routes/experience/verification-routes/verification-code-helpers.ts
++++ b/packages/core/src/routes/experience/verification-routes/verification-code-helpers.ts
+@@ -183,7 +183,10 @@
+     {
+       ...messageRateLimit,
+       onRateLimited: () => {
+-        ctx.appendExceptionHookContext('Message.RateLimited', messageRateLimit);
++        ctx.appendExceptionHookContext('Message.RateLimited', {
++          ...messageRateLimit,
++          recipient: '[redacted]',
++        });
+       },
+     },
+     send
+--- a/packages/core/src/sentinel/message-rate-guard.ts
++++ b/packages/core/src/sentinel/message-rate-guard.ts
+@@ -18,7 +18,7 @@
+ 
+ type MessageRateGuardQueries = Pick<
+   SentinelActivitiesQueries,
+-  'countActivities' | 'insertActivity'
++  'countActivities' | 'insertActivity' | 'reserveActivity'
+ >;
+ 
+ type LogtoConfigQueries = ReturnType<typeof createLogtoConfigQueries>;
+@@ -77,6 +77,32 @@
+     }
+   }
+ 
++  /** Atomically reserve a provider send before provider I/O. */
++  async reserve(action: SentinelActivityAction, recipient: string): Promise<string> {
++    const targetHash = await sha256(normalizeRecipient(recipient));
++    const id = generateStandardId();
++    const reserved = await this.queries.reserveActivity({
++      targetType: SentinelActivityTargetType.User,
++      targetHash,
++      action,
++      windowSeconds: this.policy.sendWindow,
++      maxActivities: this.policy.maxSendsPerRecipient,
++      activity: {
++        id,
++        targetType: SentinelActivityTargetType.User,
++        targetHash,
++        action,
++        actionResult: SentinelActionResult.Success,
++        payload: {},
++        decision: SentinelDecision.Allowed,
++      },
++    });
++    if (reserved === undefined) {
++      throw new RequestError({ code: 'request.message_rate_limited', status: 429 });
++    }
++    return reserved;
++  }
++
+   /** Record a successful send so it counts toward the recipient's cap. */
+   async record(action: SentinelActivityAction, recipient: string): Promise<void> {
+     const targetHash = await sha256(normalizeRecipient(recipient));
+@@ -117,10 +143,10 @@
+ 
+ /**
+  * Wraps a message send with the {@link MessageRateGuard}: rejects with a 429 before sending if the
+- * recipient is over the cap, performs the send, then records it.
++ * recipient is over the cap, reserves its slot, then performs the send.
+  *
+- * A failed `send()` is intentionally not recorded (failed sends don't count toward the cap). A
+- * `record()` failure after a successful send does not roll back the send.
++ * Provider failures keep the reservation because an accepted message followed by a lost
++ * acknowledgement is indistinguishable from a pre-accept failure.
+  */
+ export const withMessageRateGuard = async <T>(
+   guard: MessageRateGuard,
+@@ -141,7 +167,7 @@
+   send: () => Promise<T>
+ ): Promise<T> => {
+   try {
+-    await guard.guard(action, recipient);
++    await guard.reserve(action, recipient);
+   } catch (error) {
+     // Only the per-recipient cap rejection (a 429) is an abuse signal; don't emit the hook for an
+     // unexpected error from the guard, which would be a false `Message.RateLimited` event.
+@@ -151,8 +177,5 @@
+     throw error;
+   }
+ 
+-  const result = await send();
+-  await guard.record(action, recipient);
+-
+-  return result;
++  return send();
+ };
+--- a/packages/core/src/sentinel/message-rate-guard.test.ts
++++ b/packages/core/src/sentinel/message-rate-guard.test.ts
+@@ -19,18 +19,21 @@
+ 
+ const countActivities = jest.fn();
+ const insertActivity = jest.fn();
++const reserveActivity = jest.fn();
+ const getMessageRateLimitOverride = jest.fn();
+ 
+-const buildGuard = () => new MessageRateGuard({ countActivities, insertActivity }, policy);
++const buildGuard = () =>
++  new MessageRateGuard({ countActivities, insertActivity, reserveActivity }, policy);
+ 
+ const buildFactoryQueries = () => ({
+-  sentinelActivities: { countActivities, insertActivity },
++  sentinelActivities: { countActivities, insertActivity, reserveActivity },
+   logtoConfigs: { getMessageRateLimitOverride },
+ });
+ 
+ beforeEach(() => {
+   countActivities.mockReset();
+   insertActivity.mockReset();
++  reserveActivity.mockReset().mockResolvedValue('reservation-id');
+   getMessageRateLimitOverride.mockReset();
+ });
+ 
+@@ -121,19 +124,19 @@
+ });
+ 
+ describe('withMessageRateGuard', () => {
+-  it('sends and records when under the cap', async () => {
+-    countActivities.mockResolvedValueOnce(0);
++  it('sends after reserving under the cap', async () => {
+     const send = jest.fn().mockResolvedValueOnce('sent');
+ 
+     await expect(withMessageRateGuard(buildGuard(), { action, recipient }, send)).resolves.toBe(
+       'sent'
+     );
+     expect(send).toHaveBeenCalledTimes(1);
+-    expect(insertActivity).toHaveBeenCalledTimes(1);
++    expect(reserveActivity).toHaveBeenCalledTimes(1);
++    expect(insertActivity).not.toHaveBeenCalled();
+   });
+ 
+   it('does not send when over the cap', async () => {
+-    countActivities.mockResolvedValueOnce(3);
++    reserveActivity.mockResolvedValueOnce(undefined);
+     const send = jest.fn();
+ 
+     await expect(
+@@ -144,7 +147,7 @@
+   });
+ 
+   it('invokes onRateLimited then rethrows when over the cap', async () => {
+-    countActivities.mockResolvedValueOnce(3);
++    reserveActivity.mockResolvedValueOnce(undefined);
+     const send = jest.fn();
+     const onRateLimited = jest.fn();
+ 
+@@ -156,7 +159,6 @@
+   });
+ 
+   it('does not invoke onRateLimited when under the cap', async () => {
+-    countActivities.mockResolvedValueOnce(0);
+     const send = jest.fn().mockResolvedValueOnce('sent');
+     const onRateLimited = jest.fn();
+ 
+@@ -164,14 +166,24 @@
+     expect(onRateLimited).not.toHaveBeenCalled();
+   });
+ 
+-  it('still sends when the rate-limit query fails (fails open)', async () => {
+-    countActivities.mockRejectedValueOnce(new Error('db unavailable'));
++  it('does not send when the reservation store fails', async () => {
++    reserveActivity.mockRejectedValueOnce(new Error('db unavailable'));
+     const send = jest.fn().mockResolvedValueOnce('sent');
+ 
+-    await expect(withMessageRateGuard(buildGuard(), { action, recipient }, send)).resolves.toBe(
+-      'sent'
++    await expect(
++      withMessageRateGuard(buildGuard(), { action, recipient }, send)
++    ).rejects.toThrow('db unavailable');
++    expect(send).not.toHaveBeenCalled();
++  });
++
++  it('keeps the reservation when provider acknowledgement is ambiguous', async () => {
++    const send = jest.fn().mockRejectedValueOnce(new Error('provider timeout'));
++
++    await expect(withMessageRateGuard(buildGuard(), { action, recipient }, send)).rejects.toThrow(
++      'provider timeout'
+     );
+-    expect(send).toHaveBeenCalledTimes(1);
++    expect(reserveActivity).toHaveBeenCalledTimes(1);
++    expect(insertActivity).not.toHaveBeenCalled();
+   });
+ });
+ 
+--- a/packages/phrases/src/locales/ru/errors/request.ts
++++ b/packages/phrases/src/locales/ru/errors/request.ts
+@@ -4,6 +4,7 @@
+   range_not_satisfiable: 'Диапазон не удовлетворен.',
+   feature_not_supported: 'Эта функция не поддерживается в текущей среде.',
+   rate_limited: 'Слишком много запросов. Пожалуйста, повторите попытку позже.',
++  message_rate_limited: 'Слишком много писем. Пожалуйста, повторите попытку позже.',
+ };
+ 
+ export default Object.freeze(request);

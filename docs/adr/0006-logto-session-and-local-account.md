@@ -17,3 +17,8 @@ deferred until a real sensitive consumer can define their exact guarantees. `mat
 the only current Platform permission; MembershipEntitlement remains a separate time-bounded content
 access fact. A future M2M identity requires its own ADR only when an independent technical actor has
 a concrete authorization consumer.
+
+Issue #116 subsequently verified this boundary against pinned Logto `1.41.0-inside.2`: recipient
+send reservations and dependency failure behavior remain inside the IdP, while repeated real
+sign-ins converge on one `Account` and the retired Platform session table remains absent. This is
+operational evidence for the accepted decision, not a new authentication architecture.

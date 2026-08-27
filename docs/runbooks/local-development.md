@@ -21,6 +21,11 @@ migrations and runs the application without Logto Console setup. The launcher cl
 machine-wide ownership lock as `local:setup`, refuses an already running Platform or proof Compose
 project, and stops only the environments it claimed when the process exits.
 
+For the destructive, clean-volume #116 security corpus use `pnpm identity:proof:hardening` instead.
+It owns different Compose project names and ports, proves the pinned Logto recipient cap, callback
+and dependency recovery behavior, verifies one local `Account` and no Platform session table, then
+removes only its disposable volumes.
+
 API and web expose real healthchecks. API and MCP wait for healthy PostgreSQL and a successful
 bootstrap; web waits for healthy API. Storybook is an optional profile on
 <http://127.0.0.1:6006>. Integration tests continue to use their own temporary PostgreSQL through

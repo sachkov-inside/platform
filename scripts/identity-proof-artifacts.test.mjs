@@ -15,11 +15,12 @@ const root = new URL("../", import.meta.url);
 const proofRoot = new URL("infra/identity/logto/", root);
 
 test("identity proof dependencies and fork lineage are immutable", async () => {
-  const [versionsSource, dockerfile, compose, packageSource] = await Promise.all([
+  const [versionsSource, dockerfile, compose, packageSource, hardeningPatch] = await Promise.all([
     readFile(new URL("versions.json", proofRoot), "utf8"),
     readFile(new URL("Dockerfile", proofRoot), "utf8"),
     readFile(new URL("compose.yaml", proofRoot), "utf8"),
     readFile(new URL("apps/web/package.json", root), "utf8"),
+    readFile(new URL("patches/issue-116-logto-proof.patch", proofRoot), "utf8"),
   ]);
   const versions = JSON.parse(versionsSource);
   const webPackage = JSON.parse(packageSource);
@@ -27,12 +28,26 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   assert.equal(versions.logto.version, "1.41.0");
   assert.match(versions.logto.digest, /^sha256:[0-9a-f]{64}$/u);
   assert.equal(versions.logto.upstreamRevision.length, 40);
+  assert.equal(versions.logto.forkRevision, "inside.2");
   assert.match(dockerfile, new RegExp(versions.logto.digest, "u"));
   assert.match(dockerfile, new RegExp(versions.logto.upstreamRevision, "u"));
+  assert.match(dockerfile, new RegExp(versions.logto.forkRevision, "u"));
+  assert.match(compose, new RegExp(versions.logto.forkRevision, "u"));
   assert.match(compose, new RegExp(versions.postgres.digest, "u"));
   assert.match(compose, new RegExp(versions.mailpit.digest, "u"));
   assert.equal(webPackage.dependencies["@logto/next"], versions.logtoNext);
   assert.doesNotMatch(`${dockerfile}\n${compose}`, /(?:latest|npx\s)/u);
+  assert.match(dockerfile, /issue-116-logto-proof\.patch/u);
+  assert.match(dockerfile, /patch --fuzz=0/u);
+  assert.match(dockerfile, /connectors\/connector-smtp[\s\S]+npm run build/u);
+  assert.match(dockerfile, /grep -q "instanceof Error" lib\/index\.js/u);
+  assert.match(dockerfile, /jest --runInBand build\/sentinel\/message-rate-guard\.test\.js/u);
+  assert.match(hardeningPatch, /pg_advisory_xact_lock/u);
+  assert.match(hardeningPatch, /keeps the reservation when provider acknowledgement is ambiguous/u);
+  assert.doesNotMatch(hardeningPatch, /deleteActivity|guard\.release|Partial</u);
+  assert.match(hardeningPatch, /recipient: '\[redacted\]'/u);
+  assert.match(hardeningPatch, /message_rate_limited: 'Слишком много писем\./u);
+  assert.doesNotMatch(hardeningPatch, /inside_session|inside_signin|captcha/iu);
 });
 
 test("Experience UI fork keeps the Inside shell and removes the unknown-account prompt", async () => {
@@ -128,9 +143,11 @@ test("custom access-token claims require a matching fresh email-code interaction
 });
 
 test("identity proof bootstrap replaces the manual wizard and isolates generated configuration", async () => {
-  const [packageSource, bootstrap, readme] = await Promise.all([
+  const [packageSource, bootstrap, hardening, nextConfig, readme] = await Promise.all([
     readFile(new URL("package.json", root), "utf8"),
     readFile(new URL("identity-proof-bootstrap.mjs", import.meta.url), "utf8"),
+    readFile(new URL("identity-hardening-proof.mjs", import.meta.url), "utf8"),
+    readFile(new URL("apps/web/next.config.ts", root), "utf8"),
     readFile(new URL("README.md", proofRoot), "utf8"),
   ]);
   const packageJson = JSON.parse(packageSource);
@@ -138,9 +155,15 @@ test("identity proof bootstrap replaces the manual wizard and isolates generated
   assert.equal(packageJson.scripts["identity:proof:setup"], undefined);
   assert.match(packageJson.scripts["identity:proof:up"], /identity:proof:bootstrap/u);
   assert.match(packageJson.scripts["identity:proof:start"], /identity-proof-start/u);
+  assert.match(packageJson.scripts["identity:proof:hardening"], /identity-hardening-proof/u);
   assert.match(bootstrap, /id='m-default'/u);
   assert.match(bootstrap, /\/configs\/jwt-customizer\/access-token/u);
   assert.match(bootstrap, /\.identity-proof\/platform\.env/u);
+  assert.match(hardening, /inside-identity-proof-116/u);
+  assert.match(hardening, /inside-platform-proof-116/u);
+  assert.match(hardening, /to_regclass\('identity_principals\.platform_sessions'\)/u);
+  assert.match(hardening, /logs where/u);
+  assert.match(nextConfig, /incomingRequests:[\s\S]+ignore:[\s\S]+callback/u);
   assert.doesNotMatch(readme, /wizard|identity:proof:setup/u);
 
   assert.equal(

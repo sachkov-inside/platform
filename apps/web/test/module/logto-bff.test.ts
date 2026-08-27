@@ -83,6 +83,17 @@ describe("Logto BFF configuration", () => {
     expect(
       bindAuthorizationCodeResource(refresh, "https://api.example.test"),
     ).toBe(refresh);
+
+    const searchParams = bindAuthorizationCodeResource(
+      {
+        method: "POST",
+        body: new URLSearchParams("grant_type=authorization_code&code=opaque"),
+      },
+      "https://api.example.test",
+    );
+    expect(new URLSearchParams(searchParams?.body as string).get("resource")).toBe(
+      "https://api.example.test",
+    );
   });
 
   it("wires the audience binding into the pinned SDK requester", async () => {

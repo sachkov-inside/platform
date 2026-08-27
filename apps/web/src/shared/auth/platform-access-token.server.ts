@@ -12,12 +12,19 @@ import {
 
 const refreshFlights = new Map<string, Promise<string>>();
 
+export class LogtoSessionUnavailableError extends Error {
+  constructor() {
+    super("Logto session is unavailable");
+    this.name = "LogtoSessionUnavailableError";
+  }
+}
+
 export async function getPlatformAccessToken(
   config: ResolvedLogtoBffConfig,
 ): Promise<string> {
   const session = (await cookies()).get(logtoSessionCookieName(config.appId))?.value;
   if (session === undefined) {
-    throw new Error("Logto session is unavailable");
+    throw new LogtoSessionUnavailableError();
   }
   const flightKey = createHash("sha256").update(session).digest("hex");
   const active = refreshFlights.get(flightKey);

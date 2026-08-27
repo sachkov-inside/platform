@@ -18,6 +18,7 @@
     "identity:proof:down": "docker compose -f infra/identity/logto/compose.yaml down",
     "identity:proof:dev": "node scripts/identity-proof-dev.mjs",
     "identity:proof:start": "node scripts/identity-proof-start.mjs",
+    "identity:proof:hardening": "node scripts/identity-hardening-proof.mjs",
     "local:setup": "node scripts/setup-local.mjs",
     "build": "pnpm --recursive --if-present build",
     "api:generate": "pnpm --filter @inside/backend openapi:generate && pnpm --filter @inside/web openapi:generate",

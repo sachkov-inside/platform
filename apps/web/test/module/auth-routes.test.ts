@@ -61,6 +61,7 @@ vi.mock("@/shared/auth/index.server", () => ({
 
 vi.mock("@/shared/auth/platform-access-token.server", () => ({
   getPlatformAccessToken: fakes.getAccessToken,
+  LogtoSessionUnavailableError: class extends Error {},
 }));
 
 vi.mock("@/shared/api/backend/index.server", () => ({
@@ -99,10 +100,7 @@ describe("Logto BFF route orchestration", () => {
     expect(fakes.handleSignInCallback).toHaveBeenCalledWith(
       "https://inside.example.test/callback?code=opaque&state=opaque",
     );
-    expect(fakes.getAccessToken).toHaveBeenCalledWith(
-      fakes.config,
-      fakes.config.audience,
-    );
+    expect(fakes.getAccessToken).toHaveBeenCalledWith(fakes.config);
     expect(fakes.completePlatformSignIn).toHaveBeenCalledWith(
       "platform-access-token",
     );
@@ -153,6 +151,18 @@ describe("Logto BFF route orchestration", () => {
 
     await expect(response.json()).resolves.toEqual({ state: "guest" });
     expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);
+  });
+
+  it("reports a missing Logto session as a guest", async () => {
+    const { LogtoSessionUnavailableError } = await import(
+      "@/shared/auth/platform-access-token.server"
+    );
+    fakes.getAccessToken.mockRejectedValueOnce(new LogtoSessionUnavailableError());
+
+    const response = await authStatus();
+
+    await expect(response.json()).resolves.toEqual({ state: "guest" });
+    expect(fakes.clearLogtoSessionCookie).not.toHaveBeenCalled();
   });
 
   it("delegates logout to Logto and has no backend session call", async () => {

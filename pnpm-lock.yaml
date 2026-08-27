@@ -190,6 +190,9 @@ importers:
       '@axe-core/playwright':
         specifier: 4.13.0
         version: 4.13.0(playwright-core@1.62.1)
+      '@logto/node':
+        specifier: 3.1.10
+        version: 3.1.10
       '@playwright/test':
         specifier: 1.62.1
         version: 1.62.1
