@@ -18,6 +18,10 @@ import {
   name as publishedMaterialsCursorIndexMigrationName,
   statement as publishedMaterialsCursorIndexMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0003_published_materials_cursor_index.js";
+import {
+  name as mutableMaterialsMigrationName,
+  statement as mutableMaterialsMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0005_mutable_materials.js";
 
 const migrations = [
   {
@@ -35,6 +39,10 @@ const migrations = [
   {
     name: accountsMigrationName,
     statement: accountsMigrationStatement,
+  },
+  {
+    name: mutableMaterialsMigrationName,
+    statement: mutableMaterialsMigrationStatement,
   },
 ] as const;
 

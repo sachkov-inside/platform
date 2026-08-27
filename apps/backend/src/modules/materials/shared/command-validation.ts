@@ -6,15 +6,12 @@ import type { InvalidContentError } from "../facets/material-authoring/material-
 import {
   materialId,
   materialIdempotencyKey,
-  materialRevisionId,
 } from "../domain/material-identifiers.js";
 import { normalizedUuidSchema } from "../domain/uuid.js";
 
 export const accountId = normalizedUuidSchema;
 export const entityId = normalizedUuidSchema;
 export const materialIdSchema = normalizedUuidSchema.transform(materialId);
-export const materialRevisionIdSchema =
-  normalizedUuidSchema.transform(materialRevisionId);
 export const idempotencyKeySchema = z
   .string()
   .trim()

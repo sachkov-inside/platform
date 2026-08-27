@@ -46,7 +46,7 @@ export class ReadPublishedMaterialController {
   ) {}
 
   @Get(":slug")
-  @ApiOperation({ operationId: "readPublishedMaterial", summary: "Read the current published Material revision" })
+  @ApiOperation({ operationId: "readPublishedMaterial", summary: "Read the current published Material" })
   @ApiParam({ name: "slug", schema: toOpenApiSchema(z.string().min(1).max(120)) })
   @ApiOkResponse({ description: "Published Material body or an access-safe teaser", schema: toOpenApiSchema(publishedMaterialReadHttpSchema) })
   @ApiBadRequestResponse({ description: "Published Material request is malformed", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })

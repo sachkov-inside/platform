@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
 import { mapPostgresError } from "../../src/modules/materials/shared/postgres-error-mapping.js";
-import { MaterialRevisionMetadata } from "../../src/modules/materials/domain/material-revision-metadata.js";
+import { MaterialMetadata } from "../../src/modules/materials/domain/material-metadata.js";
 
 describe("MaterialAuthoring PostgreSQL error mapping", () => {
   test("maps only allowlisted reference constraints", () => {
     expect(
-      mapPostgresError({ code: "23503", constraint: "material_revisions_topic_fk" }),
+      mapPostgresError({ code: "23503", constraint: "materials_topic_fk" }),
     ).toEqual({
       code: "invalid_reference",
       issues: [{ code: "reference_not_found", path: "/metadata/topicId" }],
@@ -14,7 +14,7 @@ describe("MaterialAuthoring PostgreSQL error mapping", () => {
     expect(
       mapPostgresError({
         code: "23503",
-        constraint: "materials_current_draft_revision_fk",
+        constraint: "materials_created_by_fk",
       }),
     ).toMatchObject({ code: "internal_error" });
   });
@@ -49,7 +49,7 @@ describe("MaterialAuthoring PostgreSQL error mapping", () => {
   });
 
   test("maps Prisma driver-adapter constraint metadata", () => {
-    const metadata = MaterialRevisionMetadata.create({
+    const metadata = MaterialMetadata.create({
       title: "Title",
       summary: "Summary",
       slug: "already-used",

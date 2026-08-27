@@ -47,7 +47,7 @@ export interface paths {
         };
         readonly get?: never;
         readonly put?: never;
-        /** Create a Material with its first draft revision */
+        /** Create one current Material draft */
         readonly post: operations["createMaterialDraft"];
         readonly delete?: never;
         readonly options?: never;
@@ -55,15 +55,34 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
-    readonly "/authoring/materials/{materialId}/draft": {
+    readonly "/authoring/materials/{materialId}": {
         readonly parameters: {
             readonly query?: never;
             readonly header?: never;
             readonly path?: never;
             readonly cookie?: never;
         };
-        /** Load the current draft revision */
-        readonly get: operations["loadMaterialDraft"];
+        /** Load the current saved Material */
+        readonly get: operations["loadCurrentMaterial"];
+        /** Atomically Save the complete current Material state */
+        readonly put: operations["saveCurrentMaterial"];
+        readonly post?: never;
+        /** Delete a never-published Material draft */
+        readonly delete: operations["deleteMaterialDraft"];
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/authoring/materials/{materialId}/preview": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Render the current saved Material */
+        readonly get: operations["previewCurrentMaterial"];
         readonly put?: never;
         readonly post?: never;
         readonly delete?: never;
@@ -72,84 +91,15 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
-    readonly "/authoring/materials/{materialId}/publication": {
+    readonly "/authoring/materials/{materialId}/validation": {
         readonly parameters: {
             readonly query?: never;
             readonly header?: never;
             readonly path?: never;
             readonly cookie?: never;
         };
-        readonly get?: never;
-        /** Publish an owner-approved Material revision */
-        readonly put: operations["publishMaterialRevision"];
-        readonly post?: never;
-        /** Remove the current Material publication */
-        readonly delete: operations["unpublishMaterial"];
-        readonly options?: never;
-        readonly head?: never;
-        readonly patch?: never;
-        readonly trace?: never;
-    };
-    readonly "/authoring/materials/{materialId}/revisions": {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: never;
-            readonly path?: never;
-            readonly cookie?: never;
-        };
-        readonly get?: never;
-        readonly put?: never;
-        /** Create an immutable revision from the current draft */
-        readonly post: operations["reviseMaterialDraft"];
-        readonly delete?: never;
-        readonly options?: never;
-        readonly head?: never;
-        readonly patch?: never;
-        readonly trace?: never;
-    };
-    readonly "/authoring/materials/{materialId}/revisions/{revisionId}/preview": {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: never;
-            readonly path?: never;
-            readonly cookie?: never;
-        };
-        /** Render an exact private Preview of a Material revision */
-        readonly get: operations["previewMaterialRevision"];
-        readonly put?: never;
-        readonly post?: never;
-        readonly delete?: never;
-        readonly options?: never;
-        readonly head?: never;
-        readonly patch?: never;
-        readonly trace?: never;
-    };
-    readonly "/authoring/materials/{materialId}/revisions/{revisionId}/restore": {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: never;
-            readonly path?: never;
-            readonly cookie?: never;
-        };
-        readonly get?: never;
-        readonly put?: never;
-        /** Restore a historical revision as a new current draft */
-        readonly post: operations["restoreMaterialRevision"];
-        readonly delete?: never;
-        readonly options?: never;
-        readonly head?: never;
-        readonly patch?: never;
-        readonly trace?: never;
-    };
-    readonly "/authoring/materials/{materialId}/revisions/{revisionId}/validation": {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: never;
-            readonly path?: never;
-            readonly cookie?: never;
-        };
-        /** Validate a specific Material revision */
-        readonly get: operations["validateMaterialRevision"];
+        /** Validate the current Material for publication */
+        readonly get: operations["validateCurrentMaterial"];
         readonly put?: never;
         readonly post?: never;
         readonly delete?: never;
@@ -199,7 +149,7 @@ export interface paths {
             readonly path?: never;
             readonly cookie?: never;
         };
-        /** Read the current published Material revision */
+        /** Read the current published Material */
         readonly get: operations["readPublishedMaterial"];
         readonly put?: never;
         readonly post?: never;
@@ -417,24 +367,28 @@ export interface operations {
             readonly content: {
                 readonly "application/json": {
                     readonly body: {
-                        readonly [key: string]: unknown;
+                        readonly doc: {
+                            readonly [key: string]: unknown;
+                        };
+                        /** @enum {number} */
+                        readonly schemaVersion: 1;
                     };
                     readonly metadata: {
                         /** @enum {string} */
                         readonly access: "free" | "membership";
                         /** Format: uuid */
-                        readonly formatId: string;
+                        readonly formatId: string | null;
                         readonly seriesMemberships: readonly {
                             readonly ordinal: number;
                             /** Format: uuid */
                             readonly seriesId: string;
                         }[];
-                        readonly slug: string;
-                        readonly summary: string;
+                        readonly slug: string | null;
+                        readonly summary: string | null;
                         readonly tagIds: readonly string[];
-                        readonly title: string;
+                        readonly title: string | null;
                         /** Format: uuid */
-                        readonly topicId: string;
+                        readonly topicId: string | null;
                     };
                 };
             };
@@ -446,34 +400,13 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": {
-                        readonly body: {
-                            readonly doc: {
-                                readonly [key: string]: unknown;
-                            };
-                            /** @enum {number} */
-                            readonly schemaVersion: 1;
-                        };
+                        readonly contentVersion: number;
                         /** Format: uuid */
                         readonly materialId: string;
-                        readonly metadata: {
-                            /** @enum {string} */
-                            readonly access: "free" | "membership";
-                            /** Format: uuid */
-                            readonly formatId: string;
-                            readonly seriesMemberships: readonly {
-                                readonly ordinal: number;
-                                /** Format: uuid */
-                                readonly seriesId: string;
-                            }[];
-                            readonly slug: string;
-                            readonly summary: string;
-                            readonly tagIds: readonly string[];
-                            readonly title: string;
-                            /** Format: uuid */
-                            readonly topicId: string;
-                        };
-                        /** Format: uuid */
-                        readonly revisionId: string;
+                        /** @enum {string} */
+                        readonly publicationState: "draft" | "published" | "unpublished";
+                        /** Format: date-time */
+                        readonly publishedAt: string | null;
                     };
                 };
             };
@@ -485,16 +418,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -510,16 +444,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -535,16 +470,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -560,16 +496,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -585,16 +522,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -610,16 +548,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -635,16 +574,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -654,7 +594,7 @@ export interface operations {
             };
         };
     };
-    readonly loadMaterialDraft: {
+    readonly loadCurrentMaterial: {
         readonly parameters: {
             readonly query?: never;
             readonly header?: never;
@@ -678,218 +618,32 @@ export interface operations {
                             /** @enum {number} */
                             readonly schemaVersion: 1;
                         };
+                        readonly contentVersion: number;
+                        /** Format: date-time */
+                        readonly firstPublishedAt: string | null;
                         /** Format: uuid */
                         readonly materialId: string;
                         readonly metadata: {
                             /** @enum {string} */
                             readonly access: "free" | "membership";
                             /** Format: uuid */
-                            readonly formatId: string;
+                            readonly formatId: string | null;
                             readonly seriesMemberships: readonly {
                                 readonly ordinal: number;
                                 /** Format: uuid */
                                 readonly seriesId: string;
                             }[];
-                            readonly slug: string;
-                            readonly summary: string;
+                            readonly slug: string | null;
+                            readonly summary: string | null;
                             readonly tagIds: readonly string[];
-                            readonly title: string;
+                            readonly title: string | null;
                             /** Format: uuid */
-                            readonly topicId: string;
+                            readonly topicId: string | null;
                         };
-                        /** Format: uuid */
-                        readonly revisionId: string;
-                    };
-                };
-            };
-            readonly 400: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 404: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 500: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    readonly publishMaterialRevision: {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header: {
-                readonly "idempotency-key": string;
-            };
-            readonly path: {
-                readonly materialId: string;
-            };
-            readonly cookie?: never;
-        };
-        readonly requestBody: {
-            readonly content: {
-                readonly "application/json": {
-                    /** Format: uuid */
-                    readonly expectedPublishedRevisionId: string | null;
-                    /** Format: uuid */
-                    readonly revisionId: string;
-                };
-            };
-        };
-        readonly responses: {
-            readonly 200: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": {
-                        /** Format: uuid */
-                        readonly materialId: string;
-                        /** Format: uuid */
-                        readonly publicationEventId: string;
+                        /** @enum {string} */
+                        readonly publicationState: "draft" | "published" | "unpublished";
                         /** Format: date-time */
-                        readonly recordedAt: string;
-                        /** Format: uuid */
-                        readonly revisionId: string;
+                        readonly publishedAt: string | null;
                     };
                 };
             };
@@ -901,16 +655,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -926,16 +681,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -951,16 +707,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -976,41 +733,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 409: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1026,16 +759,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1051,16 +785,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1076,16 +811,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1095,7 +831,7 @@ export interface operations {
             };
         };
     };
-    readonly unpublishMaterial: {
+    readonly saveCurrentMaterial: {
         readonly parameters: {
             readonly query?: never;
             readonly header: {
@@ -1109,8 +845,33 @@ export interface operations {
         readonly requestBody: {
             readonly content: {
                 readonly "application/json": {
-                    /** Format: uuid */
-                    readonly expectedPublishedRevisionId: string;
+                    readonly body: {
+                        readonly doc: {
+                            readonly [key: string]: unknown;
+                        };
+                        /** @enum {number} */
+                        readonly schemaVersion: 1;
+                    };
+                    readonly expectedContentVersion: number;
+                    readonly metadata: {
+                        /** @enum {string} */
+                        readonly access: "free" | "membership";
+                        /** Format: uuid */
+                        readonly formatId: string | null;
+                        readonly seriesMemberships: readonly {
+                            readonly ordinal: number;
+                            /** Format: uuid */
+                            readonly seriesId: string;
+                        }[];
+                        readonly slug: string | null;
+                        readonly summary: string | null;
+                        readonly tagIds: readonly string[];
+                        readonly title: string | null;
+                        /** Format: uuid */
+                        readonly topicId: string | null;
+                    };
+                    /** @enum {string} */
+                    readonly publicationState: "draft" | "published" | "unpublished";
                 };
             };
         };
@@ -1121,14 +882,13 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": {
+                        readonly contentVersion: number;
                         /** Format: uuid */
                         readonly materialId: string;
-                        /** Format: uuid */
-                        readonly publicationEventId: string;
+                        /** @enum {string} */
+                        readonly publicationState: "draft" | "published" | "unpublished";
                         /** Format: date-time */
-                        readonly recordedAt: string;
-                        /** Format: uuid */
-                        readonly revisionId: string;
+                        readonly publishedAt: string | null;
                     };
                 };
             };
@@ -1140,16 +900,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1165,16 +926,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1190,16 +952,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1215,16 +978,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1240,305 +1004,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 500: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    readonly reviseMaterialDraft: {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header: {
-                readonly "idempotency-key": string;
-            };
-            readonly path: {
-                readonly materialId: string;
-            };
-            readonly cookie?: never;
-        };
-        readonly requestBody: {
-            readonly content: {
-                readonly "application/json": {
-                    /** Format: uuid */
-                    readonly baseRevisionId: string;
-                    readonly changes: {
-                        readonly body?: readonly ({
-                            readonly document: {
-                                readonly [key: string]: unknown;
-                            };
-                            /** @enum {string} */
-                            readonly kind: "replace_document";
-                        } | {
-                            /** Format: uuid */
-                            readonly afterNodeId: string | null;
-                            readonly blocks: readonly {
-                                readonly [key: string]: unknown;
-                            }[];
-                            /** @enum {string} */
-                            readonly kind: "insert_blocks";
-                        } | {
-                            readonly block: {
-                                readonly [key: string]: unknown;
-                            };
-                            /** @enum {string} */
-                            readonly kind: "replace_block";
-                            /** Format: uuid */
-                            readonly nodeId: string;
-                        } | {
-                            /** @enum {string} */
-                            readonly kind: "delete_block";
-                            /** Format: uuid */
-                            readonly nodeId: string;
-                        } | {
-                            readonly from: number;
-                            /** @enum {string} */
-                            readonly kind: "replace_text";
-                            /** Format: uuid */
-                            readonly nodeId: string;
-                            readonly text: string;
-                            readonly to: number;
-                        })[];
-                        readonly metadata?: {
-                            /** @enum {string} */
-                            readonly access?: "free" | "membership";
-                            /** Format: uuid */
-                            readonly formatId?: string;
-                            readonly seriesMemberships?: readonly {
-                                readonly ordinal: number;
-                                /** Format: uuid */
-                                readonly seriesId: string;
-                            }[];
-                            readonly slug?: string;
-                            readonly summary?: string;
-                            readonly tagIds?: readonly string[];
-                            readonly title?: string;
-                            /** Format: uuid */
-                            readonly topicId?: string;
-                        };
-                    };
-                };
-            };
-        };
-        readonly responses: {
-            readonly 201: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": {
-                        readonly body: {
-                            readonly doc: {
-                                readonly [key: string]: unknown;
-                            };
-                            /** @enum {number} */
-                            readonly schemaVersion: 1;
-                        };
-                        /** Format: uuid */
-                        readonly materialId: string;
-                        readonly metadata: {
-                            /** @enum {string} */
-                            readonly access: "free" | "membership";
-                            /** Format: uuid */
-                            readonly formatId: string;
-                            readonly seriesMemberships: readonly {
-                                readonly ordinal: number;
-                                /** Format: uuid */
-                                readonly seriesId: string;
-                            }[];
-                            readonly slug: string;
-                            readonly summary: string;
-                            readonly tagIds: readonly string[];
-                            readonly title: string;
-                            /** Format: uuid */
-                            readonly topicId: string;
-                        };
-                        /** Format: uuid */
-                        readonly revisionId: string;
-                    };
-                };
-            };
-            readonly 400: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 404: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 409: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1554,16 +1030,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1579,16 +1056,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1604,16 +1082,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1623,13 +1102,252 @@ export interface operations {
             };
         };
     };
-    readonly previewMaterialRevision: {
+    readonly deleteMaterialDraft: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header: {
+                readonly "idempotency-key": string;
+            };
+            readonly path: {
+                readonly materialId: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": {
+                    readonly expectedContentVersion: number;
+                };
+            };
+        };
+        readonly responses: {
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": {
+                        /** Format: uuid */
+                        readonly materialId: string;
+                    };
+                };
+            };
+            readonly 400: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/problem+json": {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
+                        readonly issues?: readonly {
+                            readonly code: string;
+                            readonly path: string;
+                        }[];
+                        readonly retryable?: boolean;
+                        readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
+                        readonly title: string;
+                        readonly type: string;
+                    } & {
+                        readonly [key: string]: unknown;
+                    };
+                };
+            };
+            readonly 401: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/problem+json": {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
+                        readonly issues?: readonly {
+                            readonly code: string;
+                            readonly path: string;
+                        }[];
+                        readonly retryable?: boolean;
+                        readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
+                        readonly title: string;
+                        readonly type: string;
+                    } & {
+                        readonly [key: string]: unknown;
+                    };
+                };
+            };
+            readonly 403: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/problem+json": {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
+                        readonly issues?: readonly {
+                            readonly code: string;
+                            readonly path: string;
+                        }[];
+                        readonly retryable?: boolean;
+                        readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
+                        readonly title: string;
+                        readonly type: string;
+                    } & {
+                        readonly [key: string]: unknown;
+                    };
+                };
+            };
+            readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/problem+json": {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
+                        readonly issues?: readonly {
+                            readonly code: string;
+                            readonly path: string;
+                        }[];
+                        readonly retryable?: boolean;
+                        readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
+                        readonly title: string;
+                        readonly type: string;
+                    } & {
+                        readonly [key: string]: unknown;
+                    };
+                };
+            };
+            readonly 409: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/problem+json": {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
+                        readonly issues?: readonly {
+                            readonly code: string;
+                            readonly path: string;
+                        }[];
+                        readonly retryable?: boolean;
+                        readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
+                        readonly title: string;
+                        readonly type: string;
+                    } & {
+                        readonly [key: string]: unknown;
+                    };
+                };
+            };
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/problem+json": {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
+                        readonly issues?: readonly {
+                            readonly code: string;
+                            readonly path: string;
+                        }[];
+                        readonly retryable?: boolean;
+                        readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
+                        readonly title: string;
+                        readonly type: string;
+                    } & {
+                        readonly [key: string]: unknown;
+                    };
+                };
+            };
+            readonly 500: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/problem+json": {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
+                        readonly issues?: readonly {
+                            readonly code: string;
+                            readonly path: string;
+                        }[];
+                        readonly retryable?: boolean;
+                        readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
+                        readonly title: string;
+                        readonly type: string;
+                    } & {
+                        readonly [key: string]: unknown;
+                    };
+                };
+            };
+            readonly 503: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/problem+json": {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
+                        readonly issues?: readonly {
+                            readonly code: string;
+                            readonly path: string;
+                        }[];
+                        readonly retryable?: boolean;
+                        readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
+                        readonly title: string;
+                        readonly type: string;
+                    } & {
+                        readonly [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    readonly previewCurrentMaterial: {
         readonly parameters: {
             readonly query?: never;
             readonly header?: never;
             readonly path: {
                 readonly materialId: string;
-                readonly revisionId: string;
             };
             readonly cookie?: never;
         };
@@ -1648,27 +1366,28 @@ export interface operations {
                         };
                         /** @enum {string} */
                         readonly cacheScope: "private-no-store";
+                        readonly contentVersion: number;
                         /** Format: uuid */
                         readonly materialId: string;
                         readonly metadata: {
                             /** @enum {string} */
                             readonly access: "free" | "membership";
                             /** Format: uuid */
-                            readonly formatId: string;
+                            readonly formatId: string | null;
                             readonly seriesMemberships: readonly {
                                 readonly ordinal: number;
                                 /** Format: uuid */
                                 readonly seriesId: string;
                             }[];
-                            readonly slug: string;
-                            readonly summary: string;
+                            readonly slug: string | null;
+                            readonly summary: string | null;
                             readonly tagIds: readonly string[];
-                            readonly title: string;
+                            readonly title: string | null;
                             /** Format: uuid */
-                            readonly topicId: string;
+                            readonly topicId: string | null;
                         };
-                        /** Format: uuid */
-                        readonly revisionId: string;
+                        /** @enum {string} */
+                        readonly publicationState: "draft" | "published" | "unpublished";
                     };
                 };
             };
@@ -1680,16 +1399,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1705,16 +1425,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1730,16 +1451,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1755,16 +1477,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1780,16 +1503,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1805,16 +1529,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1830,16 +1555,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -1849,273 +1575,14 @@ export interface operations {
             };
         };
     };
-    readonly restoreMaterialRevision: {
+    readonly validateCurrentMaterial: {
         readonly parameters: {
-            readonly query?: never;
-            readonly header: {
-                readonly "idempotency-key": string;
+            readonly query: {
+                readonly expectedContentVersion: number;
             };
-            readonly path: {
-                readonly materialId: string;
-                readonly revisionId: string;
-            };
-            readonly cookie?: never;
-        };
-        readonly requestBody: {
-            readonly content: {
-                readonly "application/json": {
-                    /** Format: uuid */
-                    readonly baseRevisionId: string;
-                };
-            };
-        };
-        readonly responses: {
-            readonly 201: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": {
-                        readonly body: {
-                            readonly doc: {
-                                readonly [key: string]: unknown;
-                            };
-                            /** @enum {number} */
-                            readonly schemaVersion: 1;
-                        };
-                        /** Format: uuid */
-                        readonly materialId: string;
-                        readonly metadata: {
-                            /** @enum {string} */
-                            readonly access: "free" | "membership";
-                            /** Format: uuid */
-                            readonly formatId: string;
-                            readonly seriesMemberships: readonly {
-                                readonly ordinal: number;
-                                /** Format: uuid */
-                                readonly seriesId: string;
-                            }[];
-                            readonly slug: string;
-                            readonly summary: string;
-                            readonly tagIds: readonly string[];
-                            readonly title: string;
-                            /** Format: uuid */
-                            readonly topicId: string;
-                        };
-                        /** Format: uuid */
-                        readonly revisionId: string;
-                    };
-                };
-            };
-            readonly 400: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 404: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 409: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 422: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 500: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/problem+json": {
-                        readonly code: string;
-                        readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
-                        readonly issues?: readonly {
-                            readonly code: string;
-                            readonly path: string;
-                        }[];
-                        readonly retryable?: boolean;
-                        readonly status: number;
-                        readonly title: string;
-                        readonly type: string;
-                    } & {
-                        readonly [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    readonly validateMaterialRevision: {
-        readonly parameters: {
-            readonly query?: never;
             readonly header?: never;
             readonly path: {
                 readonly materialId: string;
-                readonly revisionId: string;
             };
             readonly cookie?: never;
         };
@@ -2127,6 +1594,7 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": {
+                        readonly contentVersion: number;
                         readonly extraction: {
                             readonly headings: readonly {
                                 readonly level: 2 | 3 | 4;
@@ -2151,8 +1619,6 @@ export interface operations {
                         /** Format: uuid */
                         readonly materialId: string;
                         readonly projectionDigest: string;
-                        /** Format: uuid */
-                        readonly revisionId: string;
                     };
                 };
             };
@@ -2164,16 +1630,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -2189,16 +1656,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -2214,16 +1682,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -2239,16 +1708,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -2264,16 +1734,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -2289,16 +1760,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -2314,16 +1786,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -2339,16 +1812,17 @@ export interface operations {
                     readonly "application/problem+json": {
                         readonly code: string;
                         readonly correlationId?: string;
-                        /** Format: uuid */
-                        readonly currentPublishedRevisionId?: string | null;
-                        /** Format: uuid */
-                        readonly currentRevisionId?: string;
+                        readonly currentContentVersion?: number;
+                        /** @enum {string} */
+                        readonly currentState?: "draft" | "published" | "unpublished";
                         readonly issues?: readonly {
                             readonly code: string;
                             readonly path: string;
                         }[];
                         readonly retryable?: boolean;
                         readonly status: number;
+                        /** @enum {string} */
+                        readonly targetState?: "draft" | "published" | "unpublished";
                         readonly title: string;
                         readonly type: string;
                     } & {
@@ -2424,6 +1898,7 @@ export interface operations {
                         readonly items: readonly {
                             /** @enum {string} */
                             readonly access: "free" | "membership";
+                            readonly contentVersion: number;
                             readonly format: {
                                 readonly id: string;
                                 readonly name: string;
@@ -2432,7 +1907,6 @@ export interface operations {
                             readonly materialId: string;
                             /** Format: date-time */
                             readonly publishedAt: string;
-                            readonly revisionId: string;
                             readonly seriesMemberships: readonly {
                                 readonly ordinal: number;
                                 readonly series: {
@@ -2538,6 +2012,7 @@ export interface operations {
                         readonly projection: {
                             /** @enum {string} */
                             readonly access: "free" | "membership";
+                            readonly contentVersion: number;
                             readonly format: {
                                 readonly id: string;
                                 readonly name: string;
@@ -2546,7 +2021,6 @@ export interface operations {
                             readonly materialId: string;
                             /** Format: date-time */
                             readonly publishedAt: string;
-                            readonly revisionId: string;
                             readonly seriesMemberships: readonly {
                                 readonly ordinal: number;
                                 readonly series: {
@@ -2582,6 +2056,7 @@ export interface operations {
                         readonly projection: {
                             /** @enum {string} */
                             readonly access: "free" | "membership";
+                            readonly contentVersion: number;
                             readonly format: {
                                 readonly id: string;
                                 readonly name: string;
@@ -2590,7 +2065,6 @@ export interface operations {
                             readonly materialId: string;
                             /** Format: date-time */
                             readonly publishedAt: string;
-                            readonly revisionId: string;
                             readonly seriesMemberships: readonly {
                                 readonly ordinal: number;
                                 readonly series: {

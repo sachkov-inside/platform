@@ -18,7 +18,7 @@ export interface PublishedMaterialProjectionPage {
 
 const publishedMaterialProjectionRowSchema = z.object({
   material_id: z.uuid(),
-  revision_id: z.uuid(),
+  content_version: z.coerce.number().int().positive(),
   slug: z.string(),
   title: z.string(),
   summary: z.string(),
@@ -89,7 +89,7 @@ function projectionQuery(where: Prisma.Sql, limit: Prisma.Sql): Prisma.Sql {
   return Prisma.sql`
     select
       publication.material_id,
-      publication.revision_id,
+      publication.content_version,
       publication.slug,
       publication.title,
       publication.summary,
@@ -144,7 +144,7 @@ function toProjection(
 ): PublishedMaterialProjectionDto {
   return {
     materialId: row.material_id,
-    revisionId: row.revision_id,
+    contentVersion: row.content_version,
     slug: row.slug,
     title: row.title,
     summary: row.summary,

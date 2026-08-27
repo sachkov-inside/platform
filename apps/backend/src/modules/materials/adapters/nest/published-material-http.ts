@@ -9,7 +9,7 @@ const referenceSchema = z
 export const publishedMaterialProjectionHttpSchema = z
   .object({
     materialId: z.string(),
-    revisionId: z.string(),
+    contentVersion: z.number().int().positive(),
     slug: z.string(),
     title: z.string(),
     summary: z.string(),

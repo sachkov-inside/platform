@@ -16,7 +16,7 @@ export interface MaterialDraftPresentation {
   readonly document: JSONContent;
   readonly format: string;
   readonly materialId: string | null;
-  readonly revisionId: string | null;
+  readonly contentVersion: number | null;
   readonly slug: string;
   readonly status: "draft" | "new";
   readonly summary: string;
@@ -64,7 +64,7 @@ export type MaterialPreviewBlock =
 export interface MaterialPreviewPresentation {
   readonly accessLabel: string;
   readonly blocks: readonly MaterialPreviewBlock[];
-  readonly exactRevisionId: string;
+  readonly contentVersion: number;
   readonly format: string;
   readonly summary: string;
   readonly tags: readonly string[];
@@ -75,9 +75,9 @@ export interface MaterialPreviewPresentation {
 export type MaterialWorkspaceBlockingState =
   | { readonly kind: "none" }
   | {
-      readonly currentRevisionId: string;
+      readonly currentContentVersion: number;
       readonly kind: "conflict";
-      readonly staleRevisionId: string;
+      readonly staleContentVersion: number;
     }
   | {
       readonly correlationId: string;

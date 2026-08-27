@@ -32,7 +32,7 @@ describe("published Material HTTP contract", () => {
     await testDatabase.dispose();
   });
 
-  test("returns the exact published revision for an anonymous reader", async () => {
+  test("returns the current published Material for an anonymous reader", async () => {
     const response = await app.getHttpAdapter().getInstance().inject({
       method: "GET",
       url: "/materials/inside-platform-overview",

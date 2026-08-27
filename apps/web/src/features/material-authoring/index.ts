@@ -10,4 +10,4 @@ export {
   type MaterialSelectOption,
 } from "./model/presentation";
 export { MaterialAuthoringWorkspace } from "./ui/material-authoring-workspace.client";
-export { MaterialRevisionPreview } from "./ui/material-revision-preview";
+export { MaterialPreview } from "./ui/material-preview";

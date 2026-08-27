@@ -1,63 +1,51 @@
-import type { MaterialBody } from "./material-body/material-body.js";
-import type { MaterialRevisionMetadata } from "./material-revision-metadata.js";
-import type {
-  MaterialId,
-  MaterialRevisionId,
-} from "./material-identifiers.js";
+import type { MaterialId } from "./material-identifiers.js";
 import type { Result } from "../result.js";
 
-export interface MaterialRevision {
-  readonly id: MaterialRevisionId;
-  readonly materialId: MaterialId;
-  readonly restoredFromRevisionId?: MaterialRevisionId;
-  readonly metadata: MaterialRevisionMetadata;
-  readonly body: MaterialBody;
-}
-
-export function materialRevision(
-  values: MaterialRevision,
-): MaterialRevision {
-  return Object.freeze({ ...values });
-}
-
-export function restoreMaterialRevision(
-  source: MaterialRevision,
-  revisionId: MaterialRevisionId,
-): MaterialRevision {
-  return materialRevision({
-    id: revisionId,
-    materialId: source.materialId,
-    restoredFromRevisionId: source.id,
-    metadata: source.metadata,
-    body: source.body,
-  });
-}
-
-export interface StaleRevisionError {
-  readonly code: "stale_revision";
-  readonly currentRevisionId: MaterialRevisionId;
-}
-
-export interface StalePublicationError {
-  readonly code: "stale_publication";
-  readonly currentPublishedRevisionId: MaterialRevisionId | null;
-}
+export type PublicationState = "draft" | "published" | "unpublished";
 
 export interface MaterialValues {
   readonly id: MaterialId;
-  readonly currentDraftRevisionId: MaterialRevisionId;
-  readonly currentPublishedRevisionId: MaterialRevisionId | null;
+  readonly slug: string | null;
+  readonly publicationState: PublicationState;
+  readonly contentVersion: number;
+  readonly firstPublishedAt: Date | null;
+  readonly publishedAt: Date | null;
 }
+
+export interface MaterialSaveTransition {
+  readonly expectedContentVersion: number;
+  readonly publicationState: PublicationState;
+  readonly slug: string | null;
+  readonly now: Date;
+}
+
+export type MaterialSaveError =
+  | {
+      readonly code: "stale_content_version";
+      readonly currentContentVersion: number;
+    }
+  | { readonly code: "slug_locked"; readonly slug: string }
+  | {
+      readonly code: "invalid_publication_transition";
+      readonly currentState: PublicationState;
+      readonly targetState: PublicationState;
+    };
 
 export class Material {
   readonly id: MaterialId;
-  readonly currentDraftRevisionId: MaterialRevisionId;
-  readonly currentPublishedRevisionId: MaterialRevisionId | null;
+  readonly slug: string | null;
+  readonly publicationState: PublicationState;
+  readonly contentVersion: number;
+  readonly firstPublishedAt: Date | null;
+  readonly publishedAt: Date | null;
 
   private constructor(values: MaterialValues) {
     this.id = values.id;
-    this.currentDraftRevisionId = values.currentDraftRevisionId;
-    this.currentPublishedRevisionId = values.currentPublishedRevisionId;
+    this.slug = values.slug;
+    this.publicationState = values.publicationState;
+    this.contentVersion = values.contentVersion;
+    this.firstPublishedAt = values.firstPublishedAt;
+    this.publishedAt = values.publishedAt;
     Object.freeze(this);
   }
 
@@ -65,80 +53,63 @@ export class Material {
     return new Material(values);
   }
 
-  advanceDraft(
-    baseRevisionId: MaterialRevisionId,
-    revisionId: MaterialRevisionId,
-  ): Result<Material, StaleRevisionError> {
-    if (this.currentDraftRevisionId !== baseRevisionId) {
-      return {
-        ok: false,
-        error: {
-          code: "stale_revision",
-          currentRevisionId: this.currentDraftRevisionId,
-        },
-      };
-    }
-    return {
-      ok: true,
-      value: new Material({
-        id: this.id,
-        currentDraftRevisionId: revisionId,
-        currentPublishedRevisionId: this.currentPublishedRevisionId,
-      }),
-    };
+  canDelete(): boolean {
+    return this.publicationState === "draft" && this.firstPublishedAt === null;
   }
 
-  publishRevision(
-    revisionId: MaterialRevisionId,
-    expectedPublishedRevisionId: MaterialRevisionId | null,
-  ): Result<Material, StaleRevisionError | StalePublicationError> {
-    if (this.currentDraftRevisionId !== revisionId) {
+  save(
+    transition: MaterialSaveTransition,
+  ): Result<Material, MaterialSaveError> {
+    if (transition.expectedContentVersion !== this.contentVersion) {
       return {
         ok: false,
         error: {
-          code: "stale_revision",
-          currentRevisionId: this.currentDraftRevisionId,
+          code: "stale_content_version",
+          currentContentVersion: this.contentVersion,
         },
       };
     }
-    if (this.currentPublishedRevisionId !== expectedPublishedRevisionId) {
+    if (
+      this.firstPublishedAt !== null &&
+      transition.slug !== this.slug &&
+      this.slug !== null
+    ) {
+      return { ok: false, error: { code: "slug_locked", slug: this.slug } };
+    }
+    if (!canTransition(this.publicationState, transition.publicationState)) {
       return {
         ok: false,
         error: {
-          code: "stale_publication",
-          currentPublishedRevisionId: this.currentPublishedRevisionId,
+          code: "invalid_publication_transition",
+          currentState: this.publicationState,
+          targetState: transition.publicationState,
         },
       };
     }
-    return {
-      ok: true,
-      value: new Material({
-        id: this.id,
-        currentDraftRevisionId: this.currentDraftRevisionId,
-        currentPublishedRevisionId: revisionId,
-      }),
-    };
-  }
 
-  unpublish(
-    expectedPublishedRevisionId: MaterialRevisionId,
-  ): Result<Material, StalePublicationError> {
-    if (this.currentPublishedRevisionId !== expectedPublishedRevisionId) {
-      return {
-        ok: false,
-        error: {
-          code: "stale_publication",
-          currentPublishedRevisionId: this.currentPublishedRevisionId,
-        },
-      };
-    }
+    const entersPublished =
+      transition.publicationState === "published" &&
+      this.publicationState !== "published";
     return {
       ok: true,
       value: new Material({
         id: this.id,
-        currentDraftRevisionId: this.currentDraftRevisionId,
-        currentPublishedRevisionId: null,
+        slug: transition.slug,
+        publicationState: transition.publicationState,
+        contentVersion: this.contentVersion + 1,
+        firstPublishedAt:
+          this.firstPublishedAt ?? (entersPublished ? transition.now : null),
+        publishedAt: entersPublished ? transition.now : this.publishedAt,
       }),
     };
   }
+}
+
+function canTransition(
+  current: PublicationState,
+  target: PublicationState,
+): boolean {
+  return current === "draft"
+    ? target === "draft" || target === "published"
+    : target === "published" || target === "unpublished";
 }

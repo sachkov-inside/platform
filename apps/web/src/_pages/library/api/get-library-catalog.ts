@@ -15,7 +15,7 @@ import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details
 const projectionSchema = z
   .object({
     materialId: z.string(),
-    revisionId: z.string(),
+    contentVersion: z.number().int().positive(),
     slug: z.string(),
     title: z.string(),
     summary: z.string(),

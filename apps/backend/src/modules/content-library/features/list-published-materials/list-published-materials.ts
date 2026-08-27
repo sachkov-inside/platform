@@ -103,7 +103,7 @@ function toCatalogItem(
 ): PublishedMaterialCatalogItemDto {
   return {
     materialId: projection.materialId,
-    revisionId: projection.revisionId,
+    contentVersion: projection.contentVersion,
     slug: projection.slug,
     title: projection.title,
     summary: projection.summary,

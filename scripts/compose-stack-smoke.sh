@@ -41,10 +41,10 @@ seed_snapshot="$(
     --dbname "${POSTGRES_DB:-inside}" \
     --tuples-only \
     --no-align \
-    --command "select (select count(*) from materials.materials where slug = 'inside-platform-overview') || ':' || (select count(*) from materials.material_revisions r join materials.materials m on m.id = r.material_id where m.slug = 'inside-platform-overview');"
+    --command "select count(*) || ':' || max(content_version)::text || ':' || max(publication_state) from materials.materials where slug = 'inside-platform-overview';"
 )"
-if [[ "$seed_snapshot" != "1:2" ]]; then
-  echo "Expected one stable seeded Material and two lifecycle revisions, received $seed_snapshot" >&2
+if [[ "$seed_snapshot" != "1:2:published" ]]; then
+  echo "Expected one stable published Material at contentVersion 2, received $seed_snapshot" >&2
   exit 1
 fi
 

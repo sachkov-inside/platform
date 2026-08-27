@@ -15,8 +15,8 @@ const paragraph = (value: string): MaterialPreviewBlock => ({
   kind: "paragraph",
 });
 
-const revisionId = "rev_01JY7A2M4N8QF3T6V9XC";
-export const savedRevisionId = "rev_01JY7C6RE4M2W9PK5AHN";
+const contentVersion = 3;
+export const savedContentVersion = 4;
 
 export const materialAuthoringPresentation = {
   availableTopics: [
@@ -72,7 +72,7 @@ export const materialAuthoringPresentation = {
     },
     format: "Guide",
     materialId: "mat_developer_pipeline",
-    revisionId,
+    contentVersion,
     slug: "developer-pipeline-bez-magii",
     status: "draft",
     summary: "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
@@ -105,7 +105,7 @@ export const materialAuthoringPresentation = {
       {
         content: [
           paragraph(
-            "Preview показывает ровно эту редакцию. Сохранение нового draft не меняет опубликованный Material.",
+            "Preview показывает текущую версию содержимого и не меняет опубликованный Material.",
           ),
         ],
         kind: "callout",
@@ -116,7 +116,7 @@ export const materialAuthoringPresentation = {
         text: "issue -> branch -> evidence -> review -> owner GO",
       },
     ],
-    exactRevisionId: revisionId,
+    contentVersion,
     format: "Guide",
     summary: "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
     tags: ["developer pipeline", "agents", "delivery"],
@@ -130,14 +130,14 @@ export const savedAfterEditingPresentation = {
   ...materialAuthoringPresentation,
   draft: {
     ...materialAuthoringPresentation.draft,
-    revisionId: savedRevisionId,
-    title: "Новая редакция Developer Pipeline",
+    contentVersion: savedContentVersion,
+    title: "Новая версия Developer Pipeline",
     topic: "architecture",
   },
   preview: {
     ...materialAuthoringPresentation.preview,
-    exactRevisionId: savedRevisionId,
-    title: "Новая редакция Developer Pipeline",
+    contentVersion: savedContentVersion,
+    title: "Новая версия Developer Pipeline",
     topic: "Архитектура",
   },
   save: { kind: "saved", savedAtLabel: "12:41" },
@@ -151,7 +151,7 @@ export const emptyMaterialAuthoringPresentation = {
     document: { type: "doc", content: [{ type: "paragraph" }] },
     format: "Текст",
     materialId: null,
-    revisionId: null,
+    contentVersion: null,
     slug: "",
     status: "new",
     summary: "",

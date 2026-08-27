@@ -74,7 +74,7 @@ const readerBlockSchema: z.ZodType<ReaderBlock> = z.lazy(() =>
 
 const projectionSchema = z.object({
   materialId: z.string(),
-  revisionId: z.string(),
+  contentVersion: z.number().int().positive(),
   slug: z.string(),
   title: z.string(),
   summary: z.string(),
@@ -117,7 +117,7 @@ const notFoundSchema = z.object({
 });
 
 /**
- * Loads the current published revision on every RSC render.
+ * Loads the current published Material on every RSC render.
  *
  * The slug is mutable and there is no publish-triggered Next invalidation path yet, so the
  * adapter deliberately uses `no-store`. Protected viewer-specific caching remains forbidden.

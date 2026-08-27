@@ -26,20 +26,16 @@ describe("Prisma schema", () => {
       testDatabase.prisma.tag.count(),
       testDatabase.prisma.series.count(),
       testDatabase.prisma.material.count(),
-      testDatabase.prisma.materialRevision.count(),
       testDatabase.prisma.materialTag.count(),
       testDatabase.prisma.seriesMembership.count(),
-      testDatabase.prisma.materialRevisionTag.count(),
-      testDatabase.prisma.materialRevisionSeriesMembership.count(),
       testDatabase.prisma.authoringIdempotency.count(),
       testDatabase.prisma.publishedMaterial.count(),
       testDatabase.prisma.publishedMaterialTag.count(),
       testDatabase.prisma.publishedMaterialSeriesMembership.count(),
       testDatabase.prisma.materialSearchDocument.count(),
-      testDatabase.prisma.materialPublicationEvent.count(),
       testDatabase.prisma.materialAccessAuditEvent.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 20 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 16 }, () => 0));
   });
 });

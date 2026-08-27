@@ -80,34 +80,26 @@ model Series {
 }
 
 model Material {
-  id                         String    @id @db.Uuid
-  slug                       String    @unique(map: "materials_slug_unique")
-  currentDraftRevisionId     String    @map("current_draft_revision_id") @db.Uuid
-  currentPublishedRevisionId String?   @map("current_published_revision_id") @db.Uuid
-  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt                  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  id               String    @id @db.Uuid
+  slug             String?   @unique(map: "materials_slug_unique")
+  title            String?
+  summary          String?
+  topicId          String?   @map("topic_id") @db.Uuid
+  formatId         String?   @map("format_id") @db.Uuid
+  schemaVersion    Int       @map("schema_version") @db.SmallInt
+  body             Json
+  createdBy        String    @map("created_by") @db.Uuid
+  access           String
+  publicationState String    @map("publication_state")
+  contentVersion   BigInt    @map("content_version") @db.BigInt
+  firstPublishedAt DateTime? @map("first_published_at") @db.Timestamptz
+  publishedAt      DateTime? @map("published_at") @db.Timestamptz
+  publishedBy      String?   @map("published_by") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
+  @@unique([id, contentVersion], map: "materials_id_content_version_unique")
   @@map("materials")
-  @@schema("materials")
-}
-
-model MaterialRevision {
-  id                     String   @id @db.Uuid
-  materialId             String   @map("material_id") @db.Uuid
-  title                  String
-  summary                String
-  slug                   String
-  topicId                String   @map("topic_id") @db.Uuid
-  formatId               String   @map("format_id") @db.Uuid
-  schemaVersion          Int      @map("schema_version") @db.SmallInt
-  body                   Json
-  createdBy              String   @map("created_by") @db.Uuid
-  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
-  access                 String
-  restoredFromRevisionId String?  @map("restored_from_revision_id") @db.Uuid
-
-  @@unique([materialId, id], map: "material_revisions_material_and_id_unique")
-  @@map("material_revisions")
   @@schema("materials")
 }
 
@@ -131,35 +123,16 @@ model SeriesMembership {
   @@schema("materials")
 }
 
-model MaterialRevisionTag {
-  revisionId String @map("revision_id") @db.Uuid
-  materialId String @map("material_id") @db.Uuid
-  tagId      String @map("tag_id") @db.Uuid
-
-  @@id([revisionId, tagId], map: "material_revision_tags_primary")
-  @@map("material_revision_tags")
-  @@schema("materials")
-}
-
-model MaterialRevisionSeriesMembership {
-  revisionId String @map("revision_id") @db.Uuid
-  materialId String @map("material_id") @db.Uuid
-  seriesId   String @map("series_id") @db.Uuid
-  ordinal    Int
-
-  @@id([revisionId, seriesId], map: "material_revision_series_primary")
-  @@map("material_revision_series_memberships")
-  @@schema("materials")
-}
-
 model AuthoringIdempotency {
   actorId            String    @map("actor_id") @db.Uuid
   operation          String
   idempotencyKey     String    @map("idempotency_key")
   requestFingerprint String    @map("request_fingerprint") @db.Char(64)
   materialId         String?   @map("material_id") @db.Uuid
-  revisionId         String?   @map("revision_id") @db.Uuid
-  publicationEventId String?   @map("publication_event_id") @db.Uuid
+  contentVersion     BigInt?   @map("content_version") @db.BigInt
+  publicationState   String?   @map("publication_state")
+  publishedAt        DateTime? @map("published_at") @db.Timestamptz
+  deleted            Boolean   @default(false)
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   @@id([actorId, operation, idempotencyKey], map: "authoring_idempotency_primary")
@@ -168,18 +141,17 @@ model AuthoringIdempotency {
 }
 
 model PublishedMaterial {
-  materialId String   @id @map("material_id") @db.Uuid
-  revisionId String   @map("revision_id") @db.Uuid
-  slug       String   @unique(map: "published_materials_slug_unique")
-  title      String
-  summary    String
-  access     String
-  topicId    String   @map("topic_id") @db.Uuid
-  formatId   String   @map("format_id") @db.Uuid
-  publishedBy String  @map("published_by") @db.Uuid
-  publishedAt DateTime @default(now()) @map("published_at") @db.Timestamptz
+  materialId     String   @id @map("material_id") @db.Uuid
+  contentVersion BigInt   @map("content_version") @db.BigInt
+  slug           String   @unique(map: "published_materials_slug_unique")
+  title          String
+  summary        String
+  access         String
+  topicId        String   @map("topic_id") @db.Uuid
+  formatId       String   @map("format_id") @db.Uuid
+  publishedBy    String   @map("published_by") @db.Uuid
+  publishedAt    DateTime @map("published_at") @db.Timestamptz
 
-  @@unique([materialId, revisionId], map: "published_materials_material_revision_unique")
   @@index([publishedAt(sort: Desc), materialId(sort: Desc)], map: "published_materials_cursor_idx")
   @@map("published_materials")
   @@schema("materials")
@@ -206,34 +178,22 @@ model PublishedMaterialSeriesMembership {
 }
 
 model MaterialSearchDocument {
-  materialId String @id @map("material_id") @db.Uuid
-  revisionId String @map("revision_id") @db.Uuid
-  plainText  String @map("plain_text")
+  materialId     String @id @map("material_id") @db.Uuid
+  contentVersion BigInt @map("content_version") @db.BigInt
+  plainText      String @map("plain_text")
 
   @@map("material_search_documents")
   @@schema("materials")
 }
 
-model MaterialPublicationEvent {
-  id         String   @id @db.Uuid
-  materialId String   @map("material_id") @db.Uuid
-  revisionId String   @map("revision_id") @db.Uuid
-  kind       String
-  actorId    String   @map("actor_id") @db.Uuid
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
-
-  @@map("material_publication_events")
-  @@schema("materials")
-}
-
 model MaterialAccessAuditEvent {
-  id         String   @id @db.Uuid
-  materialId String   @map("material_id") @db.Uuid
-  revisionId String   @map("revision_id") @db.Uuid
-  actorId    String?  @map("actor_id") @db.Uuid
-  action     String
-  decision   String
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id             String   @id @db.Uuid
+  materialId     String   @map("material_id") @db.Uuid
+  contentVersion BigInt   @map("content_version") @db.BigInt
+  actorId        String?  @map("actor_id") @db.Uuid
+  action         String
+  decision       String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@map("material_access_audit_events")
   @@schema("materials")

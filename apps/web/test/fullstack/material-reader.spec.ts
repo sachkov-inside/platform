@@ -150,7 +150,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   ).toBeVisible();
   await expect(page).toHaveTitle("Как устроен Inside Platform · Inside");
   await expect(page.getByRole("link", { name: "В Библиотеку" }).first()).toBeVisible();
-  await expect(page.getByRole("main")).toContainText("PostgreSQL хранит exact revision");
+  await expect(page.getByRole("main")).toContainText("PostgreSQL хранит current Material");
   await expect(page.getByRole("article")).toHaveCount(1);
 
   await page.keyboard.press("Tab");
