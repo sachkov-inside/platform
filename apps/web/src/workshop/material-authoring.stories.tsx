@@ -14,7 +14,7 @@ import {
   emptyMaterialAuthoringPresentation,
   materialAuthoringPresentation,
   savedAfterEditingPresentation,
-  savedRevisionId,
+  savedContentVersion,
 } from "./material-authoring.fixtures";
 
 const noopActions = {
@@ -144,7 +144,7 @@ export const Editing: Story = {
     const canvas = within(canvasElement);
     const title = canvas.getByLabelText("Название");
     await userEvent.clear(title);
-    await userEvent.type(title, "Новая редакция Developer Pipeline");
+    await userEvent.type(title, "Новая версия Developer Pipeline");
     await userEvent.click(canvas.getByLabelText("Тема"));
     await userEvent.click(within(canvasElement.ownerDocument.body).getByRole("option", { name: "Архитектура" }));
     await waitFor(async () => {
@@ -154,11 +154,11 @@ export const Editing: Story = {
     await expect(canvas.getAllByText("Есть несохранённые изменения", { exact: true }).length).toBeGreaterThan(0);
     await expect(canvas.getByRole("button", { name: "Preview" })).toBeDisabled();
     await userEvent.click(canvas.getByRole("button", { name: "Сохранить" }));
-    await expect(canvas.getAllByText(savedRevisionId).length).toBeGreaterThan(0);
+    await expect(canvas.getAllByText(String(savedContentVersion)).length).toBeGreaterThan(0);
     await userEvent.click(canvas.getByRole("button", { name: "Preview" }));
-    await expect(canvas.getByRole("heading", { name: "Новая редакция Developer Pipeline" })).toBeInTheDocument();
+    await expect(canvas.getByRole("heading", { name: "Новая версия Developer Pipeline" })).toBeInTheDocument();
     await expect(canvas.getByText("Архитектура", { exact: true })).toBeInTheDocument();
-    await expect(canvas.getAllByText(new RegExp(savedRevisionId)).length).toBeGreaterThan(0);
+    await expect(canvas.getAllByText(new RegExp(`v${String(savedContentVersion)}`)).length).toBeGreaterThan(0);
   },
 };
 
@@ -235,10 +235,10 @@ export const ExactPreview: Story = {
   name: "Exact Preview · desktop",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Preview exact revision" })).toBeInTheDocument();
-    await expect(canvas.getAllByText(/rev_01JY7A2M4N8QF3T6V9XC/).length).toBeGreaterThan(0);
-    await expect(canvasElement.querySelector("[data-preview-revision-banner]")).toHaveTextContent(
-      "Preview не меняет опубликованную редакцию.",
+    await expect(canvas.getByRole("heading", { name: "Preview текущей версии" })).toBeInTheDocument();
+    await expect(canvas.getAllByText(/v3/).length).toBeGreaterThan(0);
+    await expect(canvasElement.querySelector("[data-preview-version-banner]")).toHaveTextContent(
+      "Preview не меняет опубликованный Material.",
     );
     await expect(canvas.getByRole("heading", { name: "Developer Pipeline без магии" })).toBeInTheDocument();
   },
@@ -252,8 +252,8 @@ export const ExactPreviewMobile: Story = {
   name: "Exact Preview · mobile",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Preview exact revision" })).toBeInTheDocument();
-    await expect(canvas.getAllByText(/rev_01JY7A2M4N8QF3T6V9XC/).length).toBeGreaterThan(0);
+    await expect(canvas.getByRole("heading", { name: "Preview текущей версии" })).toBeInTheDocument();
+    await expect(canvas.getAllByText(/v3/).length).toBeGreaterThan(0);
     await expectNoHorizontalOverflow(canvasElement);
   },
 };
@@ -263,9 +263,9 @@ export const Conflict: Story = {
     presentation: {
       ...materialAuthoringPresentation,
       blocking: {
-        currentRevisionId: "rev_01JY7B5QD2K0T8WM4VCE",
+        currentContentVersion: 4,
         kind: "conflict",
-        staleRevisionId: "rev_01JY7A2M4N8QF3T6V9XC",
+        staleContentVersion: 3,
       },
       save: { kind: "dirty" },
     },

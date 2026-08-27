@@ -35,7 +35,7 @@ import type {
   MaterialAuthoringPresentation,
   MaterialSaveState,
 } from "../model/presentation";
-import { MaterialRevisionPreview } from "./material-revision-preview";
+import { MaterialPreview } from "./material-preview";
 
 interface MaterialAuthoringWorkspaceProps {
   readonly actions: MaterialAuthoringActions;
@@ -70,7 +70,7 @@ export function MaterialAuthoringWorkspace({
       data-material-authoring
     >
       <EditorHeader actions={actions} presentation={presentation} />
-      <RevisionRail presentation={presentation} />
+      <VersionRail presentation={presentation} />
       <BlockingState actions={actions} presentation={presentation} />
 
       <form
@@ -93,7 +93,7 @@ function EditorHeader({
   presentation,
 }: MaterialAuthoringWorkspaceProps) {
   const previewDisabled =
-    presentation.draft.revisionId === null ||
+    presentation.draft.contentVersion === null ||
     presentation.save.kind === "dirty" ||
     presentation.save.kind === "submitting" ||
     presentation.blocking.kind !== "none";
@@ -108,8 +108,8 @@ function EditorHeader({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="font-mono">{presentation.draft.status === "new" ? "Новый Material" : "Черновик"}</span>
-              {presentation.draft.revisionId === null ? null : (
-                <span className="truncate font-mono">{presentation.draft.revisionId}</span>
+              {presentation.draft.contentVersion === null ? null : (
+                <span className="truncate font-mono">v{presentation.draft.contentVersion}</span>
               )}
             </div>
             <h1 className="truncate text-base font-semibold tracking-[-0.02em] sm:text-lg" id="material-editor-heading">
@@ -137,18 +137,18 @@ function EditorHeader({
   );
 }
 
-function RevisionRail({ presentation }: { readonly presentation: MaterialAuthoringPresentation }) {
+function VersionRail({ presentation }: { readonly presentation: MaterialAuthoringPresentation }) {
   return (
     <div className="bg-background px-4 pt-3 sm:px-6">
       <dl className="mx-auto grid w-full max-w-[80rem] grid-cols-1 gap-2 rounded-2xl bg-secondary/65 px-4 py-3 font-mono text-[0.6875rem] sm:grid-cols-2 sm:gap-5 sm:px-5">
-        <RevisionFact label="Редакция" value={presentation.draft.revisionId ?? "ещё не создана"} />
-        <RevisionFact label="Сохранение" value={saveStateLabel(presentation.save)} />
+        <VersionFact label="Версия содержимого" value={presentation.draft.contentVersion === null ? "ещё не создана" : String(presentation.draft.contentVersion)} />
+        <VersionFact label="Сохранение" value={saveStateLabel(presentation.save)} />
       </dl>
     </div>
   );
 }
 
-function RevisionFact({ label, value }: { readonly label: string; readonly value: string }) {
+function VersionFact({ label, value }: { readonly label: string; readonly value: string }) {
   return (
     <div className="min-w-0">
       <dt className="text-muted-foreground">{label}</dt>
@@ -296,7 +296,7 @@ const authoringSelectItemClassName = "min-h-11 sm:min-h-10";
 function DocumentPanel({ actions, presentation }: MaterialAuthoringWorkspaceProps) {
   return (
     <section aria-labelledby="document-heading" className="min-w-0 py-8 @min-[68rem]/material-authoring:px-8 @min-[68rem]/material-authoring:py-0">
-      <h2 className="text-sm font-semibold" id="document-heading">Содержимое редакции</h2>
+      <h2 className="text-sm font-semibold" id="document-heading">Содержимое материала</h2>
       <MaterialDocumentEditor
         disabled={presentation.save.kind === "submitting" || presentation.blocking.kind !== "none"}
         document={presentation.draft.document}
@@ -396,8 +396,8 @@ function BlockingState({ actions, presentation }: MaterialAuthoringWorkspaceProp
             <CircleAlert aria-hidden="true" className="mt-1 size-5 shrink-0 text-destructive" />
             <div>
               <p className="font-semibold">Материал изменился в другой сессии</p>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">Сравните текущую revision со своими изменениями. Ничего не перезаписано.</p>
-              <p className="mt-2 font-mono text-[0.6875rem] text-muted-foreground">Ваш base: {presentation.blocking.staleRevisionId} · Current: {presentation.blocking.currentRevisionId}</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">Сравните текущую версию содержимого со своими изменениями. Ничего не перезаписано.</p>
+              <p className="mt-2 font-mono text-[0.6875rem] text-muted-foreground">Ваш base: {presentation.blocking.staleContentVersion} · Current: {presentation.blocking.currentContentVersion}</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -415,7 +415,7 @@ function BlockingState({ actions, presentation }: MaterialAuthoringWorkspaceProp
         <div className="flex max-w-2xl gap-3">
           <CloudOff aria-hidden="true" className="mt-1 size-5 shrink-0 text-destructive" />
           <div>
-            <p className="font-semibold">Не удалось сохранить редакцию</p>
+            <p className="font-semibold">Не удалось сохранить материал</p>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">Изменения остаются в редакторе. Проверьте соединение и повторите сохранение.</p>
             <p className="mt-2 font-mono text-[0.6875rem] text-muted-foreground">Код обращения: {presentation.blocking.correlationId}</p>
           </div>
@@ -450,17 +450,17 @@ function ExactPreview({
               <span className="sr-only">Вернуться в редактор</span>
             </Button>
             <div className="min-w-0">
-              <h1 className="text-sm font-semibold" id="exact-preview-heading">Preview exact revision</h1>
-              <p className="truncate font-mono text-[0.6875rem] text-sidebar-foreground/70">{preview.exactRevisionId}</p>
+              <h1 className="text-sm font-semibold" id="exact-preview-heading">Preview текущей версии</h1>
+              <p className="truncate font-mono text-[0.6875rem] text-sidebar-foreground/70">v{preview.contentVersion}</p>
             </div>
           </div>
           <Button className="bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/85" onClick={onReturnToEditor} type="button">Вернуться в редактор</Button>
         </div>
       </header>
-      <div className="border-b border-border bg-card px-4 py-3 text-center font-mono text-[0.6875rem] text-muted-foreground" data-preview-revision-banner>
-        Вы просматриваете <strong className="text-foreground">{preview.exactRevisionId}</strong>. Preview не меняет опубликованную редакцию.
+      <div className="border-b border-border bg-card px-4 py-3 text-center font-mono text-[0.6875rem] text-muted-foreground" data-preview-version-banner>
+        Вы просматриваете <strong className="text-foreground">v{preview.contentVersion}</strong>. Preview не меняет опубликованный Material.
       </div>
-      <MaterialRevisionPreview preview={preview} />
+      <MaterialPreview preview={preview} />
     </section>
   );
 }

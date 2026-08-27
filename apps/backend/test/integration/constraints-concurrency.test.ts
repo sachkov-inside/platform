@@ -219,7 +219,57 @@ describe("material authoring integrity contract", () => {
     });
   });
 
-  test("keeps persisted MaterialRevision snapshots immutable", async () => {
+  test("allows exactly one of two concurrent Saves from the same content version", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const metadata = {
+      title: "Concurrent Save",
+      summary: "The Material row lock selects one winner.",
+      slug: "concurrent-material-save",
+      access: "free",
+      topicId,
+      formatId,
+      tagIds: [],
+      seriesMemberships: [],
+    } as const;
+    const created = await authoring.createDraft({
+      actor,
+      idempotencyKey: "a0000000-0000-4000-8000-000000000027",
+      metadata,
+      body: representativeDocument(),
+    });
+    if (!created.ok) {
+      throw new Error(created.error.code);
+    }
+
+    const save = (side: "left" | "right", key: string) =>
+      authoring.saveMaterial({
+        actor,
+        idempotencyKey: key,
+        materialId: created.value.materialId,
+        expectedContentVersion: created.value.contentVersion,
+        publicationState: "draft",
+        metadata: { ...metadata, title: `${side} concurrent winner` },
+        body: representativeDocument(),
+      });
+    const [left, right] = await Promise.all([
+      save("left", "a0000000-0000-4000-8000-000000000028"),
+      save("right", "a0000000-0000-4000-8000-000000000029"),
+    ]);
+
+    expect([left, right].filter((result) => result.ok)).toHaveLength(1);
+    expect([left, right].find((result) => !result.ok)).toEqual({
+      ok: false,
+      error: {
+        code: "stale_content_version",
+        currentContentVersion: created.value.contentVersion + 1,
+      },
+    });
+  });
+
+  test("enforces the published slug lock below the application interface", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
@@ -228,9 +278,9 @@ describe("material authoring integrity contract", () => {
       actor,
       idempotencyKey: "a0000000-0000-4000-8000-000000000030",
       metadata: {
-        title: "Immutable revision",
-        summary: "History is append-only.",
-        slug: "immutable-revision",
+        title: "Stable published slug",
+        summary: "The public URL keeps its identity.",
+        slug: "stable-published-slug",
         access: "free",
         topicId,
         formatId,
@@ -243,14 +293,33 @@ describe("material authoring integrity contract", () => {
       throw new Error(created.error.code);
     }
 
+    const published = await authoring.saveMaterial({
+      actor,
+      idempotencyKey: "a0000000-0000-4000-8000-000000000031",
+      materialId: created.value.materialId,
+      expectedContentVersion: 1,
+      publicationState: "published",
+      metadata: {
+        title: "Stable published slug",
+        summary: "The public URL keeps its identity.",
+        slug: "stable-published-slug",
+        access: "free",
+        topicId,
+        formatId,
+        tagIds: [],
+        seriesMemberships: [],
+      },
+      body: representativeDocument(),
+    });
+    if (!published.ok) {
+      throw new Error(published.error.code);
+    }
+
     await expect(
-      testDatabase.prisma.materialRevision.update({
-        where: { id: created.value.revisionId },
-        data: { title: "Mutated" },
+      testDatabase.prisma.material.update({
+        where: { id: created.value.materialId },
+        data: { slug: "changed-published-slug" },
       }),
-    ).rejects.toThrow("material revision data is immutable");
-    expect(
-      await authoring.loadDraft({ actor, materialId: created.value.materialId }),
-    ).toEqual({ ok: true, value: created.value });
+    ).rejects.toThrow("published Material slug is immutable");
   });
 });

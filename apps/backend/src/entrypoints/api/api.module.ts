@@ -11,15 +11,13 @@ import { ListPublishedMaterialsController } from "../../modules/content-library/
 import { AccountsModule } from "../../modules/accounts/index.js";
 import {
   CreateDraftController,
-  LoadDraftController,
+  DeleteDraftController,
+  LoadMaterialController,
   MaterialsModule,
-  PreviewRevisionController,
-  PublishRevisionController,
+  PreviewMaterialController,
   ReadPublishedMaterialController,
-  RestoreRevisionController,
-  ReviseDraftController,
-  UnpublishMaterialController,
-  ValidateRevisionController,
+  SaveMaterialController,
+  ValidateMaterialController,
 } from "../../modules/materials/index.js";
 import { HealthController } from "./health.controller.js";
 
@@ -29,13 +27,11 @@ import { HealthController } from "./health.controller.js";
     ListPublishedMaterialsController,
     ReadPublishedMaterialController,
     CreateDraftController,
-    LoadDraftController,
-    ReviseDraftController,
-    ValidateRevisionController,
-    PreviewRevisionController,
-    PublishRevisionController,
-    RestoreRevisionController,
-    UnpublishMaterialController,
+    LoadMaterialController,
+    SaveMaterialController,
+    DeleteDraftController,
+    ValidateMaterialController,
+    PreviewMaterialController,
   ],
   providers: [
     OperationalReadiness,

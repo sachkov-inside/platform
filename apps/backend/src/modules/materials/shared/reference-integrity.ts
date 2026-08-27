@@ -1,4 +1,4 @@
-import type { MaterialRevisionMetadata } from "../domain/material-revision-metadata.js";
+import type { MaterialMetadata } from "../domain/material-metadata.js";
 import type { MaterialId } from "../domain/material-identifiers.js";
 import type { MaterialsPrismaTransaction } from "../../../infrastructure/prisma/index.js";
 import {
@@ -18,7 +18,7 @@ type ReferenceIntegrityError =
 export async function requireReferenceIntegrity(
   transaction: MaterialsPrismaTransaction,
   materialId: MaterialId,
-  metadata: MaterialRevisionMetadata,
+  metadata: MaterialMetadata,
   rollback: Rollback<ReferenceIntegrityError>,
 ): Promise<void> {
   const issues = await findReferenceIssues(transaction, metadata);

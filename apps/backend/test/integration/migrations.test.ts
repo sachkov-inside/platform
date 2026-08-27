@@ -1,7 +1,24 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
+import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
 import { migrateToLatest } from "../../src/migrations/index.js";
+import {
+  name as materialsMigrationName,
+  statement as materialsMigrationStatement,
+} from "../../src/modules/materials/infrastructure/postgres/migrations/0001_materials.js";
+import {
+  name as identityPrincipalsMigrationName,
+  statement as identityPrincipalsMigrationStatement,
+} from "../../src/modules/identity-principals/infrastructure/postgres/migrations/0002_identity_principals.js";
+import {
+  name as cursorMigrationName,
+  statement as cursorMigrationStatement,
+} from "../../src/modules/materials/infrastructure/postgres/migrations/0003_published_materials_cursor_index.js";
+import {
+  name as accountsMigrationName,
+  statement as accountsMigrationStatement,
+} from "../../src/modules/accounts/infrastructure/postgres/migrations/0004_accounts.js";
 import {
   createTestDatabase,
   type TestDatabase,
@@ -11,10 +28,6 @@ const materialTables = [
   "authoring_idempotency",
   "formats",
   "material_access_audit_events",
-  "material_publication_events",
-  "material_revision_series_memberships",
-  "material_revision_tags",
-  "material_revisions",
   "material_search_documents",
   "material_tags",
   "materials",
@@ -31,6 +44,16 @@ const accountTables = [
   "account_audit_events",
   "account_permissions",
   "accounts",
+] as const;
+
+const legacyMigrations = [
+  { name: materialsMigrationName, statement: materialsMigrationStatement },
+  {
+    name: identityPrincipalsMigrationName,
+    statement: identityPrincipalsMigrationStatement,
+  },
+  { name: cursorMigrationName, statement: cursorMigrationStatement },
+  { name: accountsMigrationName, statement: accountsMigrationStatement },
 ] as const;
 
 describe("Platform migrations", () => {
@@ -54,6 +77,7 @@ describe("Platform migrations", () => {
         "0002_identity_principals",
         "0003_published_materials_cursor_index",
         "0004_accounts",
+        "0005_mutable_materials",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -68,7 +92,7 @@ describe("Platform migrations", () => {
       select namespace.nspname as schema
       from pg_proc as procedure
       join pg_namespace as namespace on namespace.oid = procedure.pronamespace
-      where procedure.proname = 'reject_immutable_material_revision_change'
+      where procedure.proname = 'reject_published_material_slug_change'
     `);
     expect(functions).toEqual([{ schema: "materials" }]);
 
@@ -99,6 +123,338 @@ describe("Platform migrations", () => {
     expect(cursorIndexes[0]?.definition).toContain(
       "(published_at DESC, material_id DESC)",
     );
+  });
+
+  test("moves the visible published revision into the current Material", async () => {
+    const database = await createTestDatabase();
+    try {
+      await runMigrationsToLatest(database.url, legacyMigrations);
+      await database.prisma.$transaction(async (transaction) => {
+        await transaction.$executeRaw(Prisma.sql`
+          insert into materials.topics (id, slug, name)
+          values ('20000000-0000-4000-8000-000000000001', 'platform', 'Platform');
+          insert into materials.formats (id, slug, name)
+          values ('30000000-0000-4000-8000-000000000001', 'guide', 'Guide');
+          insert into materials.tags (id, name, normalized_name)
+          values ('40000000-0000-4000-8000-000000000001', 'Migration', 'migration');
+          insert into materials.series (id, slug, name)
+          values ('50000000-0000-4000-8000-000000000001', 'foundation', 'Foundation');
+
+          insert into materials.materials (
+            id,
+            slug,
+            current_draft_revision_id,
+            current_published_revision_id
+          ) values (
+            '60000000-0000-4000-8000-000000000001',
+            'future-draft',
+            '70000000-0000-4000-8000-000000000002',
+            null
+          );
+
+          insert into materials.material_revisions (
+            id,
+            material_id,
+            title,
+            summary,
+            slug,
+            topic_id,
+            format_id,
+            schema_version,
+            body,
+            created_by,
+            access
+          ) values
+          (
+            '70000000-0000-4000-8000-000000000001',
+            '60000000-0000-4000-8000-000000000001',
+            'Visible title',
+            'Visible summary',
+            'visible-material',
+            '20000000-0000-4000-8000-000000000001',
+            '30000000-0000-4000-8000-000000000001',
+            1,
+            '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"visible body"}]}]}'::jsonb,
+            '10000000-0000-4000-8000-000000000001',
+            'membership'
+          ),
+          (
+            '70000000-0000-4000-8000-000000000002',
+            '60000000-0000-4000-8000-000000000001',
+            'Future draft title',
+            'Future draft summary',
+            'future-draft',
+            '20000000-0000-4000-8000-000000000001',
+            '30000000-0000-4000-8000-000000000001',
+            1,
+            '{"type":"doc","content":[]}'::jsonb,
+            '10000000-0000-4000-8000-000000000001',
+            'free'
+          );
+
+          update materials.materials
+          set current_published_revision_id = '70000000-0000-4000-8000-000000000001'
+          where id = '60000000-0000-4000-8000-000000000001';
+
+          insert into materials.material_revision_tags (revision_id, material_id, tag_id)
+          values (
+            '70000000-0000-4000-8000-000000000001',
+            '60000000-0000-4000-8000-000000000001',
+            '40000000-0000-4000-8000-000000000001'
+          );
+          insert into materials.material_revision_series_memberships (
+            revision_id,
+            material_id,
+            series_id,
+            ordinal
+          ) values (
+            '70000000-0000-4000-8000-000000000001',
+            '60000000-0000-4000-8000-000000000001',
+            '50000000-0000-4000-8000-000000000001',
+            1
+          );
+          insert into materials.material_publication_events (
+            id,
+            material_id,
+            revision_id,
+            kind,
+            actor_id,
+            created_at
+          ) values (
+            '80000000-0000-4000-8000-000000000001',
+            '60000000-0000-4000-8000-000000000001',
+            '70000000-0000-4000-8000-000000000001',
+            'publish',
+            '10000000-0000-4000-8000-000000000001',
+            '2026-08-27T08:00:00.000Z'
+          );
+          insert into materials.published_materials (
+            material_id,
+            revision_id,
+            slug,
+            title,
+            summary,
+            access,
+            topic_id,
+            format_id,
+            published_by,
+            published_at
+          ) values (
+            '60000000-0000-4000-8000-000000000001',
+            '70000000-0000-4000-8000-000000000001',
+            'visible-material',
+            'Visible title',
+            'Visible summary',
+            'membership',
+            '20000000-0000-4000-8000-000000000001',
+            '30000000-0000-4000-8000-000000000001',
+            '10000000-0000-4000-8000-000000000001',
+            '2026-08-27T08:01:00.000Z'
+          );
+          insert into materials.material_search_documents (material_id, revision_id, plain_text)
+          values (
+            '60000000-0000-4000-8000-000000000001',
+            '70000000-0000-4000-8000-000000000001',
+            'visible body'
+          );
+
+          insert into materials.materials (
+            id,
+            slug,
+            current_draft_revision_id,
+            current_published_revision_id
+          ) values
+          (
+            '60000000-0000-4000-8000-000000000002',
+            'never-published-draft',
+            '70000000-0000-4000-8000-000000000003',
+            null
+          ),
+          (
+            '60000000-0000-4000-8000-000000000003',
+            'current-unpublished',
+            '70000000-0000-4000-8000-000000000005',
+            null
+          );
+          insert into materials.material_revisions (
+            id,
+            material_id,
+            title,
+            summary,
+            slug,
+            topic_id,
+            format_id,
+            schema_version,
+            body,
+            created_by,
+            access
+          ) values
+          (
+            '70000000-0000-4000-8000-000000000003',
+            '60000000-0000-4000-8000-000000000002',
+            'Draft title',
+            'Draft summary',
+            'never-published-draft',
+            '20000000-0000-4000-8000-000000000001',
+            '30000000-0000-4000-8000-000000000001',
+            1,
+            '{"type":"doc","content":[]}'::jsonb,
+            '10000000-0000-4000-8000-000000000001',
+            'free'
+          ),
+          (
+            '70000000-0000-4000-8000-000000000004',
+            '60000000-0000-4000-8000-000000000003',
+            'Old published title',
+            'Old published summary',
+            'current-unpublished',
+            '20000000-0000-4000-8000-000000000001',
+            '30000000-0000-4000-8000-000000000001',
+            1,
+            '{"type":"doc","content":[]}'::jsonb,
+            '10000000-0000-4000-8000-000000000001',
+            'free'
+          ),
+          (
+            '70000000-0000-4000-8000-000000000005',
+            '60000000-0000-4000-8000-000000000003',
+            'Current unpublished title',
+            'Current unpublished summary',
+            'current-unpublished',
+            '20000000-0000-4000-8000-000000000001',
+            '30000000-0000-4000-8000-000000000001',
+            1,
+            '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"current unpublished body"}]}]}'::jsonb,
+            '10000000-0000-4000-8000-000000000001',
+            'membership'
+          );
+          insert into materials.material_publication_events (
+            id,
+            material_id,
+            revision_id,
+            kind,
+            actor_id,
+            created_at
+          ) values
+          (
+            '80000000-0000-4000-8000-000000000002',
+            '60000000-0000-4000-8000-000000000003',
+            '70000000-0000-4000-8000-000000000004',
+            'publish',
+            '10000000-0000-4000-8000-000000000001',
+            '2026-08-27T07:00:00.000Z'
+          ),
+          (
+            '80000000-0000-4000-8000-000000000003',
+            '60000000-0000-4000-8000-000000000003',
+            '70000000-0000-4000-8000-000000000004',
+            'unpublish',
+            '10000000-0000-4000-8000-000000000001',
+            '2026-08-27T09:00:00.000Z'
+          );
+        `);
+      });
+
+      expect(await migrateToLatest(database.url)).toEqual({
+        appliedMigrations: ["0005_mutable_materials"],
+      });
+
+      const materials = await database.prisma.$queryRaw<
+        readonly {
+          readonly access: string;
+          readonly body: unknown;
+          readonly content_version: bigint;
+          readonly first_published_at: Date | null;
+          readonly publication_state: string;
+          readonly published_at: Date | null;
+          readonly slug: string;
+          readonly title: string;
+        }[]
+      >(Prisma.sql`
+        select
+          access,
+          body,
+          content_version,
+          first_published_at,
+          publication_state,
+          published_at,
+          slug,
+          title
+        from materials.materials
+        order by id
+      `);
+      expect(materials).toEqual([
+        {
+          access: "membership",
+          body: {
+            type: "doc",
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: "visible body" }],
+              },
+            ],
+          },
+          content_version: 1n,
+          first_published_at: new Date("2026-08-27T08:00:00.000Z"),
+          publication_state: "published",
+          published_at: new Date("2026-08-27T08:01:00.000Z"),
+          slug: "visible-material",
+          title: "Visible title",
+        },
+        {
+          access: "free",
+          body: { type: "doc", content: [] },
+          content_version: 1n,
+          first_published_at: null,
+          publication_state: "draft",
+          published_at: null,
+          slug: "never-published-draft",
+          title: "Draft title",
+        },
+        {
+          access: "membership",
+          body: {
+            type: "doc",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "current unpublished body" },
+                ],
+              },
+            ],
+          },
+          content_version: 1n,
+          first_published_at: new Date("2026-08-27T07:00:00.000Z"),
+          publication_state: "unpublished",
+          published_at: new Date("2026-08-27T07:00:00.000Z"),
+          slug: "current-unpublished",
+          title: "Current unpublished title",
+        },
+      ]);
+
+      const tags = await database.prisma.$queryRaw<
+        readonly { readonly tag_id: string }[]
+      >(Prisma.sql`select tag_id from materials.material_tags`);
+      expect(tags).toEqual([
+        { tag_id: "40000000-0000-4000-8000-000000000001" },
+      ]);
+      const search = await database.prisma.$queryRaw<
+        readonly {
+          readonly content_version: bigint;
+          readonly plain_text: string;
+        }[]
+      >(Prisma.sql`
+        select content_version, plain_text
+        from materials.material_search_documents
+      `);
+      expect(search).toEqual([
+        { content_version: 1n, plain_text: "visible body" },
+      ]);
+    } finally {
+      await database.dispose();
+    }
   });
 
   test("rejects drift in an already applied migration", async () => {
@@ -142,11 +498,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 5, repeat('0', 64))
+        values ('9999_unknown', 6, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 5",
+        "Migration ledger is not an exact registry prefix at position 6",
       );
     } finally {
       await database.dispose();

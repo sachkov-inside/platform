@@ -5,10 +5,9 @@ import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js
 import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
 import {
   materialId,
-  materialRevisionId,
 } from "../../domain/material-identifiers.js";
 import { normalizedUuidSchema } from "../../domain/uuid.js";
-import { loadCurrentPublishedMaterialRevision } from "../../infrastructure/postgres/material-revision-reader.js";
+import { loadPublishedBodyAtVersion } from "../../infrastructure/postgres/current-material.js";
 import { selectPublishedMaterialProjectionBySlug } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import type { ContentAccess } from "../../ports/content-access.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
@@ -66,7 +65,7 @@ export async function readPublishedMaterial(
         resource: {
           kind: "material_body",
           materialId: projection.materialId,
-          revisionId: projection.revisionId,
+          contentVersion: projection.contentVersion,
           publication: "published",
           access: projection.access,
         },
@@ -83,7 +82,7 @@ export async function readPublishedMaterial(
         data: {
           id: randomUUID(),
           materialId: materialId(projection.materialId),
-          revisionId: materialRevisionId(projection.revisionId),
+          contentVersion: BigInt(projection.contentVersion),
           actorId:
             subject.kind === "account" ? subject.accountId : null,
           action: "read",
@@ -104,16 +103,16 @@ export async function readPublishedMaterial(
       };
     }
 
-    const revision = await loadCurrentPublishedMaterialRevision(
+    const body = await loadPublishedBodyAtVersion(
       dependencies.prisma,
       dependencies.materialBodyOperations,
       materialId(projection.materialId),
-      materialRevisionId(projection.revisionId),
+      projection.contentVersion,
     );
-    if (revision === undefined || !revision.ok) {
+    if (body === undefined) {
       return internalError();
     }
-    const rendered = dependencies.materialBodyOperations.render(revision.value.body);
+    const rendered = dependencies.materialBodyOperations.render(body);
     if (!rendered.ok) {
       return internalError();
     }

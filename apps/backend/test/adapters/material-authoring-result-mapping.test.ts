@@ -6,8 +6,8 @@ describe("material authoring transport mapping", () => {
   test("maps stable application codes without owning authoring rules", () => {
     expect(
       statusForMaterialAuthoringError({
-        code: "stale_revision",
-        currentRevisionId: "10000000-0000-4000-8000-000000000001",
+        code: "stale_content_version",
+        currentContentVersion: 7,
       }),
     ).toBe(409);
     expect(

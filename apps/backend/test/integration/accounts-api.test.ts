@@ -149,77 +149,105 @@ describe("Accounts API", () => {
     });
     expect(created.statusCode).toBe(201);
     expect(created.headers["cache-control"]).toBe("private, no-store");
-    const initial = readMaterialRevision(created.json<unknown>());
+    const initial = readMaterialReceipt(created.json<unknown>());
 
     const loaded = await app.getHttpAdapter().getInstance().inject({
       method: "GET",
-      url: `/authoring/materials/${initial.materialId}/draft`,
+      url: `/authoring/materials/${initial.materialId}`,
       headers: authorization,
     });
     expect(loaded.statusCode).toBe(200);
-    expect(loaded.json()).toEqual(created.json());
+    expect(loaded.json()).toMatchObject({
+      materialId: initial.materialId,
+      contentVersion: 1,
+      publicationState: "draft",
+      metadata: { title: "Generated API contract" },
+    });
 
-    const revised = await app.getHttpAdapter().getInstance().inject({
-      method: "POST",
-      url: `/authoring/materials/${initial.materialId}/revisions`,
+    const saved = await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      url: `/authoring/materials/${initial.materialId}`,
       headers: {
         ...authorization,
-        "idempotency-key": "authoring-revise-001",
+        "idempotency-key": "authoring-save-001",
       },
       payload: {
-        baseRevisionId: initial.revisionId,
-        changes: { metadata: { title: "Generated API contract v2" } },
+        expectedContentVersion: 1,
+        publicationState: "draft",
+        ...materialDraftPayload(
+          "Generated API contract v2",
+          "generated-api-contract",
+          "Current API contract.",
+        ),
       },
     });
-    expect(revised.statusCode).toBe(201);
-    const current = readMaterialRevision(revised.json<unknown>());
+    expect(saved.statusCode).toBe(200);
+    const current = readMaterialReceipt(saved.json<unknown>());
+    expect(current.contentVersion).toBe(2);
 
-    for (const endpoint of ["validation", "preview"] as const) {
-      const response = await app.getHttpAdapter().getInstance().inject({
-        method: "GET",
-        url: `/authoring/materials/${current.materialId}/revisions/${current.revisionId}/${endpoint}`,
-        headers: authorization,
-      });
-      expect(response.statusCode).toBe(200);
-      expect(response.headers["cache-control"]).toBe("private, no-store");
-    }
+    const validation = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: `/authoring/materials/${current.materialId}/validation?expectedContentVersion=2`,
+      headers: authorization,
+    });
+    expect(validation.statusCode).toBe(200);
+    expect(validation.headers["cache-control"]).toBe("private, no-store");
+
+    const preview = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: `/authoring/materials/${current.materialId}/preview`,
+      headers: authorization,
+    });
+    expect(preview.statusCode).toBe(200);
+    expect(preview.headers["cache-control"]).toBe("private, no-store");
 
     const published = await app.getHttpAdapter().getInstance().inject({
       method: "PUT",
-      url: `/authoring/materials/${current.materialId}/publication`,
+      url: `/authoring/materials/${current.materialId}`,
       headers: {
         ...authorization,
         "idempotency-key": "authoring-publish-001",
       },
       payload: {
-        revisionId: current.revisionId,
-        expectedPublishedRevisionId: null,
+        expectedContentVersion: 2,
+        publicationState: "published",
+        ...materialDraftPayload(
+          "Generated API contract v2",
+          "generated-api-contract",
+          "Current API contract.",
+        ),
       },
     });
     expect(published.statusCode).toBe(200);
-    expect(published.json()).toMatchObject(current);
-
-    const restored = await app.getHttpAdapter().getInstance().inject({
-      method: "POST",
-      url: `/authoring/materials/${initial.materialId}/revisions/${initial.revisionId}/restore`,
-      headers: {
-        ...authorization,
-        "idempotency-key": "authoring-restore-001",
-      },
-      payload: { baseRevisionId: current.revisionId },
+    expect(published.json()).toMatchObject({
+      materialId: current.materialId,
+      contentVersion: 3,
+      publicationState: "published",
     });
-    expect(restored.statusCode).toBe(201);
 
     const unpublished = await app.getHttpAdapter().getInstance().inject({
-      method: "DELETE",
-      url: `/authoring/materials/${initial.materialId}/publication`,
+      method: "PUT",
+      url: `/authoring/materials/${initial.materialId}`,
       headers: {
         ...authorization,
         "idempotency-key": "authoring-unpublish-001",
       },
-      payload: { expectedPublishedRevisionId: current.revisionId },
+      payload: {
+        expectedContentVersion: 3,
+        publicationState: "unpublished",
+        ...materialDraftPayload(
+          "Generated API contract v2",
+          "generated-api-contract",
+          "Current API contract.",
+        ),
+      },
     });
     expect(unpublished.statusCode).toBe(200);
+    expect(unpublished.json()).toMatchObject({
+      materialId: current.materialId,
+      contentVersion: 4,
+      publicationState: "unpublished",
+    });
   });
 
   function inject(method: "GET" | "POST", url: string, token: string) {
@@ -286,19 +314,19 @@ function readAccountId(value: unknown): string {
   return value.account.accountId;
 }
 
-function readMaterialRevision(value: unknown): {
+function readMaterialReceipt(value: unknown): {
   readonly materialId: string;
-  readonly revisionId: string;
+  readonly contentVersion: number;
 } {
   if (
     typeof value !== "object" ||
     value === null ||
     !("materialId" in value) ||
     typeof value.materialId !== "string" ||
-    !("revisionId" in value) ||
-    typeof value.revisionId !== "string"
+    !("contentVersion" in value) ||
+    typeof value.contentVersion !== "number"
   ) {
-    throw new TypeError("Material authoring response has no revision identity");
+    throw new TypeError("Material authoring response has no current identity");
   }
-  return { materialId: value.materialId, revisionId: value.revisionId };
+  return { materialId: value.materialId, contentVersion: value.contentVersion };
 }

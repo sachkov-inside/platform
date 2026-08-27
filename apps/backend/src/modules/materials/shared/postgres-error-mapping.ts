@@ -7,7 +7,7 @@ import type {
   PersistenceConflictError,
   SystemError,
 } from "../facets/material-authoring/material-authoring.contract.js";
-import type { MaterialRevisionMetadata } from "../domain/material-revision-metadata.js";
+import type { MaterialMetadata } from "../domain/material-metadata.js";
 
 interface PostgreSqlErrorShape {
   readonly code?: unknown;
@@ -33,17 +33,15 @@ type PostgresOperationError =
   | SystemError;
 
 const referenceConstraints = new Map<string, string>([
-  ["material_revisions_topic_fk", "/metadata/topicId"],
-  ["material_revisions_format_fk", "/metadata/formatId"],
+  ["materials_topic_fk", "/metadata/topicId"],
+  ["materials_format_fk", "/metadata/formatId"],
   ["material_tags_tag_fk", "/metadata/tagIds"],
-  ["material_revision_tags_tag_fk", "/metadata/tagIds"],
   ["series_memberships_series_fk", "/metadata/seriesMemberships"],
-  ["material_revision_series_series_fk", "/metadata/seriesMemberships"],
 ]);
 
 export function mapPostgresError(
   error: unknown,
-  metadata?: MaterialRevisionMetadata,
+  metadata?: MaterialMetadata,
 ): PostgresOperationError {
   const signals = errorSignals(error);
   const uniqueViolation =
@@ -54,16 +52,14 @@ export function mapPostgresError(
     (hasConstraint(signals, "materials_slug_unique") ||
       hasConstraint(signals, "published_materials_slug_unique") ||
       hasFields(signals, ["slug"])) &&
-    metadata !== undefined
+    metadata?.slug !== null && metadata?.slug !== undefined
   ) {
     return { code: "slug_conflict", slug: metadata.slug };
   }
   if (
     uniqueViolation &&
     (hasConstraint(signals, "material_tags_primary") ||
-      hasConstraint(signals, "material_revision_tags_primary") ||
-      hasFields(signals, ["material_id", "tag_id"]) ||
-      hasFields(signals, ["revision_id", "tag_id"])) &&
+      hasFields(signals, ["material_id", "tag_id"])) &&
     metadata?.tagIds[0] !== undefined
   ) {
     return { code: "duplicate_tag", tagId: metadata.tagIds[0] };
@@ -100,7 +96,7 @@ export function mapPostgresError(
 
 export function mapPostgresLifecycleError(
   error: unknown,
-  metadata?: MaterialRevisionMetadata,
+  metadata?: MaterialMetadata,
 ): InvalidReferenceError | PersistenceConflictError | SystemError {
   const mapped = mapPostgresError(error, metadata);
   return mapped.code === "duplicate_tag"

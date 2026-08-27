@@ -3,21 +3,27 @@ import {
   type MaterialsPrismaTransaction,
 } from "../../../../infrastructure/prisma/index.js";
 import type { MaterialId } from "../../domain/material-identifiers.js";
-import type { MaterialRevisionMetadata } from "../../domain/material-revision-metadata.js";
+import type { MaterialMetadata } from "../../domain/material-metadata.js";
 
 export async function findReferenceIssues(
   transaction: MaterialsPrismaTransaction,
-  metadata: MaterialRevisionMetadata,
+  metadata: MaterialMetadata,
 ): Promise<readonly { readonly code: string; readonly path: string }[]> {
   const issues: { code: string; path: string }[] = [];
-  const topic = await transaction.topic.findUnique({
-    where: { id: metadata.topicId },
-    select: { id: true },
-  });
-  const format = await transaction.format.findUnique({
-    where: { id: metadata.formatId },
-    select: { id: true },
-  });
+  const topic =
+    metadata.topicId === null
+      ? null
+      : await transaction.topic.findUnique({
+          where: { id: metadata.topicId },
+          select: { id: true },
+        });
+  const format =
+    metadata.formatId === null
+      ? null
+      : await transaction.format.findUnique({
+          where: { id: metadata.formatId },
+          select: { id: true },
+        });
   const tags =
     metadata.tagIds.length === 0
       ? []
@@ -37,10 +43,10 @@ export async function findReferenceIssues(
           select: { id: true },
         });
 
-  if (topic === null) {
+  if (metadata.topicId !== null && topic === null) {
     issues.push({ code: "topic_not_found", path: "/metadata/topicId" });
   }
-  if (format === null) {
+  if (metadata.formatId !== null && format === null) {
     issues.push({ code: "format_not_found", path: "/metadata/formatId" });
   }
   const foundTags = new Set(tags.map(({ id }) => id));
@@ -64,7 +70,7 @@ export async function findReferenceIssues(
 export async function findSeriesOrdinalConflict(
   transaction: MaterialsPrismaTransaction,
   materialId: MaterialId,
-  metadata: MaterialRevisionMetadata,
+  metadata: MaterialMetadata,
 ): Promise<{ readonly seriesId: string; readonly ordinal: number } | undefined> {
   if (metadata.seriesMemberships.length === 0) {
     return undefined;

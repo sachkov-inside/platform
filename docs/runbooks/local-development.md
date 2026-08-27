@@ -80,9 +80,9 @@ bash scripts/compose-stack-smoke.sh
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
-database-backed readiness, one stable free `inside-platform-overview` Material with its two
-lifecycle revisions and one safe closed catalog Material. Repeating `docker compose down` and the detached startup
-preserves the database volume and proves the bootstrap seed does not create another revision.
+database-backed readiness, one stable free `inside-platform-overview` Material with a current
+`contentVersion` and one safe closed catalog Material. Repeating `docker compose down` and the
+detached startup preserves the database volume and proves the bootstrap seed remains stable.
 
 Stop without deleting data:
 
@@ -172,8 +172,9 @@ Run only the real-PostgreSQL backend suite with:
 pnpm test:integration
 ```
 
-Its disposable Testcontainers database covers create/load/revise, immutable revisions, rollback
-and constraints, idempotency, concurrent stale writes, migration replay and Prisma schema mapping.
+Its disposable Testcontainers database covers create/load/Save, mutable current Materials,
+rollback and constraints, idempotency, concurrent stale writes, migration replay and Prisma schema
+mapping.
 
 ## Inspect PostgreSQL
 
@@ -188,9 +189,8 @@ Useful read-only commands:
 select position, name, checksum, applied_at
 from public.platform_migrations
 order by position;
-select id, slug, current_draft_revision_id from materials.materials order by created_at;
-select id, material_id, title, schema_version, created_at
-from materials.material_revisions
+select id, slug, publication_state, content_version, updated_at
+from materials.materials
 order by created_at;
 ```
 

@@ -1,6 +1,6 @@
 export interface PublishedMaterialCatalogItemDto {
   readonly materialId: string;
-  readonly revisionId: string;
+  readonly contentVersion: number;
   readonly slug: string;
   readonly title: string;
   readonly summary: string;

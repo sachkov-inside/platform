@@ -61,7 +61,7 @@ describe("local development seed", () => {
         kind: "available",
         projection: {
           materialId: first.materialId,
-          revisionId: first.revisionId,
+          contentVersion: first.contentVersion,
           title: "Как устроен Inside Platform",
         },
       },

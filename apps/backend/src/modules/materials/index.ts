@@ -1,57 +1,47 @@
-export {
-  type MaterialAuthoring,
-} from "./facets/material-authoring/material-authoring.js";
+export type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
+export type {
+  MaterialAccessFacts,
+  MaterialContent,
+} from "./facets/material-content/material-content.js";
 export { MATERIAL_AUTHORING } from "./facets/material-authoring/material-authoring.token.js";
 export type {
-  MaterialRevisionMetadataChanges,
-  MaterialRevisionMetadataDto,
-  MaterialRevisionMetadataInput,
-  MaterialRevisionDto,
-  PublicationLifecycleEventDto,
+  MaterialDto,
+  MaterialMetadataInput,
+  MaterialMutationReceiptDto,
   SeriesMembershipInput,
 } from "./facets/material-authoring/material-authoring.contract.js";
 export type {
-  CreateDraftError,
   CreateDraftCommand,
+  CreateDraftError,
   CreateDraftResult,
 } from "./features/create-draft/create-draft.contract.js";
 export type {
-  LoadDraftError,
-  LoadDraftQuery,
-  LoadDraftResult,
-} from "./features/load-draft/load-draft.contract.js";
+  DeleteDraftCommand,
+  DeleteDraftError,
+  DeleteDraftResult,
+} from "./features/delete-draft/delete-draft.contract.js";
 export type {
-  PreviewRevisionError,
-  PreviewRevisionDto,
-  PreviewRevisionQuery,
-  PreviewRevisionResult,
-} from "./features/preview-revision/preview-revision.contract.js";
+  LoadMaterialError,
+  LoadMaterialQuery,
+  LoadMaterialResult,
+} from "./features/load-material/load-material.contract.js";
 export type {
-  PublishRevisionError,
-  PublishRevisionCommand,
-  PublishRevisionResult,
-} from "./features/publish-revision/publish-revision.contract.js";
+  PreviewMaterialDto,
+  PreviewMaterialError,
+  PreviewMaterialQuery,
+  PreviewMaterialResult,
+} from "./features/preview-material/preview-material.contract.js";
 export type {
-  ReviseDraftError,
-  ReviseDraftCommand,
-  ReviseDraftResult,
-} from "./features/revise-draft/revise-draft.contract.js";
+  SaveMaterialCommand,
+  SaveMaterialError,
+  SaveMaterialResult,
+} from "./features/save-material/save-material.contract.js";
 export type {
-  RestoreRevisionError,
-  RestoreRevisionCommand,
-  RestoreRevisionResult,
-} from "./features/restore-revision/restore-revision.contract.js";
-export type {
-  ValidateRevisionError,
-  ValidateRevisionQuery,
-  ValidateRevisionResult,
-  ValidatedRevisionDto,
-} from "./features/validate-revision/validate-revision.contract.js";
-export type {
-  UnpublishMaterialError,
-  UnpublishMaterialCommand,
-  UnpublishMaterialResult,
-} from "./features/unpublish-material/unpublish-material.contract.js";
+  ValidateMaterialError,
+  ValidateMaterialQuery,
+  ValidateMaterialResult,
+  ValidatedMaterialDto,
+} from "./features/validate-material/validate-material.contract.js";
 export type { AuthorPolicy } from "./ports/author-policy.js";
 export {
   anonymousSubject,
@@ -72,16 +62,13 @@ export type {
   PublishedMaterialProjectionListResult,
   PublishedMaterialProjectionPageDto,
 } from "./features/list-published-material-projections/list-published-material-projections.contract.js";
-export type {
-  PublishedMaterialProjectionDto,
-} from "./facets/published-material-reader/published-material.contract.js";
+export type { PublishedMaterialProjectionDto } from "./facets/published-material-reader/published-material.contract.js";
 export type {
   PublishedMaterialReadDto,
   PublishedMaterialReadError,
   PublishedMaterialReadResult,
 } from "./features/read-published-material/read-published-material.contract.js";
 export type {
-  MaterialBodyChange,
   JsonObject,
   JsonValue,
   MaterialBodyExtraction,
@@ -95,17 +82,14 @@ export type {
 } from "./domain/material-body/material-body.js";
 export { MaterialsModule } from "./materials.module.js";
 export { assembleMaterials, type Materials } from "./assemble-materials.js";
-export { ReadPublishedMaterialController } from "./features/read-published-material/read-published-material.controller.js";
-export { CreateDraftController } from "./features/create-draft/create-draft.controller.js";
-export { LoadDraftController } from "./features/load-draft/load-draft.controller.js";
-export { PreviewRevisionController } from "./features/preview-revision/preview-revision.controller.js";
-export { PublishRevisionController } from "./features/publish-revision/publish-revision.controller.js";
-export { RestoreRevisionController } from "./features/restore-revision/restore-revision.controller.js";
-export { ReviseDraftController } from "./features/revise-draft/revise-draft.controller.js";
-export { UnpublishMaterialController } from "./features/unpublish-material/unpublish-material.controller.js";
-export { ValidateRevisionController } from "./features/validate-revision/validate-revision.controller.js";
 export {
   publishedMaterialProblemHttpSchema,
   publishedMaterialProjectionHttpSchema,
-  publishedMaterialReadHttpSchema,
 } from "./adapters/nest/published-material-http.js";
+export { CreateDraftController } from "./features/create-draft/create-draft.controller.js";
+export { DeleteDraftController } from "./features/delete-draft/delete-draft.controller.js";
+export { LoadMaterialController } from "./features/load-material/load-material.controller.js";
+export { PreviewMaterialController } from "./features/preview-material/preview-material.controller.js";
+export { ReadPublishedMaterialController } from "./features/read-published-material/read-published-material.controller.js";
+export { SaveMaterialController } from "./features/save-material/save-material.controller.js";
+export { ValidateMaterialController } from "./features/validate-material/validate-material.controller.js";

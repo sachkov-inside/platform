@@ -46,7 +46,7 @@ describe("MaterialBodyOperations", () => {
             type: "paragraph",
             attrs: { nodeId: "22222222-2222-4222-8222-222222222222" },
             content: [
-              { type: "text", text: "Issue хранит intent, а revision — content." },
+              { type: "text", text: "Issue хранит intent, а Material — current content." },
             ],
           },
           {

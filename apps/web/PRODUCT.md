@@ -12,21 +12,21 @@ web
 - Участник Membership находит и читает доступные материалы, управляет минимальным reading state и
   приватным Account.
 - Единственный автор первой версии — Кирилл. Он выбирает тему из доступного каталога, создаёт и
-  изменяет Material, проверяет exact Preview выбранной MaterialRevision, а затем отдельно даёт
-  явный GO на публикацию.
+  изменяет current Material, проверяет Preview сохранённого `contentVersion` и явно выбирает
+  publication state в full-state Save.
 - Owner agent выполняет тот же bounded authoring workflow через MCP и общие application rules, но
   не публикует автономно.
 
 ## Product Purpose
 
 Platform — канонический дом полноценных материалов Sachkov Inside. Она объединяет discovery,
-reading и authoring так, чтобы опубликованный контент, текущая черновая редакция и exact Preview не
+reading и authoring так, чтобы current Material, опубликованные projections и Preview не
 расходились между разными инструментами.
 
 ## Positioning
 
 Материал хранит инженерную практику вместе с контекстом решений и связанными artifacts. Browser UI
-и owner agent используют один application contract, revision identity и conflict semantics;
+и owner agent используют один application contract, stable Material identity, `contentVersion` и conflict semantics;
 интерфейс не создаёт параллельную content authority.
 
 ## Operating Context
@@ -40,14 +40,14 @@ reading и authoring так, чтобы опубликованный конте�
 
 ## Capabilities and Constraints
 
-- Product terminology следует repository `CONTEXT.md`: Material, MaterialRevision, CurrentDraft,
-  PublishedMaterial и MaterialBody не заменяются размытыми словами «post» или «version».
-- Preview всегда относится к явно названной exact MaterialRevision, не меняет publication state и
-  не создаёт впечатление просмотра latest revision.
+- Product terminology следует repository `CONTEXT.md`: Material, MaterialBody, publication state и
+  `contentVersion` не заменяются размытыми словами «post» или historical revision.
+- Preview всегда читает current saved Material, показывает его `contentVersion` и не меняет
+  publication state.
 - Authoring полностью доступен на narrow mobile. Editor показывает dirty, submitting, saved,
   authorization, conflict и infrastructure failure states без копирования backend business rules.
 - Тема Material выбирается из доступного каталога, а не вводится произвольной строкой.
-- Publish execute остаётся отдельным owner gate; autonomous publish, collaborative realtime
+- Выбор `published` остаётся явным owner action; autonomous publish, collaborative realtime
   editing, multi-author review и content import не входят в v1.
 - UI contracts скрывают backend transport DTO и остаются малыми, serializable и пригодными для
   fixture и production adapters.
@@ -72,7 +72,7 @@ reading и authoring так, чтобы опубликованный конте�
 
 ## Product Principles
 
-1. Exact state beats implied freshness: identify the revision being edited or previewed.
+1. Exact state beats implied freshness: identify the Material and `contentVersion` being edited or previewed.
 2. One semantic workflow serves human and agent callers; adapters do not reimplement policy.
 3. Reading surfaces recede around content; authoring surfaces expose the controls and recovery
    information needed to work safely.

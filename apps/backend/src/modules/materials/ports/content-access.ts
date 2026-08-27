@@ -1,4 +1,5 @@
-import type { MaterialAccess } from "../domain/material-revision-metadata.js";
+import type { MaterialAccess } from "../domain/material-metadata.js";
+import type { PublicationState } from "../domain/material.js";
 import { authorizeManager, type AuthorPolicy } from "./author-policy.js";
 
 export type Subject =
@@ -10,8 +11,8 @@ export const anonymousSubject: Subject = Object.freeze({ kind: "anonymous" });
 export interface MaterialBodyResource {
   readonly kind: "material_body";
   readonly materialId: string;
-  readonly revisionId: string;
-  readonly publication: "draft" | "published";
+  readonly contentVersion: number;
+  readonly publication: PublicationState;
   readonly access: MaterialAccess;
 }
 

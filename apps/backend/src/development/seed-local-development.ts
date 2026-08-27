@@ -5,19 +5,15 @@ const actor = "72000000-0000-4000-8000-000000000001";
 const topicId = "72000000-0000-4000-8000-000000000002";
 const formatId = "72000000-0000-4000-8000-000000000003";
 const createIdempotencyKey = "72000000-0000-4000-8000-000000000004";
-const publishIdempotencyKey = "72000000-0000-4000-8000-000000000005";
 const tagId = "72000000-0000-4000-8000-000000000006";
 const seriesId = "72000000-0000-4000-8000-000000000007";
-const reviseIdempotencyKey = "72000000-0000-4000-8000-000000000008";
-const republishIdempotencyKey = "72000000-0000-4000-8000-000000000009";
 const slug = "inside-platform-overview";
 const membershipSlug = "membership-delivery-guide";
 const membershipCreateIdempotencyKey = "72000000-0000-4000-8000-000000000033";
-const membershipPublishIdempotencyKey = "72000000-0000-4000-8000-000000000034";
 
 export interface LocalDevelopmentSeed {
   readonly materialId: string;
-  readonly revisionId: string;
+  readonly contentVersion: number;
   readonly slug: string;
 }
 
@@ -32,8 +28,8 @@ export async function seedLocalDevelopment(
       canManage: (accountId) => accountId === actor,
     },
   });
-  await ensureCatalogContinuationMaterials(authoring);
-  const representativeRevision = {
+  await ensureCatalogContinuationMaterials(prisma, authoring);
+  const representativeMaterial = {
     metadata: {
       title: "Как устроен Inside Platform",
       summary: "Representative published Material для локальной full-stack разработки.",
@@ -77,7 +73,7 @@ export async function seedLocalDevelopment(
                   {
                     type: "paragraph",
                     attrs: { nodeId: "72000000-0000-4000-8000-000000000013" },
-                    content: [{ type: "text", text: "PostgreSQL хранит exact revision." }],
+                    content: [{ type: "text", text: "PostgreSQL хранит current Material." }],
                   },
                 ],
               },
@@ -220,141 +216,71 @@ export async function seedLocalDevelopment(
       },
     },
   } as const;
-  // Keep the original command stable so pre-Reader development volumes can
-  // replay it through the application idempotency contract.
-  const created = await authoring.createDraft({
-    actor,
-    idempotencyKey: createIdempotencyKey,
-    metadata: {
-      ...representativeRevision.metadata,
-      tagIds: [],
-      seriesMemberships: [],
-    },
-    body: {
-      schemaVersion: 1,
-      doc: {
-        type: "doc",
-        content: [
-          {
-            type: "heading",
-            attrs: {
-              level: 2,
-              nodeId: "72000000-0000-4000-8000-000000000010",
-            },
-            content: [{ type: "text", text: "Первый вертикальный срез" }],
-          },
-          {
-            type: "paragraph",
-            attrs: { nodeId: "72000000-0000-4000-8000-000000000011" },
-            content: [
-              {
-                type: "text",
-                text: "Этот материал создаётся идемпотентным local seed через application interface.",
-              },
-            ],
-          },
-        ],
-      },
-    },
+  const existing = await prisma.material.findUnique({
+    where: { slug },
+    select: { id: true },
   });
-  if (!created.ok) {
-    throw new Error(`Local Material draft failed: ${created.error.code}`);
+  let materialIdValue = existing?.id;
+  if (materialIdValue === undefined) {
+    const created = await authoring.createDraft({
+      actor,
+      idempotencyKey: createIdempotencyKey,
+      ...representativeMaterial,
+    });
+    if (!created.ok) {
+      throw new Error(`Local Material draft failed: ${created.error.code}`);
+    }
+    materialIdValue = created.value.materialId;
   }
-
-  const initialPublication = await authoring.publishRevision({
+  const loaded = await authoring.loadMaterial({
     actor,
-    idempotencyKey: publishIdempotencyKey,
-    materialId: created.value.materialId,
-    revisionId: created.value.revisionId,
-    expectedPublishedRevisionId: null,
-  });
-  if (!initialPublication.ok) {
-    throw new Error(`Local Material publish failed: ${initialPublication.error.code}`);
-  }
-
-  const loaded = await authoring.loadDraft({
-    actor,
-    materialId: created.value.materialId,
+    materialId: materialIdValue,
   });
   if (!loaded.ok) {
-    throw new Error(`Local Material draft failed: ${loaded.error.code}`);
+    throw new Error(`Local Material load failed: ${loaded.error.code}`);
   }
-  let currentDraft = loaded.value;
-
-  if (!currentDraft.metadata.tagIds.includes(tagId)) {
-    const revised = await authoring.reviseDraft({
+  let contentVersion = loaded.value.contentVersion;
+  if (
+    loaded.value.publicationState !== "published" ||
+    !loaded.value.metadata.tagIds.includes(tagId)
+  ) {
+    const saved = await authoring.saveMaterial({
       actor,
-      idempotencyKey: reviseIdempotencyKey,
-      materialId: currentDraft.materialId,
-      baseRevisionId: currentDraft.revisionId,
-      changes: {
-        metadata: {
-          tagIds: [tagId],
-          seriesMemberships: [{ seriesId, ordinal: 1 }],
-        },
-        body: [
-          {
-            kind: "replace_document",
-            document: representativeRevision.body,
-          },
-        ],
-      },
+      idempotencyKey: `local-overview-save-${String(contentVersion)}`,
+      materialId: materialIdValue,
+      expectedContentVersion: contentVersion,
+      publicationState: "published",
+      ...representativeMaterial,
     });
-    if (!revised.ok) {
-      throw new Error(`Local Material revision failed: ${revised.error.code}`);
+    if (!saved.ok) {
+      throw new Error(`Local Material Save failed: ${saved.error.code}`);
     }
-    currentDraft = revised.value;
+    contentVersion = saved.value.contentVersion;
   }
 
-  const validated = await authoring.validateRevision({
-    actor,
-    materialId: currentDraft.materialId,
-    revisionId: currentDraft.revisionId,
-  });
-  if (!validated.ok) {
-    throw new Error(`Local Material validation failed: ${validated.error.code}`);
-  }
+  await ensureMembershipCatalogMaterial(prisma, authoring);
 
-  const published = await authoring.publishRevision({
-    actor,
-    idempotencyKey: republishIdempotencyKey,
-    materialId: currentDraft.materialId,
-    revisionId: currentDraft.revisionId,
-    expectedPublishedRevisionId: created.value.revisionId,
-  });
-  if (!published.ok) {
-    throw new Error(`Local Material publish failed: ${published.error.code}`);
-  }
-
-  await ensureMembershipCatalogMaterial(authoring);
-
-  return Object.freeze({
-    materialId: currentDraft.materialId,
-    revisionId: currentDraft.revisionId,
-    slug,
-  });
+  return Object.freeze({ materialId: materialIdValue, contentVersion, slug });
 }
 
 async function ensureCatalogContinuationMaterials(
+  prisma: PlatformPrisma,
   authoring: ReturnType<typeof assembleMaterials>["authoring"],
 ): Promise<void> {
   for (let index = 1; index <= 11; index += 1) {
     const sequence = String(index).padStart(2, "0");
     const nodeId = `73000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
-    const created = await authoring.createDraft({
-      actor,
-      idempotencyKey: `local-catalog-create-${sequence}`,
-      metadata: {
+    const metadata = {
         title: `Архитектурная заметка ${sequence}`,
         summary: "Дополнительный published Material для проверки infinite catalog.",
         slug: `architecture-note-${sequence}`,
-        access: "free",
+        access: "free" as const,
         topicId,
         formatId,
         tagIds: [],
         seriesMemberships: [],
-      },
-      body: {
+      };
+    const body = {
         schemaVersion: 1,
         doc: {
           type: "doc",
@@ -366,41 +292,61 @@ async function ensureCatalogContinuationMaterials(
             },
           ],
         },
-      },
+      } as const;
+    const existing = await prisma.material.findUnique({
+      where: { slug: metadata.slug },
+      select: { id: true, contentVersion: true, publicationState: true },
     });
-    if (!created.ok) {
-      throw new Error(`Local catalog draft failed: ${created.error.code}`);
+    let material = existing;
+    if (material === null) {
+      const created = await authoring.createDraft({
+        actor,
+        idempotencyKey: `local-catalog-create-${sequence}`,
+        metadata,
+        body,
+      });
+      if (!created.ok) {
+        throw new Error(`Local catalog draft failed: ${created.error.code}`);
+      }
+      material = {
+        id: created.value.materialId,
+        contentVersion: BigInt(created.value.contentVersion),
+        publicationState: created.value.publicationState,
+      };
     }
-    const published = await authoring.publishRevision({
-      actor,
-      idempotencyKey: `local-catalog-publish-${sequence}`,
-      materialId: created.value.materialId,
-      revisionId: created.value.revisionId,
-      expectedPublishedRevisionId: null,
-    });
-    if (!published.ok) {
-      throw new Error(`Local catalog publish failed: ${published.error.code}`);
+    if (material.publicationState !== "published") {
+      const expectedContentVersion = Number(material.contentVersion);
+      const published = await authoring.saveMaterial({
+        actor,
+        idempotencyKey: `local-catalog-publish-${sequence}-${String(expectedContentVersion)}`,
+        materialId: material.id,
+        expectedContentVersion,
+        publicationState: "published",
+        metadata,
+        body,
+      });
+      if (!published.ok) {
+        throw new Error(`Local catalog publish failed: ${published.error.code}`);
+      }
     }
   }
 }
 
 async function ensureMembershipCatalogMaterial(
+  prisma: PlatformPrisma,
   authoring: ReturnType<typeof assembleMaterials>["authoring"],
 ): Promise<void> {
-  const created = await authoring.createDraft({
-    actor,
-    idempotencyKey: membershipCreateIdempotencyKey,
-    metadata: {
+  const metadata = {
       title: "Developer Pipeline без потери контекста",
       summary: "Закрытый Material с публичным безопасным описанием для каталога.",
       slug: membershipSlug,
-      access: "membership",
+      access: "membership" as const,
       topicId,
       formatId,
       tagIds: [tagId],
       seriesMemberships: [],
-    },
-    body: {
+    };
+  const body = {
       schemaVersion: 1,
       doc: {
         type: "doc",
@@ -412,20 +358,42 @@ async function ensureMembershipCatalogMaterial(
           },
         ],
       },
-    },
+    } as const;
+  const existing = await prisma.material.findUnique({
+    where: { slug: membershipSlug },
+    select: { id: true, contentVersion: true, publicationState: true },
   });
-  if (!created.ok) {
-    throw new Error(`Local Membership Material draft failed: ${created.error.code}`);
+  let material = existing;
+  if (material === null) {
+    const created = await authoring.createDraft({
+      actor,
+      idempotencyKey: membershipCreateIdempotencyKey,
+      metadata,
+      body,
+    });
+    if (!created.ok) {
+      throw new Error(`Local Membership Material draft failed: ${created.error.code}`);
+    }
+    material = {
+      id: created.value.materialId,
+      contentVersion: BigInt(created.value.contentVersion),
+      publicationState: created.value.publicationState,
+    };
   }
-  const published = await authoring.publishRevision({
-    actor,
-    idempotencyKey: membershipPublishIdempotencyKey,
-    materialId: created.value.materialId,
-    revisionId: created.value.revisionId,
-    expectedPublishedRevisionId: null,
-  });
-  if (!published.ok) {
-    throw new Error(`Local Membership Material publish failed: ${published.error.code}`);
+  if (material.publicationState !== "published") {
+    const expectedContentVersion = Number(material.contentVersion);
+    const published = await authoring.saveMaterial({
+      actor,
+      idempotencyKey: `local-membership-publish-${String(expectedContentVersion)}`,
+      materialId: material.id,
+      expectedContentVersion,
+      publicationState: "published",
+      metadata,
+      body,
+    });
+    if (!published.ok) {
+      throw new Error(`Local Membership Material publish failed: ${published.error.code}`);
+    }
   }
 }
 

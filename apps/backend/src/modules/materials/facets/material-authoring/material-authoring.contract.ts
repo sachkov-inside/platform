@@ -1,43 +1,44 @@
-import type { MaterialBodySnapshot, ValidationIssue } from "../../domain/material-body/material-body.js";
 import type {
   MaterialAccess,
   MaterialMetadataValidationError,
-} from "../../domain/material-revision-metadata.js";
+} from "../../domain/material-metadata.js";
+import type { PublicationState } from "../../domain/material.js";
+import type {
+  MaterialBodySnapshot,
+  ValidationIssue,
+} from "../../domain/material-body/material-body.js";
 
 export interface SeriesMembershipInput {
   readonly seriesId: string;
   readonly ordinal: number;
 }
 
-export interface MaterialRevisionMetadataInput {
-  readonly title: string;
-  readonly summary: string;
-  readonly slug: string;
+export interface MaterialMetadataInput {
+  readonly title: string | null;
+  readonly summary: string | null;
+  readonly slug: string | null;
   readonly access: MaterialAccess;
-  readonly topicId: string;
-  readonly formatId: string;
+  readonly topicId: string | null;
+  readonly formatId: string | null;
   readonly tagIds: readonly string[];
   readonly seriesMemberships: readonly SeriesMembershipInput[];
 }
 
-export interface MaterialRevisionMetadataChanges {
-  readonly title?: string;
-  readonly summary?: string;
-  readonly slug?: string;
-  readonly access?: MaterialAccess;
-  readonly topicId?: string;
-  readonly formatId?: string;
-  readonly tagIds?: readonly string[];
-  readonly seriesMemberships?: readonly SeriesMembershipInput[];
+export interface MaterialDto {
+  readonly materialId: string;
+  readonly contentVersion: number;
+  readonly publicationState: PublicationState;
+  readonly firstPublishedAt: string | null;
+  readonly publishedAt: string | null;
+  readonly metadata: MaterialMetadataInput;
+  readonly body: MaterialBodySnapshot;
 }
 
-export type MaterialRevisionMetadataDto = MaterialRevisionMetadataInput;
-
-export interface MaterialRevisionDto {
+export interface MaterialMutationReceiptDto {
   readonly materialId: string;
-  readonly revisionId: string;
-  readonly metadata: MaterialRevisionMetadataDto;
-  readonly body: MaterialBodySnapshot;
+  readonly contentVersion: number;
+  readonly publicationState: PublicationState;
+  readonly publishedAt: string | null;
 }
 
 export type InvalidContentError = Extract<
@@ -70,19 +71,19 @@ export type SystemError =
 export type IdempotencyError = { readonly code: "idempotency_key_reused" };
 export type ForbiddenError = { readonly code: "forbidden" };
 export type MaterialNotFoundError = { readonly code: "material_not_found" };
-export type RevisionNotFoundError = { readonly code: "revision_not_found" };
-export type StaleRevisionError = {
-  readonly code: "stale_revision";
-  readonly currentRevisionId: string;
+export type StaleContentVersionError = {
+  readonly code: "stale_content_version";
+  readonly currentContentVersion: number;
 };
-export type StalePublicationError = {
-  readonly code: "stale_publication";
-  readonly currentPublishedRevisionId: string | null;
+export type SlugLockedError = {
+  readonly code: "slug_locked";
+  readonly slug: string;
 };
-
-export interface PublicationLifecycleEventDto {
-  readonly materialId: string;
-  readonly revisionId: string;
-  readonly publicationEventId: string;
-  readonly recordedAt: Date;
-}
+export type InvalidPublicationTransitionError = {
+  readonly code: "invalid_publication_transition";
+  readonly currentState: PublicationState;
+  readonly targetState: PublicationState;
+};
+export type DraftDeletionForbiddenError = {
+  readonly code: "draft_deletion_forbidden";
+};

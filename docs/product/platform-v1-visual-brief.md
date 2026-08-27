@@ -28,8 +28,8 @@ decisions.
 |---|---|---|
 | Library / search | Visitor или member, который самостоятельно ищет направление | Найти один релевантный published Material через search и реальные filters |
 | Long-form / video Material | Reader с разрешённым body state | Сосредоточенно прочитать или посмотреть один Material, используя локальную navigation и доступные Resources |
-| Author editor | Owner-author | Изменить content и metadata одной revision, понимая validation и save state |
-| Author Preview | Owner-author | Проверить exact revision в реальном reading order до отдельного publish GO |
+| Author editor | Owner-author | Изменить current content и metadata, понимая validation, `contentVersion` и save state |
+| Author Preview | Owner-author | Проверить current saved Material в реальном reading order до публикации |
 
 ## 2. Owner-confirmed visual constraints
 
