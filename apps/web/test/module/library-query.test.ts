@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { QueryClient } from "@tanstack/react-query";
+import { dehydrate, hydrate, QueryClient } from "@tanstack/react-query";
 
 import { GET } from "../../app/api/library/materials/route";
 import { libraryCatalogQueryKey } from "@/_pages/library";
 import { getQueryClient } from "@/shared/api/query-client";
 import { requestLibraryCatalogPage } from "../../src/_pages/library/api/request-library-catalog";
 import { libraryCatalogBrowserQueryOptions } from "../../src/_pages/library/api/library-catalog-query.browser";
+import { createLibraryCatalogQueryOptions } from "../../src/_pages/library/model/library-catalog-query";
 
 const readyCatalog = {
   kind: "ready",
@@ -62,6 +63,26 @@ describe("Library TanStack Query interface", () => {
     );
     expect(fetchMock.mock.calls[1]?.[1]?.signal).toBeInstanceOf(AbortSignal);
     expect(queryClient.getQueryData(libraryCatalogQueryKey)).toEqual(data);
+  });
+
+  it("reuses the fresh server-hydrated first page without an initial browser request", async () => {
+    const queryClientOptions = {
+      defaultOptions: { queries: { staleTime: 30_000 } },
+    } as const;
+    const serverClient = new QueryClient(queryClientOptions);
+    await serverClient.infiniteQuery(
+      createLibraryCatalogQueryOptions(() => Promise.resolve(readyCatalog)),
+    );
+
+    const browserClient = new QueryClient(queryClientOptions);
+    hydrate(browserClient, dehydrate(serverClient));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      browserClient.infiniteQuery(libraryCatalogBrowserQueryOptions()),
+    ).resolves.toMatchObject({ pages: [readyCatalog] });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("loads and validates the browser presentation contract", async () => {
@@ -121,10 +142,15 @@ describe("Library TanStack Query interface", () => {
       items: [],
       nextCursor: null,
     });
-    expect(fetch).toHaveBeenCalledWith(
+    const backendRequest = vi.mocked(fetch).mock.calls[0]?.[0];
+    expect(backendRequest).toBeInstanceOf(Request);
+    if (!(backendRequest instanceof Request)) {
+      throw new TypeError("BFF did not use the generated server transport");
+    }
+    expect(backendRequest.url).toBe(
       "https://platform-api.example.test/library/materials?after=next%2Fcursor",
-      expect.objectContaining({ cache: "no-store" }),
     );
+    expect(backendRequest.cache).toBe("no-store");
   });
 
   it("rejects ambiguous BFF cursors before calling NestJS", async () => {

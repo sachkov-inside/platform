@@ -11,8 +11,9 @@ import type {
 } from "@/_pages/material-reader/model/material-reader-view";
 import {
   BackendConnectionError,
-  requestBackend,
+  requestPublishedMaterial,
 } from "@/shared/api/backend/index.server";
+import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
 
 const readerMarkSchema: z.ZodType<ReaderMark> = z.union([
   z.object({ kind: z.enum(["bold", "code", "italic", "strike"]) }),
@@ -122,9 +123,9 @@ const notFoundSchema = z.object({
  * adapter deliberately uses `no-store`. Protected viewer-specific caching remains forbidden.
  */
 export async function getMaterialReader(slug: string): Promise<MaterialReaderResult> {
-  let response: Response;
+  let result: Awaited<ReturnType<typeof requestPublishedMaterial>>;
   try {
-    response = await requestBackend(`/materials/${encodeURIComponent(slug)}`);
+    result = await requestPublishedMaterial(slug);
   } catch (error) {
     if (error instanceof BackendConnectionError && error.code === "unavailable") {
       return { kind: "unavailable" };
@@ -132,27 +133,28 @@ export async function getMaterialReader(slug: string): Promise<MaterialReaderRes
     throw error;
   }
 
-  if (response.status === 404) {
-    const payload = await readJson(response);
-    if (!notFoundSchema.safeParse(payload).success) {
+  if (!result.ok && result.response.status === 404) {
+    if (!notFoundSchema.safeParse(result.problem).success) {
       throw invalidContract("Published Material 404 response does not match the contract");
     }
     return { kind: "not-found" };
   }
 
-  if (response.status === 503) {
+  if (
+    !result.ok &&
+    dependencyUnavailableProblemSchema.safeParse(result.problem).success
+  ) {
     return { kind: "unavailable" };
   }
 
-  if (!response.ok) {
+  if (!result.ok) {
     throw new BackendConnectionError(
       "backend-error",
-      `Published Material request returned ${String(response.status)}`,
+      `Published Material request returned ${String(result.response.status)}`,
     );
   }
 
-  const payload = await readJson(response);
-  const parsed = publishedMaterialSchema.safeParse(payload);
+  const parsed = publishedMaterialSchema.safeParse(result.body);
   if (!parsed.success) {
     throw invalidContract("Published Material response does not match the contract", parsed.error);
   }
@@ -161,14 +163,6 @@ export async function getMaterialReader(slug: string): Promise<MaterialReaderRes
   return parsed.data.kind === "available"
     ? { kind: "available", material, body: parsed.data.body.blocks }
     : { kind: "access", material, reason: parsed.data.access.reason };
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch (cause) {
-    throw invalidContract("Published Material response is not valid JSON", cause);
-  }
 }
 
 function toMaterialMetadata(

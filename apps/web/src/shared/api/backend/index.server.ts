@@ -1,6 +1,9 @@
 import "server-only";
 
+import createClient from "openapi-fetch";
 import { z } from "zod";
+
+import type { paths } from "./generated/platform-api";
 
 const LOCAL_BACKEND_BASE_URL = "http://127.0.0.1:3001";
 const BACKEND_REQUEST_TIMEOUT_MS = 3_000;
@@ -26,16 +29,51 @@ export class BackendConnectionError extends Error {
   }
 }
 
-export interface BackendHealth {
-  readonly process: "api";
-  readonly status: "ok";
-  readonly database: "reachable";
-}
+export type BackendTransportResult =
+  | {
+      readonly ok: true;
+      readonly body: unknown;
+      readonly response: Response;
+    }
+  | {
+      readonly ok: false;
+      readonly problem: unknown;
+      readonly response: Response;
+    };
 
 const authenticatedAccountSchema = z.object({ accountId: z.uuid() }).strict();
 const accountResponseSchema = z
   .object({ account: authenticatedAccountSchema })
   .strict();
+const backendHealthSchema = z
+  .object({
+    process: z.literal("api"),
+    status: z.literal("ok"),
+    database: z.literal("reachable"),
+  })
+  .strict();
+const backendHealthUnavailableProblemSchema = z
+  .object({
+    type: z.literal("about:blank"),
+    title: z.literal("Service unavailable"),
+    status: z.literal(503),
+    code: z.literal("dependency_unavailable"),
+  })
+  .strict();
+const accountProblemDetailsSchema = z.discriminatedUnion("code", [
+  accountProblemSchema("invalid_input", 400, "Invalid account request"),
+  accountProblemSchema("invalid_proof", 401, "Account verification failed"),
+  accountProblemSchema("account_not_found", 401, "Account verification failed"),
+  accountProblemSchema("identity_conflict", 409, "Account identity conflict"),
+  accountProblemSchema("internal_error", 500, "Account service error"),
+  accountProblemSchema(
+    "dependency_unavailable",
+    503,
+    "Identity provider unavailable",
+  ),
+]);
+
+export type BackendHealth = Readonly<z.infer<typeof backendHealthSchema>>;
 export type AuthenticatedAccount = Readonly<
   z.infer<typeof authenticatedAccountSchema>
 >;
@@ -73,21 +111,92 @@ export function readBackendBaseUrl(): string {
   return url.toString().replace(/\/$/u, "");
 }
 
-export async function requestBackend(
-  path: `/${string}`,
-  options: Pick<RequestInit, "headers" | "method" | "signal"> = {},
-): Promise<Response> {
-  const baseUrl = readBackendBaseUrl();
-  const { signal, ...init } = options;
+export function requestPublishedMaterialCatalog(
+  after: string | undefined,
+  signal?: AbortSignal,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest((client) =>
+    client.GET("/library/materials", {
+      params: {
+        query: after === undefined ? {} : { after },
+      },
+      ...(signal === undefined ? {} : { signal }),
+    }),
+  );
+}
 
+export function requestPublishedMaterial(
+  slug: string,
+  signal?: AbortSignal,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest((client) =>
+    client.GET("/materials/{slug}", {
+      params: { path: { slug } },
+      ...(signal === undefined ? {} : { signal }),
+    }),
+  );
+}
+
+function requestBackendHealth(): Promise<BackendTransportResult> {
+  return executeGeneratedRequest((client) => client.GET("/health"));
+}
+
+function requestAccountEstablishment(
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest((client) =>
+    client.POST("/accounts", {
+      headers: { authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+function requestCurrentAccount(
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest((client) =>
+    client.GET("/accounts/current", {
+      headers: { authorization: `Bearer ${accessToken}` },
+    }),
+  );
+}
+
+interface GeneratedResponse {
+  readonly data?: unknown;
+  readonly error?: unknown;
+  readonly response: Response;
+}
+
+async function executeGeneratedRequest(
+  invoke: (
+    client: ReturnType<typeof createBackendClient>,
+  ) => Promise<GeneratedResponse>,
+): Promise<BackendTransportResult> {
+  const result = await invoke(createBackendClient());
+  return result.response.ok
+    ? { ok: true, body: result.data, response: result.response }
+    : { ok: false, problem: result.error, response: result.response };
+}
+
+function createBackendClient() {
+  return createClient<paths>({
+    baseUrl: readBackendBaseUrl(),
+    fetch: fetchBackend,
+  });
+}
+
+async function fetchBackend(request: Request): Promise<Response> {
   try {
-    return await fetch(`${baseUrl}${path}`, {
-      ...init,
-      cache: "no-store",
-      signal: combineAbortSignals(signal),
-    });
+    return await fetch(
+      new Request(request, {
+        cache: "no-store",
+        signal: combineAbortSignals(request.signal),
+      }),
+    );
   } catch (cause) {
-    throw new BackendConnectionError("unavailable", "Backend request failed", { cause });
+    throw new BackendConnectionError("unavailable", "Backend request failed", {
+      cause,
+    });
   }
 }
 
@@ -99,100 +208,92 @@ function combineAbortSignals(signal: AbortSignal | null | undefined): AbortSigna
 }
 
 export async function getBackendHealth(): Promise<BackendHealth> {
-  const response = await requestBackend("/health");
+  const result = await requestBackendHealth();
 
-  if (!response.ok) {
+  if (!result.ok) {
+    const parsed = backendHealthUnavailableProblemSchema.safeParse(
+      result.problem,
+    );
     throw new BackendConnectionError(
-      "unavailable",
-      `Backend health request returned ${String(response.status)}`,
+      parsed.success && parsed.data.status === result.response.status
+        ? "unavailable"
+        : "backend-error",
+      `Backend health request returned ${String(result.response.status)}`,
+      { cause: parsed.success ? undefined : parsed.error },
     );
   }
-
-  let payload: unknown;
-
-  try {
-    payload = await response.json();
-  } catch (cause) {
-    throw new BackendConnectionError(
-      "invalid-response",
-      "Backend health response is not valid JSON",
-      { cause },
-    );
-  }
-
-  if (!isBackendHealth(payload)) {
+  const parsed = backendHealthSchema.safeParse(result.body);
+  if (!parsed.success) {
     throw new BackendConnectionError(
       "invalid-response",
       "Backend health response does not match the contract",
+      { cause: parsed.error },
     );
   }
 
-  return payload;
+  return parsed.data;
 }
 
 export async function establishAccount(
   accessToken: string,
 ): Promise<AuthenticatedAccount> {
-  return requestAccount("/accounts", {
-    method: "POST",
-    headers: { authorization: `Bearer ${accessToken}` },
-  });
+  return parseAccountResponse(await requestAccountEstablishment(accessToken));
 }
 
 export async function resolveAccount(
   accessToken: string,
 ): Promise<AuthenticatedAccount> {
-  return requestAccount("/accounts/current", {
-    method: "GET",
-    headers: { authorization: `Bearer ${accessToken}` },
-  });
+  return parseAccountResponse(await requestCurrentAccount(accessToken));
 }
 
-async function requestAccount(
-  path: `/${string}`,
-  init: Pick<RequestInit, "headers" | "method">,
-): Promise<AuthenticatedAccount> {
-  const response = await requestBackend(path, init);
-  if (!response.ok) {
+function parseAccountResponse(
+  result: BackendTransportResult,
+): AuthenticatedAccount {
+  if (!result.ok) {
+    const parsed = accountProblemDetailsSchema.safeParse(result.problem);
+    if (!parsed.success || parsed.data.status !== result.response.status) {
+      throw new BackendConnectionError(
+        "backend-error",
+        `Backend Account request returned an unknown ${String(result.response.status)} error`,
+        { cause: parsed.success ? undefined : parsed.error },
+      );
+    }
     throw new BackendConnectionError(
-      response.status >= 500 ? "unavailable" : "rejected",
-      `Backend Account request returned ${String(response.status)}`,
+      parsed.data.code === "dependency_unavailable" ||
+        parsed.data.code === "internal_error"
+        ? "unavailable"
+        : "rejected",
+      `Backend Account request returned ${String(result.response.status)}`,
     );
   }
-  const payload = await readJson(response);
-  const parsed = accountResponseSchema.safeParse(payload);
+  const parsed = accountResponseSchema.safeParse(result.body);
   if (!parsed.success) {
     throw invalidBackendResponse("Account response does not match the contract");
   }
   return parsed.data.account;
 }
 
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch (cause) {
-    throw invalidBackendResponse("Backend Account response is not valid JSON", cause);
-  }
+function invalidBackendResponse(message: string): BackendConnectionError {
+  return new BackendConnectionError("invalid-response", message);
 }
 
-function invalidBackendResponse(message: string, cause?: unknown): BackendConnectionError {
-  return new BackendConnectionError("invalid-response", message, { cause });
-}
-
-function isBackendHealth(value: unknown): value is BackendHealth {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return (
-    value.process === "api" &&
-    value.status === "ok" &&
-    value.database === "reachable"
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function accountProblemSchema<
+  const Code extends string,
+  const Status extends number,
+  const Title extends string,
+>(code: Code, status: Status, title: Title) {
+  return z
+    .object({
+      type: z.literal(
+        `https://inside.sachkov.com/problems/accounts/${code.replaceAll("_", "-")}`,
+      ),
+      title: z.literal(title),
+      status: z.literal(status),
+      detail: z.literal("Account request could not be completed."),
+      code: z.literal(code),
+      correlationId: z.string().optional(),
+    })
+    .strict();
 }
 
 function nonEmpty(value: string | undefined): string | undefined {

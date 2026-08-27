@@ -56,9 +56,12 @@ describe("supported toolchain contract", () => {
     }
   });
 
-  it("keeps VS Code and Nest decorators on the configured TypeScript project", () => {
+  it("keeps editors and CLI checks on stable TypeScript projects", () => {
     const editorSettings = JSON.parse(read(".vscode/settings.json"));
     const backendTypeScript = JSON.parse(read("apps/backend/tsconfig.json"));
+    const webTypeScript = JSON.parse(read("apps/web/tsconfig.json"));
+    const nextTypeScript = JSON.parse(read("apps/web/tsconfig.next.json"));
+    const nextConfig = read("apps/web/next.config.ts");
 
     assert.equal(
       editorSettings["js/ts.tsdk.path"],
@@ -73,6 +76,13 @@ describe("supported toolchain contract", () => {
       true,
     );
     assert.ok(backendTypeScript.include.includes("src/**/*.ts"));
+    assert.ok(webTypeScript.include.includes(".next/types/**/*.ts"));
+    assert.ok(!webTypeScript.include.includes(".next/dev/types/**/*.ts"));
+    assert.ok(webTypeScript.exclude.includes(".next/dev"));
+    assert.equal(nextTypeScript.extends, "./tsconfig.json");
+    assert.ok(nextTypeScript.include.includes(".next/dev/types/**/*.ts"));
+    assert.match(nextConfig, /useTypeScriptCli: false/u);
+    assert.match(nextConfig, /tsconfigPath: "tsconfig\.next\.json"/u);
   });
 
   it("pins every container image by digest and every GitHub Action by commit", () => {

@@ -8,8 +8,9 @@ import type {
 } from "@/_pages/library/model/library-view";
 import {
   BackendConnectionError,
-  requestBackend,
+  requestPublishedMaterialCatalog,
 } from "@/shared/api/backend/index.server";
+import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
 
 const projectionSchema = z
   .object({
@@ -43,14 +44,9 @@ export async function getLibraryCatalogPage(
   after: string | undefined,
   signal?: AbortSignal,
 ): Promise<LibraryCatalogPage> {
-  let response: Response;
+  let result: Awaited<ReturnType<typeof requestPublishedMaterialCatalog>>;
   try {
-    response = await requestBackend(
-      after === undefined
-        ? "/library/materials"
-        : `/library/materials?after=${encodeURIComponent(after)}`,
-      signal === undefined ? {} : { signal },
-    );
+    result = await requestPublishedMaterialCatalog(after, signal);
   } catch (error) {
     if (error instanceof BackendConnectionError && error.code === "unavailable") {
       return { kind: "unavailable" };
@@ -58,17 +54,17 @@ export async function getLibraryCatalogPage(
     throw error;
   }
 
-  if (response.status === 503) {
-    return { kind: "unavailable" };
-  }
-  if (!response.ok) {
+  if (!result.ok) {
+    if (dependencyUnavailableProblemSchema.safeParse(result.problem).success) {
+      return { kind: "unavailable" };
+    }
     throw new BackendConnectionError(
       "backend-error",
-      `Content Library request returned ${String(response.status)}`,
+      `Content Library request returned ${String(result.response.status)}`,
     );
   }
 
-  const parsed = catalogSchema.safeParse(await readJson(response));
+  const parsed = catalogSchema.safeParse(result.body);
   if (!parsed.success) {
     throw new BackendConnectionError(
       "invalid-response",
@@ -86,18 +82,6 @@ export async function getLibraryCatalogPage(
     items: parsed.data.items.map(toMaterialPreview),
     nextCursor: parsed.data.nextCursor,
   };
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch (cause) {
-    throw new BackendConnectionError(
-      "invalid-response",
-      "Content Library response is not valid JSON",
-      { cause },
-    );
-  }
 }
 
 function toMaterialPreview(

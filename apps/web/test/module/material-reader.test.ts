@@ -98,10 +98,7 @@ describe("Material Reader server adapter", () => {
         },
       ],
     });
-    expect(fetch).toHaveBeenCalledWith(
-      "https://platform-api.example.test/materials/inside-platform-overview",
-      expect.objectContaining({ cache: "no-store" }),
-    );
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it("returns an expected access state without protected body bytes", async () => {
@@ -164,11 +161,25 @@ describe("Material Reader server adapter", () => {
     });
   });
 
-  it("maps a non-JSON dependency outage to the unavailable state", async () => {
+  it("maps the known dependency Problem Details to the unavailable state", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(new Response("upstream unavailable", { status: 503 })),
+      vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            type: "urn:inside:problem:dependency-unavailable",
+            title: "Dependency unavailable",
+            status: 503,
+            code: "dependency_unavailable",
+            retryable: true,
+          },
+          {
+            status: 503,
+            headers: { "Content-Type": "application/problem+json" },
+          },
+        ),
+      ),
     );
 
     await expect(getMaterialReader("inside-platform-overview")).resolves.toEqual({
