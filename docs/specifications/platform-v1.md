@@ -205,7 +205,7 @@ production trade-off подтверждён evidence, а не заранее д�
   через capability public interface и real PostgreSQL; отдельно проверяются migrations,
   constraints, transaction rollback, idempotency и concurrency. Transport adapters имеют thin
   mapping tests; journey E2E добавляются с реальными surfaces.
-- По мере появления owning capabilities membership refresh и provider callbacks получают
+- По мере появления owning capabilities membership evidence ingestion, provider reconciliation и callbacks получают
   concurrency, idempotency, stale-state и failure-path tests в том же repeatable setup.
 - Testcontainers PostgreSQL принят как future test lifecycle direction: один container на
   integration run с isolation, сохраняющей real commit/rollback и multiple-connection semantics.
@@ -236,7 +236,7 @@ Entry points вызывают одни application use cases и не созда�
 | `Materials` | `MaterialAuthoring` создаёт, изменяет, проверяет, preview/publish/restore-ит Material; `PublishedMaterialReader` читает exact published revision | revision/publication pointers, author policy, internal body schemas, safe public/search projections |
 | `ContentLibrary` | читать projections, search и навигацию, находить related Materials | published projections, ranking и explicit related pins |
 | [`ContentAccess`](content-access-authorization-v1.md) | batch `checkAvailabilityMany` для presentation и `authorizeMany` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
-| `MembershipEntitlements` | принять MembershipEvidence и построить Platform-owned entitlement | state, validity и refresh coordination |
+| `MembershipEntitlements` | принять MembershipEvidence и построить Platform-owned entitlement | state, validity и monotonic evidence application |
 | `Assets` | начать/finalize upload, связать с revision и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
 | `ReadingActivity` | idempotently mark read/unread и вернуть recent history | Account-to-Material reading state; не content access |
@@ -341,19 +341,22 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
    non-member и crawler не получают projection; email, Platform/Telegram internal identifiers,
    Telegram username, link/evidence и security/audit state никогда в неё не входят.
 
-### Membership linking и refresh
+### Membership linking и projection
 
 1. После email-code sign-in Platform предлагает skippable linking; signed-in Account начинает
    short-lived link transaction сразу, позже из Account или из closed-Material recovery
    flow.
 2. Отдельная Telegram application проверяет Telegram identity, uniqueness и Membership в
    каноническом закрытом chat.
-3. Platform принимает normalized MembershipEvidence без raw Telegram model по принятому
+3. При linking Telegram application выполняет initial check, затем durably принимает member-status
+   events и background-reconcile-ит due known linked identities через `getChatMember`.
+4. Platform асинхронно принимает normalized MembershipEvidence без raw Telegram model по принятому
    [Workspace v1 contract](https://github.com/sachkov-inside/workspace/blob/main/docs/contracts/identity-membership-v1.md)
    и строит собственный entitlement не дольше `validUntil` этого evidence.
-4. Первый protected request после expiry выполняет single-flight refresh. Positive
-   MembershipEvidence живёт не более пяти минут; confirmed removal denies immediately; outage
-   после expiry fails closed.
+5. Library/Material request читает только local PostgreSQL projection и никогда не вызывает
+   Telegram или не ждёт reconciliation. Positive MembershipEvidence живёт не более пяти минут;
+   принятый Platform новый removal evidence запрещает доступ немедленно, stale projection или
+   outage после expiry fails closed.
 
 ### Assets, downloads и video
 
@@ -427,8 +430,9 @@ Public Material projection содержит title, summary/teaser, taxonomy, Ser
 - Library search p95 не выше 300 ms на 10 000 Material projections и representative RU/EN set;
 - public critical pages укладываются в LCP 2.5 s, INP 200 ms и CLS 0.1 на согласованном mobile profile;
 - query plans, pool limits и payload/document limits измеряются до добавления cache/service;
-- ContentAccess batch из `N` operations делает `O(K)` database/provider round trips для `K`
-  присутствующих resource kinds, не `O(N)`; `N=1` и `N=100` acceptance считает queries/calls;
+- ContentAccess batch из `N` operations делает `O(K)` database round trips для `K`
+  присутствующих resource kinds, не `O(N)`; Membership facts загружаются одним локальным чтением,
+  provider calls в request path равны нулю; `N=1` и `N=100` acceptance считает queries/calls;
 - correctness scenarios из [testing contract](#testing-enforcement-and-adr-timing) входят в
   согласованный fixture corpus и repeatable setup.
 

@@ -92,7 +92,8 @@ owner, profile, email, Telegram state и provider claims caller не перед�
   максимальную пятиминутную validity; Platform хранит exact schema/fixtures и не читает соседний
   checkout или GitHub во время build/runtime;
 - #50 реализует этот contract, #112 подключает первый реальный Material consumer, #52 позже
-  подключает production Telegram adapter, а #29 позже использует user-delegated owner Account.
+  подключает production evidence-ingestion adapter к независимо реализованному Telegram provider,
+  а #29 позже использует user-delegated owner Account.
 
 ## Текущие и будущие consumers
 
@@ -206,7 +207,8 @@ Deterministic reason precedence:
 6. Preview без permission: `permission_required`.
 7. Closed normal delivery: resolve current Membership; active даёт `active_membership`, absence —
    `membership_required`, confirmed expiry/removal — `membership_expired`, stale positive после
-   failed refresh — `entitlement_stale`, unreadable dependency — `dependency_unavailable`.
+   `validUntil` без принятого нового evidence — `entitlement_stale`, unreadable local projection —
+   `dependency_unavailable`.
 
 | Resource / action | Anonymous | Account без Membership | Active member | Expired member | Account с `materials:manage` |
 |---|---|---|---|---|---|
@@ -239,20 +241,15 @@ unknown/mismatch в `404`, outage в `503`; UI не получает internal re
 interface MembershipEntitlements {
   resolveForAccess(accountId: AccountId): Promise<MembershipAccessState>;
 }
-
-interface TelegramMembership {
-  check(input: Readonly<{
-    membershipRef: MembershipRef;
-    afterEvidenceVersion?: number;
-  }>): Promise<unknown>;
-}
 ```
 
 `MembershipAccessState` — finite internal state `active | required | expired | stale |
-unavailable`, а не provider DTO. `TelegramMembership.check` возвращает `unknown`: owning module
-strict-validates vendored schema, Account binding, clock, version and validity before accepting
-evidence. Opaque `AccountId -> MembershipRef` binding принадлежит Membership integration, не
-Accounts и не Profile.
+unavailable`, а не provider DTO. `resolveForAccess` читает только bounded Platform projection в
+PostgreSQL: он не вызывает Telegram, не запускает provider check и не ждёт background
+reconciliation.
+Owning module отдельно strict-validates vendored evidence schema, Account binding, clock, version
+and validity before applying link-time check, member-status event или reconciliation result. Opaque
+`AccountId -> MembershipRef` binding принадлежит Membership integration, не Accounts и не Profile.
 
 Rules:
 
@@ -263,15 +260,23 @@ Rules:
 - rejoin требует более новой accepted version и создаёт новый bounded interval;
 - current positive projection используется только пока `now < validUntil`; grace extension,
   local role fallback и allow-on-error запрещены;
-- stale/missing evidence triggers refresh; provider/store outage после expiry fails closed.
+- stale/missing evidence возвращает `stale | unavailable` и fails closed; user-facing request не
+  обращается к provider;
+- Telegram member-status event после durable provider acceptance создаёт новое normalized evidence;
+  projection и доступ меняются только после monotonic acceptance его новой версии в Platform;
+- background reconciliation внутри Telegram application проверяет due known linked identities и
+  создаёт evidence, исправляющее пропущенные events;
+- free public read не зависит от состояния event ingestion/reconciliation.
 
-Concurrent stale requests используют durable PostgreSQL lease/generation keyed by Account binding:
-один owner вызывает adapter вне transaction, waiters bounded-wait и reread, apply выполняется
-monotonic compare-and-set, expired lease восстанавливается после crash. Один process-local Promise
-недостаточен для multi-instance backend.
+Concurrent Platform consumers принимают evidence через durable inbox/deduplication keyed by binding
+и version; apply выполняется monotonic compare-and-set, повторная доставка идемпотентна. Они никогда
+не проверяют Telegram. Provider-side reconciliation worker/lease принадлежит Telegram application
+под Workspace #60. User-facing requests не ждут ни ingestion, ни reconciliation.
 
-#50 добавляет deterministic adapter и vendored conformance corpus. Production HTTP credentials,
-timeouts/retries и Telegram transport принадлежат #52 и реализуют тот же port.
+#119 добавляет deterministic evidence-acceptance adapters, local projection и vendored shared
+conformance corpus. #52 добавляет production authenticated evidence ingestion и end-to-end
+convergence с отдельно реализованным provider. Durable Telegram member-status ingestion и
+`getChatMember` reconciliation transport принадлежат Telegram application под Workspace #60.
 
 ## Batch execution и protected loading
 
@@ -279,7 +284,9 @@ timeouts/retries и Telegram transport принадлежат #52 и реали�
 присутствующих resource kinds:
 
 ```text
-database/provider round trips = O(K), not O(N)
+resource database round trips = O(K), not O(N)
+subject-fact database reads    = O(1) per batch
+request-path provider calls    = 0
 policy CPU                     = O(N)
 memory                         = O(N)
 ```
@@ -326,7 +333,7 @@ provider token, IP и User-Agent запрещены. Audit context не явля
 apps/backend/src/modules/
   accounts/                  # trusted Account resolution + current materials:manage
   content-access/            # batch orchestration + policy + audit
-  membership-entitlements/  # bounded projection + refresh coordination
+  membership-entitlements/  # bounded projection + monotonic evidence application
   materials/                 # resource facts adapter + reader/preview consumers
 ```
 
@@ -350,7 +357,8 @@ Required evidence:
 - provider role/claim and Profile/ReadingState never alter decisions;
 - vendored Membership fixtures: boundary time, removal, expiry, rejoin, retry, replay, mismatch,
   malformed evidence and outage;
-- concurrency proof: one refresh across instances, lease takeover and monotonic state;
+- concurrency proof: duplicate/out-of-order evidence consumers converge monotonically, inbox retry
+  is idempotent and user-facing requests make zero provider calls;
 - page/REST conformance, private-no-store and no cross-Account cache leakage;
 - audit batch contains exact stable fields and none of the prohibited identity/provider data;
 - repository checks, architecture fitness functions and Standards + Spec review.
@@ -359,9 +367,10 @@ Required evidence:
 
 1. **#112 — real Material proof.** Add batch types/module, deterministic Account/Membership facts,
    real-PostgreSQL bulk Material facts, reader/readMany integration and `N=1`/`N=100` proof.
-2. **#119 — Membership core and refresh.** Vendor exact contract fixtures; add bounded PostgreSQL
-   projection, strict validation, deterministic adapter, monotonic expiry/removal/rejoin behavior
-   and durable single-flight lease/generation without a remote call inside transaction.
+2. **#119 — Membership core and projection.** Vendor exact contract fixtures; add bounded
+   PostgreSQL projection, strict validation, deterministic evidence-acceptance adapters, monotonic
+   expiry/removal/rejoin behavior and durable inbox/deduplication without any provider call from
+   Platform consumers or user-facing reads.
 3. **#120 — policy matrix and batch audit.** Complete the finite Account/resource/action reason
    matrix, current permission/Membership coordination and one redacted audit append per batch.
 4. **#121 — production convergence.** Bind one canonical ContentAccess into reader/preview,
