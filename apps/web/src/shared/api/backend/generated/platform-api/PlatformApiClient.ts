@@ -37,4 +37,3 @@ export class PlatformApiClient {
     this.publishedMaterials = new PublishedMaterialsService(this.request);
   }
 }
-

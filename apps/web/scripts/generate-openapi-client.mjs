@@ -4,6 +4,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
@@ -47,23 +48,36 @@ try {
   if (generation.status !== 0) {
     process.stderr.write(generation.stderr);
     exitCode = generation.status ?? 1;
-  } else if (mode === "generate") {
-    rmSync(outputPath, { force: true, recursive: true });
-    cpSync(generatedPath, outputPath, { recursive: true });
-    process.stdout.write("Generated the Platform API client.\n");
   } else {
-    const differences = compareDirectories(outputPath, generatedPath);
-    if (differences.length > 0) {
-      process.stderr.write(
-        `Generated Platform API client is stale:\n${differences.map((entry) => `- ${entry}`).join("\n")}\n`,
-      );
-      exitCode = 1;
+    normalizeGeneratedFiles(generatedPath);
+  }
+
+  if (exitCode === 0) {
+    if (mode === "generate") {
+      rmSync(outputPath, { force: true, recursive: true });
+      cpSync(generatedPath, outputPath, { recursive: true });
+      process.stdout.write("Generated the Platform API client.\n");
+    } else {
+      const differences = compareDirectories(outputPath, generatedPath);
+      if (differences.length > 0) {
+        process.stderr.write(
+          `Generated Platform API client is stale:\n${differences.map((entry) => `- ${entry}`).join("\n")}\n`,
+        );
+        exitCode = 1;
+      }
     }
   }
 } finally {
   rmSync(temporaryRoot, { force: true, recursive: true });
 }
 process.exitCode = exitCode;
+
+function normalizeGeneratedFiles(root) {
+  for (const file of listFiles(root)) {
+    const path = join(root, file);
+    writeFileSync(path, `${readFileSync(path, "utf8").trimEnd()}\n`);
+  }
+}
 
 function compareDirectories(actualRoot, expectedRoot) {
   const actualFiles = listFiles(actualRoot);
