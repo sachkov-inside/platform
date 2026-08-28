@@ -52,6 +52,16 @@ const bindingRowsSchema = z.array(
     })
     .strict(),
 );
+const lockedReceiptRowsSchema = z.tuple([
+  z
+    .object({
+      requestFingerprint: z.string().length(64),
+      outcome: z.string().min(1),
+      decision: z.string().nullable(),
+      evidenceVersion: z.bigint().nullable(),
+    })
+    .strict(),
+]);
 
 type AppliedEvidence = Extract<
   MembershipEvidenceAcceptance,
@@ -117,12 +127,18 @@ export async function acceptMembershipEvidence(
       )
       on conflict do nothing
     `);
-    const receipt = await transaction.membershipEvidenceReceipt.findUnique({
-      where: { deliveryId: checkedCommand.deliveryId },
-    });
-    if (receipt === null) {
-      throw new Error("Evidence receipt disappeared inside its transaction");
-    }
+    const [receipt] = lockedReceiptRowsSchema.parse(
+      await transaction.$queryRaw(Prisma.sql`
+        select
+          request_fingerprint as "requestFingerprint",
+          outcome,
+          decision,
+          evidence_version as "evidenceVersion"
+        from membership_entitlements.evidence_receipts
+        where delivery_id = ${checkedCommand.deliveryId}
+        for update
+      `),
+    );
     if (inserted === 0) {
       const existing = existingReceiptResult(receipt, requestFingerprint);
       if (existing !== "retry") {

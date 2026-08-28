@@ -297,6 +297,43 @@ describe("MembershipEntitlements", () => {
     ).resolves.toBeNull();
   });
 
+  test("serializes concurrent retries of one delivery after its binding appears", async () => {
+    const targetAccountId = accountId("92000000-0000-4000-8000-000000000004");
+    const event = {
+      accountId: targetAccountId,
+      deliveryId: "retry-after-binding",
+      source: "member_status_event" as const,
+      evidence: observedEvidence("retry-principal", "not_member", 2),
+    };
+
+    await expect(
+      membershipEntitlements.acceptEvidence(event),
+    ).resolves.toEqual({ ok: false, error: { code: "unavailable" } });
+    await expect(
+      accept(
+        membershipEntitlements,
+        targetAccountId,
+        "retry-link",
+        "link_time",
+        observedEvidence("retry-principal", "member", 1),
+      ),
+    ).resolves.toMatchObject({ ok: true, outcome: "applied" });
+
+    const retries = await Promise.all([
+      membershipEntitlements.acceptEvidence(event),
+      membershipEntitlements.acceptEvidence(event),
+    ]);
+    expect(retries).toEqual([
+      { ok: true, outcome: "applied", state: "non_member", evidenceVersion: 2 },
+      { ok: true, outcome: "applied", state: "non_member", evidenceVersion: 2 },
+    ]);
+    await expect(
+      testDatabase.prisma.membershipEvidenceReceipt.findUniqueOrThrow({
+        where: { deliveryId: event.deliveryId },
+      }),
+    ).resolves.toMatchObject({ outcome: "applied", evidenceVersion: 2n });
+  });
+
   test("rejects unchecked delivery metadata before persistence", async () => {
     const targetAccountId = accountId("94000000-0000-4000-8000-000000000001");
     await expect(
