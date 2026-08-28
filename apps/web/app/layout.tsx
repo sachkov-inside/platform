@@ -22,21 +22,23 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+  const identityEnabled = process.env.IDENTITY_ENABLED !== "false";
+
   return (
     <html lang="ru">
       <body>
         <QueryProvider>
           <AppShell
-            desktopAccountSlot={
+            desktopAccountSlot={identityEnabled ? (
               <Suspense fallback={<AuthControlFallback presentation="desktop" />}>
                 <AuthAccountSlot presentation="desktop" />
               </Suspense>
-            }
-            mobileAccountSlot={
+            ) : undefined}
+            mobileAccountSlot={identityEnabled ? (
               <Suspense fallback={<AuthControlFallback presentation="mobile" />}>
                 <AuthAccountSlot presentation="mobile" />
               </Suspense>
-            }
+            ) : undefined}
           >
             {children}
           </AppShell>

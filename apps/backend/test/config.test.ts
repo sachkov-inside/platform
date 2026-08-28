@@ -25,6 +25,7 @@ describe("process configuration", () => {
       database: { url: "postgresql://database.example/inside" },
       api: { host: "api.example", port: 4100 },
       identity: {
+        enabled: true,
         issuer: "https://identity.example.test/oidc",
         audience: "https://api.example.test",
         jwksUrl: "https://identity.example.test/oidc/jwks",
@@ -46,6 +47,7 @@ describe("process configuration", () => {
       },
       api: { host: "127.0.0.1", port: 3001 },
       identity: {
+        enabled: true,
         issuer: "https://identity.inside.localhost:3301/oidc",
         audience: "http://127.0.0.1:3001",
         jwksUrl: "https://identity.inside.localhost:3301/oidc/jwks",
@@ -73,6 +75,23 @@ describe("process configuration", () => {
         API_HOST: "0.0.0.0",
       }),
     ).toThrow("API_PORT is required in production mode");
+  });
+
+  it("can disable identity without Logto production values", () => {
+    expect(
+      parsePlatformConfig({
+        NODE_ENV: "production",
+        DATABASE_URL: "postgresql://database.example/inside",
+        API_HOST: "0.0.0.0",
+        API_PORT: "3001",
+        IDENTITY_ENABLED: "false",
+      }),
+    ).toEqual({
+      mode: "production",
+      database: { url: "postgresql://database.example/inside" },
+      api: { host: "0.0.0.0", port: 3001 },
+      identity: { enabled: false },
+    });
   });
 
   it("parses production database config for non-listening migration tooling", () => {

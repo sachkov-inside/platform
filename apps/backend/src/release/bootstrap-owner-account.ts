@@ -6,6 +6,9 @@ import { bootstrapOwnerAccount } from "../modules/accounts/index.js";
 async function main(): Promise<void> {
   loadRepositoryEnvironment();
   const config = parsePlatformConfig(process.env);
+  if (!config.identity.enabled) {
+    throw new Error("Identity must be enabled to bootstrap the owner account");
+  }
   const issuer = requiredExactValue("OWNER_LOGTO_ISSUER");
   const subject = requiredExactValue("OWNER_LOGTO_SUBJECT");
   if (issuer !== config.identity.issuer) {

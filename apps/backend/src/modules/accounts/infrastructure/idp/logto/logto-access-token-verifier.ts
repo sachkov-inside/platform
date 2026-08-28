@@ -42,6 +42,17 @@ export interface LogtoAccessTokenVerifier {
   >;
 }
 
+export function createDisabledAccessTokenVerifier(): LogtoAccessTokenVerifier {
+  return Object.freeze({
+    verifyAccountSignIn() {
+      return Promise.resolve(invalidProof());
+    },
+    verifyAccount() {
+      return Promise.resolve(invalidProof());
+    },
+  });
+}
+
 interface LogtoVerifierConfig {
   readonly issuer: string;
   readonly audience: string;

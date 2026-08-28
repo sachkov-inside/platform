@@ -20,12 +20,15 @@ export interface PlatformConfig {
     host: string;
     port: number;
   }>;
-  readonly identity: Readonly<{
-    issuer: string;
-    audience: string;
-    jwksUrl: string;
-    emailFingerprintKey: string;
-  }>;
+  readonly identity:
+    | Readonly<{ enabled: false }>
+    | Readonly<{
+        enabled: true;
+        issuer: string;
+        audience: string;
+        jwksUrl: string;
+        emailFingerprintKey: string;
+      }>;
 }
 
 export type PlatformDatabaseConfig = PlatformConfig["database"];
@@ -106,6 +109,14 @@ function parseIdentityConfig(
   environment: NodeJS.ProcessEnv,
   mode: PlatformMode,
 ): PlatformConfig["identity"] {
+  const enabledValue = environment.IDENTITY_ENABLED?.trim() ?? "true";
+  if (enabledValue !== "true" && enabledValue !== "false") {
+    throw new Error("IDENTITY_ENABLED must be true or false");
+  }
+  if (enabledValue === "false") {
+    return Object.freeze({ enabled: false });
+  }
+
   const issuer = validateHttpUrl(
     readRuntimeValue(environment, "LOGTO_ISSUER", mode, DEFAULT_LOGTO_ISSUER),
     "LOGTO_ISSUER",
@@ -134,7 +145,13 @@ function parseIdentityConfig(
     throw new Error("IDENTITY_EMAIL_FINGERPRINT_KEY must contain at least 32 characters");
   }
 
-  return Object.freeze({ issuer, audience, jwksUrl, emailFingerprintKey });
+  return Object.freeze({
+    enabled: true,
+    issuer,
+    audience,
+    jwksUrl,
+    emailFingerprintKey,
+  });
 }
 
 export function parsePlatformConfig(

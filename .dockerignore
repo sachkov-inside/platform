@@ -1,0 +1,17 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+.inside-harness
+.playwright-cli
+examples/dockerfiles
+**/.next
+**/coverage
+**/dist
+**/node_modules
+**/playwright-report
+**/storybook-static
+**/test-results
+*.log
+**/*.tsbuildinfo

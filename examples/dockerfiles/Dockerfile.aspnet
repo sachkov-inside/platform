@@ -1,0 +1,12 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine
+
+WORKDIR /app
+
+COPY . .
+
+RUN dotnet restore
+RUN dotnet publish --configuration Release --output /app/publish
+
+EXPOSE 8080
+
+CMD ["dotnet", "/app/publish/App.dll"]

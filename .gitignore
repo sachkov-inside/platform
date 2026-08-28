@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.server.example
 .next/
 .impeccable/review/
 .identity-proof/

@@ -14,10 +14,14 @@ import { assembleAccounts } from "./facets/accounts/assemble-accounts.js";
 import type { Accounts } from "./facets/accounts/accounts.interface.js";
 import { ACCOUNTS, LOGTO_ACCESS_TOKEN_VERIFIER } from "./accounts.tokens.js";
 import {
+  createDisabledAccessTokenVerifier,
   createLogtoAccessTokenVerifier,
   type LogtoAccessTokenVerifier,
 } from "./infrastructure/idp/logto/logto-access-token-verifier.js";
 import { AccountGuard } from "./adapters/nest/account.guard.js";
+
+const DISABLED_IDENTITY_EMAIL_FINGERPRINT_KEY =
+  "disabled-identity-email-fingerprint-key";
 
 @Module({
   imports: [PrismaModule],
@@ -32,18 +36,24 @@ import { AccountGuard } from "./adapters/nest/account.guard.js";
       ): Accounts =>
         assembleAccounts({
           prisma,
-          emailFingerprintKey: config.identity.emailFingerprintKey,
+          emailFingerprintKey: config.identity.enabled
+            ? config.identity.emailFingerprintKey
+            : DISABLED_IDENTITY_EMAIL_FINGERPRINT_KEY,
         }),
     },
     {
       provide: LOGTO_ACCESS_TOKEN_VERIFIER,
       inject: [PLATFORM_CONFIG],
-      useFactory: (config: PlatformConfig): LogtoAccessTokenVerifier =>
-        createLogtoAccessTokenVerifier({
+      useFactory: (config: PlatformConfig): LogtoAccessTokenVerifier => {
+        if (!config.identity.enabled) {
+          return createDisabledAccessTokenVerifier();
+        }
+        return createLogtoAccessTokenVerifier({
           issuer: config.identity.issuer,
           audience: config.identity.audience,
           jwksUrl: config.identity.jwksUrl,
-        }),
+        });
+      },
     },
     AccountGuard,
   ],

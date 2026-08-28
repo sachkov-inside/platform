@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:18.4-alpine
+    ports:
+      - "55432:5432"
+    environment:
+      POSTGRES_DB: inside
+      POSTGRES_USER: inside
+      POSTGRES_PASSWORD: inside
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://inside:inside@postgres:5432/inside
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      BACKEND_BASE_URL: http://backend:3001
+      LOGTO_ENDPOINT: https://identity.inside.localhost:3301
+      LOGTO_AUDIENCE: http://127.0.0.1:3001
+      LOGTO_APP_ID: inside-web-local
+      LOGTO_APP_SECRET: inside-web-local-confidential-secret
+      LOGTO_COOKIE_SECRET: inside-local-logto-cookie-secret-key
+      WEB_BASE_URL: http://127.0.0.1:3000
+
+volumes:
+  postgres-data:
