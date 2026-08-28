@@ -40,6 +40,8 @@ type CheckedEvidenceCommand = Omit<
   "deliveryId" | "source"
 > &
   z.infer<typeof commandMetadataSchema>;
+type EvidenceDeliveryId = CheckedEvidenceCommand["deliveryId"];
+type AccountBindingState = "matches" | "missing" | "mismatch";
 
 const bindingRowsSchema = z.array(
   z
@@ -121,7 +123,10 @@ export async function acceptMembershipEvidence(
       throw new Error("Evidence receipt disappeared inside its transaction");
     }
     if (inserted === 0) {
-      return existingReceiptResult(receipt, requestFingerprint);
+      const existing = existingReceiptResult(receipt, requestFingerprint);
+      if (existing !== "retry") {
+        return existing;
+      }
     }
 
     if (!validation.ok) {
@@ -136,6 +141,26 @@ export async function acceptMembershipEvidence(
       where: { deliveryId: checkedCommand.deliveryId },
       data: evidenceReceiptMetadata(validation.value),
     });
+
+    const bindingState = await checkAccountBinding(
+      transaction,
+      checkedCommand,
+      validation.value,
+      now,
+    );
+    if (bindingState === "mismatch") {
+      return finishFailure(
+        transaction,
+        checkedCommand.deliveryId,
+        "principal_mismatch",
+      );
+    }
+    if (
+      bindingState === "missing" &&
+      checkedCommand.source !== "link_time"
+    ) {
+      return awaitAccountBinding(transaction, checkedCommand.deliveryId);
+    }
 
     if (
       validation.value.decision !== "member" &&
@@ -152,19 +177,8 @@ export async function acceptMembershipEvidence(
       });
       return result;
     }
-
-    const bindingMatches = await ensureAccountBinding(
-      transaction,
-      checkedCommand,
-      validation.value,
-      now,
-    );
-    if (!bindingMatches) {
-      return finishFailure(
-        transaction,
-        checkedCommand.deliveryId,
-        "principal_mismatch",
-      );
+    if (bindingState === "missing") {
+      return awaitAccountBinding(transaction, checkedCommand.deliveryId);
     }
 
     const applied = await applyObservedEvidence(
@@ -189,20 +203,25 @@ export async function acceptMembershipEvidence(
   });
 }
 
-async function ensureAccountBinding(
+async function checkAccountBinding(
   transaction: MembershipEntitlementsPrismaTransaction,
   command: CheckedEvidenceCommand,
-  evidence: ObservedMembershipEvidence,
+  evidence: MembershipEvidence,
   now: Date,
-): Promise<boolean> {
-  await transaction.$executeRaw(Prisma.sql`
-    insert into membership_entitlements.account_bindings (
-      account_id,
-      principal_ref,
-      linked_at
-    ) values (${command.accountId}::uuid, ${evidence.principalRef}, ${now})
-    on conflict do nothing
-  `);
+): Promise<AccountBindingState> {
+  if (
+    command.source === "link_time" &&
+    (evidence.decision === "member" || evidence.decision === "not_member")
+  ) {
+    await transaction.$executeRaw(Prisma.sql`
+      insert into membership_entitlements.account_bindings (
+        account_id,
+        principal_ref,
+        linked_at
+      ) values (${command.accountId}::uuid, ${evidence.principalRef}, ${now})
+      on conflict do nothing
+    `);
+  }
   const bindings = bindingRowsSchema.parse(
     await transaction.$queryRaw(Prisma.sql`
       select account_id::text, principal_ref
@@ -213,11 +232,16 @@ async function ensureAccountBinding(
       for update
     `),
   );
+  if (bindings.length === 0) {
+    return "missing";
+  }
   return (
     bindings.length === 1 &&
     bindings[0]?.account_id === command.accountId &&
     bindings[0].principal_ref === evidence.principalRef
-  );
+  )
+    ? "matches"
+    : "mismatch";
 }
 
 async function applyObservedEvidence(
@@ -332,7 +356,7 @@ function appliedResult(
 
 async function finishFailure(
   transaction: MembershipEntitlementsPrismaTransaction,
-  deliveryId: string,
+  deliveryId: EvidenceDeliveryId,
   code: Exclude<MembershipEvidenceFailureCode, "unavailable">,
 ): Promise<MembershipEvidenceAcceptance> {
   await transaction.membershipEvidenceReceipt.update({
@@ -340,6 +364,17 @@ async function finishFailure(
     data: { outcome: code },
   });
   return failure(code);
+}
+
+async function awaitAccountBinding(
+  transaction: MembershipEntitlementsPrismaTransaction,
+  deliveryId: EvidenceDeliveryId,
+): Promise<MembershipEvidenceAcceptance> {
+  await transaction.membershipEvidenceReceipt.update({
+    where: { deliveryId },
+    data: { outcome: "awaiting_binding" },
+  });
+  return { ok: false, error: { code: "unavailable" } };
 }
 
 function existingReceiptResult(
@@ -350,7 +385,7 @@ function existingReceiptResult(
     readonly evidenceVersion: bigint | null;
   },
   requestFingerprint: string,
-): MembershipEvidenceAcceptance {
+): MembershipEvidenceAcceptance | "retry" {
   if (receipt.requestFingerprint !== requestFingerprint) {
     return failure("invalid_evidence");
   }
@@ -396,6 +431,8 @@ function existingReceiptResult(
     case "expired_evidence":
     case "replayed_evidence":
       return failure(receipt.outcome);
+    case "awaiting_binding":
+      return "retry";
     case "processing":
       break;
   }

@@ -140,6 +140,12 @@ describe("MembershipEntitlements", () => {
   test("deduplicates concurrent delivery and converges out of order to the newest version", async () => {
     currentTime = new Date(corpus.clock);
     const racingAccountId = accountId("92000000-0000-4000-8000-000000000000");
+    const racingEvent = {
+      accountId: racingAccountId,
+      deliveryId: "racing-event",
+      source: "member_status_event" as const,
+      evidence: observedEvidence("racing-principal", "not_member", 2),
+    };
     await Promise.all([
       accept(
         membershipEntitlements,
@@ -148,14 +154,9 @@ describe("MembershipEntitlements", () => {
         "link_time",
         observedEvidence("racing-principal", "member", 1),
       ),
-      accept(
-        membershipEntitlements,
-        racingAccountId,
-        "racing-event",
-        "member_status_event",
-        observedEvidence("racing-principal", "not_member", 2),
-      ),
+      membershipEntitlements.acceptEvidence(racingEvent),
     ]);
+    await membershipEntitlements.acceptEvidence(racingEvent);
     await expect(
       testDatabase.prisma.membershipProjection.findUnique({
         where: { accountId: racingAccountId },
@@ -211,6 +212,89 @@ describe("MembershipEntitlements", () => {
         where: { deliveryId: "concurrent-identical" },
       }),
     ).resolves.toBe(1);
+  });
+
+  test("lets only link-time evidence establish a binding and retries earlier events", async () => {
+    const targetAccountId = accountId("92000000-0000-4000-8000-000000000002");
+    const misroutedEvent = {
+      accountId: targetAccountId,
+      deliveryId: "event-before-link",
+      source: "member_status_event" as const,
+      evidence: observedEvidence("wrong-principal", "member", 2),
+    };
+
+    await expect(
+      membershipEntitlements.acceptEvidence(misroutedEvent),
+    ).resolves.toEqual({ ok: false, error: { code: "unavailable" } });
+    await expect(
+      testDatabase.prisma.membershipBinding.count(),
+    ).resolves.toBe(0);
+    await expect(
+      testDatabase.prisma.membershipEvidenceReceipt.findUniqueOrThrow({
+        where: { deliveryId: misroutedEvent.deliveryId },
+      }),
+    ).resolves.toMatchObject({ outcome: "awaiting_binding" });
+
+    await expect(
+      accept(
+        membershipEntitlements,
+        targetAccountId,
+        "authoritative-link",
+        "link_time",
+        observedEvidence("right-principal", "member", 1),
+      ),
+    ).resolves.toMatchObject({ ok: true, outcome: "applied" });
+    await expect(
+      membershipEntitlements.acceptEvidence(misroutedEvent),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "principal_mismatch" },
+    });
+    await expect(
+      testDatabase.prisma.membershipBinding.findUniqueOrThrow({
+        where: { accountId: targetAccountId },
+      }),
+    ).resolves.toMatchObject({ principalRef: "right-principal" });
+    await expect(
+      testDatabase.prisma.membershipProjection.findUniqueOrThrow({
+        where: { accountId: targetAccountId },
+      }),
+    ).resolves.toMatchObject({ evidenceVersion: 1n, decision: "member" });
+
+    const unboundAccountId = accountId("92000000-0000-4000-8000-000000000003");
+    const unavailableEvidence = {
+      contractVersion: "inside.membership-evidence.v1",
+      principalRef: "unbound-principal",
+      decision: "unavailable",
+      reasonCode: "provider_unavailable",
+    };
+    await expect(
+      accept(
+        membershipEntitlements,
+        unboundAccountId,
+        "unbound-reconciliation",
+        "reconciliation",
+        unavailableEvidence,
+      ),
+    ).resolves.toEqual({ ok: false, error: { code: "unavailable" } });
+    await expect(
+      accept(
+        membershipEntitlements,
+        unboundAccountId,
+        "unbound-link-result",
+        "link_time",
+        unavailableEvidence,
+      ),
+    ).resolves.toEqual({
+      ok: true,
+      outcome: "accepted_without_entitlement",
+      decision: "unavailable",
+    });
+    await expect(
+      testDatabase.prisma.membershipBinding.findUnique({
+        where: { accountId: unboundAccountId },
+      }),
+    ).resolves.toBeNull();
   });
 
   test("rejects unchecked delivery metadata before persistence", async () => {

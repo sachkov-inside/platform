@@ -45,6 +45,7 @@ export const statement = `
     constraint membership_evidence_receipts_outcome_check check (
       outcome in (
         'processing',
+        'awaiting_binding',
         'applied',
         'accepted_without_entitlement',
         'duplicate',

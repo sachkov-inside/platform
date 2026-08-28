@@ -56,8 +56,8 @@ export type MembershipEvidenceAcceptance =
 export interface MembershipEntitlements {
   resolveForAccess(accountId: AccountId): Promise<MembershipAccessState>;
   /**
-   * Applies normalized evidence monotonically. The first observed evidence from any trusted
-   * source may establish a missing Account binding; an existing different binding fails closed.
+   * Applies normalized evidence monotonically. Only link-time observed evidence may establish a
+   * missing Account binding; events and reconciliation wait for it, and mismatches fail closed.
    */
   acceptEvidence(
     command: AcceptMembershipEvidenceCommand,

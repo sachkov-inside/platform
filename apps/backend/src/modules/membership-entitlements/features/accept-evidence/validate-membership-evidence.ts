@@ -3,15 +3,29 @@ import { z } from "zod";
 const CONTRACT_VERSION = "inside.membership-evidence.v1";
 const MAX_EVIDENCE_VALIDITY_MS = 5 * 60 * 1_000;
 
-const opaqueRef = z.string().min(1).max(256);
+const principalRefSchema = z
+  .string()
+  .min(1)
+  .max(256)
+  .brand<"MembershipPrincipalRef">();
+const telegramIdentityRefSchema = z
+  .string()
+  .min(1)
+  .max(256)
+  .brand<"TelegramIdentityRef">();
+const evidenceRefSchema = z
+  .string()
+  .min(1)
+  .max(256)
+  .brand<"MembershipEvidenceRef">();
 const observedEvidenceBase = z
   .object({
     contractVersion: z.literal(CONTRACT_VERSION),
-    principalRef: opaqueRef,
+    principalRef: principalRefSchema,
     checkedAt: z.iso.datetime({ offset: true }),
     validUntil: z.iso.datetime({ offset: true }),
-    telegramIdentityRef: opaqueRef,
-    evidenceRef: opaqueRef,
+    telegramIdentityRef: telegramIdentityRefSchema,
+    evidenceRef: evidenceRefSchema,
     evidenceVersion: z.number().int().positive(),
   })
   .strict();
@@ -28,7 +42,7 @@ const membershipEvidenceSchema = z.discriminatedUnion("decision", [
   z
     .object({
       contractVersion: z.literal(CONTRACT_VERSION),
-      principalRef: opaqueRef,
+      principalRef: principalRefSchema,
       decision: z.literal("identity_not_linked"),
       reasonCode: z.literal("identity_not_linked"),
     })
@@ -36,19 +50,19 @@ const membershipEvidenceSchema = z.discriminatedUnion("decision", [
   z
     .object({
       contractVersion: z.literal(CONTRACT_VERSION),
-      principalRef: opaqueRef,
+      principalRef: principalRefSchema,
       decision: z.literal("identity_conflict"),
       reasonCode: z.literal("identity_conflict"),
-      telegramIdentityRef: opaqueRef.optional(),
+      telegramIdentityRef: telegramIdentityRefSchema.optional(),
     })
     .strict(),
   z
     .object({
       contractVersion: z.literal(CONTRACT_VERSION),
-      principalRef: opaqueRef,
+      principalRef: principalRefSchema,
       decision: z.literal("unavailable"),
       reasonCode: z.literal("provider_unavailable"),
-      telegramIdentityRef: opaqueRef.optional(),
+      telegramIdentityRef: telegramIdentityRefSchema.optional(),
     })
     .strict(),
 ]);
