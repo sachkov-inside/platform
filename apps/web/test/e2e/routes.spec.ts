@@ -51,6 +51,34 @@ test("guest shell exposes a server-owned sign-in mutation on desktop and mobile"
   await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute("method", "post");
 });
 
+test("authoring route owns a dedicated shell outside the public application shell", async ({
+  page,
+}, testInfo) => {
+  test.skip(navigationMode(testInfo.project.name) !== "desktop");
+
+  await page.goto("/authoring/materials/new");
+
+  await expect(page.getByRole("heading", { name: "Нет доступа к редактору" })).toBeVisible();
+  const signIn = page.getByRole("button", { name: "Войти" });
+  await expect(signIn).toBeEnabled();
+  await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute(
+    "action",
+    "/auth/sign-in",
+  );
+  await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute("method", "post");
+  await expect(page.getByRole("complementary", { name: "Боковая панель" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Основная" })).toHaveCount(0);
+  const authoringSidebar = page.getByRole("complementary", { name: "Authoring" });
+  await expect(authoringSidebar).toBeVisible();
+  await expect(page.getByRole("main")).toHaveCount(1);
+
+  const sidebarBox = await authoringSidebar.boundingBox();
+  const box = await page.getByRole("main").boundingBox();
+  expect(sidebarBox?.x).toBe(0);
+  expect(box?.x).toBe(sidebarBox?.width);
+  expect((box?.width ?? 0) + (sidebarBox?.width ?? 0)).toBe(1_440);
+});
+
 test("auth control hydrates without a server-client mismatch", async ({ page }) => {
   const hydrationErrors: string[] = [];
   page.on("console", (message) => {

@@ -19,11 +19,20 @@ const contentVersion = 3;
 export const savedContentVersion = 4;
 
 export const materialAuthoringPresentation = {
+  availableFormats: [
+    { label: "Гайд", value: "94000000-0000-4000-8000-000000000011" },
+    { label: "Видео", value: "94000000-0000-4000-8000-000000000012" },
+  ],
+  availableTags: [
+    { label: "delivery", value: "94000000-0000-4000-8000-000000000021" },
+    { label: "agents", value: "94000000-0000-4000-8000-000000000022" },
+    { label: "developer pipeline", value: "94000000-0000-4000-8000-000000000023" },
+  ],
   availableTopics: [
-    { label: "AI для разработчиков", value: "ai-for-developers" },
-    { label: "Инженерный менеджмент", value: "engineering-management" },
-    { label: "Архитектура", value: "architecture" },
-    { label: "Developer experience", value: "developer-experience" },
+    { label: "AI для разработчиков", value: "94000000-0000-4000-8000-000000000031" },
+    { label: "Инженерный менеджмент", value: "94000000-0000-4000-8000-000000000032" },
+    { label: "Архитектура", value: "94000000-0000-4000-8000-000000000033" },
+    { label: "Developer experience", value: "94000000-0000-4000-8000-000000000034" },
   ],
   authorization: { kind: "allowed" },
   blocking: { kind: "none" },
@@ -70,17 +79,22 @@ export const materialAuthoringPresentation = {
         },
       ],
     },
-    format: "Guide",
+    formatId: "94000000-0000-4000-8000-000000000011",
     materialId: "mat_developer_pipeline",
     contentVersion,
-    slug: "developer-pipeline-bez-magii",
+    readOnly: false,
     status: "draft",
     summary: "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
-    tags: "developer pipeline, agents, delivery",
+    tagIds: [
+      "94000000-0000-4000-8000-000000000021",
+      "94000000-0000-4000-8000-000000000022",
+      "94000000-0000-4000-8000-000000000023",
+    ],
     title: "Developer Pipeline без магии",
-    topic: "ai-for-developers",
+    topicId: "94000000-0000-4000-8000-000000000031",
   },
   mode: "editor",
+  noticeRevision: 0,
   preview: {
     accessLabel: "Для участников",
     blocks: [
@@ -124,6 +138,8 @@ export const materialAuthoringPresentation = {
     topic: "AI для разработчиков",
   },
   save: { kind: "clean" },
+  submissionId: "94000000-0000-4000-8000-000000000001",
+  validation: { kind: "idle" },
 } as const satisfies MaterialAuthoringPresentation;
 
 export const savedAfterEditingPresentation = {
@@ -132,15 +148,14 @@ export const savedAfterEditingPresentation = {
     ...materialAuthoringPresentation.draft,
     contentVersion: savedContentVersion,
     title: "Новая версия Developer Pipeline",
-    topic: "architecture",
   },
   preview: {
     ...materialAuthoringPresentation.preview,
     contentVersion: savedContentVersion,
     title: "Новая версия Developer Pipeline",
-    topic: "Архитектура",
   },
   save: { kind: "saved", savedAtLabel: "12:41" },
+  validation: { headingCount: 1, kind: "valid", plainTextLength: 214 },
 } as const satisfies MaterialAuthoringPresentation;
 
 export const emptyMaterialAuthoringPresentation = {
@@ -149,15 +164,14 @@ export const emptyMaterialAuthoringPresentation = {
     ...materialAuthoringPresentation.draft,
     access: "free",
     document: { type: "doc", content: [{ type: "paragraph" }] },
-    format: "Текст",
+    formatId: "unassigned",
     materialId: null,
     contentVersion: null,
-    slug: "",
     status: "new",
     summary: "",
-    tags: "",
+    tagIds: [],
     title: "",
-    topic: "",
+    topicId: "unassigned",
   },
   preview: null,
 } as const satisfies MaterialAuthoringPresentation;

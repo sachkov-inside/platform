@@ -130,8 +130,9 @@ describe("Logto BFF configuration", () => {
 
   it("derives the SDK cookie key and accepts only same-origin mutations", () => {
     expect(logtoSessionCookieName("inside-web")).toBe("logto_inside-web");
-    expect(hasLogtoSessionCookie(["theme", "logto_inside-web"])).toBe(true);
-    expect(hasLogtoSessionCookie(["theme", "logto_"])).toBe(false);
+    expect(hasLogtoSessionCookie(["theme", "logto_inside-web"], "inside-web")).toBe(true);
+    expect(hasLogtoSessionCookie(["theme", "logto_previous-app"], "inside-web")).toBe(false);
+    expect(hasLogtoSessionCookie(["theme", "logto_"], "inside-web")).toBe(false);
     expect(
       isSameOriginMutation(
         new Request("https://inside.example.test/auth/sign-in", {

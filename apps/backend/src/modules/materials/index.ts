@@ -87,6 +87,7 @@ export {
 export { CreateDraftController } from "./features/create-draft/create-draft.controller.js";
 export { DeleteDraftController } from "./features/delete-draft/delete-draft.controller.js";
 export { LoadMaterialController } from "./features/load-material/load-material.controller.js";
+export { ListAuthoringReferencesController } from "./features/list-authoring-references/list-authoring-references.controller.js";
 export { PreviewMaterialController } from "./features/preview-material/preview-material.controller.js";
 export { ReadPublishedMaterialController } from "./features/read-published-material/read-published-material.controller.js";
 export { SaveMaterialController } from "./features/save-material/save-material.controller.js";

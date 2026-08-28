@@ -1,6 +1,9 @@
 import { cookies } from "next/headers";
 
-import { hasLogtoSessionCookie } from "@/shared/auth/index.server";
+import {
+  hasLogtoSessionCookie,
+  readLogtoBffConfig,
+} from "@/shared/auth/index.server";
 import { type AuthControlState } from "@/widgets/auth-control";
 
 import { AuthStatusControl } from "./auth-status-control.client";
@@ -20,7 +23,9 @@ export function AuthControlFallback({ presentation }: AuthAccountSlotProps) {
 
 async function resolveAuthControlState(): Promise<AuthControlState> {
   const cookieNames = (await cookies()).getAll().map(({ name }) => name);
-  return hasLogtoSessionCookie(cookieNames) ? "authenticated" : "guest";
+  return hasLogtoSessionCookie(cookieNames, readLogtoBffConfig().appId)
+    ? "authenticated"
+    : "guest";
 }
 
 function renderControl(

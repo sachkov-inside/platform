@@ -14,15 +14,15 @@ export interface MaterialSelectOption {
 export interface MaterialDraftPresentation {
   readonly access: "free" | "membership";
   readonly document: JSONContent;
-  readonly format: string;
+  readonly formatId: string;
   readonly materialId: string | null;
   readonly contentVersion: number | null;
-  readonly slug: string;
+  readonly readOnly: boolean;
   readonly status: "draft" | "new";
   readonly summary: string;
-  readonly tags: string;
+  readonly tagIds: readonly string[];
   readonly title: string;
-  readonly topic: string;
+  readonly topicId: string;
 }
 
 export type MaterialPreviewMark =
@@ -72,6 +72,25 @@ export interface MaterialPreviewPresentation {
   readonly topic: string;
 }
 
+export interface MaterialValidationIssue {
+  readonly message: string;
+  readonly path: string;
+}
+
+export type MaterialValidationState =
+  | { readonly kind: "idle" }
+  | { readonly kind: "checking" }
+  | {
+      readonly issues: readonly MaterialValidationIssue[];
+      readonly kind: "invalid";
+      readonly scope: "input" | "publication";
+    }
+  | {
+      readonly headingCount: number;
+      readonly kind: "valid";
+      readonly plainTextLength: number;
+    };
+
 export type MaterialWorkspaceBlockingState =
   | { readonly kind: "none" }
   | {
@@ -85,6 +104,8 @@ export type MaterialWorkspaceBlockingState =
     };
 
 export interface MaterialAuthoringPresentation {
+  readonly availableFormats: readonly MaterialSelectOption[];
+  readonly availableTags: readonly MaterialSelectOption[];
   readonly availableTopics: readonly MaterialSelectOption[];
   readonly authorization:
     | { readonly kind: "allowed" }
@@ -92,18 +113,19 @@ export interface MaterialAuthoringPresentation {
   readonly blocking: MaterialWorkspaceBlockingState;
   readonly draft: MaterialDraftPresentation;
   readonly mode: "editor" | "preview";
+  readonly noticeRevision: number;
   readonly preview: MaterialPreviewPresentation | null;
   readonly save: MaterialSaveState;
+  readonly submissionId: string;
+  readonly validation: MaterialValidationState;
 }
 
 export type MaterialDraftField =
   | "access"
-  | "format"
-  | "slug"
+  | "formatId"
   | "summary"
-  | "tags"
   | "title"
-  | "topic";
+  | "topicId";
 
 export interface MaterialAuthoringActions {
   readonly onBack: () => void;
@@ -113,5 +135,6 @@ export interface MaterialAuthoringActions {
   readonly onOpenPreview: () => void;
   readonly onRetry: () => void;
   readonly onReturnToEditor: () => void;
-  readonly onSave: () => void;
+  readonly onSave: (formData: FormData) => void;
+  readonly onTagToggle: (tagId: string, checked: boolean) => void;
 }

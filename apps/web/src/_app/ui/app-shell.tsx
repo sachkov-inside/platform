@@ -24,6 +24,10 @@ const navigationItems = [
 export function AppShell({ children, desktopAccountSlot, mobileAccountSlot }: AppShellProps) {
   const pathname = usePathname();
 
+  if (pathname.startsWith("/authoring/")) {
+    return children;
+  }
+
   return (
     <ApplicationShell
       accountLabel="Гость"

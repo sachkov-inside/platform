@@ -2,7 +2,10 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { getAccessToken } from "@logto/next/server-actions";
+import {
+  getAccessToken,
+  getAccessTokenRSC,
+} from "@logto/next/server-actions";
 import { cookies } from "next/headers";
 
 import {
@@ -22,17 +25,31 @@ export class LogtoSessionUnavailableError extends Error {
 export async function getPlatformAccessToken(
   config: ResolvedLogtoBffConfig,
 ): Promise<string> {
+  return getPlatformAccessTokenWith(config, "mutable", getAccessToken);
+}
+
+export async function getPlatformAccessTokenRsc(
+  config: ResolvedLogtoBffConfig,
+): Promise<string> {
+  return getPlatformAccessTokenWith(config, "rsc", getAccessTokenRSC);
+}
+
+async function getPlatformAccessTokenWith(
+  config: ResolvedLogtoBffConfig,
+  mode: "mutable" | "rsc",
+  readAccessToken: typeof getAccessToken,
+): Promise<string> {
   const session = (await cookies()).get(logtoSessionCookieName(config.appId))?.value;
   if (session === undefined) {
     throw new LogtoSessionUnavailableError();
   }
-  const flightKey = createHash("sha256").update(session).digest("hex");
+  const flightKey = `${mode}:${createHash("sha256").update(session).digest("hex")}`;
   const active = refreshFlights.get(flightKey);
   if (active !== undefined) {
     return active;
   }
 
-  const pending = getAccessToken(config, config.audience).finally(() => {
+  const pending = readAccessToken(config, config.audience).finally(() => {
     if (refreshFlights.get(flightKey) === pending) {
       refreshFlights.delete(flightKey);
     }
