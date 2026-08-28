@@ -12,11 +12,16 @@ export type MaterialResource = Readonly<{
   materialId: MaterialId;
 }>;
 
-export type AccessAction = "read" | "preview";
+export type AccessAction = "read" | "preview" | "download" | "play";
 
 export type EnforcementPoint =
   | "published_material_read"
-  | "material_preview";
+  | "material_preview"
+  | "mcp_material_read"
+  | "asset_delivery"
+  | "download_delivery"
+  | "playback_token_issue"
+  | "video_authorization_callback";
 
 export interface AccessOperation {
   readonly itemId: string;
@@ -64,6 +69,7 @@ export type DenyReason =
   | "permission_required"
   | "resource_unpublished"
   | "resource_not_found"
+  | "resource_mismatch"
   | "resource_action_invalid"
   | "dependency_unavailable";
 

@@ -36,9 +36,8 @@ describe("Prisma schema", () => {
       testDatabase.prisma.publishedMaterialTag.count(),
       testDatabase.prisma.publishedMaterialSeriesMembership.count(),
       testDatabase.prisma.materialSearchDocument.count(),
-      testDatabase.prisma.materialAccessAuditEvent.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 19 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 18 }, () => 0));
   });
 });

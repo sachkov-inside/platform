@@ -7,12 +7,244 @@ import {
 import {
   assembleContentAccess,
   type MaterialResourceFacts,
+  type MembershipAccessState,
+  type Subject,
 } from "../../src/modules/content-access/index.js";
 import { materialId } from "../../src/modules/materials/domain/material-identifiers.js";
 
 const accountId = checkedAccountId("81000000-0000-4000-8000-000000000001");
+const decidedAt = "2026-08-27T13:00:00.000Z";
+const activeUntil = "2026-08-27T13:05:00.000Z";
+
+interface PolicyActor {
+  readonly name: string;
+  readonly subject: Subject;
+  readonly managesMaterials: boolean;
+  readonly membership: MembershipAccessState;
+}
+
+interface ExpectedDecision {
+  readonly effect: "allow" | "deny";
+  readonly reason:
+    | "public_resource"
+    | "materials_manager"
+    | "active_membership"
+    | "authentication_required"
+    | "membership_required"
+    | "membership_expired"
+    | "permission_required"
+    | "resource_unpublished";
+  readonly validUntil?: string;
+}
+
+type ExpectedAvailability = "available" | "locked" | "unavailable";
+
+interface ExpectedOutcome {
+  readonly decision: ExpectedDecision;
+  readonly availability: ExpectedAvailability;
+}
+
+interface PolicyMatrixRow {
+  readonly name: string;
+  readonly facts: MaterialResourceFacts;
+  readonly action: "read" | "preview";
+  readonly outcomes: readonly ExpectedOutcome[];
+}
+
+const policyActors: readonly PolicyActor[] = [
+  {
+    name: "anonymous",
+    subject: { kind: "anonymous" },
+    managesMaterials: false,
+    membership: { kind: "required" },
+  },
+  {
+    name: "Account without Membership",
+    subject: { kind: "account", accountId },
+    managesMaterials: false,
+    membership: { kind: "required" },
+  },
+  {
+    name: "active member",
+    subject: { kind: "account", accountId },
+    managesMaterials: false,
+    membership: { kind: "active", validUntil: activeUntil },
+  },
+  {
+    name: "expired member",
+    subject: { kind: "account", accountId },
+    managesMaterials: false,
+    membership: { kind: "expired" },
+  },
+  {
+    name: "materials manager",
+    subject: { kind: "account", accountId },
+    managesMaterials: true,
+    membership: { kind: "required" },
+  },
+];
+
+const publicOutcomes = policyActors.map(() =>
+  expectedOutcome("available", "allow", "public_resource"),
+);
+const protectedReadOutcomes = [
+  expectedOutcome("locked", "deny", "authentication_required"),
+  expectedOutcome("locked", "deny", "membership_required"),
+  expectedOutcome("available", "allow", "active_membership", activeUntil),
+  expectedOutcome("locked", "deny", "membership_expired"),
+  expectedOutcome("available", "allow", "materials_manager"),
+] as const;
+const freePreviewOutcomes = previewOutcomes("unavailable");
+const membershipPreviewOutcomes = previewOutcomes("locked");
+const draftPreviewOutcomes = previewOutcomes("unavailable", "unavailable");
+const unpublishedOutcomes = policyActors.map(() =>
+  expectedOutcome("unavailable", "deny", "resource_unpublished"),
+);
+
+const policyMatrix: readonly PolicyMatrixRow[] = [
+  {
+    name: "published free read",
+    facts: { ...membershipMaterial(20), access: "free" },
+    action: "read",
+    outcomes: publicOutcomes,
+  },
+  {
+    name: "published membership read",
+    facts: membershipMaterial(21),
+    action: "read",
+    outcomes: protectedReadOutcomes,
+  },
+  {
+    name: "published free Preview",
+    facts: { ...membershipMaterial(22), access: "free" },
+    action: "preview",
+    outcomes: freePreviewOutcomes,
+  },
+  {
+    name: "published membership Preview",
+    facts: membershipMaterial(23),
+    action: "preview",
+    outcomes: membershipPreviewOutcomes,
+  },
+  {
+    name: "draft free Preview",
+    facts: {
+      ...membershipMaterial(24),
+      publicationState: "draft",
+      access: "free",
+    },
+    action: "preview",
+    outcomes: draftPreviewOutcomes,
+  },
+  {
+    name: "draft membership Preview",
+    facts: { ...membershipMaterial(25), publicationState: "draft" },
+    action: "preview",
+    outcomes: draftPreviewOutcomes,
+  },
+  {
+    name: "draft free read",
+    facts: {
+      ...membershipMaterial(26),
+      publicationState: "draft",
+      access: "free",
+    },
+    action: "read",
+    outcomes: unpublishedOutcomes,
+  },
+  {
+    name: "draft membership read",
+    facts: { ...membershipMaterial(27), publicationState: "draft" },
+    action: "read",
+    outcomes: unpublishedOutcomes,
+  },
+  {
+    name: "unpublished free read",
+    facts: {
+      ...membershipMaterial(28),
+      publicationState: "unpublished",
+      access: "free",
+    },
+    action: "read",
+    outcomes: unpublishedOutcomes,
+  },
+  {
+    name: "unpublished membership read",
+    facts: { ...membershipMaterial(29), publicationState: "unpublished" },
+    action: "read",
+    outcomes: unpublishedOutcomes,
+  },
+];
+
+const policyCases = policyMatrix.flatMap((row) =>
+  policyActors.map((actor, actorIndex) => {
+    const expected = row.outcomes[actorIndex];
+    if (expected === undefined) {
+      throw new Error(`Incomplete policy matrix row: ${row.name}`);
+    }
+    return {
+      name: `${row.name} / ${actor.name}`,
+      facts: row.facts,
+      action: row.action,
+      actor,
+      expected,
+    };
+  }),
+);
+
+type PolicyCase = (typeof policyCases)[number];
+
+function assemblePolicyContentAccess(policyCase: PolicyCase) {
+  return assembleContentAccess({
+    materialResourceFacts: {
+      findMany: () => Promise.resolve([policyCase.facts]),
+      findOne: () => Promise.resolve(policyCase.facts),
+    },
+    accountPermissions: {
+      hasMaterialsManage: () =>
+        Promise.resolve(policyCase.actor.managesMaterials),
+    },
+    membershipEntitlements: {
+      resolveForAccess: () => Promise.resolve(policyCase.actor.membership),
+    },
+    clock: () => new Date(decidedAt),
+    decisionId: () => "matrix-decision-id",
+  });
+}
 
 describe("ContentAccess availability", () => {
+  test.each(policyCases)("projects $name", async (policyCase) => {
+    const contentAccess = assemblePolicyContentAccess(policyCase);
+
+    await expect(
+      contentAccess.checkAvailabilityMany({
+        subject: policyCase.actor.subject,
+        operations: [
+          {
+            itemId: "matrix-item",
+            resource: {
+              kind: "material",
+              materialId: policyCase.facts.materialId,
+            },
+            action: policyCase.action,
+          },
+        ],
+        enforcementPoint: policyCase.action === "read"
+          ? "published_material_read"
+          : "material_preview",
+        correlationId: "matrix-correlation-id",
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      items: [
+        {
+          itemId: "matrix-item",
+          availability: policyCase.expected.availability,
+        },
+      ],
+    });
+  });
+
   test.each([1, 100])(
     "loads Material and subject facts a fixed number of times for N=%i",
     async (size) => {
@@ -179,6 +411,126 @@ describe("ContentAccess availability", () => {
 });
 
 describe("ContentAccess authorization", () => {
+  test.each(policyCases)("decides $name", async (policyCase) => {
+    const contentAccess = assemblePolicyContentAccess(policyCase);
+    const expectedDecision = {
+      decisionId: "matrix-decision-id",
+      policyVersion: "content-access-v1",
+      decidedAt,
+      ...policyCase.expected.decision,
+      ...(policyCase.expected.decision.effect === "allow"
+        ? { checkedContentVersion: policyCase.facts.contentVersion }
+        : {}),
+    };
+
+    await expect(
+      contentAccess.authorize({
+        subject: policyCase.actor.subject,
+        resource: {
+          kind: "material",
+          materialId: policyCase.facts.materialId,
+        },
+        action: policyCase.action,
+        enforcementPoint: policyCase.action === "read"
+          ? "published_material_read"
+          : "material_preview",
+        correlationId: "matrix-correlation-id",
+      }),
+    ).resolves.toEqual(expectedDecision);
+  });
+
+  test.each([
+    {
+      state: { kind: "stale" as const },
+      reason: "entitlement_stale" as const,
+    },
+    {
+      state: { kind: "unavailable" as const },
+      reason: "dependency_unavailable" as const,
+    },
+  ])("maps Membership $state.kind to $reason", async ({ state, reason }) => {
+    const facts = membershipMaterial(30);
+    const contentAccess = assembleContentAccess({
+      materialResourceFacts: {
+        findMany: () => Promise.resolve([facts]),
+        findOne: () => Promise.resolve(facts),
+      },
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      membershipEntitlements: {
+        resolveForAccess: () => Promise.resolve(state),
+      },
+    });
+
+    await expect(
+      contentAccess.authorize({
+        subject: { kind: "account", accountId },
+        resource: { kind: "material", materialId: facts.materialId },
+        action: "read",
+        enforcementPoint: "published_material_read",
+        correlationId: "membership-state-correlation-id",
+      }),
+    ).resolves.toMatchObject({ effect: "deny", reason });
+  });
+
+  test("keeps resource and permission dependency failures ahead of Membership", async () => {
+    const facts = membershipMaterial(31);
+    let membershipReads = 0;
+    const membershipEntitlements = {
+      resolveForAccess() {
+        membershipReads += 1;
+        return Promise.resolve({ kind: "active" as const, validUntil: activeUntil });
+      },
+    };
+    const request = {
+      subject: { kind: "account" as const, accountId },
+      resource: { kind: "material" as const, materialId: facts.materialId },
+      action: "read" as const,
+      enforcementPoint: "published_material_read" as const,
+      correlationId: "dependency-correlation-id",
+    };
+    const unavailableResource = assembleContentAccess({
+      materialResourceFacts: {
+        findMany: () => Promise.reject(new Error("Materials unavailable")),
+        findOne: () => Promise.reject(new Error("Materials unavailable")),
+      },
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      membershipEntitlements,
+    });
+    const missingResource = assembleContentAccess({
+      materialResourceFacts: {
+        findMany: () => Promise.resolve([]),
+        findOne: () => Promise.resolve(null),
+      },
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      membershipEntitlements,
+    });
+    const unavailablePermission = assembleContentAccess({
+      materialResourceFacts: {
+        findMany: () => Promise.resolve([facts]),
+        findOne: () => Promise.resolve(facts),
+      },
+      accountPermissions: {
+        hasMaterialsManage: () =>
+          Promise.reject(new Error("Accounts unavailable")),
+      },
+      membershipEntitlements,
+    });
+
+    await expect(unavailableResource.authorize(request)).resolves.toMatchObject({
+      effect: "deny",
+      reason: "dependency_unavailable",
+    });
+    await expect(missingResource.authorize(request)).resolves.toMatchObject({
+      effect: "deny",
+      reason: "resource_not_found",
+    });
+    await expect(unavailablePermission.authorize(request)).resolves.toMatchObject({
+      effect: "deny",
+      reason: "dependency_unavailable",
+    });
+    expect(membershipReads).toBe(0);
+  });
+
   test("authorizes a free published Material without private subject facts", async () => {
     let permissionReads = 0;
     let membershipReads = 0;
@@ -226,8 +578,110 @@ describe("ContentAccess authorization", () => {
     });
   });
 
+  test("fails closed when resolved facts do not match the requested Material", async () => {
+    const requested = membershipMaterial(4);
+    const resolved = { ...membershipMaterial(5), access: "free" as const };
+    const contentAccess = assembleContentAccess({
+      materialResourceFacts: {
+        findMany: () => Promise.resolve([resolved]),
+        findOne: () => Promise.resolve(resolved),
+      },
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(true) },
+      membershipEntitlements: {
+        resolveForAccess: () =>
+          Promise.resolve({
+            kind: "active",
+            validUntil: "2026-08-27T13:05:00.000Z",
+          }),
+      },
+      clock: () => new Date("2026-08-27T13:00:00.000Z"),
+      decisionId: () => "mismatch-decision-id",
+    });
+
+    await expect(
+      contentAccess.authorize({
+        subject: { kind: "account", accountId },
+        resource: { kind: "material", materialId: requested.materialId },
+        action: "read",
+        enforcementPoint: "published_material_read",
+        correlationId: "mismatch-correlation-id",
+      }),
+    ).resolves.toEqual({
+      decisionId: "mismatch-decision-id",
+      policyVersion: "content-access-v1",
+      decidedAt: "2026-08-27T13:00:00.000Z",
+      effect: "deny",
+      reason: "resource_mismatch",
+    });
+  });
+
+  test("rejects a body-linked action for Material before private subject reads", async () => {
+    const facts = membershipMaterial(6);
+    let permissionReads = 0;
+    let membershipReads = 0;
+    const contentAccess = assembleContentAccess({
+      materialResourceFacts: {
+        findMany: () => Promise.resolve([facts]),
+        findOne: () => Promise.resolve(facts),
+      },
+      accountPermissions: {
+        hasMaterialsManage() {
+          permissionReads += 1;
+          return Promise.resolve(true);
+        },
+      },
+      membershipEntitlements: {
+        resolveForAccess() {
+          membershipReads += 1;
+          return Promise.resolve({ kind: "active", validUntil: activeUntil });
+        },
+      },
+      clock: () => new Date(decidedAt),
+      decisionId: () => "invalid-action-decision-id",
+    });
+
+    await expect(
+      contentAccess.authorize({
+        subject: { kind: "account", accountId },
+        resource: { kind: "material", materialId: facts.materialId },
+        action: "download",
+        enforcementPoint: "download_delivery",
+        correlationId: "invalid-action-correlation-id",
+      }),
+    ).resolves.toEqual({
+      decisionId: "invalid-action-decision-id",
+      policyVersion: "content-access-v1",
+      decidedAt,
+      effect: "deny",
+      reason: "resource_action_invalid",
+    });
+    await expect(
+      contentAccess.checkAvailabilityMany({
+        subject: { kind: "account", accountId },
+        operations: [
+          {
+            itemId: "invalid-action-item",
+            resource: { kind: "material", materialId: facts.materialId },
+            action: "download",
+          },
+        ],
+        enforcementPoint: "download_delivery",
+        correlationId: "invalid-action-correlation-id",
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      items: [
+        { itemId: "invalid-action-item", availability: "unavailable" },
+      ],
+    });
+    expect({ permissionReads, membershipReads }).toEqual({
+      permissionReads: 0,
+      membershipReads: 0,
+    });
+  });
+
   test("observes permission grant and revoke on the next protected operation", async () => {
-    const facts = membershipMaterial(4);
+    const facts = membershipMaterial(7);
     let managesMaterials = false;
     let permissionReads = 0;
     let membershipReads = 0;
@@ -278,8 +732,45 @@ describe("ContentAccess authorization", () => {
     });
   });
 
+  test("denies Preview without materials:manage before reading Membership", async () => {
+    const facts = membershipMaterial(8);
+    let membershipReads = 0;
+    const contentAccess = assembleContentAccess({
+      materialResourceFacts: {
+        findMany: () => Promise.resolve([facts]),
+        findOne: () => Promise.resolve(facts),
+      },
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      membershipEntitlements: {
+        resolveForAccess() {
+          membershipReads += 1;
+          throw new Error("Membership projection is unavailable");
+        },
+      },
+      clock: () => new Date("2026-08-27T13:00:00.000Z"),
+      decisionId: () => "preview-decision-id",
+    });
+
+    await expect(
+      contentAccess.authorize({
+        subject: { kind: "account", accountId },
+        resource: { kind: "material", materialId: facts.materialId },
+        action: "preview",
+        enforcementPoint: "material_preview",
+        correlationId: "preview-correlation-id",
+      }),
+    ).resolves.toEqual({
+      decisionId: "preview-decision-id",
+      policyVersion: "content-access-v1",
+      decidedAt: "2026-08-27T13:00:00.000Z",
+      effect: "deny",
+      reason: "permission_required",
+    });
+    expect(membershipReads).toBe(0);
+  });
+
   test("does not reuse an active Membership decision across Accounts", async () => {
-    const facts = membershipMaterial(5);
+    const facts = membershipMaterial(9);
     const activeAccountId = checkedAccountId(
       "81000000-0000-4000-8000-000000000002",
     );
@@ -335,4 +826,33 @@ function membershipMaterial(index: number): MaterialResourceFacts {
     access: "membership",
     contentVersion: 1,
   };
+}
+
+function expectedOutcome(
+  availability: ExpectedAvailability,
+  effect: ExpectedDecision["effect"],
+  reason: ExpectedDecision["reason"],
+  validUntil?: string,
+): ExpectedOutcome {
+  return {
+    availability,
+    decision: {
+      effect,
+      reason,
+      ...(validUntil === undefined ? {} : { validUntil }),
+    },
+  };
+}
+
+function previewOutcomes(
+  deniedAvailability: "locked" | "unavailable",
+  managerAvailability: "available" | "unavailable" = "available",
+): readonly ExpectedOutcome[] {
+  return [
+    expectedOutcome(deniedAvailability, "deny", "authentication_required"),
+    expectedOutcome(deniedAvailability, "deny", "permission_required"),
+    expectedOutcome(deniedAvailability, "deny", "permission_required"),
+    expectedOutcome(deniedAvailability, "deny", "permission_required"),
+    expectedOutcome(managerAvailability, "allow", "materials_manager"),
+  ];
 }

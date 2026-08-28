@@ -2,8 +2,9 @@
 
 Статус: repository-local implementation contract для
 [#50](https://github.com/sachkov-inside/platform/issues/50), уточнённый решением
-[#132](https://github.com/sachkov-inside/platform/issues/132) о едином mutable `Material`.
-Документ не добавляет production code.
+[#132](https://github.com/sachkov-inside/platform/issues/132) о едином mutable `Material` и
+owner decision в [#120](https://github.com/sachkov-inside/platform/issues/120) не создавать
+persistent authorization audit в v1.
 
 ## Решение
 
@@ -79,10 +80,11 @@ per-item authorization deny. Полные тела не имеют `readMany`, �
 одного элемента.
 
 `itemId` нужен только для сопоставления availability results. `enforcementPoint` и `correlationId`
-нужны для correlation/audit и не влияют на policy. `EnforcementPoint` — finite vocabulary application operations, которые запрашивают
-решение; transport при необходимости остаётся отдельным telemetry attribute. Opaque local
-resource ID — единственное утверждение caller о resource. Publication, access class, attachment,
-owner, profile, email, Telegram state и provider claims caller не передаёт.
+описывают контекст вызова, не влияют на policy и не требуют persistent write. `EnforcementPoint` —
+finite vocabulary application operations, которые запрашивают решение; transport context остаётся
+за пределами policy. Opaque local resource ID — единственное утверждение caller о resource.
+Publication, access class, attachment, owner, profile, email, Telegram state и provider claims
+caller не передаёт.
 
 ## Принятые authorities
 
@@ -332,25 +334,25 @@ Public projections и free bodies могут быть shared-cacheable. Personal
 path всегда `private, no-store`; protected prefetch, static generation и shared route/data cache
 запрещены. Caller не кэширует availability или decision между requests.
 
-## Audit и privacy
+## Decision metadata и privacy
 
-`authorize` формирует один event для explicit protected allow/deny, preview, credential issue или
-dependency failure. Availability создаёт только summary metrics, а не сотни artificial deny rows.
-Public allows могут быть metrics-only.
+`authorize` возвращает finite reason вместе с `decisionId`, `policyVersion` и `decidedAt`; bounded
+Membership allow также возвращает `validUntil`. Эти значения делают одно решение различимым и
+проверяемым, но сами по себе не создают side effect.
 
-Minimum protected event: decision ID/time, effect/reason, action, enforcement point, opaque
-Account/resource IDs, policy version, correlation ID и — если Membership участвовал — evidence
-version/validity.
-Email, profile, issuer/subject, JWT, Logto cookie, Telegram raw ID, authorization header, signed URL,
-provider token, IP и User-Agent запрещены. Audit context не является policy input. Sink failure не
-может превратить deny в allow; production readiness отдельно доказывает bounded delivery и alerting.
+V1 не создаёт authorization audit schema/table, retention policy/job, telemetry event contract или
+mandatory sink и не выполняет audit write из `authorize`/`checkAvailabilityMany`. К этому контуру
+можно вернуться только при конкретной operational или security потребности с отдельным owner
+decision. Если diagnostics добавятся позже, email, profile, issuer/subject, JWT, Logto cookie,
+Telegram raw ID, authorization header, signed URL и provider token не должны становиться policy
+inputs или persistent authorization facts.
 
 ## Module ownership
 
 ```text
 apps/backend/src/modules/
   accounts/                  # trusted Account resolution + current materials:manage
-  content-access/            # batch orchestration + policy + audit
+  content-access/            # batch orchestration + policy
   membership-entitlements/  # bounded projection + monotonic evidence application
   materials/                 # resource facts adapter + reader/preview consumers
 ```
@@ -382,8 +384,8 @@ Required evidence:
 - concurrency proof: duplicate/out-of-order evidence consumers converge monotonically, inbox retry
   is idempotent and user-facing requests make zero provider calls;
 - page/REST conformance, private-no-store and no cross-Account cache leakage;
-- single authorize audit содержит exact stable fields и ни одного запрещённого identity/provider
-  field; availability создаёт только summary metrics;
+- Prisma schema/migrations не содержат authorization audit table, retention job или mandatory
+  sink; `authorize`/availability не выполняют audit writes;
 - repository checks, architecture fitness functions and Standards + Spec review.
 
 ## Consumer-led implementation slices
@@ -397,12 +399,11 @@ Required evidence:
    PostgreSQL projection, strict validation, deterministic evidence-acceptance adapters, monotonic
    expiry/removal/rejoin behavior and durable inbox/deduplication without any provider call from
    Platform consumers or user-facing reads.
-4. **#120 — policy matrix and authorize audit.** Complete the finite Account/resource/action reason
-   matrix, current permission/Membership coordination, one redacted event per authorize and
-   availability summary metrics.
+4. **#120 — policy matrix.** Complete the finite Account/resource/action reason matrix and current
+   permission/Membership coordination without a persistent authorization audit subsystem.
 5. **#121 — production convergence.** Bind one canonical ContentAccess into reader/preview and
    Library/search availability, remove baseline/caller-supplied policy facts and prove current
-   permission/audit/cache behavior.
+   permission/cache behavior.
 6. **#29 and future delivery owners.** Add user-delegated MCP and Asset/Video adapters only when
    their real consumer exists; all use the same module and conformance corpus.
 

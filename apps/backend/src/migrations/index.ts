@@ -23,6 +23,10 @@ import {
   statement as mutableMaterialsMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0005_mutable_materials.js";
 import {
+  name as removeMaterialAccessAuditMigrationName,
+  statement as removeMaterialAccessAuditMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0007-remove-material-access-audit.js";
+import {
   name as membershipEntitlementsMigrationName,
   statement as membershipEntitlementsMigrationStatement,
 } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0006_membership-entitlements.js";
@@ -51,6 +55,10 @@ const migrations = [
   {
     name: membershipEntitlementsMigrationName,
     statement: membershipEntitlementsMigrationStatement,
+  },
+  {
+    name: removeMaterialAccessAuditMigrationName,
+    statement: removeMaterialAccessAuditMigrationStatement,
   },
 ] as const;
 
