@@ -22,6 +22,7 @@ const outputPath = resolve(
 );
 const temporaryRoot = mkdtempSync(join(tmpdir(), "inside-openapi-"));
 const generatedPath = join(temporaryRoot, "platform-api");
+let exitCode = 0;
 
 try {
   const generation = spawnSync(
@@ -45,26 +46,24 @@ try {
 
   if (generation.status !== 0) {
     process.stderr.write(generation.stderr);
-    process.exit(generation.status ?? 1);
-  }
-
-  if (mode === "generate") {
+    exitCode = generation.status ?? 1;
+  } else if (mode === "generate") {
     rmSync(outputPath, { force: true, recursive: true });
     cpSync(generatedPath, outputPath, { recursive: true });
     process.stdout.write("Generated the Platform API client.\n");
-    process.exit(0);
-  }
-
-  const differences = compareDirectories(outputPath, generatedPath);
-  if (differences.length > 0) {
-    process.stderr.write(
-      `Generated Platform API client is stale:\n${differences.map((entry) => `- ${entry}`).join("\n")}\n`,
-    );
-    process.exit(1);
+  } else {
+    const differences = compareDirectories(outputPath, generatedPath);
+    if (differences.length > 0) {
+      process.stderr.write(
+        `Generated Platform API client is stale:\n${differences.map((entry) => `- ${entry}`).join("\n")}\n`,
+      );
+      exitCode = 1;
+    }
   }
 } finally {
   rmSync(temporaryRoot, { force: true, recursive: true });
 }
+process.exitCode = exitCode;
 
 function compareDirectories(actualRoot, expectedRoot) {
   const actualFiles = listFiles(actualRoot);
