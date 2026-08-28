@@ -21,8 +21,8 @@ supported props; they are not a substitute for named states. Responsive page pro
 
 ## Agent workflow
 
-When Storybook is running, connect to `http://localhost:6006/mcp`. Read the server instructions and
-the component documentation before editing UI, preview every changed story, and run Storybook tests
-through MCP before handing work back. The manifest is a public interface: JSDoc, story descriptions,
-and hierarchy should make intent recoverable without opening implementation files.
-
+When Storybook is running, inspect the catalog and rendered Docs at `http://localhost:6006`. Read
+the component documentation before editing UI, preview every changed story, and run
+`pnpm test:storybook` and `pnpm build:storybook` before handing work back. JSDoc, story
+descriptions, controls, and hierarchy should make intent recoverable without opening
+implementation files.

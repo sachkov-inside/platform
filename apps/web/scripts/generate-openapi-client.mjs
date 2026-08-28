@@ -73,10 +73,29 @@ try {
 process.exitCode = exitCode;
 
 function normalizeGeneratedFiles(root) {
+  removeUnusedGeneratedRuntime(root);
+
   for (const file of listFiles(root)) {
     const path = join(root, file);
     writeFileSync(path, `${readFileSync(path, "utf8").trimEnd()}\n`);
   }
+}
+
+function removeUnusedGeneratedRuntime(root) {
+  for (const file of [
+    "PlatformApiClient.ts",
+    "core/FetchHttpRequest.ts",
+    "core/request.ts",
+  ]) {
+    rmSync(join(root, file), { force: true });
+  }
+
+  const indexPath = join(root, "index.ts");
+  const indexSource = readFileSync(indexPath, "utf8").replace(
+    "export { PlatformApiClient } from './PlatformApiClient';\n\n",
+    "",
+  );
+  writeFileSync(indexPath, indexSource);
 }
 
 function compareDirectories(actualRoot, expectedRoot) {
