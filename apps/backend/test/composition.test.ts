@@ -16,6 +16,7 @@ import {
 import {
   PUBLISHED_MATERIAL_READER,
 } from "../src/modules/materials/index.js";
+import { MEMBERSHIP_ENTITLEMENTS } from "../src/modules/membership-entitlements/index.js";
 
 const config = parsePlatformConfig({
   NODE_ENV: "test",
@@ -37,6 +38,7 @@ describe("backend process composition", () => {
     const prisma = api.get<PlatformPrisma>(PrismaClientProvider);
     expect(api.get<PlatformPrisma>(PrismaClientProvider)).toBe(prisma);
     expect(api.get(OperationalReadiness)).toBeInstanceOf(OperationalReadiness);
+    expect(api.get(MEMBERSHIP_ENTITLEMENTS)).toBeDefined();
     expect(api.get(PUBLISHED_MATERIAL_READER)).toBeDefined();
 
     const disconnect = vi.spyOn(prisma, "$disconnect");

@@ -224,7 +224,8 @@ The same generation runs during install, build, and typecheck:
 pnpm --filter @inside/backend prisma:generate
 ```
 
-The Prisma schema maps both product-owned `materials` and `accounts` schemas. Checked-in,
+The Prisma schema maps the product-owned `materials`, `accounts` and
+`membership_entitlements` schemas. Checked-in,
 append-only SQL migrations remain the database authority. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
 generated client files are not committed or edited. A pre-Prisma local volume must be recreated

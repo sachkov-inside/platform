@@ -22,6 +22,10 @@ import {
   name as mutableMaterialsMigrationName,
   statement as mutableMaterialsMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0005_mutable_materials.js";
+import {
+  name as membershipEntitlementsMigrationName,
+  statement as membershipEntitlementsMigrationStatement,
+} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0006_membership-entitlements.js";
 
 const migrations = [
   {
@@ -43,6 +47,10 @@ const migrations = [
   {
     name: mutableMaterialsMigrationName,
     statement: mutableMaterialsMigrationStatement,
+  },
+  {
+    name: membershipEntitlementsMigrationName,
+    statement: membershipEntitlementsMigrationStatement,
   },
 ] as const;
 

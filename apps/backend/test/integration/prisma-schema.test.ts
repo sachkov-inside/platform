@@ -21,6 +21,9 @@ describe("Prisma schema", () => {
       testDatabase.prisma.account.count(),
       testDatabase.prisma.accountPermission.count(),
       testDatabase.prisma.accountAuditEvent.count(),
+      testDatabase.prisma.membershipBinding.count(),
+      testDatabase.prisma.membershipEvidenceReceipt.count(),
+      testDatabase.prisma.membershipProjection.count(),
       testDatabase.prisma.topic.count(),
       testDatabase.prisma.format.count(),
       testDatabase.prisma.tag.count(),
@@ -36,6 +39,6 @@ describe("Prisma schema", () => {
       testDatabase.prisma.materialAccessAuditEvent.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 16 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 19 }, () => 0));
   });
 });

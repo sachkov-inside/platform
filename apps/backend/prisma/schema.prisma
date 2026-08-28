@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["accounts", "materials"]
+  schemas  = ["accounts", "materials", "membership_entitlements"]
 }
 
 model Account {
@@ -41,6 +41,52 @@ model AccountAuditEvent {
 
   @@map("account_audit_events")
   @@schema("accounts")
+}
+
+model MembershipBinding {
+  accountId    String   @id @map("account_id") @db.Uuid
+  principalRef String   @unique(map: "membership_account_bindings_principal_unique") @map("principal_ref") @db.VarChar(256)
+  linkedAt     DateTime @map("linked_at") @db.Timestamptz
+
+  @@unique([accountId, principalRef], map: "membership_account_bindings_pair_unique")
+  @@map("account_bindings")
+  @@schema("membership_entitlements")
+}
+
+model MembershipEvidenceReceipt {
+  deliveryId        String    @id @map("delivery_id") @db.VarChar(256)
+  accountId         String    @map("account_id") @db.Uuid
+  source            String
+  requestFingerprint String   @map("request_fingerprint") @db.Char(64)
+  principalRef      String?   @map("principal_ref") @db.VarChar(256)
+  evidenceRef       String?   @map("evidence_ref") @db.VarChar(256)
+  evidenceVersion   BigInt?   @map("evidence_version") @db.BigInt
+  decision          String?
+  outcome           String
+  checkedAt         DateTime? @map("checked_at") @db.Timestamptz
+  validUntil        DateTime? @map("valid_until") @db.Timestamptz
+  receivedAt        DateTime  @map("received_at") @db.Timestamptz
+  retainUntil       DateTime  @map("retain_until") @db.Timestamptz
+
+  @@index([accountId, receivedAt(sort: Desc), deliveryId(sort: Desc)], map: "membership_evidence_receipts_account_received_idx")
+  @@index([retainUntil], map: "membership_evidence_receipts_retention_idx")
+  @@map("evidence_receipts")
+  @@schema("membership_entitlements")
+}
+
+model MembershipProjection {
+  accountId           String   @id @map("account_id") @db.Uuid
+  principalRef        String   @unique(map: "membership_current_projections_principal_unique") @map("principal_ref") @db.VarChar(256)
+  decision            String
+  evidenceRef         String   @map("evidence_ref") @db.VarChar(256)
+  evidenceVersion     BigInt   @map("evidence_version") @db.BigInt
+  evidenceFingerprint String   @map("evidence_fingerprint") @db.Char(64)
+  checkedAt           DateTime @map("checked_at") @db.Timestamptz
+  validUntil          DateTime @map("valid_until") @db.Timestamptz
+  updatedAt           DateTime @map("updated_at") @db.Timestamptz
+
+  @@map("current_projections")
+  @@schema("membership_entitlements")
 }
 
 model Topic {

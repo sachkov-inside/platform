@@ -69,6 +69,7 @@ expectFailure(
   ],
   [
     "capability index.ts",
+    "MembershipEntitlements capability index.ts",
     "capability implementation cannot import Nest adapters",
     "raw persistence imports",
     "Kysely is forbidden",

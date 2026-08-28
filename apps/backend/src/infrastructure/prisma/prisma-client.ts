@@ -28,7 +28,7 @@ export type AccountsPrisma = Pick<
 >;
 export type AccountsPrismaClient = AccountsPrisma & TransactionClient<AccountsPrisma>;
 
-interface TransactionClient<Transaction> {
+export interface TransactionClient<Transaction> {
   $transaction<Result>(
     operation: (transaction: Transaction) => Promise<Result>,
   ): Promise<Result>;

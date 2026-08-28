@@ -17,10 +17,14 @@ import {
 import {
   assembleContentAccess,
   assembleCurrentAccountPermissions,
-  assembleDeterministicMembershipEntitlements,
   CONTENT_ACCESS,
   type ContentAccess,
 } from "../content-access/index.js";
+import {
+  MEMBERSHIP_ENTITLEMENTS,
+  MembershipEntitlementsModule,
+  type MembershipEntitlements,
+} from "../membership-entitlements/index.js";
 import { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
 import { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
 import type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
@@ -40,7 +44,7 @@ import {
 } from "./facets/material-content/material-content.js";
 
 @Module({
-  imports: [PrismaModule, AccountsModule],
+  imports: [PrismaModule, AccountsModule, MembershipEntitlementsModule],
   providers: [
     {
       provide: MATERIAL_AUTHORING,
@@ -71,16 +75,16 @@ import {
     },
     {
       provide: CONTENT_ACCESS,
-      inject: [MATERIAL_CONTENT, ACCOUNTS],
+      inject: [MATERIAL_CONTENT, ACCOUNTS, MEMBERSHIP_ENTITLEMENTS],
       useFactory: (
         materialContent: MaterialContent,
         accounts: Accounts,
+        membershipEntitlements: MembershipEntitlements,
       ): ContentAccess =>
         assembleContentAccess({
           materialResourceFacts: assembleMaterialResourceFacts(materialContent),
           accountPermissions: assembleCurrentAccountPermissions(accounts),
-          membershipEntitlements:
-            assembleDeterministicMembershipEntitlements(),
+          membershipEntitlements,
         }),
     },
     {
