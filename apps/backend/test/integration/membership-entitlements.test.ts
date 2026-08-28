@@ -37,6 +37,9 @@ const fixtureCorpusSchema = z
     fixtures: z.array(fixtureSchema),
   })
   .strict();
+const columnRowsSchema = z.array(
+  z.object({ column_name: z.string().min(1) }).strict(),
+);
 
 const snapshotRoot = new URL(
   "../../src/modules/membership-entitlements/contracts/inside-membership-evidence-v1/",
@@ -136,6 +139,29 @@ describe("MembershipEntitlements", () => {
 
   test("deduplicates concurrent delivery and converges out of order to the newest version", async () => {
     currentTime = new Date(corpus.clock);
+    const racingAccountId = accountId("92000000-0000-4000-8000-000000000000");
+    await Promise.all([
+      accept(
+        membershipEntitlements,
+        racingAccountId,
+        "racing-link",
+        "link_time",
+        observedEvidence("racing-principal", "member", 1),
+      ),
+      accept(
+        membershipEntitlements,
+        racingAccountId,
+        "racing-event",
+        "member_status_event",
+        observedEvidence("racing-principal", "not_member", 2),
+      ),
+    ]);
+    await expect(
+      testDatabase.prisma.membershipProjection.findUnique({
+        where: { accountId: racingAccountId },
+      }),
+    ).resolves.toMatchObject({ evidenceVersion: 2n, decision: "not_member" });
+
     const targetAccountId = accountId("92000000-0000-4000-8000-000000000001");
     const initial = observedEvidence("concurrent-principal", "member", 1);
     const command = {
@@ -187,6 +213,25 @@ describe("MembershipEntitlements", () => {
     ).resolves.toBe(1);
   });
 
+  test("rejects unchecked delivery metadata before persistence", async () => {
+    const targetAccountId = accountId("94000000-0000-4000-8000-000000000001");
+    await expect(
+      accept(
+        membershipEntitlements,
+        targetAccountId,
+        "",
+        "link_time",
+        observedEvidence("unchecked-principal", "member", 1),
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "invalid_evidence" },
+    });
+    await expect(
+      testDatabase.prisma.membershipEvidenceReceipt.count(),
+    ).resolves.toBe(0);
+  });
+
   test("only reads local projection for concurrent access resolution and stores redacted receipts", async () => {
     currentTime = new Date(corpus.clock);
     const targetAccountId = accountId("93000000-0000-4000-8000-000000000001");
@@ -219,15 +264,15 @@ describe("MembershipEntitlements", () => {
       where: { deliveryId: "local-read-link" },
     });
     expect(receipt.retainUntil.toISOString()).toBe("2030-01-31T00:04:00.000Z");
-    const columns = await testDatabase.prisma.$queryRaw<
-      readonly { readonly column_name: string }[]
-    >`
-      select column_name
-      from information_schema.columns
-      where table_schema = 'membership_entitlements'
-        and table_name = 'evidence_receipts'
-      order by column_name
-    `;
+    const columns = columnRowsSchema.parse(
+      await testDatabase.prisma.$queryRaw`
+        select column_name
+        from information_schema.columns
+        where table_schema = 'membership_entitlements'
+          and table_name = 'evidence_receipts'
+        order by column_name
+      `,
+    );
     expect(columns.map(({ column_name }) => column_name)).not.toContain(
       "telegram_identity_ref",
     );

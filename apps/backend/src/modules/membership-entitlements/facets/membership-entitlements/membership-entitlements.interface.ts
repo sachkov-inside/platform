@@ -12,7 +12,9 @@ export type MembershipEvidenceSource =
   | "reconciliation";
 
 export interface AcceptMembershipEvidenceCommand {
+  /** Trusted human Account selected before the provider adapter crosses this seam. */
   readonly accountId: AccountId;
+  /** Stable provider delivery key; checked before durable receipt creation. */
   readonly deliveryId: string;
   readonly source: MembershipEvidenceSource;
   readonly evidence: unknown;
@@ -53,6 +55,10 @@ export type MembershipEvidenceAcceptance =
 
 export interface MembershipEntitlements {
   resolveForAccess(accountId: AccountId): Promise<MembershipAccessState>;
+  /**
+   * Applies normalized evidence monotonically. The first observed evidence from any trusted
+   * source may establish a missing Account binding; an existing different binding fails closed.
+   */
   acceptEvidence(
     command: AcceptMembershipEvidenceCommand,
   ): Promise<MembershipEvidenceAcceptance>;

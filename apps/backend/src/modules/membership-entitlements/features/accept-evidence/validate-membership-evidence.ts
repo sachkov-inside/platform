@@ -8,8 +8,8 @@ const observedEvidenceBase = z
   .object({
     contractVersion: z.literal(CONTRACT_VERSION),
     principalRef: opaqueRef,
-    checkedAt: z.iso.datetime(),
-    validUntil: z.iso.datetime(),
+    checkedAt: z.iso.datetime({ offset: true }),
+    validUntil: z.iso.datetime({ offset: true }),
     telegramIdentityRef: opaqueRef,
     evidenceRef: opaqueRef,
     evidenceVersion: z.number().int().positive(),

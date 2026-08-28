@@ -11,7 +11,7 @@ import {
   validateMembershipEvidence,
   type MembershipEvidence,
   type ObservedMembershipEvidence,
-} from "../../domain/membership-evidence.js";
+} from "./validate-membership-evidence.js";
 import type {
   AcceptMembershipEvidenceCommand,
   MembershipEvidenceAcceptance,
@@ -19,6 +19,27 @@ import type {
 } from "../../facets/membership-entitlements/membership-entitlements.interface.js";
 
 const EVIDENCE_RECEIPT_RETENTION_DAYS = 30;
+
+const commandMetadataSchema = z
+  .object({
+    deliveryId: z
+      .string()
+      .min(1)
+      .max(256)
+      .brand<"MembershipEvidenceDeliveryId">(),
+    source: z.enum([
+      "link_time",
+      "member_status_event",
+      "reconciliation",
+    ]),
+  })
+  .strict();
+
+type CheckedEvidenceCommand = Omit<
+  AcceptMembershipEvidenceCommand,
+  "deliveryId" | "source"
+> &
+  z.infer<typeof commandMetadataSchema>;
 
 const bindingRowsSchema = z.array(
   z
@@ -50,10 +71,21 @@ export async function acceptMembershipEvidence(
   command: AcceptMembershipEvidenceCommand,
   now: Date,
 ): Promise<MembershipEvidenceAcceptance> {
+  const metadata = commandMetadataSchema.safeParse({
+    deliveryId: command.deliveryId,
+    source: command.source,
+  });
+  if (!metadata.success) {
+    return failure("invalid_evidence");
+  }
+  const checkedCommand: CheckedEvidenceCommand = {
+    ...command,
+    ...metadata.data,
+  };
   const validation = validateMembershipEvidence(command.evidence, now);
   const requestFingerprint = fingerprint({
     accountId: command.accountId,
-    source: command.source,
+    source: checkedCommand.source,
     evidence: command.evidence,
   });
   const evidenceFingerprint = fingerprint(
@@ -72,9 +104,9 @@ export async function acceptMembershipEvidence(
         received_at,
         retain_until
       ) values (
-        ${command.deliveryId},
+        ${checkedCommand.deliveryId},
         ${command.accountId}::uuid,
-        ${command.source},
+        ${checkedCommand.source},
         ${requestFingerprint},
         'processing',
         ${now},
@@ -83,7 +115,7 @@ export async function acceptMembershipEvidence(
       on conflict do nothing
     `);
     const receipt = await transaction.membershipEvidenceReceipt.findUnique({
-      where: { deliveryId: command.deliveryId },
+      where: { deliveryId: checkedCommand.deliveryId },
     });
     if (receipt === null) {
       throw new Error("Evidence receipt disappeared inside its transaction");
@@ -95,13 +127,13 @@ export async function acceptMembershipEvidence(
     if (!validation.ok) {
       return finishFailure(
         transaction,
-        command.deliveryId,
+        checkedCommand.deliveryId,
         validation.error.code,
       );
     }
 
     await transaction.membershipEvidenceReceipt.update({
-      where: { deliveryId: command.deliveryId },
+      where: { deliveryId: checkedCommand.deliveryId },
       data: evidenceReceiptMetadata(validation.value),
     });
 
@@ -115,29 +147,29 @@ export async function acceptMembershipEvidence(
         decision: validation.value.decision,
       } as const;
       await transaction.membershipEvidenceReceipt.update({
-        where: { deliveryId: command.deliveryId },
+        where: { deliveryId: checkedCommand.deliveryId },
         data: { outcome: result.outcome },
       });
       return result;
     }
 
-    const bindingMatches = await requireAccountBinding(
+    const bindingMatches = await ensureAccountBinding(
       transaction,
-      command,
+      checkedCommand,
       validation.value,
       now,
     );
     if (!bindingMatches) {
       return finishFailure(
         transaction,
-        command.deliveryId,
+        checkedCommand.deliveryId,
         "principal_mismatch",
       );
     }
 
     const applied = await applyObservedEvidence(
       transaction,
-      command,
+      checkedCommand,
       validation.value,
       evidenceFingerprint,
       now,
@@ -145,34 +177,32 @@ export async function acceptMembershipEvidence(
     if (!applied.ok) {
       return finishFailure(
         transaction,
-        command.deliveryId,
+        checkedCommand.deliveryId,
         applied.error.code,
       );
     }
     await transaction.membershipEvidenceReceipt.update({
-      where: { deliveryId: command.deliveryId },
+      where: { deliveryId: checkedCommand.deliveryId },
       data: { outcome: applied.outcome },
     });
     return applied;
   });
 }
 
-async function requireAccountBinding(
+async function ensureAccountBinding(
   transaction: MembershipEntitlementsPrismaTransaction,
-  command: AcceptMembershipEvidenceCommand,
+  command: CheckedEvidenceCommand,
   evidence: ObservedMembershipEvidence,
   now: Date,
 ): Promise<boolean> {
-  if (command.source === "link_time") {
-    await transaction.$executeRaw(Prisma.sql`
-      insert into membership_entitlements.account_bindings (
-        account_id,
-        principal_ref,
-        linked_at
-      ) values (${command.accountId}::uuid, ${evidence.principalRef}, ${now})
-      on conflict do nothing
-    `);
-  }
+  await transaction.$executeRaw(Prisma.sql`
+    insert into membership_entitlements.account_bindings (
+      account_id,
+      principal_ref,
+      linked_at
+    ) values (${command.accountId}::uuid, ${evidence.principalRef}, ${now})
+    on conflict do nothing
+  `);
   const bindings = bindingRowsSchema.parse(
     await transaction.$queryRaw(Prisma.sql`
       select account_id::text, principal_ref
@@ -192,11 +222,12 @@ async function requireAccountBinding(
 
 async function applyObservedEvidence(
   transaction: MembershipEntitlementsPrismaTransaction,
-  command: AcceptMembershipEvidenceCommand,
+  command: CheckedEvidenceCommand,
   evidence: ObservedMembershipEvidence,
   evidenceFingerprint: string,
   now: Date,
 ): Promise<ObservedEvidenceApplication> {
+  const projection = projectionData(evidence, evidenceFingerprint, now);
   const inserted = await transaction.$executeRaw(Prisma.sql`
     insert into membership_entitlements.current_projections (
       account_id,
@@ -210,14 +241,14 @@ async function applyObservedEvidence(
       updated_at
     ) values (
       ${command.accountId}::uuid,
-      ${evidence.principalRef},
-      ${evidence.decision},
-      ${evidence.evidenceRef},
-      ${BigInt(evidence.evidenceVersion)},
-      ${evidenceFingerprint},
-      ${new Date(evidence.checkedAt)},
-      ${new Date(evidence.validUntil)},
-      ${now}
+      ${projection.principalRef},
+      ${projection.decision},
+      ${projection.evidenceRef},
+      ${projection.evidenceVersion},
+      ${projection.evidenceFingerprint},
+      ${projection.checkedAt},
+      ${projection.validUntil},
+      ${projection.updatedAt}
     )
     on conflict do nothing
   `);
@@ -230,16 +261,7 @@ async function applyObservedEvidence(
       accountId: command.accountId,
       evidenceVersion: { lt: BigInt(evidence.evidenceVersion) },
     },
-    data: {
-      principalRef: evidence.principalRef,
-      decision: evidence.decision,
-      evidenceRef: evidence.evidenceRef,
-      evidenceVersion: BigInt(evidence.evidenceVersion),
-      evidenceFingerprint,
-      checkedAt: new Date(evidence.checkedAt),
-      validUntil: new Date(evidence.validUntil),
-      updatedAt: now,
-    },
+    data: projection,
   });
   if (updated.count === 1) {
     return appliedResult(evidence);
@@ -261,6 +283,23 @@ async function applyObservedEvidence(
       : failure("replayed_evidence");
   }
   return failure("replayed_evidence");
+}
+
+function projectionData(
+  evidence: ObservedMembershipEvidence,
+  evidenceFingerprint: string,
+  now: Date,
+) {
+  return {
+    principalRef: evidence.principalRef,
+    decision: evidence.decision,
+    evidenceRef: evidence.evidenceRef,
+    evidenceVersion: BigInt(evidence.evidenceVersion),
+    evidenceFingerprint,
+    checkedAt: new Date(evidence.checkedAt),
+    validUntil: new Date(evidence.validUntil),
+    updatedAt: now,
+  };
 }
 
 function evidenceReceiptMetadata(evidence: MembershipEvidence) {

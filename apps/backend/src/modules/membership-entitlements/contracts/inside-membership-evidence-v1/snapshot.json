@@ -1,7 +1,7 @@
 {
   "contractVersion": "inside.membership-evidence.v1",
   "sourceRepository": "sachkov-inside/workspace",
-  "sourceCommit": "d1e012e888a23772d2958baf39fec7f31cd8d65a",
+  "sourceCommit": "06130c58f38d030a393d7985e395342fc5379139",
   "importedAt": "2026-08-28",
   "artifacts": {
     "schema.json": {

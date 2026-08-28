@@ -1,6 +1,6 @@
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
 import { acceptMembershipEvidence } from "../../features/accept-evidence/accept-evidence.js";
-import { resolveMembershipForAccess } from "../../features/resolve-for-access/resolve-for-access.js";
+import { resolveMembershipForAccess } from "../../features/resolve-membership-for-access/resolve-membership-for-access.js";
 import type {
   AcceptMembershipEvidenceCommand,
   MembershipAccessState,
