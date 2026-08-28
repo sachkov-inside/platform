@@ -148,6 +148,23 @@ function violationsFor(source, specifier) {
     violations.push("callers must import the Materials capability index.ts");
   }
 
+  const importsMembershipEntitlementsImplementation =
+    importedPath?.startsWith("src/modules/membership-entitlements/") === true &&
+    !/^src\/modules\/membership-entitlements\/index\.[cm]?[jt]s$/.test(importedPath);
+  const importsFrozenMembershipEntitlementsMigration =
+    importedPath?.startsWith(
+      "src/modules/membership-entitlements/infrastructure/postgres/migrations/",
+    ) === true;
+  if (
+    importsMembershipEntitlementsImplementation &&
+    sourceModule !== "membership-entitlements" &&
+    !(sourcePath.startsWith("src/migrations/") && importsFrozenMembershipEntitlementsMigration)
+  ) {
+    violations.push(
+      "callers must import the MembershipEntitlements capability index.ts",
+    );
+  }
+
   if (
     importedPath !== undefined &&
     /^src\/modules\/[^/]+\/internal\//.test(importedPath) &&

@@ -1,4 +1,8 @@
 import type { AccountId } from "../../../accounts/index.js";
+import type {
+  MembershipAccessState,
+  MembershipEntitlements as MembershipEntitlementsModule,
+} from "../../../membership-entitlements/index.js";
 import type { MaterialId } from "../../../materials/index.js";
 
 export interface MaterialResourceFacts {
@@ -19,15 +23,11 @@ export interface AccountPermissions {
   hasMaterialsManage(accountId: AccountId): Promise<boolean>;
 }
 
-export type MembershipAccessState =
-  | Readonly<{ kind: "active"; validUntil: string }>
-  | Readonly<{
-      kind: "required" | "expired" | "stale" | "unavailable";
-    }>;
-
-export interface MembershipEntitlements {
-  resolveForAccess(accountId: AccountId): Promise<MembershipAccessState>;
-}
+export type { MembershipAccessState };
+export type MembershipEntitlements = Pick<
+  MembershipEntitlementsModule,
+  "resolveForAccess"
+>;
 
 export interface ContentAccessDependencies {
   readonly materialResourceFacts: MaterialResourceFactsAdapter;
