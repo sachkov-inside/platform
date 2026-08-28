@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, URL } from "node:url";
 
-import ts from "typescript";
+import { parseSync, Visitor } from "oxc-parser";
 
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
 const requestedRoots = process.argv.slice(2);
@@ -45,41 +45,41 @@ function scannedPath(file) {
   return path.relative(webRoot, file).split(path.sep).join("/");
 }
 
-function moduleSpecifiers(sourceFile) {
+function moduleSpecifiers(program) {
   const specifiers = [];
-  function visit(node) {
-    if (
-      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-      node.moduleSpecifier !== undefined &&
-      ts.isStringLiteral(node.moduleSpecifier)
-    ) {
-      specifiers.push(node.moduleSpecifier.text);
-    }
-    ts.forEachChild(node, visit);
-  }
-  visit(sourceFile);
+  new Visitor({
+    ImportDeclaration(node) {
+      if (typeof node.source.value === "string") specifiers.push(node.source.value);
+    },
+    ExportAllDeclaration(node) {
+      if (typeof node.source.value === "string") specifiers.push(node.source.value);
+    },
+    ExportNamedDeclaration(node) {
+      if (typeof node.source?.value === "string") specifiers.push(node.source.value);
+    },
+  }).visit(program);
   return specifiers;
 }
 
-function stringLiterals(sourceFile) {
+function stringLiterals(program) {
   const values = [];
-  function visit(node) {
-    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-      values.push(node.text);
-    }
-    ts.forEachChild(node, visit);
-  }
-  visit(sourceFile);
+  new Visitor({
+    Literal(node) {
+      if (typeof node.value === "string") values.push(node.value);
+    },
+    TemplateLiteral(node) {
+      if (node.expressions.length === 0) {
+        values.push(node.quasis[0]?.value.cooked ?? node.quasis[0]?.value.raw ?? "");
+      }
+    },
+  }).visit(program);
   return values;
 }
 
-function hasUseClientDirective(sourceFile) {
-  for (const statement of sourceFile.statements) {
-    if (
-      ts.isExpressionStatement(statement) &&
-      ts.isStringLiteral(statement.expression)
-    ) {
-      if (statement.expression.text === "use client") return true;
+function hasUseClientDirective(program) {
+  for (const statement of program.body) {
+    if (statement.type === "ExpressionStatement" && statement.directive !== null) {
+      if (statement.directive === "use client") return true;
       continue;
     }
     break;
@@ -87,22 +87,21 @@ function hasUseClientDirective(sourceFile) {
   return false;
 }
 
-function readsBackendEndpointEnvironment(sourceFile) {
+function readsBackendEndpointEnvironment(program) {
   let found = false;
-  function visit(node) {
-    if (
-      ts.isPropertyAccessExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      node.expression.name.text === "env" &&
-      ts.isIdentifier(node.expression.expression) &&
-      node.expression.expression.text === "process" &&
-      isBackendEndpointName(node.name.text)
-    ) {
-      found = true;
-    }
-    ts.forEachChild(node, visit);
-  }
-  visit(sourceFile);
+  new Visitor({
+    MemberExpression(node) {
+      if (
+        node.object.type === "MemberExpression" &&
+        node.object.object.type === "Identifier" &&
+        node.object.object.name === "process" &&
+        memberPropertyName(node.object) === "env" &&
+        isBackendEndpointName(memberPropertyName(node))
+      ) {
+        found = true;
+      }
+    },
+  }).visit(program);
   return found;
 }
 
@@ -115,58 +114,73 @@ function isBackendEndpointName(name) {
   );
 }
 
-function callsNestOperationByAbsoluteUrl(sourceFile) {
+function callsNestOperationByAbsoluteUrl(program) {
   const absoluteStringBindings = new Map();
   let found = false;
-  function visit(node) {
-    if (
-      ts.isVariableDeclaration(node) &&
-      ts.isIdentifier(node.name) &&
-      node.initializer !== undefined &&
-      (ts.isStringLiteral(node.initializer) ||
-        ts.isNoSubstitutionTemplateLiteral(node.initializer)) &&
-      /^https?:\/\//u.test(node.initializer.text)
-    ) {
-      absoluteStringBindings.set(node.name.text, node.initializer.text);
-    }
-    if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      node.expression.text === "fetch" &&
-      node.arguments[0] !== undefined &&
-      isNestOperationUrl(
-        resolveAbsoluteFetchArgument(node.arguments[0], absoluteStringBindings),
-      )
-    ) {
-      found = true;
-    }
-    ts.forEachChild(node, visit);
-  }
-  visit(sourceFile);
+  new Visitor({
+    VariableDeclarator(node) {
+      const value = literalString(node.init);
+      if (
+        node.id.type === "Identifier" &&
+        value !== undefined &&
+        /^https?:\/\//u.test(value)
+      ) {
+        absoluteStringBindings.set(node.id.name, value);
+      }
+    },
+    CallExpression(node) {
+      const argument = node.arguments[0];
+      if (
+        node.callee.type === "Identifier" &&
+        node.callee.name === "fetch" &&
+        argument !== undefined &&
+        argument.type !== "SpreadElement" &&
+        isNestOperationUrl(
+          resolveAbsoluteFetchArgument(argument, absoluteStringBindings),
+        )
+      ) {
+        found = true;
+      }
+    },
+  }).visit(program);
   return found;
 }
 
 function resolveAbsoluteFetchArgument(argument, absoluteStringBindings) {
-  if (
-    (ts.isStringLiteral(argument) ||
-      ts.isNoSubstitutionTemplateLiteral(argument)) &&
-    /^https?:\/\//u.test(argument.text)
-  ) {
-    return argument.text;
+  const literal = literalString(argument);
+  if (literal !== undefined && /^https?:\/\//u.test(literal)) {
+    return literal;
   }
-  if (ts.isIdentifier(argument)) {
-    return absoluteStringBindings.get(argument.text);
+  if (argument.type === "Identifier") {
+    return absoluteStringBindings.get(argument.name);
   }
-  if (!ts.isTemplateExpression(argument)) return undefined;
+  if (argument.type !== "TemplateLiteral") return undefined;
 
-  let value = argument.head.text;
-  for (const { expression, literal } of argument.templateSpans) {
-    if (!ts.isIdentifier(expression)) return undefined;
-    const binding = absoluteStringBindings.get(expression.text);
+  let value = argument.quasis[0]?.value.cooked ?? argument.quasis[0]?.value.raw ?? "";
+  for (const [index, expression] of argument.expressions.entries()) {
+    if (expression.type !== "Identifier") return undefined;
+    const binding = absoluteStringBindings.get(expression.name);
     if (binding === undefined) return undefined;
-    value += binding + literal.text;
+    const quasi = argument.quasis[index + 1];
+    value += binding + (quasi?.value.cooked ?? quasi?.value.raw ?? "");
   }
   return /^https?:\/\//u.test(value) ? value : undefined;
+}
+
+function literalString(node) {
+  if (node?.type === "Literal" && typeof node.value === "string") {
+    return node.value;
+  }
+  if (node?.type === "TemplateLiteral" && node.expressions.length === 0) {
+    return node.quasis[0]?.value.cooked ?? node.quasis[0]?.value.raw ?? "";
+  }
+  return undefined;
+}
+
+function memberPropertyName(node) {
+  if (node?.type !== "MemberExpression") return "";
+  if (node.property.type === "Identifier") return node.property.name;
+  return typeof node.property.value === "string" ? node.property.value : "";
 }
 
 function isNestOperationUrl(value) {
@@ -208,19 +222,17 @@ for (const scanRoot of scanRoots) {
 }
 
 const parsedFiles = new Map(
-  [...new Set(scanRoots.flatMap(sourceFiles))].map((file) => [
-    file,
-    ts.createSourceFile(
-      file,
-      readFileSync(file, "utf8"),
-      ts.ScriptTarget.Latest,
-      false,
-    ),
-  ]),
+  [...new Set(scanRoots.flatMap(sourceFiles))].map((file) => {
+    const { errors, program } = parseSync(file, readFileSync(file, "utf8"));
+    if (errors.length > 0) {
+      throw new SyntaxError(`Oxc could not parse ${file}: ${errors[0].message}`);
+    }
+    return [file, program];
+  }),
 );
 const browserFiles = new Set(
-  [...parsedFiles].flatMap(([file, sourceFile]) =>
-    /\.client\.[cm]?[jt]sx?$/.test(file) || hasUseClientDirective(sourceFile)
+  [...parsedFiles].flatMap(([file, program]) =>
+    /\.client\.[cm]?[jt]sx?$/.test(file) || hasUseClientDirective(program)
       ? [file]
       : [],
   ),
@@ -228,9 +240,9 @@ const browserFiles = new Set(
 const pendingBrowserFiles = [...browserFiles];
 while (pendingBrowserFiles.length > 0) {
   const file = pendingBrowserFiles.pop();
-  const sourceFile = parsedFiles.get(file);
-  if (sourceFile === undefined) continue;
-  for (const specifier of moduleSpecifiers(sourceFile)) {
+  const program = parsedFiles.get(file);
+  if (program === undefined) continue;
+  for (const specifier of moduleSpecifiers(program)) {
     const dependency = resolveLocalModule(file, specifier, parsedFiles);
     if (dependency !== undefined && !browserFiles.has(dependency)) {
       browserFiles.add(dependency);
@@ -239,13 +251,13 @@ while (pendingBrowserFiles.length > 0) {
   }
 }
 
-const findings = [...parsedFiles].flatMap(([file, sourceFile]) => {
+const findings = [...parsedFiles].flatMap(([file, program]) => {
   const sourcePath = scannedPath(file);
   const insideBackendTransport = sourcePath.startsWith("src/shared/api/backend/");
   const isBrowserCode = browserFiles.has(file);
-  const specifiers = moduleSpecifiers(sourceFile);
+  const specifiers = moduleSpecifiers(program);
   const findingsForFile = specifiers.flatMap((specifier) => {
-    if (!insideBackendTransport && specifier === "openapi-fetch") {
+    if (!insideBackendTransport && specifier === "openapi-typescript-codegen") {
       return [`${sourcePath}: codegen runtime belongs to the backend transport module`];
     }
     if (!insideBackendTransport && specifier.includes("shared/api/backend/generated")) {
@@ -265,18 +277,18 @@ const findings = [...parsedFiles].flatMap(([file, sourceFile]) => {
 
   if (
     !insideBackendTransport &&
-    stringLiterals(sourceFile).some((value) => backendOperationPaths.has(value))
+    stringLiterals(program).some((value) => backendOperationPaths.has(value))
   ) {
     findingsForFile.push(
       `${sourcePath}: manual Nest operation paths belong to the backend transport module`,
     );
   }
-  if (isBrowserCode && readsBackendEndpointEnvironment(sourceFile)) {
+  if (isBrowserCode && readsBackendEndpointEnvironment(program)) {
     findingsForFile.push(
       `${sourcePath}: browser code cannot address Nest directly; use a same-origin BFF route`,
     );
   }
-  if (isBrowserCode && callsNestOperationByAbsoluteUrl(sourceFile)) {
+  if (isBrowserCode && callsNestOperationByAbsoluteUrl(program)) {
     findingsForFile.push(
       `${sourcePath}: browser code cannot call a Nest operation by absolute URL; use a same-origin BFF route`,
     );

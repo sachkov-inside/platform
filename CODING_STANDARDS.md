@@ -83,7 +83,7 @@ Each capability exposes one deliberate interface through `index.ts`. Cross-modul
 that interface rather than domain, persistence, or slice internals. Internal slices may import the
 owning module's domain and infrastructure directly; application functions must not import Nest,
 `pg`, Prisma packages, or the generated Prisma client. They receive the capability-scoped Prisma
-client type from `infrastructure/prisma`. ESLint enforces these framework and persistence rules.
+client type from `infrastructure/prisma`. Oxlint enforces these framework and persistence rules.
 
 Keep a seam when behaviour really varies or when it is the stable interface between capability
 modules. One production implementation with no module consumer is not enough reason for an
@@ -116,7 +116,7 @@ interface-token-factory chain.
 
 ## Enforcement
 
-ESLint and the backend architecture guardrails enforce framework, persistence, and module-boundary
+Oxlint and the backend architecture guardrails enforce framework, persistence, and module-boundary
 rules. Keep the positive repository scan and its negative fixtures aligned whenever a boundary
 changes. Follow the verification matrix in `apps/backend/AGENTS.md` for each backend handoff.
 
@@ -139,8 +139,8 @@ same unit, adapter, integration, and HTTP outcomes before changing product behav
 - Nest owns the HTTP wire contract. Commit the deterministic schema and generated Web transport
   types, and run `pnpm api:generate` after changing an operation. `pnpm api:check` is the drift
   fitness function used by CI.
-- `apps/web/src/shared/api/backend` owns direct Nest requests, `openapi-fetch`, generated types,
-  backend URL configuration and request timeouts. Application code imports that module's interface;
+- `apps/web/src/shared/api/backend` owns direct Nest requests, the generated client and its local
+  HTTP adapter, backend URL configuration and request timeouts. Application code imports that module's interface;
   it does not duplicate Nest URLs or import the codegen runtime or generated artifacts directly.
 - Treat generated response types as compile-time guidance, not runtime proof. Feature adapters keep
   external response bodies as `unknown`, validate focused wire schemas with Zod, and then map known
@@ -153,8 +153,8 @@ same unit, adapter, integration, and HTTP outcomes before changing product behav
   functions, including the negative fixture. Focused Web tests own transport error mapping and
   TanStack hydration behaviour.
 - Keep editor and explicit CLI checks on a committed TypeScript project that excludes stale
-  `.next/dev` artifacts. If Next requires a managed project for route generation, give it a
-  separate config and keep production checking independent of a prior development session.
+  `.next/dev` artifacts. Next route generation uses its managed project and the project-local
+  TypeScript 7 CLI; do not re-enable the removed JavaScript compiler API checker.
 
 ## Validation owns external shapes
 

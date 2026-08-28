@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 
 import {
@@ -78,4 +78,3 @@ export const Disabled: Story = {
     ).toBeDisabled();
   },
 };
-

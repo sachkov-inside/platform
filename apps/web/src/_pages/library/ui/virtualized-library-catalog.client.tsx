@@ -103,7 +103,7 @@ export function VirtualizedLibraryCatalog({
   });
   // TanStack Virtual owns mutable measurement functions and intentionally
   // opts this component out of React Compiler memoization.
-  // eslint-disable-next-line react-hooks/incompatible-library
+  // oxlint-disable-next-line react/incompatible-library
   const desktopVirtualizer = useVirtualizer<HTMLElement, HTMLDivElement>({
     ...sharedVirtualizerOptions,
     enabled: viewportMode === "desktop",

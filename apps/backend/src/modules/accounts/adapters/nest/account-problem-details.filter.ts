@@ -1,5 +1,5 @@
 import {
-  ArgumentsHost,
+  type ArgumentsHost,
   Catch,
   type ExceptionFilter,
   HttpException,

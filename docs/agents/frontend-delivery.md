@@ -21,7 +21,7 @@ The owning Specification and child issue state in plain language what the user r
 whether the ticket completes the feature or only enables a later integration; technical delivery
 details follow that outcome.
 
-Before implementing a surface, inspect the Storybook catalog and its MCP documentation:
+Before implementing a surface, inspect the Storybook catalog and its rendered Docs pages:
 
 1. Reuse an accepted production-owned UI module when it already covers the required states. Its
    stories and the production route import the same implementation.
@@ -99,5 +99,7 @@ token or navigation system.
   closed and every temporary UI marker is removed.
 - Import checks and the production build confirm that `.storybook`, `src/workshop`, stories, and
   fixture modules stay outside the production dependency graph.
+- `pnpm test:storybook` and `pnpm build:storybook` confirm that stories remain executable and the
+  review catalog can be built without a separate Storybook automation protocol.
 - Storybook fixtures contain representative presentation states only; application rules and
   production fallback behavior remain behind production adapters.

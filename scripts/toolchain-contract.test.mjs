@@ -50,13 +50,14 @@ describe("supported toolchain contract", () => {
     const typeScriptPins = packages.map((manifest) => manifest.devDependencies.typescript);
 
     assert.equal(new Set(typeScriptPins).size, 1);
+    assert.equal(typeScriptPins[0], "7.0.2");
     assert.ok(typeScriptPins.every((version) => /^\d+\.\d+\.\d+$/u.test(version)));
     for (const manifest of [backendPackage, webPackage]) {
       assert.equal(manifest.devDependencies["@types/node"].split(".")[0], nodeMajor);
     }
   });
 
-  it("keeps editors and CLI checks on stable TypeScript projects", () => {
+  it("keeps editors, Next and CLI checks on TypeScript 7 projects", () => {
     const editorSettings = JSON.parse(read(".vscode/settings.json"));
     const backendTypeScript = JSON.parse(read("apps/backend/tsconfig.json"));
     const webTypeScript = JSON.parse(read("apps/web/tsconfig.json"));
@@ -81,8 +82,43 @@ describe("supported toolchain contract", () => {
     assert.ok(webTypeScript.exclude.includes(".next/dev"));
     assert.equal(nextTypeScript.extends, "./tsconfig.json");
     assert.ok(nextTypeScript.include.includes(".next/dev/types/**/*.ts"));
-    assert.match(nextConfig, /useTypeScriptCli: false/u);
+    assert.doesNotMatch(nextConfig, /useTypeScriptCli:\s*false/u);
     assert.match(nextConfig, /tsconfigPath: "tsconfig\.next\.json"/u);
+  });
+
+  it("uses only the Oxc lint and parser toolchain", () => {
+    assert.equal(
+      rootPackage.scripts.lint,
+      "oxlint --deny-warnings --report-unused-disable-directives --ignore-pattern 'apps/backend/test/guardrails/fixtures/oxlint/**' .",
+    );
+    assert.equal(rootPackage.devDependencies.oxlint, "1.80.0");
+    assert.equal(rootPackage.devDependencies["oxlint-tsgolint"], "7.0.2001");
+    assert.equal(rootPackage.devDependencies["oxc-parser"], "0.147.0");
+
+    for (const dependency of [
+      "eslint",
+      "typescript-eslint",
+      "@eslint/js",
+      "@next/eslint-plugin-next",
+      "@tanstack/eslint-plugin-query",
+      "eslint-plugin-react-hooks",
+      "eslint-plugin-storybook",
+    ]) {
+      assert.equal(rootPackage.devDependencies[dependency], undefined);
+    }
+  });
+
+  it("keeps TypeScript-API consumers out of active Web tooling", () => {
+    assert.equal(webPackage.devDependencies["@storybook/nextjs-vite"], undefined);
+    assert.equal(webPackage.devDependencies["@storybook/addon-mcp"], undefined);
+    assert.equal(webPackage.devDependencies["@storybook/react-vite"], "10.5.10");
+    assert.equal(
+      webPackage.devDependencies["openapi-typescript-codegen"],
+      "0.31.0",
+    );
+    assert.equal(webPackage.devDependencies["openapi-typescript"], undefined);
+    assert.equal(webPackage.dependencies["openapi-fetch"], undefined);
+    assert.doesNotMatch(read("pnpm-workspace.yaml"), /^overrides:/mu);
   });
 
   it("pins every container image by digest and every GitHub Action by commit", () => {

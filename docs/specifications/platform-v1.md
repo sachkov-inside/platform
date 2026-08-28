@@ -212,7 +212,7 @@ production trade-off подтверждён evidence, а не заранее д�
 - Testcontainers PostgreSQL принят как future test lifecycle direction: один container на
   integration run с isolation, сохраняющей real commit/rollback и multiple-connection semantics.
   Exact dependency version и isolation mechanics принадлежат #30 implementation brief.
-- Platform-local shared strict TypeScript base, type-aware typescript-eslint, frontend/backend
+- Platform-local shared strict TypeScript base, type-aware Oxlint, frontend/backend
   import rules и Prisma schema mapping checks приняты как future enforcement. #27 не добавляет
   dependencies, lint/config/CI rules и не меняет shared harness.
 - Для engineering choices #27 не создаёт ADR и отдельные prototype/proof tickets. #30 фиксирует

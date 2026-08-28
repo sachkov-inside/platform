@@ -1,4 +1,3 @@
-/* eslint-disable no-restricted-imports, @typescript-eslint/switch-exhaustiveness-check */
 import type { Pool } from "pg";
 
 import type { CreateDraftError } from "../../../../src/modules/materials/index.js";

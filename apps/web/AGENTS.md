@@ -11,7 +11,7 @@ it owns routing, metadata, route states, and composition.
 - `_app` owns root providers and the application shell; `_pages` owns route-level slices;
   `widgets`, `features`, `entities`, and `shared` form the remaining dependency layers.
 - Import a slice through its public `index.ts` or `index.server.ts`. A production route does not
-  deep-import slice internals; ESLint owns the exact allowed dependency direction.
+  deep-import slice internals; Oxlint owns the exact allowed dependency direction.
 - Put route-specific behaviour beside its `_pages/<page>` slice. Promote code to `shared` only
   after multiple real consumers need the same smaller interface.
 - Keep Storybook proofs and fixtures outside the production graph. When changing production UI,

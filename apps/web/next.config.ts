@@ -5,9 +5,6 @@ const nextConfig: NextConfig = {
   logging: {
     incomingRequests: { ignore: [/^\/callback(?:[/?]|$)/u] },
   },
-  experimental: {
-    useTypeScriptCli: false,
-  },
   poweredByHeader: false,
   typedRoutes: true,
   typescript: {

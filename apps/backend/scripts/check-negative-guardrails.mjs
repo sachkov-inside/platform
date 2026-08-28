@@ -50,14 +50,17 @@ expectFailure(
   "pnpm",
   [
     "exec",
-    "eslint",
-    "--no-inline-config",
-    "test/guardrails/fixtures/eslint/guardrails.ts",
+    "oxlint",
+    "--no-ignore",
+    "--type-aware",
+    "--format",
+    "json",
+    "test/guardrails/fixtures/oxlint/guardrails.ts",
   ],
   [
     "no-restricted-imports",
     "framework or persistence internals",
-    "@typescript-eslint/switch-exhaustiveness-check",
+    "typescript(switch-exhaustiveness-check)",
   ],
 );
 
