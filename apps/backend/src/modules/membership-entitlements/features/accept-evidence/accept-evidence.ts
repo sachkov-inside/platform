@@ -52,16 +52,36 @@ const bindingRowsSchema = z.array(
     })
     .strict(),
 );
+const receiptDecisionSchema = z.enum([
+  "member",
+  "not_member",
+  "identity_not_linked",
+  "identity_conflict",
+  "unavailable",
+]);
+const receiptOutcomeSchema = z.enum([
+  "processing",
+  "awaiting_binding",
+  "applied",
+  "accepted_without_entitlement",
+  "duplicate",
+  "unsupported_contract",
+  "invalid_evidence",
+  "principal_mismatch",
+  "expired_evidence",
+  "replayed_evidence",
+]);
 const lockedReceiptRowsSchema = z.tuple([
   z
     .object({
       requestFingerprint: z.string().length(64),
-      outcome: z.string().min(1),
-      decision: z.string().nullable(),
+      outcome: receiptOutcomeSchema,
+      decision: receiptDecisionSchema.nullable(),
       evidenceVersion: z.bigint().nullable(),
     })
     .strict(),
 ]);
+type LockedReceipt = z.infer<typeof lockedReceiptRowsSchema>[0];
 
 type AppliedEvidence = Extract<
   MembershipEvidenceAcceptance,
@@ -389,12 +409,7 @@ async function awaitAccountBinding(
 }
 
 function existingReceiptResult(
-  receipt: {
-    readonly requestFingerprint: string;
-    readonly outcome: string;
-    readonly decision: string | null;
-    readonly evidenceVersion: bigint | null;
-  },
+  receipt: LockedReceipt,
   requestFingerprint: string,
 ): MembershipEvidenceAcceptance | "retry" {
   if (receipt.requestFingerprint !== requestFingerprint) {
