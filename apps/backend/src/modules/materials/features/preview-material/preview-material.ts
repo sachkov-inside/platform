@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { z } from "zod";
 
 import type {
@@ -53,16 +51,6 @@ export function assemblePreviewMaterial(
       if (!rendered.ok) {
         return rendered;
       }
-      await dependencies.prisma.materialAccessAuditEvent.create({
-        data: {
-          id: randomUUID(),
-          materialId: parsed.value.materialId,
-          contentVersion: BigInt(current.value.lifecycle.contentVersion),
-          actorId: parsed.value.actor,
-          action: "preview",
-          decision: "allow",
-        },
-      });
       return {
         ok: true,
         value: {

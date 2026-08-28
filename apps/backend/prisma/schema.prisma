@@ -231,16 +231,3 @@ model MaterialSearchDocument {
   @@map("material_search_documents")
   @@schema("materials")
 }
-
-model MaterialAccessAuditEvent {
-  id             String   @id @db.Uuid
-  materialId     String   @map("material_id") @db.Uuid
-  contentVersion BigInt   @map("content_version") @db.BigInt
-  actorId        String?  @map("actor_id") @db.Uuid
-  action         String
-  decision       String
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
-
-  @@map("material_access_audit_events")
-  @@schema("materials")
-}

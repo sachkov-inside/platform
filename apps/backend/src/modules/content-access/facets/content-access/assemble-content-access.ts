@@ -20,7 +20,7 @@ import type {
 const MAX_BATCH_SIZE = 100;
 
 interface SubjectFacts {
-  readonly managesMaterials: boolean;
+  readonly permission: "granted" | "denied" | "unavailable";
   readonly membership?: MembershipAccessState;
 }
 
@@ -71,8 +71,16 @@ export function assembleContentAccess(
         const facts = materialsById.get(operation.resource.materialId);
         return facts !== undefined && needsSubjectFacts(facts, operation.action);
       });
+      const needsMembershipFacts = input.operations.some((operation) => {
+        const facts = materialsById.get(operation.resource.materialId);
+        return facts !== undefined && needsMembership(facts, operation.action);
+      });
       const subjectFacts = needsProtectedFacts
-        ? await resolveSubjectFacts(dependencies, input.subject)
+        ? await resolveSubjectFacts(
+            dependencies,
+            input.subject,
+            needsMembershipFacts,
+          )
         : undefined;
 
       return {
@@ -101,6 +109,9 @@ export function assembleContentAccess(
       if (facts === null) {
         return decision("resource_not_found");
       }
+      if (facts.materialId !== input.resource.materialId) {
+        return decision("resource_mismatch");
+      }
       if (!needsSubjectFacts(facts, input.action)) {
         const reason = resourceReason(facts, input.action);
         return reason === "public_resource"
@@ -111,19 +122,21 @@ export function assembleContentAccess(
       const subjectFacts = await resolveSubjectFacts(
         dependencies,
         input.subject,
+        needsMembership(facts, input.action),
       );
       const reason = evaluate(facts, input.action, input.subject, subjectFacts);
       if (reason === "public_resource" || reason === "materials_manager") {
         return allow(reason, facts.contentVersion);
       }
       if (reason === "active_membership") {
+        if (subjectFacts?.membership?.kind !== "active") {
+          return decision("dependency_unavailable");
+        }
         return {
           ...metadata(),
           effect: "allow",
           reason,
-          validUntil: subjectFacts?.membership?.kind === "active"
-            ? subjectFacts.membership.validUntil
-            : clock().toISOString(),
+          validUntil: subjectFacts.membership.validUntil,
           checkedContentVersion: facts.contentVersion,
         };
       }
@@ -154,6 +167,7 @@ export function assembleContentAccess(
 async function resolveSubjectFacts(
   dependencies: ContentAccessDependencies,
   subject: Subject,
+  includeMembership: boolean,
 ): Promise<SubjectFacts | undefined> {
   if (subject.kind === "anonymous") {
     return undefined;
@@ -164,20 +178,26 @@ async function resolveSubjectFacts(
       subject.accountId,
     );
   } catch {
-    return { managesMaterials: false, membership: { kind: "unavailable" } };
+    return { permission: "unavailable" };
   }
   if (managesMaterials) {
-    return { managesMaterials: true };
+    return { permission: "granted" };
+  }
+  if (!includeMembership) {
+    return { permission: "denied" };
   }
   try {
     return {
-      managesMaterials: false,
+      permission: "denied",
       membership: await dependencies.membershipEntitlements.resolveForAccess(
         subject.accountId,
       ),
     };
   } catch {
-    return { managesMaterials: false, membership: { kind: "unavailable" } };
+    return {
+      permission: "denied",
+      membership: { kind: "unavailable" },
+    };
   }
 }
 
@@ -185,7 +205,16 @@ function needsSubjectFacts(
   facts: MaterialResourceFacts,
   action: AccessAction,
 ): boolean {
-  return !(action === "read" && facts.publicationState === "published" && facts.access === "free");
+  return resourceReason(facts, action) === undefined;
+}
+
+function needsMembership(
+  facts: MaterialResourceFacts,
+  action: AccessAction,
+): boolean {
+  return action === "read" &&
+    facts.publicationState === "published" &&
+    facts.access === "membership";
 }
 
 function projectAvailability(
@@ -204,6 +233,9 @@ function projectAvailability(
     reason === "active_membership"
   ) {
     return "available";
+  }
+  if (reason === "resource_action_invalid") {
+    return "unavailable";
   }
   return facts.access === "membership" ? "locked" : "unavailable";
 }
@@ -225,13 +257,14 @@ function evaluate(
   if (subject.kind === "anonymous") {
     return "authentication_required";
   }
-  if (subjectFacts?.managesMaterials === true) {
+  if (subjectFacts?.permission === "unavailable" || subjectFacts === undefined) {
+    return "dependency_unavailable";
+  }
+  if (subjectFacts.permission === "granted") {
     return "materials_manager";
   }
   if (action === "preview") {
-    return subjectFacts?.membership?.kind === "unavailable"
-      ? "dependency_unavailable"
-      : "permission_required";
+    return "permission_required";
   }
   switch (subjectFacts?.membership?.kind) {
     case "active":
@@ -252,6 +285,9 @@ function resourceReason(
   facts: MaterialResourceFacts,
   action: AccessAction,
 ): DenyReason | "public_resource" | undefined {
+  if (action !== "read" && action !== "preview") {
+    return "resource_action_invalid";
+  }
   if (action === "read" && facts.publicationState !== "published") {
     return "resource_unpublished";
   }
