@@ -209,6 +209,96 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   expect(browserErrors).toEqual([]);
 });
 
+test("renders a locked teaser with the configured CTA and fails closed on invalid proof", async ({
+  page,
+  request,
+}) => {
+  const response = await page.goto(
+    "/materials/membership-delivery-guide",
+  );
+  expect(response?.status()).toBe(200);
+  await expect(
+    page.getByRole("heading", {
+      name: "Developer Pipeline без потери контекста",
+      level: 1,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "Материал доступен в Мастерской",
+      level: 2,
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Получить доступ" })).toHaveAttribute(
+    "href",
+    process.env.FULLSTACK_MEMBERSHIP_ACQUISITION_URL ??
+      "https://t.me/tribute",
+  );
+  await expect(page.getByText("Закрытое содержимое для участников")).toHaveCount(0);
+
+  const invalidProof = await request.get(
+    `${process.env.FULLSTACK_API_BASE_URL ?? "http://127.0.0.1:3001"}/materials/membership-delivery-guide`,
+    { headers: { authorization: "Bearer not-a-jwt" } },
+  );
+  expect(invalidProof.status()).toBe(401);
+  expect(invalidProof.headers()["cache-control"]).toBe("private, no-store");
+  await expect(invalidProof.json()).resolves.toMatchObject({
+    code: "invalid_proof",
+  });
+});
+
+test("carries the authenticated owner through Web to ContentAccess", async ({
+  context,
+  page,
+}) => {
+  const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
+  const session = process.env.FULLSTACK_LOGTO_SESSION;
+  if (cookieName === undefined || session === undefined) {
+    throw new Error("Full-stack Logto session fixture is missing");
+  }
+  await context.addCookies([
+    {
+      name: cookieName,
+      value: session,
+      url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+
+  const reader = await page.goto("/materials/membership-delivery-guide");
+  expect(reader?.status()).toBe(200);
+  await expect(
+    page.getByRole("heading", {
+      name: "Developer Pipeline без потери контекста",
+      level: 1,
+    }),
+  ).toBeVisible();
+  await expect(page.getByText("Закрытое содержимое для участников.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Получить доступ" })).toHaveCount(0);
+
+  await page.goto("/library");
+  const membershipCard = page
+    .getByRole("article")
+    .filter({ hasText: "Developer Pipeline без потери контекста" });
+  await expect(membershipCard.getByText("Доступно")).toBeVisible();
+
+  const bffResponse = await context.request.get(
+    `${process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000"}/api/library/materials`,
+  );
+  expect(bffResponse.status()).toBe(200);
+  expect(bffResponse.headers()["cache-control"]).toBe("private, no-store");
+  await expect(bffResponse.json()).resolves.toMatchObject({
+    kind: "ready",
+    items: expect.arrayContaining([
+      expect.objectContaining({
+        slug: "membership-delivery-guide",
+        availability: "available",
+      }),
+    ]),
+  });
+});
+
 test("returns the production not-found state for an unpublished slug", async ({ page }) => {
   await page.goto("/materials/not-published");
 

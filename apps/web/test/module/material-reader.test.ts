@@ -108,17 +108,31 @@ describe("Material Reader server adapter", () => {
       vi.fn().mockResolvedValue(
         Response.json({
           kind: "teaser",
-          cacheScope: "public",
+          cacheScope: "private-no-store",
           projection: { ...publishedProjection, access: "membership" },
-          access: { allowed: false, reason: "membership_required" },
+          access: {
+            availability: "locked",
+            cta: {
+              label: "Получить доступ",
+              url: "https://t.me/tribute/app?startapp=inside",
+            },
+          },
         }),
       ),
     );
 
-    await expect(getMaterialReader("inside-platform-overview")).resolves.toMatchObject({
+    await expect(
+      getMaterialReader("inside-platform-overview"),
+    ).resolves.toMatchObject({
       kind: "access",
-      reason: "membership_required",
-      material: { title: "Как устроен Inside Platform", access: "membership" },
+      cta: {
+        label: "Получить доступ",
+        url: "https://t.me/tribute/app?startapp=inside",
+      },
+      material: {
+        title: "Как устроен Inside Platform",
+        access: "membership",
+      },
     });
   });
 

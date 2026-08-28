@@ -1,11 +1,16 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import {
   anonymousSubject,
+  assembleContentAccess,
+} from "../../src/modules/content-access/index.js";
+import {
   assembleBaselineContentAccess,
+  assembleMaterialResourceFacts,
   assembleMaterials,
 } from "../../src/modules/materials/index.js";
+import { materialId } from "../../src/modules/materials/domain/material-identifiers.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,
@@ -51,10 +56,15 @@ describe("Material lifecycle", () => {
       canManage: (accountId: string) => accountId === ownerId,
     };
     const contentAccess = assembleBaselineContentAccess(authorPolicy);
-    const { authoring, materialContent, publishedMaterialReader } = assembleMaterials({
+    const {
+      authoring,
+      contentAccess: publishedContentAccess,
+      materialContent,
+      publishedMaterialReader,
+    } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy,
-      contentAccess,
+      authoringContentAccess: contentAccess,
     });
     const created = await authoring.createDraft({
       actor: ownerId,
@@ -65,6 +75,7 @@ describe("Material lifecycle", () => {
     if (!created.ok) {
       throw new Error(created.error.code);
     }
+    const currentMaterialId = materialId(created.value.materialId);
 
     const published = await authoring.saveMaterial({
       actor: ownerId,
@@ -103,7 +114,7 @@ describe("Material lifecycle", () => {
     });
 
     expect(
-      await materialContent.findAccessFacts(created.value.materialId),
+      await materialContent.findAccessFacts(currentMaterialId),
     ).toEqual({
       ok: true,
       value: {
@@ -114,14 +125,61 @@ describe("Material lifecycle", () => {
       },
     });
     expect(
+      await materialContent.findAccessFactsMany([
+        materialId("71000000-0000-4000-8000-000000000099"),
+        currentMaterialId,
+        currentMaterialId,
+      ]),
+    ).toEqual({
+      ok: true,
+      value: [
+        {
+          materialId: created.value.materialId,
+          publicationState: "published",
+          access: "free",
+          contentVersion: 3,
+        },
+      ],
+    });
+    const findMany = vi.spyOn(testDatabase.prisma.material, "findMany");
+    const contentAccessResult = await assembleContentAccess({
+      materialResourceFacts: assembleMaterialResourceFacts(materialContent),
+      accountPermissions: {
+        hasMaterialsManage: () => Promise.resolve(false),
+      },
+      membershipEntitlements: {
+        resolveForAccess: () => Promise.resolve({ kind: "required" }),
+      },
+    }).checkAvailabilityMany({
+      subject: { kind: "anonymous" },
+      operations: [
+        {
+          itemId: "current-material",
+          resource: {
+            kind: "material",
+            materialId: currentMaterialId,
+          },
+          action: "read",
+        },
+      ],
+      enforcementPoint: "published_material_read",
+      correlationId: "71000000-0000-4000-8000-000000000098",
+    });
+    expect(contentAccessResult).toEqual({
+      ok: true,
+      items: [{ itemId: "current-material", availability: "available" }],
+    });
+    expect(findMany).toHaveBeenCalledOnce();
+    findMany.mockRestore();
+    expect(
       await materialContent.loadPublishedBody({
-        materialId: created.value.materialId,
+        materialId: currentMaterialId,
         checkedContentVersion: 2,
       }),
     ).toEqual({ ok: true, value: null });
     expect(
       await materialContent.loadPublishedBody({
-        materialId: created.value.materialId,
+        materialId: currentMaterialId,
         checkedContentVersion: 3,
       }),
     ).toMatchObject({
@@ -165,7 +223,11 @@ describe("Material lifecycle", () => {
     });
 
     expect(
-      await listPublishedMaterials(publishedMaterialReader, { first: 24 }),
+      await listPublishedMaterials(
+        publishedMaterialReader,
+        publishedContentAccess,
+        { subject: { kind: "anonymous" }, first: 24 },
+      ),
     ).toMatchObject({
       ok: true,
       value: {
@@ -253,6 +315,97 @@ describe("Material lifecycle", () => {
       ok: false,
       error: { code: "draft_deletion_forbidden" },
     });
+  });
+
+  test("re-authorizes once when a concurrent Save changes contentVersion", async () => {
+    const authorPolicy = {
+      canManage: (accountId: string) => accountId === ownerId,
+    };
+    const base = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy,
+    });
+    const created = await base.authoring.createDraft({
+      actor: ownerId,
+      idempotencyKey: "create-reader-race",
+      metadata: metadata("Reader race", "reader-race"),
+      body: representativeDocument("Version one."),
+    });
+    if (!created.ok) {
+      throw new Error(created.error.code);
+    }
+    const published = await base.authoring.saveMaterial({
+      actor: ownerId,
+      idempotencyKey: "publish-reader-race",
+      materialId: created.value.materialId,
+      expectedContentVersion: 1,
+      publicationState: "published",
+      metadata: metadata("Reader race", "reader-race"),
+      body: representativeDocument("Version two."),
+    });
+    if (!published.ok) {
+      throw new Error(published.error.code);
+    }
+
+    let raced = false;
+    const racingContentAccess = {
+      checkAvailabilityMany:
+        base.contentAccess.checkAvailabilityMany.bind(base.contentAccess),
+      authorize: async (
+        input: Parameters<typeof base.contentAccess.authorize>[0],
+      ) => {
+        const decision = await base.contentAccess.authorize(input);
+        if (!raced && decision.effect === "allow") {
+          raced = true;
+          const saved = await base.authoring.saveMaterial({
+            actor: ownerId,
+            idempotencyKey: "win-reader-race",
+            materialId: created.value.materialId,
+            expectedContentVersion: 2,
+            publicationState: "published",
+            metadata: metadata("Reader race winner", "reader-race"),
+            body: representativeDocument("Version three."),
+          });
+          if (!saved.ok) {
+            throw new Error(saved.error.code);
+          }
+        }
+        return decision;
+      },
+    };
+    const { publishedMaterialReader } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy,
+      publishedContentAccess: racingContentAccess,
+    });
+    const bodyRead = vi.spyOn(testDatabase.prisma.material, "findFirst");
+
+    await expect(
+      publishedMaterialReader.read({
+        subject: { kind: "anonymous" },
+        slug: "reader-race",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: {
+        kind: "available",
+        projection: {
+          contentVersion: 3,
+          title: "Reader race winner",
+        },
+        body: {
+          blocks: [
+            { kind: "heading" },
+            {
+              kind: "paragraph",
+              content: [{ kind: "text", text: "Version three." }],
+            },
+          ],
+        },
+      },
+    });
+    expect(bodyRead).toHaveBeenCalledTimes(2);
+    bodyRead.mockRestore();
   });
 
   test("rejects stale input, preserves stable identity while unpublished and locks the slug", async () => {

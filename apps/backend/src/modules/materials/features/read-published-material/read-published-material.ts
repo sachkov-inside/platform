@@ -1,15 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
-import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
+import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type { ContentAccess } from "../../../content-access/index.js";
 import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
-import {
-  materialId,
-} from "../../domain/material-identifiers.js";
+import { materialId } from "../../domain/material-identifiers.js";
 import { normalizedUuidSchema } from "../../domain/uuid.js";
-import { loadPublishedBodyAtVersion } from "../../infrastructure/postgres/current-material.js";
+import type { MaterialContent } from "../../facets/material-content/material-content.js";
 import { selectPublishedMaterialProjectionBySlug } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
-import type { ContentAccess } from "../../ports/content-access.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import type {
   PublishedMaterialReadResult,
@@ -33,12 +31,15 @@ const querySchema = z
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u),
   })
   .strict();
+const MAX_READ_ATTEMPTS = 2;
 
 export async function readPublishedMaterial(
   dependencies: {
-    readonly prisma: MaterialsPrisma;
+    readonly prisma: MaterialsPrismaClient;
     readonly contentAccess: ContentAccess;
+    readonly materialContent: MaterialContent;
     readonly materialBodyOperations: MaterialBodyOperations;
+    readonly membershipAcquisitionUrl: string;
   },
   query: ReadPublishedMaterialQuery,
 ): Promise<PublishedMaterialReadResult> {
@@ -47,84 +48,85 @@ export async function readPublishedMaterial(
     return { ok: false, error: { code: "invalid_request_shape" } };
   }
 
-  const { subject, slug } = parsed.data;
+  const { slug } = parsed.data;
+  const { subject } = query;
+  const correlationId = randomUUID();
   try {
-    const projection = await selectPublishedMaterialProjectionBySlug(
-      dependencies.prisma,
-      slug,
-    );
-    if (projection === undefined) {
-      return { ok: false, error: { code: "material_not_found" } };
-    }
+    for (let attempt = 0; attempt < MAX_READ_ATTEMPTS; attempt += 1) {
+      const projection = await selectPublishedMaterialProjectionBySlug(
+        dependencies.prisma,
+        slug,
+      );
+      if (projection === undefined) {
+        return { ok: false, error: { code: "material_not_found" } };
+      }
+      const resourceId = materialId(projection.materialId);
 
-    let access;
-    try {
-      access = await dependencies.contentAccess.authorize({
+      const access = await dependencies.contentAccess.authorize({
         subject,
         action: "read",
         resource: {
-          kind: "material_body",
-          materialId: projection.materialId,
-          contentVersion: projection.contentVersion,
-          publication: "published",
-          access: projection.access,
+          kind: "material",
+          materialId: resourceId,
         },
+        enforcementPoint: "published_material_read",
+        correlationId,
       });
-    } catch {
-      access = {
-        allowed: false as const,
-        reason: "temporarily_unavailable" as const,
-      };
-    }
+      if (access.effect === "deny") {
+        if (
+          access.reason === "resource_not_found" ||
+          access.reason === "resource_unpublished"
+        ) {
+          return { ok: false, error: { code: "material_not_found" } };
+        }
+        return {
+          ok: true,
+          value: {
+            kind: "teaser",
+            cacheScope: "private-no-store",
+            projection,
+            access: {
+              availability: "locked",
+              cta: {
+                label: "Получить доступ",
+                url: dependencies.membershipAcquisitionUrl,
+              },
+            },
+          },
+        };
+      }
+      if (access.checkedContentVersion !== projection.contentVersion) {
+        continue;
+      }
 
-    if (projection.access === "membership") {
-      await dependencies.prisma.materialAccessAuditEvent.create({
-        data: {
-          id: randomUUID(),
-          materialId: materialId(projection.materialId),
-          contentVersion: BigInt(projection.contentVersion),
-          actorId:
-            subject.kind === "account" ? subject.accountId : null,
-          action: "read",
-          decision: access.allowed ? "allow" : "deny",
-        },
+      const body = await dependencies.materialContent.loadPublishedBody({
+        materialId: resourceId,
+        checkedContentVersion: access.checkedContentVersion,
       });
-    }
-    if (!access.allowed) {
+      if (!body.ok) {
+        return body.error.code === "invalid_request_shape"
+          ? internalError()
+          : { ok: false, error: body.error };
+      }
+      if (body.value === null) {
+        continue;
+      }
+      const rendered = dependencies.materialBodyOperations.render(body.value);
+      if (!rendered.ok) {
+        return internalError();
+      }
       return {
         ok: true,
         value: {
-          kind: "teaser",
+          kind: "available",
           cacheScope:
-            subject.kind === "anonymous" ? "public" : "private-no-store",
+            access.reason === "public_resource" ? "public" : "private-no-store",
           projection,
-          access,
+          body: rendered.value,
         },
       };
     }
-
-    const body = await loadPublishedBodyAtVersion(
-      dependencies.prisma,
-      dependencies.materialBodyOperations,
-      materialId(projection.materialId),
-      projection.contentVersion,
-    );
-    if (body === undefined) {
-      return internalError();
-    }
-    const rendered = dependencies.materialBodyOperations.render(body);
-    if (!rendered.ok) {
-      return internalError();
-    }
-    return {
-      ok: true,
-      value: {
-        kind: "available",
-        cacheScope: access.reason === "public" ? "public" : "private-no-store",
-        projection,
-        body: rendered.value,
-      },
-    };
+    return internalError();
   } catch (error) {
     return { ok: false, error: mapPostgresReadError(error) };
   }

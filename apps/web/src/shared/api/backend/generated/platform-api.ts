@@ -1898,6 +1898,8 @@ export interface operations {
                         readonly items: readonly {
                             /** @enum {string} */
                             readonly access: "free" | "membership";
+                            /** @enum {string} */
+                            readonly availability: "available" | "locked" | "unavailable";
                             readonly contentVersion: number;
                             readonly format: {
                                 readonly id: string;
@@ -1948,7 +1950,23 @@ export interface operations {
                     };
                 };
             };
-            /** @description Catalog failed internally */
+            /** @description Optional Account proof is invalid */
+            readonly 401: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/problem+json": {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly detail: string;
+                        readonly status: number;
+                        readonly title: string;
+                        readonly type: string;
+                    };
+                };
+            };
+            /** @description Catalog or Account resolution failed internally */
             readonly 500: {
                 headers: {
                     readonly [name: string]: unknown;
@@ -1961,10 +1979,17 @@ export interface operations {
                         readonly status: number;
                         readonly title: string;
                         readonly type: string;
+                    } | {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly detail: string;
+                        readonly status: number;
+                        readonly title: string;
+                        readonly type: string;
                     };
                 };
             };
-            /** @description Catalog dependency is unavailable */
+            /** @description Catalog or Account proof dependency is unavailable */
             readonly 503: {
                 headers: {
                     readonly [name: string]: unknown;
@@ -1974,6 +1999,13 @@ export interface operations {
                         readonly code: string;
                         readonly correlationId?: string;
                         readonly retryable?: boolean;
+                        readonly status: number;
+                        readonly title: string;
+                        readonly type: string;
+                    } | {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly detail: string;
                         readonly status: number;
                         readonly title: string;
                         readonly type: string;
@@ -2044,10 +2076,14 @@ export interface operations {
                         };
                     } | {
                         readonly access: {
-                            /** @enum {boolean} */
-                            readonly allowed: false;
                             /** @enum {string} */
-                            readonly reason: "forbidden" | "membership_required" | "temporarily_unavailable";
+                            readonly availability: "locked";
+                            readonly cta: {
+                                /** @enum {string} */
+                                readonly label: "Получить доступ";
+                                /** Format: uri */
+                                readonly url: string;
+                            };
                         };
                         /** @enum {string} */
                         readonly cacheScope: "public" | "private-no-store";
@@ -2105,6 +2141,22 @@ export interface operations {
                     };
                 };
             };
+            /** @description Optional Account proof is invalid */
+            readonly 401: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/problem+json": {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly detail: string;
+                        readonly status: number;
+                        readonly title: string;
+                        readonly type: string;
+                    };
+                };
+            };
             /** @description Published Material does not exist */
             readonly 404: {
                 headers: {
@@ -2121,7 +2173,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description Published Material read failed unexpectedly */
+            /** @description Published Material read or Account resolution failed unexpectedly */
             readonly 500: {
                 headers: {
                     readonly [name: string]: unknown;
@@ -2134,10 +2186,17 @@ export interface operations {
                         readonly status: number;
                         readonly title: string;
                         readonly type: string;
+                    } | {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly detail: string;
+                        readonly status: number;
+                        readonly title: string;
+                        readonly type: string;
                     };
                 };
             };
-            /** @description Published Material dependency is unavailable */
+            /** @description Published Material or Account proof dependency is unavailable */
             readonly 503: {
                 headers: {
                     readonly [name: string]: unknown;
@@ -2147,6 +2206,13 @@ export interface operations {
                         readonly code: string;
                         readonly correlationId?: string;
                         readonly retryable?: boolean;
+                        readonly status: number;
+                        readonly title: string;
+                        readonly type: string;
+                    } | {
+                        readonly code: string;
+                        readonly correlationId?: string;
+                        readonly detail: string;
                         readonly status: number;
                         readonly title: string;
                         readonly type: string;

@@ -42,8 +42,13 @@ export const publishedMaterialReadHttpSchema = z.discriminatedUnion("kind", [
       projection: publishedMaterialProjectionHttpSchema,
       access: z
         .object({
-          allowed: z.literal(false),
-          reason: z.enum(["forbidden", "membership_required", "temporarily_unavailable"]),
+          availability: z.literal("locked"),
+          cta: z
+            .object({
+              label: z.literal("Получить доступ"),
+              url: z.url(),
+            })
+            .strict(),
         })
         .strict(),
     })

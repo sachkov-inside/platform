@@ -93,6 +93,17 @@ describe("Accounts API", () => {
     );
     expect(machine.statusCode).toBe(401);
     expect(machine.json()).toMatchObject({ code: "invalid_proof" });
+
+    const malformedOptionalProof =
+      await app.getHttpAdapter().getInstance().inject({
+        method: "GET",
+        url: "/materials/missing-material",
+        headers: { authorization: "Bearer not-a-jwt" },
+      });
+    expect(malformedOptionalProof.statusCode).toBe(401);
+    expect(malformedOptionalProof.json()).toMatchObject({
+      code: "invalid_proof",
+    });
   });
 
   test("protects and executes the complete Material authoring HTTP lifecycle", async () => {
@@ -215,6 +226,7 @@ describe("Accounts API", () => {
           "Generated API contract v2",
           "generated-api-contract",
           "Current API contract.",
+          "membership",
         ),
       },
     });
@@ -223,6 +235,44 @@ describe("Accounts API", () => {
       materialId: current.materialId,
       contentVersion: 3,
       publicationState: "published",
+    });
+
+    const authorizedReader = await inject(
+      "GET",
+      "/materials/generated-api-contract",
+      token,
+    );
+    expect(authorizedReader.statusCode).toBe(200);
+    expect(authorizedReader.headers["cache-control"]).toBe(
+      "private, no-store",
+    );
+    expect(authorizedReader.json()).toMatchObject({
+      kind: "available",
+      projection: { access: "membership" },
+    });
+
+    const authorizedCatalog = await inject(
+      "GET",
+      "/library/materials",
+      token,
+    );
+    expect(authorizedCatalog.statusCode).toBe(200);
+    expect(authorizedCatalog.headers["cache-control"]).toBe(
+      "private, no-store",
+    );
+    const catalog = authorizedCatalog.json<{
+      readonly items: readonly {
+        readonly access: string;
+        readonly availability: string;
+        readonly slug: string;
+      }[];
+    }>();
+    expect(
+      catalog.items.find(({ slug }) => slug === "generated-api-contract"),
+    ).toMatchObject({
+      slug: "generated-api-contract",
+      access: "membership",
+      availability: "available",
     });
 
     const unpublished = await app.getHttpAdapter().getInstance().inject({
@@ -283,13 +333,18 @@ describe("Accounts API", () => {
 const topicId = "73000000-0000-4000-8000-000000000001";
 const formatId = "73000000-0000-4000-8000-000000000002";
 
-function materialDraftPayload(title: string, slug: string, text: string) {
+function materialDraftPayload(
+  title: string,
+  slug: string,
+  text: string,
+  access: "free" | "membership" = "free",
+) {
   return {
     metadata: {
       title,
       summary: "A Material authoring API integration fixture.",
       slug,
-      access: "free",
+      access,
       topicId,
       formatId,
       tagIds: [],

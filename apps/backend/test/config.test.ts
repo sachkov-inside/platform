@@ -18,6 +18,7 @@ describe("process configuration", () => {
       LOGTO_AUDIENCE: "https://api.example.test",
       LOGTO_JWKS_URL: "https://identity.example.test/oidc/jwks",
       IDENTITY_EMAIL_FINGERPRINT_KEY: "test-email-fingerprint-key-32chars",
+      MEMBERSHIP_ACQUISITION_URL: "https://t.me/tribute/example",
     });
 
     expect(config).toEqual({
@@ -30,11 +31,15 @@ describe("process configuration", () => {
         jwksUrl: "https://identity.example.test/oidc/jwks",
         emailFingerprintKey: "test-email-fingerprint-key-32chars",
       },
+      contentAccess: {
+        membershipAcquisitionUrl: "https://t.me/tribute/example",
+      },
     });
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.database)).toBe(true);
     expect(Object.isFrozen(config.api)).toBe(true);
     expect(Object.isFrozen(config.identity)).toBe(true);
+    expect(Object.isFrozen(config.contentAccess)).toBe(true);
     expect(process.env).toEqual(processEnvironmentBefore);
   });
 
@@ -50,6 +55,9 @@ describe("process configuration", () => {
         audience: "http://127.0.0.1:3001",
         jwksUrl: "https://identity.inside.localhost:3301/oidc/jwks",
         emailFingerprintKey: "inside-local-email-fingerprint-key",
+      },
+      contentAccess: {
+        membershipAcquisitionUrl: "https://t.me/tribute",
       },
     });
 
@@ -73,6 +81,20 @@ describe("process configuration", () => {
         API_HOST: "0.0.0.0",
       }),
     ).toThrow("API_PORT is required in production mode");
+
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "production",
+        DATABASE_URL: "postgresql://database.example/inside",
+        API_HOST: "0.0.0.0",
+        API_PORT: "3001",
+        LOGTO_ISSUER: "https://identity.example.test/oidc",
+        LOGTO_AUDIENCE: "https://api.example.test",
+        LOGTO_JWKS_URL: "https://identity.example.test/oidc/jwks",
+        IDENTITY_EMAIL_FINGERPRINT_KEY:
+          "production-email-fingerprint-key-32chars",
+      }),
+    ).toThrow("MEMBERSHIP_ACQUISITION_URL is required in production mode");
   });
 
   it("parses production database config for non-listening migration tooling", () => {

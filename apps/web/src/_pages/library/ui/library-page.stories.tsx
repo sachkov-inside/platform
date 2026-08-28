@@ -27,6 +27,7 @@ const navigationItems = [
 const catalogItems = [
   {
     access: "membership",
+    availability: "locked",
     format: "Видео",
     preview: {
       duration: "38:42",
@@ -43,6 +44,7 @@ const catalogItems = [
   },
   {
     access: "free",
+    availability: "available",
     format: "Гайд",
     seriesMemberships: [],
     slug: "public-agent-skills",
@@ -54,6 +56,7 @@ const catalogItems = [
   },
   {
     access: "membership",
+    availability: "locked",
     format: "Гайд",
     seriesMemberships: [],
     slug: "resume-hypotheses",
@@ -142,7 +145,7 @@ function CachedCatalogNavigationHarness() {
             ? createCatalogPage(0)
             : { ...createCatalogPage(1), nextCursor: null },
         );
-      }),
+      }, "storybook-viewer"),
     [],
   );
 

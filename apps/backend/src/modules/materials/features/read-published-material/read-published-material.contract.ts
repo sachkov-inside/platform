@@ -1,7 +1,15 @@
 import type { RenderedMaterialBody } from "../../domain/material-body/material-body.js";
-import type { AccessDecision, Subject } from "../../ports/content-access.js";
+import type { Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
 import type { Result } from "../../result.js";
+
+export interface LockedMaterialAccessDto {
+  readonly availability: "locked";
+  readonly cta: {
+    readonly label: "Получить доступ";
+    readonly url: string;
+  };
+}
 
 export type PublishedMaterialReadDto =
   | {
@@ -12,9 +20,9 @@ export type PublishedMaterialReadDto =
     }
   | {
       readonly kind: "teaser";
-      readonly cacheScope: "private-no-store" | "public";
+      readonly cacheScope: "private-no-store";
       readonly projection: PublishedMaterialProjectionDto;
-      readonly access: Extract<AccessDecision, { readonly allowed: false }>;
+      readonly access: LockedMaterialAccessDto;
     };
 
 export type PublishedMaterialReadError =

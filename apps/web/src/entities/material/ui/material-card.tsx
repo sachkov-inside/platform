@@ -77,7 +77,10 @@ export function MaterialCard({
             )}
           >
             <MaterialContext material={material} />
-            <AccessLabel access={material.access} />
+            <AccessLabel
+              access={material.access}
+              availability={material.availability}
+            />
           </div>
         </div>
       </Link>
@@ -138,17 +141,27 @@ function MaterialContext({
 
 function AccessLabel({
   access,
+  availability,
 }: {
   readonly access: MaterialPreview["access"];
+  readonly availability: MaterialPreview["availability"];
 }) {
-  const Icon = access === "free" ? Unlock : LockKeyhole;
-  const label = access === "free" ? "Бесплатно" : "Для участников";
+  const isAvailable = availability === "available";
+  const Icon = isAvailable ? Unlock : LockKeyhole;
+  const label =
+    availability === "locked"
+      ? "Для участников"
+      : availability === "unavailable"
+        ? "Недоступно"
+        : access === "free"
+          ? "Бесплатно"
+          : "Доступно";
 
   return (
     <span
       className={cn(
         "inline-flex min-h-7 w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold",
-        access === "free"
+        isAvailable
           ? "bg-secondary text-secondary-foreground"
           : "bg-primary text-primary-foreground",
       )}

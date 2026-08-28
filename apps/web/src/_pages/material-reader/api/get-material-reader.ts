@@ -103,8 +103,13 @@ const publishedMaterialSchema = z.discriminatedUnion("kind", [
     cacheScope: z.enum(["public", "private-no-store"]),
     projection: projectionSchema,
     access: z.object({
-      allowed: z.literal(false),
-      reason: z.enum(["forbidden", "membership_required", "temporarily_unavailable"]),
+      availability: z.literal("locked"),
+      cta: z
+        .object({
+          label: z.literal("Получить доступ"),
+          url: z.url(),
+        })
+        .strict(),
     }),
   }),
 ]);
@@ -122,10 +127,15 @@ const notFoundSchema = z.object({
  * The slug is mutable and there is no publish-triggered Next invalidation path yet, so the
  * adapter deliberately uses `no-store`. Protected viewer-specific caching remains forbidden.
  */
-export async function getMaterialReader(slug: string): Promise<MaterialReaderResult> {
+export async function getMaterialReader(
+  slug: string,
+  accessToken?: string,
+): Promise<MaterialReaderResult> {
   let result: Awaited<ReturnType<typeof requestPublishedMaterial>>;
   try {
-    result = await requestPublishedMaterial(slug);
+    result = await requestPublishedMaterial(slug, {
+      ...(accessToken === undefined ? {} : { accessToken }),
+    });
   } catch (error) {
     if (error instanceof BackendConnectionError && error.code === "unavailable") {
       return { kind: "unavailable" };
@@ -162,7 +172,7 @@ export async function getMaterialReader(slug: string): Promise<MaterialReaderRes
   const material = toMaterialMetadata(parsed.data.projection);
   return parsed.data.kind === "available"
     ? { kind: "available", material, body: parsed.data.body.blocks }
-    : { kind: "access", material, reason: parsed.data.access.reason };
+    : { kind: "access", material, cta: parsed.data.access.cta };
 }
 
 function toMaterialMetadata(

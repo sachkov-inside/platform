@@ -18,11 +18,24 @@ import {
 } from "@nestjs/swagger";
 import { z } from "zod";
 
-import { PublicCatalogCache } from "../../../../infrastructure/http/http-cache-policy.js";
+import { ViewerAwareCatalogCache } from "../../../../infrastructure/http/http-cache-policy.js";
 import {
   problemDetailsContent,
+  problemDetailsOneOfContent,
   toOpenApiSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
+import {
+  anonymousSubject,
+  CONTENT_ACCESS,
+  type ContentAccess,
+} from "../../../content-access/index.js";
+import {
+  accountId as checkedAccountId,
+  accountProblemSchema,
+  OptionalAccountEndpoint,
+  OptionalCurrentAccount,
+  type AuthenticatedAccount,
+} from "../../../accounts/index.js";
 import {
   PUBLISHED_MATERIAL_READER,
   publishedMaterialProblemHttpSchema,
@@ -35,15 +48,19 @@ import {
 import { listPublishedMaterials } from "./list-published-materials.js";
 
 const CATALOG_PAGE_SIZE = 12;
+const catalogItemSchema = publishedMaterialProjectionHttpSchema.extend({
+  availability: z.enum(["available", "locked", "unavailable"]),
+});
 const catalogPageSchema = z
   .object({
-    items: z.array(publishedMaterialProjectionHttpSchema),
+    items: z.array(catalogItemSchema),
     nextCursor: z.string().min(1).max(512).nullable(),
   })
   .strict();
 
 @ApiTags("Content library")
-@PublicCatalogCache()
+@ViewerAwareCatalogCache()
+@OptionalAccountEndpoint()
 @Controller("library")
 export class ListPublishedMaterialsController {
   constructor(
@@ -52,6 +69,11 @@ export class ListPublishedMaterialsController {
       PublishedMaterialReader,
       "listProjections"
     >,
+    @Inject(CONTENT_ACCESS)
+    private readonly contentAccess: Pick<
+      ContentAccess,
+      "checkAvailabilityMany"
+    >,
   ) {}
 
   @Get("materials")
@@ -59,14 +81,23 @@ export class ListPublishedMaterialsController {
   @ApiQuery({ name: "after", required: false, schema: toOpenApiSchema(z.string().min(1).max(512)) })
   @ApiOkResponse({ description: "A deterministic page of published Materials", schema: toOpenApiSchema(catalogPageSchema) })
   @ApiBadRequestResponse({ description: "Catalog cursor is malformed", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
-  @ApiInternalServerErrorResponse({ description: "Catalog failed internally", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
-  @ApiServiceUnavailableResponse({ description: "Catalog dependency is unavailable", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
+  @ApiInternalServerErrorResponse({ description: "Catalog or Account resolution failed internally", content: problemDetailsOneOfContent(publishedMaterialProblemHttpSchema, accountProblemSchema) })
+  @ApiServiceUnavailableResponse({ description: "Catalog or Account proof dependency is unavailable", content: problemDetailsOneOfContent(publishedMaterialProblemHttpSchema, accountProblemSchema) })
   async handle(
+    @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Query("after") after: string | undefined,
   ) {
     const result = await listPublishedMaterials(
       this.publishedMaterialReader,
+      this.contentAccess,
       {
+        subject:
+          account === undefined
+            ? anonymousSubject
+            : {
+                kind: "account",
+                accountId: checkedAccountId(account.accountId),
+              },
         first: CATALOG_PAGE_SIZE,
         ...(after === undefined ? {} : { after }),
       },

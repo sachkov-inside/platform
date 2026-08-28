@@ -2,7 +2,10 @@ import { z } from "zod";
 
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { MaterialBodyOperations, MaterialBodySnapshot } from "../../domain/material-body/material-body.js";
-import { materialId } from "../../domain/material-identifiers.js";
+import {
+  materialId,
+  type MaterialId,
+} from "../../domain/material-identifiers.js";
 import type { MaterialAccess } from "../../domain/material-metadata.js";
 import type { PublicationState } from "../../domain/material.js";
 import { normalizedUuidSchema } from "../../domain/uuid.js";
@@ -12,7 +15,7 @@ import type { Result } from "../../result.js";
 import type { SystemError } from "../material-authoring/material-authoring.contract.js";
 
 export interface MaterialAccessFacts {
-  readonly materialId: string;
+  readonly materialId: MaterialId;
   readonly publicationState: PublicationState;
   readonly access: MaterialAccess;
   readonly contentVersion: number;
@@ -24,13 +27,18 @@ type MaterialContentError =
 
 export interface MaterialContent {
   findAccessFacts(
-    materialId: string,
+    materialId: MaterialId,
   ): Promise<Result<MaterialAccessFacts | null, MaterialContentError>>;
+  findAccessFactsMany(
+    materialIds: readonly MaterialId[],
+  ): Promise<Result<readonly MaterialAccessFacts[], MaterialContentError>>;
   loadPublishedBody(query: {
-    readonly materialId: string;
+    readonly materialId: MaterialId;
     readonly checkedContentVersion: number;
   }): Promise<Result<MaterialBodySnapshot | null, MaterialContentError>>;
 }
+
+export const MATERIAL_CONTENT = Symbol("MATERIAL_CONTENT");
 
 const accessFactsRowSchema = z.object({
   id: z.uuid(),
@@ -44,6 +52,7 @@ const loadBodyQuerySchema = z
     checkedContentVersion: z.number().int().positive(),
   })
   .strict();
+const materialIdsSchema = z.array(normalizedUuidSchema).min(1).max(100);
 
 export function assembleMaterialContent(dependencies: {
   readonly prisma: MaterialsPrismaClient;
@@ -51,7 +60,7 @@ export function assembleMaterialContent(dependencies: {
 }): MaterialContent {
   return Object.freeze({
     async findAccessFacts(
-      materialIdValue: string,
+      materialIdValue: MaterialId,
     ): Promise<Result<MaterialAccessFacts | null, MaterialContentError>> {
       const parsed = normalizedUuidSchema.safeParse(materialIdValue);
       if (!parsed.success) {
@@ -70,11 +79,39 @@ export function assembleMaterialContent(dependencies: {
         if (row === null) {
           return { ok: true, value: null };
         }
-        const facts = accessFactsRowSchema.safeParse(row);
-        const contentVersion = facts.success
-          ? Number(facts.data.contentVersion)
-          : Number.NaN;
-        if (!facts.success || !Number.isSafeInteger(contentVersion)) {
+        const facts = toAccessFacts(row);
+        if (facts === undefined) {
+          return {
+            ok: false,
+            error: mapPostgresReadError(new TypeError("invalid Material facts")),
+          };
+        }
+        return { ok: true, value: facts };
+      } catch (error) {
+        return { ok: false, error: mapPostgresReadError(error) };
+      }
+    },
+
+    async findAccessFactsMany(
+      materialIdValues: readonly MaterialId[],
+    ): Promise<Result<readonly MaterialAccessFacts[], MaterialContentError>> {
+      const parsed = materialIdsSchema.safeParse(materialIdValues);
+      if (!parsed.success) {
+        return { ok: false, error: { code: "invalid_request_shape" } };
+      }
+      try {
+        const checkedMaterialIds = [...new Set(parsed.data)].map(materialId);
+        const rows = await dependencies.prisma.material.findMany({
+          where: { id: { in: checkedMaterialIds } },
+          select: {
+            id: true,
+            publicationState: true,
+            access: true,
+            contentVersion: true,
+          },
+        });
+        const facts = rows.map(toAccessFacts);
+        if (facts.some((item) => item === undefined)) {
           return {
             ok: false,
             error: mapPostgresReadError(new TypeError("invalid Material facts")),
@@ -82,12 +119,9 @@ export function assembleMaterialContent(dependencies: {
         }
         return {
           ok: true,
-          value: {
-            materialId: facts.data.id,
-            publicationState: facts.data.publicationState,
-            access: facts.data.access,
-            contentVersion,
-          },
+          value: facts.filter(
+            (item): item is MaterialAccessFacts => item !== undefined,
+          ),
         };
       } catch (error) {
         return { ok: false, error: mapPostgresReadError(error) };
@@ -95,7 +129,7 @@ export function assembleMaterialContent(dependencies: {
     },
 
     async loadPublishedBody(input: {
-      readonly materialId: string;
+      readonly materialId: MaterialId;
       readonly checkedContentVersion: number;
     }): Promise<Result<MaterialBodySnapshot | null, MaterialContentError>> {
       const parsed = loadBodyQuerySchema.safeParse(input);
@@ -115,4 +149,20 @@ export function assembleMaterialContent(dependencies: {
       }
     },
   });
+}
+
+function toAccessFacts(row: unknown): MaterialAccessFacts | undefined {
+  const parsed = accessFactsRowSchema.safeParse(row);
+  const contentVersion = parsed.success
+    ? Number(parsed.data.contentVersion)
+    : Number.NaN;
+  if (!parsed.success || !Number.isSafeInteger(contentVersion)) {
+    return undefined;
+  }
+  return {
+    materialId: materialId(parsed.data.id),
+    publicationState: parsed.data.publicationState,
+    access: parsed.data.access,
+    contentVersion,
+  };
 }

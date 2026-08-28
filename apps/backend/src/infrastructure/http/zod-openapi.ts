@@ -18,3 +18,13 @@ export function problemDetailsContent(schema: z.ZodType) {
     "application/problem+json": { schema: toOpenApiSchema(schema) },
   } as const;
 }
+
+export function problemDetailsOneOfContent(
+  ...schemas: readonly z.ZodType[]
+) {
+  return {
+    "application/problem+json": {
+      schema: { oneOf: schemas.map(toOpenApiSchema) },
+    },
+  } as const;
+}

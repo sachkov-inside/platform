@@ -1,5 +1,6 @@
 export interface MaterialPreview {
   readonly access: "free" | "membership";
+  readonly availability: "available" | "locked" | "unavailable";
   readonly format: string;
   readonly preview?: {
     readonly duration?: string;
@@ -16,4 +17,3 @@ export interface MaterialPreview {
   readonly title: string;
   readonly topic: string;
 }
-

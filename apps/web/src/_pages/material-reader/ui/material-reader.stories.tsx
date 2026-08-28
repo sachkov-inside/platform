@@ -218,17 +218,15 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
     case "access-required":
       return (
         <MaterialReaderAccess
+          cta={{
+            label: "Получить доступ",
+            url: "https://t.me/tribute/app?startapp=inside",
+          }}
           material={{ ...material, access: "membership" }}
-          reason="membership_required"
         />
       );
     case "access-unavailable":
-      return (
-        <MaterialReaderAccess
-          material={{ ...material, access: "membership" }}
-          reason="temporarily_unavailable"
-        />
-      );
+      return <MaterialReaderUnavailable slug={material.slug} />;
     case "error":
       return <MaterialReaderUnexpectedError onRetry={() => undefined} />;
     case "unavailable":
@@ -306,8 +304,11 @@ export const AccessRequired: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Материал доступен в Мастерской" }),
     ).toBeInTheDocument();
-    const membershipLink = canvas.getByRole("link", { name: "Вступить в Мастерскую" });
-    await expect(membershipLink).toHaveAttribute("href", "https://sachkov.dev");
+    const membershipLink = canvas.getByRole("link", { name: "Получить доступ" });
+    await expect(membershipLink).toHaveAttribute(
+      "href",
+      "https://t.me/tribute/app?startapp=inside",
+    );
     await expect(membershipLink).toHaveAttribute("target", "_blank");
     await expect(membershipLink).toHaveAttribute("rel", "noopener noreferrer");
     await expect(canvas.queryByText("Хороший skill начинается")).not.toBeInTheDocument();
@@ -319,9 +320,9 @@ export const AccessUnavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Не удалось проверить доступ" }),
+      canvas.getByRole("heading", { name: "Материал временно недоступен" }),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Проверить снова" })).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Повторить" })).toBeInTheDocument();
   },
 };
 

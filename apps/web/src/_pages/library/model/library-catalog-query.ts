@@ -2,7 +2,9 @@ import { infiniteQueryOptions } from "@tanstack/react-query";
 
 import type { LibraryCatalogPage } from "./library-view";
 
-export const libraryCatalogQueryKey = ["library", "catalog"] as const;
+export function libraryCatalogQueryKey(viewerScope: string) {
+  return ["library", "catalog", viewerScope] as const;
+}
 
 export type LoadLibraryCatalogPage = (input: {
     readonly after: string | undefined;
@@ -16,9 +18,10 @@ export type LibraryCatalogQueryOptions = ReturnType<
 /** Owns the one cache identity and cursor protocol for the whole catalog. */
 export function createLibraryCatalogQueryOptions(
   loadPage: LoadLibraryCatalogPage,
+  viewerScope: string,
 ) {
   return infiniteQueryOptions({
-    queryKey: libraryCatalogQueryKey,
+    queryKey: libraryCatalogQueryKey(viewerScope),
     queryFn: ({ pageParam, signal }) =>
       loadPage({ after: pageParam, signal }),
     initialPageParam: undefined as string | undefined,

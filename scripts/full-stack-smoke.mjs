@@ -1,8 +1,11 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { createServer } from "node:http";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { wrapSession } from "@logto/node";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpmPath = process.env.npm_execpath;
@@ -22,6 +25,8 @@ const webPort = process.env.FULLSTACK_WEB_PORT ?? "3000";
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
 const childEnvironment = { ...process.env };
 childEnvironment.NODE_ENV ??= "development";
+const fullStackIdentity = await startFullStackIdentity();
+Object.assign(childEnvironment, fullStackIdentity.environment);
 const processes = [];
 const activeProcesses = new Set();
 let cleanupPromise;
@@ -36,6 +41,10 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 try {
   await runPnpm(["--filter", "@inside/backend", "db:migrate"]);
   await runPnpm(["--filter", "@inside/backend", "db:seed"]);
+  await runPnpm(
+    ["--filter", "@inside/backend", "release:bootstrap-owner"],
+    childEnvironment,
+  );
   await runPnpm(["--filter", "@inside/web", "build"], {
     ...childEnvironment,
     NODE_ENV: "production",
@@ -69,8 +78,14 @@ try {
     ...childEnvironment,
     BACKEND_BASE_URL: apiBaseUrl,
   });
+  const fullStackSession = await fullStackIdentity.createSession();
   await runPnpm(["--filter", "@inside/web", "test:fullstack"], {
     ...childEnvironment,
+    FULLSTACK_API_BASE_URL: apiBaseUrl,
+    FULLSTACK_MEMBERSHIP_ACQUISITION_URL:
+      childEnvironment.MEMBERSHIP_ACQUISITION_URL ?? "https://t.me/tribute",
+    FULLSTACK_LOGTO_COOKIE_NAME: fullStackIdentity.cookieName,
+    FULLSTACK_LOGTO_SESSION: fullStackSession,
     FULLSTACK_WEB_BASE_URL: webBaseUrl,
   });
 
@@ -79,10 +94,14 @@ try {
   );
 } catch (error) {
   if (interruptedSignal === undefined) {
-    throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${message}\n${formatProcessOutput(processes)}`, {
+      cause: error,
+    });
   }
 } finally {
   await cleanup();
+  await fullStackIdentity.close();
 }
 
 if (interruptedSignal !== undefined) {
@@ -216,4 +235,78 @@ function retainOutput(output, chunk) {
 
 function formatProcessOutput(entries) {
   return entries.map(({ name, output }) => `${name}:\n${output.join("")}`).join("\n");
+}
+
+async function startFullStackIdentity() {
+  const issuer = "https://identity.fullstack.test/oidc";
+  const subject = "fullstack-owner";
+  const audience = apiBaseUrl;
+  const appId = "inside-web-fullstack";
+  const cookieSecret = "inside-fullstack-cookie-secret-key";
+  const keyPair = await generateKeyPair("ES384");
+  const publicJwk = {
+    ...(await exportJWK(keyPair.publicKey)),
+    alg: "ES384",
+    kid: "fullstack-key-1",
+  };
+  const server = createServer((request, response) => {
+    if (request.url !== "/jwks") {
+      response.writeHead(404).end();
+      return;
+    }
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ keys: [publicJwk] }));
+  });
+  await new Promise((resolveListen) =>
+    server.listen(0, "127.0.0.1", resolveListen),
+  );
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error("Full-stack JWKS server has no TCP port");
+  }
+  return {
+    cookieName: `logto_${appId}`,
+    createSession: async () => {
+      const now = Math.floor(Date.now() / 1_000);
+      const accessToken = await new SignJWT({})
+        .setProtectedHeader({ alg: "ES384", kid: "fullstack-key-1" })
+        .setIssuer(issuer)
+        .setAudience(audience)
+        .setSubject(subject)
+        .setIssuedAt(now)
+        .setExpirationTime(now + 300)
+        .sign(keyPair.privateKey);
+      return wrapSession(
+        {
+          idToken: "fullstack.id.token",
+          accessToken: JSON.stringify({
+            [`@${audience}`]: {
+              token: accessToken,
+              scope: "",
+              expiresAt: now + 300,
+            },
+          }),
+        },
+        cookieSecret,
+      );
+    },
+    environment: {
+      LOGTO_APP_ID: appId,
+      LOGTO_APP_SECRET: "inside-fullstack-app-secret",
+      LOGTO_AUDIENCE: audience,
+      LOGTO_COOKIE_SECRET: cookieSecret,
+      LOGTO_ENDPOINT: "https://identity.fullstack.test",
+      LOGTO_ISSUER: issuer,
+      LOGTO_JWKS_URL: `http://127.0.0.1:${String(address.port)}/jwks`,
+      OWNER_LOGTO_ISSUER: issuer,
+      OWNER_LOGTO_SUBJECT: subject,
+      WEB_BASE_URL: "https://web.fullstack.test",
+    },
+    close: () =>
+      new Promise((resolveClose, rejectClose) => {
+        server.close((error) =>
+          error === undefined ? resolveClose() : rejectClose(error),
+        );
+      }),
+  };
 }

@@ -1,9 +1,13 @@
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
+import {
+  PrismaClientProvider,
+  type PlatformPrisma,
+} from "../../src/infrastructure/prisma/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -11,6 +15,7 @@ import {
 
 describe("published Material HTTP contract", () => {
   let app: NestFastifyApplication;
+  let appPrisma: PlatformPrisma;
   let testDatabase: TestDatabase;
 
   beforeAll(async () => {
@@ -20,11 +25,46 @@ describe("published Material HTTP contract", () => {
       parsePlatformConfig({
         NODE_ENV: "test",
         DATABASE_URL: testDatabase.url,
+        MEMBERSHIP_ACQUISITION_URL:
+          "https://t.me/tribute/app?startapp=inside",
       }),
       { logger: false },
     );
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
+    appPrisma = app.get(PrismaClientProvider);
+  });
+
+  test("returns an indexable locked teaser without protected body bytes", async () => {
+    const bodyRead = vi.spyOn(appPrisma.material, "findFirst");
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/materials/membership-delivery-guide",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(response.json()).toMatchObject({
+      kind: "teaser",
+      cacheScope: "private-no-store",
+      projection: {
+        slug: "membership-delivery-guide",
+        title: "Developer Pipeline без потери контекста",
+        access: "membership",
+      },
+      access: {
+        availability: "locked",
+        cta: {
+          label: "Получить доступ",
+          url: "https://t.me/tribute/app?startapp=inside",
+        },
+      },
+    });
+    expect(response.body).not.toContain("schemaVersion");
+    expect(response.body).not.toContain("blocks");
+    expect(response.body).not.toContain("membership_required");
+    expect(bodyRead).not.toHaveBeenCalled();
+    bodyRead.mockRestore();
   });
 
   afterAll(async () => {
@@ -33,6 +73,9 @@ describe("published Material HTTP contract", () => {
   });
 
   test("returns the current published Material for an anonymous reader", async () => {
+    const bodyRead = vi.spyOn(appPrisma.material, "findFirst");
+    const accountRead = vi.spyOn(appPrisma.account, "findUnique");
+    const permissionRead = vi.spyOn(appPrisma.accountPermission, "findUnique");
     const response = await app.getHttpAdapter().getInstance().inject({
       method: "GET",
       url: "/materials/inside-platform-overview",
@@ -85,6 +128,12 @@ describe("published Material HTTP contract", () => {
         blocks: representativeBlocks,
       },
     });
+    expect(bodyRead).toHaveBeenCalledOnce();
+    expect(accountRead).not.toHaveBeenCalled();
+    expect(permissionRead).not.toHaveBeenCalled();
+    bodyRead.mockRestore();
+    accountRead.mockRestore();
+    permissionRead.mockRestore();
   });
 
   test("returns the published catalog without Material body bytes", async () => {
@@ -98,7 +147,11 @@ describe("published Material HTTP contract", () => {
       "public, max-age=30, stale-while-revalidate=60",
     );
     const catalog = response.json<{
-      readonly items: readonly { readonly access: string; readonly slug: string }[];
+      readonly items: readonly {
+        readonly access: string;
+        readonly availability: string;
+        readonly slug: string;
+      }[];
       readonly nextCursor: string | null;
     }>();
     expect(catalog.items).toHaveLength(12);
@@ -106,10 +159,12 @@ describe("published Material HTTP contract", () => {
       {
         slug: "membership-delivery-guide",
         access: "membership",
+        availability: "locked",
       },
       {
         slug: "inside-platform-overview",
         access: "free",
+        availability: "available",
       },
     ]);
     expect(typeof catalog.nextCursor).toBe("string");

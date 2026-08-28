@@ -11,6 +11,14 @@ export function newAccountId(): AccountId {
   return randomUUID() as AccountId;
 }
 
+export function accountId(value: string): AccountId {
+  const parsed = parseAccountId(value);
+  if (parsed === undefined) {
+    throw new TypeError("AccountId must be a UUID");
+  }
+  return parsed;
+}
+
 export function parseAccountId(value: unknown): AccountId | undefined {
   const result = z.uuid().safeParse(value);
   // Zod is the checked boundary for values read from storage or transport.

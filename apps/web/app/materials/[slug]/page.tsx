@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { getMaterialReader, MaterialReaderPage } from "@/_pages/material-reader.server";
+import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
 interface MaterialPageProps {
   readonly params: Promise<{ readonly slug: string }>;
@@ -10,7 +11,10 @@ export async function generateMetadata({
   params,
 }: MaterialPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await getMaterialReader(slug);
+  const result = await getMaterialReader(
+    slug,
+    await getOptionalPlatformAccessToken(),
+  );
   if (result.kind === "not-found") {
     return { title: "Материал не найден" };
   }
@@ -25,5 +29,11 @@ export async function generateMetadata({
 
 export default async function Page({ params }: MaterialPageProps) {
   const { slug } = await params;
-  return <MaterialReaderPage slug={slug} />;
+  const accessToken = await getOptionalPlatformAccessToken();
+  return (
+    <MaterialReaderPage
+      {...(accessToken === undefined ? {} : { accessToken })}
+      slug={slug}
+    />
+  );
 }

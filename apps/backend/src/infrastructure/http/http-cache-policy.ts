@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import type { FastifyReply } from "fastify";
+import type { FastifyRequest } from "fastify";
 import { type Observable, tap } from "rxjs";
 
 const CACHE_POLICY_METADATA = Symbol("http-cache-policy");
@@ -15,6 +16,7 @@ const CACHE_POLICY_METADATA = Symbol("http-cache-policy");
 type HttpCachePolicy =
   | "private-no-store"
   | "public-catalog"
+  | "viewer-aware-catalog"
   | "published-material-response";
 
 const cacheControlByPolicy = {
@@ -27,6 +29,12 @@ export const PrivateNoStore = () =>
 
 export const PublicCatalogCache = () =>
   SetMetadata(CACHE_POLICY_METADATA, "public-catalog" satisfies HttpCachePolicy);
+
+export const ViewerAwareCatalogCache = () =>
+  SetMetadata(
+    CACHE_POLICY_METADATA,
+    "viewer-aware-catalog" satisfies HttpCachePolicy,
+  );
 
 export const PublishedMaterialCache = () =>
   SetMetadata(
@@ -50,13 +58,26 @@ export class HttpCachePolicyInterceptor implements NestInterceptor {
     const response = context.switchToHttp().getResponse<FastifyReply>();
     return next.handle().pipe(
       tap((body: unknown) => {
-        response.header("Cache-Control", resolveCacheControl(policy, body));
+        response.header(
+          "Cache-Control",
+          resolveCacheControl(policy, body, context),
+        );
       }),
     );
   }
 }
 
-function resolveCacheControl(policy: HttpCachePolicy, body: unknown): string {
+function resolveCacheControl(
+  policy: HttpCachePolicy,
+  body: unknown,
+  context: ExecutionContext,
+): string {
+  if (policy === "viewer-aware-catalog") {
+    const request = context.switchToHttp().getRequest<FastifyRequest>();
+    return request.headers.authorization === undefined
+      ? cacheControlByPolicy["public-catalog"]
+      : cacheControlByPolicy["private-no-store"];
+  }
   if (policy !== "published-material-response") {
     return cacheControlByPolicy[policy];
   }

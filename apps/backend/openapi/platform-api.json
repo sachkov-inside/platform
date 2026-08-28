@@ -5250,6 +5250,14 @@
                             ],
                             "type": "string"
                           },
+                          "availability": {
+                            "enum": [
+                              "available",
+                              "locked",
+                              "unavailable"
+                            ],
+                            "type": "string"
+                          },
                           "contentVersion": {
                             "exclusiveMinimum": true,
                             "maximum": 9007199254740991,
@@ -5383,7 +5391,8 @@
                           "topic",
                           "format",
                           "tags",
-                          "seriesMemberships"
+                          "seriesMemberships",
+                          "availability"
                         ],
                         "type": "object"
                       },
@@ -5445,7 +5454,7 @@
             },
             "description": "Catalog cursor is malformed"
           },
-          "500": {
+          "401": {
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5457,8 +5466,8 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "retryable": {
-                      "type": "boolean"
+                    "detail": {
+                      "type": "string"
                     },
                     "status": {
                       "maximum": 9007199254740991,
@@ -5476,54 +5485,174 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
                 }
               }
             },
-            "description": "Catalog failed internally"
+            "description": "Optional Account proof is invalid"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "code"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Catalog or Account resolution failed internally"
           },
           "503": {
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "code": {
-                      "type": "string"
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "code"
+                      ],
+                      "type": "object"
                     },
-                    "correlationId": {
-                      "type": "string"
-                    },
-                    "retryable": {
-                      "type": "boolean"
-                    },
-                    "status": {
-                      "maximum": 9007199254740991,
-                      "minimum": -9007199254740991,
-                      "type": "integer"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "type": {
-                      "type": "string"
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
                     }
-                  },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
-            "description": "Catalog dependency is unavailable"
+            "description": "Catalog or Account proof dependency is unavailable"
           }
         },
+        "security": [
+          {},
+          {
+            "logto": []
+          }
+        ],
         "summary": "List safe published Material projections",
         "tags": [
           "Content library"
@@ -5749,24 +5878,36 @@
                         "access": {
                           "additionalProperties": false,
                           "properties": {
-                            "allowed": {
+                            "availability": {
                               "enum": [
-                                false
-                              ],
-                              "type": "boolean"
-                            },
-                            "reason": {
-                              "enum": [
-                                "forbidden",
-                                "membership_required",
-                                "temporarily_unavailable"
+                                "locked"
                               ],
                               "type": "string"
+                            },
+                            "cta": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "label": {
+                                  "enum": [
+                                    "Получить доступ"
+                                  ],
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "format": "uri",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "label",
+                                "url"
+                              ],
+                              "type": "object"
                             }
                           },
                           "required": [
-                            "allowed",
-                            "reason"
+                            "availability",
+                            "cta"
                           ],
                           "type": "object"
                         },
@@ -5984,6 +6125,46 @@
             },
             "description": "Published Material request is malformed"
           },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Optional Account proof is invalid"
+          },
           "404": {
             "content": {
               "application/problem+json": {
@@ -6027,81 +6208,161 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "code": {
-                      "type": "string"
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "code"
+                      ],
+                      "type": "object"
                     },
-                    "correlationId": {
-                      "type": "string"
-                    },
-                    "retryable": {
-                      "type": "boolean"
-                    },
-                    "status": {
-                      "maximum": 9007199254740991,
-                      "minimum": -9007199254740991,
-                      "type": "integer"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "type": {
-                      "type": "string"
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
                     }
-                  },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
-            "description": "Published Material read failed unexpectedly"
+            "description": "Published Material read or Account resolution failed unexpectedly"
           },
           "503": {
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "code": {
-                      "type": "string"
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "code"
+                      ],
+                      "type": "object"
                     },
-                    "correlationId": {
-                      "type": "string"
-                    },
-                    "retryable": {
-                      "type": "boolean"
-                    },
-                    "status": {
-                      "maximum": 9007199254740991,
-                      "minimum": -9007199254740991,
-                      "type": "integer"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "type": {
-                      "type": "string"
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
                     }
-                  },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "type": "object"
+                  ]
                 }
               }
             },
-            "description": "Published Material dependency is unavailable"
+            "description": "Published Material or Account proof dependency is unavailable"
           }
         },
+        "security": [
+          {},
+          {
+            "logto": []
+          }
+        ],
         "summary": "Read the current published Material",
         "tags": [
           "Published materials"

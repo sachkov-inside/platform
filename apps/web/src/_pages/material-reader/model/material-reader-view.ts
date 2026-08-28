@@ -73,7 +73,10 @@ export type MaterialReaderResult =
   | {
       readonly kind: "access";
       readonly material: MaterialReaderMetadata;
-      readonly reason: "forbidden" | "membership_required" | "temporarily_unavailable";
+      readonly cta: {
+        readonly label: "Получить доступ";
+        readonly url: string;
+      };
     }
   | { readonly kind: "unavailable" }
   | { readonly kind: "not-found" };
