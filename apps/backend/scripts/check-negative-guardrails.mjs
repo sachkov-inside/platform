@@ -53,6 +53,8 @@ expectFailure(
     "oxlint",
     "--no-ignore",
     "--type-aware",
+    "--format",
+    "json",
     "test/guardrails/fixtures/oxlint/guardrails.ts",
   ],
   [
