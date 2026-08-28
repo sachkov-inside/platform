@@ -49,14 +49,6 @@ export type {
 } from "./features/validate-material/validate-material.contract.js";
 export type { AuthorPolicy } from "./ports/author-policy.js";
 export {
-  anonymousSubject,
-  assembleBaselineContentAccess,
-  type AccessDecision,
-  type ContentAccess,
-  type MaterialBodyResource,
-  type Subject,
-} from "./ports/content-access.js";
-export {
   PUBLISHED_MATERIAL_READER,
   type PublishedMaterialReader,
 } from "./facets/published-material-reader/published-material-reader.js";

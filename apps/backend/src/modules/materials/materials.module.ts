@@ -30,7 +30,6 @@ import { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-
 import type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
 import { MATERIAL_AUTHORING } from "./facets/material-authoring/material-authoring.token.js";
 import type { AuthorPolicy } from "./ports/author-policy.js";
-import { assembleBaselineContentAccess } from "./ports/content-access.js";
 import {
   PUBLISHED_MATERIAL_READER,
   type PublishedMaterialReader,
@@ -48,17 +47,17 @@ import {
   providers: [
     {
       provide: MATERIAL_AUTHORING,
-      inject: [PrismaClientProvider, ACCOUNTS],
+      inject: [PrismaClientProvider, ACCOUNTS, CONTENT_ACCESS],
       useFactory: (
         prisma: PrismaClientProvider,
         accounts: Accounts,
+        contentAccess: ContentAccess,
       ): MaterialAuthoring => {
         const accountPermissions = assembleCurrentAccountPermissions(accounts);
         const authorPolicy: AuthorPolicy = {
           canManage: (accountId) =>
             accountPermissions.hasMaterialsManage(checkedAccountId(accountId)),
         };
-        const contentAccess = assembleBaselineContentAccess(authorPolicy);
         return assembleMaterialAuthoring({
           prisma,
           authorPolicy,
