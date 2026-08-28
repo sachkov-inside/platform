@@ -23,7 +23,7 @@
     "build": "pnpm --recursive --if-present build",
     "api:generate": "pnpm --filter @inside/backend openapi:generate && pnpm --filter @inside/web openapi:generate",
     "api:check": "pnpm --filter @inside/backend openapi:check && pnpm --filter @inside/web openapi:check",
-    "lint": "eslint .",
+    "lint": "oxlint --deny-warnings --report-unused-disable-directives --ignore-pattern 'apps/backend/test/guardrails/fixtures/oxlint/**' .",
     "typecheck": "pnpm --recursive --if-present typecheck",
     "guardrails": "pnpm --filter @inside/backend guardrails && pnpm --filter @inside/web guardrails",
     "test": "pnpm test:tooling && pnpm --recursive --if-present test",
@@ -44,17 +44,13 @@
     "check:full": "pnpm check && pnpm test:integration && pnpm smoke:fullstack"
   },
   "devDependencies": {
-    "@eslint/js": "10.0.1",
     "@logto/node": "3.1.10",
-    "@next/eslint-plugin-next": "16.3.2",
-    "@tanstack/eslint-plugin-query": "5.101.4",
-    "eslint": "10.9.0",
-    "eslint-plugin-react-hooks": "7.1.1",
-    "eslint-plugin-storybook": "10.5.10",
     "jose": "6.2.10",
+    "oxlint": "1.80.0",
+    "oxlint-tsgolint": "7.0.2001",
+    "oxc-parser": "0.147.0",
     "proper-lockfile": "4.1.2",
-    "typescript": "6.0.3",
-    "typescript-eslint": "8.67.0",
+    "typescript": "7.0.2",
     "zod": "4.4.3"
   }
 }

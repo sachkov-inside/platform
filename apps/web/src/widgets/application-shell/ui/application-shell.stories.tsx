@@ -1,4 +1,5 @@
-import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import Link from "next/link";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import {
@@ -219,9 +220,9 @@ function HomeShellFixture() {
             <h2 className="text-2xl font-semibold tracking-[-0.03em]" id="new-heading">
               Новые материалы
             </h2>
-            <a className="text-sm text-muted-foreground underline underline-offset-4" href="/library">
+            <Link className="text-sm text-muted-foreground underline underline-offset-4" href="/library">
               Вся библиотека
-            </a>
+            </Link>
           </div>
           <div className="mt-5 divide-y divide-border border-y border-border">
             <MaterialRow

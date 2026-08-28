@@ -1,4 +1,7 @@
-import type { StorybookConfig } from "@storybook/nextjs-vite";
+import { fileURLToPath } from "node:url";
+
+import type { StorybookConfig } from "@storybook/react-vite";
+import { mergeConfig } from "vite";
 
 const config: StorybookConfig = {
   stories: ["../src/**/*.mdx", "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
@@ -6,31 +9,22 @@ const config: StorybookConfig = {
     "@storybook/addon-vitest",
     "@storybook/addon-a11y",
     "@storybook/addon-docs",
-    {
-      name: "@storybook/addon-mcp",
-      options: {
-        endpoint: "/mcp",
-      },
-    },
   ],
-  framework: "@storybook/nextjs-vite",
-  viteFinal: (viteConfig) => ({
-    ...viteConfig,
-    optimizeDeps: {
-      ...viteConfig.optimizeDeps,
-      include: [
-        ...(viteConfig.optimizeDeps?.include ?? []),
-        "@tiptap/core",
-        "@tiptap/react",
-        "@tiptap/starter-kit",
-      ],
-    },
-  }),
-  typescript: {
-    // Accurate prop extraction is worth the extra dev-time work because the MCP
-    // manifest is a public interface for both human and AI consumers.
-    reactDocgen: "react-docgen-typescript",
-  },
+  framework: "@storybook/react-vite",
+  viteFinal: (viteConfig) =>
+    mergeConfig(viteConfig, {
+      optimizeDeps: {
+        include: ["@tiptap/core", "@tiptap/react", "@tiptap/starter-kit"],
+      },
+      resolve: {
+        alias: {
+          "next/link": fileURLToPath(
+            new URL("./mocks/next-link.tsx", import.meta.url),
+          ),
+        },
+      },
+    }),
+  typescript: { reactDocgen: "react-docgen" },
 };
 
 export default config;

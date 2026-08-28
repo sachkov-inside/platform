@@ -1,4 +1,4 @@
-import type { Decorator, Preview } from "@storybook/nextjs-vite";
+import type { Decorator, Preview } from "@storybook/react-vite";
 import { Agentation } from "agentation";
 
 import "@fontsource-variable/jetbrains-mono/wght.css";

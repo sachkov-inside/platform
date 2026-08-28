@@ -23,57 +23,31 @@ Repository dependency changes preserve:
 - atomic package-family updates;
 - `pnpm check:full`, Docker image/config checks and the Compose clean/repeat/watch smoke.
 
-## Current baseline and compatibility holds
+## Current baseline
 
 Node `24.19.0` is the latest production LTS; Node 26 is Current and is not the production baseline.
 The status and production recommendation come from the
 [official Node.js release table](https://nodejs.org/en/about/previous-releases).
 
-TypeScript stays at `6.0.3`. The checked-in proof is reproducible:
+TypeScript is pinned to `7.0.2` in the root, backend and web manifests. There is no compatibility
+alias or second compiler. The canonical proof is:
 
 ```bash
-bash scripts/prove-typescript-7.sh
-bash scripts/prove-typescript-7.sh --with-alias-check
+pnpm install --frozen-lockfile
+pnpm check
+pnpm list -r typescript --depth 30
 ```
 
-The first command runs the exact TypeScript `7.0.2` CLI over every repository tsconfig after Next
-type generation and requires the branded-ID negative fixture to retain diagnostic `TS2322`. That
-project-source corpus covers backend source/build/tests and Vitest configs, Nest decorators,
-Prisma generated types, Next generated types, Storybook TypeScript config/stories, and Playwright
-config/specs. It then explicitly disables `skipLibCheck` and requires the known declaration
-failures to remain visible: the backend's DOM-free config exposes Tiptap, ProseMirror and Vitest
-browser DOM declarations, while web exposes Storybook, Radix and `ast-types` incompatibilities
-(plus generated Next conflicts when both development and production corpora exist). Canonical
-TypeScript 6 shares part of this third-party declaration debt, so only the project-source TS7 pass
-is claimed.
+The list must report one installed version, `7.0.2`. Next uses its TypeScript CLI path, lint uses
+Oxlint's native type-aware engine, and architecture scripts use `oxc-parser`; no tool imports the
+removed TypeScript JavaScript API. OpenAPI generation uses `openapi-typescript-codegen`, whose
+template implementation has no TypeScript dependency. Storybook uses `@storybook/react-vite` and
+`react-docgen`, so its active build path also avoids the compiler API.
 
-TypeScript itself does not parse MDX. MDX, Storybook runtime/build, Vitest, Playwright and Prisma
-generation therefore require the package-level side-by-side contract rather than a CLI-only claim.
+Keep strict peer dependencies enabled and do not add peer overrides to force an incompatible tool
+onto TypeScript 7. A dependency that requires the removed API must be replaced, disabled until it
+publishes a compatible stable release, or rejected. In particular, the Storybook MCP add-on remains
+out of the baseline until its stable dependency graph installs without an override.
 
-The second command reproduces that official TypeScript 7 CLI/TypeScript 6 API alias in a disposable
-workspace. Strict dependency installation fails before those tool integrations can run, so they are
-explicitly **blocked**, not reported as TypeScript 7 passes. On this small repository the measured
-sequential CLI proof was `3.86s`; the warm canonical TypeScript 6 workspace typecheck was `1.61s`,
-so there is no current end-to-end speed win.
-
-More importantly, TypeScript 7 has no stable programmatic API until 7.1. The
-[official TypeScript 7 announcement](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/)
-recommends a TypeScript 6 compatibility alias for tools such as ESLint, while
-[`typescript-eslint` supports only TypeScript `<6.1`](https://typescript-eslint.io/users/dependency-versions/).
-In this repository that disposable alias proof cannot regenerate the strict pnpm lockfile: the current
-Storybook/Next/Vite chain includes `tsconfck@3.1.6`, whose TypeScript peer is `^5.0.0`, and the
-Storybook MCP chain also resolves `@valibot/to-json-schema@1.7.1` beside `valibot@1.2.0` although it
-requires `^1.4.0`. Unsupported peer overrides are deliberately not used.
-
-Retry TypeScript 7 when all of these are true:
-
-1. the stable TypeScript API is supported by `typescript-eslint`;
-2. Storybook/MDX and its Next/Vite chain publish a compatible peer contract;
-3. the official side-by-side alias, if still needed, passes strict frozen installation;
-4. project and library diagnostics are reviewed without adding new skips, and canonical and
-   compatibility diagnostics, Next typegen, Storybook, Vitest, Playwright, Prisma generated types
-   and architecture fixtures all agree under the full gate.
-
-pnpm remains at `11.22.0` for the same reproducible lock-refresh reason: `11.23.0` turns those
-existing transitive peer mismatches into a strict installation failure. Retry the pnpm minor after
-the Storybook peer chain is compatible; do not weaken `strictPeerDependencies`.
+pnpm remains at `11.22.0` until a separately verified stable update passes frozen installation and
+the full repository gate. Do not weaken `strictPeerDependencies` to accept a package-family update.

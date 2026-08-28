@@ -1,7 +1,8 @@
-import createClient from "openapi-fetch";
+import { generate } from "openapi-typescript-codegen";
 
-import type { paths } from "../../../../../src/shared/api/backend/generated/platform-api";
+import { ContentLibraryService } from "../../../../../src/shared/api/backend/generated/platform-api";
 
-const client = createClient<paths>({ baseUrl: "http://127.0.0.1:3001" });
+void generate;
+void ContentLibraryService;
 
-export const directCatalogRequest = client.GET("/library/materials");
+export const directCatalogRequest = "/library/materials";

@@ -17,8 +17,12 @@ describe("Account backend interface", () => {
   it("establishes and resolves an Account without a second session credential", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     const fetchMock = vi.fn((request: Request) => {
-      void request;
-      return Promise.resolve(Response.json({ account }));
+      return Promise.resolve(
+        Response.json(
+          { account },
+          { status: request.method === "POST" ? 201 : 200 },
+        ),
+      );
     });
     vi.stubGlobal("fetch", fetchMock);
 

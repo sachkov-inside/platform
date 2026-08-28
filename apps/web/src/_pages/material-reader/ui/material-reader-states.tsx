@@ -1,4 +1,5 @@
 import { ArrowLeft, ArrowUpRight, LockKeyhole, SearchX, ShieldAlert } from "lucide-react";
+import Link from "next/link";
 
 import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/material-reader-view";
 import { Button } from "@/shared/ui/button";
@@ -31,10 +32,10 @@ export function MaterialReaderNotFound() {
     <ReaderStatus
       action={
         <Button asChild size="lg">
-          <a href="/library">
+          <Link href="/library">
             <ArrowLeft aria-hidden="true" />
             В Библиотеку
-          </a>
+          </Link>
         </Button>
       }
       icon={<SearchX aria-hidden="true" />}
@@ -62,10 +63,10 @@ export function MaterialReaderAccess({
     >
       <div className="flex min-h-11 items-center">
         <Button asChild size="lg" variant="outline">
-          <a href="/library">
+          <Link href="/library">
             <ArrowLeft aria-hidden="true" />
             В Библиотеку
-          </a>
+          </Link>
         </Button>
       </div>
       <header className="mt-7 max-w-[48rem] sm:mt-8">
@@ -117,10 +118,10 @@ export function MaterialReaderUnavailable({ slug }: { readonly slug: string }) {
       action={
         <div className="flex flex-wrap gap-3">
           <Button asChild size="lg">
-            <a href={`/materials/${slug}`}>Повторить</a>
+            <Link href={`/materials/${slug}`}>Повторить</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <a href="/library">Открыть Библиотеку</a>
+            <Link href="/library">Открыть Библиотеку</Link>
           </Button>
         </div>
       }
@@ -139,7 +140,7 @@ export function MaterialReaderUnexpectedError({ onRetry }: { readonly onRetry: (
         <div className="flex flex-wrap gap-3">
           <Button onClick={onRetry} size="lg">Повторить</Button>
           <Button asChild size="lg" variant="outline">
-            <a href="/library">Открыть Библиотеку</a>
+            <Link href="/library">Открыть Библиотеку</Link>
           </Button>
         </div>
       }

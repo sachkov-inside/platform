@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { URL, fileURLToPath } from "node:url";
 
-import ts from "typescript";
+import { parseSync, Visitor } from "oxc-parser";
 
 const backendRoot = fileURLToPath(new URL("..", import.meta.url));
 const scanRoot = path.resolve(backendRoot, process.argv[2] ?? "src");
@@ -18,27 +18,24 @@ function sourceFiles(directory) {
   });
 }
 
-function moduleSpecifiers(sourceFile) {
+function moduleSpecifiers(program) {
   const specifiers = [];
-  function visit(node) {
-    if (
-      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-      node.moduleSpecifier !== undefined &&
-      ts.isStringLiteral(node.moduleSpecifier)
-    ) {
-      specifiers.push(node.moduleSpecifier.text);
-    }
-    if (
-      ts.isCallExpression(node) &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length === 1 &&
-      ts.isStringLiteral(node.arguments[0])
-    ) {
-      specifiers.push(node.arguments[0].text);
-    }
-    ts.forEachChild(node, visit);
-  }
-  visit(sourceFile);
+  new Visitor({
+    ImportDeclaration(node) {
+      if (typeof node.source.value === "string") specifiers.push(node.source.value);
+    },
+    ExportAllDeclaration(node) {
+      if (typeof node.source.value === "string") specifiers.push(node.source.value);
+    },
+    ExportNamedDeclaration(node) {
+      if (typeof node.source?.value === "string") specifiers.push(node.source.value);
+    },
+    ImportExpression(node) {
+      if (node.source.type === "Literal" && typeof node.source.value === "string") {
+        specifiers.push(node.source.value);
+      }
+    },
+  }).visit(program);
   return specifiers;
 }
 
@@ -57,22 +54,24 @@ function referencesFromSql(sqlText) {
   );
 }
 
-function databaseTableReferences(sourceFile) {
+function databaseTableReferences(program) {
   const references = [];
   const unresolved = [];
-  function visit(node) {
-    if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      node.expression.getText(sourceFile) === "Prisma.raw"
-    ) {
-      unresolved.push("Prisma.raw");
-    }
-    if (
-      ts.isTaggedTemplateExpression(node) &&
-      node.tag.getText(sourceFile) === "Prisma.sql"
-    ) {
-      const sqlText = node.template.getText(sourceFile);
+  new Visitor({
+    CallExpression(node) {
+      if (isMember(node.callee, "Prisma", "raw")) {
+        unresolved.push("Prisma.raw");
+      }
+      const operation = memberPropertyName(node.callee);
+      if (["$executeRawUnsafe", "$queryRawUnsafe"].includes(operation)) {
+        unresolved.push(operation);
+      }
+    },
+    TaggedTemplateExpression(node) {
+      if (isMember(node.tag, "Prisma", "sql")) {
+        const sqlText = node.quasi.quasis
+          .map((quasi) => quasi.value.raw)
+          .join("${}");
       references.push(...referencesFromSql(sqlText));
       if (
         /(?:\bfrom|\bjoin|(?<!\bfor\s)\bupdate|\binto)\s+\$\{/iu.test(
@@ -81,20 +80,25 @@ function databaseTableReferences(sourceFile) {
       ) {
         unresolved.push("sql template table identifier");
       }
-    }
-    if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      ["$executeRawUnsafe", "$queryRawUnsafe"].includes(
-        node.expression.name.text,
-      )
-    ) {
-      unresolved.push(node.expression.name.text);
-    }
-    ts.forEachChild(node, visit);
-  }
-  visit(sourceFile);
+      }
+    },
+  }).visit(program);
   return { references, unresolved };
+}
+
+function isMember(node, objectName, propertyName) {
+  return (
+    node?.type === "MemberExpression" &&
+    node.object.type === "Identifier" &&
+    node.object.name === objectName &&
+    memberPropertyName(node) === propertyName
+  );
+}
+
+function memberPropertyName(node) {
+  if (node?.type !== "MemberExpression") return "";
+  if (node.property.type === "Identifier") return node.property.name;
+  return typeof node.property.value === "string" ? node.property.value : "";
 }
 
 function scannedPath(file) {
@@ -205,13 +209,13 @@ function violationsFor(source, specifier) {
   return violations;
 }
 
-function databaseReferenceViolations(sourceFile) {
-  const sourcePath = scannedPath(sourceFile.fileName);
+function databaseReferenceViolations(sourceFile, program) {
+  const sourcePath = scannedPath(sourceFile);
   const sourceModule = owningModule(sourcePath);
   if (sourcePath.includes("/infrastructure/postgres/migrations/")) {
     return [];
   }
-  const { references, unresolved } = databaseTableReferences(sourceFile);
+  const { references, unresolved } = databaseTableReferences(program);
   const expectedSchema = sourceModule === undefined
     ? sourcePath === "src/development/seed-local-development.ts"
       ? "materials"
@@ -247,19 +251,17 @@ if (!statSync(scanRoot).isDirectory()) {
 }
 
 const findings = sourceFiles(scanRoot).flatMap((source) => {
-  const sourceFile = ts.createSourceFile(
-    source,
-    readFileSync(source, "utf8"),
-    ts.ScriptTarget.Latest,
-    false,
-  );
+  const { errors, program } = parseSync(source, readFileSync(source, "utf8"));
+  if (errors.length > 0) {
+    throw new SyntaxError(`Oxc could not parse ${source}: ${errors[0].message}`);
+  }
   return [
-    ...moduleSpecifiers(sourceFile).flatMap((specifier) =>
+    ...moduleSpecifiers(program).flatMap((specifier) =>
       violationsFor(source, specifier).map(
         (message) => `${scannedPath(source)}: ${message} (${specifier})`,
       ),
     ),
-    ...databaseReferenceViolations(sourceFile),
+    ...databaseReferenceViolations(source, program),
   ];
 });
 

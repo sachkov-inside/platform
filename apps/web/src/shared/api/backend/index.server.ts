@@ -1,9 +1,19 @@
 import "server-only";
 
-import createClient from "openapi-fetch";
 import { z } from "zod";
 
-import type { paths } from "./generated/platform-api";
+import {
+  AccountsService,
+  ApiError,
+  BaseHttpRequest,
+  CancelablePromise,
+  ContentLibraryService,
+  OperationsService,
+  PublishedMaterialsService,
+  type OpenAPIConfig,
+} from "./generated/platform-api";
+import type { ApiRequestOptions } from "./generated/platform-api/core/ApiRequestOptions";
+import type { ApiResult } from "./generated/platform-api/core/ApiResult";
 
 const LOCAL_BACKEND_BASE_URL = "http://127.0.0.1:3001";
 const BACKEND_REQUEST_TIMEOUT_MS = 3_000;
@@ -118,16 +128,13 @@ export function requestPublishedMaterialCatalog(
     readonly signal?: AbortSignal;
   } = {},
 ): Promise<BackendTransportResult> {
-  return executeGeneratedRequest((client) =>
-    client.GET("/library/materials", {
-      ...(options.accessToken === undefined
-        ? {}
-        : { headers: { authorization: `Bearer ${options.accessToken}` } }),
-      params: {
-        query: after === undefined ? {} : { after },
-      },
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
-    }),
+  return executeGeneratedRequest(
+    (request) =>
+      new ContentLibraryService(request).listPublishedMaterials(
+        after === undefined ? {} : { after },
+      ),
+    200,
+    options,
   );
 }
 
@@ -138,85 +145,232 @@ export function requestPublishedMaterial(
     readonly signal?: AbortSignal;
   } = {},
 ): Promise<BackendTransportResult> {
-  return executeGeneratedRequest((client) =>
-    client.GET("/materials/{slug}", {
-      ...(options.accessToken === undefined
-        ? {}
-        : { headers: { authorization: `Bearer ${options.accessToken}` } }),
-      params: { path: { slug } },
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
-    }),
+  return executeGeneratedRequest(
+    (request) =>
+      new PublishedMaterialsService(request).readPublishedMaterial({ slug }),
+    200,
+    options,
   );
 }
 
 function requestBackendHealth(): Promise<BackendTransportResult> {
-  return executeGeneratedRequest((client) => client.GET("/health"));
+  return executeGeneratedRequest(
+    (request) => new OperationsService(request).getApiHealth(),
+    200,
+  );
 }
 
 function requestAccountEstablishment(
   accessToken: string,
 ): Promise<BackendTransportResult> {
-  return executeGeneratedRequest((client) =>
-    client.POST("/accounts", {
-      headers: { authorization: `Bearer ${accessToken}` },
-    }),
+  return executeGeneratedRequest(
+    (request) => new AccountsService(request).establishAccount(),
+    201,
+    { accessToken },
   );
 }
 
 function requestCurrentAccount(
   accessToken: string,
 ): Promise<BackendTransportResult> {
-  return executeGeneratedRequest((client) =>
-    client.GET("/accounts/current", {
-      headers: { authorization: `Bearer ${accessToken}` },
-    }),
+  return executeGeneratedRequest(
+    (request) => new AccountsService(request).resolveCurrentAccount(),
+    200,
+    { accessToken },
   );
 }
 
-interface GeneratedResponse {
-  readonly data?: unknown;
-  readonly error?: unknown;
-  readonly response: Response;
-}
-
-async function executeGeneratedRequest(
-  invoke: (
-    client: ReturnType<typeof createBackendClient>,
-  ) => Promise<GeneratedResponse>,
+async function executeGeneratedRequest<T>(
+  invoke: (request: BackendHttpRequest) => CancelablePromise<T>,
+  successStatus: number,
+  options: {
+    readonly accessToken?: string;
+    readonly signal?: AbortSignal;
+  } = {},
 ): Promise<BackendTransportResult> {
-  const result = await invoke(createBackendClient());
-  return result.response.ok
-    ? { ok: true, body: result.data, response: result.response }
-    : { ok: false, problem: result.error, response: result.response };
-}
-
-function createBackendClient() {
-  return createClient<paths>({
-    baseUrl: readBackendBaseUrl(),
-    fetch: fetchBackend,
-  });
-}
-
-async function fetchBackend(request: Request): Promise<Response> {
+  const request = new BackendHttpRequest(
+    createBackendConfig(options.accessToken),
+    options.signal,
+  );
+  const operation = invoke(request);
   try {
-    return await fetch(
-      new Request(request, {
-        cache: "no-store",
-        signal: combineAbortSignals(request.signal),
-      }),
-    );
+    const body = await operation;
+    const response = request.response;
+    if (response === undefined || response.status !== successStatus) {
+      throw new BackendConnectionError(
+        "invalid-response",
+        `Generated backend operation expected HTTP ${String(successStatus)}`,
+      );
+    }
+    return { ok: true, body, response };
   } catch (cause) {
+    if (cause instanceof ApiError && request.response !== undefined) {
+      return {
+        ok: false,
+        problem: cause.body,
+        response: request.response,
+      };
+    }
+    if (cause instanceof BackendConnectionError) {
+      throw cause;
+    }
     throw new BackendConnectionError("unavailable", "Backend request failed", {
       cause,
     });
   }
 }
 
-function combineAbortSignals(signal: AbortSignal | null | undefined): AbortSignal {
-  const timeout = AbortSignal.timeout(BACKEND_REQUEST_TIMEOUT_MS);
-  return signal === undefined || signal === null
-    ? timeout
-    : AbortSignal.any([signal, timeout]);
+function createBackendConfig(accessToken: string | undefined): OpenAPIConfig {
+  return {
+    BASE: readBackendBaseUrl(),
+    VERSION: "1.0.0",
+    WITH_CREDENTIALS: false,
+    CREDENTIALS: "omit",
+    TOKEN: accessToken,
+  };
+}
+
+class BackendHttpRequest extends BaseHttpRequest {
+  response: Response | undefined;
+  readonly #externalSignal: AbortSignal | undefined;
+
+  constructor(config: OpenAPIConfig, externalSignal: AbortSignal | undefined) {
+    super(config);
+    this.#externalSignal = externalSignal;
+  }
+
+  override request<T>(options: ApiRequestOptions): CancelablePromise<T> {
+    return new CancelablePromise<T>((resolve, reject, onCancel) => {
+      const cancellation = new AbortController();
+      onCancel(() => {
+        cancellation.abort();
+      });
+
+      void this.#execute<T>(options, cancellation.signal).then(resolve, reject);
+    });
+  }
+
+  async #execute<T>(
+    options: ApiRequestOptions,
+    cancellationSignal: AbortSignal,
+  ): Promise<T> {
+    const response = await fetch(
+      new Request(buildBackendUrl(this.config.BASE, options), {
+        body: serializeRequestBody(options),
+        cache: "no-store",
+        headers: buildBackendHeaders(this.config, options),
+        method: options.method,
+        signal: AbortSignal.any([
+          cancellationSignal,
+          AbortSignal.timeout(BACKEND_REQUEST_TIMEOUT_MS),
+          ...(this.#externalSignal === undefined
+            ? []
+            : [this.#externalSignal]),
+        ]),
+      }),
+    );
+    this.response = response;
+    const body = await parseResponseBody(response);
+    if (!response.ok) {
+      const result: ApiResult = {
+        body,
+        ok: false,
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+      };
+      throw new ApiError(
+        options,
+        result,
+        options.errors?.[response.status] ?? response.statusText,
+      );
+    }
+    return body as T;
+  }
+}
+
+function buildBackendUrl(baseUrl: string, options: ApiRequestOptions): string {
+  const pathValues = (options.path ?? {}) as Readonly<Record<string, unknown>>;
+  let path = options.url;
+  for (const [key, value] of Object.entries(pathValues)) {
+    path = path.replace(`{${key}}`, encodeURIComponent(transportString(value)));
+  }
+  const url = new URL(`${baseUrl}${path}`);
+  const query = (options.query ?? {}) as Readonly<Record<string, unknown>>;
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === null) continue;
+    for (const item of Array.isArray(value) ? value : [value]) {
+      url.searchParams.append(key, transportString(item));
+    }
+  }
+  return url.toString();
+}
+
+function buildBackendHeaders(
+  config: OpenAPIConfig,
+  options: ApiRequestOptions,
+): Headers {
+  const headers = new Headers({ Accept: "application/json" });
+  const optionHeaders = (options.headers ?? {}) as Readonly<
+    Record<string, unknown>
+  >;
+  for (const [key, value] of Object.entries(optionHeaders)) {
+    if (value !== undefined && value !== null) {
+      headers.set(key, transportString(value));
+    }
+  }
+  if (typeof config.TOKEN === "string" && config.TOKEN.length > 0) {
+    headers.set("Authorization", `Bearer ${config.TOKEN}`);
+  }
+  if (options.body !== undefined) {
+    headers.set("Content-Type", options.mediaType ?? "application/json");
+  }
+  return headers;
+}
+
+function serializeRequestBody(options: ApiRequestOptions): BodyInit | null {
+  const body = options.body as unknown;
+  if (body === undefined || body === null) return null;
+  if (
+    typeof body === "string" ||
+    body instanceof Blob ||
+    body instanceof FormData ||
+    body instanceof URLSearchParams ||
+    body instanceof ArrayBuffer
+  ) {
+    return body;
+  }
+  return JSON.stringify(body);
+}
+
+async function parseResponseBody(response: Response): Promise<unknown> {
+  if (response.status === 204) return undefined;
+  const text = await response.text();
+  if (text.length === 0) return undefined;
+  const contentType = response.headers.get("Content-Type")?.toLowerCase() ?? "";
+  if (
+    contentType.startsWith("application/json") ||
+    contentType.startsWith("application/problem+json")
+  ) {
+    return JSON.parse(text) as unknown;
+  }
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+}
+
+function transportString(value: unknown): string {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint"
+  ) {
+    return value.toString();
+  }
+  throw new TypeError("Generated request parameter must be scalar");
 }
 
 export async function getBackendHealth(): Promise<BackendHealth> {

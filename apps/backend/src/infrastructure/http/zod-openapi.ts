@@ -9,7 +9,7 @@ export function toOpenApiSchema(schema: z.ZodType): SchemaObject {
 
   // Zod emits the OpenAPI 3.0 schema dialect requested above. Nest exposes the
   // same wire shape through a narrower, separately maintained TypeScript type.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return jsonSchema as SchemaObject;
 }
 

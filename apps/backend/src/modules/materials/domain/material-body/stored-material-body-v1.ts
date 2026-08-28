@@ -28,7 +28,7 @@ export function restoreStoredMaterialBodyV1(
   snapshot: MaterialBodySnapshot,
 ): MaterialBody {
   // The brand records that this value passed the only persisted-body codec.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return Object.freeze({
     schemaVersion: 1,
     doc: freezeJsonObject(snapshot.doc),

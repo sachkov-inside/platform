@@ -1,4 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// oxlint-disable-next-line no-unused-vars
 const getCustomJwtClaims = async ({ token, context, api }) => {
   if (token.gty !== 'authorization_code') {
     return {};

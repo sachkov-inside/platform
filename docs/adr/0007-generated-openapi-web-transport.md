@@ -5,13 +5,15 @@ status: accepted
 # Generate the Web transport contract from Nest OpenAPI
 
 Nest owns Platform's HTTP wire contract. The repository commits a deterministic OpenAPI document
-and generates immutable TypeScript transport types from it. Web keeps `openapi-fetch` and those
-generated types behind the local `src/shared/api/backend` module; feature adapters receive response
+and generates an immutable TypeScript client from it. Web keeps that client and its local HTTP
+adapter behind the local `src/shared/api/backend` module; feature adapters receive response
 bodies as `unknown`, validate the external JSON with focused Zod schemas, and map it into their own
 presentation models and known UI outcomes.
 
 This keeps URL, parameter, success and Problem Details types synchronized without letting generated
-code own feature policy. TanStack Query options, hooks, Zod schemas and UI models therefore remain
+code own feature policy. `openapi-typescript-codegen` is used because its template generator does
+not load the removed TypeScript compiler API and the generated client compiles under TypeScript 7.
+TanStack Query options, hooks, Zod schemas and UI models therefore remain
 handwritten. Generating those layers would enlarge the transport interface and couple product
 behaviour to the generator. Keeping all requests handwritten was rejected because it duplicated the
 same wire facts in Nest and Web and could drift without failing CI.

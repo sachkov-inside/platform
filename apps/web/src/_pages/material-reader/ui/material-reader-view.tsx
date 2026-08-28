@@ -5,6 +5,7 @@ import {
   ImageIcon,
   Play,
 } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import type {
@@ -119,10 +120,10 @@ function ReaderBackAction({ className = "" }: { readonly className?: string }) {
   return (
     <div className={`flex min-h-11 items-center border-b border-border pb-3 ${className}`}>
       <Button asChild className="bg-background" size="lg" variant="outline">
-        <a href="/library">
+        <Link href="/library">
           <ArrowLeft aria-hidden="true" />
           В Библиотеку
-        </a>
+        </Link>
       </Button>
     </div>
   );
