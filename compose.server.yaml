@@ -33,8 +33,8 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    ports:
-      - "80:3000"
+    expose:
+      - "3000"
     environment:
       BACKEND_BASE_URL: http://backend:3001
       IDENTITY_ENABLED: "false"
@@ -43,5 +43,22 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  caddy:
+    image: caddy:2.11.4-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   postgres-data:
+  caddy-data:
+  caddy-config:
