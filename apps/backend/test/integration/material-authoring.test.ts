@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import { assembleMaterials } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
@@ -21,10 +21,11 @@ describe("MaterialAuthoring", () => {
   });
 
   test("creates and loads one structurally valid incomplete draft", async () => {
-    const { authoring } = assembleMaterials({
+    const ownerMaterials = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: (accountId) => accountId === actor },
     });
+    const { authoring } = ownerMaterials;
     const body = representativeDocument("Current mutable body.");
 
     const created = await authoring.createDraft({
@@ -82,8 +83,32 @@ describe("MaterialAuthoring", () => {
       },
     });
 
+    let previewAuthorizations = 0;
+    const previewAuthoring = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === actor },
+      contentAccess: {
+        checkAvailabilityMany:
+          ownerMaterials.contentAccess.checkAvailabilityMany.bind(
+            ownerMaterials.contentAccess,
+          ),
+        authorize: async (input) => {
+          previewAuthorizations += 1;
+          expect(input).toMatchObject({
+            subject: { kind: "account", accountId: actor },
+            resource: {
+              kind: "material",
+              materialId: created.value.materialId,
+            },
+            action: "preview",
+            enforcementPoint: "material_preview",
+          });
+          return ownerMaterials.contentAccess.authorize(input);
+        },
+      },
+    }).authoring;
     expect(
-      await authoring.previewMaterial({
+      await previewAuthoring.previewMaterial({
         actor,
         materialId: created.value.materialId,
       }),
@@ -105,6 +130,7 @@ describe("MaterialAuthoring", () => {
         },
       },
     });
+    expect(previewAuthorizations).toBe(1);
     expect(
       await authoring.validateMaterial({
         actor,
@@ -124,5 +150,64 @@ describe("MaterialAuthoring", () => {
         ],
       },
     });
+  });
+
+  test("denies Preview before loading body or private metadata", async () => {
+    const owner = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === actor },
+    });
+    const created = await owner.authoring.createDraft({
+      actor,
+      idempotencyKey: "create-denied-preview",
+      metadata: {
+        title: "Protected preview",
+        summary: null,
+        slug: null,
+        access: "membership",
+        topicId: null,
+        formatId: null,
+        tagIds: [],
+        seriesMemberships: [],
+      },
+      body: representativeDocument("Must stay private."),
+    });
+    if (!created.ok) {
+      throw new Error(created.error.code);
+    }
+
+    const unauthorizedMaterials = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+    });
+    const bodyRowRead = vi.spyOn(testDatabase.prisma.material, "findUnique");
+    const tagRead = vi.spyOn(testDatabase.prisma.materialTag, "findMany");
+    const seriesRead = vi.spyOn(
+      testDatabase.prisma.seriesMembership,
+      "findMany",
+    );
+
+    await expect(
+      unauthorizedMaterials.authoring.previewMaterial({
+        actor,
+        materialId: created.value.materialId,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "forbidden" } });
+    expect(bodyRowRead).toHaveBeenCalledOnce();
+    expect(bodyRowRead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: {
+          id: true,
+          publicationState: true,
+          access: true,
+          contentVersion: true,
+        },
+      }),
+    );
+    expect(tagRead).not.toHaveBeenCalled();
+    expect(seriesRead).not.toHaveBeenCalled();
+    bodyRowRead.mockRestore();
+    tagRead.mockRestore();
+    seriesRead.mockRestore();
   });
 });

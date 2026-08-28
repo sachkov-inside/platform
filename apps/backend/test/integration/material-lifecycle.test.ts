@@ -6,7 +6,6 @@ import {
   assembleContentAccess,
 } from "../../src/modules/content-access/index.js";
 import {
-  assembleBaselineContentAccess,
   assembleMaterialResourceFacts,
   assembleMaterials,
 } from "../../src/modules/materials/index.js";
@@ -55,7 +54,6 @@ describe("Material lifecycle", () => {
     const authorPolicy = {
       canManage: (accountId: string) => accountId === ownerId,
     };
-    const contentAccess = assembleBaselineContentAccess(authorPolicy);
     const {
       authoring,
       contentAccess: publishedContentAccess,
@@ -64,7 +62,6 @@ describe("Material lifecycle", () => {
     } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy,
-      authoringContentAccess: contentAccess,
     });
     const created = await authoring.createDraft({
       actor: ownerId,
@@ -376,7 +373,7 @@ describe("Material lifecycle", () => {
     const { publishedMaterialReader } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy,
-      publishedContentAccess: racingContentAccess,
+      contentAccess: racingContentAccess,
     });
     const bodyRead = vi.spyOn(testDatabase.prisma.material, "findFirst");
 

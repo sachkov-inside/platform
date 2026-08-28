@@ -1,11 +1,13 @@
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
+import { accountId as checkedAccountId } from "../../../accounts/index.js";
 import type {
   PreviewMaterialOperation,
 } from "./preview-material.contract.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { loadCurrentMaterial } from "../../infrastructure/postgres/current-material.js";
-import { authorizeManager } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
 import {
   accountId,
@@ -26,12 +28,34 @@ export function assemblePreviewMaterial(
     if (!parsed.ok) {
       return failure(parsed.error);
     }
-    const authorization = await authorizeManager(
-      dependencies.authorPolicy,
-      parsed.value.actor,
-    );
-    if (!authorization.ok) {
-      return failure(authorization.error);
+    const correlationId = randomUUID();
+    const access = await dependencies.contentAccess.authorize({
+      subject: {
+        kind: "account",
+        accountId: checkedAccountId(parsed.value.actor),
+      },
+      resource: { kind: "material", materialId: parsed.value.materialId },
+      action: "preview",
+      enforcementPoint: "material_preview",
+      correlationId,
+    });
+    if (access.effect === "deny") {
+      switch (access.reason) {
+        case "resource_not_found":
+          return failure({ code: "material_not_found" });
+        case "dependency_unavailable":
+          return failure({ code: "dependency_unavailable", retryable: true });
+        case "authentication_required":
+        case "permission_required":
+          return failure({ code: "forbidden" });
+        case "entitlement_stale":
+        case "membership_expired":
+        case "membership_required":
+        case "resource_action_invalid":
+        case "resource_mismatch":
+        case "resource_unpublished":
+          return failure({ code: "internal_error", correlationId });
+      }
     }
     try {
       const current = await loadCurrentMaterial(
