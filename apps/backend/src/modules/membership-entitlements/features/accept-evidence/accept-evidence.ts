@@ -8,6 +8,7 @@ import type {
   MembershipEntitlementsPrismaTransaction,
 } from "../../infrastructure/prisma.js";
 import {
+  isObservedMembershipEvidence,
   validateMembershipEvidence,
   type MembershipEvidence,
   type ObservedMembershipEvidence,
@@ -162,10 +163,7 @@ export async function acceptMembershipEvidence(
       return awaitAccountBinding(transaction, checkedCommand.deliveryId);
     }
 
-    if (
-      validation.value.decision !== "member" &&
-      validation.value.decision !== "not_member"
-    ) {
+    if (!isObservedMembershipEvidence(validation.value)) {
       const result = {
         ok: true,
         outcome: "accepted_without_entitlement",
@@ -209,10 +207,7 @@ async function checkAccountBinding(
   evidence: MembershipEvidence,
   now: Date,
 ): Promise<AccountBindingState> {
-  if (
-    command.source === "link_time" &&
-    (evidence.decision === "member" || evidence.decision === "not_member")
-  ) {
+  if (command.source === "link_time" && isObservedMembershipEvidence(evidence)) {
     await transaction.$executeRaw(Prisma.sql`
       insert into membership_entitlements.account_bindings (
         account_id,
@@ -327,7 +322,7 @@ function projectionData(
 }
 
 function evidenceReceiptMetadata(evidence: MembershipEvidence) {
-  if (evidence.decision === "member" || evidence.decision === "not_member") {
+  if (isObservedMembershipEvidence(evidence)) {
     return {
       principalRef: evidence.principalRef,
       evidenceRef: evidence.evidenceRef,

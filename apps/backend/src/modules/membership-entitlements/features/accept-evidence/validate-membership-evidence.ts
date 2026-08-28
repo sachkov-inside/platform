@@ -73,6 +73,12 @@ export type ObservedMembershipEvidence = Extract<
   { readonly decision: "member" | "not_member" }
 >;
 
+export function isObservedMembershipEvidence(
+  evidence: MembershipEvidence,
+): evidence is ObservedMembershipEvidence {
+  return evidence.decision === "member" || evidence.decision === "not_member";
+}
+
 export type MembershipEvidenceValidation =
   | Readonly<{ ok: true; value: MembershipEvidence }>
   | Readonly<{
@@ -102,10 +108,7 @@ export function validateMembershipEvidence(
   if (!parsed.success) {
     return { ok: false, error: { code: "invalid_evidence" } };
   }
-  if (
-    parsed.data.decision !== "member" &&
-    parsed.data.decision !== "not_member"
-  ) {
+  if (!isObservedMembershipEvidence(parsed.data)) {
     return { ok: true, value: parsed.data };
   }
 
