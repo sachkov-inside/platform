@@ -49,5 +49,24 @@ onto TypeScript 7. A dependency that requires the removed API must be replaced, 
 publishes a compatible stable release, or rejected. In particular, the Storybook MCP add-on remains
 out of the baseline until its stable dependency graph installs without an override.
 
+## Oxlint coverage boundaries
+
+Oxlint natively owns strict TypeScript rules, React hooks/compiler rules, Next rules, import
+boundaries and the backend exhaustive-switch negative fixture. The removed JavaScript plugins have
+these explicit replacements:
+
+- TanStack Query factories keep typed `queryOptions`/`infiniteQueryOptions`, request-isolated server
+  clients and one browser singleton. Focused query/hydration tests plus route E2E own behaviour that
+  used to receive additional syntax-only plugin checks.
+- Storybook's browser project runs every story interaction and configured accessibility check;
+  `pnpm test:storybook` and `pnpm build:storybook` replace the plugin's static story conventions.
+- Next navigation uses native Oxlint rules and production `next/link`; Playwright owns route
+  behaviour that has no native equivalent rule.
+
+The residual risk is limited to authoring conventions that those JavaScript plugins could flag
+before execution. Do not add an ESLint compatibility runner for that gap. Prefer a native Oxlint
+rule when one becomes stable; otherwise add a typed API constraint or a focused executable test for
+a demonstrated regression.
+
 pnpm remains at `11.22.0` until a separately verified stable update passes frozen installation and
 the full repository gate. Do not weaken `strictPeerDependencies` to accept a package-family update.
