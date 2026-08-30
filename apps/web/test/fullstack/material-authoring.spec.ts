@@ -150,7 +150,7 @@ test("full-state Save is live and a stale editor preserves local input through l
   await expect(stalePage.getByText(/^v\d+$/u)).toHaveCount(0);
 
   await page.getByLabel("Название").fill(winnerTitle);
-  await page.getByRole("button", { name: "Сохранить" }).click();
+  await page.getByLabel("Название").press("Enter");
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("button", { name: "Сохранить" })).toBeDisabled();
 

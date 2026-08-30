@@ -96,6 +96,25 @@ export function MaterialAuthoringWorkspace({
         <form
           className="mx-auto grid w-full max-w-[52rem] min-w-0 gap-0 px-4 pb-14 pt-7 sm:px-6 @min-[68rem]/material-authoring:max-w-[80rem] @min-[68rem]/material-authoring:grid-cols-[minmax(18rem,0.72fr)_minmax(32rem,1.55fr)] @min-[68rem]/material-authoring:px-8 @min-[68rem]/material-authoring:pt-9"
           id="material-authoring-form"
+          onKeyDown={(event) => {
+            if (
+              event.key !== "Enter" ||
+              event.defaultPrevented ||
+              !(event.target instanceof HTMLInputElement) ||
+              event.target.type !== "text" ||
+              presentation.draft.status === "new"
+            ) {
+              return;
+            }
+            event.preventDefault();
+            if (
+              presentation.save.kind === "dirty" &&
+              presentation.blocking.kind === "none" &&
+              !presentation.draft.readOnly
+            ) {
+              event.currentTarget.requestSubmit();
+            }
+          }}
           onSubmit={(event) => {
             event.preventDefault();
             const formData = new FormData(event.currentTarget);
@@ -329,7 +348,7 @@ function MetadataPanel({
             Удаление черновика
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Доступно только пока Material ни разу не публиковался.
+            Доступно только пока Материал ни разу не публиковался.
           </p>
           <div className="mt-4">
             <MaterialDeleteDialog

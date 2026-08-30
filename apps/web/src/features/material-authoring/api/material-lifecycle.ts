@@ -110,7 +110,7 @@ export async function executeMaterialLifecycleMutation(
   const command = parsed.data;
   const idempotencyKey = `web-lifecycle-${command.submissionId}`;
   if (command.operation === "delete") {
-    const deleted = await request(
+    const deleted = await executeAndMapLifecycleRequest(
       () =>
         dependencies.delete(
           {
@@ -129,7 +129,7 @@ export async function executeMaterialLifecycleMutation(
       : unexpected("malformed-delete-response");
   }
 
-  const loaded = await request(
+  const loaded = await executeAndMapLifecycleRequest(
     () => dependencies.load(command.materialId, accessToken),
     command.operation,
   );
@@ -140,7 +140,7 @@ export async function executeMaterialLifecycleMutation(
   }
 
   const targetState = command.operation === "publish" ? "published" : "unpublished";
-  const saved = await request(
+  const saved = await executeAndMapLifecycleRequest(
     () =>
       dependencies.save(
         {
@@ -180,7 +180,7 @@ export async function executeMaterialLifecycleMutation(
   };
 }
 
-async function request(
+async function executeAndMapLifecycleRequest(
   invoke: () => Promise<BackendTransportResult>,
   operation: MaterialLifecycleOperation,
 ): Promise<
