@@ -37,7 +37,11 @@ export interface LogtoAccessTokenVerifier {
     | ProofFailure
   >;
   verifyAccount(token: unknown): Promise<
-    | { readonly ok: true; readonly identity: VerifiedAccountIdentity }
+    | {
+        readonly ok: true;
+        readonly identity: VerifiedAccountIdentity;
+        readonly expiresAt: number;
+      }
     | ProofFailure
   >;
 }
@@ -83,6 +87,7 @@ export function createLogtoAccessTokenVerifier(
           issuer: verified.payload.iss,
           subject: verified.payload.sub,
         }),
+        expiresAt: verified.payload.exp,
       };
     },
   };

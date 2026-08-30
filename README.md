@@ -29,8 +29,9 @@ docker compose up --build --watch
 
 This starts PostgreSQL, a one-shot migration/seed bootstrap, Nest API, MCP and Next web. Open web at
 <http://127.0.0.1:3000>, API health/OpenAPI at <http://127.0.0.1:3001/health> and
-<http://127.0.0.1:3001/openapi>. Source changes synchronize through Compose Watch without host
-`node_modules`; manifest and lockfile changes rebuild the affected images.
+<http://127.0.0.1:3001/openapi>, and MCP at <http://127.0.0.1:3002/mcp>. Source changes synchronize
+through Compose Watch without host `node_modules`; manifest and lockfile changes rebuild the
+affected images.
 
 ## Commands
 
@@ -54,12 +55,19 @@ pnpm check:full
 `pnpm check` is the normal code/build/UI gate and does not require the shared Compose database.
 `pnpm check:full` additionally runs isolated real-PostgreSQL integration tests and the live local
 stack smoke. For that optional host gate, stop the full Compose stack and use postgres-only
-`pnpm infra:up`, because the smoke owns host ports 3000 and 3001. Run `bash scripts/doctor.sh` for a
-read-only Docker-only prerequisite and Compose-contract diagnosis. It does not require host Node,
-pnpm or `.env`; `pnpm platform:doctor` is only a convenience alias for an installed host toolchain.
+`pnpm infra:up`, because the smoke owns host ports 3000, 3001 and 3002. Run
+`bash scripts/doctor.sh` for a read-only Docker-only prerequisite and Compose-contract diagnosis.
+It does not require host Node, pnpm or `.env`; `pnpm platform:doctor` is only a convenience alias for
+an installed host toolchain.
 
 The API listens on `127.0.0.1:3001`, exposes `GET /health`, and serves OpenAPI
 UI at `/openapi`.
+
+The stateless Streamable HTTP MCP resource server listens on `127.0.0.1:3002/mcp`. It accepts only
+a short-lived Logto-compatible bearer token for an existing Account; every tool call independently
+requires the current database-backed `materials:manage` permission. Its four tools create a draft,
+load current full state, atomically Save full state and Preview through canonical ContentAccess.
+The local adapter does not provision Logto clients, service identities or production routing.
 
 ## Docker-only smoke and shutdown
 
@@ -69,8 +77,9 @@ bash scripts/compose-stack-smoke.sh
 docker compose down
 ```
 
-The smoke verifies web → API → PostgreSQL, OpenAPI, MCP readiness and the idempotent seeded
-Material. Normal shutdown preserves the named PostgreSQL volume; `docker compose down --volumes`
+The smoke verifies web → API → PostgreSQL, OpenAPI, MCP protected-resource metadata, the
+unauthenticated fail-closed boundary and the idempotent seeded Material. Normal shutdown preserves
+the named PostgreSQL volume; `docker compose down --volumes`
 is an explicit destructive reset.
 
 ## Production delivery baseline

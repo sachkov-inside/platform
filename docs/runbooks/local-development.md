@@ -10,7 +10,8 @@ The default stack contains:
 - PostgreSQL 18.4 with a persistent named volume;
 - one `bootstrap` job that applies migrations and the deterministic development seed;
 - Nest API on <http://127.0.0.1:3001> with health and OpenAPI endpoints;
-- the long-running MCP process over the same application and database lifecycle;
+- the long-running MCP process at <http://127.0.0.1:3002/mcp> over the same application and database
+  lifecycle;
 - Next.js web on <http://127.0.0.1:3000>.
 
 The optional Logto email-code proof is a separate, disposable Compose project with isolated ports
@@ -31,9 +32,9 @@ bootstrap; web waits for healthy API. Storybook is an optional profile on
 <http://127.0.0.1:6006>. Integration tests continue to use their own temporary PostgreSQL through
 Testcontainers and never share the Compose database.
 
-The production API exposes health, OpenAPI, the published catalog and the Material Reader endpoint. Material
-authoring remains an application interface covered by integration tests; this Compose work does
-not invent a production authoring transport.
+The production API exposes health, OpenAPI, the published catalog and the Material Reader endpoint.
+The local MCP adapter exposes delegated Material authoring over production application interfaces;
+production Logto client setup and public routing remain separate deployment work.
 
 ## Parallel worktrees and singleton ownership
 
@@ -120,6 +121,20 @@ Individual adapters are `pnpm dev:web`, `pnpm dev:api` and `pnpm dev:mcp`. `pnpm
 host-pnpm convenience wrapper around the full detached Compose startup and smoke; it refuses to
 reuse a running singleton stack.
 
+The MCP adapter uses stateless Streamable HTTP at `MCP_SERVER_URL` (local default
+`http://127.0.0.1:3002/mcp`). It verifies a short-lived Logto-compatible bearer token, resolves its
+issuer/subject to an existing Account and checks the Account's current `materials:manage`
+permission inside each production authoring operation. Provider roles and scopes do not grant
+access, and the adapter has no service identity or provider secret.
+
+The exposed tools are `material_create_draft`, `material_load`, `material_save` and
+`material_preview`. Save replaces content, metadata, current relations, access and publication
+state atomically using `expectedContentVersion`; it can affect live content and has no server-side
+Undo/history. Preview uses canonical ContentAccess. MCP clients can discover the protected resource
+metadata at `/.well-known/oauth-protected-resource/mcp` and send the delegated token in the
+`Authorization: Bearer` header. Production provider setup and public routing remain outside this
+repository task.
+
 Every backend process loads the optional repository `.env` once and parses one immutable
 `PlatformConfig`. `NODE_ENV=development` enables checked-in local defaults; absent `NODE_ENV` is
 production, where database and API listen values are required.
@@ -128,6 +143,8 @@ Inspect the running host fallback or Compose stack:
 
 - health: <http://127.0.0.1:3001/health>
 - OpenAPI UI: <http://127.0.0.1:3001/openapi>
+- MCP Streamable HTTP endpoint: <http://127.0.0.1:3002/mcp>
+- MCP protected-resource metadata: <http://127.0.0.1:3002/.well-known/oauth-protected-resource/mcp>
 - published Material API: <http://127.0.0.1:3001/materials/inside-platform-overview>
 - published catalog API: <http://127.0.0.1:3001/library/materials>
 - Material authoring OpenAPI group: <http://127.0.0.1:3001/openapi#/Material%20authoring>
@@ -143,7 +160,9 @@ The API health response is:
 `pnpm smoke:health` verifies Nest composition and the documented `tsx watch` API entrypoint.
 `pnpm smoke:fullstack` remains the host-process fallback smoke against Compose PostgreSQL; it
 starts the API and a production-built web process, verifies the published Reader on desktop and
-mobile through Playwright, and exercises the server-only adapter against the live API.
+mobile through Playwright, exercises the server-only adapter against the live API, and uses a
+signed delegated owner token to create/reload, publish, Preview and unpublish one stable Material
+through the live MCP process.
 
 ## Repository verification
 
@@ -161,7 +180,8 @@ pnpm check:full
 ```
 
 This adds isolated Testcontainers integration tests and the host full-stack smoke. Stop the full
-Compose stack and start only `pnpm infra:up` first, because the host smoke owns ports 3000 and 3001.
+Compose stack and start only `pnpm infra:up` first, because the host smoke owns ports 3000, 3001 and
+3002.
 CI runs that gate and a separate Docker-only contract that builds all image targets, starts a clean
 volume, restarts against the preserved volume, exercises Compose Watch and rejects orphan
 containers.

@@ -23,6 +23,8 @@ const apiBaseUrl =
   process.env.BACKEND_BASE_URL ?? `http://127.0.0.1:${apiPort}`;
 const webPort = process.env.FULLSTACK_WEB_PORT ?? "3000";
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
+const mcpPort = process.env.FULLSTACK_MCP_PORT ?? "3002";
+const mcpServerUrl = `http://127.0.0.1:${mcpPort}/mcp`;
 const childEnvironment = { ...process.env };
 childEnvironment.NODE_ENV ??= "development";
 const fullStackIdentity = await startFullStackIdentity();
@@ -52,6 +54,12 @@ try {
 
   processes.push(
     startPnpm("API", ["dev:api"], childEnvironment),
+    startPnpm("MCP", ["dev:mcp"], {
+      ...childEnvironment,
+      MCP_HOST: "127.0.0.1",
+      MCP_PORT: mcpPort,
+      MCP_SERVER_URL: mcpServerUrl,
+    }),
     startPnpm(
       "Web",
       [
@@ -73,12 +81,22 @@ try {
 
   const health = await waitForJson(`${apiBaseUrl}/health`, processes);
   assertHealth(health);
+  await waitForHttp(
+    `${mcpServerUrl.replace(/\/mcp$/u, "")}/.well-known/oauth-protected-resource/mcp`,
+    processes,
+  );
   await waitForHttp(webBaseUrl, processes);
   await runPnpm(["--filter", "@inside/web", "smoke:backend"], {
     ...childEnvironment,
     BACKEND_BASE_URL: apiBaseUrl,
   });
-  const fullStackSession = await fullStackIdentity.createSession();
+  const accessToken = await fullStackIdentity.createAccessToken();
+  await runPnpm(["--filter", "@inside/backend", "smoke:mcp-authoring"], {
+    ...childEnvironment,
+    MCP_SMOKE_ACCESS_TOKEN: accessToken.token,
+    MCP_SMOKE_SERVER_URL: mcpServerUrl,
+  });
+  const fullStackSession = await fullStackIdentity.createSession(accessToken);
   await runPnpm(["--filter", "@inside/web", "test:fullstack"], {
     ...childEnvironment,
     FULLSTACK_API_BASE_URL: apiBaseUrl,
@@ -90,7 +108,7 @@ try {
   });
 
   process.stdout.write(
-    `Full-stack smoke passed: Library ${webBaseUrl}/library; Reader ${webBaseUrl}/materials/inside-platform-overview; live API ${apiBaseUrl}; PostgreSQL reachable\n`,
+    `Full-stack smoke passed: Library ${webBaseUrl}/library; Reader ${webBaseUrl}/materials/inside-platform-overview; live API ${apiBaseUrl}; delegated MCP ${mcpServerUrl}; PostgreSQL reachable\n`,
   );
 } catch (error) {
   if (interruptedSignal === undefined) {
@@ -266,9 +284,9 @@ async function startFullStackIdentity() {
   }
   return {
     cookieName: `logto_${appId}`,
-    createSession: async () => {
+    createAccessToken: async () => {
       const now = Math.floor(Date.now() / 1_000);
-      const accessToken = await new SignJWT({})
+      const token = await new SignJWT({})
         .setProtectedHeader({ alg: "ES384", kid: "fullstack-key-1" })
         .setIssuer(issuer)
         .setAudience(audience)
@@ -276,14 +294,17 @@ async function startFullStackIdentity() {
         .setIssuedAt(now)
         .setExpirationTime(now + 300)
         .sign(keyPair.privateKey);
+      return { token, expiresAt: now + 300 };
+    },
+    createSession: async ({ token, expiresAt }) => {
       return wrapSession(
         {
           idToken: "fullstack.id.token",
           accessToken: JSON.stringify({
             [`@${audience}`]: {
-              token: accessToken,
+              token,
               scope: "",
-              expiresAt: now + 300,
+              expiresAt,
             },
           }),
         },

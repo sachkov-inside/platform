@@ -14,6 +14,11 @@ import {
   type PlatformPrisma,
 } from "../src/infrastructure/prisma/index.js";
 import {
+  ACCOUNTS,
+  LOGTO_ACCESS_TOKEN_VERIFIER,
+} from "../src/modules/accounts/index.js";
+import {
+  MATERIAL_AUTHORING,
   PUBLISHED_MATERIAL_READER,
 } from "../src/modules/materials/index.js";
 import { MEMBERSHIP_ENTITLEMENTS } from "../src/modules/membership-entitlements/index.js";
@@ -58,6 +63,9 @@ describe("backend process composition", () => {
     expect(mcp.get(OperationalReadiness)).toBeInstanceOf(
       OperationalReadiness,
     );
+    expect(mcp.get(ACCOUNTS)).toBeDefined();
+    expect(mcp.get(LOGTO_ACCESS_TOKEN_VERIFIER)).toBeDefined();
+    expect(mcp.get(MATERIAL_AUTHORING)).toBeDefined();
 
     const disconnect = vi.spyOn(prisma, "$disconnect");
     await mcp.close();
