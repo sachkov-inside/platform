@@ -36,6 +36,7 @@ describe("Logto access token verifier", () => {
       permissions: ["identity:admin"],
     });
     const result = await localVerifier(publicJwk).verifyAccountSignIn(token);
+    const accountResult = await localVerifier(publicJwk).verifyAccount(token);
 
     expect(result).toMatchObject({
       ok: true,
@@ -53,6 +54,17 @@ describe("Logto access token verifier", () => {
     });
     expect(JSON.stringify(result)).not.toContain("admin");
     expect(JSON.stringify(result)).not.toContain("member");
+    expect(accountResult).toMatchObject({
+      ok: true,
+      identity: {
+        type: "account_identity",
+        issuer,
+        subject: "human-001",
+      },
+      expiresAt: now + 300,
+    });
+    expect(JSON.stringify(accountResult)).not.toContain("admin");
+    expect(JSON.stringify(accountResult)).not.toContain("member");
   });
 
   test.each([

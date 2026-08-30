@@ -79,6 +79,7 @@ export type {
   ValidationIssue,
 } from "./domain/material-body/material-body.js";
 export { MaterialsModule } from "./materials.module.js";
+export { assembleMaterialAuthoringMcpServer } from "./adapters/mcp/material-authoring-mcp.js";
 export { assembleMaterials, type Materials } from "./assemble-materials.js";
 export {
   publishedMaterialProblemHttpSchema,

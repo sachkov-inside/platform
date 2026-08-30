@@ -9,54 +9,38 @@ import type {
   SaveMaterialError,
   ValidateMaterialError,
 } from "../../index.js";
+import {
+  contentVersionWireSchema,
+  idempotencyKeyWireSchema,
+  materialBodySnapshotWireSchema,
+  materialIdWireSchema,
+  materialMetadataWireSchema,
+  publicationStateWireSchema,
+  seriesMembershipWireSchema,
+} from "../material-authoring-wire.js";
 
-const uuid = z.uuid();
-const jsonObject = z.record(z.string(), z.unknown());
-
-export const materialIdSchema = uuid;
-export const platformSessionHeaderSchema = uuid;
-export const idempotencyKeySchema = z.string().trim().min(1).max(200);
-export const contentVersionSchema = z.number().int().positive();
-
-export const seriesMembershipSchema = z
-  .object({ seriesId: uuid, ordinal: z.number().int().positive() })
-  .strict();
-
-export const materialMetadataSchema = z
-  .object({
-    title: z.string().trim().min(1).max(160).nullable(),
-    summary: z.string().trim().min(1).max(500).nullable(),
-    slug: z
-      .string()
-      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
-      .max(120)
-      .nullable(),
-    access: z.enum(["free", "membership"]),
-    topicId: uuid.nullable(),
-    formatId: uuid.nullable(),
-    tagIds: z.array(uuid).max(100),
-    seriesMemberships: z.array(seriesMembershipSchema).max(100),
-  })
-  .strict();
-
-export const materialBodySnapshotSchema = z
-  .object({ schemaVersion: z.literal(1), doc: jsonObject })
-  .strict();
+export const materialIdSchema = materialIdWireSchema;
+export const platformSessionHeaderSchema = z.uuid();
+export const idempotencyKeySchema = idempotencyKeyWireSchema;
+export const contentVersionSchema = contentVersionWireSchema;
+export const seriesMembershipSchema = seriesMembershipWireSchema;
+export const materialMetadataSchema = materialMetadataWireSchema;
+export const materialBodySnapshotSchema = materialBodySnapshotWireSchema;
 
 export const materialMutationReceiptSchema = z
   .object({
-    materialId: uuid,
+    materialId: materialIdSchema,
     contentVersion: contentVersionSchema,
-    publicationState: z.enum(["draft", "published", "unpublished"]),
+    publicationState: publicationStateWireSchema,
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
   })
   .strict();
 
 export const materialSchema = z
   .object({
-    materialId: uuid,
+    materialId: materialIdSchema,
     contentVersion: contentVersionSchema,
-    publicationState: z.enum(["draft", "published", "unpublished"]),
+    publicationState: publicationStateWireSchema,
     firstPublishedAt: z.iso.datetime({ offset: true }).nullable(),
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
     metadata: materialMetadataSchema,
@@ -71,7 +55,7 @@ export const createDraftBodySchema = z
 export const saveMaterialBodySchema = z
   .object({
     expectedContentVersion: contentVersionSchema,
-    publicationState: z.enum(["draft", "published", "unpublished"]),
+    publicationState: publicationStateWireSchema,
     metadata: materialMetadataSchema,
     body: materialBodySnapshotSchema,
   })
@@ -87,7 +71,7 @@ export const validationIssueSchema = z
 
 export const validatedMaterialSchema = z
   .object({
-    materialId: uuid,
+    materialId: materialIdSchema,
     contentVersion: contentVersionSchema,
     projectionDigest: z.string(),
     extraction: z
@@ -124,9 +108,9 @@ export const renderedBlockSchema = z.unknown();
 
 export const previewMaterialSchema = z
   .object({
-    materialId: uuid,
+    materialId: materialIdSchema,
     contentVersion: contentVersionSchema,
-    publicationState: z.enum(["draft", "published", "unpublished"]),
+    publicationState: publicationStateWireSchema,
     metadata: materialMetadataSchema,
     cacheScope: z.literal("private-no-store"),
     body: z
@@ -147,8 +131,8 @@ export const materialAuthoringProblemSchema = z.looseObject({
   retryable: z.boolean().optional(),
   issues: z.array(validationIssueSchema).optional(),
   currentContentVersion: contentVersionSchema.optional(),
-  currentState: z.enum(["draft", "published", "unpublished"]).optional(),
-  targetState: z.enum(["draft", "published", "unpublished"]).optional(),
+  currentState: publicationStateWireSchema.optional(),
+  targetState: publicationStateWireSchema.optional(),
 });
 
 export function parseMaterialAuthoringBody<Schema extends z.ZodType>(

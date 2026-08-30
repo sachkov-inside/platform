@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { parseMcpConfig } from "../src/config/mcp-config.js";
 import {
   parsePlatformConfig,
   parsePlatformDatabaseConfig,
@@ -119,5 +120,57 @@ describe("process configuration", () => {
     ).toThrow(
       "API_PORT must be an integer between 1 and 65535",
     );
+  });
+});
+
+describe("MCP process configuration", () => {
+  it("uses an explicit local Streamable HTTP endpoint", () => {
+    expect(parseMcpConfig({}, "development")).toEqual({
+      host: "127.0.0.1",
+      port: 3002,
+      serverUrl: "http://127.0.0.1:3002/mcp",
+    });
+  });
+
+  it("requires an HTTPS public endpoint in production", () => {
+    expect(() => parseMcpConfig({}, "production")).toThrow(
+      "MCP_HOST is required in production mode",
+    );
+    expect(() =>
+      parseMcpConfig(
+        {
+          MCP_HOST: "0.0.0.0",
+          MCP_PORT: "3002",
+          MCP_SERVER_URL: "http://mcp.example.test/mcp",
+        },
+        "production",
+      ),
+    ).toThrow("MCP_SERVER_URL must use HTTPS in production mode");
+    expect(
+      parseMcpConfig(
+        {
+          MCP_HOST: "0.0.0.0",
+          MCP_PORT: "3002",
+          MCP_SERVER_URL: "https://mcp.example.test/mcp",
+        },
+        "production",
+      ),
+    ).toEqual({
+      host: "0.0.0.0",
+      port: 3002,
+      serverUrl: "https://mcp.example.test/mcp",
+    });
+  });
+
+  it("rejects invalid listen and public endpoint values", () => {
+    expect(() =>
+      parseMcpConfig({ MCP_PORT: "0" }, "test"),
+    ).toThrow("MCP_PORT must be an integer between 1 and 65535");
+    expect(() =>
+      parseMcpConfig(
+        { MCP_SERVER_URL: "http://127.0.0.1:3002/mcp?token=secret" },
+        "test",
+      ),
+    ).toThrow("MCP_SERVER_URL must not contain credentials, query, or fragment");
   });
 });

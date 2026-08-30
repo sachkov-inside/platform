@@ -107,11 +107,27 @@ services:
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-inside}:${POSTGRES_PASSWORD:-inside}@postgres:5432/${POSTGRES_DB:-inside}
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "3002"
+      MCP_SERVER_URL: http://127.0.0.1:${MCP_HOST_PORT:-3002}/mcp
     depends_on:
       postgres:
         condition: service_healthy
       bootstrap:
         condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${MCP_HOST_PORT:-3002}:3002"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3002/.well-known/oauth-protected-resource/mcp').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     init: true
     stop_grace_period: 10s
     develop: *backend-develop

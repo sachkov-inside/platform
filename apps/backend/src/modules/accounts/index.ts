@@ -1,5 +1,8 @@
 export { AccountsModule } from "./accounts.module.js";
-export { ACCOUNTS } from "./accounts.tokens.js";
+export {
+  ACCOUNTS,
+  LOGTO_ACCESS_TOKEN_VERIFIER,
+} from "./accounts.tokens.js";
 export {
   AccountGuard,
   OptionalAccountGuard,
@@ -29,3 +32,5 @@ export {
   type PlatformPermission,
   type ResolveAccountResult,
 } from "./facets/accounts/accounts.interface.js";
+export type { LogtoAccessTokenVerifier } from "./infrastructure/idp/logto/logto-access-token-verifier.js";
+export { assembleDelegatedAccountTokenVerifier } from "./adapters/mcp/delegated-account-token-verifier.js";
