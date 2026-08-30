@@ -58,8 +58,14 @@ Telegram linking, Membership state и recovery actions. Member Profile — от�
 других действующих участников. Anonymous visitor, non-member и search crawler её не получают;
 profile не индексируется и никогда не содержит email, Platform или Telegram internal identifiers,
 Telegram username, linking/evidence, security или audit data. Exact поля, avatar, discoverability,
-moderation и delete/disable policy утверждаются владельцем до production implementation и не
-расширяют этот brief до публичной социальной сети.
+moderation и delete/disable policy утверждены владельцем в Platform #51: Profile содержит
+обязательное изменяемое non-unique display name и optional bio, создаётся через обязательный
+name-only onboarding после первого sign-in и открывается active members по opaque URL без directory
+или search. Owner редактирует, экспортирует и удаляет Profile в private Account; optimistic version
+защищает edit/delete, deletion очищает поля и не оживляет старый URL, а disabled state остаётся
+виден только owner. Text reporting ограничен одним open report на viewer/Profile и обслуживается
+ручной owner moderation. Avatar, любые image/file операции и S3 delivery вынесены в Platform #153 и
+не блокируют text Profile vertical; это не расширяет brief до публичной социальной сети.
 
 Платформа не принимает оплату и не управляет подпиской. Один outbound CTA ведёт на
 Platform-configured Tribute URL: Platform не читает Tribute API/webhooks и не делает access decision

@@ -12,6 +12,7 @@ export function stubMaterialAuthoring(
     createDraft: () => Promise.resolve(forbiddenAuthoringResult),
     deleteDraft: () => Promise.resolve(forbiddenAuthoringResult),
     listReferences: () => Promise.resolve(forbiddenAuthoringResult),
+    listMaterials: () => Promise.resolve(forbiddenAuthoringResult),
     loadMaterial: () => Promise.resolve(forbiddenAuthoringResult),
     previewMaterial: () => Promise.resolve(forbiddenAuthoringResult),
     saveMaterial: () => Promise.resolve(forbiddenAuthoringResult),

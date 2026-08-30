@@ -10,7 +10,7 @@ web
 
 - Публичный посетитель находит и читает бесплатные материалы и понимает состав Membership.
 - Участник Membership находит и читает доступные материалы, управляет минимальным reading state и
-  приватным Account.
+  приватным Account, а через Member Profile показывает другим участникам выбранное имя и краткий bio.
 - Единственный автор первой версии — Кирилл. Он выбирает тему из доступного каталога, создаёт и
   изменяет current Material, проверяет Preview сохранённого `contentVersion` и явно выбирает
   publication state в full-state Save.
@@ -69,6 +69,8 @@ reading и authoring так, чтобы current Material, опубликован
 - Storybook contains accepted shell, Library and Material reader proofs plus representative
   sanitized content fixtures. No testimonials, customer logos, commercial benchmarks or other
   marketing proof may be invented.
+- Production evidence для Account и Member Profile: `docs/evidence/issue-51/README.md` с desktop и
+  390 × 844 mobile captures из full-stack smoke.
 
 ## Product Principles
 
@@ -78,7 +80,6 @@ reading и authoring так, чтобы current Material, опубликован
    information needed to work safely.
 4. Mobile authoring is a primary capability, not a reduced preview mode.
 5. Storybook records reusable design and behavior before production integration.
-
 ## Accessibility & Inclusion
 
 Critical journeys support semantic landmarks and headings, keyboard operation, visible focus,

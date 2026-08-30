@@ -8,6 +8,7 @@ import {
   BaseHttpRequest,
   CancelablePromise,
   ContentLibraryService,
+  MemberProfilesService,
   MaterialAuthoringService,
   OperationsService,
   PublishedMaterialsService,
@@ -167,6 +168,100 @@ export function requestPublishedMaterial(
       new PublishedMaterialsService(request).readPublishedMaterial({ slug }),
     200,
     options,
+  );
+}
+
+export function requestPrivateMemberProfile(
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new MemberProfilesService(request).readPrivateAccountProfile(),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestMemberProfileCreation(
+  input: { readonly bio: string | null; readonly displayName: string },
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MemberProfilesService(request).createMemberProfile({
+        requestBody: input,
+      }),
+    201,
+    { accessToken },
+  );
+}
+
+export function requestMemberProfileUpdate(
+  input: {
+    readonly bio: string | null;
+    readonly displayName: string;
+    readonly expectedVersion: number;
+  },
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MemberProfilesService(request).updateMemberProfile({
+        requestBody: input,
+      }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestMemberProfileDeletion(
+  expectedVersion: number,
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MemberProfilesService(request).deleteMemberProfile({
+        requestBody: { expectedVersion },
+      }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestMemberProfileExport(
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new MemberProfilesService(request).exportMemberProfile(),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestMemberProfileProjection(
+  publicProfileId: string,
+  accessToken?: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MemberProfilesService(request).viewMemberProfile({ publicProfileId }),
+    200,
+    accessToken === undefined ? {} : { accessToken },
+  );
+}
+
+export function requestMemberProfileReport(
+  publicProfileId: string,
+  reason: "impersonation" | "other" | "unsafe_content",
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MemberProfilesService(request).reportMemberProfile({
+        publicProfileId,
+        requestBody: { reason },
+      }),
+    201,
+    { accessToken },
   );
 }
 

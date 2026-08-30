@@ -5,6 +5,8 @@ export {
   type MaterialsPrisma,
   type MaterialsPrismaClient,
   type MaterialsPrismaTransaction,
+  type MemberProfilesPrisma,
+  type MemberProfilesPrismaClient,
   type PlatformPrisma,
   type TransactionClient,
 } from "./prisma-client.js";
