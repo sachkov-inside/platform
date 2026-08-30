@@ -210,4 +210,54 @@ describe("MaterialAuthoring", () => {
     tagRead.mockRestore();
     seriesRead.mockRestore();
   });
+
+  test("lists sorted authoring references only for a manager", async () => {
+    await Promise.all([
+      testDatabase.prisma.topic.createMany({
+        data: [
+          { id: "94000000-0000-4000-8000-000000000031", name: "Platform", slug: "platform" },
+          { id: "94000000-0000-4000-8000-000000000032", name: "AI", slug: "ai" },
+        ],
+      }),
+      testDatabase.prisma.format.create({
+        data: {
+          id: "94000000-0000-4000-8000-000000000033",
+          name: "Гайд",
+          slug: "guide",
+        },
+      }),
+      testDatabase.prisma.tag.create({
+        data: {
+          id: "94000000-0000-4000-8000-000000000034",
+          name: "delivery",
+          normalizedName: "delivery",
+        },
+      }),
+    ]);
+    const owner = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === actor },
+    });
+
+    await expect(owner.authoring.listReferences({ actor })).resolves.toEqual({
+      ok: true,
+      value: {
+        formats: [{ id: "94000000-0000-4000-8000-000000000033", name: "Гайд" }],
+        tags: [{ id: "94000000-0000-4000-8000-000000000034", name: "delivery" }],
+        topics: [
+          { id: "94000000-0000-4000-8000-000000000032", name: "AI" },
+          { id: "94000000-0000-4000-8000-000000000031", name: "Platform" },
+        ],
+      },
+    });
+
+    const unauthorized = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+    });
+    await expect(unauthorized.authoring.listReferences({ actor })).resolves.toEqual({
+      error: { code: "forbidden" },
+      ok: false,
+    });
+  });
 });

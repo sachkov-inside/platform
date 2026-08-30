@@ -66,10 +66,11 @@ export function logtoSessionCookieName(appId: string): string {
   return `logto_${appId}`;
 }
 
-export function hasLogtoSessionCookie(cookieNames: readonly string[]): boolean {
-  return cookieNames.some(
-    (name) => name.startsWith("logto_") && name.length > "logto_".length,
-  );
+export function hasLogtoSessionCookie(
+  cookieNames: readonly string[],
+  appId: string,
+): boolean {
+  return cookieNames.includes(logtoSessionCookieName(appId));
 }
 
 function runtimeMode(value: string | undefined): RuntimeMode {

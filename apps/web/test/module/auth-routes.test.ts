@@ -175,6 +175,7 @@ describe("Logto BFF route orchestration", () => {
     expect(response.status).toBe(303);
     expect(response.headers.get("clear-site-data")).toBe('"storage"');
     expect(fakes.handleSignOut).toHaveBeenCalledWith(fakes.config.baseUrl);
+    expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);
   });
 
   it("clears the local Logto cookie and reports incomplete provider logout", async () => {

@@ -16,6 +16,10 @@ export async function POST(request: Request): Promise<Response> {
   }
   try {
     const url = await new LogtoClient(config).handleSignOut(config.baseUrl);
+    // The SDK destroys its storage, but that implicit mutation is not carried by
+    // the explicit NextResponse returned from this Route Handler. Expire the exact
+    // application cookie on our response path as well.
+    await clearLogtoSessionCookie(config);
     return signOutRedirect(url);
   } catch {
     await clearLogtoSessionCookie(config);

@@ -83,7 +83,10 @@ The accepted semantic color, typography, radius, elevation and motion tokens and
 live in `apps/web/app/globals.css`. Production and Storybook both import that file; do not copy
 token values into a feature stylesheet. The accepted responsive shell is exported by
 `@/widgets/application-shell`, while `@/_app` is the production adapter that supplies App Router
-path and account state.
+path and account state. Public routes use that shell. Authoring routes use the dedicated,
+feature-owned Material Authoring shell accepted in #94: it reuses the same tokens, replaces the
+public navigation instead of nesting beside it, and always exposes explicit routes back to the
+public Library and site. Do not introduce another shell variant without a new owner decision.
 
 For production surface tickets such as #89, #90 and #94, move an accepted surface implementation
 out of `src/workshop` into its owning FSD slice before connecting real data. Its story and

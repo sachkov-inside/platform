@@ -9,3 +9,9 @@ export {
 } from "./logto-bff-config.server";
 export { providerCallbackUrl } from "./provider-callback-url.server";
 export { isSameOriginMutation } from "./same-origin-mutation.server";
+export {
+  getPlatformAccessToken,
+  getPlatformAccessTokenRsc,
+  LogtoSessionUnavailableError,
+} from "./platform-access-token.server";
+export { getOptionalPlatformAccessToken } from "./optional-platform-access-token.server";

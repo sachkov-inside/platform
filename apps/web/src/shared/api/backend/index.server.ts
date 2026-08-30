@@ -8,6 +8,7 @@ import {
   BaseHttpRequest,
   CancelablePromise,
   ContentLibraryService,
+  MaterialAuthoringService,
   OperationsService,
   PublishedMaterialsService,
   type OpenAPIConfig,
@@ -150,6 +151,81 @@ export function requestPublishedMaterial(
       new PublishedMaterialsService(request).readPublishedMaterial({ slug }),
     200,
     options,
+  );
+}
+
+export function requestMaterialDraftCreation(
+  input: {
+    readonly access: "free" | "membership";
+    readonly document: Record<string, unknown>;
+    readonly formatId: string | null;
+    readonly idempotencyKey: string;
+    readonly summary: string;
+    readonly tagIds: readonly string[];
+    readonly title: string;
+    readonly topicId: string | null;
+  },
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MaterialAuthoringService(request).createMaterialDraft({
+        idempotencyKey: input.idempotencyKey,
+        requestBody: {
+          body: { doc: input.document, schemaVersion: 1 },
+          metadata: {
+            access: input.access,
+            formatId: input.formatId,
+            seriesMemberships: [],
+            slug: null,
+            summary: input.summary,
+            tagIds: [...input.tagIds],
+            title: input.title,
+            topicId: input.topicId,
+          },
+        },
+      }),
+    201,
+    { accessToken },
+  );
+}
+
+export function requestMaterialAuthoringReferences(
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MaterialAuthoringService(request).listMaterialAuthoringReferences(),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestMaterialValidation(
+  materialId: string,
+  contentVersion: number,
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MaterialAuthoringService(request).validateCurrentMaterial({
+        expectedContentVersion: contentVersion,
+        materialId,
+      }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestMaterialPreview(
+  materialId: string,
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MaterialAuthoringService(request).previewCurrentMaterial({ materialId }),
+    200,
+    { accessToken },
   );
 }
 

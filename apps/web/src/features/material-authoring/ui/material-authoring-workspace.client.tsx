@@ -16,9 +16,8 @@ import {
   LoaderCircle,
   RotateCcw,
   Save,
-  ShieldAlert,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
@@ -35,7 +34,12 @@ import type {
   MaterialAuthoringPresentation,
   MaterialSaveState,
 } from "../model/presentation";
-import { MaterialPreview } from "./material-preview";
+import { MaterialCurrentPreview } from "./material-current-preview";
+import { MaterialAuthoringShell } from "./material-authoring-shell";
+import {
+  MaterialAuthoringSignInActions,
+  MaterialAuthoringUnauthorizedState,
+} from "./material-authoring-route-states";
 
 interface MaterialAuthoringWorkspaceProps {
   readonly actions: MaterialAuthoringActions;
@@ -51,40 +55,51 @@ export function MaterialAuthoringWorkspace({
   presentation,
 }: MaterialAuthoringWorkspaceProps) {
   if (presentation.authorization.kind === "unauthorized") {
-    return <UnauthorizedState onBack={actions.onBack} />;
+    return (
+      <MaterialAuthoringUnauthorizedState
+        action={<MaterialAuthoringSignInActions onBack={actions.onBack} />}
+        context="editor"
+      />
+    );
   }
 
   if (presentation.mode === "preview" && presentation.preview !== null) {
     return (
-      <ExactPreview
-        onReturnToEditor={actions.onReturnToEditor}
-        presentation={presentation}
+      <MaterialCurrentPreview
+        editorHref="/authoring/materials/new"
+        preview={presentation.preview}
       />
     );
   }
 
   return (
-    <section
-      aria-labelledby="material-editor-heading"
-      className="@container/material-authoring min-h-svh bg-background text-foreground"
-      data-material-authoring
-    >
-      <EditorHeader actions={actions} presentation={presentation} />
-      <VersionRail presentation={presentation} />
-      <BlockingState actions={actions} presentation={presentation} />
-
-      <form
-        className="mx-auto grid w-full max-w-[52rem] min-w-0 gap-0 px-4 pb-14 pt-7 sm:px-6 @min-[68rem]/material-authoring:max-w-[80rem] @min-[68rem]/material-authoring:grid-cols-[minmax(17rem,0.72fr)_minmax(32rem,1.55fr)] @min-[68rem]/material-authoring:px-8"
-        id="material-authoring-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          actions.onSave();
-        }}
+    <MaterialAuthoringShell current="create">
+      <main
+        aria-labelledby="material-editor-heading"
+        className="@container/material-authoring h-full min-h-svh overflow-x-hidden bg-background text-foreground md:min-h-0 md:overflow-y-auto md:overscroll-y-contain"
+        data-material-authoring
+        id="authoring-content"
+        tabIndex={-1}
       >
-        <MetadataPanel actions={actions} presentation={presentation} />
-        <DocumentPanel actions={actions} presentation={presentation} />
-      </form>
-    </section>
+        <EditorHeader actions={actions} presentation={presentation} />
+        <BlockingState actions={actions} presentation={presentation} />
+        <AuthoringNotice presentation={presentation} />
+
+        <form
+          className="mx-auto grid w-full max-w-[52rem] min-w-0 gap-0 px-4 pb-14 pt-7 sm:px-6 @min-[68rem]/material-authoring:max-w-[80rem] @min-[68rem]/material-authoring:grid-cols-[minmax(18rem,0.72fr)_minmax(32rem,1.55fr)] @min-[68rem]/material-authoring:px-8 @min-[68rem]/material-authoring:pt-9"
+          id="material-authoring-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            actions.onSave(new FormData(event.currentTarget));
+          }}
+        >
+          <input name="document" type="hidden" value={JSON.stringify(presentation.draft.document)} />
+          <input name="submissionId" type="hidden" value={presentation.submissionId} />
+          <MetadataPanel actions={actions} presentation={presentation} />
+          <DocumentPanel actions={actions} presentation={presentation} />
+        </form>
+      </main>
+    </MaterialAuthoringShell>
   );
 }
 
@@ -99,7 +114,7 @@ function EditorHeader({
     presentation.blocking.kind !== "none";
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-card/95 px-4 py-3 backdrop-blur-sm supports-[backdrop-filter]:bg-card/88 sm:px-6">
+    <header className="sticky top-0 z-30 border-b border-border bg-card px-4 py-3 sm:px-6">
       <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <Button aria-label="Вернуться к материалам" className="size-11" onClick={actions.onBack} size="icon-lg" type="button" variant="ghost">
@@ -107,29 +122,46 @@ function EditorHeader({
           </Button>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-mono">{presentation.draft.status === "new" ? "Новый Material" : "Черновик"}</span>
+              <span>{presentation.draft.status === "new" ? "Новый материал" : "Черновик"}</span>
               {presentation.draft.contentVersion === null ? null : (
                 <span className="truncate font-mono">v{presentation.draft.contentVersion}</span>
               )}
+              <span aria-live="polite" className="lg:hidden">
+                · {compactSaveStateLabel(presentation.save)}
+              </span>
             </div>
             <h1 className="truncate text-base font-semibold tracking-[-0.02em] sm:text-lg" id="material-editor-heading">
               {presentation.draft.title.length > 0 ? presentation.draft.title : "Новый материал"}
             </h1>
           </div>
         </div>
+        <dl className="hidden items-center gap-5 border-l border-border pl-5 lg:flex">
+          <VersionFact
+            label="Версия"
+            value={
+              presentation.draft.contentVersion === null
+                ? "не создана"
+                : `v${String(presentation.draft.contentVersion)}`
+            }
+          />
+          <VersionFact label="Состояние" value={saveStateLabel(presentation.save)} />
+        </dl>
         <div className="grid w-full grid-cols-2 items-center gap-2 sm:ml-auto sm:flex sm:w-auto">
-          <SaveStatus state={presentation.save} />
           <Button className="min-h-11 px-3" disabled={previewDisabled} onClick={actions.onOpenPreview} type="button" variant="outline">
             <Eye aria-hidden="true" data-icon="inline-start" />
             Preview
           </Button>
-          <Button className="min-h-11 px-3" disabled={presentation.save.kind !== "dirty" || presentation.blocking.kind !== "none"} form="material-authoring-form" type="submit">
+          <Button className="min-h-11 px-3" disabled={presentation.save.kind !== "dirty" || presentation.blocking.kind !== "none" || presentation.draft.readOnly} form="material-authoring-form" type="submit">
             {presentation.save.kind === "submitting" ? (
               <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" data-icon="inline-start" />
             ) : (
               <Save aria-hidden="true" data-icon="inline-start" />
             )}
-            {presentation.save.kind === "submitting" ? "Сохранение…" : "Сохранить"}
+            {presentation.save.kind === "submitting"
+              ? "Создание…"
+              : presentation.draft.status === "new"
+                ? "Создать черновик"
+                : "Сохранить"}
           </Button>
         </div>
       </div>
@@ -137,22 +169,11 @@ function EditorHeader({
   );
 }
 
-function VersionRail({ presentation }: { readonly presentation: MaterialAuthoringPresentation }) {
-  return (
-    <div className="bg-background px-4 pt-3 sm:px-6">
-      <dl className="mx-auto grid w-full max-w-[80rem] grid-cols-1 gap-2 rounded-2xl bg-secondary/65 px-4 py-3 font-mono text-[0.6875rem] sm:grid-cols-2 sm:gap-5 sm:px-5">
-        <VersionFact label="Версия содержимого" value={presentation.draft.contentVersion === null ? "ещё не создана" : String(presentation.draft.contentVersion)} />
-        <VersionFact label="Сохранение" value={saveStateLabel(presentation.save)} />
-      </dl>
-    </div>
-  );
-}
-
 function VersionFact({ label, value }: { readonly label: string; readonly value: string }) {
   return (
     <div className="min-w-0">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-1 min-w-0 truncate font-semibold text-foreground">{value}</dd>
+      <dt className="font-mono text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 min-w-0 truncate text-xs font-semibold text-foreground">{value}</dd>
     </div>
   );
 }
@@ -161,7 +182,7 @@ function MetadataPanel({
   actions,
   presentation,
 }: MaterialAuthoringWorkspaceProps) {
-  const disabled = presentation.save.kind === "submitting" || presentation.blocking.kind !== "none";
+  const disabled = presentation.save.kind === "submitting" || presentation.blocking.kind !== "none" || presentation.draft.readOnly;
 
   return (
     <fieldset className="min-w-0 border-0 border-b border-border pb-7 @min-[68rem]/material-authoring:border-b-0 @min-[68rem]/material-authoring:border-r @min-[68rem]/material-authoring:pb-0 @min-[68rem]/material-authoring:pr-7" disabled={disabled}>
@@ -194,16 +215,17 @@ function MetadataPanel({
         <Field label="Тема" targetId="material-topic">
           <Select
             disabled={disabled}
-            name="topic"
+            name="topicId"
             onValueChange={(value) => {
-              actions.onFieldChange("topic", value);
+              actions.onFieldChange("topicId", value);
             }}
-            value={presentation.draft.topic}
+            value={presentation.draft.topicId}
           >
             <SelectTrigger className={authoringSelectTriggerClassName} id="material-topic">
-              <SelectValue placeholder="Выберите тему" />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem className={authoringSelectItemClassName} value="unassigned">Не назначена</SelectItem>
               {presentation.availableTopics.map((topic) => (
                 <SelectItem className={authoringSelectItemClassName} key={topic.value} value={topic.value}>{topic.label}</SelectItem>
               ))}
@@ -213,35 +235,24 @@ function MetadataPanel({
         <Field label="Формат" targetId="material-format">
           <Select
             disabled={disabled}
-            name="format"
+            name="formatId"
             onValueChange={(value) => {
-              actions.onFieldChange("format", value);
+              actions.onFieldChange("formatId", value);
             }}
-            value={presentation.draft.format}
+            value={presentation.draft.formatId}
           >
             <SelectTrigger className={authoringSelectTriggerClassName} id="material-format">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem className={authoringSelectItemClassName} value="Текст">Текст</SelectItem>
-              <SelectItem className={authoringSelectItemClassName} value="Guide">Guide</SelectItem>
-              <SelectItem className={authoringSelectItemClassName} value="Видео">Видео</SelectItem>
+              <SelectItem className={authoringSelectItemClassName} value="unassigned">Не назначен</SelectItem>
+              {presentation.availableFormats.map((format) => (
+                <SelectItem className={authoringSelectItemClassName} key={format.value} value={format.value}>{format.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </Field>
-        <Field hint="Через запятую" label="Теги" targetId="material-tags">
-          <input
-            autoComplete="off"
-            className={fieldClassName}
-            id="material-tags"
-            name="tags"
-            onChange={(event) => {
-              actions.onFieldChange("tags", event.currentTarget.value);
-            }}
-            spellCheck={false}
-            value={presentation.draft.tags}
-          />
-        </Field>
+        <TagSelector actions={actions} disabled={disabled} presentation={presentation} />
         <Field label="Доступ" targetId="material-access">
           <Select
             disabled={disabled}
@@ -261,7 +272,92 @@ function MetadataPanel({
           </Select>
         </Field>
       </div>
+      <FormGuidance presentation={presentation} />
     </fieldset>
+  );
+}
+
+function FormGuidance({
+  presentation,
+}: {
+  readonly presentation: MaterialAuthoringPresentation;
+}) {
+  if (presentation.validation.kind !== "invalid") {
+    return null;
+  }
+
+  return (
+    <section
+      aria-labelledby="material-guidance-heading"
+      className="mt-6 border-t border-border pt-5"
+    >
+      <h2 className="text-sm font-semibold" id="material-guidance-heading">
+        {presentation.validation.scope === "input"
+          ? "Проверьте перед сохранением"
+          : "Перед публикацией"}
+      </h2>
+      <ul className="mt-2 space-y-1.5 text-sm leading-6 text-muted-foreground">
+        {presentation.validation.issues.map((issue) => (
+          <li className="flex gap-2" key={`${issue.path}:${issue.message}`}>
+            <span aria-hidden="true" className="text-accent">•</span>
+            <span>{issue.message}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function TagSelector({
+  actions,
+  disabled,
+  presentation,
+}: MaterialAuthoringWorkspaceProps & { readonly disabled: boolean }) {
+  return (
+    <div className="min-w-0 sm:col-span-2 @min-[68rem]/material-authoring:col-span-1">
+      <p className="mb-2 text-sm font-medium" id="material-tags-label">
+        Теги
+      </p>
+      <div
+        aria-labelledby="material-tags-label"
+        className="flex min-h-12 flex-wrap gap-2 rounded-xl bg-card p-2"
+        role="group"
+      >
+        {presentation.availableTags.length === 0 ? (
+          <span className="px-1 py-1.5 text-sm text-muted-foreground">Нет доступных тегов</span>
+        ) : (
+          presentation.availableTags.map((tag) => {
+            const checked = presentation.draft.tagIds.includes(tag.value);
+            return (
+              <label
+                className={cn(
+                  "relative flex min-h-9 cursor-pointer items-center rounded-lg px-3 text-sm font-medium transition-colors motion-reduce:transition-none",
+                  "has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/40",
+                  checked
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground hover:bg-muted",
+                  disabled && "cursor-not-allowed opacity-60",
+                )}
+                key={tag.value}
+              >
+                <input
+                  checked={checked}
+                  className="sr-only"
+                  disabled={disabled}
+                  name="tagIds"
+                  onChange={(event) => {
+                    actions.onTagToggle(tag.value, event.currentTarget.checked);
+                  }}
+                  type="checkbox"
+                  value={tag.value}
+                />
+                {tag.label}
+              </label>
+            );
+          })
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -298,7 +394,7 @@ function DocumentPanel({ actions, presentation }: MaterialAuthoringWorkspaceProp
     <section aria-labelledby="document-heading" className="min-w-0 py-8 @min-[68rem]/material-authoring:px-8 @min-[68rem]/material-authoring:py-0">
       <h2 className="text-sm font-semibold" id="document-heading">Содержимое материала</h2>
       <MaterialDocumentEditor
-        disabled={presentation.save.kind === "submitting" || presentation.blocking.kind !== "none"}
+        disabled={presentation.save.kind === "submitting" || presentation.blocking.kind !== "none" || presentation.draft.readOnly}
         document={presentation.draft.document}
         onChange={actions.onDocumentChange}
       />
@@ -397,7 +493,7 @@ function BlockingState({ actions, presentation }: MaterialAuthoringWorkspaceProp
             <div>
               <p className="font-semibold">Материал изменился в другой сессии</p>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">Сравните текущую версию содержимого со своими изменениями. Ничего не перезаписано.</p>
-              <p className="mt-2 font-mono text-[0.6875rem] text-muted-foreground">Ваш base: {presentation.blocking.staleContentVersion} · Current: {presentation.blocking.currentContentVersion}</p>
+              <p className="mt-2 font-mono text-[0.6875rem] text-muted-foreground">Ваша версия: {presentation.blocking.staleContentVersion} · Текущая: {presentation.blocking.currentContentVersion}</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -429,64 +525,69 @@ function BlockingState({ actions, presentation }: MaterialAuthoringWorkspaceProp
   );
 }
 
-function ExactPreview({
-  onReturnToEditor,
+function AuthoringNotice({
   presentation,
 }: {
-  readonly onReturnToEditor: () => void;
   readonly presentation: MaterialAuthoringPresentation;
 }) {
-  const preview = presentation.preview;
-  if (preview === null) {
+  const noticeKey = `${String(presentation.noticeRevision)}:${presentation.validation.kind}:${presentation.save.kind}:${String(presentation.draft.contentVersion)}`;
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (presentation.validation.kind === "idle") {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setDismissedKey(noticeKey);
+    }, 3_000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [noticeKey, presentation.validation.kind]);
+
+  if (presentation.validation.kind === "idle") {
     return null;
   }
+  const inputInvalid =
+    presentation.validation.kind === "invalid" &&
+    presentation.validation.scope === "input";
+  const created =
+    presentation.save.kind === "saved" &&
+    presentation.draft.contentVersion !== null;
+  if (
+    dismissedKey === noticeKey ||
+    (!inputInvalid && !created && presentation.validation.kind !== "checking")
+  ) {
+    return null;
+  }
+
   return (
-    <section aria-labelledby="exact-preview-heading" className="min-h-svh bg-background text-foreground" data-exact-preview>
-      <header className="sticky top-0 z-30 border-b border-sidebar-border bg-sidebar px-4 py-3 text-sidebar-foreground sm:px-6">
-        <div className="mx-auto flex w-full max-w-[92rem] flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <Button className="size-11 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground" onClick={onReturnToEditor} size="icon-lg" type="button" variant="ghost">
-              <ArrowLeft aria-hidden="true" />
-              <span className="sr-only">Вернуться в редактор</span>
-            </Button>
-            <div className="min-w-0">
-              <h1 className="text-sm font-semibold" id="exact-preview-heading">Preview текущей версии</h1>
-              <p className="truncate font-mono text-[0.6875rem] text-sidebar-foreground/70">v{preview.contentVersion}</p>
-            </div>
-          </div>
-          <Button className="bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/85" onClick={onReturnToEditor} type="button">Вернуться в редактор</Button>
-        </div>
-      </header>
-      <div className="border-b border-border bg-card px-4 py-3 text-center font-mono text-[0.6875rem] text-muted-foreground" data-preview-version-banner>
-        Вы просматриваете <strong className="text-foreground">v{preview.contentVersion}</strong>. Preview не меняет опубликованный Material.
+    <div
+      className={cn(
+        "pointer-events-none fixed inset-x-4 top-4 z-50 ml-auto max-w-xs rounded-xl px-4 py-3 shadow-card md:left-auto md:right-5 md:top-5",
+        inputInvalid ? "bg-card text-foreground" : "bg-primary text-primary-foreground",
+      )}
+      role={inputInvalid ? "alert" : "status"}
+    >
+      <div className="flex items-start gap-3">
+        {presentation.validation.kind === "checking" ? (
+          <LoaderCircle aria-hidden="true" className="size-5 shrink-0 animate-spin motion-reduce:animate-none" />
+        ) : inputInvalid ? (
+          <CircleAlert aria-hidden="true" className="size-5 shrink-0 text-destructive" />
+        ) : (
+          <span className="grid size-5 shrink-0 place-items-center rounded-full bg-accent text-accent-foreground">
+            <Check aria-hidden="true" className="size-3.5" />
+          </span>
+        )}
+        <p className="min-w-0 text-sm font-semibold leading-5">
+          {presentation.validation.kind === "checking"
+            ? "Создаём черновик"
+            : inputInvalid
+              ? "Проверьте поля"
+              : "Черновик создан"}
+        </p>
       </div>
-      <MaterialPreview preview={preview} />
-    </section>
-  );
-}
-
-function UnauthorizedState({ onBack }: { readonly onBack: () => void }) {
-  return (
-    <main className="grid min-h-svh place-items-center bg-background px-5 py-12 text-foreground">
-      <section aria-labelledby="unauthorized-heading" className="w-full max-w-xl border-y border-border py-10 text-center">
-        <ShieldAlert aria-hidden="true" className="mx-auto size-8 text-destructive" />
-        <h1 className="mt-5 text-2xl font-semibold tracking-[-0.025em]" id="unauthorized-heading">Нет доступа к редактору</h1>
-        <p className="mx-auto mt-3 max-w-[52ch] text-sm leading-6 text-muted-foreground">Текущая сессия не подтверждает право изменять материалы. Войдите под доверенным автором или вернитесь к материалам.</p>
-        <Button className="mt-6" onClick={onBack} type="button" variant="outline">
-          <ArrowLeft aria-hidden="true" data-icon="inline-start" />
-          Вернуться к материалам
-        </Button>
-      </section>
-    </main>
-  );
-}
-
-function SaveStatus({ state }: { readonly state: MaterialSaveState }) {
-  return (
-    <span className="sr-only min-w-0 items-center gap-1.5 font-mono text-[0.6875rem] text-muted-foreground sm:not-sr-only sm:inline-flex" role="status">
-      {state.kind === "submitting" ? <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" /> : state.kind === "saved" ? <Check aria-hidden="true" className="size-3.5 text-accent" /> : null}
-      {saveStateLabel(state)}
-    </span>
+    </div>
   );
 }
 
@@ -497,7 +598,20 @@ function saveStateLabel(state: MaterialSaveState): string {
     case "dirty":
       return "Есть несохранённые изменения";
     case "submitting":
-      return "Сохранение…";
+      return "Создание…";
+    case "saved":
+      return `Сохранено ${state.savedAtLabel}`;
+  }
+}
+
+function compactSaveStateLabel(state: MaterialSaveState): string {
+  switch (state.kind) {
+    case "clean":
+      return "Без изменений";
+    case "dirty":
+      return "Не сохранено";
+    case "submitting":
+      return "Создание…";
     case "saved":
       return `Сохранено ${state.savedAtLabel}`;
   }

@@ -260,4 +260,28 @@ export class MaterialAuthoringService {
       },
     });
   }
+  /**
+   * List the reference values available to a Material author
+   * @returns any
+   * @throws ApiError
+   */
+  public listMaterialAuthoringReferences(): CancelablePromise<{
+    formats: Array<{
+      id: string;
+      name: string;
+    }>;
+    tags: Array<{
+      id: string;
+      name: string;
+    }>;
+    topics: Array<{
+      id: string;
+      name: string;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/materials/references',
+    });
+  }
 }
