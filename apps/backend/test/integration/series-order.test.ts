@@ -213,6 +213,108 @@ describe("Series order", () => {
     }
   });
 
+  test("serializes concurrent reorders through one optimistic order version", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const initial = await authoring.loadSeriesOrder({ actor, seriesId });
+    if (!initial.ok) throw new Error(initial.error.code);
+    const currentIds = initial.value.items.map(({ materialId }) => materialId);
+    if (currentIds.length < 3) throw new Error("Expected at least three Materials");
+    const firstOrder = rotateLeft(currentIds);
+    const secondOrder = rotateLeft(firstOrder);
+
+    const results = await Promise.all([
+      authoring.reorderSeries({
+        actor,
+        seriesId,
+        expectedOrderVersion: initial.value.orderVersion,
+        orderedMaterialIds: firstOrder,
+      }),
+      authoring.reorderSeries({
+        actor,
+        seriesId,
+        expectedOrderVersion: initial.value.orderVersion,
+        orderedMaterialIds: secondOrder,
+      }),
+    ]);
+
+    expect(results.filter(({ ok }) => ok)).toHaveLength(1);
+    const rejected = results.find(({ ok }) => !ok);
+    expect(rejected).toMatchObject({
+      ok: false,
+      error: { code: "stale_series_order" },
+    });
+  });
+
+  test("uses one lock order for concurrent save, delete, and playlist reorder", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const savedDraft = await authoring.createDraft({
+      actor,
+      idempotencyKey: "series-order-concurrent-save-create",
+      metadata: metadata("Concurrent save", "series-order-concurrent-save"),
+      body: representativeDocument("Concurrent save body."),
+    });
+    if (!savedDraft.ok) throw new Error(savedDraft.error.code);
+    const beforeSave = await authoring.loadSeriesOrder({ actor, seriesId });
+    if (!beforeSave.ok) throw new Error(beforeSave.error.code);
+    const beforeSaveIds = beforeSave.value.items.map(({ materialId }) => materialId);
+    const saveOrder = rotateLeft(beforeSaveIds);
+    const [saved, reorderedWithSave] = await Promise.all([
+      authoring.saveMaterial({
+        actor,
+        idempotencyKey: "series-order-concurrent-save",
+        materialId: savedDraft.value.materialId,
+        expectedContentVersion: 1,
+        publicationState: "draft",
+        metadata: metadata("Concurrent save", "series-order-concurrent-save"),
+        body: representativeDocument("Saved concurrently with reorder."),
+      }),
+      authoring.reorderSeries({
+        actor,
+        seriesId,
+        expectedOrderVersion: beforeSave.value.orderVersion,
+        orderedMaterialIds: saveOrder,
+      }),
+    ]);
+    expect(saved.ok).toBe(true);
+    expect(reorderedWithSave.ok).toBe(true);
+
+    const deletedDraft = await authoring.createDraft({
+      actor,
+      idempotencyKey: "series-order-concurrent-delete-create",
+      metadata: metadata("Concurrent delete", "series-order-concurrent-delete"),
+      body: representativeDocument("Concurrent delete body."),
+    });
+    if (!deletedDraft.ok) throw new Error(deletedDraft.error.code);
+    const beforeDelete = await authoring.loadSeriesOrder({ actor, seriesId });
+    if (!beforeDelete.ok) throw new Error(beforeDelete.error.code);
+    const beforeDeleteIds = beforeDelete.value.items.map(({ materialId }) => materialId);
+    const deleteOrder = rotateLeft(beforeDeleteIds);
+    const [deleted, reorderedWithDelete] = await Promise.all([
+      authoring.deleteDraft({
+        actor,
+        idempotencyKey: "series-order-concurrent-delete",
+        materialId: deletedDraft.value.materialId,
+        expectedContentVersion: 1,
+      }),
+      authoring.reorderSeries({
+        actor,
+        seriesId,
+        expectedOrderVersion: beforeDelete.value.orderVersion,
+        orderedMaterialIds: deleteOrder,
+      }),
+    ]);
+    expect(deleted.ok).toBe(true);
+    if (!reorderedWithDelete.ok) {
+      expect(reorderedWithDelete.error.code).toBe("series_membership_changed");
+    }
+  });
+
   test("protects playlist management and reports a missing playlist", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
@@ -244,4 +346,10 @@ function metadata(title: string, slug: string) {
     title,
     topicId,
   };
+}
+
+function rotateLeft(values: readonly string[]): readonly string[] {
+  const [first, ...rest] = values;
+  if (first === undefined) throw new Error("Expected at least one Material");
+  return [...rest, first];
 }

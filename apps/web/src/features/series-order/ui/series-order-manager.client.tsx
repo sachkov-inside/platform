@@ -3,7 +3,10 @@
 import { ArrowDown, ArrowLeft, ArrowUp, Check, LoaderCircle } from "lucide-react";
 import { startTransition, useActionState, useState } from "react";
 
-import { MaterialAuthoringShell } from "@/features/material-authoring";
+import {
+  MaterialAuthoringShell,
+  MaterialAuthoringSignInActions,
+} from "@/features/material-authoring";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
@@ -83,6 +86,7 @@ export function SeriesOrderManager({
 
           <form
             className="mt-6"
+            id="series-order-form"
             onSubmit={(event) => {
               event.preventDefault();
               setSubmittedOrder(items.map(({ materialId }) => materialId));
@@ -120,24 +124,43 @@ export function SeriesOrderManager({
               </ol>
             )}
 
-            <div className="sticky bottom-4 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-3 shadow-card backdrop-blur-sm">
-              <p aria-live="polite" className="text-sm text-muted-foreground">
-                {state.kind === "saved" ? "Порядок сохранён." : state.kind === "conflict" ? "Состав или порядок изменился в другой вкладке." : state.kind === "error" ? `Не удалось сохранить. Код: ${state.reference}` : dirty ? "Есть несохранённые изменения." : "Порядок не изменён."}
-              </p>
-              {state.kind === "conflict" ? (
-                <Button onClick={onRefresh} type="button" variant="outline">Обновить список</Button>
-              ) : (
-                <Button disabled={!dirty || pending} type="submit">
-                  {pending ? <LoaderCircle aria-hidden="true" className="animate-spin" data-icon="inline-start" /> : <Check aria-hidden="true" data-icon="inline-start" />}
-                  {pending ? "Сохранение…" : "Сохранить порядок"}
-                </Button>
-              )}
-            </div>
           </form>
+
+          <div className="sticky bottom-4 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-3 shadow-card backdrop-blur-sm">
+            <p aria-live="polite" className="text-sm text-muted-foreground">
+              {actionMessage(state, dirty)}
+            </p>
+            {state.kind === "conflict" ? (
+              <Button onClick={onRefresh} type="button" variant="outline">Обновить список</Button>
+            ) : state.kind === "unauthorized" ? (
+              <MaterialAuthoringSignInActions />
+            ) : state.kind === "error" ? (
+              <Button onClick={onRefresh} type="button" variant="outline">Повторить</Button>
+            ) : (
+              <Button disabled={!dirty || pending} form="series-order-form" type="submit">
+                {pending ? <LoaderCircle aria-hidden="true" className="animate-spin" data-icon="inline-start" /> : <Check aria-hidden="true" data-icon="inline-start" />}
+                {pending ? "Сохранение…" : "Сохранить порядок"}
+              </Button>
+            )}
+          </div>
         </div>
       </main>
     </MaterialAuthoringShell>
   );
+}
+
+function actionMessage(state: SeriesOrderActionState, dirty: boolean): string {
+  if (state.kind === "saved") return "Порядок сохранён.";
+  if (state.kind === "conflict") {
+    return "Состав или порядок изменился в другой вкладке.";
+  }
+  if (state.kind === "unauthorized") {
+    return "Сессия завершилась. Войдите снова — изменения останутся на странице.";
+  }
+  if (state.kind === "error") {
+    return `Не удалось сохранить. Код обращения: ${state.reference}`;
+  }
+  return dirty ? "Есть несохранённые изменения." : "Порядок не изменён.";
 }
 
 function stateLabel(state: SeriesOrderPresentation["items"][number]["publicationState"]): string {

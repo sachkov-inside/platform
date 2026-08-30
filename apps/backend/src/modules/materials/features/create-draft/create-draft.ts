@@ -23,11 +23,11 @@ import {
   parseCommand,
 } from "../../shared/command-validation.js";
 import { executeIdempotentMaterialMutation } from "../../shared/idempotent-operation.js";
+import { materializeMetadataSelection } from "../../shared/materialize-metadata-selection.js";
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
-import { appendSelectedSeriesMemberships } from "../../infrastructure/postgres/series-order.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 
 const createDraftCommand = z
@@ -87,12 +87,10 @@ export function assembleCreateDraft(
           rollback,
           async () => {
             const newMaterialId = materialId(randomUUID());
-            materializedMetadata = selection.value.materialize(
-              await appendSelectedSeriesMemberships(
-                transaction,
-                newMaterialId,
-                selection.value.toValues().seriesIds,
-              ),
+            materializedMetadata = await materializeMetadataSelection(
+              transaction,
+              newMaterialId,
+              selection.value,
             );
             await requireReferenceIntegrity(
               transaction,

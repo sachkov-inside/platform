@@ -27,12 +27,13 @@ import {
   parseCommand,
 } from "../../shared/command-validation.js";
 import { executeIdempotentMaterialMutation } from "../../shared/idempotent-operation.js";
+import { materializeMetadataSelection } from "../../shared/materialize-metadata-selection.js";
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
-import { appendSelectedSeriesMemberships } from "../../infrastructure/postgres/series-order.js";
+import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 
 const saveMaterialCommand = z
   .object({
@@ -108,6 +109,11 @@ export function assembleSaveMaterial(
           },
           rollback,
           async () => {
+            await lockMaterialSeries(
+              transaction,
+              command.materialId,
+              selection.value.toValues().seriesIds,
+            );
             const locked = await lockMaterialForLifecycleChange(
               transaction,
               command.materialId,
@@ -124,12 +130,10 @@ export function assembleSaveMaterial(
             if (!next.ok) {
               return rollback(next.error);
             }
-            materializedMetadata = selection.value.materialize(
-              await appendSelectedSeriesMemberships(
-                transaction,
-                command.materialId,
-                selection.value.toValues().seriesIds,
-              ),
+            materializedMetadata = await materializeMetadataSelection(
+              transaction,
+              command.materialId,
+              selection.value,
             );
             const requiresPublicationValidity =
               locked.lifecycle.publicationState === "published" ||

@@ -74,6 +74,7 @@ export function assembleDeleteDraft(
           },
           rollback,
           async () => {
+            await lockMaterialSeries(transaction, command.materialId);
             const material = await lockMaterialForLifecycleChange(
               transaction,
               command.materialId,
@@ -93,7 +94,6 @@ export function assembleDeleteDraft(
             if (!material.lifecycle.canDelete()) {
               return rollback({ code: "draft_deletion_forbidden" });
             }
-            await lockMaterialSeries(transaction, command.materialId);
             await transaction.material.delete({
               where: { id: command.materialId },
             });

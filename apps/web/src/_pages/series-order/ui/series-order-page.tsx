@@ -1,10 +1,11 @@
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 
 import {
-  MaterialAuthoringShell,
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
 } from "@/features/material-authoring";
+import { SeriesOrderRouteState } from "@/features/series-order";
 import {
   getOptionalPlatformAccessToken,
   LogtoSessionUnavailableError,
@@ -19,10 +20,17 @@ export async function SeriesOrderIndexPage() {
   const session = await sessionToken();
   if (session === undefined) return unauthorized();
   const references = await getMaterialAuthoringReferences(session);
-  if (references.kind !== "ready") return unauthorized();
+  if (references.kind === "unauthorized") return unauthorized();
+  if (references.kind === "unexpected_error") {
+    return (
+      <SeriesOrderRouteState
+        state={{ kind: "error", reference: references.reference }}
+      />
+    );
+  }
   const first = references.references.series[0];
   if (first !== undefined) redirect(`/authoring/playlists/${first.value}`);
-  return <SeriesOrderEmptyState />;
+  return <SeriesOrderRouteState state={{ kind: "empty" }} />;
 }
 
 export async function SeriesOrderPage({ seriesId }: { readonly seriesId: string }) {
@@ -35,10 +43,24 @@ export async function SeriesOrderPage({ seriesId }: { readonly seriesId: string 
   if (state.kind === "unauthorized" || references.kind === "unauthorized") {
     return unauthorized();
   }
-  if (state.kind === "not_found") return <SeriesOrderNotFoundState />;
-  if (state.kind === "error") return <SeriesOrderErrorState reference={state.reference} />;
+  if (state.kind === "not_found") {
+    return <SeriesOrderRouteState state={{ kind: "not_found" }} />;
+  }
+  if (state.kind === "error") {
+    return (
+      <SeriesOrderRouteState
+        retryHref={`/authoring/playlists/${seriesId}` as Route}
+        state={{ kind: "error", reference: state.reference }}
+      />
+    );
+  }
   if (references.kind === "unexpected_error") {
-    return <SeriesOrderErrorState reference={references.reference} />;
+    return (
+      <SeriesOrderRouteState
+        retryHref={`/authoring/playlists/${seriesId}` as Route}
+        state={{ kind: "error", reference: references.reference }}
+      />
+    );
   }
   return (
     <SeriesOrderPageClient
@@ -67,27 +89,5 @@ function unauthorized() {
       action={<MaterialAuthoringSignInActions returnHref="/authoring/playlists" />}
       context="editor"
     />
-  );
-}
-
-function SeriesOrderEmptyState() {
-  return <State title="Плейлистов пока нет" text="Создайте плейлист в справочнике, чтобы управлять порядком материалов." />;
-}
-
-function SeriesOrderNotFoundState() {
-  return <State title="Плейлист не найден" text="Возможно, он был удалён. Выберите другой плейлист." />;
-}
-
-function SeriesOrderErrorState({ reference }: { readonly reference: string }) {
-  return <State title="Не удалось открыть плейлист" text={`Повторите попытку. Код обращения: ${reference}`} />;
-}
-
-function State({ title, text }: { readonly title: string; readonly text: string }) {
-  return (
-    <MaterialAuthoringShell current="playlists">
-      <main className="grid h-full min-h-svh place-items-center bg-background p-6 text-center md:min-h-0" id="authoring-content">
-        <div><h1 className="text-2xl font-semibold">{title}</h1><p className="mt-2 text-sm text-muted-foreground">{text}</p></div>
-      </main>
-    </MaterialAuthoringShell>
   );
 }

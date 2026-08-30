@@ -132,6 +132,7 @@ export async function lockSeries(
 export async function lockMaterialSeries(
   transaction: MaterialsPrismaTransaction,
   materialId: MaterialId,
+  selectedSeriesIds: readonly string[] = [],
 ): Promise<void> {
   const memberships = await transaction.seriesMembership.findMany({
     where: { materialId },
@@ -139,7 +140,12 @@ export async function lockMaterialSeries(
   });
   await lockSeries(
     transaction,
-    memberships.map(({ seriesId }) => seriesId),
+    [
+      ...new Set([
+        ...selectedSeriesIds,
+        ...memberships.map(({ seriesId }) => seriesId),
+      ]),
+    ],
   );
 }
 

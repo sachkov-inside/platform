@@ -11,6 +11,11 @@ const saveOrder: SeriesOrderMutation = (state, formData) => {
   saveOrderSpy(state, formData);
   return Promise.resolve({ kind: "saved", orderVersion: "b".repeat(64) });
 };
+const conflictOrder: SeriesOrderMutation = () => Promise.resolve({ kind: "conflict" });
+const failedOrder: SeriesOrderMutation = () =>
+  Promise.resolve({ kind: "error", reference: "series-order-save" });
+const unauthorizedOrder: SeriesOrderMutation = () =>
+  Promise.resolve({ kind: "unauthorized" });
 
 const meta = {
   args: {
@@ -57,12 +62,9 @@ type Story = StoryObj<typeof meta>;
 
 export const Reordering: Story = {
   play: async ({ canvasElement }) => {
+    saveOrderSpy.mockClear();
     const canvas = within(canvasElement);
-    await userEvent.click(
-      canvas.getByRole("button", {
-        name: "Опустить «С чего начинается Platform Inside»",
-      }),
-    );
+    await moveFirstItem(canvasElement);
     await expect(canvas.getByText("Есть несохранённые изменения.")).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
     await expect(canvas.getByText("Порядок сохранён.")).toBeInTheDocument();
@@ -70,6 +72,56 @@ export const Reordering: Story = {
   },
 };
 
+export const Empty: Story = {
+  args: {
+    presentation: { ...meta.args.presentation, items: [] },
+  },
+};
+
+export const Conflict: Story = {
+  args: { action: conflictOrder },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
+    await expect(
+      canvas.getByText("Состав или порядок изменился в другой вкладке."),
+    ).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Обновить список" })).toBeVisible();
+  },
+};
+
+export const SaveError: Story = {
+  args: { action: failedOrder },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
+    await expect(canvas.getByText(/Не удалось сохранить/u)).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Повторить" })).toBeVisible();
+  },
+};
+
+export const SessionExpired: Story = {
+  args: { action: unauthorizedOrder },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
+    await expect(canvas.getByText(/Сессия завершилась/u)).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Войти" })).toBeVisible();
+  },
+};
+
 export const Mobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile320" } },
 };
+
+async function moveFirstItem(canvasElement: HTMLElement): Promise<void> {
+  const canvas = within(canvasElement);
+  await userEvent.click(
+    canvas.getByRole("button", {
+      name: "Опустить «С чего начинается Platform Inside»",
+    }),
+  );
+}
