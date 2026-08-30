@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { Route } from "next";
 
 import {
   MaterialAuthoringNotFoundState,
@@ -6,6 +7,7 @@ import {
   MaterialAuthoringUnauthorizedState,
   MaterialAuthoringUnexpectedEditorState,
   type MaterialAuthoringPresentation,
+  withAuthoringReturnHref,
 } from "@/features/material-authoring";
 import {
   getPlatformAccessTokenRsc,
@@ -19,8 +21,10 @@ import { MaterialAuthoringPageClient } from "./material-authoring-page.client";
 
 export async function CurrentMaterialAuthoringPage({
   materialId,
+  returnHref,
 }: {
   readonly materialId: string;
+  readonly returnHref: Route;
 }) {
   let accessToken: string;
   try {
@@ -29,7 +33,7 @@ export async function CurrentMaterialAuthoringPage({
     if (error instanceof LogtoSessionUnavailableError) {
       return (
         <MaterialAuthoringUnauthorizedState
-          action={<MaterialAuthoringSignInActions />}
+          action={<MaterialAuthoringSignInActions returnHref={returnHref} />}
           context="editor"
         />
       );
@@ -41,19 +45,20 @@ export async function CurrentMaterialAuthoringPage({
   if (state.kind === "unauthorized") {
     return (
       <MaterialAuthoringUnauthorizedState
-        action={<MaterialAuthoringSignInActions />}
+        action={<MaterialAuthoringSignInActions returnHref={returnHref} />}
         context="editor"
       />
     );
   }
   if (state.kind === "not_found") {
-    return <MaterialAuthoringNotFoundState />;
+    return <MaterialAuthoringNotFoundState returnHref={returnHref} />;
   }
   if (state.kind === "unexpected_error") {
     return (
       <MaterialAuthoringUnexpectedEditorState
         reference={state.reference}
-        retryHref={`/authoring/materials/${materialId}`}
+        retryHref={withAuthoringReturnHref(`/authoring/materials/${materialId}`, returnHref)}
+        returnHref={returnHref}
       />
     );
   }
@@ -78,6 +83,7 @@ export async function CurrentMaterialAuthoringPage({
       initialPresentation={initialPresentation}
       key={materialId}
       mutationAction={saveMaterialAction}
+      returnHref={returnHref}
     />
   );
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import {
+  authoringMaterialsRootHref,
   MaterialAuthoringPreviewUnauthorizedState,
   MaterialAuthoringPreviewNotFoundState,
   MaterialAuthoringUnexpectedEditorState,
@@ -12,6 +13,7 @@ import {
   type MaterialAuthoringActions,
   type MaterialAuthoringPresentation,
   type MaterialDraftField,
+  withAuthoringReturnHref,
 } from "@/features/material-authoring";
 
 import {
@@ -227,6 +229,8 @@ export const Saved: Story = {
     await userEvent.tab();
     await expect(canvas.getByRole("link", { name: /Inside Authoring/ })).toHaveFocus();
     await userEvent.tab();
+    await expect(canvas.getByRole("link", { name: "Материалы" })).toHaveFocus();
+    await userEvent.tab();
     await expect(canvas.getByRole("link", { name: "Новый материал" })).toHaveFocus();
   },
 };
@@ -341,7 +345,10 @@ export const PreviewUnexpectedError: Story = {
   render: () => (
     <MaterialAuthoringUnexpectedPreviewState
       reference="preview_unavailable"
-      retryHref="/authoring/materials/94000000-0000-4000-8000-000000000099/preview"
+      retryHref={withAuthoringReturnHref(
+        "/authoring/materials/94000000-0000-4000-8000-000000000099/preview",
+        authoringMaterialsRootHref,
+      )}
     />
   ),
   play: async ({ canvasElement }) => {
@@ -386,6 +393,10 @@ export const ExactPreview: Story = {
       "Это сохранённый черновик v3. Материал ещё не опубликован.",
     );
     await expect(canvas.getByRole("heading", { name: "Developer Pipeline без магии" })).toBeInTheDocument();
+    await expect(canvas.getByRole("region", { name: "Таблица в Preview" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Схема Developer Pipeline" })).toBeVisible();
+    await expect(canvas.getByText("Checklist проверки")).toBeVisible();
+    await expect(canvas.getByText("Видео пока недоступно для просмотра")).toBeVisible();
   },
 };
 

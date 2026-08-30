@@ -1,20 +1,24 @@
 import { ArrowLeft } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
 import { Button } from "@/shared/ui/button";
 
 import type { MaterialPreviewPresentation } from "../model/presentation";
+import { authoringMaterialsRootHref } from "../model/authoring-return";
 import { MaterialAuthoringShell } from "./material-authoring-shell";
 import { MaterialPreview } from "./material-preview";
 
 interface MaterialCurrentPreviewProps {
   readonly editorHref: string;
+  readonly materialsHref?: Route;
   readonly preview: MaterialPreviewPresentation;
 }
 
 /** Server-renderable shell for the current saved Material preview. */
 export function MaterialCurrentPreview({
   editorHref,
+  materialsHref = authoringMaterialsRootHref,
   preview,
 }: MaterialCurrentPreviewProps) {
   return (
@@ -44,9 +48,14 @@ export function MaterialCurrentPreview({
                 </p>
               </div>
             </div>
-            <Button asChild>
-              <Link href={{ pathname: editorHref }}>Вернуться в редактор</Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline">
+                <Link href={materialsHref}>К материалам</Link>
+              </Button>
+              <Button asChild>
+                <Link href={{ pathname: editorHref }}>Вернуться в редактор</Link>
+              </Button>
+            </div>
           </div>
         </header>
         <div

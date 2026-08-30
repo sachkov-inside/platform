@@ -162,6 +162,30 @@ describe("Accounts API", () => {
     expect(created.headers["cache-control"]).toBe("private, no-store");
     const initial = readMaterialReceipt(created.json<unknown>());
 
+    const corpus = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/authoring/materials?search=generated&publicationState=draft&page=1",
+      headers: authorization,
+    });
+    expect(corpus.statusCode).toBe(200);
+    expect(corpus.headers["cache-control"]).toBe("private, no-store");
+    expect(corpus.json()).toMatchObject({
+      items: [
+        {
+          contentVersion: 1,
+          format: { id: formatId, name: "Guide" },
+          materialId: initial.materialId,
+          publicationState: "draft",
+          title: "Generated API contract",
+          topic: { id: topicId, name: "Architecture" },
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
     const loaded = await app.getHttpAdapter().getInstance().inject({
       method: "GET",
       url: `/authoring/materials/${initial.materialId}`,

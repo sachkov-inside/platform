@@ -7,6 +7,50 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class MaterialAuthoringService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
+   * List the complete Material authoring corpus
+   * @returns any
+   * @throws ApiError
+   */
+  public listAuthoringMaterials({
+    search,
+    publicationState,
+    page,
+  }: {
+    search?: string,
+    publicationState?: 'draft' | 'published' | 'unpublished',
+    page?: number,
+  }): CancelablePromise<{
+    items: Array<{
+      contentVersion: number;
+      format: {
+        id: string;
+        name: string;
+      } | null;
+      materialId: string;
+      publicationState: 'draft' | 'published' | 'unpublished';
+      title: string | null;
+      topic: {
+        id: string;
+        name: string;
+      } | null;
+      updatedAt: string;
+    }>;
+    page: number;
+    pageSize: 20;
+    totalItems: number;
+    totalPages: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/materials',
+      query: {
+        'search': search,
+        'publicationState': publicationState,
+        'page': page,
+      },
+    });
+  }
+  /**
    * Create one current Material draft
    * @returns any
    * @throws ApiError

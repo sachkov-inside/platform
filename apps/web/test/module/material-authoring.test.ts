@@ -49,8 +49,14 @@ describe("Material Authoring action workflow", () => {
       new LogtoSessionUnavailableError(),
     );
 
-    await CurrentMaterialAuthoringPage({ materialId });
-    await MaterialCurrentPreviewPage({ materialId });
+    await CurrentMaterialAuthoringPage({
+      materialId,
+      returnHref: "/authoring/materials?state=draft",
+    });
+    await MaterialCurrentPreviewPage({
+      materialId,
+      returnHref: "/authoring/materials?state=draft",
+    });
 
     expect(authMocks.getPlatformAccessTokenRsc).toHaveBeenCalledTimes(2);
     expect(authMocks.getPlatformAccessToken).not.toHaveBeenCalled();
@@ -286,6 +292,62 @@ describe("Material Authoring action workflow", () => {
     };
     malformedPreview.metadata.seriesMemberships = [{ ordinal: 0, seriesId }];
     expect(mapCurrentMaterialPreview(malformedPreview).ok).toBe(false);
+  });
+
+  it("maps the complete rendered Preview block vocabulary", async () => {
+    const preview = successfulDependencies().preview;
+    const response = await preview(materialId, "access-token");
+    if (!response.ok) throw new Error("Preview fixture must succeed");
+    const representativePreview = structuredClone(response.body) as {
+      body: { blocks: unknown[] };
+    };
+    representativePreview.body.blocks.push(
+      {
+        kind: "table",
+        rows: [
+          {
+            cells: [
+              {
+                content: [
+                  {
+                    content: [{ kind: "text", marks: [], text: "Evidence" }],
+                    kind: "paragraph",
+                  },
+                ],
+                header: true,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        alt: "Delivery stages",
+        assetId: "02000000-0000-4000-8000-000000000001",
+        caption: "One retained path",
+        kind: "image",
+      },
+      {
+        assetId: "02000000-0000-4000-8000-000000000002",
+        kind: "file",
+        label: "Pipeline checklist",
+      },
+      {
+        caption: "Platform build episode",
+        kind: "video",
+        videoId: "03000000-0000-4000-8000-000000000001",
+      },
+    );
+
+    const mapped = mapCurrentMaterialPreview(representativePreview);
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) throw new Error("Representative Preview must map");
+    expect(mapped.data.preview.blocks.map(({ kind }) => kind)).toEqual([
+      "paragraph",
+      "table",
+      "image",
+      "file",
+      "video",
+    ]);
   });
 
   it("sends one full-state Save and returns the next idempotency key only after success", async () => {

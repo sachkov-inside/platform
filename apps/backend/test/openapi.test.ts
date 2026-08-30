@@ -28,6 +28,7 @@ describe("OpenAPI contract", () => {
       ["/library/materials", "get", "listPublishedMaterials"],
       ["/materials/{slug}", "get", "readPublishedMaterial"],
       ["/authoring/materials", "post", "createMaterialDraft"],
+      ["/authoring/materials", "get", "listAuthoringMaterials"],
       ["/authoring/materials/{materialId}", "get", "loadCurrentMaterial"],
       ["/authoring/materials/{materialId}", "put", "saveCurrentMaterial"],
       ["/authoring/materials/{materialId}", "delete", "deleteMaterialDraft"],

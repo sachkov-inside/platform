@@ -31,6 +31,13 @@ export type {
   LoadMaterialResult,
 } from "./features/load-material/load-material.contract.js";
 export type {
+  AuthoringMaterialListItemDto,
+  AuthoringMaterialPageDto,
+  ListMaterialsError,
+  ListMaterialsQuery,
+  ListMaterialsResult,
+} from "./features/list-materials/list-materials.contract.js";
+export type {
   PreviewMaterialDto,
   PreviewMaterialError,
   PreviewMaterialQuery,
@@ -89,6 +96,7 @@ export { CreateDraftController } from "./features/create-draft/create-draft.cont
 export { DeleteDraftController } from "./features/delete-draft/delete-draft.controller.js";
 export { LoadMaterialController } from "./features/load-material/load-material.controller.js";
 export { ListAuthoringReferencesController } from "./features/list-authoring-references/list-authoring-references.controller.js";
+export { ListMaterialsController } from "./features/list-materials/list-materials.controller.js";
 export { PreviewMaterialController } from "./features/preview-material/preview-material.controller.js";
 export { ReadPublishedMaterialController } from "./features/read-published-material/read-published-material.controller.js";
 export { SaveMaterialController } from "./features/save-material/save-material.controller.js";

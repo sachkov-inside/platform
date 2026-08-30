@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
+
 import type {
   MaterialPreviewBlock,
   MaterialPreviewMark,
@@ -92,6 +94,8 @@ function PreviewBlock({ block }: { readonly block: MaterialPreviewBlock }) {
       );
     case "horizontal_rule":
       return <hr className="my-10 border-border" />;
+    case "table":
+      return <PreviewTable block={block} />;
     case "callout":
       return (
         <aside className="rounded-xl bg-secondary px-5 py-5 text-secondary-foreground">
@@ -105,7 +109,62 @@ function PreviewBlock({ block }: { readonly block: MaterialPreviewBlock }) {
           </div>
         </aside>
       );
+    case "image":
+      return (
+        <MaterialResourcePlaceholder
+          alt={block.alt}
+          caption={block.caption}
+          kind="image"
+        />
+      );
+    case "file":
+      return <MaterialResourcePlaceholder kind="file" label={block.label} />;
+    case "video":
+      return (
+        <MaterialResourcePlaceholder caption={block.caption} kind="video" />
+      );
   }
+}
+
+function PreviewTable({
+  block,
+}: {
+  readonly block: Extract<MaterialPreviewBlock, { readonly kind: "table" }>;
+}) {
+  return (
+    <div
+      aria-label="Таблица в Preview"
+      className="max-w-full overflow-x-auto rounded-xl border border-border"
+      role="region"
+      tabIndex={0}
+    >
+      <table className="min-w-[36rem] border-collapse text-left text-sm leading-6">
+        <caption className="sr-only">Таблица в Preview</caption>
+        <tbody className="divide-y divide-border">
+          {block.rows.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {row.cells.map((cell, cellIndex) => {
+                const Cell = cell.header ? "th" : "td";
+                return (
+                  <Cell
+                    className={cell.header ? "bg-muted px-4 py-3 font-semibold" : "px-4 py-3"}
+                    key={cellIndex}
+                    scope={cell.header ? "col" : undefined}
+                  >
+                    <div className="space-y-3">
+                      {cell.content.map((child, childIndex) => (
+                        <PreviewBlock block={child} key={`${child.kind}-${String(childIndex)}`} />
+                      ))}
+                    </div>
+                  </Cell>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function renderInline(content: readonly MaterialPreviewText[]): readonly ReactNode[] {

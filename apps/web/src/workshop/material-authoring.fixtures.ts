@@ -136,6 +136,39 @@ export const materialAuthoringPresentation = {
         kind: "code_block",
         text: "issue -> branch -> evidence -> review -> owner GO",
       },
+      {
+        kind: "table",
+        rows: [
+          {
+            cells: [
+              { content: [paragraph("Этап")], header: true },
+              { content: [paragraph("Evidence")], header: true },
+            ],
+          },
+          {
+            cells: [
+              { content: [paragraph("Review")], header: false },
+              { content: [paragraph("Проверки зелёные")], header: false },
+            ],
+          },
+        ],
+      },
+      {
+        alt: "Схема Developer Pipeline",
+        assetId: "94000000-0000-4000-8000-000000000051",
+        caption: "Путь от issue до owner GO",
+        kind: "image",
+      },
+      {
+        assetId: "94000000-0000-4000-8000-000000000052",
+        kind: "file",
+        label: "Checklist проверки",
+      },
+      {
+        caption: "Разбор delivery-потока",
+        kind: "video",
+        videoId: "94000000-0000-4000-8000-000000000053",
+      },
     ],
     contentVersion,
     format: "Guide",

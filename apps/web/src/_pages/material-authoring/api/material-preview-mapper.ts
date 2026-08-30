@@ -41,9 +41,46 @@ const blockSchema: z.ZodType<MaterialPreviewBlock> = z.lazy(() =>
     z.object({ kind: z.literal("horizontal_rule") }).strict(),
     z
       .object({
+        kind: z.literal("table"),
+        rows: z.array(
+          z
+            .object({
+              cells: z.array(
+                z
+                  .object({
+                    content: z.array(blockSchema),
+                    header: z.boolean(),
+                  })
+                  .strict(),
+              ),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    z
+      .object({
         content: z.array(blockSchema),
         kind: z.literal("callout"),
         tone: z.enum(["note", "tip", "warning"]),
+      })
+      .strict(),
+    z
+      .object({
+        alt: z.string(),
+        assetId: z.uuid(),
+        caption: z.string().optional(),
+        kind: z.literal("image"),
+      })
+      .strict(),
+    z
+      .object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() })
+      .strict(),
+    z
+      .object({
+        caption: z.string().optional(),
+        kind: z.literal("video"),
+        videoId: z.uuid(),
       })
       .strict(),
   ]),

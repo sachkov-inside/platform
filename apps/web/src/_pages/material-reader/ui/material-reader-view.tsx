@@ -1,10 +1,4 @@
-import {
-  ArrowLeft,
-  BookOpenText,
-  FileText,
-  ImageIcon,
-  Play,
-} from "lucide-react";
+import { ArrowLeft, BookOpenText, FileText, ImageIcon, Play } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -15,6 +9,7 @@ import type {
   ReaderText,
 } from "@/_pages/material-reader/model/material-reader-view";
 import { Button } from "@/shared/ui/button";
+import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
 
 export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
@@ -253,53 +248,31 @@ function ReaderBlockView({
       );
     case "image":
       return (
-        <figure className="mt-7" id={resourceId(path)}>
-          <div
-            aria-label={block.alt}
-            className="grid min-h-52 place-items-center rounded-xl bg-sidebar px-6 text-center text-sidebar-foreground"
-            role="img"
-          >
-            <span>
-              <ImageIcon aria-hidden="true" className="mx-auto mb-3 size-6 text-sidebar-primary" />
-              <span className="block text-sm">{block.alt}</span>
-              <span className="mt-2 block font-mono text-[0.6875rem] text-sidebar-foreground/65">
-                Изображение пока недоступно для просмотра
-              </span>
-            </span>
-          </div>
-          {block.caption ? (
-            <figcaption className="mt-3 text-sm text-muted-foreground">{block.caption}</figcaption>
-          ) : null}
-        </figure>
+        <MaterialResourcePlaceholder
+          alt={block.alt}
+          caption={block.caption}
+          className="mt-7"
+          id={resourceId(path)}
+          kind="image"
+        />
       );
     case "file":
       return (
-        <div
-          className="mt-6 flex min-h-20 items-center gap-3 rounded-xl bg-muted/60 px-4 py-4"
+        <MaterialResourcePlaceholder
+          className="mt-6"
           id={resourceId(path)}
-        >
-          <FileText aria-hidden="true" className="size-5 shrink-0 text-accent" />
-          <span>
-            <span className="block text-sm font-semibold">{block.label}</span>
-            <span className="mt-1 block font-mono text-[0.6875rem] text-muted-foreground">
-              Файл пока недоступен для скачивания
-            </span>
-          </span>
-        </div>
+          kind="file"
+          label={block.label}
+        />
       );
     case "video":
       return (
-        <figure className="mt-7" id={resourceId(path)}>
-          <div className="grid aspect-video place-items-center rounded-xl bg-sidebar text-sidebar-foreground">
-            <span className="text-center">
-              <Play aria-hidden="true" className="mx-auto mb-3 size-7 text-sidebar-primary" />
-              <span className="block text-sm">Видео пока недоступно для просмотра</span>
-            </span>
-          </div>
-          {block.caption ? (
-            <figcaption className="mt-3 text-sm text-muted-foreground">{block.caption}</figcaption>
-          ) : null}
-        </figure>
+        <MaterialResourcePlaceholder
+          caption={block.caption}
+          className="mt-7"
+          id={resourceId(path)}
+          kind="video"
+        />
       );
   }
 }
