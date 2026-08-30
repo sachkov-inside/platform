@@ -9,7 +9,7 @@ related_targets: ["route:/members/[publicProfileId]", "apps/web/app/layout.tsx"]
 
 Mode: Operate. A signed-in Account owner completes first-entry naming, edits or removes Profile data, exports it, and can verify the exact projection an active member receives. An active member reads that projection and may report unsafe text.
 
-Chosen direction: **Two sides of profile**, selected by delegated fallback after both decision channels returned no answer. Decision comp: `.impeccable/mocks/decision/mirror-seam.png`.
+Temporary direction: **Two sides of profile**, selected by delegated fallback after both decision channels returned no answer. It is not owner-approved. Decision comp: `.impeccable/mocks/decision/mirror-seam.png`.
 
 Finish verdict: `ship`; `material_fixes: []`. Production desktop/mobile evidence lives in
 `docs/evidence/issue-51/`. Owner production visual GO is still pending, so Mirror seam is a
