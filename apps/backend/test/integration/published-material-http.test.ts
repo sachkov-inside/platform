@@ -198,6 +198,90 @@ describe("published Material HTTP contract", () => {
     expect(response.body).not.toContain("Закрытое содержимое для участников");
   });
 
+  test("returns Topic, ordered Series and related generated views", async () => {
+    const topic = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/library/topics/platform",
+    });
+    const series = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/library/series/platform-inside",
+    });
+    const related = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/library/materials/kak-ustroen-inside-platform/related",
+    });
+
+    expect(topic.statusCode).toBe(200);
+    const topicBody = topic.json<{
+      readonly kind: string;
+      readonly reference: { readonly name: string; readonly slug: string };
+      readonly items: readonly {
+        readonly availability: string;
+        readonly slug: string;
+      }[];
+    }>();
+    expect(topicBody).toMatchObject({
+      kind: "topic",
+      reference: { name: "Platform", slug: "platform" },
+    });
+    expect(
+      topicBody.items.find(
+        ({ slug }) => slug === "developer-pipeline-bez-poteri-konteksta",
+      ),
+    ).toMatchObject({ availability: "locked" });
+    expect(series.statusCode).toBe(200);
+    const seriesBody = series.json<{
+      readonly kind: string;
+      readonly items: readonly { readonly slug: string }[];
+    }>();
+    expect(seriesBody.kind).toBe("series");
+    expect(seriesBody.items.map(({ slug }) => slug)).toEqual([
+      "kak-ustroen-inside-platform",
+      "developer-pipeline-bez-poteri-konteksta",
+    ]);
+    expect(related.statusCode).toBe(200);
+    const relatedBody = related.json<{
+      readonly kind: string;
+      readonly items: readonly { readonly slug: string }[];
+    }>();
+    expect(relatedBody.kind).toBe("related");
+    expect(relatedBody.items.slice(0, 2)).toEqual([
+      expect.objectContaining({ slug: "arkhitekturnaya-zametka-01" }),
+      expect.objectContaining({
+        slug: "developer-pipeline-bez-poteri-konteksta",
+      }),
+    ]);
+    for (const response of [topic, series, related]) {
+      expect(response.headers["cache-control"]).toBe(
+        "public, max-age=30, stale-while-revalidate=60",
+      );
+      expect(response.body).not.toContain("Закрытое содержимое для участников");
+      expect(response.body).not.toContain("schemaVersion");
+    }
+  });
+
+  test("returns stable missing and invalid discovery outcomes", async () => {
+    const missing = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/library/topics/missing-topic",
+    });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json()).toEqual({
+      type: "urn:inside:problem:discovery-not-found",
+      title: "Discovery not found",
+      status: 404,
+      code: "discovery_not_found",
+    });
+
+    const invalid = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/library/series/INVALID",
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json()).toMatchObject({ code: "invalid_request_shape" });
+  });
+
   test("returns a stable 404 outcome for an unpublished slug", async () => {
     const response = await app.getHttpAdapter().getInstance().inject({
       method: "GET",
@@ -260,6 +344,9 @@ describe("published Material HTTP contract", () => {
     try {
       for (const url of [
         "/library/materials",
+        "/library/topics/platform",
+        "/library/series/platform-inside",
+        "/library/materials/kak-ustroen-inside-platform/related",
         "/materials/kak-ustroen-inside-platform",
       ]) {
         const response = await unavailableApp.getHttpAdapter().getInstance().inject({

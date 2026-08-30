@@ -10,10 +10,12 @@ export interface MaterialPreview {
   readonly seriesMemberships: readonly {
     readonly name: string;
     readonly ordinal: number;
+    readonly slug: string;
   }[];
   readonly slug: string;
   readonly summary: string;
   readonly tags: readonly string[];
   readonly title: string;
   readonly topic: string;
+  readonly topicSlug: string;
 }

@@ -154,6 +154,49 @@ export function requestPublishedMaterialCatalog(
   );
 }
 
+export function requestPublishedTopic(
+  slug: string,
+  options: {
+    readonly accessToken?: string;
+    readonly signal?: AbortSignal;
+  } = {},
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new ContentLibraryService(request).readPublishedTopic({ slug }),
+    200,
+    options,
+  );
+}
+
+export function requestPublishedSeries(
+  slug: string,
+  options: {
+    readonly accessToken?: string;
+    readonly signal?: AbortSignal;
+  } = {},
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new ContentLibraryService(request).readPublishedSeries({ slug }),
+    200,
+    options,
+  );
+}
+
+export function requestRelatedPublishedMaterials(
+  slug: string,
+  options: {
+    readonly accessToken?: string;
+    readonly signal?: AbortSignal;
+  } = {},
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new ContentLibraryService(request).readRelatedPublishedMaterials({ slug }),
+    200,
+    options,
+  );
+}
+
 export function requestAuthoringMaterials(
   query: {
     readonly page: number;

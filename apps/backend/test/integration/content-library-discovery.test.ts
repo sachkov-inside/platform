@@ -1,0 +1,226 @@
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
+
+import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
+import { discoverPublishedMaterials } from "../../src/modules/content-library/index.js";
+import { anonymousSubject } from "../../src/modules/content-access/index.js";
+import { assembleMaterials } from "../../src/modules/materials/index.js";
+import {
+  createMigratedTestDatabase,
+  type TestDatabase,
+} from "./setup/test-database.js";
+
+describe("Content Library discovery", () => {
+  let testDatabase: TestDatabase;
+
+  beforeAll(async () => {
+    testDatabase = await createMigratedTestDatabase();
+    await seedLocalDevelopment(testDatabase.prisma);
+  });
+
+  afterAll(async () => {
+    await testDatabase.dispose();
+  });
+
+  test("reads a Topic generated view from safe published projections", async () => {
+    const { contentAccess, publishedMaterialReader } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+    });
+
+    const result = await discoverPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      {
+        kind: "topic",
+        slug: "platform",
+        first: 24,
+        subject: anonymousSubject,
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(`Topic discovery failed: ${result.error.code}`);
+    }
+    expect(result.value).toMatchObject({
+      kind: "topic",
+      reference: { name: "Platform", slug: "platform" },
+      hasNext: false,
+    });
+    expect(
+      result.value.items.find(
+        ({ slug }) => slug === "developer-pipeline-bez-poteri-konteksta",
+      ),
+    ).toMatchObject({ availability: "locked" });
+    expect(
+      result.value.items.find(
+        ({ slug }) => slug === "kak-ustroen-inside-platform",
+      ),
+    ).toMatchObject({ availability: "available" });
+    expect(JSON.stringify(result)).not.toContain(
+      "Закрытое содержимое для участников",
+    );
+    expect(JSON.stringify(result)).not.toContain("schemaVersion");
+  });
+
+  test("keeps Series in author-defined ordinal order for free and closed teasers", async () => {
+    const { contentAccess, publishedMaterialReader } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+    });
+
+    const result = await discoverPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      {
+        kind: "series",
+        slug: "platform-inside",
+        first: 24,
+        subject: anonymousSubject,
+      },
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        kind: "series",
+        reference: {
+          name: "Создание Platform Inside",
+          slug: "platform-inside",
+        },
+        items: [
+          expect.objectContaining({
+            slug: "kak-ustroen-inside-platform",
+            availability: "available",
+            seriesMemberships: [
+              expect.objectContaining({ ordinal: 1 }),
+            ],
+          }),
+          expect.objectContaining({
+            slug: "developer-pipeline-bez-poteri-konteksta",
+            availability: "locked",
+            seriesMemberships: [
+              expect.objectContaining({ ordinal: 2 }),
+            ],
+          }),
+        ],
+      },
+    });
+  });
+
+  test("places explicit pins before deterministic metadata matches", async () => {
+    const { contentAccess, publishedMaterialReader } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+    });
+
+    const result = await discoverPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      {
+        kind: "related",
+        slug: "kak-ustroen-inside-platform",
+        first: 4,
+        subject: anonymousSubject,
+      },
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        kind: "related",
+      },
+    });
+    if (!result.ok) {
+      throw new Error("Expected related Materials");
+    }
+    expect(result.value.items.slice(0, 2)).toMatchObject([
+      { slug: "arkhitekturnaya-zametka-01" },
+      {
+        slug: "developer-pipeline-bez-poteri-konteksta",
+        availability: "locked",
+      },
+    ]);
+    expect(result.value.items.map(({ slug }) => slug)).not.toContain(
+      "kak-ustroen-inside-platform",
+    );
+  });
+
+  test("rejects self-pins and duplicate pin positions", async () => {
+    const source = await testDatabase.prisma.material.findUniqueOrThrow({
+      where: { slug: "kak-ustroen-inside-platform" },
+      select: { id: true },
+    });
+    const secondTarget = await testDatabase.prisma.material.findUniqueOrThrow({
+      where: { slug: "arkhitekturnaya-zametka-02" },
+      select: { id: true },
+    });
+
+    await expect(
+      testDatabase.prisma.materialRelatedPin.create({
+        data: {
+          sourceMaterialId: source.id,
+          targetMaterialId: source.id,
+          ordinal: 2,
+        },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      testDatabase.prisma.materialRelatedPin.create({
+        data: {
+          sourceMaterialId: source.id,
+          targetMaterialId: secondTarget.id,
+          ordinal: 1,
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
+  test("distinguishes missing taxonomy from an existing empty view", async () => {
+    await testDatabase.prisma.topic.create({
+      data: {
+        id: "75000000-0000-4000-8000-000000000001",
+        name: "Empty Topic",
+        slug: "empty-topic",
+      },
+    });
+    const { contentAccess, publishedMaterialReader } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+    });
+
+    await expect(
+      discoverPublishedMaterials(publishedMaterialReader, contentAccess, {
+        kind: "topic",
+        slug: "empty-topic",
+        first: 24,
+        subject: anonymousSubject,
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: { kind: "topic", items: [], hasNext: false },
+    });
+    await expect(
+      discoverPublishedMaterials(publishedMaterialReader, contentAccess, {
+        kind: "series",
+        slug: "missing-series",
+        first: 24,
+        subject: anonymousSubject,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "discovery_not_found" },
+    });
+    await expect(
+      discoverPublishedMaterials(publishedMaterialReader, contentAccess, {
+        kind: "topic",
+        slug: "INVALID",
+        first: 24,
+        subject: anonymousSubject,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "invalid_request_shape" },
+    });
+  });
+});

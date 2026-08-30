@@ -258,6 +258,7 @@ export async function seedLocalDevelopment(
   }
 
   await ensureMembershipCatalogMaterial(prisma, authoring);
+  await ensureRelatedPin(prisma, materialIdValue);
 
   return Object.freeze({ materialId: materialIdValue, contentVersion, slug });
 }
@@ -341,7 +342,7 @@ async function ensureMembershipCatalogMaterial(
       topicId,
       formatId,
       tagIds: [tagId],
-      seriesIds: [],
+      seriesIds: [seriesId],
     };
   const body = {
       schemaVersion: 1,
@@ -377,7 +378,14 @@ async function ensureMembershipCatalogMaterial(
       publicationState: created.value.publicationState,
     };
   }
-  if (material.publicationState !== "published") {
+  const selectedSeries = await prisma.seriesMembership.findFirst({
+    where: { materialId: material.id, seriesId },
+    select: { materialId: true },
+  });
+  if (
+    material.publicationState !== "published" ||
+    selectedSeries === null
+  ) {
     const expectedContentVersion = Number(material.contentVersion);
     const published = await authoring.saveMaterial({
       actor,
@@ -392,6 +400,33 @@ async function ensureMembershipCatalogMaterial(
       throw new Error(`Local Membership Material publish failed: ${published.error.code}`);
     }
   }
+}
+
+async function ensureRelatedPin(
+  prisma: PlatformPrisma,
+  sourceMaterialId: string,
+): Promise<void> {
+  const target = await prisma.material.findUnique({
+    where: { slug: "arkhitekturnaya-zametka-01" },
+    select: { id: true },
+  });
+  if (target === null) {
+    throw new Error("Local related Material target is missing");
+  }
+  await prisma.materialRelatedPin.upsert({
+    where: {
+      sourceMaterialId_targetMaterialId: {
+        sourceMaterialId,
+        targetMaterialId: target.id,
+      },
+    },
+    create: {
+      sourceMaterialId,
+      targetMaterialId: target.id,
+      ordinal: 1,
+    },
+    update: { ordinal: 1 },
+  });
 }
 
 async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {

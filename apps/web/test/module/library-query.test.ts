@@ -28,6 +28,7 @@ const readyCatalog = {
       tags: ["Architecture"],
       title: "Как устроен Inside Platform",
       topic: "Platform",
+      topicSlug: "platform",
     },
   ],
   nextCursor: null,

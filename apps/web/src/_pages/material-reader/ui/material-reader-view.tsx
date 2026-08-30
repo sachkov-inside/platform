@@ -8,12 +8,15 @@ import type {
   ReaderMark,
   ReaderText,
 } from "@/_pages/material-reader/model/material-reader-view";
+import type { LibraryDiscoveryResult } from "@/_pages/library-discovery";
+import { RelatedMaterialsSection } from "@/_pages/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
 
 export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
+  readonly related?: LibraryDiscoveryResult;
 }
 
 interface OutlineItem {
@@ -29,7 +32,7 @@ interface ResourceItem {
 }
 
 /** Client-safe presentation shared by the production RSC route and Storybook. */
-export function MaterialReaderView({ body, material }: MaterialReaderViewProps) {
+export function MaterialReaderView({ body, material, related }: MaterialReaderViewProps) {
   const outline = collectOutline(body);
   const resources = collectResources(body);
 
@@ -39,11 +42,17 @@ export function MaterialReaderView({ body, material }: MaterialReaderViewProps) 
       <div className="mt-10 min-w-0">
         <MaterialHeader material={material} />
         <ReaderOutline items={outline} />
-        <article className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[0.96875rem] leading-[1.7] sm:mt-12 sm:text-[1.0625rem]">
+        <article
+          className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[0.96875rem] leading-[1.7] sm:mt-12 sm:text-[1.0625rem]"
+          data-reader-body
+        >
           <ReaderBlocks blocks={body} path={[]} />
         </article>
       </div>
       {resources.length > 0 ? <ReaderResources resources={resources} /> : null}
+      {related === undefined ? null : (
+        <RelatedMaterialsSection result={related} sourceSlug={material.slug} />
+      )}
       <ReaderBackAction className="mt-16" />
     </div>
   );
@@ -64,9 +73,13 @@ function MaterialHeader({ material }: { readonly material: MaterialReaderMetadat
           <BookOpenText aria-hidden="true" className="size-3.5 text-accent" />
           {material.format.name}
         </span>
-        <span className="inline-flex min-h-7 items-center px-1">
+        <Link
+          className="inline-flex min-h-7 items-center rounded-md px-2 no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
+          href={`/topics/${material.topic.slug}`}
+          prefetch={false}
+        >
           {material.topic.name}
-        </span>
+        </Link>
         <time dateTime={material.publishedAt}>Опубликовано {publicationDate}</time>
       </div>
       <h1 className="mt-5 max-w-[22ch] text-balance text-[1.75rem] font-semibold leading-[1.1] tracking-[-0.035em] sm:text-[2.25rem] @min-[62rem]/material-reader:text-[2.5rem]">
@@ -101,8 +114,14 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
       {material.seriesMemberships.length > 0 ? (
         <ul aria-label="Серии материала" className="flex flex-wrap gap-x-4 gap-y-2" role="list">
           {material.seriesMemberships.map(({ ordinal, series }) => (
-            <li className="font-mono text-xs text-muted-foreground" key={series.slug}>
-              {series.name} · выпуск {ordinal}
+            <li key={series.slug}>
+              <Link
+                className="inline-flex min-h-8 items-center rounded-md px-2 font-mono text-xs text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
+                href={`/series/${series.slug}`}
+                prefetch={false}
+              >
+                {series.name} · выпуск {ordinal}
+              </Link>
             </li>
           ))}
         </ul>

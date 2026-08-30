@@ -72,7 +72,13 @@ export function MaterialReaderAccess({
       <header className="mt-7 max-w-[48rem] sm:mt-8">
         <div className="flex flex-wrap gap-2 text-xs font-semibold text-muted-foreground">
           <span className="rounded-full bg-muted px-3 py-1.5">{material.format.name}</span>
-          <span className="rounded-full bg-muted px-3 py-1.5">{material.topic.name}</span>
+          <Link
+            className="rounded-full bg-muted px-3 py-1.5 no-underline hover:bg-secondary focus-visible:outline-ring"
+            href={`/topics/${material.topic.slug}`}
+            prefetch={false}
+          >
+            {material.topic.name}
+          </Link>
         </div>
         <h1 className="mt-4 max-w-[22ch] text-balance text-[1.75rem] font-semibold leading-[1.12] tracking-[-0.03em] sm:text-[2.25rem]">
           {material.title}

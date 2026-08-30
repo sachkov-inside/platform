@@ -21,6 +21,16 @@ interface PublishedMaterialProjectionSearchValues {
   readonly topicSlugs: readonly string[];
 }
 
+export interface PublishedMaterialDiscoveryPage {
+  readonly reference: {
+    readonly id: string;
+    readonly name: string;
+    readonly slug: string;
+  };
+  readonly items: readonly PublishedMaterialProjectionDto[];
+  readonly hasNext: boolean;
+}
+
 const publishedMaterialProjectionRowSchema = z.object({
   material_id: z.uuid(),
   content_version: z.coerce.number().int().positive(),
@@ -83,10 +93,10 @@ export async function selectPublishedMaterialProjectionBySlug(
 ): Promise<PublishedMaterialProjectionDto | undefined> {
   const rows = publishedMaterialProjectionRowSchema.array().parse(
     await prisma.$queryRaw(
-      projectionQuery(
-        Prisma.sql`where publication.slug = ${slug}`,
-        Prisma.sql`limit 1`,
-      ),
+      projectionQuery({
+        where: Prisma.sql`where publication.slug = ${slug}`,
+        limit: Prisma.sql`limit 1`,
+      }),
     ),
   );
   return rows[0] === undefined ? undefined : toProjection(rows[0]);
@@ -109,7 +119,6 @@ export async function selectPublishedMaterialProjectionPage(
   const visibleRows = rows.slice(0, values.first);
   const lastRow = visibleRows.at(-1);
   const hasNext = rows.length > values.first;
-
   return {
     continuation:
       hasNext && lastRow !== undefined
@@ -399,7 +408,163 @@ function toContinuation(
   }
 }
 
-function projectionQuery(where: Prisma.Sql, limit: Prisma.Sql): Prisma.Sql {
+export async function selectPublishedMaterialProjectionsByTopic(
+  prisma: MaterialsPrisma,
+  slug: string,
+  first: number,
+): Promise<PublishedMaterialDiscoveryPage | undefined> {
+  const reference = await prisma.topic.findUnique({
+    where: { slug },
+    select: { id: true, name: true, slug: true },
+  });
+  if (reference === null) {
+    return undefined;
+  }
+  const rows = publishedMaterialProjectionRowSchema.array().parse(
+    await prisma.$queryRaw(
+      projectionQuery({
+        where: Prisma.sql`where topic.slug = ${slug}`,
+        limit: Prisma.sql`limit ${first + 1}`,
+      }),
+    ),
+  );
+  return {
+    reference,
+    items: rows.slice(0, first).map(toProjection),
+    hasNext: rows.length > first,
+  };
+}
+
+export async function selectPublishedMaterialProjectionsBySeries(
+  prisma: MaterialsPrisma,
+  slug: string,
+  first: number,
+): Promise<PublishedMaterialDiscoveryPage | undefined> {
+  const reference = await prisma.series.findUnique({
+    where: { slug },
+    select: { id: true, name: true, slug: true },
+  });
+  if (reference === null) {
+    return undefined;
+  }
+  const rows = publishedMaterialProjectionRowSchema.array().parse(
+    await prisma.$queryRaw(
+      projectionQuery({
+        joins: Prisma.sql`
+          join materials.published_material_series_memberships as selected_membership
+            on selected_membership.material_id = publication.material_id
+          join materials.series as selected_series
+            on selected_series.id = selected_membership.series_id
+        `,
+        where: Prisma.sql`where selected_series.slug = ${slug}`,
+        order: Prisma.sql`
+          order by selected_membership.ordinal, publication.material_id
+        `,
+        limit: Prisma.sql`limit ${first + 1}`,
+      }),
+    ),
+  );
+  return {
+    reference,
+    items: rows.slice(0, first).map(toProjection),
+    hasNext: rows.length > first,
+  };
+}
+
+export async function selectRelatedPublishedMaterialProjections(
+  prisma: MaterialsPrisma,
+  slug: string,
+  first: number,
+): Promise<PublishedMaterialDiscoveryPage | undefined> {
+  const source = await selectPublishedMaterialProjectionBySlug(prisma, slug);
+  if (source === undefined) {
+    return undefined;
+  }
+  const rows = publishedMaterialProjectionRowSchema.array().parse(
+    await prisma.$queryRaw(
+      projectionQuery({
+        joins: Prisma.sql`
+          left join materials.material_related_pins as related_pin
+            on related_pin.source_material_id = ${source.materialId}::uuid
+           and related_pin.target_material_id = publication.material_id
+        `,
+        where: Prisma.sql`
+          where publication.material_id <> ${source.materialId}::uuid
+            and (
+              related_pin.target_material_id is not null
+              or publication.topic_id = ${source.topic.id}::uuid
+              or publication.format_id = ${source.format.id}::uuid
+              or exists (
+                select 1
+                from materials.published_material_tags as candidate_tag
+                join materials.published_material_tags as source_tag
+                  on source_tag.tag_id = candidate_tag.tag_id
+                where candidate_tag.material_id = publication.material_id
+                  and source_tag.material_id = ${source.materialId}::uuid
+              )
+              or exists (
+                select 1
+                from materials.published_material_series_memberships as candidate_series
+                join materials.published_material_series_memberships as source_series
+                  on source_series.series_id = candidate_series.series_id
+                where candidate_series.material_id = publication.material_id
+                  and source_series.material_id = ${source.materialId}::uuid
+              )
+            )
+        `,
+        order: Prisma.sql`
+          order by
+            case when related_pin.ordinal is null then 1 else 0 end,
+            related_pin.ordinal,
+            (
+              case when publication.topic_id = ${source.topic.id}::uuid then 8 else 0 end
+              + case when publication.format_id = ${source.format.id}::uuid then 1 else 0 end
+              + 2 * (
+                select count(*)::integer
+                from materials.published_material_tags as candidate_tag
+                join materials.published_material_tags as source_tag
+                  on source_tag.tag_id = candidate_tag.tag_id
+                where candidate_tag.material_id = publication.material_id
+                  and source_tag.material_id = ${source.materialId}::uuid
+              )
+              + 4 * (
+                select count(*)::integer
+                from materials.published_material_series_memberships as candidate_series
+                join materials.published_material_series_memberships as source_series
+                  on source_series.series_id = candidate_series.series_id
+                where candidate_series.material_id = publication.material_id
+                  and source_series.material_id = ${source.materialId}::uuid
+              )
+            ) desc,
+            publication.published_at desc,
+            publication.material_id desc
+        `,
+        limit: Prisma.sql`limit ${first + 1}`,
+      }),
+    ),
+  );
+  return {
+    reference: {
+      id: source.materialId,
+      name: source.title,
+      slug: source.slug,
+    },
+    items: rows.slice(0, first).map(toProjection),
+    hasNext: rows.length > first,
+  };
+}
+
+function projectionQuery({
+  joins = Prisma.empty,
+  limit,
+  order = Prisma.sql`order by publication.published_at desc, publication.material_id desc`,
+  where,
+}: {
+  readonly joins?: Prisma.Sql;
+  readonly limit: Prisma.Sql;
+  readonly order?: Prisma.Sql;
+  readonly where: Prisma.Sql;
+}): Prisma.Sql {
   return Prisma.sql`
     select
       publication.material_id,
@@ -447,8 +612,9 @@ function projectionQuery(where: Prisma.Sql, limit: Prisma.Sql): Prisma.Sql {
     from materials.published_materials as publication
     join materials.topics as topic on topic.id = publication.topic_id
     join materials.formats as format on format.id = publication.format_id
+    ${joins}
     ${where}
-    order by publication.published_at desc, publication.material_id desc
+    ${order}
     ${limit}
   `;
 }

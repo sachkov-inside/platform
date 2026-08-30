@@ -10,6 +10,7 @@ export type MaterialAccess = MaterialPreview["access"];
 export interface MaterialSeriesFixture {
   readonly id: string;
   readonly ordinal: number;
+  readonly slug: string;
   readonly title: string;
 }
 
@@ -25,6 +26,7 @@ export interface MaterialPreviewFixture {
   readonly tags: readonly string[];
   readonly title: string;
   readonly topic: string;
+  readonly topicSlug: string;
 }
 
 export const materialFixtures = {
@@ -41,6 +43,7 @@ export const materialFixtures = {
     tags: ["job search", "resume"],
     title: "Гайд на поиск работы и резюме в IT",
     topic: "Карьера",
+    topicSlug: "career",
   },
   platformDeliveryVideo: {
     access: "membership",
@@ -53,6 +56,7 @@ export const materialFixtures = {
       {
         id: "series-platform-inside",
         ordinal: 5,
+        slug: "platform-inside",
         title: "Создание Platform Inside",
       },
     ],
@@ -62,6 +66,7 @@ export const materialFixtures = {
     title:
       "Создание Platform Inside — 5. Developer Pipeline и owner-controlled delivery",
     topic: "Product engineering",
+    topicSlug: "product-engineering",
   },
   publicAgentGuide: {
     access: "free",
@@ -75,6 +80,7 @@ export const materialFixtures = {
     tags: ["agent skills", "harness", "engineering workflow"],
     title: "Публичные skills для agent-first setup",
     topic: "AI-first engineering",
+    topicSlug: "ai-first-engineering",
   },
 } as const satisfies Readonly<Record<string, MaterialPreviewFixture>>;
 
@@ -94,9 +100,11 @@ export function MaterialCard({ headingLevel, material }: MaterialCardProps) {
     tags: material.tags,
     title: material.title,
     topic: material.topic,
-    seriesMemberships: material.series.map(({ ordinal, title }) => ({
+    topicSlug: material.topicSlug,
+    seriesMemberships: material.series.map(({ ordinal, slug, title }) => ({
       name: title,
       ordinal,
+      slug,
     })),
     ...(material.format === "Видео"
       ? {

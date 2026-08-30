@@ -35,13 +35,16 @@ const catalogItems = [
       label: "Пять стадий delivery от ready issue до owner-approved merge",
       steps: ["Issue", "Ветка", "Checks", "PR", "GO"],
     },
-    seriesMemberships: [{ name: "Создание Platform Inside", ordinal: 5 }],
+    seriesMemberships: [
+      { name: "Создание Platform Inside", ordinal: 5, slug: "platform-inside" },
+    ],
     slug: "platform-delivery",
     summary:
       "Как связать issue, task branch, evidence, pull request и явный owner GO.",
     tags: ["developer pipeline", "harness"],
     title: "Developer Pipeline и owner-controlled delivery",
     topic: "Product engineering",
+    topicSlug: "product-engineering",
   },
   {
     access: "free",
@@ -54,6 +57,7 @@ const catalogItems = [
     tags: ["agent skills", "workflow"],
     title: "Публичные skills для agent-first setup",
     topic: "AI-first engineering",
+    topicSlug: "ai-first-engineering",
   },
   {
     access: "membership",
@@ -66,6 +70,7 @@ const catalogItems = [
     tags: ["job search", "resume"],
     title: "Поиск работы и резюме в IT",
     topic: "Карьера",
+    topicSlug: "career",
   },
 ] as const satisfies readonly MaterialPreview[];
 
@@ -275,7 +280,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Production-owned Library presentation used by the RSC route and Storybook fixtures. Search and taxonomy navigation remain outside #90.",
+          "Production-owned Library presentation used by the RSC route and Storybook fixtures, including canonical Topic and Series links.",
       },
     },
     nextjs: { appDirectory: true },
@@ -309,10 +314,18 @@ export const ReadyDesktop: Story = {
     if (firstCard === undefined) {
       throw new Error("First Material card is missing");
     }
-    await expect(within(firstCard).getAllByRole("link")).toHaveLength(1);
+    await expect(within(firstCard).getAllByRole("link")).toHaveLength(3);
     await expect(
       within(firstCard).getByRole("link", { name: catalogItems[0].title }),
-    ).toContainElement(within(firstCard).getByText(catalogItems[0].summary));
+    ).toHaveAttribute("href", "/materials/platform-delivery");
+    await expect(
+      within(firstCard).getByRole("link", { name: "Product engineering" }),
+    ).toHaveAttribute("href", "/topics/product-engineering");
+    await expect(
+      within(firstCard).getByRole("link", {
+        name: "Создание Platform Inside · выпуск 5",
+      }),
+    ).toHaveAttribute("href", "/series/platform-inside");
     await expect(canvas.getByText("Бесплатно")).toBeInTheDocument();
     await expect(canvas.getAllByText("Для участников")).toHaveLength(2);
     await expect(

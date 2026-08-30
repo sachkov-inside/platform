@@ -29,6 +29,7 @@ describe("Prisma schema", () => {
       testDatabase.prisma.tag.count(),
       testDatabase.prisma.series.count(),
       testDatabase.prisma.material.count(),
+      testDatabase.prisma.materialRelatedPin.count(),
       testDatabase.prisma.materialTag.count(),
       testDatabase.prisma.seriesMembership.count(),
       testDatabase.prisma.authoringIdempotency.count(),
@@ -38,6 +39,6 @@ describe("Prisma schema", () => {
       testDatabase.prisma.materialSearchDocument.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 18 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 19 }, () => 0));
   });
 });

@@ -7,7 +7,10 @@ import { HttpCachePolicyInterceptor } from "../../infrastructure/http/http-cache
 import { ProblemDetailsFilter } from "../../infrastructure/http/problem-details.filter.js";
 import { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import { PrismaModule } from "../../infrastructure/prisma/index.js";
-import { ListPublishedMaterialsController } from "../../modules/content-library/index.js";
+import {
+  DiscoverPublishedMaterialsController,
+  ListPublishedMaterialsController,
+} from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
 import { MemberProfilesModule } from "../../modules/member-profiles/index.js";
 import {
@@ -30,6 +33,7 @@ import { HealthController } from "./health.controller.js";
   controllers: [
     HealthController,
     ListPublishedMaterialsController,
+    DiscoverPublishedMaterialsController,
     ReadPublishedMaterialController,
     CreateDraftController,
     ListMaterialsController,

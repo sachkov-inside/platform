@@ -28,6 +28,7 @@ import {
 const materialTables = [
   "authoring_idempotency",
   "formats",
+  "material_related_pins",
   "material_search_documents",
   "material_tags",
   "materials",
@@ -118,6 +119,7 @@ describe("Platform migrations", () => {
         "0007_remove_material_access_audit",
         "0008_member_profiles",
         "0009_published_material_search",
+        "0010_material_related_pins",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -437,6 +439,7 @@ describe("Platform migrations", () => {
           "0007_remove_material_access_audit",
           "0008_member_profiles",
           "0009_published_material_search",
+          "0010_material_related_pins",
         ],
       });
 
