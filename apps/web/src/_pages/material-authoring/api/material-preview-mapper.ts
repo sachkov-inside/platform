@@ -123,7 +123,6 @@ export interface MappedCurrentMaterialPreview {
     readonly seriesId: string;
   }[];
   readonly preview: MaterialPreviewPresentation;
-  readonly slug: string | null;
   readonly summary: string | null;
   readonly tagIds: readonly string[];
   readonly title: string | null;
@@ -171,7 +170,6 @@ export function mapCurrentMaterialPreview(
         publicationState: current.publicationState,
       },
       seriesMemberships: current.metadata.seriesMemberships,
-      slug: current.metadata.slug,
       summary: current.metadata.summary,
       tagIds: current.metadata.tagIds,
       title: current.metadata.title,

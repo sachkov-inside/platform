@@ -70,7 +70,7 @@ export const Reordering: Story = {
     await moveFirstItem(canvasElement);
     await expect(canvas.getByText("Есть несохранённые изменения.")).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
-    await expect(canvas.getByText("Порядок сохранён.")).toBeInTheDocument();
+    await expect(await canvas.findByText("Порядок сохранён.")).toBeInTheDocument();
     await expect(saveOrderSpy).toHaveBeenCalledOnce();
   },
 };
@@ -88,9 +88,9 @@ export const Conflict: Story = {
     await moveFirstItem(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
     await expect(
-      canvas.getByText("Состав или порядок изменился в другой вкладке."),
+      await canvas.findByText("Состав или порядок изменился в другой вкладке."),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Обновить список" })).toBeVisible();
+    await expect(await canvas.findByRole("button", { name: "Обновить список" })).toBeVisible();
   },
 };
 
@@ -101,8 +101,8 @@ export const SaveError: Story = {
     const canvas = within(canvasElement);
     await moveFirstItem(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
-    await expect(canvas.getByText(/Не удалось сохранить/u)).toBeInTheDocument();
-    const retry = canvas.getByRole("button", { name: "Повторить сохранение" });
+    await expect(await canvas.findByText(/Не удалось сохранить/u)).toBeInTheDocument();
+    const retry = await canvas.findByRole("button", { name: "Повторить сохранение" });
     await expect(retry).toBeVisible();
     await userEvent.click(retry);
     await expect(failedOrderSpy).toHaveBeenCalledTimes(2);
@@ -115,8 +115,8 @@ export const SessionExpired: Story = {
     const canvas = within(canvasElement);
     await moveFirstItem(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
-    await expect(canvas.getByText(/Сессия завершилась/u)).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Войти" })).toBeVisible();
+    await expect(await canvas.findByText(/Сессия завершилась/u)).toBeInTheDocument();
+    await expect(await canvas.findByRole("button", { name: "Войти" })).toBeVisible();
   },
 };
 

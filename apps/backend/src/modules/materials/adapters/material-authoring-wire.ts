@@ -15,14 +15,9 @@ export const seriesMembershipWireSchema = z
     ordinal: z.number().int().positive(),
   })
   .strict();
-const materialMetadataBaseShape = {
+const materialMetadataSelectionBaseShape = {
   title: z.string().trim().min(1).max(160).nullable(),
   summary: z.string().trim().min(1).max(500).nullable(),
-  slug: z
-    .string()
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
-    .max(120)
-    .nullable(),
   access: z.enum(["free", "membership"]),
   topicId: uuidWireSchema.nullable(),
   formatId: uuidWireSchema.nullable(),
@@ -31,14 +26,19 @@ const materialMetadataBaseShape = {
 
 export const materialMetadataSelectionWireSchema = z
   .object({
-    ...materialMetadataBaseShape,
+    ...materialMetadataSelectionBaseShape,
     seriesIds: z.array(uuidWireSchema).max(100),
   })
   .strict();
 
 export const materialMetadataWireSchema = z
   .object({
-    ...materialMetadataBaseShape,
+    ...materialMetadataSelectionBaseShape,
+    slug: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
+      .max(120)
+      .nullable(),
     seriesMemberships: z.array(seriesMembershipWireSchema).max(100),
   })
   .strict();

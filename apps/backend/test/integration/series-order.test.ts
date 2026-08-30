@@ -43,7 +43,7 @@ describe("Series order", () => {
         await authoring.createDraft({
           actor,
           idempotencyKey: `series-order-create-${index}`,
-          metadata: metadata(title, `series-order-${index}`),
+          metadata: metadata(title),
           body: representativeDocument(`${title} body.`),
         }),
       );
@@ -68,7 +68,7 @@ describe("Series order", () => {
         materialId,
         expectedContentVersion: 1,
         publicationState: "published",
-        metadata: metadata(index === 0 ? "First" : "Third", `series-order-${index === 0 ? 0 : 2}`),
+        metadata: metadata(index === 0 ? "First" : "Third"),
         body: representativeDocument("Published body."),
       });
       if (!published.ok) throw new Error(published.error.code);
@@ -195,7 +195,7 @@ describe("Series order", () => {
     const appended = await authoring.createDraft({
       actor,
       idempotencyKey: "series-order-membership-change",
-      metadata: metadata("Appended", "series-order-appended"),
+      metadata: metadata("Appended"),
       body: representativeDocument("Appended body."),
     });
     if (!appended.ok) throw new Error(appended.error.code);
@@ -256,7 +256,7 @@ describe("Series order", () => {
     const savedDraft = await authoring.createDraft({
       actor,
       idempotencyKey: "series-order-concurrent-save-create",
-      metadata: metadata("Concurrent save", "series-order-concurrent-save"),
+      metadata: metadata("Concurrent save"),
       body: representativeDocument("Concurrent save body."),
     });
     if (!savedDraft.ok) throw new Error(savedDraft.error.code);
@@ -271,7 +271,7 @@ describe("Series order", () => {
         materialId: savedDraft.value.materialId,
         expectedContentVersion: 1,
         publicationState: "draft",
-        metadata: metadata("Concurrent save", "series-order-concurrent-save"),
+        metadata: metadata("Concurrent save"),
         body: representativeDocument("Saved concurrently with reorder."),
       }),
       authoring.reorderSeries({
@@ -287,7 +287,7 @@ describe("Series order", () => {
     const deletedDraft = await authoring.createDraft({
       actor,
       idempotencyKey: "series-order-concurrent-delete-create",
-      metadata: metadata("Concurrent delete", "series-order-concurrent-delete"),
+      metadata: metadata("Concurrent delete"),
       body: representativeDocument("Concurrent delete body."),
     });
     if (!deletedDraft.ok) throw new Error(deletedDraft.error.code);
@@ -335,12 +335,11 @@ describe("Series order", () => {
   });
 });
 
-function metadata(title: string, slug: string) {
+function metadata(title: string) {
   return {
     access: "free" as const,
     formatId,
     seriesIds: [seriesId],
-    slug,
     summary: `${title} summary.`,
     tagIds: [],
     title,

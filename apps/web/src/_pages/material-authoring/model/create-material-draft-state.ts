@@ -14,7 +14,6 @@ export interface CreatedMaterialDraft {
   readonly materialId: string;
   readonly preview: MaterialPreviewPresentation;
   readonly seriesIds: readonly string[];
-  readonly slug: string | null;
   readonly summary: string;
   readonly tagIds: readonly string[];
   readonly title: string;

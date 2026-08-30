@@ -91,6 +91,7 @@ export function assembleCreateDraft(
               transaction,
               newMaterialId,
               selection.value,
+              null,
             );
             await requireReferenceIntegrity(
               transaction,
@@ -101,7 +102,7 @@ export function assembleCreateDraft(
             await transaction.material.create({
               data: {
                 id: newMaterialId,
-                slug: materializedMetadata.slug,
+                slug: null,
                 title: materializedMetadata.title,
                 summary: materializedMetadata.summary,
                 topicId: materializedMetadata.topicId,

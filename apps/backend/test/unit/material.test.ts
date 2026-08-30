@@ -139,7 +139,7 @@ describe("Material", () => {
     expect(material.contentVersion).toBe(4);
   });
 
-  test("locks the slug after first publication and timestamps each republish", () => {
+  test("preserves the slug after first publication and timestamps each republish", () => {
     const published = Material.restore({
       id: materialId("93000000-0000-4000-8000-000000000001"),
       slug: "mutable-material",
@@ -158,9 +158,9 @@ describe("Material", () => {
           now: ordinarySave,
         }),
       ),
-    ).toEqual({
-      ok: false,
-      error: { code: "slug_locked", slug: "mutable-material" },
+    ).toMatchObject({
+      ok: true,
+      value: { contentVersion: 3, slug: "mutable-material" },
     });
 
     const unpublished = published.save(

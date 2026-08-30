@@ -174,7 +174,6 @@ export async function executeCreateMaterialDraft(
     formatId: current.formatId,
     materialId: current.materialId,
     preview: current.preview,
-    slug: current.slug,
     seriesIds: parsed.value.seriesIds,
     summary: current.summary ?? parsed.value.summary,
     tagIds: current.tagIds,
@@ -308,9 +307,7 @@ function mapBackendIssue(issue: { readonly code: string; readonly path: string }
       ? "Назначьте тему перед публикацией."
       : issue.path.endsWith("/formatId")
         ? "Назначьте формат перед публикацией."
-        : issue.path.endsWith("/slug")
-          ? "Адрес материала будет создан автоматически при публикации."
-          : `Проверьте поле ${issue.path}.`;
+        : `Проверьте поле ${issue.path}.`;
   return { message, path: issue.path };
 }
 

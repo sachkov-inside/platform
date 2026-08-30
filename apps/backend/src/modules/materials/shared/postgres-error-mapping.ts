@@ -4,7 +4,7 @@ import { isRetryablePostgresError } from "../../../infrastructure/postgres/is-re
 import type {
   DuplicateTagError,
   InvalidReferenceError,
-  PersistenceConflictError,
+  SeriesOrdinalConflictError,
   SystemError,
 } from "../facets/material-authoring/material-authoring.contract.js";
 import type { MaterialMetadata } from "../domain/material-metadata.js";
@@ -29,7 +29,7 @@ interface PostgreSqlErrorSignals {
 type PostgresOperationError =
   | DuplicateTagError
   | InvalidReferenceError
-  | PersistenceConflictError
+  | SeriesOrdinalConflictError
   | SystemError;
 
 const referenceConstraints = new Map<string, string>([
@@ -47,15 +47,6 @@ export function mapPostgresError(
   const uniqueViolation =
     signals.codes.includes("23505") || signals.codes.includes("P2002");
 
-  if (
-    uniqueViolation &&
-    (hasConstraint(signals, "materials_slug_unique") ||
-      hasConstraint(signals, "published_materials_slug_unique") ||
-      hasFields(signals, ["slug"])) &&
-    metadata?.slug !== null && metadata?.slug !== undefined
-  ) {
-    return { code: "slug_conflict", slug: metadata.slug };
-  }
   if (
     uniqueViolation &&
     (hasConstraint(signals, "material_tags_primary") ||
@@ -92,16 +83,6 @@ export function mapPostgresError(
     };
   }
   return mapPostgresReadError(error);
-}
-
-export function mapPostgresLifecycleError(
-  error: unknown,
-  metadata?: MaterialMetadata,
-): InvalidReferenceError | PersistenceConflictError | SystemError {
-  const mapped = mapPostgresError(error, metadata);
-  return mapped.code === "duplicate_tag"
-    ? mapPostgresReadError(error)
-    : mapped;
 }
 
 export function mapPostgresReadError(error: unknown): SystemError {

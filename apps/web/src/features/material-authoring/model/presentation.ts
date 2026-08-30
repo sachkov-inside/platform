@@ -19,7 +19,6 @@ export interface MaterialDraftPresentation {
   readonly contentVersion: number | null;
   readonly readOnly: boolean;
   readonly seriesIds: readonly string[];
-  readonly slug: string;
   readonly status: "draft" | "new" | "published" | "unpublished";
   readonly summary: string;
   readonly tagIds: readonly string[];
@@ -148,7 +147,6 @@ export type MaterialDraftField =
   | "access"
   | "formatId"
   | "publicationState"
-  | "slug"
   | "summary"
   | "title"
   | "topicId";

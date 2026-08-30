@@ -13,6 +13,7 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   expect(response?.status()).toBe(200);
   await completeProfileOnboardingIfPresent(page);
   await expect(page.getByRole("heading", { name: "Новый материал" })).toBeVisible();
+  await expect(page.getByLabel("Адрес")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Вернуться к материалам" }).focus();
   await expect(page.getByRole("button", { name: "Вернуться к материалам" })).toBeFocused();
@@ -48,6 +49,7 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
 
   await page.getByRole("button", { name: "Создать черновик" }).click();
   await expect(page).toHaveURL(currentMaterialEditorUrl);
+  await expect(page.getByLabel("Адрес")).toHaveCount(0);
   await expect(page.getByText(/^v\d+$/u)).toHaveCount(0);
   await expect(page.getByText("Версия", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Предпросмотр" })).toBeEnabled();
@@ -130,26 +132,24 @@ test("full-state Save is live and a stale editor preserves local input through l
   context,
   page,
 }) => {
+  const uniqueSuffix = String(Date.now());
+  const initialTitle = `Mutable Material ${uniqueSuffix}`;
+  const winnerTitle = `Mutable Material winner ${uniqueSuffix}`;
+  const slug = `mutable-material-winner-${uniqueSuffix}`;
   await addFullStackSession(context);
   await page.goto("/authoring/materials/new");
   await completeProfileOnboardingIfPresent(page);
-  await fillPublishableDraft(page, "Mutable Material");
+  await fillPublishableDraft(page, initialTitle);
   await page.getByRole("button", { name: "Создать черновик" }).click();
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   await expect(page.getByRole("button", { name: "Предпросмотр" })).toBeEnabled();
   const editorUrl = page.url();
-  const materialId = new URL(editorUrl).pathname.split("/").at(-1);
-  if (materialId === undefined) {
-    throw new Error("Current Material route has no identifier");
-  }
-  const slug = `mutable-material-${materialId}`;
-
   const stalePage = await context.newPage();
   await stalePage.goto(editorUrl);
-  await expect(stalePage.getByRole("heading", { name: "Mutable Material" })).toBeVisible();
+  await expect(stalePage.getByRole("heading", { name: initialTitle })).toBeVisible();
   await expect(stalePage.getByText(/^v\d+$/u)).toHaveCount(0);
 
-  await page.getByLabel("Название").fill("Mutable Material — winner");
+  await page.getByLabel("Название").fill(winnerTitle);
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("button", { name: "Сохранить" })).toBeDisabled();
@@ -167,7 +167,7 @@ test("full-state Save is live and a stale editor preserves local input through l
   const currentPreview = await currentPreviewPromise;
   await currentPreview.waitForLoadState();
   await expect(
-    currentPreview.getByRole("heading", { name: "Mutable Material — winner", level: 1 }),
+    currentPreview.getByRole("heading", { name: winnerTitle, level: 1 }),
   ).toBeVisible();
   await expect(stalePage.getByLabel("Краткое описание")).toHaveValue(localSummary);
 
@@ -176,11 +176,11 @@ test("full-state Save is live and a stale editor preserves local input through l
   const currentEditor = await currentEditorPromise;
   await currentEditor.waitForLoadState();
   await expect(currentEditor.getByLabel("Название")).toHaveValue(
-    "Mutable Material — winner",
+    winnerTitle,
   );
   await expect(stalePage.getByLabel("Краткое описание")).toHaveValue(localSummary);
 
-  await page.getByLabel("Адрес").fill(slug);
+  await expect(page.getByLabel("Адрес")).toHaveCount(0);
   await page.getByRole("combobox", { name: "Публикация" }).click();
   await page.getByRole("option", { name: "Опубликован" }).click();
   await page.getByRole("button", { name: "Сохранить" }).click();
@@ -193,7 +193,7 @@ test("full-state Save is live and a stale editor preserves local input through l
   const publicPage = await context.newPage();
   await publicPage.goto(`/materials/${slug}`);
   await expect(
-    publicPage.getByRole("heading", { name: "Mutable Material — winner", level: 1 }),
+    publicPage.getByRole("heading", { name: winnerTitle, level: 1 }),
   ).toBeVisible();
   await expect(publicPage.getByText("Текущее сохранённое содержимое из PostgreSQL.")).toBeVisible();
 

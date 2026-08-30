@@ -16,7 +16,6 @@ export interface SeriesMembershipInput {
 export interface MaterialMetadataSelectionInput {
   readonly title: string | null;
   readonly summary: string | null;
-  readonly slug: string | null;
   readonly access: MaterialAccess;
   readonly topicId: string | null;
   readonly formatId: string | null;
@@ -26,6 +25,7 @@ export interface MaterialMetadataSelectionInput {
 
 export interface MaterialMetadataDto
   extends Omit<MaterialMetadataSelectionInput, "seriesIds"> {
+  readonly slug: string | null;
   readonly seriesMemberships: readonly SeriesMembershipInput[];
 }
 
@@ -58,18 +58,11 @@ export type InvalidReferenceError = {
   readonly code: "invalid_reference";
   readonly issues: readonly ValidationIssue[];
 };
-export type SlugConflictError = {
-  readonly code: "slug_conflict";
-  readonly slug: string;
-};
 export type SeriesOrdinalConflictError = {
   readonly code: "series_ordinal_conflict";
   readonly seriesId: string;
   readonly ordinal: number;
 };
-export type PersistenceConflictError =
-  | SeriesOrdinalConflictError
-  | SlugConflictError;
 export type SystemError =
   | { readonly code: "dependency_unavailable"; readonly retryable: true }
   | { readonly code: "internal_error"; readonly correlationId: string };
@@ -79,10 +72,6 @@ export type MaterialNotFoundError = { readonly code: "material_not_found" };
 export type StaleContentVersionError = {
   readonly code: "stale_content_version";
   readonly currentContentVersion: number;
-};
-export type SlugLockedError = {
-  readonly code: "slug_locked";
-  readonly slug: string;
 };
 export type InvalidPublicationTransitionError = {
   readonly code: "invalid_publication_transition";

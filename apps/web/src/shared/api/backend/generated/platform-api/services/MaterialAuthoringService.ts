@@ -69,7 +69,6 @@ export class MaterialAuthoringService {
         access: 'free' | 'membership';
         formatId: string | null;
         seriesIds: Array<string>;
-        slug: string | null;
         summary: string | null;
         tagIds: Array<string>;
         title: string | null;
@@ -186,7 +185,6 @@ export class MaterialAuthoringService {
         access: 'free' | 'membership';
         formatId: string | null;
         seriesIds: Array<string>;
-        slug: string | null;
         summary: string | null;
         tagIds: Array<string>;
         title: string | null;

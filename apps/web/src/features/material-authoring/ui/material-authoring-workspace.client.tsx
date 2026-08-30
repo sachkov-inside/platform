@@ -221,27 +221,6 @@ function MetadataPanel({
             value={presentation.draft.summary}
           />
         </Field>
-        {presentation.draft.status === "new" ? null : (
-          <Field label="Адрес" targetId="material-slug">
-            <input
-              aria-describedby={hasIssue(presentation, "/slug") ? "material-guidance-heading" : undefined}
-              aria-invalid={hasIssue(presentation, "/slug") || undefined}
-              autoComplete="off"
-              className={fieldClassName}
-              disabled={disabled}
-              id="material-slug"
-              maxLength={120}
-              name="slug"
-              onChange={(event) => {
-                actions.onFieldChange("slug", event.currentTarget.value);
-              }}
-              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-              placeholder="developer-pipeline"
-              readOnly={presentation.draft.status === "published"}
-              value={presentation.draft.slug}
-            />
-          </Field>
-        )}
         <Field label="Тема" targetId="material-topic">
           <Select
             disabled={disabled}
@@ -603,8 +582,7 @@ function BlockingState({ actions, presentation }: MaterialAuthoringWorkspaceProp
             <CircleAlert aria-hidden="true" className="mt-1 size-5 shrink-0 text-destructive" />
             <div>
               <p className="font-semibold">Материал изменился в другой сессии</p>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">Сравните версии или откройте текущую в новой вкладке для ручного переноса. Ваш локальный ввод останется здесь.</p>
-              <p className="mt-2 font-mono text-[0.6875rem] text-muted-foreground">Ваша версия: {presentation.blocking.staleContentVersion} · Текущая: {presentation.blocking.currentContentVersion}</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">Сравните изменения или откройте сохранённый материал в новой вкладке для ручного переноса. Ваш локальный ввод останется здесь.</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">

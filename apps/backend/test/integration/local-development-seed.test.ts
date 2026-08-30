@@ -45,8 +45,8 @@ describe("local development seed", () => {
     }
     expect(catalog.value.items).toHaveLength(12);
     expect(catalog.value.items.slice(0, 2)).toMatchObject([
-      { slug: "membership-delivery-guide", access: "membership" },
-      { slug: "inside-platform-overview", access: "free" },
+      { slug: "developer-pipeline-bez-poteri-konteksta", access: "membership" },
+      { slug: "kak-ustroen-inside-platform", access: "free" },
     ]);
     expect(typeof catalog.value.nextCursor).toBe("string");
     expect(await testDatabase.prisma.publishedMaterial.count()).toBe(13);

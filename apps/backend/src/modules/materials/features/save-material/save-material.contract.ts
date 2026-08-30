@@ -8,8 +8,7 @@ import type {
   MaterialMetadataSelectionInput,
   MaterialMutationReceiptDto,
   MaterialNotFoundError,
-  PersistenceConflictError,
-  SlugLockedError,
+  SeriesOrdinalConflictError,
   StaleContentVersionError,
   SystemError,
 } from "../../facets/material-authoring/material-authoring.contract.js";
@@ -30,10 +29,9 @@ export type SaveMaterialError =
   | ForbiddenError
   | MaterialNotFoundError
   | StaleContentVersionError
-  | SlugLockedError
   | InvalidPublicationTransitionError
   | InvalidReferenceError
-  | PersistenceConflictError
+  | SeriesOrdinalConflictError
   | IdempotencyError
   | SystemError;
 export type SaveMaterialResult = Result<

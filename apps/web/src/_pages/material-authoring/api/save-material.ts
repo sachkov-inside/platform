@@ -22,7 +22,6 @@ const formSchema = z.object({
   materialId: z.uuid(),
   publicationState: z.enum(["draft", "published", "unpublished"]),
   seriesIds: z.string().max(100_000),
-  slug: z.string().trim().max(120),
   submissionId: z.uuid(),
   summary: z.string().trim().max(500),
   tagIds: z.array(z.uuid()).max(100),
@@ -143,7 +142,6 @@ function parseForm(
     materialId: formData.get("materialId"),
     publicationState: formData.get("publicationState"),
     seriesIds: formData.get("seriesIds"),
-    slug: formData.get("slug"),
     submissionId: formData.get("submissionId"),
     summary: formData.get("summary"),
     tagIds: formData.getAll("tagIds"),
@@ -191,7 +189,6 @@ function parseForm(
       materialId: parsed.data.materialId,
       publicationState: parsed.data.publicationState,
       seriesIds: parsedSeries.data,
-      slug: emptyToNull(parsed.data.slug),
       summary: emptyToNull(parsed.data.summary),
       tagIds: parsed.data.tagIds,
       title: emptyToNull(parsed.data.title),
@@ -311,9 +308,7 @@ function mapBackendIssue(issue: { readonly code: string; readonly path: string }
           ? "Назначьте тему перед публикацией."
           : issue.path.endsWith("/formatId")
             ? "Назначьте формат перед публикацией."
-            : issue.path.endsWith("/slug")
-              ? "Укажите адрес материала перед публикацией."
-              : `Проверьте поле ${issue.path}.`;
+            : `Проверьте поле ${issue.path}.`;
   return { message, path: issue.path };
 }
 
@@ -323,8 +318,6 @@ function formIssueMessage(field: string): string {
       return "Название должно быть не длиннее 160 символов.";
     case "summary":
       return "Описание должно быть не длиннее 500 символов.";
-    case "slug":
-      return "Адрес должен быть не длиннее 120 символов.";
     default:
       return "Проверьте данные Material и повторите сохранение.";
   }
@@ -332,10 +325,6 @@ function formIssueMessage(field: string): string {
 
 function messageForConflict(code: string): string | null {
   switch (code) {
-    case "slug_conflict":
-      return "Этот адрес уже занят другим Material.";
-    case "slug_locked":
-      return "Адрес опубликованного Material изменить нельзя.";
     case "series_ordinal_conflict":
       return "Эта позиция в Series уже занята.";
     case "invalid_publication_transition":

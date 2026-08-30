@@ -23,7 +23,7 @@ export interface MaterialMetadataValues {
 }
 
 export interface MaterialMetadataSelectionValues
-  extends Omit<MaterialMetadataValues, "seriesMemberships"> {
+  extends Omit<MaterialMetadataValues, "seriesMemberships" | "slug"> {
   readonly seriesIds: readonly string[];
 }
 
@@ -46,14 +46,9 @@ export type MaterialMetadataValidationError =
     }
   | { readonly code: "duplicate_tag"; readonly tagId: string };
 
-const metadataBaseShape = {
+const metadataSelectionBaseShape = {
   title: z.string().trim().min(1).max(160).nullable(),
   summary: z.string().trim().min(1).max(500).nullable(),
-  slug: z
-    .string()
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    .max(120)
-    .nullable(),
   access: z.enum(["free", "membership"]),
   topicId: normalizedUuidSchema.nullable(),
   formatId: normalizedUuidSchema.nullable(),
@@ -62,7 +57,12 @@ const metadataBaseShape = {
 
 const metadataSchema = z
   .object({
-    ...metadataBaseShape,
+    ...metadataSelectionBaseShape,
+    slug: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      .max(120)
+      .nullable(),
     seriesMemberships: z
       .array(
         z
@@ -78,7 +78,7 @@ const metadataSchema = z
 
 const metadataSelectionSchema = z
   .object({
-    ...metadataBaseShape,
+    ...metadataSelectionBaseShape,
     seriesIds: z.array(normalizedUuidSchema).max(100),
   })
   .strict();
@@ -125,11 +125,12 @@ export class MaterialMetadataSelection {
 
   materialize(
     seriesMemberships: readonly SeriesMembership[],
+    slug: string | null,
   ): MaterialMetadata {
     const metadata = MaterialMetadata.create({
       title: this.values.title,
       summary: this.values.summary,
-      slug: this.values.slug,
+      slug,
       access: this.values.access,
       topicId: this.values.topicId,
       formatId: this.values.formatId,
@@ -207,25 +208,21 @@ export class MaterialMetadata {
     };
   }
 
+  validateAuthoringCompleteness(): Result<
+    undefined,
+    Extract<MaterialMetadataValidationError, { readonly code: "invalid_content" }>
+  > {
+    const issues = requiredPublicationIssues(this, false);
+    return issues.length === 0
+      ? { ok: true, value: undefined }
+      : { ok: false, error: { code: "invalid_content", issues } };
+  }
+
   validateForPublication(): Result<
     PublishableMaterialMetadata,
     Extract<MaterialMetadataValidationError, { readonly code: "invalid_content" }>
   > {
-    const issues: ValidationIssue[] = [];
-    for (const [field, value] of [
-      ["formatId", this.formatId],
-      ["slug", this.slug],
-      ["summary", this.summary],
-      ["title", this.title],
-      ["topicId", this.topicId],
-    ] as const) {
-      if (value === null) {
-        issues.push({
-          code: "required_for_publication",
-          path: `/metadata/${field}`,
-        });
-      }
-    }
+    const issues = requiredPublicationIssues(this, true);
     if (issues.length > 0) {
       return { ok: false, error: { code: "invalid_content", issues } };
     }
@@ -256,6 +253,24 @@ export class MaterialMetadata {
       seriesMemberships: this.seriesMemberships,
     };
   }
+}
+
+function requiredPublicationIssues(
+  metadata: MaterialMetadata,
+  includeSystemSlug: boolean,
+): ValidationIssue[] {
+  const fields: readonly (readonly [string, unknown])[] = [
+    ["formatId", metadata.formatId],
+    ...(includeSystemSlug ? ([["slug", metadata.slug]] as const) : []),
+    ["summary", metadata.summary],
+    ["title", metadata.title],
+    ["topicId", metadata.topicId],
+  ];
+  return fields.flatMap(([field, value]) =>
+    value === null
+      ? [{ code: "required_for_publication", path: `/metadata/${field}` }]
+      : [],
+  );
 }
 
 function invalidMetadata(

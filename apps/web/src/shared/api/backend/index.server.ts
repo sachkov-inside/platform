@@ -289,7 +289,6 @@ export function requestMaterialDraftCreation(
             access: input.access,
             formatId: input.formatId,
             seriesIds: [...input.seriesIds],
-            slug: null,
             summary: input.summary,
             tagIds: [...input.tagIds],
             title: input.title,
@@ -324,7 +323,6 @@ export function requestMaterialSave(
     readonly materialId: string;
     readonly publicationState: "draft" | "published" | "unpublished";
     readonly seriesIds: readonly string[];
-    readonly slug: string | null;
     readonly summary: string | null;
     readonly tagIds: readonly string[];
     readonly title: string | null;
@@ -344,7 +342,6 @@ export function requestMaterialSave(
             access: input.access,
             formatId: input.formatId,
             seriesIds: [...input.seriesIds],
-            slug: input.slug,
             summary: input.summary,
             tagIds: [...input.tagIds],
             title: input.title,

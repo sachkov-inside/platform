@@ -24,7 +24,6 @@ export type MaterialSaveError =
       readonly code: "stale_content_version";
       readonly currentContentVersion: number;
     }
-  | { readonly code: "slug_locked"; readonly slug: string }
   | {
       readonly code: "invalid_publication_transition";
       readonly currentState: PublicationState;
@@ -69,13 +68,6 @@ export class Material {
         },
       };
     }
-    if (
-      this.firstPublishedAt !== null &&
-      transition.slug !== this.slug &&
-      this.slug !== null
-    ) {
-      return { ok: false, error: { code: "slug_locked", slug: this.slug } };
-    }
     if (!canTransition(this.publicationState, transition.publicationState)) {
       return {
         ok: false,
@@ -94,7 +86,7 @@ export class Material {
       ok: true,
       value: new Material({
         id: this.id,
-        slug: transition.slug,
+        slug: this.slug ?? transition.slug,
         publicationState: transition.publicationState,
         contentVersion: this.contentVersion + 1,
         firstPublishedAt:
