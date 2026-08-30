@@ -48,7 +48,8 @@ test("onboards the Account owner and preserves the complete Profile lifecycle", 
   await expect(page.getByText("Профиль сохранён.")).toBeVisible();
   await expect(page.getByRole("article").getByText(bio)).toBeVisible();
 
-  const publicPath = await page.locator("code").filter({ hasText: "/members/" }).textContent();
+  const publicPathCode = page.locator("code").filter({ hasText: "/members/" });
+  const publicPath = await publicPathCode.textContent();
   expect(publicPath).toMatch(/^\/members\/[0-9a-f-]+$/u);
 
   const accessibility = await new AxeBuilder({ page })
@@ -71,6 +72,9 @@ test("onboards the Account owner and preserves the complete Profile lifecycle", 
   await mkdir(evidenceDirectory, { recursive: true });
   const screenshotName =
     testInfo.project.name === "mobile-chromium" ? "mobile.png" : "desktop.png";
+  await publicPathCode.evaluate((element) => {
+    element.textContent = "/members/<opaque-public-id>";
+  });
   await page.screenshot({ path: resolve(reviewDirectory, screenshotName) });
   await page.screenshot({ path: resolve(evidenceDirectory, screenshotName) });
   if (testInfo.project.name === "desktop-chromium") {

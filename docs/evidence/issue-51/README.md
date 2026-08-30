@@ -12,6 +12,8 @@ Next full-stack smoke, after automated accessibility checks passed.
 - Desktop viewport: `1440 × 1024`.
 - Mobile viewport: `390 × 844`.
 - The same production projection component renders the owner preview and `/members/<publicProfileId>`.
+- The generated public ID is shown as `<opaque-public-id>` only while capturing deterministic
+  screenshots; the smoke continues with the actual generated route stored before redaction.
 - `Pages/Member Profile/Production` exercises the positive active-member projection and report
   control at desktop and 390 px mobile widths with Storybook accessibility checks enabled.
 - Narrow order remains edit → preview → lifecycle; desktop adds the labelled privacy seam.
