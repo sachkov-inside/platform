@@ -51,9 +51,10 @@ if [[ "$unauthenticated_status" != "401" ]]; then
   exit 1
 fi
 
-if ! docker compose logs --no-color mcp | grep --quiet '"process":"mcp","status":"ok","database":"reachable"'; then
+mcp_logs="$(docker compose logs --no-color mcp)"
+if [[ "$mcp_logs" != *'"process":"mcp","status":"ok","database":"reachable"'* ]]; then
   echo "MCP did not report database-backed readiness" >&2
-  docker compose logs --no-color mcp >&2
+  printf '%s\n' "$mcp_logs" >&2
   exit 1
 fi
 

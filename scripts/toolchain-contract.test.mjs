@@ -223,6 +223,17 @@ describe("supported toolchain contract", () => {
     assert.match(smoke, /\bpublication_state\b/u);
     assert.doesNotMatch(smoke, /\bfrom materials\b(?!\.)/u);
   });
+
+  it("matches captured MCP logs without a pipefail-sensitive quiet grep", () => {
+    const smoke = read("scripts/compose-stack-smoke.sh");
+
+    assert.match(smoke, /mcp_logs="\$\(docker compose logs --no-color mcp\)"/u);
+    assert.match(smoke, /\[\[ "\$mcp_logs" != \*/u);
+    assert.doesNotMatch(
+      smoke,
+      /docker compose logs --no-color mcp\s*\|\s*grep --quiet/u,
+    );
+  });
 });
 
 function escapeRegExp(value) {
