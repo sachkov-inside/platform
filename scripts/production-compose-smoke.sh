@@ -14,13 +14,22 @@ export PLATFORM_COMPOSE_PROJECT="$project_name"
 export PLATFORM_DOMAIN=localhost
 export PLATFORM_HTTP_PORT="$http_port"
 export PLATFORM_HTTPS_PORT="$https_port"
-export PLATFORM_API_IMAGE="inside-platform-api:production-smoke-${smoke_suffix}"
-export PLATFORM_WEB_IMAGE="inside-platform-web:production-smoke-${smoke_suffix}"
+export PLATFORM_API_IMAGE_REPOSITORY=local.invalid/inside-platform-api
+export PLATFORM_API_IMAGE_DIGEST=0000000000000000000000000000000000000000000000000000000000000000
+export PLATFORM_WEB_IMAGE_REPOSITORY=local.invalid/inside-platform-web
+export PLATFORM_WEB_IMAGE_DIGEST=0000000000000000000000000000000000000000000000000000000000000000
+export PLATFORM_API_BUILD_IMAGE="inside-platform-api:production-smoke-${smoke_suffix}"
+export PLATFORM_WEB_BUILD_IMAGE="inside-platform-web:production-smoke-${smoke_suffix}"
 export SOURCE_REVISION="$source_revision"
 export POSTGRES_DB=inside
-export POSTGRES_USER=inside
-export POSTGRES_PASSWORD=inside-production-smoke-database-password
-export DATABASE_URL=postgresql://inside:inside-production-smoke-database-password@postgres:5432/inside
+export POSTGRES_USER=inside_admin
+export POSTGRES_PASSWORD=inside-production-smoke-bootstrap-password
+export MIGRATION_DATABASE_USER=inside_migrator
+export MIGRATION_DATABASE_PASSWORD=inside-production-smoke-migration-password
+export APPLICATION_DATABASE_USER=inside_app
+export APPLICATION_DATABASE_PASSWORD=inside-production-smoke-application-password
+export MIGRATION_DATABASE_URL=postgresql://inside_migrator:inside-production-smoke-migration-password@postgres:5432/inside
+export DATABASE_URL=postgresql://inside_app:inside-production-smoke-application-password@postgres:5432/inside
 export LOGTO_ISSUER=https://identity.production-smoke.invalid/oidc
 export LOGTO_ENDPOINT=https://identity.production-smoke.invalid
 export LOGTO_AUDIENCE=https://api.production-smoke.invalid
@@ -40,7 +49,8 @@ compose=(
 )
 
 cleanup() {
-  "${compose[@]}" down --volumes --remove-orphans
+  "${compose[@]}" down --volumes --remove-orphans || true
+  docker image rm "$PLATFORM_API_BUILD_IMAGE" "$PLATFORM_WEB_BUILD_IMAGE" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -100,7 +110,49 @@ if [[ "$migration_count" != "7" ]]; then
   exit 1
 fi
 
-for image in "$PLATFORM_API_IMAGE" "$PLATFORM_WEB_IMAGE"; do
+migration_role_contract="$(
+  "${compose[@]}" exec -T postgres psql \
+    --username "$POSTGRES_USER" \
+    --dbname "$POSTGRES_DB" \
+    --tuples-only \
+    --no-align \
+    --command "select concat(rolsuper, ':', rolcreatedb, ':', rolcreaterole, ':', rolreplication, ':', rolbypassrls) from pg_roles where rolname = '$MIGRATION_DATABASE_USER';"
+)"
+if [[ "$migration_role_contract" != "f:f:f:f:f" ]]; then
+  echo "Migration database role exceeds its schema-owner contract: $migration_role_contract" >&2
+  exit 1
+fi
+
+runtime_role_contract="$(
+  "${compose[@]}" exec -T postgres psql \
+    --username "$POSTGRES_USER" \
+    --dbname "$POSTGRES_DB" \
+    --tuples-only \
+    --no-align \
+    --command "select concat(rolsuper, ':', rolcreatedb, ':', rolcreaterole, ':', rolreplication, ':', rolbypassrls, ':', has_schema_privilege(rolname, 'materials', 'create'), ':', has_table_privilege(rolname, 'public.platform_migrations', 'select')) from pg_roles where rolname = '$APPLICATION_DATABASE_USER';"
+)"
+if [[ "$runtime_role_contract" != "f:f:f:f:f:f:f" ]]; then
+  echo "Application database role exceeds its runtime contract: $runtime_role_contract" >&2
+  exit 1
+fi
+
+runtime_material_count="$(
+  "${compose[@]}" exec -T \
+    --env "PGPASSWORD=$APPLICATION_DATABASE_PASSWORD" \
+    postgres psql \
+      --host postgres \
+      --username "$APPLICATION_DATABASE_USER" \
+      --dbname "$POSTGRES_DB" \
+      --tuples-only \
+      --no-align \
+      --command "select count(*) from materials.materials;"
+)"
+if [[ "$runtime_material_count" != "0" ]]; then
+  echo "Application database role could not read the migrated schema" >&2
+  exit 1
+fi
+
+for image in "$PLATFORM_API_BUILD_IMAGE" "$PLATFORM_WEB_BUILD_IMAGE"; do
   image_user="$(docker image inspect "$image" --format '{{.Config.User}}')"
   image_revision="$(
     docker image inspect "$image" \
@@ -116,7 +168,7 @@ for image in "$PLATFORM_API_IMAGE" "$PLATFORM_WEB_IMAGE"; do
   fi
 done
 
-if ! docker run --rm --entrypoint sh "$PLATFORM_API_IMAGE" -c \
+if ! docker run --rm --entrypoint sh "$PLATFORM_API_BUILD_IMAGE" -c \
   "test ! -e /app/dist/development && test ! -e /app/dist/entrypoints/mcp.js"; then
   echo "API image contains a development or unrelated process entrypoint" >&2
   exit 1

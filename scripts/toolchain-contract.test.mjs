@@ -154,13 +154,47 @@ describe("supported toolchain contract", () => {
 
     assert.match(
       productionCompose,
-      /image: \$\{PLATFORM_API_IMAGE:\?Set PLATFORM_API_IMAGE to an immutable image reference\}/u,
+      /image: \$\{PLATFORM_API_IMAGE_REPOSITORY:\?[^}]+\}@sha256:\$\{PLATFORM_API_IMAGE_DIGEST:\?[^}]+\}/u,
     );
     assert.match(
       productionCompose,
-      /image: \$\{PLATFORM_WEB_IMAGE:\?Set PLATFORM_WEB_IMAGE to an immutable image reference\}/u,
+      /image: \$\{PLATFORM_WEB_IMAGE_REPOSITORY:\?[^}]+\}@sha256:\$\{PLATFORM_WEB_IMAGE_DIGEST:\?[^}]+\}/u,
     );
     assert.doesNotMatch(productionCompose, /^\s+build:/mu);
+  });
+
+  it("keeps production database and network privileges separated", () => {
+    const productionCompose = read("compose.production.yaml");
+    const databaseRoles = read("scripts/provision-production-database-roles.sh");
+
+    assert.match(productionCompose, /DATABASE_URL: \$\{MIGRATION_DATABASE_URL:\?[^}]+\}/u);
+    assert.match(productionCompose, /DATABASE_URL: \$\{DATABASE_URL:\?Set DATABASE_URL\}/u);
+    assert.match(productionCompose, /database-roles:\n/u);
+    assert.match(productionCompose, /database-access:\n/u);
+    assert.match(productionCompose, /RELEASE_API_IMAGE_DIGEST: \$\{PLATFORM_API_IMAGE_DIGEST:\?[^}]+\}/u);
+    assert.match(productionCompose, /data:\n\s+internal: true/u);
+    assert.match(databaseRoles, /grant connect, create on database/u);
+    assert.match(databaseRoles, /nosuperuser nocreatedb nocreaterole noinherit noreplication nobypassrls/u);
+    assert.match(databaseRoles, /grant select, insert, update, delete on all tables/u);
+    assert.doesNotMatch(databaseRoles, /all tables in schema public/u);
+  });
+
+  it("excludes optional build-only packages from the production API image", () => {
+    assert.match(
+      read("Dockerfile"),
+      /deploy --prod --no-optional --ignore-scripts \/workspace\/\.production\/backend/u,
+    );
+  });
+
+  it("isolates production smoke resources and removes its temporary image tags", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
+
+    assert.match(smoke, /smoke_suffix="\$\{source_revision:0:12\}-\$\$"/u);
+    assert.match(
+      smoke,
+      /docker image rm "\$PLATFORM_API_BUILD_IMAGE" "\$PLATFORM_WEB_BUILD_IMAGE"/u,
+    );
+    assert.match(smoke, /down --volumes --remove-orphans/u);
   });
 
   it("groups only patch/minor Dependabot updates", () => {

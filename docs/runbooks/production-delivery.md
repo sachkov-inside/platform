@@ -5,14 +5,18 @@ is deliberately separate from `compose.yaml`, which remains the source-mounted d
 
 ## Runtime topology
 
-`compose.production.yaml` accepts prebuilt API and web image references, runs migrations once,
-waits for healthy application processes, and exposes only Caddy on ports 80 and 443. PostgreSQL,
-API, and web stay on the private Compose network. Caddy owns TLS certificates and proxies requests
+`compose.production.yaml` accepts prebuilt API and web image references, provisions separate
+non-superuser migration and runtime database roles, runs migrations once, waits for healthy
+application processes, and exposes only Caddy on ports 80 and 443. Separate edge, application and
+internal data networks keep Caddy and web away from PostgreSQL while preserving the outbound
+identity-provider access needed by web and API. Caddy owns TLS certificates and proxies requests
 to web.
 
-Application images must be supplied through `PLATFORM_API_IMAGE` and `PLATFORM_WEB_IMAGE` as
-immutable registry references, preferably digest references. The base production file has no
-`build` section, so a server deployment does not need the Git repository or a build toolchain.
+Application image repositories and SHA-256 digests must be supplied separately through the
+`PLATFORM_*_IMAGE_REPOSITORY` and `PLATFORM_*_IMAGE_DIGEST` variables. Compose constructs an
+`@sha256:` reference, so a mutable tag cannot accidentally become a release input. The base
+production file has no `build` section, so a server deployment does not need the source tree or a
+build toolchain; it needs only the checked deployment configuration and provisioning script.
 `compose.production.build.yaml` is a local and CI build override; it is not part of the server
 runtime command.
 
@@ -26,10 +30,15 @@ install -m 600 .env.production.example .env.production
 ```
 
 Never commit `.env.production`. The tracked example documents names only. Identity secrets,
-cookie encryption material, the email fingerprint key, and the database password must come from
-the deployment environment. URL-encode the database password in `DATABASE_URL`; PostgreSQL itself
-receives the original value from `POSTGRES_PASSWORD`. Image references are release inputs, not
-long-lived secrets.
+cookie encryption material, the email fingerprint key, and database passwords must come from the
+deployment environment. The PostgreSQL bootstrap administrator, migration owner and long-running
+application use different roles and passwords. Migrations receive `MIGRATION_DATABASE_URL`; API
+receives only the restricted `DATABASE_URL`. URL-encode passwords in both URLs; the short-lived
+role-provisioning containers receive their original values. The application access step is tied
+to the API digest, so it reruns after every release and grants new migration-owned objects before
+API starts. Changing `POSTGRES_PASSWORD` does not rotate the administrator password inside an
+existing PostgreSQL volume; perform that rotation explicitly in PostgreSQL. Image repositories and
+digests are release inputs, not long-lived secrets.
 
 Validate a candidate configuration without starting containers:
 
@@ -40,10 +49,11 @@ docker compose --env-file .env.production -f compose.production.yaml config --qu
 ## Local production smoke
 
 The smoke builds the same final image targets used by CI, starts an isolated production-like stack
-on ports 38080 and 38443, checks migrations, API health, web through HTTPS Caddy, the non-root image
-user, production-only API entrypoints, and OCI revision labels, then removes only its own containers
-and volumes. Every invocation uses a unique Compose project and local image tags; occupied smoke
-ports fail the new invocation without modifying the existing owner.
+on ports 38080 and 38443, checks migrations, the restricted database role, API health, web through
+HTTPS Caddy, the non-root image user, production-only API entrypoints, and OCI revision labels,
+then removes its own containers, volumes and temporary image tags. Every invocation uses a unique
+Compose project and local image tags; occupied smoke ports fail the new invocation without
+modifying the existing owner.
 
 ```bash
 pnpm compose:production:smoke

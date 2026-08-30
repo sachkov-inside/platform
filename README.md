@@ -75,9 +75,9 @@ is an explicit destructive reset.
 
 ## Production delivery baseline
 
-The production runtime uses prebuilt immutable API and web images, a one-shot migration service,
-private application networking and Caddy as the only public entry point. It is intentionally
-separate from the source-mounted development stack.
+The production runtime uses prebuilt digest-addressed API and web images, a one-shot migration
+service, a restricted runtime database role, least-privilege networks and Caddy as the only public
+entry point. It is intentionally separate from the source-mounted development stack.
 
 ```bash
 pnpm compose:production:smoke

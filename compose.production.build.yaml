@@ -1,5 +1,9 @@
 services:
+  migrations:
+    image: ${PLATFORM_API_BUILD_IMAGE:?Set PLATFORM_API_BUILD_IMAGE}
+
   api:
+    image: ${PLATFORM_API_BUILD_IMAGE:?Set PLATFORM_API_BUILD_IMAGE}
     build:
       context: .
       dockerfile: Dockerfile
@@ -8,6 +12,7 @@ services:
         SOURCE_REVISION: ${SOURCE_REVISION:-local}
 
   web:
+    image: ${PLATFORM_WEB_BUILD_IMAGE:?Set PLATFORM_WEB_BUILD_IMAGE}
     build:
       context: .
       dockerfile: Dockerfile
