@@ -79,7 +79,7 @@ describe("ListPublishedMaterials", () => {
     expect(JSON.stringify([firstPage, secondPage])).not.toContain("blocks");
   });
 
-  test("ranks RU/EN search and combines canonical facets predictably", async () => {
+  test("ranks title, summary and public metadata for RU/EN search", async () => {
     const { contentAccess, publishedMaterialReader } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => false },
@@ -92,9 +92,9 @@ describe("ListPublishedMaterials", () => {
         subject: anonymousSubject,
         first: 12,
         q: "career roadmap",
-        topicSlugs: ["career", "platform"],
-        formatSlugs: ["video"],
-        seriesSlugs: ["career-path"],
+        topicSlugs: [],
+        formatSlugs: [],
+        seriesSlugs: [],
         sort: "relevance",
       },
     );
@@ -102,13 +102,15 @@ describe("ListPublishedMaterials", () => {
       ok: true,
       value: {
         items: [
-          {
+          expect.objectContaining({
             slug: "career-roadmap",
             title: "Career roadmap",
             access: "membership",
-          },
+          }),
+          expect.objectContaining({ slug: "career-roadmap-summary" }),
+          expect.objectContaining({ slug: "career-roadmap-taxonomy" }),
         ],
-        totalCount: 1,
+        totalCount: 3,
       },
     });
     if (!english.ok) {
@@ -123,6 +125,24 @@ describe("ListPublishedMaterials", () => {
     expect(english.value.facets.series.map(({ slug }) => slug)).toContain(
       "career-path",
     );
+
+    await expect(
+      listPublishedMaterials(publishedMaterialReader, contentAccess, {
+        subject: anonymousSubject,
+        first: 12,
+        q: "career roadmap",
+        topicSlugs: ["career", "platform"],
+        formatSlugs: ["video"],
+        seriesSlugs: ["career-path"],
+        sort: "relevance",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: {
+        items: [expect.objectContaining({ slug: "career-roadmap" })],
+        totalCount: 1,
+      },
+    });
 
     const russian = await listPublishedMaterials(
       publishedMaterialReader,
@@ -145,8 +165,9 @@ describe("ListPublishedMaterials", () => {
             slug: "karernyi-marshrut",
             title: "Карьерный маршрут инженера",
           }),
+          expect.objectContaining({ slug: "karernyi-marshrut-summary" }),
         ],
-        totalCount: 1,
+        totalCount: 2,
       },
     });
     expect(JSON.stringify([english, russian])).not.toContain("schemaVersion");
@@ -226,7 +247,9 @@ describe("ListPublishedMaterials", () => {
           websearch_to_tsquery('simple'::regconfig, 'benchmark needle')
         )
       `);
-      expect(JSON.stringify(plan)).toContain("search_vector");
+      expect(JSON.stringify(plan)).toContain(
+        '"Index Name":"published_materials_search_vector_idx"',
+      );
       const indexes = await testDatabase.prisma.$queryRaw<
         readonly { readonly indexdef: string }[]
       >(Prisma.sql`
@@ -254,7 +277,7 @@ describe("ListPublishedMaterials", () => {
         );
         durations.push(performance.now() - startedAt);
         expect(result).toMatchObject({
-          totalCount: 100,
+          totalCount: 1,
         });
       }
 
@@ -271,6 +294,7 @@ const actorId = "74000000-0000-4000-8000-000000000001";
 const careerTopicId = "74000000-0000-4000-8000-000000000002";
 const videoFormatId = "74000000-0000-4000-8000-000000000003";
 const careerSeriesId = "74000000-0000-4000-8000-000000000004";
+const careerSearchTagId = "74000000-0000-4000-8000-000000000005";
 
 async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
   await testDatabase.prisma.topic.create({
@@ -286,6 +310,13 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
       slug: "career-path",
     },
   });
+  await testDatabase.prisma.tag.create({
+    data: {
+      id: careerSearchTagId,
+      name: "Career roadmap taxonomy",
+      normalizedName: "career roadmap taxonomy",
+    },
+  });
 
   const { authoring } = assembleMaterials({
     prisma: testDatabase.prisma,
@@ -296,7 +327,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
       slug: "career-roadmap",
       metadata: {
         title: "Career roadmap",
-        summary: "A practical route for an engineering career.",
+        summary: "A practical route for engineers.",
         access: "membership" as const,
         topicId: careerTopicId,
         formatId: videoFormatId,
@@ -306,10 +337,36 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
       bodyText: "Закрытый карьерный план",
     },
     {
+      slug: "career-roadmap-summary",
+      metadata: {
+        title: "Engineering growth plan",
+        summary: "Career roadmap for senior developers.",
+        access: "free" as const,
+        topicId: "72000000-0000-4000-8000-000000000002",
+        formatId: "72000000-0000-4000-8000-000000000003",
+        tagIds: [],
+        seriesIds: [],
+      },
+      bodyText: "Summary-weight fixture",
+    },
+    {
+      slug: "career-roadmap-taxonomy",
+      metadata: {
+        title: "Engineering progression",
+        summary: "A practical sequence for developers.",
+        access: "free" as const,
+        topicId: "72000000-0000-4000-8000-000000000002",
+        formatId: "72000000-0000-4000-8000-000000000003",
+        tagIds: [careerSearchTagId],
+        seriesIds: [],
+      },
+      bodyText: "Taxonomy-weight fixture",
+    },
+    {
       slug: "karernyi-marshrut",
       metadata: {
         title: "Карьерный маршрут инженера",
-        summary: "Как последовательно развивать инженерную карьеру.",
+        summary: "Последовательный план для инженеров.",
         access: "free" as const,
         topicId: careerTopicId,
         formatId: "72000000-0000-4000-8000-000000000003",
@@ -317,6 +374,19 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
         seriesIds: [],
       },
       bodyText: "Открытый карьерный план",
+    },
+    {
+      slug: "karernyi-marshrut-summary",
+      metadata: {
+        title: "Развитие инженера",
+        summary: "Карьерный маршрут для технического лидера.",
+        access: "free" as const,
+        topicId: "72000000-0000-4000-8000-000000000002",
+        formatId: "72000000-0000-4000-8000-000000000003",
+        tagIds: [],
+        seriesIds: [],
+      },
+      bodyText: "Русский summary-weight fixture",
     },
   ] as const;
 
@@ -416,8 +486,8 @@ async function seedSearchPerformanceCorpus(
       'search-performance-' || sample::text,
       'Representative material ' || sample::text,
       case
-        when sample % 100 = 0 then 'Benchmark needle result ' || sample::text
-        else 'Ordinary library result ' || sample::text
+        when sample = 10000 then 'Benchmark needle result ' || sample::text
+        else repeat('Ordinary library result for representative search. ', 40) || sample::text
       end,
       '72000000-0000-4000-8000-000000000002'::uuid,
       '72000000-0000-4000-8000-000000000003'::uuid,

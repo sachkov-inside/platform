@@ -7,6 +7,7 @@ import { libraryCatalogQueryKey } from "@/_pages/library";
 import { getQueryClient } from "@/shared/api/query-client";
 import { requestLibraryCatalogPage } from "../../src/_pages/library/api/request-library-catalog";
 import { libraryCatalogBrowserQueryOptions } from "../../src/_pages/library/api/library-catalog-query.browser";
+import { pushLibraryContinuationHistory } from "../../src/_pages/library/ui/library-page-history.client";
 import { createLibraryCatalogQueryOptions } from "../../src/_pages/library/model/library-catalog-query";
 import {
   parseLibrarySearchParams,
@@ -70,6 +71,25 @@ describe("Library TanStack Query interface", () => {
     expect(parsed.wasNormalized).toBe(true);
     expect(serializeLibrarySearchQuery(parsed.query)).toBe(
       "q=%D0%BA%D0%B0%D1%80%D1%8C%D0%B5%D1%80%D0%BD%D1%8B%D0%B9+%D0%BC%D0%B0%D1%80%D1%88%D1%80%D1%83%D1%82&topic=career&topic=platform&format=video&series=career-path&after=cursor-one",
+    );
+  });
+
+  it("publishes the successfully loaded cursor as canonical browser history", () => {
+    const pushState = vi.fn();
+    vi.stubGlobal("window", {
+      history: { pushState },
+      location: { pathname: "/library", search: "" },
+    });
+
+    pushLibraryContinuationHistory(
+      { ...defaultQuery, q: "career roadmap" },
+      "next_cursor",
+    );
+
+    expect(pushState).toHaveBeenCalledWith(
+      null,
+      "",
+      "/library?q=career+roadmap&after=next_cursor",
     );
   });
 

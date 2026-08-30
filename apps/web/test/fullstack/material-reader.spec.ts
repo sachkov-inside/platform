@@ -67,6 +67,32 @@ test("server-renders the safe PostgreSQL catalog through Nest", async ({
     scrollWidth: element.scrollWidth,
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+
+  await expect(page).toHaveURL(/[?&]after=[A-Za-z0-9_-]+/u);
+  const continuationUrl = page.url();
+  const continuationTitle = await page
+    .getByRole("article")
+    .last()
+    .getByRole("heading", { level: 3 })
+    .textContent();
+  expect(continuationTitle).not.toBeNull();
+  const sharedContinuation = await request.get(continuationUrl);
+  expect(sharedContinuation.status()).toBe(200);
+  expect(await sharedContinuation.text()).toContain(continuationTitle);
+
+  await page.reload();
+  expect(page.url()).toBe(continuationUrl);
+  await expect(page.getByRole("article")).toHaveCount(1);
+  await expect(
+    page.getByRole("link", { name: continuationTitle ?? "" }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/library$/u);
+  await page.goForward();
+  expect(page.url()).toBe(continuationUrl);
+  await expect(
+    page.getByRole("link", { name: continuationTitle ?? "" }),
+  ).toBeVisible();
   expect(browserErrors).toEqual([]);
 });
 
