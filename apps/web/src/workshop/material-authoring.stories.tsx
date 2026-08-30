@@ -4,6 +4,7 @@ import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import {
+  authoringMaterialsRootHref,
   MaterialAuthoringPreviewUnauthorizedState,
   MaterialAuthoringPreviewNotFoundState,
   MaterialAuthoringUnexpectedEditorState,
@@ -346,7 +347,7 @@ export const PreviewUnexpectedError: Story = {
       reference="preview_unavailable"
       retryHref={withAuthoringReturnHref(
         "/authoring/materials/94000000-0000-4000-8000-000000000099/preview",
-        "/authoring/materials",
+        authoringMaterialsRootHref,
       )}
     />
   ),

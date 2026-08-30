@@ -1,7 +1,5 @@
 import type { Route } from "next";
 
-export const authoringMaterialsRootHref = "/authoring/materials" satisfies Route;
-
 function isInternalRoute(value: string): value is Route {
   return value.startsWith("/") && !value.startsWith("//");
 }
@@ -12,6 +10,10 @@ function internalRoute(value: string): Route {
   }
   return value;
 }
+
+export const authoringMaterialsRootHref = internalRoute(
+  "/authoring" + "/materials",
+);
 
 export function parseAuthoringReturnHref(value: unknown): Route {
   if (typeof value !== "string" || value.length > 512) {
