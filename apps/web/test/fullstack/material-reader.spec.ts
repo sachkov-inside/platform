@@ -422,6 +422,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/topics\/platform$/u);
   await expect(page.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
+  await expect(page).toHaveTitle("Platform — тема · Inside");
   await expect(page.getByText("Для участников")).toBeVisible();
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
@@ -440,6 +441,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
   ).toBeVisible();
+  await expect(page).toHaveTitle("Создание Platform Inside — плейлист · Inside");
   await expect(
     page.locator("[data-series-order] [data-series-ordinal]").evaluateAll((items) =>
       items.map((item) => item.getAttribute("data-series-ordinal")),
