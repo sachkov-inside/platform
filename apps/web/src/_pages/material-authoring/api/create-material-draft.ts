@@ -3,7 +3,10 @@ import "server-only";
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 
-import type { MaterialValidationIssue } from "@/features/material-authoring";
+import {
+  materialDocumentSchema,
+  type MaterialValidationIssue,
+} from "@/features/material-authoring";
 import {
   BackendConnectionError,
   requestMaterialAuthoringReferences,
@@ -19,7 +22,6 @@ import type {
 } from "../model/create-material-draft-state";
 import { mapCurrentMaterialPreview } from "./material-preview-mapper";
 import { getMaterialAuthoringReferences } from "./get-material-authoring-references";
-import { materialDocumentSchema } from "./material-document-schema";
 
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),

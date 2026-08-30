@@ -9,6 +9,7 @@ import {
   type MaterialAuthoringPresentation,
   withAuthoringReturnHref,
 } from "@/features/material-authoring";
+import { mutateMaterialLifecycleAction } from "@/features/material-authoring.server";
 import {
   getPlatformAccessTokenRsc,
   LogtoSessionUnavailableError,
@@ -70,6 +71,7 @@ export async function CurrentMaterialAuthoringPage({
     availableTopics: state.references.references.topics,
     authorization: { kind: "allowed" },
     blocking: { kind: "none" },
+    deletion: { pending: false, state: { kind: "idle" } },
     draft: state.draft,
     mode: "editor",
     noticeRevision: 0,
@@ -82,6 +84,7 @@ export async function CurrentMaterialAuthoringPage({
     <MaterialAuthoringPageClient
       initialPresentation={initialPresentation}
       key={materialId}
+      lifecycleAction={mutateMaterialLifecycleAction}
       mutationAction={saveMaterialAction}
       returnHref={returnHref}
     />

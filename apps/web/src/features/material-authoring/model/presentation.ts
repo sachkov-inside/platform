@@ -1,5 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 
+import type { MaterialLifecycleActionState } from "./material-lifecycle-state";
+
 export type MaterialSaveState =
   | { readonly kind: "clean" }
   | { readonly kind: "dirty" }
@@ -13,6 +15,7 @@ export interface MaterialSelectOption {
 
 export interface MaterialDraftPresentation {
   readonly access: "free" | "membership";
+  readonly canDelete: boolean;
   readonly document: JSONContent;
   readonly formatId: string;
   readonly materialId: string | null;
@@ -115,6 +118,7 @@ export type MaterialValidationState =
 
 export type MaterialWorkspaceBlockingState =
   | { readonly kind: "none" }
+  | { readonly kind: "not_found" }
   | {
       readonly currentContentVersion: number;
       readonly kind: "conflict";
@@ -134,6 +138,10 @@ export interface MaterialAuthoringPresentation {
     | { readonly kind: "allowed" }
     | { readonly kind: "unauthorized" };
   readonly blocking: MaterialWorkspaceBlockingState;
+  readonly deletion: {
+    readonly pending: boolean;
+    readonly state: MaterialLifecycleActionState;
+  };
   readonly draft: MaterialDraftPresentation;
   readonly mode: "editor" | "preview";
   readonly noticeRevision: number;
@@ -146,7 +154,6 @@ export interface MaterialAuthoringPresentation {
 export type MaterialDraftField =
   | "access"
   | "formatId"
-  | "publicationState"
   | "summary"
   | "title"
   | "topicId";
@@ -155,6 +162,7 @@ export interface MaterialAuthoringActions {
   readonly onBack: () => void;
   readonly onConflictAction: (action: "compare" | "copy" | "open_current") => void;
   readonly onDocumentChange: (document: JSONContent) => void;
+  readonly onDelete: (formData: FormData) => void;
   readonly onFieldChange: (field: MaterialDraftField, value: string) => void;
   readonly onOpenPreview: () => void;
   readonly onRetry: () => void;

@@ -1,39 +1,54 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 
 import type {
   AuthoringMaterialsQuery,
   AuthoringMaterialsState,
 } from "@/_pages/authoring-materials/model/authoring-materials-presentation";
+import type { MaterialLifecycleActionState } from "@/features/material-authoring";
 import {
   AuthoringMaterialsLoading,
   AuthoringMaterialsView,
 } from "@/_pages/authoring-materials/ui/authoring-materials-view";
 
 const query = { page: 1 } satisfies AuthoringMaterialsQuery;
+const lifecycleAction = fn(
+  (
+    state: MaterialLifecycleActionState,
+  ): Promise<MaterialLifecycleActionState> => Promise.resolve(state),
+);
 const readyState = {
   kind: "ready",
   items: [
     {
+      canDelete: false,
+      contentVersion: 5,
       format: "Guide",
       materialId: "96000000-0000-4000-8000-000000000001",
       publicationState: "published",
+      submissionId: "96000000-0000-4000-8000-000000000011",
       title: "Как устроен Inside",
       topic: "Platform",
       updatedAt: "2026-08-30T13:40:00.000Z",
     },
     {
+      canDelete: true,
+      contentVersion: 2,
       format: "Guide",
       materialId: "96000000-0000-4000-8000-000000000002",
       publicationState: "draft",
+      submissionId: "96000000-0000-4000-8000-000000000012",
       title: "Работа с материалами",
       topic: "Platform",
       updatedAt: "2026-08-30T12:15:00.000Z",
     },
     {
+      canDelete: false,
+      contentVersion: 4,
       format: null,
       materialId: "96000000-0000-4000-8000-000000000003",
       publicationState: "unpublished",
+      submissionId: "96000000-0000-4000-8000-000000000013",
       title: null,
       topic: null,
       updatedAt: "2026-08-29T17:10:00.000Z",
@@ -46,7 +61,11 @@ const readyState = {
 } satisfies Extract<AuthoringMaterialsState, { readonly kind: "ready" }>;
 
 const meta = {
-  args: { query, state: readyState },
+  args: {
+    lifecycleAction,
+    query,
+    state: readyState,
+  },
   component: AuthoringMaterialsView,
   parameters: {
     docs: {
@@ -74,6 +93,15 @@ export const Populated: Story = {
     await expect(canvas.queryByText(/^v\d+$/u)).not.toBeInTheDocument();
     await expect(canvas.queryByText("Topic", { exact: true })).not.toBeInTheDocument();
     await expect(canvas.queryByText("Format", { exact: true })).not.toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Снять с публикации" })).toBeVisible();
+    await expect(canvas.getAllByRole("button", { name: "Опубликовать" })).toHaveLength(2);
+    await userEvent.click(canvas.getByRole("button", { name: "Удалить черновик" }));
+    const dialog = canvas.getByRole("dialog", {
+      name: "Удалить «Работа с материалами»?",
+    });
+    await expect(dialog).toBeVisible();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Оставить черновик" }));
+    await expect(dialog).not.toBeVisible();
   },
 };
 

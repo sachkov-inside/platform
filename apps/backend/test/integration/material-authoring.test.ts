@@ -391,6 +391,7 @@ describe("MaterialAuthoring", () => {
       value: {
         items: [
           {
+            canDelete: true,
             contentVersion: 1,
             format: { id: formatId, name: "Admin format" },
             materialId: materialIds[2],
@@ -400,6 +401,7 @@ describe("MaterialAuthoring", () => {
             updatedAt: "2026-08-03T10:00:00.000Z",
           },
           {
+            canDelete: true,
             contentVersion: 1,
             format: { id: formatId, name: "Admin format" },
             materialId: materialIds[1],
@@ -445,6 +447,7 @@ describe("MaterialAuthoring", () => {
       value: {
         items: [
           {
+            canDelete: true,
             materialId: materialIds[0],
             publicationState: "draft",
             title: "Admin corpus Старый",
@@ -466,6 +469,7 @@ describe("MaterialAuthoring", () => {
       value: {
         items: [
           {
+            canDelete: false,
             contentVersion: 3,
             materialId: retiredDraft.value.materialId,
             publicationState: "unpublished",

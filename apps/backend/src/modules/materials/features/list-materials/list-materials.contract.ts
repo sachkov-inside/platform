@@ -8,6 +8,7 @@ export interface AuthoringMaterialReferenceDto {
 }
 
 export interface AuthoringMaterialListItemDto {
+  readonly canDelete: boolean;
   readonly materialId: string;
   readonly title: string | null;
   readonly publicationState: PublicationState;

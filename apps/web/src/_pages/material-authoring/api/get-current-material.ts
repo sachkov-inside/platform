@@ -2,7 +2,10 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { MaterialDraftPresentation } from "@/features/material-authoring";
+import {
+  materialDocumentSchema,
+  type MaterialDraftPresentation,
+} from "@/features/material-authoring";
 import {
   BackendConnectionError,
   requestCurrentMaterial,
@@ -11,7 +14,6 @@ import {
 } from "@/shared/api/backend/index.server";
 
 import { getMaterialAuthoringReferences } from "./get-material-authoring-references";
-import { materialDocumentSchema } from "./material-document-schema";
 
 const seriesMembershipSchema = z
   .object({ ordinal: z.number().int().positive(), seriesId: z.uuid() })
@@ -122,6 +124,9 @@ export async function getCurrentMaterial(
   return {
     draft: {
       access: parsed.data.metadata.access,
+      canDelete:
+        parsed.data.publicationState === "draft" &&
+        parsed.data.firstPublishedAt === null,
       contentVersion: parsed.data.contentVersion,
       document: parsed.data.body.doc,
       formatId: parsed.data.metadata.formatId ?? "unassigned",

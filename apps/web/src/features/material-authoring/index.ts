@@ -12,11 +12,20 @@ export {
   type MaterialValidationState,
 } from "./model/presentation";
 export {
+  initialMaterialLifecycleActionState,
+  type MaterialLifecycleActionState,
+  type MaterialLifecycleIssue,
+  type MaterialLifecycleOperation,
+} from "./model/material-lifecycle-state";
+export { materialDocumentSchema } from "./model/material-document-schema";
+export {
   authoringMaterialsRootHref,
   parseAuthoringReturnHref,
   withAuthoringReturnHref,
 } from "./model/authoring-return";
 export { MaterialAuthoringWorkspace } from "./ui/material-authoring-workspace.client";
+export { MaterialDeleteDialog } from "./ui/material-delete-dialog.client";
+export { MaterialPublicationActionButton } from "./ui/material-publication-action-button";
 export { MaterialAuthoringShell } from "./ui/material-authoring-shell";
 export { MaterialCurrentPreview } from "./ui/material-current-preview";
 export {

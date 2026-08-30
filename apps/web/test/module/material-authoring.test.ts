@@ -32,6 +32,7 @@ import {
 } from "@/_pages/material-authoring/api/save-material";
 import { CurrentMaterialAuthoringPage } from "@/_pages/material-authoring/ui/current-material-authoring-page";
 import { MaterialCurrentPreviewPage } from "@/_pages/material-authoring/ui/material-current-preview-page";
+import { mutateMaterialLifecycleAction } from "@/features/material-authoring.server";
 import { LogtoSessionUnavailableError } from "@/shared/auth/index.server";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 
@@ -69,6 +70,19 @@ describe("Material Authoring action workflow", () => {
 
     await expect(
       createMaterialDraftAction({ kind: "idle" }, validFormData()),
+    ).resolves.toEqual({ kind: "unauthorized" });
+  });
+
+  it("re-authenticates lifecycle mutations inside the actual server action", async () => {
+    authMocks.getPlatformAccessToken.mockRejectedValueOnce(
+      new LogtoSessionUnavailableError(),
+    );
+
+    await expect(
+      mutateMaterialLifecycleAction(
+        { kind: "idle" },
+        lifecycleFormData("delete"),
+      ),
     ).resolves.toEqual({ kind: "unauthorized" });
   });
 
@@ -476,6 +490,15 @@ function validFormData(): FormData {
   formData.append("tagIds", tagId);
   formData.set("title", "Один production path");
   formData.set("topicId", topicId);
+  return formData;
+}
+
+function lifecycleFormData(operation: "delete" | "publish" | "unpublish") {
+  const formData = new FormData();
+  formData.set("expectedContentVersion", "3");
+  formData.set("materialId", materialId);
+  formData.set("operation", operation);
+  formData.set("submissionId", submissionId);
   return formData;
 }
 

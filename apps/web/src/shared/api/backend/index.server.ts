@@ -355,6 +355,28 @@ export function requestMaterialSave(
   );
 }
 
+export function requestMaterialDeletion(
+  input: {
+    readonly expectedContentVersion: number;
+    readonly idempotencyKey: string;
+    readonly materialId: string;
+  },
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MaterialAuthoringService(request).deleteMaterialDraft({
+        idempotencyKey: input.idempotencyKey,
+        materialId: input.materialId,
+        requestBody: {
+          expectedContentVersion: input.expectedContentVersion,
+        },
+      }),
+    200,
+    { accessToken },
+  );
+}
+
 export function requestMaterialAuthoringReferences(
   accessToken: string,
 ): Promise<BackendTransportResult> {

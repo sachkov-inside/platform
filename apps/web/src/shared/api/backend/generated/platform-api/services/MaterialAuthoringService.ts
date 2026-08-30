@@ -21,6 +21,7 @@ export class MaterialAuthoringService {
     page?: number,
   }): CancelablePromise<{
     items: Array<{
+      canDelete: boolean;
       contentVersion: number;
       format: {
         id: string;
