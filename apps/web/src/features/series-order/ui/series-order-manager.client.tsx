@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowDown, ArrowLeft, ArrowUp, Check, LoaderCircle } from "lucide-react";
-import type { Route } from "next";
 import { startTransition, useActionState, useState } from "react";
 
 import {
@@ -135,7 +134,7 @@ export function SeriesOrderManager({
               <Button onClick={onRefresh} type="button" variant="outline">Обновить список</Button>
             ) : state.kind === "unauthorized" ? (
               <MaterialAuthoringSignInActions
-                returnHref={`/authoring/playlists/${presentation.seriesId}` as Route}
+                returnHref={`/authoring/playlists/${presentation.seriesId}`}
               />
             ) : state.kind === "error" ? (
               <Button form="series-order-form" type="submit" variant="outline">

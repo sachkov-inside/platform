@@ -1,4 +1,3 @@
-import type { Route } from "next";
 import { redirect } from "next/navigation";
 
 import {
@@ -49,7 +48,7 @@ export async function SeriesOrderPage({ seriesId }: { readonly seriesId: string 
   if (state.kind === "error") {
     return (
       <SeriesOrderRouteState
-        retryHref={`/authoring/playlists/${seriesId}` as Route}
+        retryHref={`/authoring/playlists/${seriesId}`}
         state={{ kind: "error", reference: state.reference }}
       />
     );
@@ -57,7 +56,7 @@ export async function SeriesOrderPage({ seriesId }: { readonly seriesId: string 
   if (references.kind === "unexpected_error") {
     return (
       <SeriesOrderRouteState
-        retryHref={`/authoring/playlists/${seriesId}` as Route}
+        retryHref={`/authoring/playlists/${seriesId}`}
         state={{ kind: "error", reference: references.reference }}
       />
     );

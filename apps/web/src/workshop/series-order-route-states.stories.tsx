@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import type { Route } from "next";
 
 import { SeriesOrderRouteState } from "@/features/series-order";
 
@@ -21,7 +20,7 @@ export const NotFound: Story = {
 
 export const LoadError: Story = {
   args: {
-    retryHref: "/authoring/playlists/95000000-0000-4000-8000-000000000010" as Route,
+    retryHref: "/authoring/playlists/95000000-0000-4000-8000-000000000010",
     state: { kind: "error", reference: "backend-unavailable" },
   },
 };

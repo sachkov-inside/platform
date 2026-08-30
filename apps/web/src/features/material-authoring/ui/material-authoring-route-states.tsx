@@ -49,7 +49,7 @@ export function MaterialAuthoringSignInActions({
   returnHref = authoringMaterialsRootHref,
 }: {
   readonly onBack?: () => void;
-  readonly returnHref?: Route;
+  readonly returnHref?: string;
 }) {
   return (
     <div className="flex flex-wrap justify-center gap-2">
@@ -62,7 +62,7 @@ export function MaterialAuthoringSignInActions({
       </form>
       {onBack === undefined ? (
         <Button asChild variant="outline">
-          <Link href={returnHref}>
+          <Link href={{ pathname: returnHref }}>
             <ArrowLeft aria-hidden="true" data-icon="inline-start" />
             Вернуться к материалам
           </Link>

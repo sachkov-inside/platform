@@ -1,5 +1,4 @@
 import { ArrowLeft, CloudOff } from "lucide-react";
-import type { Route } from "next";
 import Link from "next/link";
 
 import { MaterialAuthoringShell, authoringMaterialsRootHref } from "@/features/material-authoring";
@@ -14,7 +13,7 @@ export function SeriesOrderRouteState({
   retryHref = "/authoring/playlists",
   state,
 }: {
-  readonly retryHref?: Route;
+  readonly retryHref?: string;
   readonly state: RouteState;
 }) {
   const content = routeStateContent(state);
@@ -36,7 +35,7 @@ export function SeriesOrderRouteState({
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             {state.kind === "empty" ? null : (
               <Button asChild>
-                <Link href={retryHref}>
+                <Link href={{ pathname: retryHref }}>
                   {state.kind === "not_found" ? "Выбрать другой плейлист" : "Повторить"}
                 </Link>
               </Button>
