@@ -82,7 +82,10 @@ describe("Material authoring MCP adapter", () => {
             publicationState: "unpublished",
             firstPublishedAt: "2026-08-30T10:00:00.000Z",
             publishedAt: null,
-            metadata: incompleteMetadata("Loaded"),
+            metadata: {
+              ...incompleteMetadata("Loaded"),
+              seriesMemberships: [],
+            },
             body: emptyBody(),
           },
         }),
@@ -130,7 +133,7 @@ function incompleteMetadata(title: string) {
     topicId: null,
     formatId: null,
     tagIds: [],
-    seriesMemberships: [],
+    seriesIds: [],
   };
 }
 

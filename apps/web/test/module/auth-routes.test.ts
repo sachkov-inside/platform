@@ -19,7 +19,9 @@ const fakes = vi.hoisted(() => ({
   handleSignIn: vi.fn(() =>
     Promise.resolve({ url: "https://identity.example.test/oidc/auth" }),
   ),
-  handleSignInCallback: vi.fn(() => Promise.resolve()),
+  handleSignInCallback: vi.fn<() => Promise<string | undefined>>(() =>
+    Promise.resolve(undefined),
+  ),
   handleSignOut: vi.fn(() =>
     Promise.resolve("https://identity.example.test/oidc/session/end"),
   ),
@@ -57,6 +59,18 @@ vi.mock("@/shared/auth/index.server", () => ({
     callbackUrl.search = incoming.search;
     return callbackUrl.toString();
   },
+  safePostSignInReturnUri: (value: unknown, baseUrl: string) => {
+    if (typeof value !== "string" || value.startsWith("//")) {
+      return undefined;
+    }
+    try {
+      const base = new URL(baseUrl);
+      const target = value.startsWith("/") ? new URL(value, base) : new URL(value);
+      return target.origin === base.origin ? target.toString() : undefined;
+    } catch {
+      return undefined;
+    }
+  },
 }));
 
 vi.mock("@/shared/auth/platform-access-token.server", () => ({
@@ -90,6 +104,35 @@ describe("Logto BFF route orchestration", () => {
     expect(fakes.handleSignIn).toHaveBeenCalledWith({
       redirectUri: "https://inside.example.test/callback",
     });
+  });
+
+  it("round-trips a same-origin authoring destination through the official Logto flow", async () => {
+    const response = await signIn(
+      new Request("https://inside.example.test/auth/sign-in", {
+        method: "POST",
+        headers: {
+          origin: "https://inside.example.test",
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ returnTo: "/authoring/playlists/playlist-id" }),
+      }),
+    );
+
+    expect(response.status).toBe(303);
+    expect(fakes.handleSignIn).toHaveBeenCalledWith({
+      redirectUri: "https://inside.example.test/callback",
+      postRedirectUri: "https://inside.example.test/authoring/playlists/playlist-id",
+    });
+
+    fakes.handleSignInCallback.mockResolvedValueOnce(
+      "https://inside.example.test/authoring/playlists/playlist-id",
+    );
+    const callbackResponse = await callback(
+      new Request("http://localhost:3000/callback?code=opaque&state=opaque"),
+    );
+    expect(callbackResponse.headers.get("location")).toBe(
+      "https://inside.example.test/authoring/playlists/playlist-id",
+    );
   });
 
   it("establishes the Account after the SDK callback", async () => {

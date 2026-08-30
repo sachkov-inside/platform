@@ -10,7 +10,10 @@ import type {
 } from "./save-material.contract.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import type { MaterialMutationReceiptDto } from "../../facets/material-authoring/material-authoring.contract.js";
-import { MaterialMetadata } from "../../domain/material-metadata.js";
+import {
+  MaterialMetadataSelection,
+  type MaterialMetadata,
+} from "../../domain/material-metadata.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import {
   executeAuthoringTransaction,
@@ -24,11 +27,13 @@ import {
   parseCommand,
 } from "../../shared/command-validation.js";
 import { executeIdempotentMaterialMutation } from "../../shared/idempotent-operation.js";
+import { materializeMetadataSelection } from "../../shared/materialize-metadata-selection.js";
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
+import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 
 const saveMaterialCommand = z
   .object({
@@ -56,9 +61,9 @@ export function assembleSaveMaterial(
       return failure(parsed.error);
     }
     const command = parsed.value;
-    const metadata = MaterialMetadata.create(command.metadata);
-    if (!metadata.ok) {
-      return failure(metadata.error);
+    const selection = MaterialMetadataSelection.create(command.metadata);
+    if (!selection.ok) {
+      return failure(selection.error);
     }
     const body = dependencies.materialBodyOperations.accept(command.body, {
       assignMissingNodeIds: true,
@@ -83,9 +88,10 @@ export function assembleSaveMaterial(
       materialId: command.materialId,
       expectedContentVersion: command.expectedContentVersion,
       publicationState: command.publicationState,
-      metadata: metadata.value.toValues(),
+      metadata: selection.value.toValues(),
       body: body.value,
     });
+    let materializedMetadata: MaterialMetadata | undefined;
     const result = await executeAuthoringTransaction<
       SaveMaterialEffect,
       SaveMaterialError
@@ -103,6 +109,11 @@ export function assembleSaveMaterial(
           },
           rollback,
           async () => {
+            await lockMaterialSeries(
+              transaction,
+              command.materialId,
+              selection.value.toValues().seriesIds,
+            );
             const locked = await lockMaterialForLifecycleChange(
               transaction,
               command.materialId,
@@ -113,23 +124,28 @@ export function assembleSaveMaterial(
             const next = locked.lifecycle.save({
               expectedContentVersion: command.expectedContentVersion,
               publicationState: command.publicationState,
-              slug: metadata.value.slug,
+              slug: selection.value.toValues().slug,
               now: new Date(),
             });
             if (!next.ok) {
               return rollback(next.error);
             }
+            materializedMetadata = await materializeMetadataSelection(
+              transaction,
+              command.materialId,
+              selection.value,
+            );
             const requiresPublicationValidity =
               locked.lifecycle.publicationState === "published" ||
               next.value.publicationState === "published";
-            const publishable = metadata.value.validateForPublication();
+            const publishable = materializedMetadata.validateForPublication();
             if (requiresPublicationValidity && !publishable.ok) {
               return rollback(publishable.error);
             }
             await requireReferenceIntegrity(
               transaction,
               command.materialId,
-              metadata.value,
+              materializedMetadata,
               rollback,
             );
 
@@ -142,14 +158,14 @@ export function assembleSaveMaterial(
             await transaction.material.update({
               where: { id: command.materialId },
               data: {
-                slug: metadata.value.slug,
-                title: metadata.value.title,
-                summary: metadata.value.summary,
-                topicId: metadata.value.topicId,
-                formatId: metadata.value.formatId,
+                slug: materializedMetadata.slug,
+                title: materializedMetadata.title,
+                summary: materializedMetadata.summary,
+                topicId: materializedMetadata.topicId,
+                formatId: materializedMetadata.formatId,
                 schemaVersion: body.value.schemaVersion,
                 body: toDatabaseJson(body.value.doc),
-                access: metadata.value.access,
+                access: materializedMetadata.access,
                 publicationState: next.value.publicationState,
                 contentVersion: BigInt(next.value.contentVersion),
                 firstPublishedAt: next.value.firstPublishedAt,
@@ -161,7 +177,7 @@ export function assembleSaveMaterial(
             await replaceCurrentRelations(
               transaction,
               command.materialId,
-              metadata.value,
+              materializedMetadata,
             );
             if (next.value.publicationState === "published") {
               if (!publishable.ok || publishedBy === null) {
@@ -197,7 +213,7 @@ export function assembleSaveMaterial(
             };
           },
         ),
-      (unexpected) => mapPostgresError(unexpected, metadata.value),
+      (unexpected) => mapPostgresError(unexpected, materializedMetadata),
     );
     return result.ok ? { ok: true, value: result.value.receipt } : result;
   };

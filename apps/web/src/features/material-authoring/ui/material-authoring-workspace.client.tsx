@@ -5,6 +5,7 @@ import { StarterKit } from "@tiptap/starter-kit";
 import {
   ArrowLeft,
   Bold,
+  BookOpen,
   Check,
   CircleAlert,
   CloudOff,
@@ -101,7 +102,7 @@ export function MaterialAuthoringWorkspace({
           <input name="expectedContentVersion" type="hidden" value={presentation.draft.contentVersion ?? ""} />
           <input name="materialId" type="hidden" value={presentation.draft.materialId ?? ""} />
           <input name="publicationState" type="hidden" value={presentation.draft.status === "new" ? "draft" : presentation.draft.status} />
-          <input name="seriesMemberships" type="hidden" value={JSON.stringify(presentation.draft.seriesMemberships)} />
+          <input name="seriesIds" type="hidden" value={JSON.stringify(presentation.draft.seriesIds)} />
           <input name="submissionId" type="hidden" value={presentation.submissionId} />
           <MetadataPanel actions={actions} presentation={presentation} />
           <DocumentPanel actions={actions} presentation={presentation} />
@@ -157,7 +158,7 @@ function EditorHeader({
         <div className="grid w-full grid-cols-2 items-center gap-2 sm:ml-auto sm:flex sm:w-auto">
           <Button className="min-h-11 px-3" disabled={previewDisabled} onClick={actions.onOpenPreview} type="button" variant="outline">
             <Eye aria-hidden="true" data-icon="inline-start" />
-            Preview
+            Предпросмотр
           </Button>
           <Button className="min-h-11 px-3" disabled={presentation.save.kind !== "dirty" || presentation.blocking.kind !== "none" || presentation.draft.readOnly} form="material-authoring-form" type="submit">
             {presentation.save.kind === "submitting" ? (
@@ -195,8 +196,8 @@ function MetadataPanel({
   const disabled = presentation.save.kind === "submitting" || presentation.blocking.kind !== "none" || presentation.draft.readOnly;
 
   return (
-    <fieldset className="min-w-0 border-0 border-b border-border pb-7 @min-[68rem]/material-authoring:border-b-0 @min-[68rem]/material-authoring:border-r @min-[68rem]/material-authoring:pb-0 @min-[68rem]/material-authoring:pr-7" disabled={disabled}>
-      <legend className="text-sm font-semibold">Параметры материала</legend>
+    <section aria-labelledby="material-parameters-heading" className="min-w-0 border-b border-border pb-7 @min-[68rem]/material-authoring:border-b-0 @min-[68rem]/material-authoring:border-r @min-[68rem]/material-authoring:pb-0 @min-[68rem]/material-authoring:pr-7">
+      <h2 className="text-sm font-semibold" id="material-parameters-heading">Параметры материала</h2>
       <div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2 @min-[68rem]/material-authoring:grid-cols-1">
         <Field label="Название" targetId="material-title">
           <input
@@ -204,6 +205,7 @@ function MetadataPanel({
             aria-invalid={hasIssue(presentation, "/title") || undefined}
             autoComplete="off"
             className={fieldClassName}
+            disabled={disabled}
             id="material-title"
             maxLength={160}
             name="title"
@@ -219,6 +221,7 @@ function MetadataPanel({
             aria-invalid={hasIssue(presentation, "/summary") || undefined}
             autoComplete="off"
             className={cn(fieldClassName, "min-h-28 resize-y py-3 leading-6")}
+            disabled={disabled}
             id="material-summary"
             maxLength={500}
             name="summary"
@@ -235,6 +238,7 @@ function MetadataPanel({
               aria-invalid={hasIssue(presentation, "/slug") || undefined}
               autoComplete="off"
               className={fieldClassName}
+              disabled={disabled}
               id="material-slug"
               maxLength={120}
               name="slug"
@@ -330,7 +334,7 @@ function MetadataPanel({
         )}
       </div>
       <FormGuidance presentation={presentation} />
-    </fieldset>
+    </section>
   );
 }
 
@@ -376,44 +380,42 @@ function SeriesSelector({
   }
   return (
     <fieldset className="min-w-0 sm:col-span-2 @min-[68rem]/material-authoring:col-span-1">
-      <legend className="mb-2 text-sm font-medium">Series</legend>
-      <div className="space-y-2 rounded-xl bg-card p-2">
+      <legend className="text-sm font-medium">Плейлисты</legend>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        Новый материал добавится в конец выбранного плейлиста.
+      </p>
+      <div className="mt-2 grid gap-2">
         {presentation.availableSeries.map((series) => {
-          const membership = presentation.draft.seriesMemberships.find(
-            (candidate) => candidate.seriesId === series.value,
-          );
+          const checked = presentation.draft.seriesIds.includes(series.value);
           return (
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2" key={series.value}>
-              <label className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-2 text-sm font-medium">
+              <label
+                className={cn(
+                  "relative flex min-h-12 min-w-0 cursor-pointer items-center gap-3 rounded-xl border px-3 text-sm font-medium transition-colors motion-reduce:transition-none",
+                  "has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/40",
+                  checked
+                    ? "border-accent/45 bg-accent/10 text-foreground"
+                    : "border-border bg-card text-foreground hover:bg-secondary",
+                  disabled && "cursor-not-allowed opacity-60",
+                )}
+                key={series.value}
+              >
                 <input
-                  checked={membership !== undefined}
+                  checked={checked}
+                  className="sr-only"
                   disabled={disabled}
                   onChange={(event) => {
-                    actions.onSeriesMembershipChange(
-                      series.value,
-                      event.currentTarget.checked ? (membership?.ordinal ?? 1) : null,
-                    );
+                    actions.onSeriesToggle(series.value, event.currentTarget.checked);
                   }}
                   type="checkbox"
                 />
+                <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", checked ? "bg-accent text-accent-foreground" : "bg-secondary text-muted-foreground")}>
+                  <BookOpen aria-hidden="true" className="size-4" />
+                </span>
                 <span className="truncate">{series.label}</span>
+                <span className={cn("ml-auto grid size-6 shrink-0 place-items-center rounded-full border", checked ? "border-accent bg-accent text-accent-foreground" : "border-border text-transparent")}>
+                  <Check aria-hidden="true" className="size-3.5" />
+                </span>
               </label>
-              <input
-                aria-label={`Позиция в Series ${series.label}`}
-                className={cn(fieldClassName, "px-2 text-center font-mono")}
-                disabled={disabled || membership === undefined}
-                inputMode="numeric"
-                min={1}
-                onChange={(event) => {
-                  const ordinal = event.currentTarget.valueAsNumber;
-                  if (Number.isInteger(ordinal) && ordinal > 0) {
-                    actions.onSeriesMembershipChange(series.value, ordinal);
-                  }
-                }}
-                type="number"
-                value={membership?.ordinal ?? 1}
-              />
-            </div>
           );
         })}
       </div>

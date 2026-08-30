@@ -5,7 +5,7 @@ import type {
   IdempotencyError,
   InvalidPublicationTransitionError,
   InvalidReferenceError,
-  MaterialMetadataInput,
+  MaterialMetadataSelectionInput,
   MaterialMutationReceiptDto,
   MaterialNotFoundError,
   PersistenceConflictError,
@@ -21,7 +21,7 @@ export interface SaveMaterialCommand {
   readonly materialId: string;
   readonly expectedContentVersion: number;
   readonly publicationState: PublicationState;
-  readonly metadata: MaterialMetadataInput;
+  readonly metadata: MaterialMetadataSelectionInput;
   readonly body: unknown;
 }
 

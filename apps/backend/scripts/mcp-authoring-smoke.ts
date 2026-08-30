@@ -145,7 +145,7 @@ function metadata(access: "free" | "membership") {
     topicId,
     formatId,
     tagIds: [],
-    seriesMemberships: [],
+    seriesIds: [],
   };
 }
 

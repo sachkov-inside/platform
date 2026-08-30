@@ -1,4 +1,4 @@
-import { Eye, Files, FilePlus2, Globe2, LibraryBig, PenLine } from "lucide-react";
+import { Eye, Files, FilePlus2, Globe2, LibraryBig, ListOrdered, PenLine } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -14,7 +14,7 @@ export function MaterialAuthoringShell({
 }: {
   readonly children: ReactNode;
   readonly createHref?: Route;
-  readonly current: "create" | "materials" | "preview";
+  readonly current: "create" | "materials" | "playlists" | "preview";
 }) {
   return (
     <div className="min-h-svh bg-background text-foreground md:flex md:h-svh md:min-h-0 md:overflow-hidden">
@@ -54,13 +54,19 @@ export function MaterialAuthoringShell({
               icon={<FilePlus2 aria-hidden="true" />}
               label="Новый материал"
             />
+            <AuthoringLink
+              current={current === "playlists"}
+              href="/authoring/playlists"
+              icon={<ListOrdered aria-hidden="true" />}
+              label="Плейлисты"
+            />
             {current === "preview" ? (
               <div
                 aria-current="page"
                 className="flex min-h-11 items-center gap-3 rounded-xl bg-sidebar-accent px-3 text-sm font-medium text-sidebar-accent-foreground"
               >
                 <Eye aria-hidden="true" className="size-5 text-sidebar-primary" />
-                <span>Preview черновика</span>
+                <span>Предпросмотр черновика</span>
               </div>
             ) : null}
             <AuthoringLink
@@ -88,9 +94,12 @@ export function MaterialAuthoringShell({
         aria-label="Authoring на мобильном"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
       >
-        <div className="grid grid-cols-3 px-2 pt-1">
+        <div className="grid grid-cols-4 px-2 pt-1">
           <MobileLink current={current === "materials"} href={authoringMaterialsRootHref} label="Материалы">
             <Files aria-hidden="true" />
+          </MobileLink>
+          <MobileLink current={current === "playlists"} href="/authoring/playlists" label="Плейлисты">
+            <ListOrdered aria-hidden="true" />
           </MobileLink>
           <MobileLink href="/library" label="Библиотека">
             <LibraryBig aria-hidden="true" />

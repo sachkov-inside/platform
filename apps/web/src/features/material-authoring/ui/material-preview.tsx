@@ -133,13 +133,13 @@ function PreviewTable({
 }) {
   return (
     <div
-      aria-label="Таблица в Preview"
+      aria-label="Таблица в предпросмотре"
       className="max-w-full overflow-x-auto rounded-xl border border-border"
       role="region"
       tabIndex={0}
     >
       <table className="min-w-[36rem] border-collapse text-left text-sm leading-6">
-        <caption className="sr-only">Таблица в Preview</caption>
+        <caption className="sr-only">Таблица в предпросмотре</caption>
         <tbody className="divide-y divide-border">
           {block.rows.map((row, rowIndex) => (
             <tr key={rowIndex}>

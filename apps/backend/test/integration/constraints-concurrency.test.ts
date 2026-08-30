@@ -57,7 +57,7 @@ describe("material authoring integrity contract", () => {
         topicId: "a0000000-0000-4000-8000-999999999999",
         formatId,
         tagIds: [],
-        seriesMemberships: [],
+        seriesIds: [],
       },
       body: representativeDocument(),
     } as const;
@@ -94,7 +94,7 @@ describe("material authoring integrity contract", () => {
     expect(corrected.ok).toBe(true);
   });
 
-  test("maps unique slug, duplicate Tag and occupied Series ordinal consistently", async () => {
+  test("maps unique slug and duplicate Tag while appending selected Series", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
@@ -107,7 +107,7 @@ describe("material authoring integrity contract", () => {
       topicId,
       formatId,
       tagIds: [tagId],
-      seriesMemberships: [{ seriesId, ordinal: 7 }],
+      seriesIds: [seriesId],
     } as const;
     const first = await authoring.createDraft({
       actor,
@@ -121,7 +121,7 @@ describe("material authoring integrity contract", () => {
       await authoring.createDraft({
         actor,
         idempotencyKey: "a0000000-0000-4000-8000-000000000021",
-        metadata: { ...metadata, title: "Duplicate slug", seriesMemberships: [] },
+        metadata: { ...metadata, title: "Duplicate slug", seriesIds: [] },
         body: representativeDocument(),
       }),
     ).toEqual({
@@ -137,52 +137,54 @@ describe("material authoring integrity contract", () => {
           ...metadata,
           slug: "duplicate-tag",
           tagIds: [tagId, tagId],
-          seriesMemberships: [],
+          seriesIds: [],
         },
         body: representativeDocument(),
       }),
     ).toEqual({ ok: false, error: { code: "duplicate_tag", tagId } });
 
-    expect(
-      await authoring.createDraft({
+    const second = await authoring.createDraft({
         actor,
         idempotencyKey: "a0000000-0000-4000-8000-000000000023",
         metadata: {
           ...metadata,
-          title: "Ordinal contender",
-          slug: "ordinal-contender",
+          title: "Second playlist item",
+          slug: "second-playlist-item",
           tagIds: [],
         },
         body: representativeDocument(),
-      }),
-    ).toEqual({
-      ok: false,
-      error: { code: "series_ordinal_conflict", seriesId, ordinal: 7 },
-    });
-
-    expect(
-      await authoring.createDraft({
+      });
+    const third = await authoring.createDraft({
         actor,
         idempotencyKey: "a0000000-0000-4000-8000-000000000024",
         metadata: {
           ...metadata,
-          title: "Later ordinal contender",
-          slug: "later-ordinal-contender",
+          title: "Third playlist item",
+          slug: "third-playlist-item",
           tagIds: [],
-          seriesMemberships: [
-            { seriesId: secondSeriesId, ordinal: 1 },
-            { seriesId, ordinal: 7 },
-          ],
         },
         body: representativeDocument(),
-      }),
-    ).toEqual({
-      ok: false,
-      error: { code: "series_ordinal_conflict", seriesId, ordinal: 7 },
-    });
+      });
+    if (!first.ok || !second.ok || !third.ok) {
+      throw new Error("Selected Series append failed");
+    }
+    const loaded = await Promise.all(
+      [first, second, third].map((created) =>
+        authoring.loadMaterial({
+          actor,
+          materialId: created.value.materialId,
+        }),
+      ),
+    );
+    for (const [index, result] of loaded.entries()) {
+      if (!result.ok) throw new Error(result.error.code);
+      expect(result.value.metadata.seriesMemberships).toEqual([
+        { seriesId, ordinal: index + 1 },
+      ]);
+    }
   });
 
-  test("arbitrates a concurrent Series ordinal race with stable conflict details", async () => {
+  test("serializes concurrent playlist appends into unique stable positions", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
@@ -192,14 +194,14 @@ describe("material authoring integrity contract", () => {
         actor,
         idempotencyKey: key,
         metadata: {
-          title: `${side} ordinal contender`,
-          summary: "The Series row lock selects one winner.",
-          slug: `${side}-ordinal-contender`,
+          title: `${side} playlist append`,
+          summary: "The Series row lock appends both Materials.",
+          slug: `${side}-playlist-append`,
           access: "free",
           topicId,
           formatId,
           tagIds: [],
-          seriesMemberships: [{ seriesId: secondSeriesId, ordinal: 11 }],
+          seriesIds: [secondSeriesId],
         },
         body: representativeDocument(),
       });
@@ -208,15 +210,14 @@ describe("material authoring integrity contract", () => {
       create("left", "a0000000-0000-4000-8000-000000000025"),
       create("right", "a0000000-0000-4000-8000-000000000026"),
     ]);
-    expect([left, right].filter((result) => result.ok)).toHaveLength(1);
-    expect([left, right].find((result) => !result.ok)).toEqual({
-      ok: false,
-      error: {
-        code: "series_ordinal_conflict",
-        seriesId: secondSeriesId,
-        ordinal: 11,
-      },
+    expect(left.ok).toBe(true);
+    expect(right.ok).toBe(true);
+    const memberships = await testDatabase.prisma.seriesMembership.findMany({
+      where: { seriesId: secondSeriesId },
+      orderBy: { ordinal: "asc" },
+      select: { ordinal: true },
     });
+    expect(memberships).toEqual([{ ordinal: 1 }, { ordinal: 2 }]);
   });
 
   test("allows exactly one of two concurrent Saves from the same content version", async () => {
@@ -232,7 +233,7 @@ describe("material authoring integrity contract", () => {
       topicId,
       formatId,
       tagIds: [],
-      seriesMemberships: [],
+      seriesIds: [],
     } as const;
     const created = await authoring.createDraft({
       actor,
@@ -285,7 +286,7 @@ describe("material authoring integrity contract", () => {
         topicId,
         formatId,
         tagIds: [],
-        seriesMemberships: [],
+        seriesIds: [],
       },
       body: representativeDocument(),
     });
@@ -307,7 +308,7 @@ describe("material authoring integrity contract", () => {
         topicId,
         formatId,
         tagIds: [],
-        seriesMemberships: [],
+        seriesIds: [],
       },
       body: representativeDocument(),
     });

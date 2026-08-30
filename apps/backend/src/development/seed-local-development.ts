@@ -38,7 +38,7 @@ export async function seedLocalDevelopment(
       topicId,
       formatId,
       tagIds: [tagId],
-      seriesMemberships: [{ seriesId, ordinal: 1 }],
+      seriesIds: [seriesId],
     },
     body: {
       schemaVersion: 1,
@@ -278,7 +278,7 @@ async function ensureCatalogContinuationMaterials(
         topicId,
         formatId,
         tagIds: [],
-        seriesMemberships: [],
+        seriesIds: [],
       };
     const body = {
         schemaVersion: 1,
@@ -344,7 +344,7 @@ async function ensureMembershipCatalogMaterial(
       topicId,
       formatId,
       tagIds: [tagId],
-      seriesMemberships: [],
+      seriesIds: [],
     };
   const body = {
       schemaVersion: 1,

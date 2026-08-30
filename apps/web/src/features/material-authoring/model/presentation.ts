@@ -11,11 +11,6 @@ export interface MaterialSelectOption {
   readonly value: string;
 }
 
-export interface MaterialSeriesMembershipPresentation {
-  readonly ordinal: number;
-  readonly seriesId: string;
-}
-
 export interface MaterialDraftPresentation {
   readonly access: "free" | "membership";
   readonly document: JSONContent;
@@ -23,7 +18,7 @@ export interface MaterialDraftPresentation {
   readonly materialId: string | null;
   readonly contentVersion: number | null;
   readonly readOnly: boolean;
-  readonly seriesMemberships: readonly MaterialSeriesMembershipPresentation[];
+  readonly seriesIds: readonly string[];
   readonly slug: string;
   readonly status: "draft" | "new" | "published" | "unpublished";
   readonly summary: string;
@@ -168,9 +163,6 @@ export interface MaterialAuthoringActions {
   readonly onRetry: () => void;
   readonly onReturnToEditor: () => void;
   readonly onSave: (formData: FormData) => void;
-  readonly onSeriesMembershipChange: (
-    seriesId: string,
-    ordinal: number | null,
-  ) => void;
+  readonly onSeriesToggle: (seriesId: string, checked: boolean) => void;
   readonly onTagToggle: (tagId: string, checked: boolean) => void;
 }

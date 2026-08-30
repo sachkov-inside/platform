@@ -4,6 +4,8 @@ import type { LoadMaterialOperation } from "../../features/load-material/load-ma
 import type { ListAuthoringReferencesOperation } from "../../features/list-authoring-references/list-authoring-references.contract.js";
 import type { ListMaterialsOperation } from "../../features/list-materials/list-materials.contract.js";
 import type { PreviewMaterialOperation } from "../../features/preview-material/preview-material.contract.js";
+import type { LoadSeriesOrderOperation } from "../../features/load-series-order/load-series-order.contract.js";
+import type { ReorderSeriesOperation } from "../../features/reorder-series/reorder-series.contract.js";
 import type { SaveMaterialOperation } from "../../features/save-material/save-material.contract.js";
 import type { ValidateMaterialOperation } from "../../features/validate-material/validate-material.contract.js";
 
@@ -11,9 +13,11 @@ export interface MaterialAuthoring {
   readonly createDraft: CreateDraftOperation;
   readonly deleteDraft: DeleteDraftOperation;
   readonly loadMaterial: LoadMaterialOperation;
+  readonly loadSeriesOrder: LoadSeriesOrderOperation;
   readonly listReferences: ListAuthoringReferencesOperation;
   readonly listMaterials: ListMaterialsOperation;
   readonly previewMaterial: PreviewMaterialOperation;
+  readonly reorderSeries: ReorderSeriesOperation;
   readonly saveMaterial: SaveMaterialOperation;
   readonly validateMaterial: ValidateMaterialOperation;
 }

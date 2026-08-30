@@ -13,7 +13,7 @@ export interface SeriesMembershipInput {
   readonly ordinal: number;
 }
 
-export interface MaterialMetadataInput {
+export interface MaterialMetadataSelectionInput {
   readonly title: string | null;
   readonly summary: string | null;
   readonly slug: string | null;
@@ -21,6 +21,11 @@ export interface MaterialMetadataInput {
   readonly topicId: string | null;
   readonly formatId: string | null;
   readonly tagIds: readonly string[];
+  readonly seriesIds: readonly string[];
+}
+
+export interface MaterialMetadataDto
+  extends Omit<MaterialMetadataSelectionInput, "seriesIds"> {
   readonly seriesMemberships: readonly SeriesMembershipInput[];
 }
 
@@ -30,7 +35,7 @@ export interface MaterialDto {
   readonly publicationState: PublicationState;
   readonly firstPublishedAt: string | null;
   readonly publishedAt: string | null;
-  readonly metadata: MaterialMetadataInput;
+  readonly metadata: MaterialMetadataDto;
   readonly body: MaterialBodySnapshot;
 }
 

@@ -14,9 +14,6 @@ import {
 
 import type { SaveMaterialActionState } from "../model/save-material-state";
 import { materialDocumentSchema } from "./material-document-schema";
-const seriesMembershipSchema = z
-  .object({ ordinal: z.number().int().positive(), seriesId: z.uuid() })
-  .strict();
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
   document: z.string().min(1).max(1_048_576),
@@ -24,7 +21,7 @@ const formSchema = z.object({
   formatId: z.union([z.uuid(), z.literal("unassigned")]),
   materialId: z.uuid(),
   publicationState: z.enum(["draft", "published", "unpublished"]),
-  seriesMemberships: z.string().max(100_000),
+  seriesIds: z.string().max(100_000),
   slug: z.string().trim().max(120),
   submissionId: z.uuid(),
   summary: z.string().trim().max(500),
@@ -145,7 +142,7 @@ function parseForm(
     formatId: formData.get("formatId"),
     materialId: formData.get("materialId"),
     publicationState: formData.get("publicationState"),
-    seriesMemberships: formData.get("seriesMemberships"),
+    seriesIds: formData.get("seriesIds"),
     slug: formData.get("slug"),
     submissionId: formData.get("submissionId"),
     summary: formData.get("summary"),
@@ -164,10 +161,10 @@ function parseForm(
   }
 
   let document: unknown;
-  let seriesMemberships: unknown;
+  let seriesIds: unknown;
   try {
     document = JSON.parse(parsed.data.document) as unknown;
-    seriesMemberships = JSON.parse(parsed.data.seriesMemberships) as unknown;
+    seriesIds = JSON.parse(parsed.data.seriesIds) as unknown;
   } catch {
     return {
       issues: [{ message: "Данные редактора повреждены. Обновите страницу.", path: "/document" }],
@@ -175,7 +172,7 @@ function parseForm(
     };
   }
   const parsedDocument = materialDocumentSchema.safeParse(document);
-  const parsedSeries = z.array(seriesMembershipSchema).max(100).safeParse(seriesMemberships);
+  const parsedSeries = z.array(z.uuid()).max(100).safeParse(seriesIds);
   if (!parsedDocument.success || !parsedSeries.success) {
     return {
       issues: [{ message: "Данные редактора имеют неверную структуру.", path: "/document" }],
@@ -193,7 +190,7 @@ function parseForm(
       idempotencyKey: `web-save-${parsed.data.submissionId}`,
       materialId: parsed.data.materialId,
       publicationState: parsed.data.publicationState,
-      seriesMemberships: parsedSeries.data,
+      seriesIds: parsedSeries.data,
       slug: emptyToNull(parsed.data.slug),
       summary: emptyToNull(parsed.data.summary),
       tagIds: parsed.data.tagIds,

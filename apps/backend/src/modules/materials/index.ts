@@ -11,7 +11,8 @@ export { assembleMaterialResourceFacts } from "./adapters/content-access/materia
 export { MATERIAL_AUTHORING } from "./facets/material-authoring/material-authoring.token.js";
 export type {
   MaterialDto,
-  MaterialMetadataInput,
+  MaterialMetadataDto,
+  MaterialMetadataSelectionInput,
   MaterialMutationReceiptDto,
   SeriesMembershipInput,
 } from "./facets/material-authoring/material-authoring.contract.js";
@@ -31,6 +32,13 @@ export type {
   LoadMaterialResult,
 } from "./features/load-material/load-material.contract.js";
 export type {
+  LoadSeriesOrderError,
+  LoadSeriesOrderQuery,
+  LoadSeriesOrderResult,
+  SeriesOrderDto,
+  SeriesOrderMaterialDto,
+} from "./features/load-series-order/load-series-order.contract.js";
+export type {
   AuthoringMaterialListItemDto,
   AuthoringMaterialPageDto,
   ListMaterialsError,
@@ -48,6 +56,12 @@ export type {
   SaveMaterialError,
   SaveMaterialResult,
 } from "./features/save-material/save-material.contract.js";
+export type {
+  ReorderSeriesCommand,
+  ReorderSeriesError,
+  ReorderSeriesReceiptDto,
+  ReorderSeriesResult,
+} from "./features/reorder-series/reorder-series.contract.js";
 export type {
   ValidateMaterialError,
   ValidateMaterialQuery,
@@ -95,9 +109,11 @@ export {
 export { CreateDraftController } from "./features/create-draft/create-draft.controller.js";
 export { DeleteDraftController } from "./features/delete-draft/delete-draft.controller.js";
 export { LoadMaterialController } from "./features/load-material/load-material.controller.js";
+export { LoadSeriesOrderController } from "./features/load-series-order/load-series-order.controller.js";
 export { ListAuthoringReferencesController } from "./features/list-authoring-references/list-authoring-references.controller.js";
 export { ListMaterialsController } from "./features/list-materials/list-materials.controller.js";
 export { PreviewMaterialController } from "./features/preview-material/preview-material.controller.js";
+export { ReorderSeriesController } from "./features/reorder-series/reorder-series.controller.js";
 export { ReadPublishedMaterialController } from "./features/read-published-material/read-published-material.controller.js";
 export { SaveMaterialController } from "./features/save-material/save-material.controller.js";
 export { ValidateMaterialController } from "./features/validate-material/validate-material.controller.js";

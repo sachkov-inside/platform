@@ -296,7 +296,7 @@ function AuthoringMaterialRow({
         <Button asChild className="min-h-11" variant="ghost">
           <Link href={authoringDestinationHref(`${editorPath}/preview`, returnHref)}>
             <Eye aria-hidden="true" data-icon="inline-start" />
-            Preview
+            Предпросмотр
           </Link>
         </Button>
       </div>

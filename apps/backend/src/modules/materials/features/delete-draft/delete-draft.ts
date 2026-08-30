@@ -6,6 +6,7 @@ import type {
 } from "./delete-draft.contract.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
+import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import {
   executeAuthoringTransaction,
@@ -73,6 +74,7 @@ export function assembleDeleteDraft(
           },
           rollback,
           async () => {
+            await lockMaterialSeries(transaction, command.materialId);
             const material = await lockMaterialForLifecycleChange(
               transaction,
               command.materialId,

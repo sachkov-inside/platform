@@ -68,10 +68,7 @@ export class MaterialAuthoringService {
       metadata: {
         access: 'free' | 'membership';
         formatId: string | null;
-        seriesMemberships: Array<{
-          ordinal: number;
-          seriesId: string;
-        }>;
+        seriesIds: Array<string>;
         slug: string | null;
         summary: string | null;
         tagIds: Array<string>;
@@ -188,10 +185,7 @@ export class MaterialAuthoringService {
       metadata: {
         access: 'free' | 'membership';
         formatId: string | null;
-        seriesMemberships: Array<{
-          ordinal: number;
-          seriesId: string;
-        }>;
+        seriesIds: Array<string>;
         slug: string | null;
         summary: string | null;
         tagIds: Array<string>;
@@ -330,6 +324,62 @@ export class MaterialAuthoringService {
     return this.httpRequest.request({
       method: 'GET',
       url: '/authoring/materials/references',
+    });
+  }
+  /**
+   * Load the current Material order for a Series
+   * @returns any
+   * @throws ApiError
+   */
+  public loadAuthoringSeriesOrder({
+    seriesId,
+  }: {
+    seriesId: string,
+  }): CancelablePromise<{
+    items: Array<{
+      materialId: string;
+      ordinal: number;
+      publicationState: 'draft' | 'published' | 'unpublished';
+      title: string | null;
+    }>;
+    name: string;
+    orderVersion: string;
+    seriesId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/series/{seriesId}/order',
+      path: {
+        'seriesId': seriesId,
+      },
+    });
+  }
+  /**
+   * Replace the Material order for a Series
+   * @returns any
+   * @throws ApiError
+   */
+  public reorderAuthoringSeries({
+    seriesId,
+    requestBody,
+  }: {
+    seriesId: string,
+    requestBody: {
+      expectedOrderVersion: string;
+      orderedMaterialIds: Array<string>;
+    },
+  }): CancelablePromise<{
+    orderVersion: string;
+    seriesId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/series/{seriesId}/order',
+      path: {
+        'seriesId': seriesId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
     });
   }
 }

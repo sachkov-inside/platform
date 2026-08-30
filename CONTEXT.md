@@ -44,8 +44,8 @@ _Avoid_: Free-form keyword, hashtag
 
 **Series**:
 An ordered collection of Materials with its own meaning and reading sequence. A Material may belong
-to any number of Series, including none.
-_Avoid_: Topic, playlist
+to any number of Series, including none. In the Russian product interface: «Плейлист».
+_Avoid_: Topic, Playlist as a domain term
 
 **NavigationPage**:
 An editorial page that introduces and connects other Platform destinations. Roadmap is a

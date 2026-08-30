@@ -26,6 +26,7 @@ const formSchema = z.object({
   document: z.string().min(1).max(1_048_576),
   formatId: z.union([z.uuid(), z.literal("unassigned")]),
   submissionId: z.uuid(),
+  seriesIds: z.string().max(100_000),
   summary: z.string().trim().min(1).max(500),
   tagIds: z.array(z.uuid()).max(100),
   title: z.string().trim().min(1).max(160),
@@ -77,6 +78,7 @@ interface ParsedDraftForm {
   readonly document: JSONContent;
   readonly formatId: string | null;
   readonly idempotencyKey: string;
+  readonly seriesIds: readonly string[];
   readonly summary: string;
   readonly tagIds: readonly string[];
   readonly title: string;
@@ -173,6 +175,7 @@ export async function executeCreateMaterialDraft(
     materialId: current.materialId,
     preview: current.preview,
     slug: current.slug,
+    seriesIds: parsed.value.seriesIds,
     summary: current.summary ?? parsed.value.summary,
     tagIds: current.tagIds,
     title: current.title ?? parsed.value.title,
@@ -192,6 +195,7 @@ function parseForm(
     document: formData.get("document"),
     formatId: formData.get("formatId"),
     submissionId: formData.get("submissionId"),
+    seriesIds: formData.get("seriesIds"),
     summary: formData.get("summary"),
     tagIds: formData.getAll("tagIds"),
     title: formData.get("title"),
@@ -207,8 +211,10 @@ function parseForm(
     };
   }
   let document: unknown;
+  let seriesIds: unknown;
   try {
     document = JSON.parse(parsed.data.document) as unknown;
+    seriesIds = JSON.parse(parsed.data.seriesIds) as unknown;
   } catch {
     return {
       ok: false,
@@ -216,7 +222,8 @@ function parseForm(
     };
   }
   const parsedDocument = materialDocumentSchema.safeParse(document);
-  if (!parsedDocument.success) {
+  const parsedSeriesIds = z.array(z.uuid()).max(100).safeParse(seriesIds);
+  if (!parsedDocument.success || !parsedSeriesIds.success) {
     return {
       ok: false,
       issues: [{ message: "Содержимое редактора имеет неверную структуру.", path: "/document" }],
@@ -229,6 +236,7 @@ function parseForm(
       document: parsedDocument.data,
       formatId: parsed.data.formatId === "unassigned" ? null : parsed.data.formatId,
       idempotencyKey: `web-create-${parsed.data.submissionId}`,
+      seriesIds: parsedSeriesIds.data,
       summary: parsed.data.summary,
       tagIds: parsed.data.tagIds,
       title: parsed.data.title,

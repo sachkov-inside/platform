@@ -39,7 +39,7 @@ describe("MaterialAuthoring", () => {
         topicId: null,
         formatId: null,
         tagIds: [],
-        seriesMemberships: [],
+        seriesIds: [],
       },
       body,
     });
@@ -168,7 +168,7 @@ describe("MaterialAuthoring", () => {
         topicId: null,
         formatId: null,
         tagIds: [],
-        seriesMemberships: [],
+        seriesIds: [],
       },
       body: representativeDocument("Must stay private."),
     });
@@ -297,7 +297,7 @@ describe("MaterialAuthoring", () => {
             topicId,
             formatId,
             tagIds: [],
-            seriesMemberships: [],
+            seriesIds: [],
           },
           body: representativeDocument(title),
         }),
@@ -318,7 +318,7 @@ describe("MaterialAuthoring", () => {
         topicId: null,
         formatId: null,
         tagIds: [],
-        seriesMemberships: [],
+        seriesIds: [],
       },
       body: representativeDocument("Titleless"),
     });
@@ -334,7 +334,7 @@ describe("MaterialAuthoring", () => {
         topicId,
         formatId,
         tagIds: [],
-        seriesMemberships: [],
+        seriesIds: [],
       },
       body: representativeDocument("Retired"),
     });
@@ -353,7 +353,7 @@ describe("MaterialAuthoring", () => {
         topicId,
         formatId,
         tagIds: [],
-        seriesMemberships: [],
+        seriesIds: [],
       },
       body: representativeDocument("Retired"),
     });
@@ -372,7 +372,7 @@ describe("MaterialAuthoring", () => {
         topicId,
         formatId,
         tagIds: [],
-        seriesMemberships: [],
+        seriesIds: [],
       },
       body: representativeDocument("Retired"),
     });

@@ -22,6 +22,11 @@ export interface MaterialMetadataValues {
   readonly seriesMemberships: readonly SeriesMembership[];
 }
 
+export interface MaterialMetadataSelectionValues
+  extends Omit<MaterialMetadataValues, "seriesMemberships"> {
+  readonly seriesIds: readonly string[];
+}
+
 export interface PublishableMaterialMetadata
   extends Omit<
     MaterialMetadataValues,
@@ -41,19 +46,23 @@ export type MaterialMetadataValidationError =
     }
   | { readonly code: "duplicate_tag"; readonly tagId: string };
 
+const metadataBaseShape = {
+  title: z.string().trim().min(1).max(160).nullable(),
+  summary: z.string().trim().min(1).max(500).nullable(),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .max(120)
+    .nullable(),
+  access: z.enum(["free", "membership"]),
+  topicId: normalizedUuidSchema.nullable(),
+  formatId: normalizedUuidSchema.nullable(),
+  tagIds: z.array(normalizedUuidSchema).max(100),
+} as const;
+
 const metadataSchema = z
   .object({
-    title: z.string().trim().min(1).max(160).nullable(),
-    summary: z.string().trim().min(1).max(500).nullable(),
-    slug: z
-      .string()
-      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-      .max(120)
-      .nullable(),
-    access: z.enum(["free", "membership"]),
-    topicId: normalizedUuidSchema.nullable(),
-    formatId: normalizedUuidSchema.nullable(),
-    tagIds: z.array(normalizedUuidSchema).max(100),
+    ...metadataBaseShape,
     seriesMemberships: z
       .array(
         z
@@ -66,6 +75,77 @@ const metadataSchema = z
       .max(100),
   })
   .strict();
+
+const metadataSelectionSchema = z
+  .object({
+    ...metadataBaseShape,
+    seriesIds: z.array(normalizedUuidSchema).max(100),
+  })
+  .strict();
+
+export class MaterialMetadataSelection {
+  private constructor(
+    private readonly values: MaterialMetadataSelectionValues,
+  ) {
+    Object.freeze(this.values.tagIds);
+    Object.freeze(this.values.seriesIds);
+    Object.freeze(this.values);
+    Object.freeze(this);
+  }
+
+  static create(
+    input: unknown,
+  ): Result<MaterialMetadataSelection, MaterialMetadataValidationError> {
+    const parsed = metadataSelectionSchema.safeParse(input);
+    if (!parsed.success) {
+      return invalidMetadata(parsed.error.issues);
+    }
+    const duplicateTag = findDuplicate(parsed.data.tagIds);
+    if (duplicateTag !== undefined) {
+      return { ok: false, error: { code: "duplicate_tag", tagId: duplicateTag } };
+    }
+    if (findDuplicate(parsed.data.seriesIds) !== undefined) {
+      return {
+        ok: false,
+        error: {
+          code: "invalid_content",
+          issues: [{ code: "duplicate_series", path: "/metadata/seriesIds" }],
+        },
+      };
+    }
+    return {
+      ok: true,
+      value: new MaterialMetadataSelection({
+        ...parsed.data,
+        tagIds: [...parsed.data.tagIds].sort(),
+        seriesIds: [...parsed.data.seriesIds].sort(),
+      }),
+    };
+  }
+
+  materialize(
+    seriesMemberships: readonly SeriesMembership[],
+  ): MaterialMetadata {
+    const metadata = MaterialMetadata.create({
+      title: this.values.title,
+      summary: this.values.summary,
+      slug: this.values.slug,
+      access: this.values.access,
+      topicId: this.values.topicId,
+      formatId: this.values.formatId,
+      tagIds: this.values.tagIds,
+      seriesMemberships,
+    });
+    if (!metadata.ok) {
+      throw new TypeError("Validated metadata selection could not be materialized");
+    }
+    return metadata.value;
+  }
+
+  toValues(): MaterialMetadataSelectionValues {
+    return this.values;
+  }
+}
 
 export class MaterialMetadata {
   private constructor(
@@ -87,19 +167,7 @@ export class MaterialMetadata {
   static create(input: unknown): Result<MaterialMetadata, MaterialMetadataValidationError> {
     const parsed = metadataSchema.safeParse(input);
     if (!parsed.success) {
-      return {
-        ok: false,
-        error: {
-          code: "invalid_content",
-          issues: parsed.error.issues
-            .map((issue) => ({
-              code: "invalid_metadata",
-              path: `/metadata/${issue.path.map(String).join("/")}`,
-            }))
-            .sort((left, right) => left.path.localeCompare(right.path))
-            .slice(0, 100),
-        },
-      };
+      return invalidMetadata(parsed.error.issues);
     }
 
     const duplicateTag = findDuplicate(parsed.data.tagIds);
@@ -188,6 +256,24 @@ export class MaterialMetadata {
       seriesMemberships: this.seriesMemberships,
     };
   }
+}
+
+function invalidMetadata(
+  issues: readonly z.core.$ZodIssue[],
+): Result<never, MaterialMetadataValidationError> {
+  return {
+    ok: false,
+    error: {
+      code: "invalid_content",
+      issues: issues
+        .map((issue) => ({
+          code: "invalid_metadata",
+          path: `/metadata/${issue.path.map(String).join("/")}`,
+        }))
+        .sort((left, right) => left.path.localeCompare(right.path))
+        .slice(0, 100),
+    },
+  };
 }
 
 function findDuplicate(values: readonly string[]): string | undefined {

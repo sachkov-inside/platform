@@ -31,7 +31,8 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   await page.getByRole("option", { name: "Platform" }).click();
   await page.getByRole("combobox", { name: "Формат" }).click();
   await page.getByRole("option", { name: "Guide" }).click();
-  await page.getByRole("checkbox", { name: "Full stack" }).click({ force: true });
+  await page.getByText("Full stack", { exact: true }).click();
+  await page.getByText("Создание Platform Inside", { exact: true }).click();
   await page
     .getByRole("textbox", { name: "Содержимое материала" })
     .fill("Текущее сохранённое содержимое из PostgreSQL.");
@@ -48,11 +49,11 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   await page.getByRole("button", { name: "Создать черновик" }).click();
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   await expect(page.getByText("v1").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Preview" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Предпросмотр" })).toBeEnabled();
 
-  await page.getByRole("button", { name: "Preview" }).click();
+  await page.getByRole("button", { name: "Предпросмотр" }).click();
   await expect(page).toHaveURL(new RegExp(`/authoring/materials/.+/preview(?:\\?.*)?$`, "u"));
-  await expect(page.getByRole("heading", { name: "Preview текущей версии" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Предпросмотр текущей версии" })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Current Preview без fake data", level: 1 }),
   ).toBeVisible();
@@ -99,8 +100,8 @@ test("trusted author finds every Material and returns from Editor to the same li
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
-  await page.getByRole("link", { name: "Preview" }).click();
-  await expect(page.getByRole("heading", { name: "Preview текущей версии" })).toBeVisible();
+  await page.getByRole("link", { name: "Предпросмотр" }).click();
+  await expect(page.getByRole("heading", { name: "Предпросмотр текущей версии" })).toBeVisible();
   await expect(page.getByText("Reader verification checklist")).toBeVisible();
   await page.getByRole("link", { name: "К материалам" }).click();
   await expect(page).toHaveURL(listUrl);
@@ -205,9 +206,54 @@ test("trusted author sees a typed not-found state for a missing current Preview"
   await completeProfileOnboardingIfPresent(page);
 
   expect(response?.status()).toBe(200);
-  await expect(page.getByRole("heading", { name: "Preview не найден" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Предпросмотр не найден" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Повторить" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Вернуться в редактор" })).toBeVisible();
+});
+
+test("trusted author reorders a PostgreSQL playlist with keyboard controls", async ({
+  context,
+  page,
+}) => {
+  await addFullStackSession(context);
+
+  const response = await page.goto("/authoring/playlists");
+  expect(response?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/authoring\/playlists\/[0-9a-f-]+$/u);
+  await expect(
+    page.getByRole("heading", { name: "Создание Platform Inside", level: 1 }),
+  ).toBeVisible();
+
+  const items = page.getByRole("list", { name: "Материалы плейлиста" }).getByRole("listitem");
+  await expect(items.nth(1)).toBeVisible();
+  const firstTitle = await items.first().locator("p").first().innerText();
+  const secondTitle = await items.nth(1).locator("p").first().innerText();
+  const moveDown = items.first().getByRole("button", {
+    name: `Опустить «${firstTitle}»`,
+  });
+  await moveDown.focus();
+  await expect(moveDown).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("Есть несохранённые изменения.")).toBeVisible();
+
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(
+    accessibility.violations.filter(
+      ({ impact }) => impact === "serious" || impact === "critical",
+    ),
+  ).toEqual([]);
+  const overflow = await page.locator("html").evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+
+  await page.getByRole("button", { name: "Сохранить порядок" }).click();
+  await expect(page.getByText("Порядок сохранён.")).toBeVisible();
+  await page.reload();
+  await expect(items.first().locator("p").first()).toHaveText(secondTitle);
 });
 
 test("guest cannot reach the production Material editor", async ({ page }) => {
@@ -216,6 +262,13 @@ test("guest cannot reach the production Material editor", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Нет доступа к редактору" })).toBeVisible();
   await expect(page.getByRole("textbox")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Создать черновик" })).toHaveCount(0);
+});
+
+test("guest cannot reach the production playlist manager", async ({ page }) => {
+  const response = await page.goto("/authoring/playlists");
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "Нет доступа к редактору" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Сохранить порядок" })).toHaveCount(0);
 });
 
 async function addFullStackSession(context: BrowserContext) {
