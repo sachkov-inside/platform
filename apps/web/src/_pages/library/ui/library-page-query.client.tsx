@@ -5,6 +5,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { libraryCatalogBrowserQueryOptions } from "../api/library-catalog-query.browser";
 import type { LibraryCatalogQueryOptions } from "../model/library-catalog-query";
 import type { LibraryCatalogPage } from "../model/library-view";
+import type { LibrarySearchQuery } from "../model/library-search-query";
 import {
   LibraryLoading,
   LibraryPage,
@@ -13,20 +14,25 @@ import {
 import { VirtualizedLibraryCatalog } from "./virtualized-library-catalog.client";
 
 export function LibraryPageQuery({
+  query,
   viewerScope,
 }: {
+  readonly query: LibrarySearchQuery;
   readonly viewerScope: string;
 }) {
   return (
     <LibraryCatalogQueryView
-      queryOptions={libraryCatalogBrowserQueryOptions(viewerScope)}
+      query={query}
+      queryOptions={libraryCatalogBrowserQueryOptions(viewerScope, query)}
     />
   );
 }
 
 export function LibraryCatalogQueryView({
+  query: searchQuery,
   queryOptions,
 }: {
+  readonly query: LibrarySearchQuery;
   readonly queryOptions: LibraryCatalogQueryOptions;
 }) {
   const query = useInfiniteQuery(queryOptions);
@@ -48,6 +54,7 @@ export function LibraryCatalogQueryView({
         onRetry={() => {
           void query.refetch();
         }}
+        query={searchQuery}
         result={firstPage}
       />
     );
@@ -67,12 +74,16 @@ export function LibraryCatalogQueryView({
             void query.fetchNextPage();
           }}
           pages={readyPages}
+          totalCount={firstPage.totalCount}
         />
       }
+      query={searchQuery}
       result={{
+        facets: firstPage.facets,
         kind: "ready",
         items,
         nextCursor: readyPages.at(-1)?.nextCursor ?? null,
+        totalCount: firstPage.totalCount,
       }}
     />
   );

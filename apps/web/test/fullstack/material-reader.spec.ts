@@ -46,7 +46,9 @@ test("server-renders the safe PostgreSQL catalog through Nest", async ({
   await expect(
     page.getByRole("link", { name: "Как устроен Inside Platform" }),
   ).toBeVisible();
-  await expect(page.getByText("13 материалов загружено")).toBeVisible();
+  await expect(
+    page.getByText("13 материалов найдено · 13 материалов загружено"),
+  ).toBeVisible();
 
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Перейти к содержанию" })).toBeFocused();
@@ -66,6 +68,64 @@ test("server-renders the safe PostgreSQL catalog through Nest", async ({
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
   expect(browserErrors).toEqual([]);
+});
+
+test("preserves canonical RU/EN search across reload, history and sharing", async ({
+  page,
+  request,
+}) => {
+  const englishUrl = "/library?q=developer+pipeline";
+  const englishDocument = await request.get(englishUrl);
+  const englishHtml = await englishDocument.text();
+  expect(englishDocument.status()).toBe(200);
+  expect(englishHtml).toContain("Developer Pipeline без потери контекста");
+  expect(englishHtml).not.toContain("Закрытое содержимое для участников");
+
+  await page.goto(englishUrl);
+  await expect(page.getByLabel("Поиск по библиотеке")).toHaveValue(
+    "developer pipeline",
+  );
+  await expect(
+    page.getByRole("link", { name: "Developer Pipeline без потери контекста" }),
+  ).toBeVisible();
+  await expect(page.getByText("1 материал найден")).toBeVisible();
+  const sharedUrl = page.url();
+
+  await page.reload();
+  expect(page.url()).toBe(sharedUrl);
+  await expect(
+    page.getByRole("link", { name: "Developer Pipeline без потери контекста" }),
+  ).toBeVisible();
+
+  await page.goto(
+    "/library?q=%D0%B0%D1%80%D1%85%D0%B8%D1%82%D0%B5%D0%BA%D1%82%D1%83%D1%80%D0%BD%D0%B0%D1%8F+07",
+  );
+  await expect(
+    page.getByRole("link", { name: "Архитектурная заметка 07" }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(
+    page.getByRole("link", { name: "Developer Pipeline без потери контекста" }),
+  ).toBeVisible();
+  await page.goForward();
+  await expect(
+    page.getByRole("link", { name: "Архитектурная заметка 07" }),
+  ).toBeVisible();
+
+  await page.getByLabel("Поиск по библиотеке").fill("nothing can match 404404");
+  await page.getByRole("button", { name: "Найти" }).click();
+  await expect(page.getByRole("heading", { name: "Ничего не найдено" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Сбросить поиск и фильтры" }),
+  ).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("q")).toBe(
+    "nothing can match 404404",
+  );
+
+  await page.goto("/library?topic=INVALID&sort=broken&ignored=value");
+  await expect(page).toHaveURL(/\/library$/u);
+  await page.goto("/library?after=opaque_cursor");
+  await expect(page).toHaveURL(/\/library$/u);
 });
 
 test("server-renders the representative PostgreSQL Material through Nest", async ({

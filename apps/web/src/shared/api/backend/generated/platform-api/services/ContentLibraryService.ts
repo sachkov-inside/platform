@@ -12,10 +12,40 @@ export class ContentLibraryService {
    * @throws ApiError
    */
   public listPublishedMaterials({
+    sort,
+    series,
+    format,
+    topic,
+    q,
     after,
   }: {
+    sort?: 'newest' | 'relevance' | 'title',
+    series?: Array<string>,
+    format?: Array<string>,
+    topic?: Array<string>,
+    q?: string,
     after?: string,
   }): CancelablePromise<{
+    facets: {
+      formats: Array<{
+        count: number;
+        id: string;
+        name: string;
+        slug: string;
+      }>;
+      series: Array<{
+        count: number;
+        id: string;
+        name: string;
+        slug: string;
+      }>;
+      topics: Array<{
+        count: number;
+        id: string;
+        name: string;
+        slug: string;
+      }>;
+    };
     items: Array<{
       access: 'free' | 'membership';
       availability: 'available' | 'locked' | 'unavailable';
@@ -49,15 +79,21 @@ export class ContentLibraryService {
       };
     }>;
     nextCursor: string | null;
+    totalCount: number;
   }> {
     return this.httpRequest.request({
       method: 'GET',
       url: '/library/materials',
       query: {
+        'sort': sort,
+        'series': series,
+        'format': format,
+        'topic': topic,
+        'q': q,
         'after': after,
       },
       errors: {
-        400: `Catalog cursor is malformed`,
+        400: `Catalog query is malformed`,
         401: `Optional Account proof is invalid`,
         500: `Catalog or Account resolution failed internally`,
         503: `Catalog or Account proof dependency is unavailable`,

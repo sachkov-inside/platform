@@ -78,6 +78,8 @@ export type {
   ListPublishedMaterialProjectionsQuery,
   PublishedMaterialProjectionListError,
   PublishedMaterialProjectionListResult,
+  PublishedMaterialProjectionCursor,
+  PublishedMaterialProjectionSort,
   PublishedMaterialProjectionPageDto,
 } from "./features/list-published-material-projections/list-published-material-projections.contract.js";
 export type { PublishedMaterialProjectionDto } from "./facets/published-material-reader/published-material.contract.js";

@@ -2,6 +2,41 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getLibraryCatalogPage } from "@/_pages/library.server";
 
+const defaultQuery = {
+  after: null,
+  formatSlugs: [],
+  q: "",
+  seriesSlugs: [],
+  sort: "relevance",
+  topicSlugs: [],
+} as const;
+const facets = {
+  formats: [
+    {
+      count: 1,
+      id: "72000000-0000-4000-8000-000000000003",
+      name: "Гайд",
+      slug: "guide",
+    },
+  ],
+  series: [
+    {
+      count: 1,
+      id: "72000000-0000-4000-8000-000000000005",
+      name: "Создание Platform Inside",
+      slug: "platform-inside",
+    },
+  ],
+  topics: [
+    {
+      count: 1,
+      id: "72000000-0000-4000-8000-000000000002",
+      name: "Platform",
+      slug: "platform",
+    },
+  ],
+} as const;
+
 describe("Library server adapter", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -14,6 +49,7 @@ describe("Library server adapter", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         Response.json({
+          facets,
           items: [
             {
               materialId: "72000000-0000-4000-8000-000000000020",
@@ -53,11 +89,13 @@ describe("Library server adapter", () => {
             },
           ],
           nextCursor: "opaque-cursor",
+          totalCount: 1,
         }),
       ),
     );
 
-    await expect(getLibraryCatalogPage(undefined)).resolves.toEqual({
+    await expect(getLibraryCatalogPage(defaultQuery, undefined)).resolves.toEqual({
+      facets,
       kind: "ready",
       items: [
         {
@@ -75,6 +113,7 @@ describe("Library server adapter", () => {
         },
       ],
       nextCursor: "opaque-cursor",
+      totalCount: 1,
     });
     expect(fetch).toHaveBeenCalledOnce();
   });
@@ -85,6 +124,7 @@ describe("Library server adapter", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         Response.json({
+          facets,
           items: [
             {
               materialId: "72000000-0000-4000-8000-000000000020",
@@ -103,11 +143,14 @@ describe("Library server adapter", () => {
             },
           ],
           nextCursor: null,
+          totalCount: 1,
         }),
       ),
     );
 
-    await expect(getLibraryCatalogPage(undefined)).rejects.toMatchObject({
+    await expect(
+      getLibraryCatalogPage(defaultQuery, undefined),
+    ).rejects.toMatchObject({
       code: "invalid-response",
     });
   });
@@ -116,13 +159,19 @@ describe("Library server adapter", () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(Response.json({ items: [], nextCursor: null })),
+      vi.fn().mockResolvedValue(
+        Response.json({ facets, items: [], nextCursor: null, totalCount: 1 }),
+      ),
     );
 
-    await expect(getLibraryCatalogPage("page/cursor")).resolves.toEqual({
+    await expect(
+      getLibraryCatalogPage(defaultQuery, "page_cursor"),
+    ).resolves.toEqual({
+      facets,
       kind: "ready",
       items: [],
       nextCursor: null,
+      totalCount: 1,
     });
     expect(fetch).toHaveBeenCalledOnce();
   });
@@ -148,9 +197,34 @@ describe("Library server adapter", () => {
       ),
     );
 
-    await expect(getLibraryCatalogPage(undefined)).resolves.toEqual({
+    await expect(getLibraryCatalogPage(defaultQuery, undefined)).resolves.toEqual({
       kind: "unavailable",
     });
+  });
+
+  it("exposes a rejected opaque cursor as a normalizable query outcome", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            type: "urn:inside:problem:invalid-request-shape",
+            title: "Invalid request shape",
+            status: 400,
+            code: "invalid_request_shape",
+          },
+          {
+            status: 400,
+            headers: { "Content-Type": "application/problem+json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      getLibraryCatalogPage(defaultQuery, "opaque_cursor"),
+    ).rejects.toMatchObject({ name: "LibraryQueryRejectedError" });
   });
 
   it("does not turn an unknown 503 response into a known UI outcome", async () => {
@@ -168,7 +242,9 @@ describe("Library server adapter", () => {
       ),
     );
 
-    await expect(getLibraryCatalogPage(undefined)).rejects.toMatchObject({
+    await expect(
+      getLibraryCatalogPage(defaultQuery, undefined),
+    ).rejects.toMatchObject({
       code: "backend-error",
     });
   });

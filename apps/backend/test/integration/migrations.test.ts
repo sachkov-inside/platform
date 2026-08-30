@@ -117,6 +117,7 @@ describe("Platform migrations", () => {
         "0006_membership_entitlements",
         "0007_remove_material_access_audit",
         "0008_member_profiles",
+        "0009_published_material_search",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -435,6 +436,7 @@ describe("Platform migrations", () => {
           "0006_membership_entitlements",
           "0007_remove_material_access_audit",
           "0008_member_profiles",
+          "0009_published_material_search",
         ],
       });
 
@@ -584,11 +586,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 9, repeat('0', 64))
+        values ('9999_unknown', 10, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 9",
+        "Migration ledger is not an exact registry prefix at position 10",
       );
     } finally {
       await database.dispose();

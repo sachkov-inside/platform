@@ -15,7 +15,10 @@ import {
 } from "react";
 
 import type { LibraryCatalogPage } from "../model/library-view";
-import { formatMaterialCount } from "../model/format-material-count";
+import {
+  formatFoundMaterialCount,
+  formatLoadedMaterialCount,
+} from "../model/format-material-count";
 import { Button } from "@/shared/ui/button";
 import { LibraryMaterialGrid } from "./library-page";
 
@@ -36,12 +39,14 @@ export function VirtualizedLibraryCatalog({
   isFetchingNextPage,
   onLoadNextPage,
   pages,
+  totalCount,
 }: {
   readonly hasNextPage: boolean;
   readonly isFetchNextPageError: boolean;
   readonly isFetchingNextPage: boolean;
   readonly onLoadNextPage: () => void;
   readonly pages: readonly ReadyLibraryCatalogPage[];
+  readonly totalCount: number;
 }) {
   "use no memo";
 
@@ -161,7 +166,8 @@ export function VirtualizedLibraryCatalog({
           Материалы
         </h2>
         <p className="mt-1 font-mono text-xs text-muted-foreground">
-          {formatMaterialCount(materialCount)} загружено
+          {formatFoundMaterialCount(totalCount)} ·{" "}
+          {formatLoadedMaterialCount(materialCount)}
         </p>
       </div>
 

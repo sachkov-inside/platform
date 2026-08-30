@@ -5,6 +5,7 @@ import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import { createLibraryCatalogQueryOptions } from "@/_pages/library/model/library-catalog-query";
 import type { LibraryCatalogPage } from "@/_pages/library/model/library-view";
+import type { LibrarySearchQuery } from "@/_pages/library/model/library-search-query";
 import {
   LibraryLoading,
   LibraryPage,
@@ -68,12 +69,57 @@ const catalogItems = [
   },
 ] as const satisfies readonly MaterialPreview[];
 
+const defaultQuery = {
+  after: null,
+  formatSlugs: [],
+  q: "",
+  seriesSlugs: [],
+  sort: "relevance",
+  topicSlugs: [],
+} as const satisfies LibrarySearchQuery;
+
+const catalogFacets = {
+  formats: [
+    { count: 2, id: "format-guide", name: "Гайд", slug: "guide" },
+    { count: 1, id: "format-video", name: "Видео", slug: "video" },
+  ],
+  series: [
+    {
+      count: 1,
+      id: "series-platform-inside",
+      name: "Создание Platform Inside",
+      slug: "platform-inside",
+    },
+  ],
+  topics: [
+    {
+      count: 1,
+      id: "topic-ai-first",
+      name: "AI-first engineering",
+      slug: "ai-first-engineering",
+    },
+    {
+      count: 1,
+      id: "topic-career",
+      name: "Карьера",
+      slug: "career",
+    },
+    {
+      count: 1,
+      id: "topic-product-engineering",
+      name: "Product engineering",
+      slug: "product-engineering",
+    },
+  ],
+} as const;
+
 type ReadyCatalogPage = Extract<LibraryCatalogPage, { readonly kind: "ready" }>;
 
 function createCatalogPage(pageIndex: number, itemCount = 12): ReadyCatalogPage {
   const source = catalogItems[pageIndex % catalogItems.length] ?? catalogItems[0];
 
   return {
+    facets: catalogFacets,
     items: Array.from({ length: itemCount }, (_, itemIndex) => ({
       ...source,
       slug: `story-material-${String(pageIndex + 1)}-${String(itemIndex + 1)}`,
@@ -81,6 +127,7 @@ function createCatalogPage(pageIndex: number, itemCount = 12): ReadyCatalogPage 
     })),
     kind: "ready",
     nextCursor: `story-cursor-${String(pageIndex + 1)}`,
+    totalCount: 24,
   };
 }
 
@@ -102,6 +149,7 @@ function AutoLoadCatalogHarness() {
         setPageCount(2);
       }}
       pages={createCatalogPages(pageCount)}
+      totalCount={24}
     />
   );
 }
@@ -120,6 +168,7 @@ function RetryCatalogHarness() {
           setAttempts((current) => current + 1);
         }}
         pages={createCatalogPages(1)}
+        totalCount={12}
       />
     </>
   );
@@ -145,7 +194,7 @@ function CachedCatalogNavigationHarness() {
             ? createCatalogPage(0)
             : { ...createCatalogPage(1), nextCursor: null },
         );
-      }, "storybook-viewer"),
+      }, "storybook-viewer", defaultQuery),
     [],
   );
 
@@ -189,7 +238,10 @@ function CachedCatalogNavigationHarness() {
         ) : null}
       </div>
       {screen === "catalog" ? (
-        <LibraryCatalogQueryView queryOptions={queryOptions} />
+        <LibraryCatalogQueryView
+          query={defaultQuery}
+          queryOptions={queryOptions}
+        />
       ) : null}
       {screen === "detail" ? <p>Карточка материала</p> : null}
     </QueryClientProvider>
@@ -210,6 +262,7 @@ function ProductionShell({ children }: { readonly children: React.ReactNode }) {
 }
 
 const meta = {
+  args: { query: defaultQuery },
   component: LibraryPage,
   decorators: [
     (Story) => (
@@ -235,7 +288,15 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const ReadyDesktop: Story = {
-  args: { result: { kind: "ready", items: catalogItems, nextCursor: null } },
+  args: {
+    result: {
+      facets: catalogFacets,
+      items: catalogItems,
+      kind: "ready",
+      nextCursor: null,
+      totalCount: catalogItems.length,
+    },
+  },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Ready · desktop",
   play: async ({ canvasElement }) => {
@@ -265,7 +326,15 @@ export const ReadyDesktop: Story = {
 };
 
 export const ReadyMobile: Story = {
-  args: { result: { kind: "ready", items: catalogItems, nextCursor: null } },
+  args: {
+    result: {
+      facets: catalogFacets,
+      items: catalogItems,
+      kind: "ready",
+      nextCursor: null,
+      totalCount: catalogItems.length,
+    },
+  },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Ready · mobile",
   play: async ({ canvasElement }) => {
@@ -294,12 +363,63 @@ export const ReadyMobile: Story = {
   },
 };
 
+export const SearchResultsDesktop: Story = {
+  args: {
+    query: {
+      ...defaultQuery,
+      q: "developer pipeline",
+      topicSlugs: ["product-engineering"],
+    },
+    result: {
+      facets: catalogFacets,
+      items: [catalogItems[0]],
+      kind: "ready",
+      nextCursor: null,
+      totalCount: 1,
+    },
+  },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Search results · desktop",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByLabelText("Поиск по библиотеке")).toHaveValue(
+      "developer pipeline",
+    );
+    await expect(
+      canvas.getByRole("checkbox", { name: /Product engineering/u }),
+    ).toBeChecked();
+    await expect(canvas.getByText("1 материал найден")).toBeInTheDocument();
+  },
+};
+
+export const SearchResultsMobile: Story = {
+  ...SearchResultsDesktop,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Search results · mobile",
+};
+
+export const NoSearchResults: Story = {
+  args: {
+    query: { ...defaultQuery, q: "nothing can match" },
+    result: {
+      facets: catalogFacets,
+      items: [],
+      kind: "ready",
+      nextCursor: null,
+      totalCount: 0,
+    },
+  },
+  name: "Search · no results",
+};
+
 export const ContinuedCatalog: Story = {
   args: {
     result: {
+      facets: catalogFacets,
       kind: "ready",
       items: catalogItems,
       nextCursor: "representative-cursor",
+      totalCount: 24,
     },
   },
   play: async ({ canvasElement }) => {
@@ -323,7 +443,11 @@ export const AutoLoadsContinuation: Story = {
 
     main.scrollTo({ top: main.scrollHeight });
     await waitFor(() =>
-      expect(within(canvasElement).getByText("24 материала загружено")).toBeInTheDocument(),
+      expect(
+        within(canvasElement).getByText(
+          "24 материала найдено · 24 материала загружено",
+        ),
+      ).toBeInTheDocument(),
     );
   },
 };
@@ -339,6 +463,7 @@ export const VirtualizesLoadedPages: Story = {
       isFetchingNextPage={false}
       onLoadNextPage={() => undefined}
       pages={createCatalogPages(8)}
+      totalCount={96}
     />
   ),
   play: async ({ canvasElement }) => {

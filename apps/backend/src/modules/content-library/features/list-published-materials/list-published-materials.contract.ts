@@ -34,8 +34,21 @@ export interface PublishedMaterialCatalogItemDto {
 }
 
 export interface PublishedMaterialCatalogPageDto {
+  readonly facets: {
+    readonly formats: readonly PublishedMaterialCatalogFacetDto[];
+    readonly series: readonly PublishedMaterialCatalogFacetDto[];
+    readonly topics: readonly PublishedMaterialCatalogFacetDto[];
+  };
   readonly items: readonly PublishedMaterialCatalogItemDto[];
   readonly nextCursor: string | null;
+  readonly totalCount: number;
+}
+
+export interface PublishedMaterialCatalogFacetDto {
+  readonly count: number;
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
 }
 
 export type PublishedMaterialCatalogError =
@@ -50,5 +63,10 @@ export type PublishedMaterialCatalogResult =
 export interface ListPublishedMaterialsQuery {
   readonly subject: Subject;
   readonly after?: string;
+  readonly formatSlugs?: readonly string[];
   readonly first: number;
+  readonly q?: string;
+  readonly seriesSlugs?: readonly string[];
+  readonly sort?: "newest" | "relevance" | "title";
+  readonly topicSlugs?: readonly string[];
 }

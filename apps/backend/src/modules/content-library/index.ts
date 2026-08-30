@@ -1,6 +1,7 @@
 export type {
   ListPublishedMaterialsQuery,
   PublishedMaterialCatalogError,
+  PublishedMaterialCatalogFacetDto,
   PublishedMaterialCatalogItemDto,
   PublishedMaterialCatalogPageDto,
   PublishedMaterialCatalogResult,

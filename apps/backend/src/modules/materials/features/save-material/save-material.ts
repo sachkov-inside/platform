@@ -2,7 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
+import {
+  Prisma,
+  type MaterialsPrismaTransaction,
+} from "../../../../infrastructure/prisma/index.js";
 
 import type {
   SaveMaterialError,
@@ -261,6 +264,7 @@ async function replacePublishedProjections(
       access: values.metadata.access,
       topicId: values.metadata.topicId,
       formatId: values.metadata.formatId,
+      publicSearchText: "",
       publishedBy: values.publishedBy,
       publishedAt: values.publishedAt,
     },
@@ -272,6 +276,7 @@ async function replacePublishedProjections(
       access: values.metadata.access,
       topicId: values.metadata.topicId,
       formatId: values.metadata.formatId,
+      publicSearchText: "",
       publishedBy: values.publishedBy,
       publishedAt: values.publishedAt,
     },
@@ -299,6 +304,10 @@ async function replacePublishedProjections(
       })),
     });
   }
+  await refreshPublishedMaterialSearchProjection(
+    transaction,
+    values.materialId,
+  );
   await transaction.materialSearchDocument.upsert({
     where: { materialId: values.materialId },
     create: {
@@ -311,6 +320,45 @@ async function replacePublishedProjections(
       plainText: values.plainText,
     },
   });
+}
+
+async function refreshPublishedMaterialSearchProjection(
+  transaction: MaterialsPrismaTransaction,
+  materialId: string,
+): Promise<void> {
+  const updated = await transaction.$executeRaw(Prisma.sql`
+    update materials.published_materials as publication
+    set public_search_text = concat_ws(
+      ' ',
+      topic.name,
+      format.name,
+      coalesce(
+        (
+          select string_agg(tag.name, ' ' order by tag.normalized_name)
+          from materials.published_material_tags as membership
+          join materials.tags as tag on tag.id = membership.tag_id
+          where membership.material_id = publication.material_id
+        ),
+        ''
+      ),
+      coalesce(
+        (
+          select string_agg(series.name, ' ' order by series.name)
+          from materials.published_material_series_memberships as membership
+          join materials.series as series on series.id = membership.series_id
+          where membership.material_id = publication.material_id
+        ),
+        ''
+      )
+    )
+    from materials.topics as topic, materials.formats as format
+    where publication.material_id = ${materialId}::uuid
+      and topic.id = publication.topic_id
+      and format.id = publication.format_id
+  `);
+  if (updated !== 1) {
+    throw new TypeError("Published Material search projection was not refreshed");
+  }
 }
 
 function requireDate(value: Date | null): Date {

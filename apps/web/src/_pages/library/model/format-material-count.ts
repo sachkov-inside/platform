@@ -12,3 +12,15 @@ export function formatMaterialCount(count: number): string {
 
   return `${String(count)} ${noun}`;
 }
+
+export function formatFoundMaterialCount(count: number): string {
+  return `${formatMaterialCount(count)} ${usesSingularNoun(count) ? "найден" : "найдено"}`;
+}
+
+export function formatLoadedMaterialCount(count: number): string {
+  return `${formatMaterialCount(count)} ${usesSingularNoun(count) ? "загружен" : "загружено"}`;
+}
+
+function usesSingularNoun(count: number): boolean {
+  return count % 10 === 1 && count % 100 !== 11;
+}

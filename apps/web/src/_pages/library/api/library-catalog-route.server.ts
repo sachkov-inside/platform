@@ -1,6 +1,10 @@
 import "server-only";
 
-import { getLibraryCatalogPage } from "./get-library-catalog";
+import {
+  getLibraryCatalogPage,
+  LibraryQueryRejectedError,
+} from "./get-library-catalog";
+import { parseLibrarySearchParams } from "../model/library-search-query";
 
 const PUBLIC_CATALOG_HEADERS = {
   "Cache-Control": "public, max-age=30, stale-while-revalidate=60",
@@ -15,23 +19,24 @@ export async function handleLibraryCatalogRequest(
   request: Request,
   accessToken?: string,
 ): Promise<Response> {
-  const afterValues = new URL(request.url).searchParams.getAll("after");
-  if (
-    afterValues.length > 1 ||
-    (afterValues[0] !== undefined &&
-      (afterValues[0].length === 0 || afterValues[0].length > 512))
-  ) {
-    return Response.json(
-      {
-        type: "urn:inside:web-problem:invalid-library-query",
-        title: "Invalid Library query",
-        status: 400,
-      },
-      { status: 400, headers: PRIVATE_NO_STORE_HEADERS },
-    );
+  const parsed = parseLibrarySearchParams(new URL(request.url).searchParams);
+  if (parsed.wasNormalized) {
+    return invalidLibraryQueryResponse();
   }
 
-  const page = await getLibraryCatalogPage(afterValues[0], accessToken);
+  let page: Awaited<ReturnType<typeof getLibraryCatalogPage>>;
+  try {
+    page = await getLibraryCatalogPage(
+      parsed.query,
+      parsed.query.after ?? undefined,
+      accessToken,
+    );
+  } catch (error) {
+    if (error instanceof LibraryQueryRejectedError) {
+      return invalidLibraryQueryResponse();
+    }
+    throw error;
+  }
   if (page.kind === "unavailable") {
     return Response.json(
       {
@@ -49,4 +54,15 @@ export async function handleLibraryCatalogRequest(
         ? PUBLIC_CATALOG_HEADERS
         : PRIVATE_NO_STORE_HEADERS,
   });
+}
+
+function invalidLibraryQueryResponse(): Response {
+  return Response.json(
+    {
+      type: "urn:inside:web-problem:invalid-library-query",
+      title: "Invalid Library query",
+      status: 400,
+    },
+    { status: 400, headers: PRIVATE_NO_STORE_HEADERS },
+  );
 }
