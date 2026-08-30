@@ -54,6 +54,7 @@ export function MaterialAuthoringSignInActions({
   return (
     <div className="flex flex-wrap justify-center gap-2">
       <form action="/auth/sign-in" method="post">
+        <input name="returnTo" type="hidden" value={returnHref} />
         <Button type="submit">
           <LogIn aria-hidden="true" data-icon="inline-start" />
           Войти

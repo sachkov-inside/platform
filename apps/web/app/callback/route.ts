@@ -7,6 +7,7 @@ import {
   clearLogtoSessionCookie,
   providerCallbackUrl,
   readLogtoBffConfig,
+  safePostSignInReturnUri,
 } from "@/shared/auth/index.server";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export async function GET(request: Request): Promise<Response> {
   const config = readLogtoBffConfig();
   try {
     const client = new AudienceBoundLogtoClient(config);
-    await client.handleSignInCallback(
+    const postRedirectUri = await client.handleSignInCallback(
       providerCallbackUrl(request.url, config.baseUrl),
     );
     const outcome = await completePlatformSignIn(
@@ -23,18 +24,25 @@ export async function GET(request: Request): Promise<Response> {
       // the exchange is audience-bound. Read that exact fresh token before later resource refreshes.
       await getAccessToken(config),
     );
-    return localRedirect(
-      config.baseUrl,
-      outcome === "retryable" ? "retryable" : undefined,
-    );
+    return outcome === "retryable"
+      ? localRedirect(config.baseUrl, "retryable")
+      : localRedirect(
+          config.baseUrl,
+          undefined,
+          safePostSignInReturnUri(postRedirectUri, config.baseUrl),
+        );
   } catch {
     await clearLogtoSessionCookie(config);
     return localRedirect(config.baseUrl, "failed");
   }
 }
 
-function localRedirect(baseUrl: string, error?: string): NextResponse {
-  const target = new URL("/", baseUrl);
+function localRedirect(
+  baseUrl: string,
+  error?: string,
+  postRedirectUri?: string,
+): NextResponse {
+  const target = new URL(postRedirectUri ?? "/", baseUrl);
   if (error !== undefined) target.searchParams.set("authentication", error);
   return NextResponse.redirect(target, {
     status: 303,

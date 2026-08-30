@@ -12,8 +12,11 @@ const saveOrder: SeriesOrderMutation = (state, formData) => {
   return Promise.resolve({ kind: "saved", orderVersion: "b".repeat(64) });
 };
 const conflictOrder: SeriesOrderMutation = () => Promise.resolve({ kind: "conflict" });
-const failedOrder: SeriesOrderMutation = () =>
-  Promise.resolve({ kind: "error", reference: "series-order-save" });
+const failedOrderSpy = fn();
+const failedOrder: SeriesOrderMutation = (state, formData) => {
+  failedOrderSpy(state, formData);
+  return Promise.resolve({ kind: "error", reference: "series-order-save" });
+};
 const unauthorizedOrder: SeriesOrderMutation = () =>
   Promise.resolve({ kind: "unauthorized" });
 
@@ -94,11 +97,15 @@ export const Conflict: Story = {
 export const SaveError: Story = {
   args: { action: failedOrder },
   play: async ({ canvasElement }) => {
+    failedOrderSpy.mockClear();
     const canvas = within(canvasElement);
     await moveFirstItem(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
     await expect(canvas.getByText(/Не удалось сохранить/u)).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Повторить" })).toBeVisible();
+    const retry = canvas.getByRole("button", { name: "Повторить сохранение" });
+    await expect(retry).toBeVisible();
+    await userEvent.click(retry);
+    await expect(failedOrderSpy).toHaveBeenCalledTimes(2);
   },
 };
 

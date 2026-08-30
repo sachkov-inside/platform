@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowLeft, ArrowUp, Check, LoaderCircle } from "lucide-react";
+import type { Route } from "next";
 import { startTransition, useActionState, useState } from "react";
 
 import {
@@ -133,9 +134,13 @@ export function SeriesOrderManager({
             {state.kind === "conflict" ? (
               <Button onClick={onRefresh} type="button" variant="outline">Обновить список</Button>
             ) : state.kind === "unauthorized" ? (
-              <MaterialAuthoringSignInActions />
+              <MaterialAuthoringSignInActions
+                returnHref={`/authoring/playlists/${presentation.seriesId}` as Route}
+              />
             ) : state.kind === "error" ? (
-              <Button onClick={onRefresh} type="button" variant="outline">Повторить</Button>
+              <Button form="series-order-form" type="submit" variant="outline">
+                Повторить сохранение
+              </Button>
             ) : (
               <Button disabled={!dirty || pending} form="series-order-form" type="submit">
                 {pending ? <LoaderCircle aria-hidden="true" className="animate-spin" data-icon="inline-start" /> : <Check aria-hidden="true" data-icon="inline-start" />}
@@ -155,7 +160,7 @@ function actionMessage(state: SeriesOrderActionState, dirty: boolean): string {
     return "Состав или порядок изменился в другой вкладке.";
   }
   if (state.kind === "unauthorized") {
-    return "Сессия завершилась. Войдите снова — изменения останутся на странице.";
+    return "Сессия завершилась. Войдите снова, чтобы продолжить.";
   }
   if (state.kind === "error") {
     return `Не удалось сохранить. Код обращения: ${state.reference}`;
