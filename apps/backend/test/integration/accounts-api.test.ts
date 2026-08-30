@@ -144,6 +144,9 @@ describe("Accounts API", () => {
     await database.prisma.format.create({
       data: { id: formatId, name: "Guide", slug: "guide" },
     });
+    await database.prisma.series.create({
+      data: { id: seriesId, name: "Platform", slug: "platform" },
+    });
 
     const created = await app.getHttpAdapter().getInstance().inject({
       method: "POST",
@@ -161,6 +164,66 @@ describe("Accounts API", () => {
     expect(created.statusCode).toBe(201);
     expect(created.headers["cache-control"]).toBe("private, no-store");
     const initial = readMaterialReceipt(created.json<unknown>());
+
+    const companion = await app.getHttpAdapter().getInstance().inject({
+      method: "POST",
+      url: "/authoring/materials",
+      headers: {
+        ...authorization,
+        "idempotency-key": "authoring-create-companion-001",
+      },
+      payload: materialDraftPayload(
+        "Playlist companion",
+        "playlist-companion",
+        "Companion.",
+      ),
+    });
+    expect(companion.statusCode).toBe(201);
+    const companionReceipt = readMaterialReceipt(companion.json<unknown>());
+
+    const initialOrder = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: `/authoring/series/${seriesId}/order`,
+      headers: authorization,
+    });
+    expect(initialOrder.statusCode).toBe(200);
+    const initialOrderBody = initialOrder.json<{
+      readonly items: readonly { readonly materialId: string }[];
+      readonly orderVersion: string;
+    }>();
+    expect(initialOrderBody.items.map(({ materialId }) => materialId)).toEqual([
+      initial.materialId,
+      companionReceipt.materialId,
+    ]);
+
+    const reordered = await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      url: `/authoring/series/${seriesId}/order`,
+      headers: authorization,
+      payload: {
+        expectedOrderVersion: initialOrderBody.orderVersion,
+        orderedMaterialIds: [companionReceipt.materialId, initial.materialId],
+      },
+    });
+    expect(reordered.statusCode).toBe(200);
+    expect(reordered.json()).toMatchObject({ seriesId });
+
+    const staleOrder = await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      url: `/authoring/series/${seriesId}/order`,
+      headers: authorization,
+      payload: {
+        expectedOrderVersion: initialOrderBody.orderVersion,
+        orderedMaterialIds: [initial.materialId, companionReceipt.materialId],
+      },
+    });
+    expect(staleOrder.statusCode).toBe(409);
+    const staleOrderBody = staleOrder.json<{
+      readonly code: string;
+      readonly currentOrderVersion?: string;
+    }>();
+    expect(staleOrderBody.code).toBe("stale_series_order");
+    expect(staleOrderBody.currentOrderVersion).toMatch(/^[a-f0-9]{64}$/u);
 
     const corpus = await app.getHttpAdapter().getInstance().inject({
       method: "GET",
@@ -356,6 +419,7 @@ describe("Accounts API", () => {
 
 const topicId = "73000000-0000-4000-8000-000000000001";
 const formatId = "73000000-0000-4000-8000-000000000002";
+const seriesId = "73000000-0000-4000-8000-000000000003";
 
 function materialDraftPayload(
   title: string,
@@ -372,7 +436,7 @@ function materialDraftPayload(
       topicId,
       formatId,
       tagIds: [],
-      seriesMemberships: [],
+      seriesIds: [seriesId],
     },
     body: representativeDocument(text),
   };

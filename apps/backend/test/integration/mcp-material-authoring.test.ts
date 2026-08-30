@@ -339,7 +339,7 @@ function metadata(
     topicId,
     formatId,
     tagIds: [],
-    seriesMemberships: [],
+    seriesIds: [],
   };
 }
 

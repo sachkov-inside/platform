@@ -8,7 +8,6 @@ export {
   type MaterialPreviewText,
   type MaterialPreviewPresentation,
   type MaterialSelectOption,
-  type MaterialSeriesMembershipPresentation,
   type MaterialValidationIssue,
   type MaterialValidationState,
 } from "./model/presentation";

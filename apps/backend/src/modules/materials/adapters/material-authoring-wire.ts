@@ -15,19 +15,30 @@ export const seriesMembershipWireSchema = z
     ordinal: z.number().int().positive(),
   })
   .strict();
+const materialMetadataBaseShape = {
+  title: z.string().trim().min(1).max(160).nullable(),
+  summary: z.string().trim().min(1).max(500).nullable(),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
+    .max(120)
+    .nullable(),
+  access: z.enum(["free", "membership"]),
+  topicId: uuidWireSchema.nullable(),
+  formatId: uuidWireSchema.nullable(),
+  tagIds: z.array(uuidWireSchema).max(100),
+} as const;
+
+export const materialMetadataSelectionWireSchema = z
+  .object({
+    ...materialMetadataBaseShape,
+    seriesIds: z.array(uuidWireSchema).max(100),
+  })
+  .strict();
+
 export const materialMetadataWireSchema = z
   .object({
-    title: z.string().trim().min(1).max(160).nullable(),
-    summary: z.string().trim().min(1).max(500).nullable(),
-    slug: z
-      .string()
-      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
-      .max(120)
-      .nullable(),
-    access: z.enum(["free", "membership"]),
-    topicId: uuidWireSchema.nullable(),
-    formatId: uuidWireSchema.nullable(),
-    tagIds: z.array(uuidWireSchema).max(100),
+    ...materialMetadataBaseShape,
     seriesMemberships: z.array(seriesMembershipWireSchema).max(100),
   })
   .strict();

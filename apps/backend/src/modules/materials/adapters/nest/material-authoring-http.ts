@@ -4,9 +4,11 @@ import { z } from "zod";
 import type {
   CreateDraftError,
   DeleteDraftError,
+  LoadSeriesOrderError,
   LoadMaterialError,
   PreviewMaterialError,
   SaveMaterialError,
+  ReorderSeriesError,
   ValidateMaterialError,
 } from "../../index.js";
 import {
@@ -14,6 +16,7 @@ import {
   idempotencyKeyWireSchema,
   materialBodySnapshotWireSchema,
   materialIdWireSchema,
+  materialMetadataSelectionWireSchema,
   materialMetadataWireSchema,
   publicationStateWireSchema,
   seriesMembershipWireSchema,
@@ -25,6 +28,7 @@ export const idempotencyKeySchema = idempotencyKeyWireSchema;
 export const contentVersionSchema = contentVersionWireSchema;
 export const seriesMembershipSchema = seriesMembershipWireSchema;
 export const materialMetadataSchema = materialMetadataWireSchema;
+export const materialMetadataSelectionSchema = materialMetadataSelectionWireSchema;
 export const materialBodySnapshotSchema = materialBodySnapshotWireSchema;
 
 export const materialMutationReceiptSchema = z
@@ -49,20 +53,53 @@ export const materialSchema = z
   .strict();
 
 export const createDraftBodySchema = z
-  .object({ metadata: materialMetadataSchema, body: materialBodySnapshotSchema })
+  .object({ metadata: materialMetadataSelectionSchema, body: materialBodySnapshotSchema })
   .strict();
 
 export const saveMaterialBodySchema = z
   .object({
     expectedContentVersion: contentVersionSchema,
     publicationState: publicationStateWireSchema,
-    metadata: materialMetadataSchema,
+    metadata: materialMetadataSelectionSchema,
     body: materialBodySnapshotSchema,
   })
   .strict();
 
 export const deleteDraftBodySchema = z
   .object({ expectedContentVersion: contentVersionSchema })
+  .strict();
+
+export const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
+export const seriesOrderSchema = z
+  .object({
+    items: z.array(
+      z
+        .object({
+          materialId: materialIdSchema,
+          ordinal: z.number().int().positive(),
+          publicationState: publicationStateWireSchema,
+          title: z.string().nullable(),
+        })
+        .strict(),
+    ),
+    name: z.string().min(1),
+    orderVersion: seriesOrderVersionSchema,
+    seriesId: z.uuid(),
+  })
+  .strict();
+export const reorderSeriesBodySchema = z
+  .object({
+    expectedOrderVersion: seriesOrderVersionSchema,
+    orderedMaterialIds: z.array(materialIdSchema).max(10_000),
+  })
+  .strict()
+  .refine(
+    ({ orderedMaterialIds }) =>
+      new Set(orderedMaterialIds).size === orderedMaterialIds.length,
+    { path: ["orderedMaterialIds"], message: "Material IDs must be unique" },
+  );
+export const reorderSeriesReceiptSchema = z
+  .object({ seriesId: z.uuid(), orderVersion: seriesOrderVersionSchema })
   .strict();
 
 export const validationIssueSchema = z
@@ -131,6 +168,7 @@ export const materialAuthoringProblemSchema = z.looseObject({
   retryable: z.boolean().optional(),
   issues: z.array(validationIssueSchema).optional(),
   currentContentVersion: contentVersionSchema.optional(),
+  currentOrderVersion: seriesOrderVersionSchema.optional(),
   currentState: publicationStateWireSchema.optional(),
   targetState: publicationStateWireSchema.optional(),
 });
@@ -162,8 +200,10 @@ type MaterialAuthoringTransportError =
   | CreateDraftError
   | DeleteDraftError
   | LoadMaterialError
+  | LoadSeriesOrderError
   | PreviewMaterialError
   | SaveMaterialError
+  | ReorderSeriesError
   | ValidateMaterialError;
 
 export type MaterialAuthoringErrorStatus = 403 | 404 | 409 | 422 | 500 | 503;
@@ -175,6 +215,7 @@ export function statusForMaterialAuthoringError(
     case "forbidden":
       return 403;
     case "material_not_found":
+    case "series_not_found":
       return 404;
     case "draft_deletion_forbidden":
     case "idempotency_key_reused":
@@ -183,6 +224,8 @@ export function statusForMaterialAuthoringError(
     case "slug_conflict":
     case "slug_locked":
     case "stale_content_version":
+    case "series_membership_changed":
+    case "stale_series_order":
       return 409;
     case "duplicate_tag":
     case "invalid_content":

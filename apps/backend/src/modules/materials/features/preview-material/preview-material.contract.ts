@@ -3,7 +3,7 @@ import type { RenderedMaterialBody } from "../../domain/material-body/material-b
 import type {
   ForbiddenError,
   InvalidContentError,
-  MaterialMetadataInput,
+  MaterialMetadataDto,
   MaterialNotFoundError,
   SystemError,
 } from "../../facets/material-authoring/material-authoring.contract.js";
@@ -18,7 +18,7 @@ export interface PreviewMaterialDto {
   readonly materialId: string;
   readonly contentVersion: number;
   readonly publicationState: PublicationState;
-  readonly metadata: MaterialMetadataInput;
+  readonly metadata: MaterialMetadataDto;
   readonly cacheScope: "private-no-store";
   readonly body: RenderedMaterialBody;
 }

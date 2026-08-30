@@ -29,7 +29,7 @@ function metadata(title: string, slug = "public-lifecycle") {
     topicId,
     formatId,
     tagIds: [],
-    seriesMemberships: [],
+    seriesIds: [],
   };
 }
 

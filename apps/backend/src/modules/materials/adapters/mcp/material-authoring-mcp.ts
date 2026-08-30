@@ -10,7 +10,7 @@ import {
   idempotencyKeyWireSchema,
   materialBodySnapshotWireSchema,
   materialIdWireSchema,
-  materialMetadataWireSchema,
+  materialMetadataSelectionWireSchema,
   publicationStateWireSchema,
 } from "../material-authoring-wire.js";
 
@@ -54,7 +54,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       inputSchema: z
         .object({
           idempotencyKey: idempotencyKeyWireSchema,
-          metadata: materialMetadataWireSchema,
+          metadata: materialMetadataSelectionWireSchema,
           body: materialBodySnapshotWireSchema,
         })
         .strict(),
@@ -109,7 +109,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           materialId: materialIdWireSchema,
           expectedContentVersion: contentVersionWireSchema,
           publicationState: publicationStateWireSchema,
-          metadata: materialMetadataWireSchema,
+          metadata: materialMetadataSelectionWireSchema,
           body: materialBodySnapshotWireSchema,
         })
         .strict(),

@@ -58,7 +58,7 @@ export async function MaterialAuthoringPage({ returnHref }: { readonly returnHre
       formatId: "unassigned",
       materialId: null,
       readOnly: false,
-      seriesMemberships: [],
+      seriesIds: [],
       slug: "",
       status: "new",
       summary: "",

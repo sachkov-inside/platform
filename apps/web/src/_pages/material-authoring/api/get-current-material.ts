@@ -127,7 +127,7 @@ export async function getCurrentMaterial(
       formatId: parsed.data.metadata.formatId ?? "unassigned",
       materialId: parsed.data.materialId,
       readOnly: false,
-      seriesMemberships: parsed.data.metadata.seriesMemberships,
+      seriesIds: parsed.data.metadata.seriesMemberships.map(({ seriesId }) => seriesId),
       slug: parsed.data.metadata.slug ?? "",
       status: parsed.data.publicationState,
       summary: parsed.data.metadata.summary ?? "",

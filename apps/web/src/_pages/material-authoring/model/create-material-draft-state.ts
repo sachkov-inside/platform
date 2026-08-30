@@ -13,6 +13,7 @@ export interface CreatedMaterialDraft {
   readonly formatId: string | null;
   readonly materialId: string;
   readonly preview: MaterialPreviewPresentation;
+  readonly seriesIds: readonly string[];
   readonly slug: string | null;
   readonly summary: string;
   readonly tagIds: readonly string[];

@@ -32,7 +32,7 @@ const noopActions = {
   onRetry: fn(),
   onReturnToEditor: fn(),
   onSave: fn(),
-  onSeriesMembershipChange: fn(),
+  onSeriesToggle: fn(),
   onTagToggle: fn(),
 } satisfies MaterialAuthoringActions;
 
@@ -91,21 +91,15 @@ function MaterialAuthoringFixture({
       noopActions.onSave();
       setPresentation(savedAfterEditingPresentation);
     },
-    onSeriesMembershipChange: (seriesId, ordinal) => {
-      noopActions.onSeriesMembershipChange(seriesId, ordinal);
+    onSeriesToggle: (seriesId, checked) => {
+      noopActions.onSeriesToggle(seriesId, checked);
       markDirty({
         ...presentation.draft,
-        seriesMemberships:
-          ordinal === null
-            ? presentation.draft.seriesMemberships.filter(
-                (membership) => membership.seriesId !== seriesId,
-              )
-            : [
-                ...presentation.draft.seriesMemberships.filter(
-                  (membership) => membership.seriesId !== seriesId,
-                ),
-                { ordinal, seriesId },
-              ],
+        seriesIds: checked
+          ? [...presentation.draft.seriesIds, seriesId]
+          : presentation.draft.seriesIds.filter(
+              (candidate) => candidate !== seriesId,
+            ),
       });
     },
     onTagToggle: (tagId: string, checked: boolean) => {
@@ -160,7 +154,7 @@ export const EmptyNewDraft: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Новый материал" })).toBeInTheDocument();
     await expect(canvas.getByLabelText("Название")).toHaveValue("");
-    await expect(canvas.getByRole("button", { name: "Preview" })).toBeDisabled();
+    await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toBeDisabled();
     await expect(canvas.getByRole("button", { name: "Создать черновик" })).toBeDisabled();
     await expectNoHorizontalOverflow(canvasElement);
   },
@@ -169,14 +163,19 @@ export const EmptyNewDraft: Story = {
 export const Editing: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(canvas.getByRole("group", { name: "Плейлисты" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("checkbox", { name: "Создание Platform Inside" }),
+    ).toBeChecked();
+    await expect(canvas.queryByRole("spinbutton")).not.toBeInTheDocument();
     const title = canvas.getByLabelText("Название");
     await userEvent.clear(title);
     await userEvent.type(title, "Новая версия Developer Pipeline");
     await expect(canvas.getAllByText("Есть несохранённые изменения", { exact: true }).length).toBeGreaterThan(0);
-    await expect(canvas.getByRole("button", { name: "Preview" })).toBeDisabled();
+    await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toBeDisabled();
     await userEvent.click(canvas.getByRole("button", { name: "Сохранить" }));
     await expect(canvas.getAllByText(`v${String(savedContentVersion)}`).length).toBeGreaterThan(0);
-    await userEvent.click(canvas.getByRole("button", { name: "Preview" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Предпросмотр" }));
     await expect(canvas.getByRole("heading", { name: "Новая версия Developer Pipeline" })).toBeInTheDocument();
     await expect(canvas.getAllByText(new RegExp(`v${String(savedContentVersion)}`)).length).toBeGreaterThan(0);
   },
@@ -222,7 +221,7 @@ export const Saved: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getAllByText("Сохранено 12:41", { exact: true }).length).toBeGreaterThan(0);
-    await expect(canvas.getByRole("button", { name: "Preview" })).toBeEnabled();
+    await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toBeEnabled();
     await expect(canvas.getByRole("button", { name: "Сохранить" })).toBeDisabled();
     await userEvent.tab();
     await expect(canvas.getByRole("link", { name: "Перейти к содержанию" })).toHaveFocus();
@@ -267,7 +266,7 @@ export const CreatedDraft: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Material сохранён")).toBeVisible();
     await expect(canvas.getByLabelText("Название")).toBeDisabled();
-    await expect(canvas.getByRole("button", { name: "Preview" })).toBeEnabled();
+    await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toBeEnabled();
   },
 };
 
@@ -335,7 +334,7 @@ export const PreviewUnauthorized: Story = {
   render: () => <MaterialAuthoringPreviewUnauthorizedState />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Нет доступа к Preview");
+    await expect(canvas.getByRole("alert")).toHaveTextContent("Нет доступа к предпросмотру");
     await expect(canvas.getByRole("link", { name: "Вернуться к материалам" })).toBeVisible();
   },
 };
@@ -353,7 +352,7 @@ export const PreviewUnexpectedError: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Не удалось открыть Preview");
+    await expect(canvas.getByRole("alert")).toHaveTextContent("Не удалось открыть предпросмотр");
     await expect(canvas.getByText("Код обращения: preview_unavailable")).toBeVisible();
     await expect(canvas.getByRole("link", { name: "Повторить" })).toBeVisible();
   },
@@ -364,7 +363,7 @@ export const PreviewNotFound: Story = {
   render: () => <MaterialAuthoringPreviewNotFoundState />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Preview не найден");
+    await expect(canvas.getByRole("alert")).toHaveTextContent("Предпросмотр не найден");
     await expect(canvas.queryByRole("link", { name: "Повторить" })).not.toBeInTheDocument();
   },
 };
@@ -387,13 +386,13 @@ export const ExactPreview: Story = {
   name: "Exact Preview · desktop",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Preview текущей версии" })).toBeInTheDocument();
+    await expect(canvas.getByRole("heading", { name: "Предпросмотр текущей версии" })).toBeInTheDocument();
     await expect(canvas.getAllByText(/v3/).length).toBeGreaterThan(0);
     await expect(canvasElement.querySelector("[data-preview-version-banner]")).toHaveTextContent(
       "Это сохранённый черновик v3. Материал ещё не опубликован.",
     );
     await expect(canvas.getByRole("heading", { name: "Developer Pipeline без магии" })).toBeInTheDocument();
-    await expect(canvas.getByRole("region", { name: "Таблица в Preview" })).toBeVisible();
+    await expect(canvas.getByRole("region", { name: "Таблица в предпросмотре" })).toBeVisible();
     await expect(canvas.getByRole("img", { name: "Схема Developer Pipeline" })).toBeVisible();
     await expect(canvas.getByText("Checklist проверки")).toBeVisible();
     await expect(canvas.getByText("Видео пока недоступно для просмотра")).toBeVisible();
@@ -408,7 +407,7 @@ export const ExactPreviewMobile: Story = {
   name: "Exact Preview · mobile",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Preview текущей версии" })).toBeInTheDocument();
+    await expect(canvas.getByRole("heading", { name: "Предпросмотр текущей версии" })).toBeInTheDocument();
     await expect(canvas.getAllByText(/v3/).length).toBeGreaterThan(0);
     await expectNoHorizontalOverflow(canvasElement);
   },
@@ -459,7 +458,7 @@ export const Published: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getAllByText("Опубликован").length).toBeGreaterThan(0);
     await expect(canvas.getByLabelText("Адрес")).toHaveAttribute("readonly");
-    await userEvent.click(canvas.getByRole("button", { name: "Preview" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Предпросмотр" }));
     await expect(canvasElement.querySelector("[data-preview-version-banner]")).toHaveTextContent(
       "Это текущая live-версия v3.",
     );

@@ -24,7 +24,7 @@ export function MaterialAuthoringUnauthorizedState({
           ? "Текущая сессия не подтверждает право просматривать черновик. Войдите под доверенным автором или вернитесь к материалам."
           : "Текущая сессия не подтверждает право изменять материалы. Войдите под доверенным автором или вернитесь к материалам."
       }
-      heading={preview ? "Нет доступа к Preview" : "Нет доступа к редактору"}
+      heading={preview ? "Нет доступа к предпросмотру" : "Нет доступа к редактору"}
       icon={<ShieldAlert aria-hidden="true" className="mx-auto size-8 text-destructive" />}
       shellCurrent={preview ? "preview" : "create"}
     />
@@ -104,7 +104,7 @@ export function MaterialAuthoringUnexpectedPreviewState({
       }
       description="Черновик не изменён. Повторите чтение сохранённой версии."
       detail={`Код обращения: ${reference}`}
-      heading="Не удалось открыть Preview"
+      heading="Не удалось открыть предпросмотр"
       icon={<CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />}
       shellCurrent="preview"
     />
@@ -181,7 +181,7 @@ export function MaterialAuthoringPreviewNotFoundState({
         </div>
       }
       description="Сохранённый черновик с таким идентификатором не найден. Повтор чтения не изменит результат."
-      heading="Preview не найден"
+      heading="Предпросмотр не найден"
       icon={<CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />}
       shellCurrent="preview"
     />

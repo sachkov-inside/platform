@@ -3,7 +3,7 @@ import type {
   ForbiddenError,
   IdempotencyError,
   InvalidReferenceError,
-  MaterialMetadataInput,
+  MaterialMetadataSelectionInput,
   MaterialMutationReceiptDto,
   PersistenceConflictError,
   SystemError,
@@ -13,7 +13,7 @@ import type { Result } from "../../result.js";
 export interface CreateDraftCommand {
   readonly actor: string;
   readonly idempotencyKey: string;
-  readonly metadata: MaterialMetadataInput;
+  readonly metadata: MaterialMetadataSelectionInput;
   readonly body: unknown;
 }
 

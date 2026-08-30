@@ -41,7 +41,7 @@ export function MaterialCurrentPreview({
               </Button>
               <div className="min-w-0">
                 <h1 className="text-sm font-semibold" id="exact-preview-heading">
-                  Preview текущей версии
+                  Предпросмотр текущей версии
                 </h1>
                 <p className="truncate font-mono text-[0.6875rem] text-muted-foreground">
                   v{preview.contentVersion} · {publicationStateLabel(preview.publicationState)}

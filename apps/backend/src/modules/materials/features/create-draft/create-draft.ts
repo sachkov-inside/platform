@@ -7,7 +7,10 @@ import type {
   CreateDraftOperation,
 } from "./create-draft.contract.js";
 import { materialId } from "../../domain/material-identifiers.js";
-import { MaterialMetadata } from "../../domain/material-metadata.js";
+import {
+  MaterialMetadataSelection,
+  type MaterialMetadata,
+} from "../../domain/material-metadata.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import {
   executeAuthoringTransaction,
@@ -24,6 +27,7 @@ import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
+import { appendSelectedSeriesMemberships } from "../../infrastructure/postgres/series-order.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 
 const createDraftCommand = z
@@ -44,9 +48,9 @@ export function assembleCreateDraft(
       return failure(parsedCommand.error);
     }
     const command = parsedCommand.value;
-    const metadata = MaterialMetadata.create(command.metadata);
-    if (!metadata.ok) {
-      return failure(metadata.error);
+    const selection = MaterialMetadataSelection.create(command.metadata);
+    if (!selection.ok) {
+      return failure(selection.error);
     }
     const body = dependencies.materialBodyOperations.accept(command.body, {
       assignMissingNodeIds: true,
@@ -64,9 +68,10 @@ export function assembleCreateDraft(
 
     const fingerprint = fingerprintCommand({
       operation: "create_draft",
-      metadata: metadata.value.toValues(),
+      metadata: selection.value.toValues(),
       body: body.value,
     });
+    let materializedMetadata: MaterialMetadata | undefined;
     const result = await executeAuthoringTransaction<CreateDraftEffect, CreateDraftError>(
       dependencies.prisma,
       (transaction, rollback) =>
@@ -82,24 +87,31 @@ export function assembleCreateDraft(
           rollback,
           async () => {
             const newMaterialId = materialId(randomUUID());
+            materializedMetadata = selection.value.materialize(
+              await appendSelectedSeriesMemberships(
+                transaction,
+                newMaterialId,
+                selection.value.toValues().seriesIds,
+              ),
+            );
             await requireReferenceIntegrity(
               transaction,
               newMaterialId,
-              metadata.value,
+              materializedMetadata,
               rollback,
             );
             await transaction.material.create({
               data: {
                 id: newMaterialId,
-                slug: metadata.value.slug,
-                title: metadata.value.title,
-                summary: metadata.value.summary,
-                topicId: metadata.value.topicId,
-                formatId: metadata.value.formatId,
+                slug: materializedMetadata.slug,
+                title: materializedMetadata.title,
+                summary: materializedMetadata.summary,
+                topicId: materializedMetadata.topicId,
+                formatId: materializedMetadata.formatId,
                 schemaVersion: body.value.schemaVersion,
                 body: toDatabaseJson(body.value.doc),
                 createdBy: command.actor,
-                access: metadata.value.access,
+                access: materializedMetadata.access,
                 publicationState: "draft",
                 contentVersion: 1n,
               },
@@ -107,7 +119,7 @@ export function assembleCreateDraft(
             await replaceCurrentRelations(
               transaction,
               newMaterialId,
-              metadata.value,
+              materializedMetadata,
             );
             return {
               kind: "material",
@@ -120,7 +132,7 @@ export function assembleCreateDraft(
             };
           },
         ),
-      (unexpected) => mapPostgresError(unexpected, metadata.value),
+      (unexpected) => mapPostgresError(unexpected, materializedMetadata),
     );
     return result.ok ? { ok: true, value: result.value.receipt } : result;
   };

@@ -90,6 +90,7 @@ describe("Material Authoring action workflow", () => {
       draft: {
         contentVersion: 1,
         materialId,
+        seriesIds: [seriesId],
         preview: {
           contentVersion: 1,
           format: "Гайд",
@@ -112,6 +113,7 @@ describe("Material Authoring action workflow", () => {
       expect.objectContaining({
         formatId,
         idempotencyKey: `web-create-${submissionId}`,
+        seriesIds: [seriesId],
         tagIds: [tagId],
         topicId,
       }),
@@ -242,7 +244,7 @@ describe("Material Authoring action workflow", () => {
         contentVersion: 7,
         materialId,
         readOnly: false,
-        seriesMemberships: [{ ordinal: 4, seriesId }],
+        seriesIds: [seriesId],
         slug: "saved-material",
         status: "published",
         title: "Saved Material",
@@ -374,7 +376,7 @@ describe("Material Authoring action workflow", () => {
         idempotencyKey: `web-save-${submissionId}`,
         materialId,
         publicationState: "published",
-        seriesMemberships: [{ ordinal: 4, seriesId }],
+        seriesIds: [seriesId],
         slug: "saved-material",
         summary: "Saved summary",
         tagIds: [tagId],
@@ -472,6 +474,7 @@ function validFormData(): FormData {
   );
   formData.set("formatId", formatId);
   formData.set("submissionId", submissionId);
+  formData.set("seriesIds", JSON.stringify([seriesId]));
   formData.set("summary", "Проверяем create, validation и current Preview.");
   formData.append("tagIds", tagId);
   formData.set("title", "Один production path");
@@ -566,7 +569,7 @@ function validSaveFormData(): FormData {
   formData.set("formatId", formatId);
   formData.set("materialId", materialId);
   formData.set("publicationState", "published");
-  formData.set("seriesMemberships", JSON.stringify([{ ordinal: 4, seriesId }]));
+  formData.set("seriesIds", JSON.stringify([seriesId]));
   formData.set("slug", "saved-material");
   formData.set("submissionId", submissionId);
   formData.set("summary", "Saved summary");

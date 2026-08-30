@@ -62,6 +62,7 @@ export function MaterialAuthoringPageClient({
           formatId: created.formatId ?? "unassigned",
           materialId: created.materialId,
           readOnly: false,
+          seriesIds: created.seriesIds,
           slug: created.slug ?? "",
           status: "draft" as const,
           summary: created.summary,
@@ -235,20 +236,12 @@ export function MaterialAuthoringPageClient({
           : effectiveDraft.tagIds.filter((candidate) => candidate !== tagId),
       });
     },
-    onSeriesMembershipChange: (seriesId: string, ordinal: number | null) => {
+    onSeriesToggle: (seriesId: string, checked: boolean) => {
       markDirty({
         ...effectiveDraft,
-        seriesMemberships:
-          ordinal === null
-            ? effectiveDraft.seriesMemberships.filter(
-                (membership) => membership.seriesId !== seriesId,
-              )
-            : [
-                ...effectiveDraft.seriesMemberships.filter(
-                  (membership) => membership.seriesId !== seriesId,
-                ),
-                { ordinal, seriesId },
-              ],
+        seriesIds: checked
+          ? [...effectiveDraft.seriesIds, seriesId]
+          : effectiveDraft.seriesIds.filter((candidate) => candidate !== seriesId),
       });
     },
   } satisfies MaterialAuthoringActions;

@@ -176,6 +176,7 @@ export function requestMaterialDraftCreation(
     readonly document: Record<string, unknown>;
     readonly formatId: string | null;
     readonly idempotencyKey: string;
+    readonly seriesIds: readonly string[];
     readonly summary: string;
     readonly tagIds: readonly string[];
     readonly title: string;
@@ -192,7 +193,7 @@ export function requestMaterialDraftCreation(
           metadata: {
             access: input.access,
             formatId: input.formatId,
-            seriesMemberships: [],
+            seriesIds: [...input.seriesIds],
             slug: null,
             summary: input.summary,
             tagIds: [...input.tagIds],
@@ -227,10 +228,7 @@ export function requestMaterialSave(
     readonly idempotencyKey: string;
     readonly materialId: string;
     readonly publicationState: "draft" | "published" | "unpublished";
-    readonly seriesMemberships: readonly {
-      readonly ordinal: number;
-      readonly seriesId: string;
-    }[];
+    readonly seriesIds: readonly string[];
     readonly slug: string | null;
     readonly summary: string | null;
     readonly tagIds: readonly string[];
@@ -250,10 +248,7 @@ export function requestMaterialSave(
           metadata: {
             access: input.access,
             formatId: input.formatId,
-            seriesMemberships: input.seriesMemberships.map((membership) => ({
-              ordinal: membership.ordinal,
-              seriesId: membership.seriesId,
-            })),
+            seriesIds: [...input.seriesIds],
             slug: input.slug,
             summary: input.summary,
             tagIds: [...input.tagIds],
@@ -274,6 +269,40 @@ export function requestMaterialAuthoringReferences(
   return executeGeneratedRequest(
     (request) =>
       new MaterialAuthoringService(request).listMaterialAuthoringReferences(),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestSeriesOrder(
+  seriesId: string,
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MaterialAuthoringService(request).loadAuthoringSeriesOrder({ seriesId }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestSeriesReorder(
+  input: {
+    readonly expectedOrderVersion: string;
+    readonly orderedMaterialIds: readonly string[];
+    readonly seriesId: string;
+  },
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MaterialAuthoringService(request).reorderAuthoringSeries({
+        seriesId: input.seriesId,
+        requestBody: {
+          expectedOrderVersion: input.expectedOrderVersion,
+          orderedMaterialIds: [...input.orderedMaterialIds],
+        },
+      }),
     200,
     { accessToken },
   );
