@@ -37,6 +37,8 @@ import type {
   MaterialSaveState,
 } from "../model/presentation";
 import { MaterialCurrentPreview } from "./material-current-preview";
+import { MaterialDeleteDialog } from "./material-delete-dialog.client";
+import { MaterialPublicationActionButton } from "./material-publication-action-button";
 import { MaterialAuthoringShell } from "./material-authoring-shell";
 import {
   MaterialAuthoringSignInActions,
@@ -96,7 +98,18 @@ export function MaterialAuthoringWorkspace({
           id="material-authoring-form"
           onSubmit={(event) => {
             event.preventDefault();
-            actions.onSave(new FormData(event.currentTarget));
+            const formData = new FormData(event.currentTarget);
+            const submitter =
+              event.nativeEvent instanceof SubmitEvent
+                ? event.nativeEvent.submitter
+                : null;
+            if (
+              submitter instanceof HTMLButtonElement &&
+              submitter.name === "publicationState"
+            ) {
+              formData.set("publicationState", submitter.value);
+            }
+            actions.onSave(formData);
           }}
         >
           <input name="document" type="hidden" value={JSON.stringify(presentation.draft.document)} />
@@ -122,6 +135,14 @@ function EditorHeader({
     presentation.save.kind === "dirty" ||
     presentation.save.kind === "submitting" ||
     presentation.blocking.kind !== "none";
+  const publicationOperation =
+    presentation.draft.status === "published" ? "unpublish" : "publish";
+  const publicationDisabled =
+    presentation.draft.status === "new" ||
+    presentation.draft.contentVersion === null ||
+    presentation.save.kind === "submitting" ||
+    presentation.blocking.kind !== "none" ||
+    presentation.draft.readOnly;
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card px-4 py-3 sm:px-6">
@@ -150,7 +171,21 @@ function EditorHeader({
             <Eye aria-hidden="true" data-icon="inline-start" />
             Предпросмотр
           </Button>
-          <Button className="min-h-11 px-3" disabled={presentation.save.kind !== "dirty" || presentation.blocking.kind !== "none" || presentation.draft.readOnly} form="material-authoring-form" type="submit">
+          {presentation.draft.status === "new" ? null : (
+            <MaterialPublicationActionButton
+              className="min-h-11 px-3"
+              disabled={publicationDisabled}
+              form="material-authoring-form"
+              name="publicationState"
+              operation={publicationOperation}
+              type="submit"
+              value={
+                publicationOperation === "publish" ? "published" : "unpublished"
+              }
+              variant="outline"
+            />
+          )}
+          <Button className="col-span-2 min-h-11 px-3 sm:col-span-1" disabled={presentation.save.kind !== "dirty" || presentation.blocking.kind !== "none" || presentation.draft.readOnly} form="material-authoring-form" type="submit">
             {presentation.save.kind === "submitting" ? (
               <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" data-icon="inline-start" />
             ) : (
@@ -281,28 +316,34 @@ function MetadataPanel({
             </SelectContent>
           </Select>
         </Field>
-        {presentation.draft.status === "new" ? null : (
-          <Field label="Публикация" targetId="material-publication-state">
-            <Select
-              disabled={disabled}
-              onValueChange={(value) => {
-                actions.onFieldChange("publicationState", value);
-              }}
-              value={presentation.draft.status}
-            >
-              <SelectTrigger className={authoringSelectTriggerClassName} id="material-publication-state">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem className={authoringSelectItemClassName} value="draft">Черновик</SelectItem>
-                <SelectItem className={authoringSelectItemClassName} value="published">Опубликован</SelectItem>
-                <SelectItem className={authoringSelectItemClassName} value="unpublished">Снят с публикации</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-        )}
       </div>
       <FormGuidance presentation={presentation} />
+      {presentation.draft.canDelete &&
+      presentation.draft.materialId !== null &&
+      presentation.draft.contentVersion !== null ? (
+        <section
+          aria-labelledby="material-delete-heading"
+          className="mt-7 border-t border-border pt-6"
+        >
+          <h2 className="text-sm font-semibold" id="material-delete-heading">
+            Удаление черновика
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Доступно только пока Material ни разу не публиковался.
+          </p>
+          <div className="mt-4">
+            <MaterialDeleteDialog
+              contentVersion={presentation.draft.contentVersion}
+              materialId={presentation.draft.materialId}
+              onDelete={actions.onDelete}
+              pending={presentation.deletion.pending}
+              state={presentation.deletion.state}
+              submissionId={presentation.submissionId}
+              title={presentation.draft.title || null}
+            />
+          </div>
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -590,6 +631,26 @@ function BlockingState({ actions, presentation }: MaterialAuthoringWorkspaceProp
             <Button onClick={() => { actions.onConflictAction("open_current"); }} type="button" variant="outline">Открыть текущую</Button>
             <Button onClick={() => { actions.onConflictAction("copy"); }} type="button" variant="ghost">Скопировать мои изменения</Button>
           </div>
+        </div>
+      </div>
+    );
+  }
+  if (presentation.blocking.kind === "not_found") {
+    return (
+      <div className="border-b border-border bg-destructive/8 px-4 py-5 sm:px-6" role="alert">
+        <div className="mx-auto flex w-full max-w-[92rem] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex max-w-2xl gap-3">
+            <CircleAlert aria-hidden="true" className="mt-1 size-5 shrink-0 text-destructive" />
+            <div>
+              <p className="font-semibold">Материал больше не найден</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Он мог быть удалён в другой сессии. Ложное сохранение не показано.
+              </p>
+            </div>
+          </div>
+          <Button onClick={actions.onBack} type="button">
+            Вернуться к материалам
+          </Button>
         </div>
       </div>
     );

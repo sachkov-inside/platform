@@ -3,13 +3,22 @@
 import type { JSONContent } from "@tiptap/core";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { startTransition, useActionState, useEffect, useRef, useState } from "react";
+import {
+  startTransition,
+  useActionState,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   MaterialAuthoringWorkspace,
   type MaterialAuthoringActions,
   type MaterialAuthoringPresentation,
   type MaterialDraftField,
+  initialMaterialLifecycleActionState,
+  type MaterialLifecycleActionState,
   withAuthoringReturnHref,
 } from "@/features/material-authoring";
 
@@ -23,14 +32,21 @@ type MaterialMutationAction = (
   formData: FormData,
 ) => Promise<MaterialAuthoringActionState>;
 
+type MaterialLifecycleMutationAction = (
+  state: MaterialLifecycleActionState,
+  formData: FormData,
+) => Promise<MaterialLifecycleActionState>;
+
 interface MaterialAuthoringPageClientProps {
   readonly initialPresentation: MaterialAuthoringPresentation;
+  readonly lifecycleAction: MaterialLifecycleMutationAction;
   readonly mutationAction: MaterialMutationAction;
   readonly returnHref: Route;
 }
 
 export function MaterialAuthoringPageClient({
   initialPresentation,
+  lifecycleAction,
   mutationAction,
   returnHref,
 }: MaterialAuthoringPageClientProps) {
@@ -43,11 +59,26 @@ export function MaterialAuthoringPageClient({
   const [dirty, setDirty] = useState(false);
   const [noticeRevision, setNoticeRevision] = useState(0);
   const retryData = useRef<FormData | null>(null);
+  const acceptDelete = useCallback(
+    async (state: MaterialLifecycleActionState, formData: FormData) => {
+      const result = await lifecycleAction(state, formData);
+      if (result.kind === "deleted") {
+        router.replace(returnHref);
+      }
+      return result;
+    },
+    [lifecycleAction, returnHref, router],
+  );
+  const [deletionState, deleteAction, deletionPending] = useActionState(
+    acceptDelete,
+    initialMaterialLifecycleActionState,
+  );
 
   const failedMutation =
     actionState.kind === "conflict" ||
     actionState.kind === "infrastructure_error" ||
     actionState.kind === "invalid_input" ||
+    actionState.kind === "not_found" ||
     actionState.kind === "unexpected_error";
 
   const created = actionState.kind === "created" ? actionState.draft : null;
@@ -56,6 +87,7 @@ export function MaterialAuthoringPageClient({
     created !== null
       ? {
           ...draft,
+          canDelete: true,
           access: created.access,
           contentVersion: created.contentVersion,
           document: created.document,
@@ -72,6 +104,8 @@ export function MaterialAuthoringPageClient({
       : saved !== null
         ? {
             ...draft,
+            canDelete:
+              draft.canDelete && saved.publicationState === "draft",
             contentVersion: saved.contentVersion,
             status: saved.publicationState,
           }
@@ -114,7 +148,10 @@ export function MaterialAuthoringPageClient({
               kind: "conflict",
               staleContentVersion: actionState.staleContentVersion,
             }
-          : { kind: "none" },
+          : actionState.kind === "not_found"
+            ? { kind: "not_found" }
+            : { kind: "none" },
+    deletion: { pending: deletionPending, state: deletionState },
     draft: effectiveDraft,
     mode: "editor",
     noticeRevision,
@@ -183,15 +220,12 @@ export function MaterialAuthoringPageClient({
         });
         return;
       }
-      if (field === "publicationState") {
-        markDirty({
-          ...effectiveDraft,
-          status:
-            value === "published" || value === "unpublished" ? value : "draft",
-        });
-        return;
-      }
       markDirty({ ...effectiveDraft, [field]: value });
+    },
+    onDelete: (formData: FormData) => {
+      startTransition(() => {
+        deleteAction(formData);
+      });
     },
     onOpenPreview: () => {
       if (effectiveDraft.materialId !== null) {

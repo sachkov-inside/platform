@@ -2638,6 +2638,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "canDelete": {
+                            "type": "boolean"
+                          },
                           "contentVersion": {
                             "exclusiveMinimum": true,
                             "maximum": 9007199254740991,
@@ -2708,6 +2711,7 @@
                           }
                         },
                         "required": [
+                          "canDelete",
                           "contentVersion",
                           "format",
                           "materialId",

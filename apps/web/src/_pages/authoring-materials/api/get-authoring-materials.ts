@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
 import {
@@ -20,6 +22,7 @@ const responseSchema = z
     items: z.array(
       z
         .object({
+          canDelete: z.boolean(),
           contentVersion: z.number().int().positive(),
           format: referenceSchema.nullable(),
           materialId: z.uuid(),
@@ -99,9 +102,12 @@ export async function getAuthoringMaterials(
   return {
     kind: "ready",
     items: parsed.data.items.map((item) => ({
+      canDelete: item.canDelete,
+      contentVersion: item.contentVersion,
       format: item.format?.name ?? null,
       materialId: item.materialId,
       publicationState: item.publicationState,
+      submissionId: randomUUID(),
       title: item.title,
       topic: item.topic?.name ?? null,
       updatedAt: item.updatedAt,

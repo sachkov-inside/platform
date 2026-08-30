@@ -36,11 +36,17 @@ import {
   authoringMaterialsHref,
   authoringMaterialsRootHref,
 } from "../model/authoring-materials-query";
+import {
+  AuthoringMaterialActions,
+  type MaterialLifecycleMutationAction,
+} from "./authoring-material-actions.client";
 
 export function AuthoringMaterialsView({
+  lifecycleAction,
   query,
   state,
 }: {
+  readonly lifecycleAction: MaterialLifecycleMutationAction;
   readonly query: AuthoringMaterialsQuery;
   readonly state: AuthoringMaterialsState;
 }) {
@@ -78,7 +84,12 @@ export function AuthoringMaterialsView({
           </header>
 
           <AuthoringMaterialsFilters query={query} totalItems={state.totalItems} />
-          <AuthoringMaterialsResults query={query} returnHref={returnHref} state={state} />
+          <AuthoringMaterialsResults
+            lifecycleAction={lifecycleAction}
+            query={query}
+            returnHref={returnHref}
+            state={state}
+          />
         </div>
       </main>
     </MaterialAuthoringShell>
@@ -152,10 +163,12 @@ function AuthoringMaterialsFilters({
 }
 
 function AuthoringMaterialsResults({
+  lifecycleAction,
   query,
   returnHref,
   state,
 }: {
+  readonly lifecycleAction: MaterialLifecycleMutationAction;
   readonly query: AuthoringMaterialsQuery;
   readonly returnHref: Route;
   readonly state: Extract<AuthoringMaterialsState, { readonly kind: "ready" }>;
@@ -206,6 +219,7 @@ function AuthoringMaterialsResults({
         {state.items.map((material) => (
           <AuthoringMaterialRow
             key={material.materialId}
+            lifecycleAction={lifecycleAction}
             material={material}
             returnHref={returnHref}
           />
@@ -217,9 +231,11 @@ function AuthoringMaterialsResults({
 }
 
 function AuthoringMaterialRow({
+  lifecycleAction,
   material,
   returnHref,
 }: {
+  readonly lifecycleAction: MaterialLifecycleMutationAction;
   readonly material: AuthoringMaterialListItem;
   readonly returnHref: Route;
 }) {
@@ -257,7 +273,7 @@ function AuthoringMaterialRow({
           </div>
         </dl>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:max-w-[36rem] sm:flex-wrap sm:justify-end">
         <Button asChild className="min-h-11" variant="outline">
           <Link href={authoringDestinationHref(editorPath, returnHref)}>
             <FilePenLine aria-hidden="true" data-icon="inline-start" />
@@ -270,6 +286,11 @@ function AuthoringMaterialRow({
             Предпросмотр
           </Link>
         </Button>
+        <AuthoringMaterialActions
+          editorHref={authoringDestinationHref(editorPath, returnHref)}
+          lifecycleAction={lifecycleAction}
+          material={material}
+        />
       </div>
     </li>
   );

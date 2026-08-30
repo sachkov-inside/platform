@@ -181,14 +181,10 @@ test("full-state Save is live and a stale editor preserves local input through l
   await expect(stalePage.getByLabel("Краткое описание")).toHaveValue(localSummary);
 
   await expect(page.getByLabel("Адрес")).toHaveCount(0);
-  await page.getByRole("combobox", { name: "Публикация" }).click();
-  await page.getByRole("option", { name: "Опубликован" }).click();
-  await page.getByRole("button", { name: "Сохранить" }).click();
+  await page.getByRole("button", { name: "Опубликовать" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(/^v\d+$/u)).toHaveCount(0);
-  await expect(page.getByRole("combobox", { name: "Публикация" })).toContainText(
-    "Опубликован",
-  );
+  await expect(page.getByText("Опубликован", { exact: true }).first()).toBeVisible();
 
   const publicPage = await context.newPage();
   await publicPage.goto(`/materials/${slug}`);
@@ -197,13 +193,82 @@ test("full-state Save is live and a stale editor preserves local input through l
   ).toBeVisible();
   await expect(publicPage.getByText("Текущее сохранённое содержимое из PostgreSQL.")).toBeVisible();
 
-  await page.getByRole("combobox", { name: "Публикация" }).click();
-  await page.getByRole("option", { name: "Снят с публикации" }).click();
-  await page.getByRole("button", { name: "Сохранить" }).click();
+  await page.getByRole("button", { name: "Снять с публикации" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(/^v\d+$/u)).toHaveCount(0);
   await publicPage.reload();
   await expect(publicPage.getByRole("heading", { name: "Материал не найден" })).toBeVisible();
+});
+
+test("trusted author publishes and unpublishes the same full state from the Materials list", async ({
+  context,
+  page,
+}) => {
+  const title = `Lifecycle из списка ${String(Date.now())}`;
+  await addFullStackSession(context);
+  await page.goto("/authoring/materials/new");
+  await completeProfileOnboardingIfPresent(page);
+  await fillPublishableDraft(page, title);
+  await page.getByRole("button", { name: "Создать черновик" }).click();
+  await expect(page).toHaveURL(currentMaterialEditorUrl);
+
+  await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
+  const row = page.getByRole("listitem").filter({ hasText: title });
+  await expect(row).toBeVisible();
+  await expect(row.getByText("Черновик", { exact: true })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Удалить черновик" })).toBeVisible();
+
+  await row.getByRole("button", { name: "Опубликовать" }).click();
+  await expect(row.getByText("Опубликован", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(row.getByRole("button", { name: "Снять с публикации" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Удалить черновик" })).toHaveCount(0);
+
+  await row.getByRole("button", { name: "Снять с публикации" }).click();
+  await expect(row.getByText("Снят с публикации", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(row.getByRole("button", { name: "Опубликовать" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Удалить черновик" })).toHaveCount(0);
+});
+
+test("trusted author cancels and confirms deletion of a never-published draft", async ({
+  context,
+  page,
+}) => {
+  const title = `Удаляемый черновик ${String(Date.now())}`;
+  await addFullStackSession(context);
+  await page.goto("/authoring/materials/new");
+  await completeProfileOnboardingIfPresent(page);
+  await fillPublishableDraft(page, title);
+  await page.getByRole("button", { name: "Создать черновик" }).click();
+  await expect(page).toHaveURL(currentMaterialEditorUrl);
+
+  const openDelete = page.getByRole("button", { name: "Удалить черновик" });
+  await openDelete.focus();
+  await expect(openDelete).toBeFocused();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog", { name: `Удалить «${title}»?` });
+  await expect(dialog).toBeVisible();
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(
+    accessibility.violations.filter(
+      ({ impact }) => impact === "serious" || impact === "critical",
+    ),
+  ).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await openDelete.click();
+  await dialog.getByRole("button", { name: "Оставить черновик" }).click();
+  await expect(dialog).toBeHidden();
+
+  await openDelete.click();
+  await dialog.getByRole("button", { name: "Удалить безвозвратно" }).click();
+  await expect(page).toHaveURL(/\/authoring\/materials(?:\?.*)?$/u);
+  await expect(page.getByRole("link", { name: title })).toHaveCount(0);
 });
 
 test("trusted author sees a typed not-found state for a missing current Preview", async ({

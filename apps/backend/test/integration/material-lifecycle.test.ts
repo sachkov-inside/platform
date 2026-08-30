@@ -273,6 +273,17 @@ describe("Material lifecycle", () => {
       value: { materialId: draft.value.materialId },
     });
     expect(
+      await authoring.deleteDraft({
+        actor: ownerId,
+        idempotencyKey: "delete-deletable-draft",
+        materialId: draft.value.materialId,
+        expectedContentVersion: 1,
+      }),
+    ).toEqual({
+      ok: true,
+      value: { materialId: draft.value.materialId },
+    });
+    expect(
       await authoring.loadMaterial({
         actor: ownerId,
         materialId: draft.value.materialId,
@@ -311,6 +322,67 @@ describe("Material lifecycle", () => {
       ok: false,
       error: { code: "draft_deletion_forbidden" },
     });
+  });
+
+  test("serializes concurrent publication and draft deletion without losing published data", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === ownerId },
+    });
+    const draft = await authoring.createDraft({
+      actor: ownerId,
+      idempotencyKey: "create-lifecycle-delete-race",
+      metadata: metadata("Lifecycle delete race"),
+      body: representativeDocument("One winner."),
+    });
+    if (!draft.ok) throw new Error(draft.error.code);
+
+    const [publication, deletion] = await Promise.all([
+      authoring.saveMaterial({
+        actor: ownerId,
+        idempotencyKey: "publish-lifecycle-delete-race",
+        materialId: draft.value.materialId,
+        expectedContentVersion: 1,
+        publicationState: "published",
+        metadata: metadata("Lifecycle delete race"),
+        body: representativeDocument("One winner."),
+      }),
+      authoring.deleteDraft({
+        actor: ownerId,
+        idempotencyKey: "delete-lifecycle-delete-race",
+        materialId: draft.value.materialId,
+        expectedContentVersion: 1,
+      }),
+    ]);
+
+    expect([publication.ok, deletion.ok].filter(Boolean)).toHaveLength(1);
+    const current = await authoring.loadMaterial({
+      actor: ownerId,
+      materialId: draft.value.materialId,
+    });
+    if (publication.ok) {
+      expect(deletion).toEqual({
+        ok: false,
+        error: { code: "stale_content_version", currentContentVersion: 2 },
+      });
+      expect(current).toMatchObject({
+        ok: true,
+        value: { publicationState: "published" },
+      });
+    } else {
+      expect(deletion).toEqual({
+        ok: true,
+        value: { materialId: draft.value.materialId },
+      });
+      expect(publication).toEqual({
+        ok: false,
+        error: { code: "material_not_found" },
+      });
+      expect(current).toEqual({
+        ok: false,
+        error: { code: "material_not_found" },
+      });
+    }
   });
 
   test("re-authorizes once when a concurrent Save changes contentVersion", async () => {

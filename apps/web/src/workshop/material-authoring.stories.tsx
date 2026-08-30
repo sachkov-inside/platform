@@ -27,6 +27,7 @@ const noopActions = {
   onBack: fn(),
   onConflictAction: fn(),
   onDocumentChange: fn(),
+  onDelete: fn(),
   onFieldChange: fn(),
   onOpenPreview: fn(),
   onRetry: fn(),
@@ -59,6 +60,9 @@ function MaterialAuthoringFixture({
     onDocumentChange: (document: JSONContent) => {
       noopActions.onDocumentChange(document);
       markDirty({ ...presentation.draft, document });
+    },
+    onDelete: (formData: FormData) => {
+      noopActions.onDelete(formData);
     },
     onFieldChange: (field: MaterialDraftField, value: string) => {
       noopActions.onFieldChange(field, value);
@@ -180,6 +184,22 @@ export const Editing: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Предпросмотр" }));
     await expect(canvas.getByRole("heading", { name: "Новая версия Developer Pipeline" })).toBeInTheDocument();
     await expect(canvas.queryByText(`v${String(savedContentVersion)}`)).not.toBeInTheDocument();
+  },
+};
+
+export const DeleteDraftConfirmation: Story = {
+  name: "Удаление безопасного черновика",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Удалить черновик" }));
+    const dialog = canvas.getByRole("dialog", {
+      name: "Удалить «Developer Pipeline без магии»?",
+    });
+    await expect(dialog).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Оставить черновик" }),
+    );
+    await expect(dialog).not.toBeVisible();
   },
 };
 

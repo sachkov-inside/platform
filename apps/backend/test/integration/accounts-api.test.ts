@@ -379,6 +379,52 @@ describe("Accounts API", () => {
       contentVersion: 4,
       publicationState: "unpublished",
     });
+
+    const deletable = await app.getHttpAdapter().getInstance().inject({
+      method: "POST",
+      url: "/authoring/materials",
+      headers: {
+        ...authorization,
+        "idempotency-key": "authoring-create-deletable-001",
+      },
+      payload: materialDraftPayload("Delete through API", "Delete safely."),
+    });
+    expect(deletable.statusCode).toBe(201);
+    const deletableReceipt = readMaterialReceipt(deletable.json<unknown>());
+    const deleteRequest = {
+      method: "DELETE" as const,
+      url: `/authoring/materials/${deletableReceipt.materialId}`,
+      headers: {
+        ...authorization,
+        "idempotency-key": "authoring-delete-001",
+      },
+      payload: { expectedContentVersion: 1 },
+    };
+    const deleted = await app.getHttpAdapter().getInstance().inject(deleteRequest);
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json()).toEqual({ materialId: deletableReceipt.materialId });
+    const duplicateDelete = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject(deleteRequest);
+    expect(duplicateDelete.statusCode).toBe(200);
+    expect(duplicateDelete.json()).toEqual({
+      materialId: deletableReceipt.materialId,
+    });
+
+    const forbiddenDelete = await app.getHttpAdapter().getInstance().inject({
+      method: "DELETE",
+      url: `/authoring/materials/${current.materialId}`,
+      headers: {
+        ...authorization,
+        "idempotency-key": "authoring-delete-published-001",
+      },
+      payload: { expectedContentVersion: 4 },
+    });
+    expect(forbiddenDelete.statusCode).toBe(409);
+    expect(forbiddenDelete.json()).toMatchObject({
+      code: "draft_deletion_forbidden",
+    });
   });
 
   test("keeps private Account and active-member Profile projections separate", async () => {

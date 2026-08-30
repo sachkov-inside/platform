@@ -16,6 +16,7 @@ const searchSchema = z.string().trim().min(1).max(160);
 const referenceSchema = z.object({ id: z.uuid(), name: z.string().min(1) }).strict();
 const itemSchema = z
   .object({
+    canDelete: z.boolean(),
     contentVersion: contentVersionSchema,
     format: referenceSchema.nullable(),
     materialId: z.uuid(),

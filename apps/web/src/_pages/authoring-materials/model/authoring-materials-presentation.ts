@@ -5,9 +5,12 @@ export interface AuthoringMaterialsQuery {
 }
 
 export interface AuthoringMaterialListItem {
+  readonly canDelete: boolean;
+  readonly contentVersion: number;
   readonly format: string | null;
   readonly materialId: string;
   readonly publicationState: "draft" | "published" | "unpublished";
+  readonly submissionId: string;
   readonly title: string | null;
   readonly topic: string | null;
   readonly updatedAt: string;

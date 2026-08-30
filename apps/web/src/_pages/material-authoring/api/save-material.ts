@@ -4,7 +4,10 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import type { MaterialValidationIssue } from "@/features/material-authoring";
+import {
+  materialDocumentSchema,
+  type MaterialValidationIssue,
+} from "@/features/material-authoring";
 import {
   BackendConnectionError,
   requestMaterialSave,
@@ -13,7 +16,6 @@ import {
 } from "@/shared/api/backend/index.server";
 
 import type { SaveMaterialActionState } from "../model/save-material-state";
-import { materialDocumentSchema } from "./material-document-schema";
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
   document: z.string().min(1).max(1_048_576),

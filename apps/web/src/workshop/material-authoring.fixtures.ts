@@ -39,8 +39,10 @@ export const materialAuthoringPresentation = {
   ],
   authorization: { kind: "allowed" },
   blocking: { kind: "none" },
+  deletion: { pending: false, state: { kind: "idle" } },
   draft: {
     access: "membership",
+    canDelete: true,
     document: {
       type: "doc",
       content: [
@@ -83,7 +85,7 @@ export const materialAuthoringPresentation = {
       ],
     },
     formatId: "94000000-0000-4000-8000-000000000011",
-    materialId: "mat_developer_pipeline",
+    materialId: "94000000-0000-4000-8000-000000000009",
     contentVersion,
     readOnly: false,
     seriesIds: ["94000000-0000-4000-8000-000000000041"],
@@ -199,6 +201,7 @@ export const emptyMaterialAuthoringPresentation = {
   draft: {
     ...materialAuthoringPresentation.draft,
     access: "free",
+    canDelete: false,
     document: { type: "doc", content: [{ type: "paragraph" }] },
     formatId: "unassigned",
     materialId: null,

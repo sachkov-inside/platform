@@ -65,6 +65,7 @@ export function assembleListMaterials(
             orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
             select: {
               contentVersion: true,
+              firstPublishedAt: true,
               formatId: true,
               id: true,
               publicationState: true,
@@ -94,6 +95,9 @@ export function assembleListMaterials(
 
         return {
           items: rows.map((row): AuthoringMaterialListItemDto => ({
+            canDelete:
+              row.publicationState === "draft" &&
+              row.firstPublishedAt === null,
             contentVersion: Number(row.contentVersion),
             format: row.formatId === null ? null : (formatById.get(row.formatId) ?? null),
             materialId: row.id,
