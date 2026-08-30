@@ -1,7 +1,10 @@
 import { z } from "zod";
 import type { Route } from "next";
 
-import { authoringMaterialsRootHref } from "@/features/material-authoring";
+import {
+  authoringMaterialsRootHref,
+  withAuthoringReturnHref,
+} from "@/features/material-authoring";
 
 import type { AuthoringMaterialsQuery } from "../api/get-authoring-materials";
 
@@ -53,21 +56,7 @@ export function authoringMaterialsHref(
     : `${authoringMaterialsRootHref}?${serialized}`;
 }
 
-export function authoringDestinationHref(
-  pathname: string,
-  returnHref: Route,
-): Route {
-  const params = new URLSearchParams({ from: returnHref });
-  const href = `${pathname}?${params.toString()}`;
-  if (!isInternalRoute(href)) {
-    throw new TypeError("Expected an internal authoring route");
-  }
-  return href;
-}
-
-function isInternalRoute(value: string): value is Route {
-  return value.startsWith("/") && !value.startsWith("//");
-}
+export const authoringDestinationHref = withAuthoringReturnHref;
 
 function single(value: string | readonly string[] | undefined): string | undefined {
   return typeof value === "string" ? value : undefined;
