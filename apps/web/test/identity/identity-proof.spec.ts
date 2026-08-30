@@ -163,6 +163,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await beginSignIn(recovery, recipient);
     await enterCode(recovery, await waitForCode(recipient, 2));
     await expect(recovery).toHaveURL(`${webBaseUrl}/`);
+
     await recovery.waitForTimeout(61_000);
     await stopService("logto");
     const unavailable = await recovery.request.get("/auth/status");
@@ -171,6 +172,22 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await waitForEndpoint(`${logtoEndpoint}/oidc/.well-known/openid-configuration`);
     const refreshed = await recovery.request.get("/auth/status");
     await expect(refreshed.json()).resolves.toEqual({ state: "authenticated" });
+
+    const appSession = (await recovery.context().cookies()).find(
+      ({ domain, name }) =>
+        domain === new URL(webBaseUrl).hostname && name.startsWith("logto_"),
+    );
+    if (appSession === undefined) throw new Error("Expected the Logto BFF session cookie");
+    await recovery.context().clearCookies({
+      domain: appSession.domain,
+      name: appSession.name,
+      path: appSession.path,
+    });
+    await recovery.goto(webBaseUrl);
+    await recovery.locator('button:visible', { hasText: "Войти" }).click();
+    await recovery.waitForURL((url) => url.origin === webBaseUrl);
+    expect(new URL(recovery.url()).searchParams.get("authentication")).not.toBe("failed");
+    await expect(recovery.locator('button:visible', { hasText: "Выйти" })).toBeVisible();
 
     const existingAccountAttempts = await Promise.all(
       Array.from({ length: 9 }, () => sendFromFreshFlow(browser, recipient)),

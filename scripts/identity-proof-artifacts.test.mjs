@@ -98,13 +98,11 @@ test("Management API bootstrap forces the Platform light Russian experience", as
   });
 });
 
-test("custom access-token claims require a matching fresh email-code interaction", async () => {
+test("custom access-token claims expose only a matching fresh email-code interaction", async () => {
   const source = await readFile(new URL("custom-access-token.js", proofRoot), "utf8");
   const getCustomJwtClaims = Function(
     `"use strict"; ${source}; return getCustomJwtClaims;`,
   )();
-  const denied = Symbol("denied");
-  const api = { denyAccess: () => denied };
   const verifiedContext = {
     user: { primaryEmail: "Member@Example.Test" },
     interaction: {
@@ -121,24 +119,22 @@ test("custom access-token claims require a matching fresh email-code interaction
   const claims = await getCustomJwtClaims({
     token: { gty: "authorization_code" },
     context: verifiedContext,
-    api,
   });
   assert.equal(claims.inside_verified_email, "member@example.test");
   assert.equal("inside_interactive_at" in claims, false);
   assert.deepEqual(
-    await getCustomJwtClaims({ token: { gty: "refresh_token" }, context: {}, api }),
+    await getCustomJwtClaims({ token: { gty: "refresh_token" }, context: {} }),
     {},
   );
-  assert.equal(
+  assert.deepEqual(
     await getCustomJwtClaims({
       token: { gty: "authorization_code" },
       context: {
         ...verifiedContext,
         user: { primaryEmail: "another@example.test" },
       },
-      api,
     }),
-    denied,
+    {},
   );
 });
 

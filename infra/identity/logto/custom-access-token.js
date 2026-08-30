@@ -1,5 +1,5 @@
 // oxlint-disable-next-line no-unused-vars
-const getCustomJwtClaims = async ({ token, context, api }) => {
+const getCustomJwtClaims = async ({ token, context }) => {
   if (token.gty !== 'authorization_code') {
     return {};
   }
@@ -19,7 +19,7 @@ const getCustomJwtClaims = async ({ token, context, api }) => {
     verifiedEmail.trim().toLocaleLowerCase('en-US') !==
       primaryEmail.trim().toLocaleLowerCase('en-US')
   ) {
-    return api.denyAccess('A fresh verified email interaction is required');
+    return {};
   }
 
   return {
