@@ -16,6 +16,7 @@
     "start:mcp": "node dist/entrypoints/mcp.js",
     "db:migrate": "tsx src/migrations/migrate.ts",
     "release:bootstrap-owner": "tsx src/release/bootstrap-owner-account.ts",
+    "release:moderate-profiles": "tsx src/release/moderate-member-profiles.ts",
     "db:seed": "tsx src/development/seed-local.ts",
     "db:schema:check": "pnpm prisma:validate && pnpm prisma:generate",
     "typecheck": "pnpm prisma:generate && tsc -p tsconfig.json --noEmit && tsc -p test/tsconfig.json --noEmit",

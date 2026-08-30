@@ -10,7 +10,7 @@ production frontend integration, а также отдельным
 Member Profile track и [Platform #132](https://github.com/sachkov-inside/platform/issues/132)
 mutable Material/access decision.
 
-Дата: 2026-08-27.
+Дата: 2026-08-30.
 
 ## Результат и authority
 
@@ -234,7 +234,7 @@ Entry points вызывают одни application use cases и не созда�
 | Module | Малый interface | Owned facts |
 |---|---|---|
 | `Accounts` | establish/resolve trusted Logto identity в local Account и проверить exact permission | Account mapping, email fingerprint, permissions и redacted audit |
-| `AccountProfiles` | предоставить private Account и управлять отдельной member-visible Member Profile projection | owner Account projection, Member Profile visibility/content/version |
+| `MemberProfiles` | управлять owner-only Profile state и вернуть active-member projection | display name/bio, opaque public Profile identity, visibility, optimistic version, reports и redacted audit |
 | `Materials` | `MaterialAuthoring` создаёт и full-state-save-ит current Material; reader возвращает published current state | content/metadata, publication/access state, content version, author policy, internal body schemas, safe public/search projections |
 | `ContentLibrary` | читать projections, search и навигацию, находить related Materials | published projections, ranking и explicit related pins |
 | [`ContentAccess`](content-access-authorization-v1.md) | batch `checkAvailabilityMany` для presentation и single `authorize` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
@@ -249,9 +249,9 @@ Transaction semantics принадлежат единому
 ports и test adapters. Generic
 multi-provider abstraction появляется только со вторым реальным adapter; `ContentAccess` является
 provider-neutral потому, что его policy используют несколько delivery callers.
-`AccountProfiles` координирует две projections одного human Account, но Account и Member
-Profile имеют независимые authorization и view contracts: ни одна projection не строится из
-другой и не разделяет с ней sensitive fields.
+`MemberProfiles` не расширяет `Accounts`: private Account presentation вызывает owner-only
+Profile operations, а member route получает отдельную accepted projection. Interfaces имеют
+независимые authorization и view contracts и не разделяют sensitive fields.
 
 ## Logical model и cardinalities
 
@@ -261,7 +261,7 @@ entities и invariants v1:
 | Entity | Cardinality / invariant |
 |---|---|
 | `Account` | одна local human identity; unique Logto issuer + subject; 0..1 Telegram link; permissions принадлежат Platform |
-| `MemberProfile` | 0..1 member-visible projection на Account; active members only; никогда не authorization input |
+| `MemberProfile` | 0..1 projection на Account; required mutable non-unique display name, optional bio, opaque public ID, `active | disabled`, optimistic version; active members only и никогда не authorization input |
 | `Material` | stable identity; one mutable body/metadata/access; `draft | published | unpublished`; monotonically increasing content version |
 | `Topic` | Material имеет ровно один Topic; dictionary одноуровневый |
 | `Format` | Material имеет ровно один Format; это primary consumption mode, не Asset kind |
@@ -345,14 +345,22 @@ Published body читается только для current `published` state; d
    protected request никогда не provision-ит Account.
 4. Sign-out делегируется official Logto SDK: local provider context очищается, refresh revoke и
    provider end-session выполняются provider flow. Local Platform session отсутствует.
-5. Account позже получает private projection с profile, Telegram linking, Membership и recovery;
-   эти поля не входят в identity foundation.
-6. `AccountProfiles` хранит и авторизует Member Profile отдельно от Account. Exact fields,
-   avatar, moderation и discoverability утверждаются в
-   [#51](https://github.com/sachkov-inside/platform/issues/51) до production implementation.
-7. Только active member получает accepted Member Profile projection другого участника. Anonymous,
-   non-member и crawler не получают projection; email, Platform/Telegram internal identifiers,
-   Telegram username, link/evidence и security/audit state никогда в неё не входят.
+5. После первого sign-in Account без Profile получает обязательный name-only onboarding. Он создаёт
+   Profile с mutable non-unique display name длиной 2–80 symbols; optional bio до 500 symbols
+   редактируется позже в private Account. Avatar/file/image отсутствуют и добавляются отдельно
+   через S3-backed [#153](https://github.com/sachkov-inside/platform/issues/153).
+6. `MemberProfiles` хранит Profile в отдельной `member_profiles` schema. Owner read/edit/export/delete
+   принимает trusted Account, update/delete требуют `expectedVersion`, deletion hard-delete-ит
+   authored fields и recreate выдаёт новый opaque `publicProfileId`.
+7. Member route `/members/<publicProfileId>` не образует directory/search и получает только
+   `publicProfileId + displayName + bio` после current active Membership check. Anonymous,
+   non-member, expired member, crawler, missing/deleted/disabled Profile получают одинаковый `404`
+   и `noindex`; email, AccountId, Logto/Telegram identifiers, permissions, evidence и security/audit
+   state не входят в projection.
+8. Report хранит bounded reason без копии Profile fields; duplicate open report не умножается.
+   Manual owner release operation disable/restore скрывает projection и пишет redacted audit.
+   Telegram linking, Membership state и recovery presentation остаются в #122 и не смешиваются с
+   этим Profile interface.
 
 ### Membership linking и projection
 

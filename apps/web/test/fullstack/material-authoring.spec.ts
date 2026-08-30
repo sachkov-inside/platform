@@ -11,6 +11,7 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
 
   const response = await page.goto("/authoring/materials/new");
   expect(response?.status()).toBe(200);
+  await completeProfileOnboardingIfPresent(page);
   await expect(page.getByRole("heading", { name: "Новый материал" })).toBeVisible();
 
   await page.getByRole("button", { name: "Вернуться к материалам" }).focus();
@@ -122,6 +123,7 @@ test("full-state Save is live and a stale editor preserves local input through l
 }) => {
   await addFullStackSession(context);
   await page.goto("/authoring/materials/new");
+  await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, "Mutable Material");
   await page.getByRole("button", { name: "Создать черновик" }).click();
   await expect(page).toHaveURL(currentMaterialEditorUrl);
@@ -200,6 +202,7 @@ test("trusted author sees a typed not-found state for a missing current Preview"
   const response = await page.goto(
     "/authoring/materials/94000000-0000-4000-8000-000000000099/preview",
   );
+  await completeProfileOnboardingIfPresent(page);
 
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Preview не найден" })).toBeVisible();
@@ -230,6 +233,18 @@ async function addFullStackSession(context: BrowserContext) {
       value: session,
     },
   ]);
+}
+
+async function completeProfileOnboardingIfPresent(page: Page): Promise<void> {
+  const dialog = page.getByRole("dialog", { name: "Как к вам обращаться?" });
+  const visible = await dialog
+    .waitFor({ state: "visible", timeout: 3_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!visible) return;
+  await dialog.getByLabel("Имя").fill("Full-stack author");
+  await dialog.getByRole("button", { name: "Продолжить" }).click();
+  await expect(dialog).toBeHidden();
 }
 
 async function fillPublishableDraft(page: Page, title: string) {

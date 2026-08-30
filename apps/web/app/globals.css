@@ -165,6 +165,11 @@ body {
   outline-offset: 0.1875rem;
 }
 
+.profile-field:user-invalid,
+.profile-field[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
 @media (forced-colors: active) {
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
     outline-color: Highlight;

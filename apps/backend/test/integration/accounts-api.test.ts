@@ -324,6 +324,193 @@ describe("Accounts API", () => {
     });
   });
 
+  test("keeps private Account and active-member Profile projections separate", async () => {
+    const ownerToken = await signToken({
+      subject: "profile-owner-001",
+      email: "profile-owner@example.test",
+    });
+    const viewerToken = await signToken({
+      subject: "profile-viewer-001",
+      email: "profile-viewer@example.test",
+    });
+    const nonMemberToken = await signToken({
+      subject: "profile-non-member-001",
+      email: "profile-non-member@example.test",
+    });
+    const ownerAccountId = readAccountId(
+      (await inject("POST", "/accounts", ownerToken)).json<unknown>(),
+    );
+    const viewerAccountId = readAccountId(
+      (await inject("POST", "/accounts", viewerToken)).json<unknown>(),
+    );
+    await inject("POST", "/accounts", nonMemberToken);
+
+    const missing = await inject("GET", "/account/profile", ownerToken);
+    expect(missing.statusCode).toBe(200);
+    expect(missing.json()).toEqual({ kind: "missing" });
+    expect(missing.headers["cache-control"]).toBe("private, no-store");
+
+    const created = await app.getHttpAdapter().getInstance().inject({
+      method: "POST",
+      url: "/account/profile",
+      headers: { authorization: `Bearer ${ownerToken}` },
+      payload: {
+        displayName: "Кирилл Сачков",
+        bio: "Инженер и автор.",
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const privateProfile = readPrivateProfile(created.json<unknown>());
+    expect(privateProfile).toMatchObject({
+      displayName: "Кирилл Сачков",
+      bio: "Инженер и автор.",
+      status: "active",
+      version: 1,
+    });
+
+    for (const request of [
+      app.getHttpAdapter().getInstance().inject({
+        method: "GET",
+        url: `/member-profiles/${privateProfile.publicProfileId}`,
+      }),
+      inject(
+        "GET",
+        `/member-profiles/${privateProfile.publicProfileId}`,
+        nonMemberToken,
+      ),
+    ]) {
+      const denied = await request;
+      expect(denied.statusCode).toBe(404);
+      expect(denied.headers["cache-control"]).toBe("private, no-store");
+      expect(denied.json()).toMatchObject({ code: "profile_not_found" });
+    }
+
+    const checkedAt = new Date();
+    const validUntil = new Date(checkedAt.getTime() + 60 * 60 * 1_000);
+    await database.prisma.membershipBinding.create({
+      data: {
+        accountId: viewerAccountId,
+        principalRef: "profile-viewer-principal",
+        linkedAt: checkedAt,
+      },
+    });
+    await database.prisma.membershipProjection.create({
+      data: {
+        accountId: viewerAccountId,
+        principalRef: "profile-viewer-principal",
+        decision: "member",
+        evidenceRef: "profile-viewer-evidence",
+        evidenceVersion: 1n,
+        evidenceFingerprint: "a".repeat(64),
+        checkedAt,
+        validUntil,
+        updatedAt: checkedAt,
+      },
+    });
+
+    const visible = await inject(
+      "GET",
+      `/member-profiles/${privateProfile.publicProfileId}`,
+      viewerToken,
+    );
+    expect(visible.statusCode).toBe(200);
+    expect(visible.headers["cache-control"]).toBe("private, no-store");
+    expect(visible.headers["x-robots-tag"]).toBe("noindex, nofollow");
+    expect(visible.json()).toEqual({
+      profile: {
+        publicProfileId: privateProfile.publicProfileId,
+        displayName: "Кирилл Сачков",
+        bio: "Инженер и автор.",
+      },
+    });
+    expect(JSON.stringify(visible.json())).not.toMatch(
+      /accountId|email|logto|telegram|permission|evidence|audit/iu,
+    );
+
+    const reported = await app.getHttpAdapter().getInstance().inject({
+      method: "POST",
+      url: `/member-profiles/${privateProfile.publicProfileId}/reports`,
+      headers: { authorization: `Bearer ${viewerToken}` },
+      payload: { reason: "unsafe_content" },
+    });
+    expect(reported.statusCode).toBe(201);
+    expect(reported.json()).toEqual({ outcome: "recorded" });
+
+    const updated = await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      url: "/account/profile",
+      headers: { authorization: `Bearer ${ownerToken}` },
+      payload: {
+        expectedVersion: 1,
+        displayName: "Кирилл",
+        bio: null,
+      },
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(readPrivateProfile(updated.json<unknown>())).toMatchObject({
+      displayName: "Кирилл",
+      bio: null,
+      version: 2,
+    });
+
+    const conflict = await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      url: "/account/profile",
+      headers: { authorization: `Bearer ${ownerToken}` },
+      payload: {
+        expectedVersion: 1,
+        displayName: "Проигравшая запись",
+        bio: null,
+      },
+    });
+    expect(conflict.statusCode).toBe(409);
+    expect(conflict.json()).toMatchObject({
+      code: "conflict",
+      currentVersion: 2,
+    });
+
+    const exported = await inject("GET", "/account/profile/export", ownerToken);
+    expect(exported.statusCode).toBe(200);
+    expect(exported.headers["content-disposition"]).toContain(
+      "member-profile.json",
+    );
+    expect(exported.json()).toEqual({
+      schemaVersion: "member-profile-export.v1",
+      profile: { displayName: "Кирилл", bio: null },
+    });
+
+    const deleted = await app.getHttpAdapter().getInstance().inject({
+      method: "DELETE",
+      url: "/account/profile",
+      headers: { authorization: `Bearer ${ownerToken}` },
+      payload: { expectedVersion: 2 },
+    });
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json()).toEqual({ deleted: true });
+    expect(
+      (
+        await inject(
+          "GET",
+          `/member-profiles/${privateProfile.publicProfileId}`,
+          viewerToken,
+        )
+      ).statusCode,
+    ).toBe(404);
+    await expect(database.prisma.memberProfileReport.count()).resolves.toBe(0);
+    await expect(
+      database.prisma.memberProfileAuditEvent.findMany({
+        where: { accountId: ownerAccountId },
+        orderBy: { createdAt: "asc" },
+        select: { event: true },
+      }),
+    ).resolves.toEqual([
+      { event: "profile_created" },
+      { event: "profile_reported" },
+      { event: "profile_updated" },
+      { event: "profile_deleted" },
+    ]);
+  });
+
   function inject(method: "GET" | "POST", url: string, token: string) {
     return app.getHttpAdapter().getInstance().inject({
       method,
@@ -408,4 +595,39 @@ function readMaterialReceipt(value: unknown): {
     throw new TypeError("Material authoring response has no current identity");
   }
   return { materialId: value.materialId, contentVersion: value.contentVersion };
+}
+
+function readPrivateProfile(value: unknown): {
+  readonly publicProfileId: string;
+  readonly displayName: string;
+  readonly bio: string | null;
+  readonly status: string;
+  readonly version: number;
+} {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("profile" in value) ||
+    typeof value.profile !== "object" ||
+    value.profile === null ||
+    !("publicProfileId" in value.profile) ||
+    typeof value.profile.publicProfileId !== "string" ||
+    !("displayName" in value.profile) ||
+    typeof value.profile.displayName !== "string" ||
+    !("bio" in value.profile) ||
+    (typeof value.profile.bio !== "string" && value.profile.bio !== null) ||
+    !("status" in value.profile) ||
+    typeof value.profile.status !== "string" ||
+    !("version" in value.profile) ||
+    typeof value.profile.version !== "number"
+  ) {
+    throw new TypeError("Member Profile API response has no private Profile");
+  }
+  return {
+    publicProfileId: value.profile.publicProfileId,
+    displayName: value.profile.displayName,
+    bio: value.profile.bio,
+    status: value.profile.status,
+    version: value.profile.version,
+  };
 }

@@ -30,6 +30,10 @@ import {
   name as membershipEntitlementsMigrationName,
   statement as membershipEntitlementsMigrationStatement,
 } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0006_membership-entitlements.js";
+import {
+  name as memberProfilesMigrationName,
+  statement as memberProfilesMigrationStatement,
+} from "../modules/member-profiles/infrastructure/postgres/migrations/0008_member_profiles.js";
 
 const migrations = [
   {
@@ -59,6 +63,10 @@ const migrations = [
   {
     name: removeMaterialAccessAuditMigrationName,
     statement: removeMaterialAccessAuditMigrationStatement,
+  },
+  {
+    name: memberProfilesMigrationName,
+    statement: memberProfilesMigrationStatement,
   },
 ] as const;
 
