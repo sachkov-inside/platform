@@ -3,6 +3,7 @@ set -eu
 
 mode="${1:-}"
 export PGPASSWORD="$POSTGRES_PASSWORD"
+export PGCONNECT_TIMEOUT=5
 
 case "$mode" in
   migration)
@@ -128,6 +129,32 @@ from pg_namespace
 where nspname !~ '^pg_'
   and nspname not in ('information_schema', 'public') \gexec
 SQL
+
+    migration_url_contract="$(
+      PGPASSWORD='' psql \
+        --dbname "$MIGRATION_DATABASE_URL" \
+        --tuples-only \
+        --no-align \
+        --command "select concat(current_user, ':', rolsuper, ':', rolcreatedb, ':', rolcreaterole, ':', rolinherit, ':', rolreplication, ':', rolbypassrls, ':', has_database_privilege(current_user, current_database(), 'create'), ':', has_schema_privilege(current_user, 'public', 'create')) from pg_roles where rolname = current_user;"
+    )"
+    expected_migration_contract="$MIGRATION_DATABASE_USER:f:f:f:f:f:f:t:t"
+    if [ "$migration_url_contract" != "$expected_migration_contract" ]; then
+      echo "MIGRATION_DATABASE_URL does not authenticate as the restricted migration owner" >&2
+      exit 1
+    fi
+
+    application_url_contract="$(
+      PGPASSWORD='' psql \
+        --dbname "$DATABASE_URL" \
+        --tuples-only \
+        --no-align \
+        --command "select concat(current_user, ':', rolsuper, ':', rolcreatedb, ':', rolcreaterole, ':', rolinherit, ':', rolreplication, ':', rolbypassrls, ':', has_database_privilege(current_user, current_database(), 'create'), ':', has_schema_privilege(current_user, 'materials', 'create'), ':', has_table_privilege(current_user, 'public.platform_migrations', 'select')) from pg_roles where rolname = current_user;"
+    )"
+    expected_application_contract="$APPLICATION_DATABASE_USER:f:f:f:f:f:f:f:f:f"
+    if [ "$application_url_contract" != "$expected_application_contract" ]; then
+      echo "DATABASE_URL does not authenticate as the restricted application role" >&2
+      exit 1
+    fi
     ;;
   *)
     echo "Usage: $0 migration|application" >&2

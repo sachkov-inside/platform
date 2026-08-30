@@ -158,6 +158,10 @@ describe("supported toolchain contract", () => {
     );
     assert.match(
       productionCompose,
+      /image: \$\{PLATFORM_MIGRATION_IMAGE_REPOSITORY:\?[^}]+\}@sha256:\$\{PLATFORM_MIGRATION_IMAGE_DIGEST:\?[^}]+\}/u,
+    );
+    assert.match(
+      productionCompose,
       /image: \$\{PLATFORM_WEB_IMAGE_REPOSITORY:\?[^}]+\}@sha256:\$\{PLATFORM_WEB_IMAGE_DIGEST:\?[^}]+\}/u,
     );
     assert.doesNotMatch(productionCompose, /^\s+build:/mu);
@@ -171,11 +175,13 @@ describe("supported toolchain contract", () => {
     assert.match(productionCompose, /DATABASE_URL: \$\{DATABASE_URL:\?Set DATABASE_URL\}/u);
     assert.match(productionCompose, /database-roles:\n/u);
     assert.match(productionCompose, /database-access:\n/u);
-    assert.match(productionCompose, /RELEASE_API_IMAGE_DIGEST: \$\{PLATFORM_API_IMAGE_DIGEST:\?[^}]+\}/u);
+    assert.match(productionCompose, /RELEASE_MIGRATION_IMAGE_DIGEST: \$\{PLATFORM_MIGRATION_IMAGE_DIGEST:\?[^}]+\}/u);
     assert.match(productionCompose, /data:\n\s+internal: true/u);
     assert.match(databaseRoles, /grant connect, create on database/u);
     assert.match(databaseRoles, /nosuperuser nocreatedb nocreaterole noinherit noreplication nobypassrls/u);
     assert.match(databaseRoles, /grant select, insert, update, delete on all tables/u);
+    assert.match(databaseRoles, /MIGRATION_DATABASE_URL does not authenticate as the restricted migration owner/u);
+    assert.match(databaseRoles, /DATABASE_URL does not authenticate as the restricted application role/u);
     assert.doesNotMatch(databaseRoles, /all tables in schema public/u);
   });
 
@@ -195,6 +201,8 @@ describe("supported toolchain contract", () => {
       /docker image rm "\$PLATFORM_API_BUILD_IMAGE" "\$PLATFORM_WEB_BUILD_IMAGE"/u,
     );
     assert.match(smoke, /down --volumes --remove-orphans/u);
+    assert.match(smoke, /local test_status=\$\?/u);
+    assert.doesNotMatch(smoke, /down --volumes --remove-orphans \|\| true/u);
   });
 
   it("groups only patch/minor Dependabot updates", () => {

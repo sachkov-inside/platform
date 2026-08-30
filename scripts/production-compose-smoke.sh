@@ -16,6 +16,8 @@ export PLATFORM_HTTP_PORT="$http_port"
 export PLATFORM_HTTPS_PORT="$https_port"
 export PLATFORM_API_IMAGE_REPOSITORY=local.invalid/inside-platform-api
 export PLATFORM_API_IMAGE_DIGEST=0000000000000000000000000000000000000000000000000000000000000000
+export PLATFORM_MIGRATION_IMAGE_REPOSITORY=local.invalid/inside-platform-api
+export PLATFORM_MIGRATION_IMAGE_DIGEST=0000000000000000000000000000000000000000000000000000000000000000
 export PLATFORM_WEB_IMAGE_REPOSITORY=local.invalid/inside-platform-web
 export PLATFORM_WEB_IMAGE_DIGEST=0000000000000000000000000000000000000000000000000000000000000000
 export PLATFORM_API_BUILD_IMAGE="inside-platform-api:production-smoke-${smoke_suffix}"
@@ -49,8 +51,23 @@ compose=(
 )
 
 cleanup() {
-  "${compose[@]}" down --volumes --remove-orphans || true
-  docker image rm "$PLATFORM_API_BUILD_IMAGE" "$PLATFORM_WEB_BUILD_IMAGE" >/dev/null 2>&1 || true
+  local test_status=$?
+  local cleanup_status=0
+  trap - EXIT
+
+  if ! "${compose[@]}" down --volumes --remove-orphans; then
+    echo "Failed to remove production smoke containers or persistent data" >&2
+    cleanup_status=1
+  fi
+  if ! docker image rm "$PLATFORM_API_BUILD_IMAGE" "$PLATFORM_WEB_BUILD_IMAGE"; then
+    echo "Failed to remove production smoke image tags" >&2
+    cleanup_status=1
+  fi
+
+  if ((test_status != 0)); then
+    exit "$test_status"
+  fi
+  exit "$cleanup_status"
 }
 trap cleanup EXIT
 

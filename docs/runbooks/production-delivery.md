@@ -12,9 +12,11 @@ internal data networks keep Caddy and web away from PostgreSQL while preserving 
 identity-provider access needed by web and API. Caddy owns TLS certificates and proxies requests
 to web.
 
-Application image repositories and SHA-256 digests must be supplied separately through the
-`PLATFORM_*_IMAGE_REPOSITORY` and `PLATFORM_*_IMAGE_DIGEST` variables. Compose constructs an
-`@sha256:` reference, so a mutable tag cannot accidentally become a release input. The base
+Application and migration image repositories and SHA-256 digests must be supplied separately
+through the `PLATFORM_*_IMAGE_REPOSITORY` and `PLATFORM_*_IMAGE_DIGEST` variables. Compose
+constructs an `@sha256:` reference, so a mutable tag cannot accidentally become a release input.
+The API and migration inputs may initially reference the same published image, but they remain
+independent deployment inputs so an API rollback can keep the newest migration registry. The base
 production file has no `build` section, so a server deployment does not need the source tree or a
 build toolchain; it needs only the checked deployment configuration and provisioning script.
 `compose.production.build.yaml` is a local and CI build override; it is not part of the server
@@ -35,10 +37,11 @@ deployment environment. The PostgreSQL bootstrap administrator, migration owner 
 application use different roles and passwords. Migrations receive `MIGRATION_DATABASE_URL`; API
 receives only the restricted `DATABASE_URL`. URL-encode passwords in both URLs; the short-lived
 role-provisioning containers receive their original values. The application access step is tied
-to the API digest, so it reruns after every release and grants new migration-owned objects before
-API starts. Changing `POSTGRES_PASSWORD` does not rotate the administrator password inside an
-existing PostgreSQL volume; perform that rotation explicitly in PostgreSQL. Image repositories and
-digests are release inputs, not long-lived secrets.
+to the migration digest, so it reruns after every schema release, verifies that both connection
+URLs authenticate as the expected roles, and grants new migration-owned objects before API starts.
+Changing `POSTGRES_PASSWORD` does not rotate the administrator password inside an existing
+PostgreSQL volume; perform that rotation explicitly in PostgreSQL. Image repositories and digests
+are release inputs, not long-lived secrets.
 
 Validate a candidate configuration without starting containers:
 
@@ -67,5 +70,8 @@ does not touch the normal development Compose project or its PostgreSQL volume.
 The next CI/CD task will build both image targets once for an accepted `main` revision, push them to
 GHCR, resolve immutable digests, and deploy those exact references over an authenticated server
 channel. A release is successful only after the remote health check proves the expected revision.
-Rollback means selecting a previously published image pair and redeploying it; database rollback
-remains a separate compatibility decision because migrations are forward-only.
+Rollback means selecting a previously published API/web image pair while keeping the newest
+migration image digest. The current migration runner validates the already-applied ledger and
+becomes a no-op before the older API starts. This is allowed only when that API release is declared
+compatible with the current forward-only schema; reversing database migrations remains a separate
+recovery operation.
