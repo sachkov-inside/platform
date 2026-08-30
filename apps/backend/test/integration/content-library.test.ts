@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
@@ -10,6 +11,11 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+const explainPlanRowSchema = z
+  .object({ "QUERY PLAN": z.string() })
+  .strict();
+const indexDefinitionRowSchema = z.object({ indexdef: z.string() }).strict();
 
 describe("ListPublishedMaterials", () => {
   let testDatabase: TestDatabase;
@@ -237,27 +243,29 @@ describe("ListPublishedMaterials", () => {
     "keeps representative PostgreSQL search below the 300ms p95 budget at 10k rows",
     async () => {
       await seedSearchPerformanceCorpus(testDatabase);
-      const plan = await testDatabase.prisma.$queryRaw<unknown[]>(Prisma.sql`
-        explain (format json)
-        select publication.material_id
-        from materials.published_materials as publication
-        where publication.search_vector @@ (
-          websearch_to_tsquery('russian'::regconfig, 'benchmark needle') ||
-          websearch_to_tsquery('english'::regconfig, 'benchmark needle') ||
-          websearch_to_tsquery('simple'::regconfig, 'benchmark needle')
-        )
-      `);
-      expect(JSON.stringify(plan)).toContain(
-        '"Index Name":"published_materials_search_vector_idx"',
+      const plan = explainPlanRowSchema.array().parse(
+        await testDatabase.prisma.$queryRaw(Prisma.sql`
+          explain
+          select publication.material_id
+          from materials.published_materials as publication
+          where publication.search_vector @@ (
+            websearch_to_tsquery('russian'::regconfig, 'benchmark needle') ||
+            websearch_to_tsquery('english'::regconfig, 'benchmark needle') ||
+            websearch_to_tsquery('simple'::regconfig, 'benchmark needle')
+          )
+        `),
       );
-      const indexes = await testDatabase.prisma.$queryRaw<
-        readonly { readonly indexdef: string }[]
-      >(Prisma.sql`
-        select indexdef
-        from pg_indexes
-        where schemaname = 'materials'
-          and indexname = 'published_materials_search_vector_idx'
-      `);
+      expect(plan.map((row) => row["QUERY PLAN"]).join("\n")).toContain(
+        "Bitmap Index Scan on published_materials_search_vector_idx",
+      );
+      const indexes = indexDefinitionRowSchema.array().parse(
+        await testDatabase.prisma.$queryRaw(Prisma.sql`
+          select indexdef
+          from pg_indexes
+          where schemaname = 'materials'
+            and indexname = 'published_materials_search_vector_idx'
+        `),
+      );
       expect(indexes).toHaveLength(1);
       expect(indexes[0]?.indexdef).toContain("USING gin");
 

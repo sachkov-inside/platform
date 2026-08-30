@@ -16,11 +16,12 @@ from the live PostgreSQL → Nest HTTP → Next server adapter → RSC route.
   closed-Material teaser are all owned by the canonical URL state.
 - The live response contains the public title/summary only; the closed body is absent from the
   server-rendered HTML and catalog responses.
-- Full-stack Playwright proves RU/EN queries, reload, copied URL, back/forward, no-results,
+- Full-stack Playwright proves RU/EN queries, valid cursor share/reload/back/forward, no-results,
   malformed-value normalization and rejected-cursor recovery on real PostgreSQL in desktop and
   mobile Chromium.
-- Backend integration proves OR within one facet, AND between facets, stable cursor binding,
-  safe free/closed projections and a repeatable 10k-row search budget of p95 ≤ 300 ms.
+- Backend integration pins title → summary → public-taxonomy ranking, proves OR within one facet,
+  AND between facets, stable cursor binding, safe free/closed projections, natural GIN index use
+  and a repeatable 10k-row search budget of p95 ≤ 300 ms.
 - Storybook covers ready search results and no-results in addition to the existing loading, empty,
   continuation and error states. Agentation remains enabled for owner review.
 - Owner production visual GO: pending.
