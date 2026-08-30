@@ -85,6 +85,7 @@ describe("Material authoring MCP adapter", () => {
             metadata: {
               ...incompleteMetadata("Loaded"),
               seriesMemberships: [],
+              slug: null,
             },
             body: emptyBody(),
           },
@@ -128,7 +129,6 @@ function incompleteMetadata(title: string) {
   return {
     title,
     summary: null,
-    slug: null,
     access: "free" as const,
     topicId: null,
     formatId: null,

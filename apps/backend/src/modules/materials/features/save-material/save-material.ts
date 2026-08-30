@@ -32,6 +32,7 @@ import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
+import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
 import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 
@@ -121,10 +122,16 @@ export function assembleSaveMaterial(
             if (locked === undefined) {
               return rollback({ code: "material_not_found" });
             }
+            const selectedValues = selection.value.toValues();
+            const slug =
+              locked.lifecycle.slug ??
+              (command.publicationState === "published" && selectedValues.title !== null
+                ? await allocateMaterialSlug(transaction, selectedValues.title)
+                : null);
             const next = locked.lifecycle.save({
               expectedContentVersion: command.expectedContentVersion,
               publicationState: command.publicationState,
-              slug: selection.value.toValues().slug,
+              slug,
               now: new Date(),
             });
             if (!next.ok) {
@@ -134,6 +141,7 @@ export function assembleSaveMaterial(
               transaction,
               command.materialId,
               selection.value,
+              slug,
             );
             const requiresPublicationValidity =
               locked.lifecycle.publicationState === "published" ||

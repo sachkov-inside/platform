@@ -17,7 +17,7 @@ fi
 curl --fail --silent --show-error --output /dev/null "$api_base_url/openapi"
 
 catalog_response="$(curl --fail --silent --show-error "$api_base_url/library/materials")"
-if [[ "$catalog_response" != *'"slug":"membership-delivery-guide"'* || "$catalog_response" != *'"slug":"inside-platform-overview"'* ]]; then
+if [[ "$catalog_response" != *'"slug":"developer-pipeline-bez-poteri-konteksta"'* || "$catalog_response" != *'"slug":"kak-ustroen-inside-platform"'* ]]; then
   echo "Published catalog is missing the representative free or closed Material" >&2
   exit 1
 fi
@@ -63,7 +63,7 @@ seed_snapshot="$(
     --dbname "${POSTGRES_DB:-inside}" \
     --tuples-only \
     --no-align \
-    --command "select count(*) || ':' || max(content_version)::text || ':' || max(publication_state) from materials.materials where slug = 'inside-platform-overview';"
+    --command "select count(*) || ':' || max(content_version)::text || ':' || max(publication_state) from materials.materials where slug = 'kak-ustroen-inside-platform';"
 )"
 if [[ "$seed_snapshot" != "1:2:published" ]]; then
   echo "Expected one stable published Material at contentVersion 2, received $seed_snapshot" >&2

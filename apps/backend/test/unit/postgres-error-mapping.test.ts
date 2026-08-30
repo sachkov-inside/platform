@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
 import { mapPostgresError } from "../../src/modules/materials/shared/postgres-error-mapping.js";
-import { MaterialMetadata } from "../../src/modules/materials/domain/material-metadata.js";
 
 describe("MaterialAuthoring PostgreSQL error mapping", () => {
   test("maps only allowlisted reference constraints", () => {
@@ -48,20 +47,7 @@ describe("MaterialAuthoring PostgreSQL error mapping", () => {
     ).toEqual({ code: "dependency_unavailable", retryable: true });
   });
 
-  test("maps Prisma driver-adapter constraint metadata", () => {
-    const metadata = MaterialMetadata.create({
-      title: "Title",
-      summary: "Summary",
-      slug: "already-used",
-      access: "free",
-      topicId: "71000000-0000-4000-8000-000000000001",
-      formatId: "71000000-0000-4000-8000-000000000002",
-      tagIds: [],
-      seriesMemberships: [],
-    });
-    if (!metadata.ok) {
-      throw new Error(metadata.error.code);
-    }
+  test("keeps a system-owned slug constraint failure internal", () => {
     expect(
       mapPostgresError(
         {
@@ -76,8 +62,7 @@ describe("MaterialAuthoring PostgreSQL error mapping", () => {
             },
           },
         },
-        metadata.value,
       ),
-    ).toEqual({ code: "slug_conflict", slug: "already-used" });
+    ).toMatchObject({ code: "internal_error" });
   });
 });

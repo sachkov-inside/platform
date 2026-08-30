@@ -125,7 +125,6 @@ describe("Accounts API", () => {
       },
       payload: materialDraftPayload(
         "Forbidden draft",
-        "forbidden-draft",
         "Forbidden.",
       ),
     });
@@ -157,7 +156,6 @@ describe("Accounts API", () => {
       },
       payload: materialDraftPayload(
         "Generated API contract",
-        "generated-api-contract",
         "Initial API contract.",
       ),
     });
@@ -174,7 +172,6 @@ describe("Accounts API", () => {
       },
       payload: materialDraftPayload(
         "Playlist companion",
-        "playlist-companion",
         "Companion.",
       ),
     });
@@ -274,7 +271,6 @@ describe("Accounts API", () => {
         publicationState: "draft",
         ...materialDraftPayload(
           "Generated API contract v2",
-          "generated-api-contract",
           "Current API contract.",
         ),
       },
@@ -311,7 +307,6 @@ describe("Accounts API", () => {
         publicationState: "published",
         ...materialDraftPayload(
           "Generated API contract v2",
-          "generated-api-contract",
           "Current API contract.",
           "membership",
         ),
@@ -326,7 +321,7 @@ describe("Accounts API", () => {
 
     const authorizedReader = await inject(
       "GET",
-      "/materials/generated-api-contract",
+      "/materials/generated-api-contract-v2",
       token,
     );
     expect(authorizedReader.statusCode).toBe(200);
@@ -355,9 +350,9 @@ describe("Accounts API", () => {
       }[];
     }>();
     expect(
-      catalog.items.find(({ slug }) => slug === "generated-api-contract"),
+      catalog.items.find(({ slug }) => slug === "generated-api-contract-v2"),
     ).toMatchObject({
-      slug: "generated-api-contract",
+      slug: "generated-api-contract-v2",
       access: "membership",
       availability: "available",
     });
@@ -374,7 +369,6 @@ describe("Accounts API", () => {
         publicationState: "unpublished",
         ...materialDraftPayload(
           "Generated API contract v2",
-          "generated-api-contract",
           "Current API contract.",
         ),
       },
@@ -610,7 +604,6 @@ const seriesId = "73000000-0000-4000-8000-000000000003";
 
 function materialDraftPayload(
   title: string,
-  slug: string,
   text: string,
   access: "free" | "membership" = "free",
 ) {
@@ -618,7 +611,6 @@ function materialDraftPayload(
     metadata: {
       title,
       summary: "A Material authoring API integration fixture.",
-      slug,
       access,
       topicId,
       formatId,

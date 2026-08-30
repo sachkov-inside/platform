@@ -63,7 +63,6 @@ export function MaterialAuthoringPageClient({
           materialId: created.materialId,
           readOnly: false,
           seriesIds: created.seriesIds,
-          slug: created.slug ?? "",
           status: "draft" as const,
           summary: created.summary,
           tagIds: created.tagIds,

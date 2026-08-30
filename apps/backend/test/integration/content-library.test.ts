@@ -36,7 +36,7 @@ describe("ListPublishedMaterials", () => {
       value: {
         items: [
           {
-            slug: "membership-delivery-guide",
+            slug: "developer-pipeline-bez-poteri-konteksta",
             title: "Developer Pipeline без потери контекста",
             access: "membership",
           },
@@ -62,7 +62,7 @@ describe("ListPublishedMaterials", () => {
       value: {
         items: [
           expect.objectContaining({
-            slug: "inside-platform-overview",
+            slug: "kak-ustroen-inside-platform",
             title: "Как устроен Inside Platform",
             access: "free",
           }),

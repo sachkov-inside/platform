@@ -128,7 +128,6 @@ export async function getCurrentMaterial(
       materialId: parsed.data.materialId,
       readOnly: false,
       seriesIds: parsed.data.metadata.seriesMemberships.map(({ seriesId }) => seriesId),
-      slug: parsed.data.metadata.slug ?? "",
       status: parsed.data.publicationState,
       summary: parsed.data.metadata.summary ?? "",
       tagIds: parsed.data.metadata.tagIds,

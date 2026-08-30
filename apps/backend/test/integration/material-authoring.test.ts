@@ -34,7 +34,6 @@ describe("MaterialAuthoring", () => {
       metadata: {
         title: null,
         summary: null,
-        slug: null,
         access: "free",
         topicId: null,
         formatId: null,
@@ -143,7 +142,6 @@ describe("MaterialAuthoring", () => {
         code: "invalid_content",
         issues: [
           { code: "required_for_publication", path: "/metadata/formatId" },
-          { code: "required_for_publication", path: "/metadata/slug" },
           { code: "required_for_publication", path: "/metadata/summary" },
           { code: "required_for_publication", path: "/metadata/title" },
           { code: "required_for_publication", path: "/metadata/topicId" },
@@ -163,7 +161,6 @@ describe("MaterialAuthoring", () => {
       metadata: {
         title: "Protected preview",
         summary: null,
-        slug: null,
         access: "membership",
         topicId: null,
         formatId: null,
@@ -292,7 +289,6 @@ describe("MaterialAuthoring", () => {
           metadata: {
             title: `Admin corpus ${title}`,
             summary: null,
-            slug: null,
             access: "free",
             topicId,
             formatId,
@@ -313,7 +309,6 @@ describe("MaterialAuthoring", () => {
       metadata: {
         title: null,
         summary: null,
-        slug: "titleless-admin-corpus",
         access: "free",
         topicId: null,
         formatId: null,
@@ -329,7 +324,6 @@ describe("MaterialAuthoring", () => {
       metadata: {
         title: "Retired admin corpus",
         summary: "Previously published Material",
-        slug: "retired-admin-corpus",
         access: "free",
         topicId,
         formatId,
@@ -348,7 +342,6 @@ describe("MaterialAuthoring", () => {
       metadata: {
         title: "Retired admin corpus",
         summary: "Previously published Material",
-        slug: "retired-admin-corpus",
         access: "free",
         topicId,
         formatId,
@@ -367,7 +360,6 @@ describe("MaterialAuthoring", () => {
       metadata: {
         title: "Retired admin corpus",
         summary: "Previously published Material",
-        slug: "retired-admin-corpus",
         access: "free",
         topicId,
         formatId,
@@ -446,16 +438,16 @@ describe("MaterialAuthoring", () => {
         actor,
         first: 20,
         page: 1,
-        search: "titleless-admin-corpus",
+        search: "Admin corpus Старый",
       }),
     ).resolves.toMatchObject({
       ok: true,
       value: {
         items: [
           {
-            materialId: titleless.value.materialId,
+            materialId: materialIds[0],
             publicationState: "draft",
-            title: null,
+            title: "Admin corpus Старый",
           },
         ],
         totalItems: 1,

@@ -32,7 +32,7 @@ test("server-renders the safe PostgreSQL catalog through Nest", async ({
   await expect(page.getByText("Бесплатно").first()).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Developer Pipeline без потери контекста" }),
-  ).toHaveAttribute("href", "/materials/membership-delivery-guide");
+  ).toHaveAttribute("href", "/materials/developer-pipeline-bez-poteri-konteksta");
   await expect(page).toHaveTitle("Библиотека · Inside");
 
   await page.getByRole("main").evaluate((element) => {
@@ -133,14 +133,14 @@ test("server-renders the representative PostgreSQL Material through Nest", async
       } as PerformanceObserverInit);
     }
   });
-  const documentResponse = await request.get("/materials/inside-platform-overview");
+  const documentResponse = await request.get("/materials/kak-ustroen-inside-platform");
   const initialHtml = await documentResponse.text();
 
   expect(documentResponse.status()).toBe(200);
   expect(initialHtml).toContain("Как устроен Inside Platform");
   expect(initialHtml).toContain("Первый вертикальный срез");
 
-  const browserResponse = await page.goto("/materials/inside-platform-overview");
+  const browserResponse = await page.goto("/materials/kak-ustroen-inside-platform");
   expect(browserResponse?.status()).toBe(200);
   await expect(
     page.getByRole("heading", { name: "Как устроен Inside Platform", level: 1 }),
@@ -214,7 +214,7 @@ test("renders a locked teaser with the configured CTA and fails closed on invali
   request,
 }) => {
   const response = await page.goto(
-    "/materials/membership-delivery-guide",
+    "/materials/developer-pipeline-bez-poteri-konteksta",
   );
   expect(response?.status()).toBe(200);
   await expect(
@@ -237,7 +237,7 @@ test("renders a locked teaser with the configured CTA and fails closed on invali
   await expect(page.getByText("Закрытое содержимое для участников")).toHaveCount(0);
 
   const invalidProof = await request.get(
-    `${process.env.FULLSTACK_API_BASE_URL ?? "http://127.0.0.1:3001"}/materials/membership-delivery-guide`,
+    `${process.env.FULLSTACK_API_BASE_URL ?? "http://127.0.0.1:3001"}/materials/developer-pipeline-bez-poteri-konteksta`,
     { headers: { authorization: "Bearer not-a-jwt" } },
   );
   expect(invalidProof.status()).toBe(401);
@@ -266,7 +266,7 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
     },
   ]);
 
-  const reader = await page.goto("/materials/membership-delivery-guide");
+  const reader = await page.goto("/materials/developer-pipeline-bez-poteri-konteksta");
   expect(reader?.status()).toBe(200);
   await expect(
     page.getByRole("heading", {
@@ -292,7 +292,7 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
     kind: "ready",
     items: expect.arrayContaining([
       expect.objectContaining({
-        slug: "membership-delivery-guide",
+        slug: "developer-pipeline-bez-poteri-konteksta",
         availability: "available",
       }),
     ]),
@@ -331,7 +331,7 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({ pag
       }
     }).observe({ type: "layout-shift", buffered: true });
   });
-  await page.goto("/materials/inside-platform-overview");
+  await page.goto("/materials/kak-ustroen-inside-platform");
   const sidebar = page.getByRole("complementary", { name: "Боковая панель" });
   const main = page.getByRole("main");
   const collapsedMainRect = await main.evaluate((element) => {

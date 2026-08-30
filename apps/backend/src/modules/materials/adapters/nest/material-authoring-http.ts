@@ -221,8 +221,6 @@ export function statusForMaterialAuthoringError(
     case "idempotency_key_reused":
     case "invalid_publication_transition":
     case "series_ordinal_conflict":
-    case "slug_conflict":
-    case "slug_locked":
     case "stale_content_version":
     case "series_membership_changed":
     case "stale_series_order":

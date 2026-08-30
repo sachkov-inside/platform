@@ -67,9 +67,9 @@ export function assembleValidateMaterial(
             currentContentVersion: current.value.lifecycle.contentVersion,
           });
         }
-        const publishable = current.value.metadata.validateForPublication();
-        if (!publishable.ok) {
-          return rollback(publishable.error);
+        const completeness = current.value.metadata.validateAuthoringCompleteness();
+        if (!completeness.ok) {
+          return rollback(completeness.error);
         }
         await requireReferenceIntegrity(
           transaction,

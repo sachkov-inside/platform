@@ -87,7 +87,6 @@ export const materialAuthoringPresentation = {
     contentVersion,
     readOnly: false,
     seriesIds: ["94000000-0000-4000-8000-000000000041"],
-    slug: "developer-pipeline-bez-magii",
     status: "draft",
     summary: "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
     tagIds: [
@@ -206,7 +205,6 @@ export const emptyMaterialAuthoringPresentation = {
     contentVersion: null,
     status: "new",
     seriesIds: [],
-    slug: "",
     summary: "",
     tagIds: [],
     title: "",

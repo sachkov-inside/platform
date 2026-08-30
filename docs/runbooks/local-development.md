@@ -81,8 +81,8 @@ bash scripts/compose-stack-smoke.sh
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
-database-backed readiness, one stable free `inside-platform-overview` Material with a current
-`contentVersion` and one safe closed catalog Material. Repeating `docker compose down` and the
+database-backed readiness, one stable free `kak-ustroen-inside-platform` Material with current
+stored content and one safe closed catalog Material. Repeating `docker compose down` and the
 detached startup preserves the database volume and proves the bootstrap seed remains stable.
 
 Stop without deleting data:
@@ -145,11 +145,11 @@ Inspect the running host fallback or Compose stack:
 - OpenAPI UI: <http://127.0.0.1:3001/openapi>
 - MCP Streamable HTTP endpoint: <http://127.0.0.1:3002/mcp>
 - MCP protected-resource metadata: <http://127.0.0.1:3002/.well-known/oauth-protected-resource/mcp>
-- published Material API: <http://127.0.0.1:3001/materials/inside-platform-overview>
+- published Material API: <http://127.0.0.1:3001/materials/kak-ustroen-inside-platform>
 - published catalog API: <http://127.0.0.1:3001/library/materials>
 - Material authoring OpenAPI group: <http://127.0.0.1:3001/openapi#/Material%20authoring>
 - production Library: <http://127.0.0.1:3000/library>
-- production Reader: <http://127.0.0.1:3000/materials/inside-platform-overview>
+- production Reader: <http://127.0.0.1:3000/materials/kak-ustroen-inside-platform>
 
 The API health response is:
 
@@ -221,7 +221,7 @@ docker compose run --rm bootstrap
 ```
 
 The seed refuses non-development mode, uses stable idempotency keys, and creates twelve free
-published Materials for catalog pagination: `inside-platform-overview` plus eleven architecture
+published Materials for catalog pagination: `kak-ustroen-inside-platform` plus eleven architecture
 notes. It also creates one Membership Material whose body remains absent from the public catalog.
 Repeating the seed keeps the same Materials and upgrades the representative fixture without
 resetting the named volume. Materials are created and published through the Materials application

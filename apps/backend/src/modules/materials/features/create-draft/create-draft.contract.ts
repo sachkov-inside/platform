@@ -5,7 +5,7 @@ import type {
   InvalidReferenceError,
   MaterialMetadataSelectionInput,
   MaterialMutationReceiptDto,
-  PersistenceConflictError,
+  SeriesOrdinalConflictError,
   SystemError,
 } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
@@ -21,7 +21,7 @@ export type CreateDraftError =
   | MaterialMetadataValidationError
   | ForbiddenError
   | InvalidReferenceError
-  | PersistenceConflictError
+  | SeriesOrdinalConflictError
   | IdempotencyError
   | SystemError;
 export type CreateDraftResult = Result<

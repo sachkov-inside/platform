@@ -20,11 +20,10 @@ const ownerId = "71000000-0000-4000-8000-000000000001";
 const topicId = "71000000-0000-4000-8000-000000000002";
 const formatId = "71000000-0000-4000-8000-000000000003";
 
-function metadata(title: string, slug = "public-lifecycle") {
+function metadata(title: string) {
   return {
     title,
     summary: "Current mutable Material.",
-    slug,
     access: "free" as const,
     topicId,
     formatId,
@@ -196,7 +195,7 @@ describe("Material lifecycle", () => {
     expect(
       await publishedMaterialReader.read({
         subject: anonymousSubject,
-        slug: "public-lifecycle",
+        slug: "published-title",
       }),
     ).toMatchObject({
       ok: true,
@@ -256,7 +255,7 @@ describe("Material lifecycle", () => {
     const draft = await authoring.createDraft({
       actor: ownerId,
       idempotencyKey: "create-deletable-draft",
-      metadata: metadata("Deletable draft", "deletable-draft"),
+      metadata: metadata("Deletable draft"),
       body: representativeDocument("Deletable."),
     });
     if (!draft.ok) {
@@ -283,7 +282,7 @@ describe("Material lifecycle", () => {
     const publishedDraft = await authoring.createDraft({
       actor: ownerId,
       idempotencyKey: "create-undeletable-draft",
-      metadata: metadata("Undeletable", "undeletable-material"),
+      metadata: metadata("Undeletable"),
       body: representativeDocument("Stable identity."),
     });
     if (!publishedDraft.ok) {
@@ -295,7 +294,7 @@ describe("Material lifecycle", () => {
       materialId: publishedDraft.value.materialId,
       expectedContentVersion: 1,
       publicationState: "published",
-      metadata: metadata("Undeletable", "undeletable-material"),
+      metadata: metadata("Undeletable"),
       body: representativeDocument("Stable identity."),
     });
     if (!published.ok) {
@@ -325,7 +324,7 @@ describe("Material lifecycle", () => {
     const created = await base.authoring.createDraft({
       actor: ownerId,
       idempotencyKey: "create-reader-race",
-      metadata: metadata("Reader race", "reader-race"),
+      metadata: metadata("Reader race"),
       body: representativeDocument("Version one."),
     });
     if (!created.ok) {
@@ -337,7 +336,7 @@ describe("Material lifecycle", () => {
       materialId: created.value.materialId,
       expectedContentVersion: 1,
       publicationState: "published",
-      metadata: metadata("Reader race", "reader-race"),
+      metadata: metadata("Reader race"),
       body: representativeDocument("Version two."),
     });
     if (!published.ok) {
@@ -360,7 +359,7 @@ describe("Material lifecycle", () => {
             materialId: created.value.materialId,
             expectedContentVersion: 2,
             publicationState: "published",
-            metadata: metadata("Reader race winner", "reader-race"),
+            metadata: metadata("Reader race winner"),
             body: representativeDocument("Version three."),
           });
           if (!saved.ok) {
@@ -405,7 +404,7 @@ describe("Material lifecycle", () => {
     bodyRead.mockRestore();
   });
 
-  test("rejects stale input, preserves stable identity while unpublished and locks the slug", async () => {
+  test("rejects stale input and preserves the generated address through later saves", async () => {
     const authorPolicy = {
       canManage: (accountId: string) => accountId === ownerId,
     };
@@ -416,7 +415,7 @@ describe("Material lifecycle", () => {
     const created = await authoring.createDraft({
       actor: ownerId,
       idempotencyKey: "create-concurrent-material",
-      metadata: metadata("Concurrent", "concurrent-material"),
+      metadata: metadata("Concurrent"),
       body: representativeDocument("Initial local input."),
     });
     if (!created.ok) {
@@ -429,7 +428,7 @@ describe("Material lifecycle", () => {
       materialId: created.value.materialId,
       expectedContentVersion: 1,
       publicationState: "published",
-      metadata: metadata("Winner", "concurrent-material"),
+      metadata: metadata("Winner"),
       body: representativeDocument("Winner body."),
     });
     if (!winner.ok) {
@@ -442,7 +441,7 @@ describe("Material lifecycle", () => {
         materialId: created.value.materialId,
         expectedContentVersion: 1,
         publicationState: "published",
-        metadata: metadata("Rejected local input", "concurrent-material"),
+        metadata: metadata("Rejected local input"),
         body: representativeDocument("Rejected local body."),
       }),
     ).toEqual({
@@ -456,7 +455,7 @@ describe("Material lifecycle", () => {
       materialId: created.value.materialId,
       expectedContentVersion: 2,
       publicationState: "unpublished",
-      metadata: metadata("Winner", "concurrent-material"),
+      metadata: metadata("Winner"),
       body: representativeDocument("Winner body."),
     });
     expect(unpublished).toMatchObject({
@@ -470,7 +469,7 @@ describe("Material lifecycle", () => {
     expect(
       await publishedMaterialReader.read({
         subject: anonymousSubject,
-        slug: "concurrent-material",
+        slug: "winner",
       }),
     ).toEqual({ ok: false, error: { code: "material_not_found" } });
 
@@ -480,25 +479,171 @@ describe("Material lifecycle", () => {
       materialId: created.value.materialId,
       expectedContentVersion: 3,
       publicationState: "published",
-      metadata: metadata("Republished", "concurrent-material"),
+      metadata: metadata("Republished"),
       body: representativeDocument("Republished body."),
     });
     if (!republished.ok) {
       throw new Error(republished.error.code);
     }
-    expect(
-      await authoring.saveMaterial({
-        actor: ownerId,
-        idempotencyKey: "reject-slug-change",
-        materialId: created.value.materialId,
-        expectedContentVersion: 4,
-        publicationState: "published",
-        metadata: metadata("Renamed", "renamed-material"),
-        body: representativeDocument("Renamed body."),
-      }),
-    ).toEqual({
-      ok: false,
-      error: { code: "slug_locked", slug: "concurrent-material" },
+    const renamed = await authoring.saveMaterial({
+      actor: ownerId,
+      idempotencyKey: "rename-with-stable-address",
+      materialId: created.value.materialId,
+      expectedContentVersion: 4,
+      publicationState: "published",
+      metadata: metadata("Renamed"),
+      body: representativeDocument("Renamed body."),
     });
+    if (!renamed.ok) throw new Error(renamed.error.code);
+    expect(
+      await authoring.loadMaterial({ actor: ownerId, materialId: created.value.materialId }),
+    ).toMatchObject({ ok: true, value: { metadata: { slug: "winner" } } });
+  });
+
+  test("generates a readable slug when a Material is first published", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === ownerId },
+    });
+    const metadataWithoutSlug = {
+      title: "Как устроена платформа Inside",
+      summary: "Адрес формируется системой.",
+      access: "free" as const,
+      topicId,
+      formatId,
+      tagIds: [],
+      seriesIds: [],
+    };
+    const created = await authoring.createDraft({
+      actor: ownerId,
+      idempotencyKey: "create-automatic-slug",
+      metadata: metadataWithoutSlug,
+      body: representativeDocument("Automatic slug body."),
+    });
+    if (!created.ok) throw new Error(created.error.code);
+
+    const published = await authoring.saveMaterial({
+      actor: ownerId,
+      idempotencyKey: "publish-automatic-slug",
+      materialId: created.value.materialId,
+      expectedContentVersion: created.value.contentVersion,
+      publicationState: "published",
+      metadata: metadataWithoutSlug,
+      body: representativeDocument("Automatic slug body."),
+    });
+    if (!published.ok) throw new Error(published.error.code);
+
+    expect(
+      await authoring.loadMaterial({
+        actor: ownerId,
+        materialId: created.value.materialId,
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: { metadata: { slug: "kak-ustroena-platforma-inside" } },
+    });
+  });
+
+  test("allocates unique suffixes for concurrent publications with the same title", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const sharedMetadata = metadata("Одинаковый адрес");
+    const drafts = await Promise.all(
+      ["left", "right"].map((side) =>
+        authoring.createDraft({
+          actor: ownerId,
+          idempotencyKey: `create-same-address-${side}`,
+          metadata: sharedMetadata,
+          body: representativeDocument(`${side} body.`),
+        }),
+      ),
+    );
+    const materialIds = drafts.map((draft) => {
+      if (!draft.ok) throw new Error(draft.error.code);
+      return draft.value.materialId;
+    });
+
+    const publications = await Promise.all(
+      materialIds.map((currentMaterialId, index) =>
+        authoring.saveMaterial({
+          actor: ownerId,
+          idempotencyKey: `publish-same-address-${String(index)}`,
+          materialId: currentMaterialId,
+          expectedContentVersion: 1,
+          publicationState: "published",
+          metadata: sharedMetadata,
+          body: representativeDocument(`${String(index)} body.`),
+        }),
+      ),
+    );
+    expect(publications.every(({ ok }) => ok)).toBe(true);
+
+    const loaded = await Promise.all(
+      materialIds.map((currentMaterialId) =>
+        authoring.loadMaterial({ actor: ownerId, materialId: currentMaterialId }),
+      ),
+    );
+    expect(
+      loaded
+        .flatMap((current) =>
+          current.ok && current.value.metadata.slug !== null
+            ? [current.value.metadata.slug]
+            : [],
+        )
+        .sort(),
+    ).toEqual(["odinakovyy-adres", "odinakovyy-adres-2"]);
+  });
+
+  test("uses a stable fallback and keeps numeric suffixes within the length limit", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const publishAndLoadSlug = async (title: string, key: string) => {
+      const selectedMetadata = metadata(title);
+      const created = await authoring.createDraft({
+        actor: ownerId,
+        idempotencyKey: `create-slug-policy-${key}`,
+        metadata: selectedMetadata,
+        body: representativeDocument(`${key} body.`),
+      });
+      if (!created.ok) throw new Error(created.error.code);
+      const published = await authoring.saveMaterial({
+        actor: ownerId,
+        idempotencyKey: `publish-slug-policy-${key}`,
+        materialId: created.value.materialId,
+        expectedContentVersion: 1,
+        publicationState: "published",
+        metadata: selectedMetadata,
+        body: representativeDocument(`${key} body.`),
+      });
+      if (!published.ok) throw new Error(published.error.code);
+      const loaded = await authoring.loadMaterial({
+        actor: ownerId,
+        materialId: created.value.materialId,
+      });
+      if (!loaded.ok || loaded.value.metadata.slug === null) {
+        throw new Error(loaded.ok ? "missing_slug" : loaded.error.code);
+      }
+      return loaded.value.metadata.slug;
+    };
+
+    await expect(publishAndLoadSlug("🧭", "fallback-1")).resolves.toBe("material");
+    await expect(publishAndLoadSlug("東京", "fallback-2")).resolves.toBe("material-2");
+
+    const longTitle = "a".repeat(160);
+    const longSlugs = await Promise.all(
+      ["long-1", "long-2", "long-3"].map((key) =>
+        publishAndLoadSlug(longTitle, key),
+      ),
+    );
+    expect(longSlugs.sort()).toEqual([
+      "a".repeat(118) + "-2",
+      "a".repeat(118) + "-3",
+      "a".repeat(120),
+    ]);
+    expect(longSlugs.every((slug) => slug.length <= 120)).toBe(true);
   });
 });

@@ -3252,12 +3252,6 @@
                         "maxItems": 100,
                         "type": "array"
                       },
-                      "slug": {
-                        "maxLength": 120,
-                        "nullable": true,
-                        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                        "type": "string"
-                      },
                       "summary": {
                         "maxLength": 500,
                         "minLength": 1,
@@ -3289,7 +3283,6 @@
                     "required": [
                       "title",
                       "summary",
-                      "slug",
                       "access",
                       "topicId",
                       "formatId",
@@ -4842,11 +4835,11 @@
                       "required": [
                         "title",
                         "summary",
-                        "slug",
                         "access",
                         "topicId",
                         "formatId",
                         "tagIds",
+                        "slug",
                         "seriesMemberships"
                       ],
                       "type": "object"
@@ -5561,12 +5554,6 @@
                         "maxItems": 100,
                         "type": "array"
                       },
-                      "slug": {
-                        "maxLength": 120,
-                        "nullable": true,
-                        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                        "type": "string"
-                      },
                       "summary": {
                         "maxLength": 500,
                         "minLength": 1,
@@ -5598,7 +5585,6 @@
                     "required": [
                       "title",
                       "summary",
-                      "slug",
                       "access",
                       "topicId",
                       "formatId",
@@ -6494,11 +6480,11 @@
                       "required": [
                         "title",
                         "summary",
-                        "slug",
                         "access",
                         "topicId",
                         "formatId",
                         "tagIds",
+                        "slug",
                         "seriesMemberships"
                       ],
                       "type": "object"

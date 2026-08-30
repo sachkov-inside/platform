@@ -10,6 +10,7 @@ export async function materializeMetadataSelection(
   transaction: MaterialsPrismaTransaction,
   materialId: MaterialId,
   selection: MaterialMetadataSelection,
+  slug: string | null,
 ): Promise<MaterialMetadata> {
   const values = selection.toValues();
   return selection.materialize(
@@ -18,5 +19,6 @@ export async function materializeMetadataSelection(
       materialId,
       values.seriesIds,
     ),
+    slug,
   );
 }

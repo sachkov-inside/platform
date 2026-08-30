@@ -39,7 +39,7 @@ describe("published Material HTTP contract", () => {
     const bodyRead = vi.spyOn(appPrisma.material, "findFirst");
     const response = await app.getHttpAdapter().getInstance().inject({
       method: "GET",
-      url: "/materials/membership-delivery-guide",
+      url: "/materials/developer-pipeline-bez-poteri-konteksta",
     });
 
     expect(response.statusCode).toBe(200);
@@ -48,7 +48,7 @@ describe("published Material HTTP contract", () => {
       kind: "teaser",
       cacheScope: "private-no-store",
       projection: {
-        slug: "membership-delivery-guide",
+        slug: "developer-pipeline-bez-poteri-konteksta",
         title: "Developer Pipeline без потери контекста",
         access: "membership",
       },
@@ -78,7 +78,7 @@ describe("published Material HTTP contract", () => {
     const permissionRead = vi.spyOn(appPrisma.accountPermission, "findUnique");
     const response = await app.getHttpAdapter().getInstance().inject({
       method: "GET",
-      url: "/materials/inside-platform-overview",
+      url: "/materials/kak-ustroen-inside-platform",
     });
 
     const representativeBlocks: unknown = expect.arrayContaining([
@@ -105,7 +105,7 @@ describe("published Material HTTP contract", () => {
       kind: "available",
       cacheScope: "public",
       projection: {
-        slug: "inside-platform-overview",
+        slug: "kak-ustroen-inside-platform",
         title: "Как устроен Inside Platform",
         topic: {
           name: "Platform",
@@ -157,12 +157,12 @@ describe("published Material HTTP contract", () => {
     expect(catalog.items).toHaveLength(12);
     expect(catalog.items.slice(0, 2)).toMatchObject([
       {
-        slug: "membership-delivery-guide",
+        slug: "developer-pipeline-bez-poteri-konteksta",
         access: "membership",
         availability: "locked",
       },
       {
-        slug: "inside-platform-overview",
+        slug: "kak-ustroen-inside-platform",
         access: "free",
         availability: "available",
       },
@@ -234,7 +234,7 @@ describe("published Material HTTP contract", () => {
     try {
       for (const url of [
         "/library/materials",
-        "/materials/inside-platform-overview",
+        "/materials/kak-ustroen-inside-platform",
       ]) {
         const response = await unavailableApp.getHttpAdapter().getInstance().inject({
           method: "GET",

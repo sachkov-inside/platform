@@ -7,8 +7,8 @@ const formatId = "72000000-0000-4000-8000-000000000003";
 const createIdempotencyKey = "72000000-0000-4000-8000-000000000004";
 const tagId = "72000000-0000-4000-8000-000000000006";
 const seriesId = "72000000-0000-4000-8000-000000000007";
-const slug = "inside-platform-overview";
-const membershipSlug = "membership-delivery-guide";
+const slug = "kak-ustroen-inside-platform";
+const membershipSlug = "developer-pipeline-bez-poteri-konteksta";
 const membershipCreateIdempotencyKey = "72000000-0000-4000-8000-000000000033";
 
 export interface LocalDevelopmentSeed {
@@ -33,7 +33,6 @@ export async function seedLocalDevelopment(
     metadata: {
       title: "Как устроен Inside Platform",
       summary: "Representative published Material для локальной full-stack разработки.",
-      slug,
       access: "free",
       topicId,
       formatId,
@@ -273,7 +272,6 @@ async function ensureCatalogContinuationMaterials(
     const metadata = {
         title: `Архитектурная заметка ${sequence}`,
         summary: "Дополнительный published Material для проверки infinite catalog.",
-        slug: `architecture-note-${sequence}`,
         access: "free" as const,
         topicId,
         formatId,
@@ -294,7 +292,7 @@ async function ensureCatalogContinuationMaterials(
         },
       } as const;
     const existing = await prisma.material.findUnique({
-      where: { slug: metadata.slug },
+      where: { slug: `arkhitekturnaya-zametka-${sequence}` },
       select: { id: true, contentVersion: true, publicationState: true },
     });
     let material = existing;
@@ -339,7 +337,6 @@ async function ensureMembershipCatalogMaterial(
   const metadata = {
       title: "Developer Pipeline без потери контекста",
       summary: "Закрытый Material с публичным безопасным описанием для каталога.",
-      slug: membershipSlug,
       access: "membership" as const,
       topicId,
       formatId,

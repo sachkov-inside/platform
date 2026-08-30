@@ -128,7 +128,7 @@ describe("delegated Material authoring over MCP", () => {
   });
 
   test("runs one delegated create, Save, Preview, publish and unpublish path", async () => {
-    const initialMetadata = metadata("MCP lifecycle", "mcp-lifecycle", "free");
+    const initialMetadata = metadata("MCP lifecycle", "free");
     const created = await callTool("material_create_draft", {
       idempotencyKey: "mcp-create-lifecycle",
       metadata: initialMetadata,
@@ -169,7 +169,7 @@ describe("delegated Material authoring over MCP", () => {
       materialId,
       expectedContentVersion: 1,
       publicationState: "draft",
-      metadata: metadata("MCP lifecycle current", "mcp-lifecycle", "membership"),
+      metadata: metadata("MCP lifecycle current", "membership"),
       body: representativeDocument("Current MCP body."),
     });
     expect(saved).toMatchObject({
@@ -205,7 +205,7 @@ describe("delegated Material authoring over MCP", () => {
       materialId,
       expectedContentVersion: 1,
       publicationState: "published",
-      metadata: metadata("Rejected stale title", "mcp-lifecycle", "free"),
+      metadata: metadata("Rejected stale title", "free"),
       body: representativeDocument("Rejected stale body."),
     });
     expect(stale).toMatchObject({
@@ -233,7 +233,7 @@ describe("delegated Material authoring over MCP", () => {
       materialId,
       expectedContentVersion: 2,
       publicationState: "published",
-      metadata: metadata("MCP lifecycle current", "mcp-lifecycle", "membership"),
+      metadata: metadata("MCP lifecycle current", "membership"),
       body: representativeDocument("Current MCP body."),
     });
     expect(published).toMatchObject({
@@ -264,7 +264,7 @@ describe("delegated Material authoring over MCP", () => {
       materialId,
       expectedContentVersion: 3,
       publicationState: "unpublished",
-      metadata: metadata("MCP lifecycle current", "mcp-lifecycle", "free"),
+      metadata: metadata("MCP lifecycle current", "free"),
       body: representativeDocument("Current MCP body."),
     });
     expect(unpublished).toMatchObject({
@@ -279,7 +279,7 @@ describe("delegated Material authoring over MCP", () => {
     const countBefore = await database.prisma.material.count();
     const invalid = await callTool("material_create_draft", {
       idempotencyKey: "mcp-invalid-document",
-      metadata: metadata("Invalid MCP document", "invalid-mcp-document", "free"),
+      metadata: metadata("Invalid MCP document", "free"),
       body: { schemaVersion: 1, doc: { type: "unsupported" } },
     });
     expect(invalid).toMatchObject({
@@ -293,7 +293,7 @@ describe("delegated Material authoring over MCP", () => {
 
     const reused = await callTool("material_create_draft", {
       idempotencyKey: "mcp-create-lifecycle",
-      metadata: metadata("Different retry", "different-retry", "free"),
+      metadata: metadata("Different retry", "free"),
       body: representativeDocument("Different retry."),
     });
     expect(reused).toMatchObject({
@@ -328,13 +328,11 @@ describe("delegated Material authoring over MCP", () => {
 
 function metadata(
   title: string,
-  slug: string,
   access: "free" | "membership",
 ) {
   return {
     title,
     summary: "Material managed through the delegated MCP adapter.",
-    slug,
     access,
     topicId,
     formatId,

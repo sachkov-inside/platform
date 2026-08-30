@@ -52,7 +52,6 @@ describe("material authoring integrity contract", () => {
       metadata: {
         title: "Reference validation",
         summary: "Required references are checked once.",
-        slug: "reference-validation",
         access: "free",
         topicId: "a0000000-0000-4000-8000-999999999999",
         formatId,
@@ -94,7 +93,7 @@ describe("material authoring integrity contract", () => {
     expect(corrected.ok).toBe(true);
   });
 
-  test("maps unique slug and duplicate Tag while appending selected Series", async () => {
+  test("rejects duplicate Tags while appending selected Series", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
@@ -102,7 +101,6 @@ describe("material authoring integrity contract", () => {
     const metadata = {
       title: "Constraint owner",
       summary: "Database arbitrates races.",
-      slug: "constraint-owner",
       access: "free",
       topicId,
       formatId,
@@ -120,22 +118,9 @@ describe("material authoring integrity contract", () => {
     expect(
       await authoring.createDraft({
         actor,
-        idempotencyKey: "a0000000-0000-4000-8000-000000000021",
-        metadata: { ...metadata, title: "Duplicate slug", seriesIds: [] },
-        body: representativeDocument(),
-      }),
-    ).toEqual({
-      ok: false,
-      error: { code: "slug_conflict", slug: "constraint-owner" },
-    });
-
-    expect(
-      await authoring.createDraft({
-        actor,
         idempotencyKey: "a0000000-0000-4000-8000-000000000022",
         metadata: {
           ...metadata,
-          slug: "duplicate-tag",
           tagIds: [tagId, tagId],
           seriesIds: [],
         },
@@ -149,7 +134,6 @@ describe("material authoring integrity contract", () => {
         metadata: {
           ...metadata,
           title: "Second playlist item",
-          slug: "second-playlist-item",
           tagIds: [],
         },
         body: representativeDocument(),
@@ -160,7 +144,6 @@ describe("material authoring integrity contract", () => {
         metadata: {
           ...metadata,
           title: "Third playlist item",
-          slug: "third-playlist-item",
           tagIds: [],
         },
         body: representativeDocument(),
@@ -196,7 +179,6 @@ describe("material authoring integrity contract", () => {
         metadata: {
           title: `${side} playlist append`,
           summary: "The Series row lock appends both Materials.",
-          slug: `${side}-playlist-append`,
           access: "free",
           topicId,
           formatId,
@@ -228,7 +210,6 @@ describe("material authoring integrity contract", () => {
     const metadata = {
       title: "Concurrent Save",
       summary: "The Material row lock selects one winner.",
-      slug: "concurrent-material-save",
       access: "free",
       topicId,
       formatId,
@@ -281,7 +262,6 @@ describe("material authoring integrity contract", () => {
       metadata: {
         title: "Stable published slug",
         summary: "The public URL keeps its identity.",
-        slug: "stable-published-slug",
         access: "free",
         topicId,
         formatId,
@@ -303,7 +283,6 @@ describe("material authoring integrity contract", () => {
       metadata: {
         title: "Stable published slug",
         summary: "The public URL keeps its identity.",
-        slug: "stable-published-slug",
         access: "free",
         topicId,
         formatId,

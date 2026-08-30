@@ -11,7 +11,6 @@ const serverUrl = requireEnvironment("MCP_SMOKE_SERVER_URL");
 const accessToken = requireEnvironment("MCP_SMOKE_ACCESS_TOKEN");
 const topicId = "72000000-0000-4000-8000-000000000002";
 const formatId = "72000000-0000-4000-8000-000000000003";
-const slug = "mcp-full-stack-authoring-smoke";
 const body = {
   schemaVersion: 1,
   doc: {
@@ -140,7 +139,6 @@ function metadata(access: "free" | "membership") {
   return {
     title: "MCP full-stack authoring smoke",
     summary: "A stable Material used to verify delegated MCP authoring.",
-    slug,
     access,
     topicId,
     formatId,

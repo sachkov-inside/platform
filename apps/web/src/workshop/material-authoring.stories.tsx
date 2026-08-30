@@ -472,7 +472,7 @@ export const Published: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getAllByText("Опубликован").length).toBeGreaterThan(0);
-    await expect(canvas.getByLabelText("Адрес")).toHaveAttribute("readonly");
+    await expect(canvas.queryByLabelText("Адрес")).not.toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Предпросмотр" }));
     await expect(canvasElement.querySelector("[data-preview-status-banner]")).toHaveTextContent(
       "Материал опубликован и доступен читателям.",
