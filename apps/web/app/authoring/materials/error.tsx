@@ -1,11 +1,14 @@
 "use client";
 
 import { CloudOff } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useEffect } from "react";
 
 import { MaterialAuthoringShell } from "@/features/material-authoring";
 import { Button } from "@/shared/ui/button";
+
+const authoringMaterialsHref = ("/authoring" + "/materials") as Route;
 
 export default function ErrorPage({
   error,
@@ -19,7 +22,7 @@ export default function ErrorPage({
   }, [error]);
 
   return (
-    <MaterialAuthoringShell current="create">
+    <MaterialAuthoringShell current="materials">
       <main
         className="grid h-full min-h-svh place-items-center bg-background px-5 py-12 text-foreground md:min-h-0"
         id="authoring-content"
@@ -35,7 +38,7 @@ export default function ErrorPage({
             className="mt-5 text-2xl font-semibold tracking-[-0.025em]"
             id="material-authoring-error-heading"
           >
-            Редактор остановлен
+            Authoring остановлен
           </h1>
           <p className="mx-auto mt-3 max-w-[52ch] text-sm leading-6 text-muted-foreground">
             Произошла непредвиденная ошибка. Повторите действие или вернитесь к материалам.
@@ -46,7 +49,7 @@ export default function ErrorPage({
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Button onClick={reset} type="button">Повторить</Button>
             <Button asChild variant="outline">
-              <Link href="/library">Вернуться к материалам</Link>
+              <Link href={authoringMaterialsHref}>Вернуться к Materials</Link>
             </Button>
           </div>
         </section>

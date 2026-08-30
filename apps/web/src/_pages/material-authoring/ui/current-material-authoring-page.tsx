@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { Route } from "next";
 
 import {
   MaterialAuthoringNotFoundState,
@@ -19,8 +20,10 @@ import { MaterialAuthoringPageClient } from "./material-authoring-page.client";
 
 export async function CurrentMaterialAuthoringPage({
   materialId,
+  returnHref,
 }: {
   readonly materialId: string;
+  readonly returnHref: Route;
 }) {
   let accessToken: string;
   try {
@@ -78,6 +81,7 @@ export async function CurrentMaterialAuthoringPage({
       initialPresentation={initialPresentation}
       key={materialId}
       mutationAction={saveMaterialAction}
+      returnHref={returnHref}
     />
   );
 }

@@ -1,10 +1,13 @@
 import { ArrowLeft, CloudOff, LogIn, ShieldAlert } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
 
 import { MaterialAuthoringShell } from "./material-authoring-shell";
+
+const authoringMaterialsHref = ("/authoring" + "/materials") as Route;
 
 export function MaterialAuthoringUnauthorizedState({
   action,
@@ -53,7 +56,7 @@ export function MaterialAuthoringSignInActions({
       </form>
       {onBack === undefined ? (
         <Button asChild variant="outline">
-          <Link href="/library">
+          <Link href={authoringMaterialsHref}>
             <ArrowLeft aria-hidden="true" data-icon="inline-start" />
             Вернуться к материалам
           </Link>
@@ -111,7 +114,7 @@ export function MaterialAuthoringUnexpectedEditorState({
             <Link href={{ pathname: retryHref }}>Повторить</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/library">Вернуться к материалам</Link>
+            <Link href={authoringMaterialsHref}>Вернуться к материалам</Link>
           </Button>
         </div>
       }
@@ -129,7 +132,7 @@ export function MaterialAuthoringNotFoundState() {
     <MaterialAuthoringStateScreen
       action={
         <Button asChild variant="outline">
-          <Link href="/library">Вернуться к материалам</Link>
+          <Link href={authoringMaterialsHref}>Вернуться к материалам</Link>
         </Button>
       }
       description="Material с таким идентификатором не найден. Локальные изменения не отправлялись."

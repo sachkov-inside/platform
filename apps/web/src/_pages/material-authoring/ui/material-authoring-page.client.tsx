@@ -1,6 +1,7 @@
 "use client";
 
 import type { JSONContent } from "@tiptap/core";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 
@@ -9,6 +10,7 @@ import {
   type MaterialAuthoringActions,
   type MaterialAuthoringPresentation,
   type MaterialDraftField,
+  withAuthoringReturnHref,
 } from "@/features/material-authoring";
 
 import {
@@ -24,11 +26,13 @@ type MaterialMutationAction = (
 interface MaterialAuthoringPageClientProps {
   readonly initialPresentation: MaterialAuthoringPresentation;
   readonly mutationAction: MaterialMutationAction;
+  readonly returnHref: Route;
 }
 
 export function MaterialAuthoringPageClient({
   initialPresentation,
   mutationAction,
+  returnHref,
 }: MaterialAuthoringPageClientProps) {
   const router = useRouter();
   const [actionState, dispatch, pending] = useActionState(
@@ -82,9 +86,14 @@ export function MaterialAuthoringPageClient({
 
   useEffect(() => {
     if (created !== null) {
-      router.replace(`/authoring/materials/${created.materialId}`);
+      router.replace(
+        withAuthoringReturnHref(
+          `/authoring/materials/${created.materialId}`,
+          returnHref,
+        ),
+      );
     }
-  }, [created, router]);
+  }, [created, returnHref, router]);
 
   const presentation: MaterialAuthoringPresentation = {
     ...initialPresentation,
@@ -134,14 +143,14 @@ export function MaterialAuthoringPageClient({
 
   const actions = {
     onBack: () => {
-      router.push("/library");
+      router.push(returnHref);
     },
     onConflictAction: (action) => {
       const materialId = effectiveDraft.materialId;
       if (materialId === null) return;
       if (action === "open_current") {
         window.open(
-          `/authoring/materials/${materialId}`,
+          withAuthoringReturnHref(`/authoring/materials/${materialId}`, returnHref),
           "_blank",
           "noopener,noreferrer",
         );
@@ -149,7 +158,10 @@ export function MaterialAuthoringPageClient({
       }
       if (action === "compare") {
         window.open(
-          `/authoring/materials/${materialId}/preview`,
+          withAuthoringReturnHref(
+            `/authoring/materials/${materialId}/preview`,
+            returnHref,
+          ),
           "_blank",
           "noopener,noreferrer",
         );
@@ -180,7 +192,12 @@ export function MaterialAuthoringPageClient({
     },
     onOpenPreview: () => {
       if (effectiveDraft.materialId !== null) {
-        router.push(`/authoring/materials/${effectiveDraft.materialId}/preview`);
+        router.push(
+          withAuthoringReturnHref(
+            `/authoring/materials/${effectiveDraft.materialId}/preview`,
+            returnHref,
+          ),
+        );
       }
     },
     onRetry: () => {
@@ -194,9 +211,12 @@ export function MaterialAuthoringPageClient({
     },
     onReturnToEditor: () => {
       router.push(
-        effectiveDraft.materialId === null
-          ? "/authoring/materials/new"
-          : `/authoring/materials/${effectiveDraft.materialId}`,
+        withAuthoringReturnHref(
+          effectiveDraft.materialId === null
+            ? "/authoring/materials/new"
+            : `/authoring/materials/${effectiveDraft.materialId}`,
+          returnHref,
+        ),
       );
     },
     onSave: (formData: FormData) => {

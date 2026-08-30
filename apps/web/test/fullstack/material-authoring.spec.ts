@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
-const currentMaterialEditorUrl = /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const currentMaterialEditorUrl = /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
 
 test("trusted author creates a PostgreSQL draft and opens its current Preview", async ({
   context,
@@ -50,7 +50,7 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   await expect(page.getByRole("button", { name: "Preview" })).toBeEnabled();
 
   await page.getByRole("button", { name: "Preview" }).click();
-  await expect(page).toHaveURL(new RegExp(`/authoring/materials/.+/preview$`, "u"));
+  await expect(page).toHaveURL(new RegExp(`/authoring/materials/.+/preview(?:\\?.*)?$`, "u"));
   await expect(page.getByRole("heading", { name: "Preview текущей версии" })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Current Preview без fake data", level: 1 }),
@@ -60,6 +60,43 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   await expect(page.getByText("Platform")).toBeVisible();
   await expect(page.getByText("Full stack")).toBeVisible();
   await expect(page.getByText(/Это сохранённый черновик v1/)).toBeVisible();
+});
+
+test("trusted author finds every Material and returns from Editor to the same list query", async ({
+  context,
+  page,
+}) => {
+  await addFullStackSession(context);
+
+  const listUrl =
+    "/authoring/materials?search=%D0%9A%D0%B0%D0%BA+%D1%83%D1%81%D1%82%D1%80%D0%BE%D0%B5%D0%BD&state=published";
+  const response = await page.goto(listUrl);
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "Материалы", level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Как устроен Inside Platform" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Состояние публикации" })).toHaveValue(
+    "published",
+  );
+
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(
+    accessibility.violations.filter(
+      ({ impact }) => impact === "serious" || impact === "critical",
+    ),
+  ).toEqual([]);
+  const overflow = await page.locator("html").evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+
+  await page.getByRole("link", { name: "Редактировать" }).click();
+  await expect(page.getByRole("heading", { name: "Как устроен Inside Platform" })).toBeVisible();
+  await page.getByRole("button", { name: "Вернуться к материалам" }).click();
+  await expect(page).toHaveURL(listUrl);
+  await expect(page.getByRole("link", { name: "Как устроен Inside Platform" })).toBeVisible();
 });
 
 test("full-state Save is live and a stale editor preserves local input through lifecycle changes", async ({
@@ -72,7 +109,7 @@ test("full-state Save is live and a stale editor preserves local input through l
   await page.getByRole("button", { name: "Создать черновик" }).click();
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   const editorUrl = page.url();
-  const materialId = editorUrl.split("/").at(-1);
+  const materialId = new URL(editorUrl).pathname.split("/").at(-1);
   if (materialId === undefined) {
     throw new Error("Current Material route has no identifier");
   }

@@ -12,6 +12,10 @@ export {
   type MaterialValidationIssue,
   type MaterialValidationState,
 } from "./model/presentation";
+export {
+  parseAuthoringReturnHref,
+  withAuthoringReturnHref,
+} from "./model/authoring-return";
 export { MaterialAuthoringWorkspace } from "./ui/material-authoring-workspace.client";
 export { MaterialAuthoringShell } from "./ui/material-authoring-shell";
 export { MaterialCurrentPreview } from "./ui/material-current-preview";

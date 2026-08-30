@@ -227,6 +227,8 @@ export const Saved: Story = {
     await userEvent.tab();
     await expect(canvas.getByRole("link", { name: /Inside Authoring/ })).toHaveFocus();
     await userEvent.tab();
+    await expect(canvas.getByRole("link", { name: "Материалы" })).toHaveFocus();
+    await userEvent.tab();
     await expect(canvas.getByRole("link", { name: "Новый материал" })).toHaveFocus();
   },
 };

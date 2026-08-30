@@ -1,15 +1,18 @@
-import { Eye, FilePlus2, Globe2, LibraryBig, PenLine } from "lucide-react";
+import { Eye, Files, FilePlus2, Globe2, LibraryBig, PenLine } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
+
+const authoringMaterialsHref = ("/authoring" + "/materials") as Route;
 
 export function MaterialAuthoringShell({
   children,
   current,
 }: {
   readonly children: ReactNode;
-  readonly current: "create" | "preview";
+  readonly current: "create" | "materials" | "preview";
 }) {
   return (
     <div className="min-h-svh bg-background text-foreground md:flex md:h-svh md:min-h-0 md:overflow-hidden">
@@ -23,7 +26,7 @@ export function MaterialAuthoringShell({
         <div className="flex min-h-0 flex-1 flex-col px-3 py-4">
           <Link
             className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sidebar-foreground no-underline"
-            href="/authoring/materials/new"
+            href={authoringMaterialsHref}
           >
             <span className="grid size-8 place-items-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
               <PenLine aria-hidden="true" className="size-4" />
@@ -37,6 +40,12 @@ export function MaterialAuthoringShell({
           </Link>
 
           <nav aria-label="Authoring" className="mt-7 grid gap-1">
+            <AuthoringLink
+              current={current === "materials"}
+              href={authoringMaterialsHref}
+              icon={<Files aria-hidden="true" />}
+              label="Материалы"
+            />
             <AuthoringLink
               current={current === "create"}
               href="/authoring/materials/new"
@@ -77,7 +86,10 @@ export function MaterialAuthoringShell({
         aria-label="Authoring на мобильном"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
       >
-        <div className="grid grid-cols-3 px-2 pt-1">
+        <div className="grid grid-cols-4 px-2 pt-1">
+          <MobileLink current={current === "materials"} href={authoringMaterialsHref} label="Материалы">
+            <Files aria-hidden="true" />
+          </MobileLink>
           <MobileLink current={current === "create"} href="/authoring/materials/new" label={current === "preview" ? "Редактор" : "Создать"}>
             {current === "preview" ? <PenLine aria-hidden="true" /> : <FilePlus2 aria-hidden="true" />}
           </MobileLink>
@@ -100,7 +112,7 @@ function AuthoringLink({
   label,
 }: {
   readonly current?: boolean;
-  readonly href: "/" | "/authoring/materials/new" | "/library";
+  readonly href: Route;
   readonly icon: ReactNode;
   readonly label: string;
 }) {
@@ -128,7 +140,7 @@ function MobileLink({
 }: {
   readonly children: ReactNode;
   readonly current?: boolean;
-  readonly href: "/" | "/authoring/materials/new" | "/library";
+  readonly href: Route;
   readonly label: string;
 }) {
   return (

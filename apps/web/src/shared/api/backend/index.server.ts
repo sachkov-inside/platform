@@ -139,6 +139,22 @@ export function requestPublishedMaterialCatalog(
   );
 }
 
+export function requestAuthoringMaterials(
+  query: {
+    readonly page: number;
+    readonly publicationState?: "draft" | "published" | "unpublished";
+    readonly search?: string;
+  },
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MaterialAuthoringService(request).listAuthoringMaterials(query),
+    200,
+    { accessToken },
+  );
+}
+
 export function requestPublishedMaterial(
   slug: string,
   options: {

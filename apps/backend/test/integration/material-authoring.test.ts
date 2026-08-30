@@ -268,4 +268,116 @@ describe("MaterialAuthoring", () => {
       ok: false,
     });
   });
+
+  test("lists the complete authoring corpus with search, state filtering, and stable pages", async () => {
+    const topicId = "95000000-0000-4000-8000-000000000031";
+    const formatId = "95000000-0000-4000-8000-000000000032";
+    await Promise.all([
+      testDatabase.prisma.topic.create({
+        data: { id: topicId, name: "Admin topic", slug: "admin-topic" },
+      }),
+      testDatabase.prisma.format.create({
+        data: { id: formatId, name: "Admin format", slug: "admin-format" },
+      }),
+    ]);
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === actor },
+    });
+    const drafts = await Promise.all(
+      ["Старый", "Средний", "Новый"].map((title) =>
+        authoring.createDraft({
+          actor,
+          idempotencyKey: `list-admin-corpus-${title}`,
+          metadata: {
+            title: `Admin corpus ${title}`,
+            summary: null,
+            slug: null,
+            access: "free",
+            topicId,
+            formatId,
+            tagIds: [],
+            seriesMemberships: [],
+          },
+          body: representativeDocument(title),
+        }),
+      ),
+    );
+    const materialIds = drafts.map((draft) => {
+      if (!draft.ok) throw new Error(draft.error.code);
+      return draft.value.materialId;
+    });
+    await Promise.all(
+      materialIds.map((materialId, index) =>
+        testDatabase.prisma.material.update({
+          data: { updatedAt: new Date(`2026-08-0${String(index + 1)}T10:00:00.000Z`) },
+          where: { id: materialId },
+        }),
+      ),
+    );
+
+    await expect(
+      authoring.listMaterials({
+        actor,
+        first: 2,
+        page: 1,
+        publicationState: "draft",
+        search: "  ADMIN corpus  ",
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: {
+        items: [
+          {
+            contentVersion: 1,
+            format: { id: formatId, name: "Admin format" },
+            materialId: materialIds[2],
+            publicationState: "draft",
+            title: "Admin corpus Новый",
+            topic: { id: topicId, name: "Admin topic" },
+            updatedAt: "2026-08-03T10:00:00.000Z",
+          },
+          {
+            contentVersion: 1,
+            format: { id: formatId, name: "Admin format" },
+            materialId: materialIds[1],
+            publicationState: "draft",
+            title: "Admin corpus Средний",
+            topic: { id: topicId, name: "Admin topic" },
+            updatedAt: "2026-08-02T10:00:00.000Z",
+          },
+        ],
+        page: 1,
+        pageSize: 2,
+        totalItems: 3,
+        totalPages: 2,
+      },
+    });
+    await expect(
+      authoring.listMaterials({
+        actor,
+        first: 2,
+        page: 2,
+        publicationState: "draft",
+        search: "admin corpus",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: {
+        items: [{ materialId: materialIds[0], title: "Admin corpus Старый" }],
+        page: 2,
+        pageSize: 2,
+        totalItems: 3,
+        totalPages: 2,
+      },
+    });
+
+    const unauthorized = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+    });
+    await expect(
+      unauthorized.authoring.listMaterials({ actor, first: 20, page: 1 }),
+    ).resolves.toEqual({ ok: false, error: { code: "forbidden" } });
+  });
 });

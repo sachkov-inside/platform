@@ -49,8 +49,14 @@ describe("Material Authoring action workflow", () => {
       new LogtoSessionUnavailableError(),
     );
 
-    await CurrentMaterialAuthoringPage({ materialId });
-    await MaterialCurrentPreviewPage({ materialId });
+    await CurrentMaterialAuthoringPage({
+      materialId,
+      returnHref: "/authoring/materials?state=draft",
+    });
+    await MaterialCurrentPreviewPage({
+      materialId,
+      returnHref: "/authoring/materials?state=draft",
+    });
 
     expect(authMocks.getPlatformAccessTokenRsc).toHaveBeenCalledTimes(2);
     expect(authMocks.getPlatformAccessToken).not.toHaveBeenCalled();

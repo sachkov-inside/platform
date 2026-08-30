@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { Route } from "next";
 
 import {
   MaterialAuthoringUnexpectedEditorState,
@@ -13,7 +14,7 @@ import { createMaterialDraftAction } from "../api/create-material-draft.action";
 import { getMaterialAuthoringReferences } from "../api/get-material-authoring-references";
 import { MaterialAuthoringPageClient } from "./material-authoring-page.client";
 
-export async function MaterialAuthoringPage() {
+export async function MaterialAuthoringPage({ returnHref }: { readonly returnHref: Route }) {
   const session = await resolvePlatformSession();
   if (session.kind === "unexpected_error") {
     return <MaterialAuthoringUnexpectedEditorState reference="identity-session" />;
@@ -64,6 +65,7 @@ export async function MaterialAuthoringPage() {
       initialPresentation={initialPresentation}
       key="new-material"
       mutationAction={createMaterialDraftAction}
+      returnHref={returnHref}
     />
   );
 }

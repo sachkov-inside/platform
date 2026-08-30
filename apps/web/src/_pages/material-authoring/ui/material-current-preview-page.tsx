@@ -3,7 +3,9 @@ import {
   MaterialAuthoringPreviewNotFoundState,
   MaterialAuthoringUnexpectedPreviewState,
   MaterialCurrentPreview,
+  withAuthoringReturnHref,
 } from "@/features/material-authoring";
+import type { Route } from "next";
 import {
   getPlatformAccessTokenRsc,
   LogtoSessionUnavailableError,
@@ -13,8 +15,10 @@ import {
 import { getCurrentMaterialPreview } from "../api/get-current-material-preview";
 export async function MaterialCurrentPreviewPage({
   materialId,
+  returnHref,
 }: {
   readonly materialId: string;
+  readonly returnHref: Route;
 }) {
   let accessToken: string;
   try {
@@ -48,7 +52,7 @@ export async function MaterialCurrentPreviewPage({
   }
   return (
     <MaterialCurrentPreview
-      editorHref={`/authoring/materials/${materialId}`}
+      editorHref={withAuthoringReturnHref(`/authoring/materials/${materialId}`, returnHref)}
       preview={state.preview}
     />
   );

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { CurrentMaterialAuthoringPage } from "@/_pages/material-authoring.server";
+import { parseAuthoringReturnHref } from "@/features/material-authoring";
 
 export const metadata: Metadata = {
   robots: { follow: false, index: false },
@@ -9,9 +10,16 @@ export const metadata: Metadata = {
 
 export default async function Page({
   params,
+  searchParams,
 }: {
   readonly params: Promise<{ readonly materialId: string }>;
+  readonly searchParams: Promise<{ readonly from?: string | readonly string[] }>;
 }) {
-  const { materialId } = await params;
-  return <CurrentMaterialAuthoringPage materialId={materialId} />;
+  const [{ materialId }, query] = await Promise.all([params, searchParams]);
+  return (
+    <CurrentMaterialAuthoringPage
+      materialId={materialId}
+      returnHref={parseAuthoringReturnHref(query.from)}
+    />
+  );
 }
