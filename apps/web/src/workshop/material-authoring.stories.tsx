@@ -12,6 +12,7 @@ import {
   type MaterialAuthoringActions,
   type MaterialAuthoringPresentation,
   type MaterialDraftField,
+  withAuthoringReturnHref,
 } from "@/features/material-authoring";
 
 import {
@@ -343,7 +344,10 @@ export const PreviewUnexpectedError: Story = {
   render: () => (
     <MaterialAuthoringUnexpectedPreviewState
       reference="preview_unavailable"
-      retryHref="/authoring/materials/94000000-0000-4000-8000-000000000099/preview"
+      retryHref={withAuthoringReturnHref(
+        "/authoring/materials/94000000-0000-4000-8000-000000000099/preview",
+        "/authoring/materials",
+      )}
     />
   ),
   play: async ({ canvasElement }) => {

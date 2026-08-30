@@ -82,20 +82,20 @@ export function MaterialAuthoringUnexpectedPreviewState({
   returnHref = authoringMaterialsRootHref,
   retryHref,
 }: {
-  readonly editorHref?: string;
+  readonly editorHref?: Route;
   readonly reference: string;
   readonly returnHref?: Route;
-  readonly retryHref: string;
+  readonly retryHref: Route;
 }) {
   return (
     <MaterialAuthoringStateScreen
       action={
         <div className="flex flex-wrap justify-center gap-2">
           <Button asChild>
-            <Link href={retryHref as Route}>Повторить</Link>
+            <Link href={retryHref}>Повторить</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href={editorHref as Route}>Вернуться в редактор</Link>
+            <Link href={editorHref}>Вернуться в редактор</Link>
           </Button>
           <Button asChild variant="ghost">
             <Link href={returnHref}>Вернуться к материалам</Link>
@@ -117,7 +117,7 @@ export function MaterialAuthoringUnexpectedEditorState({
   returnHref = authoringMaterialsRootHref,
 }: {
   readonly reference: string;
-  readonly retryHref?: string;
+  readonly retryHref?: Route;
   readonly returnHref?: Route;
 }) {
   return (
@@ -125,7 +125,7 @@ export function MaterialAuthoringUnexpectedEditorState({
       action={
         <div className="flex flex-wrap justify-center gap-2">
           <Button asChild>
-            <Link href={retryHref as Route}>Повторить</Link>
+            <Link href={retryHref}>Повторить</Link>
           </Button>
           <Button asChild variant="outline">
             <Link href={returnHref}>Вернуться к материалам</Link>
@@ -165,7 +165,7 @@ export function MaterialAuthoringPreviewNotFoundState({
   editorHref = "/authoring/materials/new",
   returnHref = authoringMaterialsRootHref,
 }: {
-  readonly editorHref?: string;
+  readonly editorHref?: Route;
   readonly returnHref?: Route;
 } = {}) {
   return (
@@ -173,7 +173,7 @@ export function MaterialAuthoringPreviewNotFoundState({
       action={
         <div className="flex flex-wrap justify-center gap-2">
           <Button asChild variant="outline">
-            <Link href={editorHref as Route}>Вернуться в редактор</Link>
+            <Link href={editorHref}>Вернуться в редактор</Link>
           </Button>
           <Button asChild variant="ghost">
             <Link href={returnHref}>Вернуться к материалам</Link>

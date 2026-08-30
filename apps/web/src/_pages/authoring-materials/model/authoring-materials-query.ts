@@ -58,7 +58,15 @@ export function authoringDestinationHref(
   returnHref: Route,
 ): Route {
   const params = new URLSearchParams({ from: returnHref });
-  return `${pathname}?${params.toString()}` as Route;
+  const href = `${pathname}?${params.toString()}`;
+  if (!isInternalRoute(href)) {
+    throw new TypeError("Expected an internal authoring route");
+  }
+  return href;
+}
+
+function isInternalRoute(value: string): value is Route {
+  return value.startsWith("/") && !value.startsWith("//");
 }
 
 function single(value: string | readonly string[] | undefined): string | undefined {

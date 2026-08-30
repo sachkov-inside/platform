@@ -1,6 +1,17 @@
 import type { Route } from "next";
 
-export const authoringMaterialsRootHref = ("/authoring" + "/materials") as Route;
+export const authoringMaterialsRootHref = "/authoring/materials" satisfies Route;
+
+function isInternalRoute(value: string): value is Route {
+  return value.startsWith("/") && !value.startsWith("//");
+}
+
+function internalRoute(value: string): Route {
+  if (!isInternalRoute(value)) {
+    throw new TypeError("Expected an internal application route");
+  }
+  return value;
+}
 
 export function parseAuthoringReturnHref(value: unknown): Route {
   if (typeof value !== "string" || value.length > 512) {
@@ -22,9 +33,11 @@ export function parseAuthoringReturnHref(value: unknown): Route {
   if ([...url.searchParams.keys()].some((key) => !allowedKeys.has(key))) {
     return authoringMaterialsRootHref;
   }
-  return `${url.pathname}${url.search}` as Route;
+  return internalRoute(`${url.pathname}${url.search}`);
 }
 
 export function withAuthoringReturnHref(pathname: string, returnHref: Route): Route {
-  return `${pathname}?${new URLSearchParams({ from: returnHref }).toString()}` as Route;
+  return internalRoute(
+    `${pathname}?${new URLSearchParams({ from: returnHref }).toString()}`,
+  );
 }
