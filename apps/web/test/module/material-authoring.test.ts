@@ -2,12 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 const authMocks = vi.hoisted(() => ({
   getPlatformAccessToken: vi.fn(),
+  getPlatformAccessTokenRsc: vi.fn(),
 }));
 
 vi.mock("@/shared/auth/index.server", () => {
   class LogtoSessionUnavailableError extends Error {}
   return {
     getPlatformAccessToken: authMocks.getPlatformAccessToken,
+    getPlatformAccessTokenRsc: authMocks.getPlatformAccessTokenRsc,
     LogtoSessionUnavailableError,
     readLogtoBffConfig: vi.fn().mockReturnValue({}),
   };
@@ -28,6 +30,8 @@ import {
   executeSaveMaterial,
   type SaveMaterialDependencies,
 } from "@/_pages/material-authoring/api/save-material";
+import { CurrentMaterialAuthoringPage } from "@/_pages/material-authoring/ui/current-material-authoring-page";
+import { MaterialCurrentPreviewPage } from "@/_pages/material-authoring/ui/material-current-preview-page";
 import { LogtoSessionUnavailableError } from "@/shared/auth/index.server";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 
@@ -39,6 +43,19 @@ const tagId = "94000000-0000-4000-8000-000000000014";
 const seriesId = "94000000-0000-4000-8000-000000000015";
 
 describe("Material Authoring action workflow", () => {
+  it("uses the read-only Logto reader while rendering existing Material routes", async () => {
+    authMocks.getPlatformAccessToken.mockClear();
+    authMocks.getPlatformAccessTokenRsc.mockRejectedValue(
+      new LogtoSessionUnavailableError(),
+    );
+
+    await CurrentMaterialAuthoringPage({ materialId });
+    await MaterialCurrentPreviewPage({ materialId });
+
+    expect(authMocks.getPlatformAccessTokenRsc).toHaveBeenCalledTimes(2);
+    expect(authMocks.getPlatformAccessToken).not.toHaveBeenCalled();
+  });
+
   it("maps a missing session in the actual server action", async () => {
     authMocks.getPlatformAccessToken.mockRejectedValueOnce(
       new LogtoSessionUnavailableError(),

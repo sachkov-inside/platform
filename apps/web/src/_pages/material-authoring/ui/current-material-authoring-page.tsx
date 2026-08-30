@@ -8,7 +8,7 @@ import {
   type MaterialAuthoringPresentation,
 } from "@/features/material-authoring";
 import {
-  getPlatformAccessToken,
+  getPlatformAccessTokenRsc,
   LogtoSessionUnavailableError,
   readLogtoBffConfig,
 } from "@/shared/auth/index.server";
@@ -24,7 +24,7 @@ export async function CurrentMaterialAuthoringPage({
 }) {
   let accessToken: string;
   try {
-    accessToken = await getPlatformAccessToken(readLogtoBffConfig());
+    accessToken = await getPlatformAccessTokenRsc(readLogtoBffConfig());
   } catch (error) {
     if (error instanceof LogtoSessionUnavailableError) {
       return (
