@@ -5,14 +5,16 @@ import {
 import type { McpServer } from "@modelcontextprotocol/server";
 import { afterEach, describe, expect, test } from "vitest";
 
-import { createMaterialAuthoringMcpServer } from "../../src/entrypoints/mcp/create-material-authoring-mcp-server.js";
-import type { MaterialAuthoring } from "../../src/modules/materials/index.js";
+import {
+  assembleMaterialAuthoringMcpServer,
+  type MaterialAuthoring,
+} from "../../src/modules/materials/index.js";
+import {
+  forbiddenAuthoringResult,
+  stubMaterialAuthoring,
+} from "../fixtures/material-authoring.js";
 
 const accountId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const forbiddenResult = {
-  ok: false as const,
-  error: { code: "forbidden" as const },
-};
 
 describe("Material authoring MCP adapter", () => {
   let client: Client | undefined;
@@ -24,7 +26,7 @@ describe("Material authoring MCP adapter", () => {
   });
 
   test("exposes only create, load, full-state Save, and current Preview", async () => {
-    ({ client, server } = await connect(forbiddenAuthoring()));
+    ({ client, server } = await connect(stubMaterialAuthoring()));
 
     const { tools } = await client.listTools();
 
@@ -42,10 +44,10 @@ describe("Material authoring MCP adapter", () => {
   test("injects the delegated Account and preserves application errors", async () => {
     let receivedAccountId: string | undefined;
     ({ client, server } = await connect(
-      forbiddenAuthoring({
+      stubMaterialAuthoring({
         createDraft: (command) => {
           receivedAccountId = command.actor;
-          return Promise.resolve(forbiddenResult);
+          return Promise.resolve(forbiddenAuthoringResult);
         },
       }),
     ));
@@ -71,7 +73,7 @@ describe("Material authoring MCP adapter", () => {
 
   test("returns successful application values as structured content", async () => {
     ({ client, server } = await connect(
-      forbiddenAuthoring({
+      stubMaterialAuthoring({
         loadMaterial: ({ materialId }) => Promise.resolve({
           ok: true,
           value: {
@@ -102,27 +104,12 @@ describe("Material authoring MCP adapter", () => {
   });
 });
 
-function forbiddenAuthoring(
-  overrides: Partial<MaterialAuthoring> = {},
-): MaterialAuthoring {
-  return {
-    createDraft: () => Promise.resolve(forbiddenResult),
-    deleteDraft: () => Promise.resolve(forbiddenResult),
-    listReferences: () => Promise.resolve(forbiddenResult),
-    loadMaterial: () => Promise.resolve(forbiddenResult),
-    previewMaterial: () => Promise.resolve(forbiddenResult),
-    saveMaterial: () => Promise.resolve(forbiddenResult),
-    validateMaterial: () => Promise.resolve(forbiddenResult),
-    ...overrides,
-  };
-}
-
 async function connect(authoring: MaterialAuthoring): Promise<{
   readonly client: Client;
   readonly server: McpServer;
 }> {
   const connectedClient = new Client({ name: "platform-test", version: "1.0.0" });
-  const connectedServer = createMaterialAuthoringMcpServer({
+  const connectedServer = assembleMaterialAuthoringMcpServer({
     accountId,
     authoring,
   });

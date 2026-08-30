@@ -1,7 +1,7 @@
 import { OAuthErrorCode } from "@modelcontextprotocol/server";
 import { describe, expect, test } from "vitest";
 
-import { createMcpAccountTokenVerifier } from "../../src/entrypoints/mcp/mcp-account-token-verifier.js";
+import { assembleDelegatedAccountTokenVerifier } from "../../src/modules/accounts/index.js";
 import { verifiedAccountIdentity } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 
 const identity = verifiedAccountIdentity({
@@ -11,7 +11,7 @@ const identity = verifiedAccountIdentity({
 
 describe("MCP delegated Account token verifier", () => {
   test("keeps provider scopes out and carries only the resolved Account context", async () => {
-    const verifier = createMcpAccountTokenVerifier({
+    const verifier = assembleDelegatedAccountTokenVerifier({
       tokenVerifier: {
         verifyAccount: () =>
           Promise.resolve({ ok: true, identity, expiresAt: 2_000_000_000 }),
@@ -46,7 +46,7 @@ describe("MCP delegated Account token verifier", () => {
       OAuthErrorCode.ServerError,
     ],
   ])("maps %s without exposing proof details", async (_name, proof, code) => {
-    const verifier = createMcpAccountTokenVerifier({
+    const verifier = assembleDelegatedAccountTokenVerifier({
       tokenVerifier: { verifyAccount: () => Promise.resolve(proof) },
       accounts: {
         resolveAccount: () =>
@@ -63,7 +63,7 @@ describe("MCP delegated Account token verifier", () => {
   });
 
   test("rejects a valid proof for an unknown Account", async () => {
-    const verifier = createMcpAccountTokenVerifier({
+    const verifier = assembleDelegatedAccountTokenVerifier({
       tokenVerifier: {
         verifyAccount: () =>
           Promise.resolve({ ok: true, identity, expiresAt: 2_000_000_000 }),

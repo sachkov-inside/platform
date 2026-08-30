@@ -4,7 +4,7 @@ import {
 } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
-import type { MaterialAuthoring } from "../../modules/materials/index.js";
+import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 
 const uuid = z.uuid();
 const idempotencyKey = z.string().trim().min(1).max(200);
@@ -52,7 +52,7 @@ type AuthoringResult =
       readonly error: { readonly code: string };
     };
 
-export function createMaterialAuthoringMcpServer(dependencies: {
+export function assembleMaterialAuthoringMcpServer(dependencies: {
   readonly accountId: string;
   readonly authoring: MaterialAuthoring;
 }): McpServer {

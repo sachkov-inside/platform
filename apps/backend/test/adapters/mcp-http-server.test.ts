@@ -8,15 +8,11 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createMcpHttpServer, type McpHttpServer } from "../../src/entrypoints/mcp/mcp-http-server.js";
 import type { Accounts } from "../../src/modules/accounts/index.js";
 import { createLogtoAccessTokenVerifier } from "../../src/modules/accounts/infrastructure/idp/logto/logto-access-token-verifier.js";
-import type { MaterialAuthoring } from "../../src/modules/materials/index.js";
+import { stubMaterialAuthoring } from "../fixtures/material-authoring.js";
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
 const accountId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const forbiddenResult = {
-  ok: false as const,
-  error: { code: "forbidden" as const },
-};
 
 describe("MCP Streamable HTTP adapter", () => {
   let privateKey: CryptoKey;
@@ -33,7 +29,7 @@ describe("MCP Streamable HTTP adapter", () => {
     };
     server = createMcpHttpServer({
       accounts: fakeAccounts(),
-      authoring: forbiddenAuthoring(),
+      authoring: stubMaterialAuthoring(),
       config: {
         host: "127.0.0.1",
         port: 0,
@@ -152,18 +148,6 @@ function fakeAccounts(): Accounts {
           : { ok: false, error: { code: "account_not_found" } },
       ),
     checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
-  };
-}
-
-function forbiddenAuthoring(): MaterialAuthoring {
-  return {
-    createDraft: () => Promise.resolve(forbiddenResult),
-    deleteDraft: () => Promise.resolve(forbiddenResult),
-    listReferences: () => Promise.resolve(forbiddenResult),
-    loadMaterial: () => Promise.resolve(forbiddenResult),
-    previewMaterial: () => Promise.resolve(forbiddenResult),
-    saveMaterial: () => Promise.resolve(forbiddenResult),
-    validateMaterial: () => Promise.resolve(forbiddenResult),
   };
 }
 

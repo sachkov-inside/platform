@@ -14,13 +14,15 @@ import {
 } from "@modelcontextprotocol/server";
 
 import type { McpConfig } from "../../config/mcp-config.js";
-import type {
-  Accounts,
-  LogtoAccessTokenVerifier,
+import {
+  assembleDelegatedAccountTokenVerifier,
+  type Accounts,
+  type LogtoAccessTokenVerifier,
 } from "../../modules/accounts/index.js";
-import type { MaterialAuthoring } from "../../modules/materials/index.js";
-import { createMaterialAuthoringMcpServer } from "./create-material-authoring-mcp-server.js";
-import { createMcpAccountTokenVerifier } from "./mcp-account-token-verifier.js";
+import {
+  assembleMaterialAuthoringMcpServer,
+  type MaterialAuthoring,
+} from "../../modules/materials/index.js";
 
 export interface McpHttpServer {
   listen(): Promise<URL>;
@@ -37,14 +39,14 @@ export function createMcpHttpServer(dependencies: {
 }): McpHttpServer {
   const configuredUrl = new URL(dependencies.config.serverUrl);
   const metadataUrl = getOAuthProtectedResourceMetadataUrl(configuredUrl);
-  const verifier = createMcpAccountTokenVerifier(dependencies);
+  const verifier = assembleDelegatedAccountTokenVerifier(dependencies);
   const authenticate = requireBearerAuth({
     verifier,
     resourceMetadataUrl: metadataUrl,
   });
   const handler = createMcpHandler(
     ({ authInfo }) =>
-      createMaterialAuthoringMcpServer({
+      assembleMaterialAuthoringMcpServer({
         accountId: authenticatedAccountId(authInfo?.extra),
         authoring: dependencies.authoring,
       }),

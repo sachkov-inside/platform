@@ -4,12 +4,10 @@ import {
   type OAuthTokenVerifier,
 } from "@modelcontextprotocol/server";
 
-import type {
-  Accounts,
-  LogtoAccessTokenVerifier,
-} from "../../modules/accounts/index.js";
+import type { Accounts } from "../../facets/accounts/accounts.interface.js";
+import type { LogtoAccessTokenVerifier } from "../../infrastructure/idp/logto/logto-access-token-verifier.js";
 
-export function createMcpAccountTokenVerifier(dependencies: {
+export function assembleDelegatedAccountTokenVerifier(dependencies: {
   readonly accounts: Pick<Accounts, "resolveAccount">;
   readonly tokenVerifier: Pick<LogtoAccessTokenVerifier, "verifyAccount">;
 }): OAuthTokenVerifier {

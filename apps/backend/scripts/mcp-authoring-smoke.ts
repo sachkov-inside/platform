@@ -106,6 +106,10 @@ try {
   );
   assertField(preview, "contentVersion", publishedVersion, "preview Material");
   assertField(preview, "cacheScope", "private-no-store", "preview Material");
+  const previewMetadata = z
+    .record(z.string(), z.unknown())
+    .parse(preview.metadata);
+  assertField(previewMetadata, "access", "membership", "preview Material");
 
   const unpublished = successfulValue(
     await callTool("material_save", {
