@@ -5,9 +5,8 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
 
+import { authoringMaterialsRootHref } from "../model/authoring-return";
 import { MaterialAuthoringShell } from "./material-authoring-shell";
-
-const authoringMaterialsHref = ("/authoring" + "/materials") as Route;
 
 export function MaterialAuthoringUnauthorizedState({
   action,
@@ -32,10 +31,14 @@ export function MaterialAuthoringUnauthorizedState({
   );
 }
 
-export function MaterialAuthoringPreviewUnauthorizedState() {
+export function MaterialAuthoringPreviewUnauthorizedState({
+  returnHref = authoringMaterialsRootHref,
+}: {
+  readonly returnHref?: Route;
+} = {}) {
   return (
     <MaterialAuthoringUnauthorizedState
-      action={<MaterialAuthoringSignInActions />}
+      action={<MaterialAuthoringSignInActions returnHref={returnHref} />}
       context="preview"
     />
   );
@@ -43,8 +46,10 @@ export function MaterialAuthoringPreviewUnauthorizedState() {
 
 export function MaterialAuthoringSignInActions({
   onBack,
+  returnHref = authoringMaterialsRootHref,
 }: {
   readonly onBack?: () => void;
+  readonly returnHref?: Route;
 }) {
   return (
     <div className="flex flex-wrap justify-center gap-2">
@@ -56,7 +61,7 @@ export function MaterialAuthoringSignInActions({
       </form>
       {onBack === undefined ? (
         <Button asChild variant="outline">
-          <Link href={authoringMaterialsHref}>
+          <Link href={returnHref}>
             <ArrowLeft aria-hidden="true" data-icon="inline-start" />
             Вернуться к материалам
           </Link>
@@ -72,10 +77,14 @@ export function MaterialAuthoringSignInActions({
 }
 
 export function MaterialAuthoringUnexpectedPreviewState({
+  editorHref = "/authoring/materials/new",
   reference,
+  returnHref = authoringMaterialsRootHref,
   retryHref,
 }: {
+  readonly editorHref?: string;
   readonly reference: string;
+  readonly returnHref?: Route;
   readonly retryHref: string;
 }) {
   return (
@@ -83,10 +92,13 @@ export function MaterialAuthoringUnexpectedPreviewState({
       action={
         <div className="flex flex-wrap justify-center gap-2">
           <Button asChild>
-            <Link href={{ pathname: retryHref }}>Повторить</Link>
+            <Link href={retryHref as Route}>Повторить</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/authoring/materials/new">Вернуться в редактор</Link>
+            <Link href={editorHref as Route}>Вернуться в редактор</Link>
+          </Button>
+          <Button asChild variant="ghost">
+            <Link href={returnHref}>Вернуться к материалам</Link>
           </Button>
         </div>
       }
@@ -102,19 +114,21 @@ export function MaterialAuthoringUnexpectedPreviewState({
 export function MaterialAuthoringUnexpectedEditorState({
   reference,
   retryHref = "/authoring/materials/new",
+  returnHref = authoringMaterialsRootHref,
 }: {
   readonly reference: string;
   readonly retryHref?: string;
+  readonly returnHref?: Route;
 }) {
   return (
     <MaterialAuthoringStateScreen
       action={
         <div className="flex flex-wrap justify-center gap-2">
           <Button asChild>
-            <Link href={{ pathname: retryHref }}>Повторить</Link>
+            <Link href={retryHref as Route}>Повторить</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href={authoringMaterialsHref}>Вернуться к материалам</Link>
+            <Link href={returnHref}>Вернуться к материалам</Link>
           </Button>
         </div>
       }
@@ -127,12 +141,16 @@ export function MaterialAuthoringUnexpectedEditorState({
   );
 }
 
-export function MaterialAuthoringNotFoundState() {
+export function MaterialAuthoringNotFoundState({
+  returnHref = authoringMaterialsRootHref,
+}: {
+  readonly returnHref?: Route;
+} = {}) {
   return (
     <MaterialAuthoringStateScreen
       action={
         <Button asChild variant="outline">
-          <Link href={authoringMaterialsHref}>Вернуться к материалам</Link>
+          <Link href={returnHref}>Вернуться к материалам</Link>
         </Button>
       }
       description="Material с таким идентификатором не найден. Локальные изменения не отправлялись."
@@ -143,13 +161,24 @@ export function MaterialAuthoringNotFoundState() {
   );
 }
 
-export function MaterialAuthoringPreviewNotFoundState() {
+export function MaterialAuthoringPreviewNotFoundState({
+  editorHref = "/authoring/materials/new",
+  returnHref = authoringMaterialsRootHref,
+}: {
+  readonly editorHref?: string;
+  readonly returnHref?: Route;
+} = {}) {
   return (
     <MaterialAuthoringStateScreen
       action={
-        <Button asChild variant="outline">
-          <Link href="/authoring/materials/new">Вернуться в редактор</Link>
-        </Button>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button asChild variant="outline">
+            <Link href={editorHref as Route}>Вернуться в редактор</Link>
+          </Button>
+          <Button asChild variant="ghost">
+            <Link href={returnHref}>Вернуться к материалам</Link>
+          </Button>
+        </div>
       }
       description="Сохранённый черновик с таким идентификатором не найден. Повтор чтения не изменит результат."
       heading="Preview не найден"

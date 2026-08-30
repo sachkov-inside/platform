@@ -307,6 +307,76 @@ describe("MaterialAuthoring", () => {
       if (!draft.ok) throw new Error(draft.error.code);
       return draft.value.materialId;
     });
+    const titleless = await authoring.createDraft({
+      actor,
+      idempotencyKey: "list-admin-titleless",
+      metadata: {
+        title: null,
+        summary: null,
+        slug: "titleless-admin-corpus",
+        access: "free",
+        topicId: null,
+        formatId: null,
+        tagIds: [],
+        seriesMemberships: [],
+      },
+      body: representativeDocument("Titleless"),
+    });
+    if (!titleless.ok) throw new Error(titleless.error.code);
+    const retiredDraft = await authoring.createDraft({
+      actor,
+      idempotencyKey: "list-admin-retired",
+      metadata: {
+        title: "Retired admin corpus",
+        summary: "Previously published Material",
+        slug: "retired-admin-corpus",
+        access: "free",
+        topicId,
+        formatId,
+        tagIds: [],
+        seriesMemberships: [],
+      },
+      body: representativeDocument("Retired"),
+    });
+    if (!retiredDraft.ok) throw new Error(retiredDraft.error.code);
+    const published = await authoring.saveMaterial({
+      actor,
+      idempotencyKey: "list-admin-retired-publish",
+      materialId: retiredDraft.value.materialId,
+      expectedContentVersion: 1,
+      publicationState: "published",
+      metadata: {
+        title: "Retired admin corpus",
+        summary: "Previously published Material",
+        slug: "retired-admin-corpus",
+        access: "free",
+        topicId,
+        formatId,
+        tagIds: [],
+        seriesMemberships: [],
+      },
+      body: representativeDocument("Retired"),
+    });
+    if (!published.ok) throw new Error(published.error.code);
+    const unpublished = await authoring.saveMaterial({
+      actor,
+      idempotencyKey: "list-admin-retired-unpublish",
+      materialId: retiredDraft.value.materialId,
+      expectedContentVersion: 2,
+      publicationState: "unpublished",
+      metadata: {
+        title: "Retired admin corpus",
+        summary: "Previously published Material",
+        slug: "retired-admin-corpus",
+        access: "free",
+        topicId,
+        formatId,
+        tagIds: [],
+        seriesMemberships: [],
+      },
+      body: representativeDocument("Retired"),
+    });
+    if (!unpublished.ok) throw new Error(unpublished.error.code);
     await Promise.all(
       materialIds.map((materialId, index) =>
         testDatabase.prisma.material.update({
@@ -369,6 +439,48 @@ describe("MaterialAuthoring", () => {
         pageSize: 2,
         totalItems: 3,
         totalPages: 2,
+      },
+    });
+    await expect(
+      authoring.listMaterials({
+        actor,
+        first: 20,
+        page: 1,
+        search: "titleless-admin-corpus",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: {
+        items: [
+          {
+            materialId: titleless.value.materialId,
+            publicationState: "draft",
+            title: null,
+          },
+        ],
+        totalItems: 1,
+      },
+    });
+    await expect(
+      authoring.listMaterials({
+        actor,
+        first: 20,
+        page: 1,
+        publicationState: "unpublished",
+        search: "retired admin corpus",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: {
+        items: [
+          {
+            contentVersion: 3,
+            materialId: retiredDraft.value.materialId,
+            publicationState: "unpublished",
+            title: "Retired admin corpus",
+          },
+        ],
+        totalItems: 1,
       },
     });
 

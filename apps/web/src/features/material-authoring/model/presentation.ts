@@ -63,9 +63,30 @@ export type MaterialPreviewBlock =
   | { readonly kind: "code_block"; readonly text: string }
   | { readonly kind: "horizontal_rule" }
   | {
+      readonly kind: "table";
+      readonly rows: readonly {
+        readonly cells: readonly {
+          readonly header: boolean;
+          readonly content: readonly MaterialPreviewBlock[];
+        }[];
+      }[];
+    }
+  | {
       readonly content: readonly MaterialPreviewBlock[];
       readonly kind: "callout";
       readonly tone: "note" | "tip" | "warning";
+    }
+  | {
+      readonly alt: string;
+      readonly assetId: string;
+      readonly caption?: string | undefined;
+      readonly kind: "image";
+    }
+  | { readonly assetId: string; readonly kind: "file"; readonly label: string }
+  | {
+      readonly caption?: string | undefined;
+      readonly kind: "video";
+      readonly videoId: string;
     };
 
 export interface MaterialPreviewPresentation {

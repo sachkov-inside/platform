@@ -18,6 +18,13 @@ import type { Route } from "next";
 import { MaterialAuthoringShell } from "@/features/material-authoring";
 import { Button } from "@/shared/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
+import {
   getPlatformAccessTokenRsc,
   LogtoSessionUnavailableError,
   readLogtoBffConfig,
@@ -64,7 +71,10 @@ export async function AuthoringMaterialsPage({
     return <AuthoringMaterialsStateView query={query} state={state} />;
   }
   return (
-    <MaterialAuthoringShell current="materials">
+    <MaterialAuthoringShell
+      createHref={authoringDestinationHref("/authoring/materials/new", returnHref)}
+      current="materials"
+    >
       <main
         aria-labelledby="authoring-materials-heading"
         className="h-full min-h-svh overflow-y-auto bg-background text-foreground md:min-h-0 md:overscroll-y-contain"
@@ -139,19 +149,17 @@ function AuthoringMaterialsFilters({
             type="search"
           />
         </label>
-        <label>
-          <span className="sr-only">Состояние публикации</span>
-          <select
-            className="min-h-11 w-full rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 sm:text-sm"
-            defaultValue={query.publicationState ?? "all"}
-            name="state"
-          >
-            <option value="all">Все состояния</option>
-            <option value="draft">Черновики</option>
-            <option value="published">Опубликованные</option>
-            <option value="unpublished">Снятые с публикации</option>
-          </select>
-        </label>
+        <Select defaultValue={query.publicationState ?? "all"} name="state">
+          <SelectTrigger aria-label="Состояние публикации" className="bg-card text-base sm:text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все состояния</SelectItem>
+            <SelectItem value="draft">Черновики</SelectItem>
+            <SelectItem value="published">Опубликованные</SelectItem>
+            <SelectItem value="unpublished">Снятые с публикации</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="flex gap-2">
           <Button className="min-h-11 flex-1 sm:flex-none" type="submit" variant="secondary">
             Показать

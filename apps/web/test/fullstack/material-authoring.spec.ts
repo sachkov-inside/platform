@@ -74,9 +74,15 @@ test("trusted author finds every Material and returns from Editor to the same li
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Материалы", level: 1 })).toBeVisible();
   await expect(page.getByRole("link", { name: "Как устроен Inside Platform" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Состояние публикации" })).toHaveValue(
-    "published",
-  );
+  await expect(
+    page.getByRole("combobox", { name: "Состояние публикации" }),
+  ).toContainText("Опубликованные");
+  await page.getByRole("searchbox", { name: "Поиск по названию, описанию или адресу" }).focus();
+  await expect(
+    page.getByRole("searchbox", { name: "Поиск по названию, описанию или адресу" }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("combobox", { name: "Состояние публикации" })).toBeFocused();
 
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -92,11 +98,22 @@ test("trusted author finds every Material and returns from Editor to the same li
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
+  await page.getByRole("link", { name: "Preview" }).click();
+  await expect(page.getByRole("heading", { name: "Preview текущей версии" })).toBeVisible();
+  await expect(page.getByText("Reader verification checklist")).toBeVisible();
+  await page.getByRole("link", { name: "К материалам" }).click();
+  await expect(page).toHaveURL(listUrl);
+
   await page.getByRole("link", { name: "Редактировать" }).click();
   await expect(page.getByRole("heading", { name: "Как устроен Inside Platform" })).toBeVisible();
   await page.getByRole("button", { name: "Вернуться к материалам" }).click();
   await expect(page).toHaveURL(listUrl);
   await expect(page.getByRole("link", { name: "Как устроен Inside Platform" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Новый материал" }).first().click();
+  await expect(page.getByRole("heading", { name: "Новый материал" })).toBeVisible();
+  await page.getByRole("button", { name: "Вернуться к материалам" }).click();
+  await expect(page).toHaveURL(listUrl);
 });
 
 test("full-state Save is live and a stale editor preserves local input through lifecycle changes", async ({

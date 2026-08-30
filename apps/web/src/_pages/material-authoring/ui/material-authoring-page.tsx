@@ -4,6 +4,7 @@ import type { Route } from "next";
 import {
   MaterialAuthoringUnexpectedEditorState,
   type MaterialAuthoringPresentation,
+  withAuthoringReturnHref,
 } from "@/features/material-authoring";
 import {
   getOptionalPlatformAccessToken,
@@ -17,14 +18,26 @@ import { MaterialAuthoringPageClient } from "./material-authoring-page.client";
 export async function MaterialAuthoringPage({ returnHref }: { readonly returnHref: Route }) {
   const session = await resolvePlatformSession();
   if (session.kind === "unexpected_error") {
-    return <MaterialAuthoringUnexpectedEditorState reference="identity-session" />;
+    return (
+      <MaterialAuthoringUnexpectedEditorState
+        reference="identity-session"
+        retryHref={withAuthoringReturnHref("/authoring/materials/new", returnHref)}
+        returnHref={returnHref}
+      />
+    );
   }
   const references =
     session.kind === "allowed"
       ? await getMaterialAuthoringReferences(session.accessToken)
       : null;
   if (references?.kind === "unexpected_error") {
-    return <MaterialAuthoringUnexpectedEditorState reference={references.reference} />;
+    return (
+      <MaterialAuthoringUnexpectedEditorState
+        reference={references.reference}
+        retryHref={withAuthoringReturnHref("/authoring/materials/new", returnHref)}
+        returnHref={returnHref}
+      />
+    );
   }
   const initialPresentation: MaterialAuthoringPresentation = {
     availableFormats: references?.kind === "ready" ? references.references.formats : [],

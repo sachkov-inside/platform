@@ -5,13 +5,15 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
-const authoringMaterialsHref = ("/authoring" + "/materials") as Route;
+import { authoringMaterialsRootHref } from "../model/authoring-return";
 
 export function MaterialAuthoringShell({
   children,
+  createHref = "/authoring/materials/new",
   current,
 }: {
   readonly children: ReactNode;
+  readonly createHref?: Route;
   readonly current: "create" | "materials" | "preview";
 }) {
   return (
@@ -26,7 +28,7 @@ export function MaterialAuthoringShell({
         <div className="flex min-h-0 flex-1 flex-col px-3 py-4">
           <Link
             className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sidebar-foreground no-underline"
-            href={authoringMaterialsHref}
+            href={authoringMaterialsRootHref}
           >
             <span className="grid size-8 place-items-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
               <PenLine aria-hidden="true" className="size-4" />
@@ -42,13 +44,13 @@ export function MaterialAuthoringShell({
           <nav aria-label="Authoring" className="mt-7 grid gap-1">
             <AuthoringLink
               current={current === "materials"}
-              href={authoringMaterialsHref}
+              href={authoringMaterialsRootHref}
               icon={<Files aria-hidden="true" />}
               label="Материалы"
             />
             <AuthoringLink
               current={current === "create"}
-              href="/authoring/materials/new"
+              href={createHref}
               icon={<FilePlus2 aria-hidden="true" />}
               label="Новый материал"
             />
@@ -86,12 +88,9 @@ export function MaterialAuthoringShell({
         aria-label="Authoring на мобильном"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
       >
-        <div className="grid grid-cols-4 px-2 pt-1">
-          <MobileLink current={current === "materials"} href={authoringMaterialsHref} label="Материалы">
+        <div className="grid grid-cols-3 px-2 pt-1">
+          <MobileLink current={current === "materials"} href={authoringMaterialsRootHref} label="Материалы">
             <Files aria-hidden="true" />
-          </MobileLink>
-          <MobileLink current={current === "create"} href="/authoring/materials/new" label={current === "preview" ? "Редактор" : "Создать"}>
-            {current === "preview" ? <PenLine aria-hidden="true" /> : <FilePlus2 aria-hidden="true" />}
           </MobileLink>
           <MobileLink href="/library" label="Библиотека">
             <LibraryBig aria-hidden="true" />

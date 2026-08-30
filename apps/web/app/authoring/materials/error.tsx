@@ -1,14 +1,14 @@
 "use client";
 
 import { CloudOff } from "lucide-react";
-import type { Route } from "next";
 import Link from "next/link";
 import { useEffect } from "react";
 
-import { MaterialAuthoringShell } from "@/features/material-authoring";
+import {
+  authoringMaterialsRootHref,
+  MaterialAuthoringShell,
+} from "@/features/material-authoring";
 import { Button } from "@/shared/ui/button";
-
-const authoringMaterialsHref = ("/authoring" + "/materials") as Route;
 
 export default function ErrorPage({
   error,
@@ -49,7 +49,7 @@ export default function ErrorPage({
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Button onClick={reset} type="button">Повторить</Button>
             <Button asChild variant="outline">
-              <Link href={authoringMaterialsHref}>Вернуться к Materials</Link>
+              <Link href={authoringMaterialsRootHref}>Вернуться к Materials</Link>
             </Button>
           </div>
         </section>

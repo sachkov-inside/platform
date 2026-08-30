@@ -1,10 +1,12 @@
 import { z } from "zod";
 import type { Route } from "next";
 
+import { authoringMaterialsRootHref } from "@/features/material-authoring";
+
 import type { AuthoringMaterialsQuery } from "../api/get-authoring-materials";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
-export const authoringMaterialsRootHref = ("/authoring" + "/materials") as Route;
+export { authoringMaterialsRootHref };
 
 export type AuthoringMaterialsSearchParams = Readonly<
   Record<string, string | readonly string[] | undefined>

@@ -5,7 +5,11 @@ import {
   type AuthoringMaterialsDependencies,
 } from "@/_pages/authoring-materials/api/get-authoring-materials";
 import { parseAuthoringMaterialsQuery } from "@/_pages/authoring-materials/model/authoring-materials-query";
-import { parseAuthoringReturnHref } from "@/features/material-authoring";
+import {
+  parseAuthoringReturnHref,
+  withAuthoringReturnHref,
+} from "@/features/material-authoring";
+import { BackendConnectionError } from "@/shared/api/backend/index.server";
 
 const materialId = "96000000-0000-4000-8000-000000000001";
 
@@ -42,6 +46,14 @@ describe("Authoring Materials server adapter", () => {
     );
     expect(parseAuthoringReturnHref("/authoring/materials/new")).toBe(
       "/authoring/materials",
+    );
+    expect(
+      withAuthoringReturnHref(
+        `/authoring/materials/${materialId}/preview`,
+        "/authoring/materials?state=unpublished&page=2",
+      ),
+    ).toBe(
+      `/authoring/materials/${materialId}/preview?from=%2Fauthoring%2Fmaterials%3Fstate%3Dunpublished%26page%3D2`,
     );
   });
 
@@ -106,5 +118,71 @@ describe("Authoring Materials server adapter", () => {
       },
       "access-token",
     );
+  });
+
+  it.each([
+    {
+      expected: { kind: "signed_out" },
+      problem: { code: "unauthorized" },
+      status: 401,
+    },
+    {
+      expected: { kind: "forbidden" },
+      problem: { code: "forbidden" },
+      status: 403,
+    },
+    {
+      expected: { kind: "unavailable", reference: "pg-offline" },
+      problem: { code: "dependency_unavailable", correlationId: "pg-offline" },
+      status: 503,
+    },
+    {
+      expected: { kind: "unexpected_error", reference: "read-failed" },
+      problem: { code: "internal_error", correlationId: "read-failed" },
+      status: 500,
+    },
+    {
+      expected: { kind: "malformed_response" },
+      problem: { code: "teapot" },
+      status: 418,
+    },
+  ])("maps HTTP $status to $expected.kind", async ({ expected, problem, status }) => {
+    const dependencies = {
+      list: vi.fn().mockResolvedValue({
+        ok: false,
+        problem,
+        response: Response.json(problem, { status }),
+      }),
+    } satisfies AuthoringMaterialsDependencies;
+
+    await expect(
+      getAuthoringMaterials({ page: 1 }, "access-token", dependencies),
+    ).resolves.toEqual(expected);
+  });
+
+  it("fails closed for malformed success bodies and typed transport failures", async () => {
+    await expect(
+      getAuthoringMaterials({ page: 1 }, "access-token", {
+        list: vi.fn().mockResolvedValue({
+          body: { items: "not-an-array" },
+          ok: true,
+          response: Response.json({}),
+        }),
+      }),
+    ).resolves.toEqual({ kind: "malformed_response" });
+    await expect(
+      getAuthoringMaterials({ page: 1 }, "access-token", {
+        list: vi.fn().mockRejectedValue(
+          new BackendConnectionError("unavailable", "backend offline"),
+        ),
+      }),
+    ).resolves.toEqual({ kind: "unavailable", reference: "unavailable" });
+    await expect(
+      getAuthoringMaterials({ page: 1 }, "access-token", {
+        list: vi.fn().mockRejectedValue(
+          new BackendConnectionError("invalid-response", "bad json"),
+        ),
+      }),
+    ).resolves.toEqual({ kind: "malformed_response" });
   });
 });

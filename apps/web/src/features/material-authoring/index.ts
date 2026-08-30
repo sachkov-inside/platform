@@ -13,6 +13,7 @@ export {
   type MaterialValidationState,
 } from "./model/presentation";
 export {
+  authoringMaterialsRootHref,
   parseAuthoringReturnHref,
   withAuthoringReturnHref,
 } from "./model/authoring-return";
