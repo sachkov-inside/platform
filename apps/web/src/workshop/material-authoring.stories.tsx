@@ -388,6 +388,10 @@ export const ExactPreview: Story = {
       "Это сохранённый черновик v3. Материал ещё не опубликован.",
     );
     await expect(canvas.getByRole("heading", { name: "Developer Pipeline без магии" })).toBeInTheDocument();
+    await expect(canvas.getByRole("region", { name: "Таблица в Preview" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Схема Developer Pipeline" })).toBeVisible();
+    await expect(canvas.getByText("Checklist проверки")).toBeVisible();
+    await expect(canvas.getByText("Видео пока недоступно для просмотра")).toBeVisible();
   },
 };
 
