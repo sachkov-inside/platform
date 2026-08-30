@@ -270,6 +270,10 @@ export class MaterialAuthoringService {
       id: string;
       name: string;
     }>;
+    series: Array<{
+      id: string;
+      name: string;
+    }>;
     tags: Array<{
       id: string;
       name: string;

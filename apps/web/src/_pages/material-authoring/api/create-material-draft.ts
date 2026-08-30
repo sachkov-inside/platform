@@ -19,10 +19,7 @@ import type {
 } from "../model/create-material-draft-state";
 import { mapCurrentMaterialPreview } from "./material-preview-mapper";
 import { getMaterialAuthoringReferences } from "./get-material-authoring-references";
-
-const jsonDocumentSchema = z.custom<JSONContent>(
-  (value) => isJsonContent(value) && value.type === "doc",
-);
+import { materialDocumentSchema } from "./material-document-schema";
 
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
@@ -218,7 +215,7 @@ function parseForm(
       issues: [{ message: "Содержимое редактора повреждено. Обновите страницу.", path: "/document" }],
     };
   }
-  const parsedDocument = jsonDocumentSchema.safeParse(document);
+  const parsedDocument = materialDocumentSchema.safeParse(document);
   if (!parsedDocument.success) {
     return {
       ok: false,
@@ -238,23 +235,6 @@ function parseForm(
       topicId: parsed.data.topicId === "unassigned" ? null : parsed.data.topicId,
     },
   };
-}
-
-function isJsonContent(value: unknown): value is JSONContent {
-  if (value === null || Array.isArray(value) || typeof value !== "object") {
-    return false;
-  }
-  const type = "type" in value ? value.type : undefined;
-  const text = "text" in value ? value.text : undefined;
-  const content = "content" in value ? value.content : undefined;
-  return (
-    (type === undefined || typeof type === "string") &&
-    (text === undefined || typeof text === "string") &&
-    (content === undefined ||
-      (Array.isArray(content) &&
-        content.length <= 10_000 &&
-        content.every(isJsonContent)))
-  );
 }
 
 function mapValidation(

@@ -17,12 +17,21 @@ export async function getOptionalPlatformAccessToken(
     return undefined;
   }
 
-  const { getPlatformAccessToken, getPlatformAccessTokenRsc } = await import(
-    "./platform-access-token.server"
-  );
-  return request === undefined
-    ? getPlatformAccessTokenRsc(config)
-    : getPlatformAccessToken(config);
+  const {
+    getPlatformAccessToken,
+    getPlatformAccessTokenRsc,
+    LogtoSessionUnavailableError,
+  } = await import("./platform-access-token.server");
+  try {
+    return request === undefined
+      ? await getPlatformAccessTokenRsc(config)
+      : await getPlatformAccessToken(config);
+  } catch (error) {
+    if (error instanceof LogtoSessionUnavailableError) {
+      return undefined;
+    }
+    throw error;
+  }
 }
 
 function cookieNamesFromHeader(header: string | null): string[] {

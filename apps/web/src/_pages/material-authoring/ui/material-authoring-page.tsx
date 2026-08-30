@@ -27,6 +27,7 @@ export async function MaterialAuthoringPage() {
   }
   const initialPresentation: MaterialAuthoringPresentation = {
     availableFormats: references?.kind === "ready" ? references.references.formats : [],
+    availableSeries: references?.kind === "ready" ? references.references.series : [],
     availableTags: references?.kind === "ready" ? references.references.tags : [],
     availableTopics: references?.kind === "ready" ? references.references.topics : [],
     authorization: {
@@ -43,6 +44,8 @@ export async function MaterialAuthoringPage() {
       formatId: "unassigned",
       materialId: null,
       readOnly: false,
+      seriesMemberships: [],
+      slug: "",
       status: "new",
       summary: "",
       tagIds: [],
@@ -58,8 +61,9 @@ export async function MaterialAuthoringPage() {
   };
   return (
     <MaterialAuthoringPageClient
-      createDraftAction={createMaterialDraftAction}
       initialPresentation={initialPresentation}
+      key="new-material"
+      mutationAction={createMaterialDraftAction}
     />
   );
 }

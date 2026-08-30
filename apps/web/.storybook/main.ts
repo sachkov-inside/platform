@@ -18,6 +18,7 @@ const config: StorybookConfig = {
       },
       resolve: {
         alias: {
+          "@": fileURLToPath(new URL("../src", import.meta.url)),
           "next/link": fileURLToPath(
             new URL("./mocks/next-link.tsx", import.meta.url),
           ),

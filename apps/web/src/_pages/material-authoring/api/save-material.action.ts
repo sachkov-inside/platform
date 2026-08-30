@@ -6,14 +6,14 @@ import {
   readLogtoBffConfig,
 } from "@/shared/auth/index.server";
 
-import type { CreateMaterialDraftActionState } from "../model/create-material-draft-state";
+import type { SaveMaterialActionState } from "../model/save-material-state";
 import type { MaterialAuthoringActionState } from "../model/material-authoring-action-state";
-import { executeCreateMaterialDraft } from "./create-material-draft";
+import { executeSaveMaterial } from "./save-material";
 
-export async function createMaterialDraftAction(
+export async function saveMaterialAction(
   _previousState: MaterialAuthoringActionState,
   formData: FormData,
-): Promise<CreateMaterialDraftActionState> {
+): Promise<SaveMaterialActionState> {
   let accessToken: string;
   try {
     accessToken = await getPlatformAccessToken(readLogtoBffConfig());
@@ -21,7 +21,7 @@ export async function createMaterialDraftAction(
     if (error instanceof LogtoSessionUnavailableError) {
       return { kind: "unauthorized" };
     }
-    return { kind: "unexpected_error", reference: "identity-session" };
+    throw error;
   }
-  return executeCreateMaterialDraft(formData, accessToken);
+  return executeSaveMaterial(formData, accessToken);
 }

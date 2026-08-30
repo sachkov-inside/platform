@@ -8,7 +8,7 @@ import { MaterialAuthoringShell } from "./material-authoring-shell";
 import { MaterialPreview } from "./material-preview";
 
 interface MaterialCurrentPreviewProps {
-  readonly editorHref: "/authoring/materials/new";
+  readonly editorHref: string;
   readonly preview: MaterialPreviewPresentation;
 }
 
@@ -30,7 +30,7 @@ export function MaterialCurrentPreview({
           <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <Button asChild className="size-11" size="icon-lg" variant="ghost">
-                <Link href={editorHref}>
+                <Link href={{ pathname: editorHref }}>
                   <ArrowLeft aria-hidden="true" />
                   <span className="sr-only">Вернуться в редактор</span>
                 </Link>
@@ -40,12 +40,12 @@ export function MaterialCurrentPreview({
                   Preview текущей версии
                 </h1>
                 <p className="truncate font-mono text-[0.6875rem] text-muted-foreground">
-                  v{preview.contentVersion} · не опубликовано
+                  v{preview.contentVersion} · {publicationStateLabel(preview.publicationState)}
                 </p>
               </div>
             </div>
             <Button asChild>
-              <Link href={editorHref}>Вернуться в редактор</Link>
+              <Link href={{ pathname: editorHref }}>Вернуться в редактор</Link>
             </Button>
           </div>
         </header>
@@ -53,10 +53,34 @@ export function MaterialCurrentPreview({
           className="border-b border-border bg-card px-4 py-2.5 text-center text-xs text-muted-foreground"
           data-preview-version-banner
         >
-          Это сохранённый черновик v{preview.contentVersion}. Публичная версия не изменена.
+          {previewBanner(preview)}
         </div>
         <MaterialPreview preview={preview} />
       </main>
     </MaterialAuthoringShell>
   );
+}
+
+function publicationStateLabel(
+  state: MaterialPreviewPresentation["publicationState"],
+): string {
+  switch (state) {
+    case "draft":
+      return "черновик";
+    case "published":
+      return "опубликовано";
+    case "unpublished":
+      return "снято с публикации";
+  }
+}
+
+function previewBanner(preview: MaterialPreviewPresentation): string {
+  switch (preview.publicationState) {
+    case "draft":
+      return `Это сохранённый черновик v${String(preview.contentVersion)}. Материал ещё не опубликован.`;
+    case "published":
+      return `Это текущая live-версия v${String(preview.contentVersion)}.`;
+    case "unpublished":
+      return `Это сохранённая версия v${String(preview.contentVersion)}. Материал снят с публикации.`;
+  }
 }

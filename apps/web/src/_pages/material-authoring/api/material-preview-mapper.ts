@@ -49,6 +49,10 @@ const blockSchema: z.ZodType<MaterialPreviewBlock> = z.lazy(() =>
   ]),
 );
 
+const seriesMembershipSchema = z
+  .object({ ordinal: z.number().int().positive(), seriesId: z.uuid() })
+  .strict();
+
 const previewSchema = z
   .object({
     body: z.object({ blocks: z.array(blockSchema), schemaVersion: z.literal(1) }).strict(),
@@ -59,7 +63,7 @@ const previewSchema = z
       .object({
         access: z.enum(["free", "membership"]),
         formatId: z.uuid().nullable(),
-        seriesMemberships: z.array(z.unknown()),
+        seriesMemberships: z.array(seriesMembershipSchema),
         slug: z.string().nullable(),
         summary: z.string().nullable(),
         tagIds: z.array(z.uuid()),
@@ -67,7 +71,7 @@ const previewSchema = z
         topicId: z.uuid().nullable(),
       })
       .strict(),
-    publicationState: z.literal("draft"),
+    publicationState: z.enum(["draft", "published", "unpublished"]),
   })
   .strict();
 
@@ -76,6 +80,11 @@ export interface MappedCurrentMaterialPreview {
   readonly contentVersion: number;
   readonly formatId: string | null;
   readonly materialId: string;
+  readonly publicationState: "draft" | "published" | "unpublished";
+  readonly seriesMemberships: readonly {
+    readonly ordinal: number;
+    readonly seriesId: string;
+  }[];
   readonly preview: MaterialPreviewPresentation;
   readonly slug: string | null;
   readonly summary: string | null;
@@ -101,6 +110,7 @@ export function mapCurrentMaterialPreview(
       contentVersion: current.contentVersion,
       formatId: current.metadata.formatId,
       materialId: current.materialId,
+      publicationState: current.publicationState,
       preview: {
         accessLabel:
           current.metadata.access === "membership" ? "Для участников" : "Бесплатный",
@@ -122,7 +132,9 @@ export function mapCurrentMaterialPreview(
           references?.topics,
           "Тема не назначена",
         ),
+        publicationState: current.publicationState,
       },
+      seriesMemberships: current.metadata.seriesMemberships,
       slug: current.metadata.slug,
       summary: current.metadata.summary,
       tagIds: current.metadata.tagIds,

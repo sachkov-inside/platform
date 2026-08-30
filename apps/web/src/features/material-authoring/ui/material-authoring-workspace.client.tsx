@@ -66,7 +66,11 @@ export function MaterialAuthoringWorkspace({
   if (presentation.mode === "preview" && presentation.preview !== null) {
     return (
       <MaterialCurrentPreview
-        editorHref="/authoring/materials/new"
+        editorHref={
+          presentation.draft.materialId === null
+            ? "/authoring/materials/new"
+            : `/authoring/materials/${presentation.draft.materialId}`
+        }
         preview={presentation.preview}
       />
     );
@@ -94,6 +98,10 @@ export function MaterialAuthoringWorkspace({
           }}
         >
           <input name="document" type="hidden" value={JSON.stringify(presentation.draft.document)} />
+          <input name="expectedContentVersion" type="hidden" value={presentation.draft.contentVersion ?? ""} />
+          <input name="materialId" type="hidden" value={presentation.draft.materialId ?? ""} />
+          <input name="publicationState" type="hidden" value={presentation.draft.status === "new" ? "draft" : presentation.draft.status} />
+          <input name="seriesMemberships" type="hidden" value={JSON.stringify(presentation.draft.seriesMemberships)} />
           <input name="submissionId" type="hidden" value={presentation.submissionId} />
           <MetadataPanel actions={actions} presentation={presentation} />
           <DocumentPanel actions={actions} presentation={presentation} />
@@ -122,7 +130,7 @@ function EditorHeader({
           </Button>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span>{presentation.draft.status === "new" ? "Новый материал" : "Черновик"}</span>
+              <span>{materialStateLabel(presentation.draft.status)}</span>
               {presentation.draft.contentVersion === null ? null : (
                 <span className="truncate font-mono">v{presentation.draft.contentVersion}</span>
               )}
@@ -158,7 +166,9 @@ function EditorHeader({
               <Save aria-hidden="true" data-icon="inline-start" />
             )}
             {presentation.save.kind === "submitting"
-              ? "Создание…"
+              ? presentation.draft.status === "new"
+                ? "Создание…"
+                : "Сохранение…"
               : presentation.draft.status === "new"
                 ? "Создать черновик"
                 : "Сохранить"}
@@ -190,9 +200,12 @@ function MetadataPanel({
       <div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2 @min-[68rem]/material-authoring:grid-cols-1">
         <Field label="Название" targetId="material-title">
           <input
+            aria-describedby={hasIssue(presentation, "/title") ? "material-guidance-heading" : undefined}
+            aria-invalid={hasIssue(presentation, "/title") || undefined}
             autoComplete="off"
             className={fieldClassName}
             id="material-title"
+            maxLength={160}
             name="title"
             onChange={(event) => {
               actions.onFieldChange("title", event.currentTarget.value);
@@ -202,9 +215,12 @@ function MetadataPanel({
         </Field>
         <Field label="Краткое описание" targetId="material-summary">
           <textarea
+            aria-describedby={hasIssue(presentation, "/summary") ? "material-guidance-heading" : undefined}
+            aria-invalid={hasIssue(presentation, "/summary") || undefined}
             autoComplete="off"
             className={cn(fieldClassName, "min-h-28 resize-y py-3 leading-6")}
             id="material-summary"
+            maxLength={500}
             name="summary"
             onChange={(event) => {
               actions.onFieldChange("summary", event.currentTarget.value);
@@ -212,6 +228,26 @@ function MetadataPanel({
             value={presentation.draft.summary}
           />
         </Field>
+        {presentation.draft.status === "new" ? null : (
+          <Field label="Адрес" targetId="material-slug">
+            <input
+              aria-describedby={hasIssue(presentation, "/slug") ? "material-guidance-heading" : undefined}
+              aria-invalid={hasIssue(presentation, "/slug") || undefined}
+              autoComplete="off"
+              className={fieldClassName}
+              id="material-slug"
+              maxLength={120}
+              name="slug"
+              onChange={(event) => {
+                actions.onFieldChange("slug", event.currentTarget.value);
+              }}
+              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+              placeholder="developer-pipeline"
+              readOnly={presentation.draft.status === "published"}
+              value={presentation.draft.slug}
+            />
+          </Field>
+        )}
         <Field label="Тема" targetId="material-topic">
           <Select
             disabled={disabled}
@@ -253,6 +289,7 @@ function MetadataPanel({
           </Select>
         </Field>
         <TagSelector actions={actions} disabled={disabled} presentation={presentation} />
+        <SeriesSelector actions={actions} disabled={disabled} presentation={presentation} />
         <Field label="Доступ" targetId="material-access">
           <Select
             disabled={disabled}
@@ -271,6 +308,26 @@ function MetadataPanel({
             </SelectContent>
           </Select>
         </Field>
+        {presentation.draft.status === "new" ? null : (
+          <Field label="Публикация" targetId="material-publication-state">
+            <Select
+              disabled={disabled}
+              onValueChange={(value) => {
+                actions.onFieldChange("publicationState", value);
+              }}
+              value={presentation.draft.status}
+            >
+              <SelectTrigger className={authoringSelectTriggerClassName} id="material-publication-state">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem className={authoringSelectItemClassName} value="draft">Черновик</SelectItem>
+                <SelectItem className={authoringSelectItemClassName} value="published">Опубликован</SelectItem>
+                <SelectItem className={authoringSelectItemClassName} value="unpublished">Снят с публикации</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
       </div>
       <FormGuidance presentation={presentation} />
     </fieldset>
@@ -289,6 +346,7 @@ function FormGuidance({
   return (
     <section
       aria-labelledby="material-guidance-heading"
+      aria-live="polite"
       className="mt-6 border-t border-border pt-5"
     >
       <h2 className="text-sm font-semibold" id="material-guidance-heading">
@@ -305,6 +363,61 @@ function FormGuidance({
         ))}
       </ul>
     </section>
+  );
+}
+
+function SeriesSelector({
+  actions,
+  disabled,
+  presentation,
+}: MaterialAuthoringWorkspaceProps & { readonly disabled: boolean }) {
+  if (presentation.availableSeries.length === 0) {
+    return null;
+  }
+  return (
+    <fieldset className="min-w-0 sm:col-span-2 @min-[68rem]/material-authoring:col-span-1">
+      <legend className="mb-2 text-sm font-medium">Series</legend>
+      <div className="space-y-2 rounded-xl bg-card p-2">
+        {presentation.availableSeries.map((series) => {
+          const membership = presentation.draft.seriesMemberships.find(
+            (candidate) => candidate.seriesId === series.value,
+          );
+          return (
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2" key={series.value}>
+              <label className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-2 text-sm font-medium">
+                <input
+                  checked={membership !== undefined}
+                  disabled={disabled}
+                  onChange={(event) => {
+                    actions.onSeriesMembershipChange(
+                      series.value,
+                      event.currentTarget.checked ? (membership?.ordinal ?? 1) : null,
+                    );
+                  }}
+                  type="checkbox"
+                />
+                <span className="truncate">{series.label}</span>
+              </label>
+              <input
+                aria-label={`Позиция в Series ${series.label}`}
+                className={cn(fieldClassName, "px-2 text-center font-mono")}
+                disabled={disabled || membership === undefined}
+                inputMode="numeric"
+                min={1}
+                onChange={(event) => {
+                  const ordinal = event.currentTarget.valueAsNumber;
+                  if (Number.isInteger(ordinal) && ordinal > 0) {
+                    actions.onSeriesMembershipChange(series.value, ordinal);
+                  }
+                }}
+                type="number"
+                value={membership?.ordinal ?? 1}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 
@@ -334,7 +447,7 @@ function TagSelector({
                   "relative flex min-h-9 cursor-pointer items-center rounded-lg px-3 text-sm font-medium transition-colors motion-reduce:transition-none",
                   "has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/40",
                   checked
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-foreground text-background"
                     : "bg-secondary text-secondary-foreground hover:bg-muted",
                   disabled && "cursor-not-allowed opacity-60",
                 )}
@@ -429,6 +542,12 @@ function MaterialDocumentEditor({
     },
   });
 
+  useEffect(() => {
+    if (editor !== null && editor.isEditable !== !disabled) {
+      editor.setEditable(!disabled);
+    }
+  }, [disabled, editor]);
+
   if (editor === null) {
     return <div className="mt-5 min-h-80 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" role="status">Подготовка редактора…</div>;
   }
@@ -492,13 +611,13 @@ function BlockingState({ actions, presentation }: MaterialAuthoringWorkspaceProp
             <CircleAlert aria-hidden="true" className="mt-1 size-5 shrink-0 text-destructive" />
             <div>
               <p className="font-semibold">Материал изменился в другой сессии</p>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">Сравните текущую версию содержимого со своими изменениями. Ничего не перезаписано.</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">Сравните версии или откройте текущую в новой вкладке для ручного переноса. Ваш локальный ввод останется здесь.</p>
               <p className="mt-2 font-mono text-[0.6875rem] text-muted-foreground">Ваша версия: {presentation.blocking.staleContentVersion} · Текущая: {presentation.blocking.currentContentVersion}</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => { actions.onConflictAction("compare"); }} type="button">Сравнить</Button>
-            <Button onClick={() => { actions.onConflictAction("reload"); }} type="button" variant="outline">Загрузить текущую</Button>
+            <Button onClick={() => { actions.onConflictAction("open_current"); }} type="button" variant="outline">Открыть текущую</Button>
             <Button onClick={() => { actions.onConflictAction("copy"); }} type="button" variant="ghost">Скопировать мои изменения</Button>
           </div>
         </div>
@@ -581,10 +700,14 @@ function AuthoringNotice({
         )}
         <p className="min-w-0 text-sm font-semibold leading-5">
           {presentation.validation.kind === "checking"
-            ? "Создаём черновик"
+            ? presentation.draft.status === "new"
+              ? "Создаём черновик"
+              : "Сохраняем Material"
             : inputInvalid
               ? "Проверьте поля"
-              : "Черновик создан"}
+              : presentation.draft.status === "new"
+                ? "Черновик создан"
+                : "Material сохранён"}
         </p>
       </div>
     </div>
@@ -598,7 +721,7 @@ function saveStateLabel(state: MaterialSaveState): string {
     case "dirty":
       return "Есть несохранённые изменения";
     case "submitting":
-      return "Создание…";
+      return "Сохранение…";
     case "saved":
       return `Сохранено ${state.savedAtLabel}`;
   }
@@ -611,8 +734,33 @@ function compactSaveStateLabel(state: MaterialSaveState): string {
     case "dirty":
       return "Не сохранено";
     case "submitting":
-      return "Создание…";
+      return "Сохранение…";
     case "saved":
       return `Сохранено ${state.savedAtLabel}`;
   }
+}
+
+function materialStateLabel(
+  state: MaterialAuthoringPresentation["draft"]["status"],
+): string {
+  switch (state) {
+    case "new":
+      return "Новый материал";
+    case "draft":
+      return "Черновик";
+    case "published":
+      return "Опубликован";
+    case "unpublished":
+      return "Снят с публикации";
+  }
+}
+
+function hasIssue(
+  presentation: MaterialAuthoringPresentation,
+  pathSuffix: string,
+): boolean {
+  return (
+    presentation.validation.kind === "invalid" &&
+    presentation.validation.issues.some((issue) => issue.path.endsWith(pathSuffix))
+  );
 }

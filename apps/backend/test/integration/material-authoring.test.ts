@@ -226,6 +226,13 @@ describe("MaterialAuthoring", () => {
           slug: "guide",
         },
       }),
+      testDatabase.prisma.series.create({
+        data: {
+          id: "94000000-0000-4000-8000-000000000035",
+          name: "Build",
+          slug: "build",
+        },
+      }),
       testDatabase.prisma.tag.create({
         data: {
           id: "94000000-0000-4000-8000-000000000034",
@@ -243,6 +250,7 @@ describe("MaterialAuthoring", () => {
       ok: true,
       value: {
         formats: [{ id: "94000000-0000-4000-8000-000000000033", name: "Гайд" }],
+        series: [{ id: "94000000-0000-4000-8000-000000000035", name: "Build" }],
         tags: [{ id: "94000000-0000-4000-8000-000000000034", name: "delivery" }],
         topics: [
           { id: "94000000-0000-4000-8000-000000000032", name: "AI" },
