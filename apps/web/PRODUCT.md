@@ -10,7 +10,7 @@ web
 
 - Публичный посетитель находит и читает бесплатные материалы и понимает состав Membership.
 - Участник Membership находит и читает доступные материалы, управляет минимальным reading state и
-  приватным Account.
+  приватным Account, а через Member Profile показывает другим участникам выбранное имя и краткий bio.
 - Единственный автор первой версии — Кирилл. Он выбирает тему из доступного каталога, создаёт и
   изменяет current Material, проверяет Preview сохранённого `contentVersion` и явно выбирает
   publication state в full-state Save.
@@ -49,6 +49,15 @@ reading и authoring так, чтобы current Material, опубликован
 - Тема Material выбирается из доступного каталога, а не вводится произвольной строкой.
 - Выбор `published` остаётся явным owner action; autonomous publish, collaborative realtime
   editing, multi-author review и content import не входят в v1.
+- Первый authenticated Account без Profile обязан пройти onboarding и задать изменяемое,
+  неуникальное display name длиной 2–80 символов; optional bio ограничен 500 символами.
+- Account preview и member route используют одну точную projection. Только active Profile доступен
+  участникам по opaque `/members/<publicProfileId>` URL; route имеет `noindex`, а disabled, deleted
+  или недоступный Profile возвращает безопасный 404.
+- Владелец Profile может редактировать и экспортировать данные, выполнить hard delete и затем
+  создать Profile заново с новым public address. Изменения защищены optimistic concurrency.
+- Участник может отправить жалобу на текст Profile; moderation остаётся ручным owner workflow.
+  Avatar и files не входят в этот scope и отслеживаются отдельно в #153.
 - UI contracts скрывают backend transport DTO и остаются малыми, serializable и пригодными для
   fixture и production adapters.
 
@@ -69,6 +78,8 @@ reading и authoring так, чтобы current Material, опубликован
 - Storybook contains accepted shell, Library and Material reader proofs plus representative
   sanitized content fixtures. No testimonials, customer logos, commercial benchmarks or other
   marketing proof may be invented.
+- Production evidence для Account и Member Profile: `docs/evidence/issue-51/README.md` с desktop и
+  390 × 844 mobile captures из full-stack smoke.
 
 ## Product Principles
 
@@ -78,6 +89,8 @@ reading и authoring так, чтобы current Material, опубликован
    information needed to work safely.
 4. Mobile authoring is a primary capability, not a reduced preview mode.
 5. Storybook records reusable design and behavior before production integration.
+6. Private Profile fields and their member-visible projection must not drift: the owner previews
+   exactly what active members receive.
 
 ## Accessibility & Inclusion
 

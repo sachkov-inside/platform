@@ -27,7 +27,7 @@ typography:
     fontSize: "2.75rem"
     fontWeight: 600
     lineHeight: 1.08
-    letterSpacing: "-0.035em"
+    letterSpacing: "-0.04em"
   headline:
     fontFamily: "Manrope Variable, ui-sans-serif, sans-serif"
     fontSize: "1.5rem"
@@ -105,6 +105,12 @@ components:
     rounded: "{rounded.xl}"
     padding: "1rem"
     width: "min(100%, 24rem)"
+  member-profile-projection:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    rounded: "16px"
+    padding: "1.5rem"
+    width: "min(100%, 48rem)"
 ---
 
 # Design System: Sachkov Inside Platform
@@ -115,7 +121,7 @@ components:
 
 Sachkov Inside Platform — спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.
 
-Это документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`; current Preview теперь имеет bounded desktop и narrow-mobile evidence, но authoring layout и version rail остаются candidate pattern до отдельного owner visual/interaction GO.
+Это документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. Issues #38 и #51 завершили finish review со статусом `ship`; у #51 `material_fixes` пуст, а desktop/mobile evidence подтверждает production Account и точную Member Profile projection. Authoring workbench #38 и Mirror seam #51 остаются candidate patterns до отдельного owner visual/interaction GO; для #51 это особенно важно, потому что направление было выбрано delegated fallback.
 
 **Key Characteristics:**
 
@@ -125,6 +131,7 @@ Sachkov Inside Platform — спокойная светлая инженерна
 - Manrope for product and reading; JetBrains Mono only for technical facts.
 - Mobile-first semantic order preserved as space adds columns.
 - Current content version, save and publication facts stay visible and literal.
+- Private Profile fields and the member-visible projection stay exact by construction.
 
 ## Colors
 
@@ -158,7 +165,7 @@ Sachkov Inside Platform — спокойная светлая инженерна
 
 **Label/Mono Font:** JetBrains Mono Variable (with `ui-monospace, monospace` fallback)
 
-**Character:** Manrope keeps application copy calm and readable while its compact semibold headings provide a clear scan hierarchy. JetBrains Mono is deliberately smaller and quieter so content versions, timestamps, duration and state facts read as evidence, not as a second visual voice.
+**Character:** Manrope keeps application copy calm and readable while its compact semibold headings provide a clear scan hierarchy. Supporting context directly below headings remains sans. JetBrains Mono is deliberately smaller and quieter so content versions, timestamps, counters, duration and state facts read as evidence, not as a second visual voice.
 
 ### Hierarchy
 
@@ -167,9 +174,11 @@ Sachkov Inside Platform — спокойная светлая инженерна
 - **Title:** compact card, panel and authoring titles.
 - **Body:** product copy and long-form reading; long reading regions stay near 65–72 characters.
 - **Label:** controls and field labels with medium weight rather than all-caps urgency.
-- **Technical:** content versions, state facts, timestamps, duration, metadata and code-adjacent notation.
+- **Technical:** content versions, state facts, timestamps, counters, duration, metadata and code-adjacent notation.
 
 **The Mono Is Evidence Rule.** Use JetBrains Mono only for version/state facts, code, duration, technical notation and compact metadata; never use it as decorative body copy.
+
+**The Tracking Floor Rule.** Headings may tighten to `-0.04em`, never beyond; context lines under headings stay in sans with ordinary tracking rather than becoming decorative mono kickers.
 
 ## Layout
 
@@ -177,11 +186,13 @@ The system is mobile-first. Narrow surfaces preserve content priority and a sing
 
 The issue #38 authoring proof keeps metadata → document in that order on narrow screens and expresses the same order as two desktop columns inside a bounded workbench. Intermediate widths keep the form near `52rem` and use a compact two-column metadata grid instead of stretching fields across the viewport. Current Preview has desktop and 390 × 844 mobile evidence with the same `contentVersion` identity and no horizontal overflow. The sticky author header and soft rounded version group remain a candidate authoring pattern pending owner visual/interaction GO, not a required layout for other operate surfaces.
 
+The issue #51 Account proof refuses a generic settings stack: desktop places the editable private source on the left, one narrow labelled privacy seam in the center and the exact member projection on the right, with Save attached to the editor heading. Narrow screens remove the side-by-side composition but preserve edit → preview → lifecycle order. The Mirror seam was the first of three dealt directions (seed `7cf2ca08`) and is evidence-backed, but delegated fallback—not owner approval—makes it a candidate pattern rather than a global Account mandate.
+
 **The Mobile Semantic Order Rule.** Responsive changes may add columns, rails or contextual controls, but they must preserve the narrow-screen information order and primary actions.
 
 ## Elevation & Depth
 
-The system is mostly tonal and bordered. Resting content surfaces use canvas, card, muted fill and one-pixel dividers; restrained card shadows are reserved for interactive bounded objects such as accepted Material cards and popover content. Charcoal regions create structural depth without glow, glass or gradients. Hover lift is slight and disabled for reduced-motion users; Storybook exercises that contract in a real reduced-motion browser context.
+The system is mostly tonal and bordered. Resting content surfaces use canvas, card, muted fill and one-pixel dividers; restrained card shadows are reserved for interactive bounded objects such as accepted Material cards and popover content. The Member Profile projection is a flat bounded reading surface with no glow or hover lift. Charcoal regions create structural depth without glow, glass or gradients. Hover lift is slight and disabled for reduced-motion users; Storybook exercises that contract in a real reduced-motion browser context.
 
 ### Shadow Vocabulary
 
@@ -192,20 +203,20 @@ The system is mostly tonal and bordered. Resting content surfaces use canvas, ca
 
 ## Shapes
 
-Soft rounding is a grouping grammar, not decoration. Compact actions and navigation use the shared small-to-large radius scale; fields, popovers, callouts and Material cards use the larger rounded surface step; access labels may use a pill. Large application-shell silhouettes use the extra-large radius steps. Thin semantic borders and clipped dark media/code regions keep the softness technical rather than toy-like.
+Soft rounding is a grouping grammar, not decoration. Compact actions and navigation use the shared small-to-large radius scale; fields, popovers, callouts and Material cards use the larger rounded surface step; access labels may use a pill. The flat Member Profile projection uses one restrained 16px frame. Large application-shell silhouettes use the extra-large radius steps. Thin semantic borders and clipped dark media/code regions keep the softness technical rather than toy-like.
 
 ## Components
 
 ### Buttons
 
 - **Shape:** compact rounded action primitive with eight size variants and minimum touch-aware compositions where the surrounding pattern requires them.
-- **Primary:** charcoal fill for the single highest-priority action in a local task. In authoring, Save is primary only while dirty; disabled Save remains visible without competing.
+- **Primary:** charcoal fill for the single highest-priority action in a local task. In Profile editing, Save is primary only while dirty and becomes disabled, visibly quieter and unchanged in place when there is nothing to save.
 - **Outline / Secondary / Ghost:** outline preserves a clear alternative, secondary marks safe selected context, and ghost recedes for navigation or toolbar actions.
 - **Hover / Focus:** restrained tonal change, a visible semantic ring, one-pixel active translation, and no transform under reduced motion.
 
 ### Select
 
-- **Style:** an accessible Radix-backed custom select, not a native browser select; rounded trigger, border, warm background and compact chevron.
+- **Style:** the shared accessible Radix-backed Select, not a one-off or native browser select; rounded trigger, border, warm background and compact chevron. Member Profile reporting reuses it for the reason field.
 - **State:** muted hover/open fill, semantic focus ring, checked item with secondary fill and orange check indicator, disabled value preserved.
 - **Overlay:** rounded popover with restrained card elevation and reduced-motion-safe entry/exit.
 
@@ -225,13 +236,25 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 - **Style:** accepted bounded Material preview with optional real `16:9` media, compact taxonomy, short title/summary, exact format/access facts and restrained elevation.
 - **Behavior:** no artificial media placeholder; a Material without preview remains content-first and naturally shorter.
 
+### Member Profile Projection
+
+- **Identity:** one shared projection renders the Account preview and the active member route, so display name and optional bio cannot acquire separate presentation rules.
+- **Surface:** flat warm paper, a fine border, a restrained 16px radius and no glow; the member name carries the visual weight while bio remains a calm reading block.
+- **Context:** sans labels explain who can see the projection. Mono is reserved for the small Sachkov Inside product signature or exact opaque address, never used as an ornamental kicker.
+
 ### Candidate Authoring Workbench
 
 - **Status:** candidate pattern from issue #38; finish verdict is `ship`, but global adoption awaits owner visual/interaction GO.
 - **Composition:** sticky author header, a soft rounded version group, and metadata → document semantic order; desktop may render the order as two bounded columns.
 - **State:** current `contentVersion` and save facts remain literal; Preview names the saved version, never adds unowned transport/security claims, never implies publication and now has desktop plus narrow-mobile proof.
 
-**The Owner Gate Candidate Rule.** Treat the issue #38 authoring layout and version rail as reusable evidence to review, not as an approved global mandate, until owner visual/interaction GO is recorded.
+### Candidate Mirror Seam
+
+- **Status:** candidate pattern from issue #51; finish verdict is `ship` with no material fixes, but production visual GO remains pending because the direction came from delegated fallback.
+- **Composition:** private editor → narrow labelled seam → exact member projection on desktop; edit → preview → lifecycle on mobile. Save stays at the editor heading.
+- **Provenance:** the selected Mirror seam was first of three dealt directions, seed `7cf2ca08`. Desktop/mobile captures under `docs/evidence/issue-51/` are evidence only; asset production returned `produce: []` and `direct: []`, so no raster ships.
+
+**The Owner Gate Candidate Rule.** Treat the issue #38 authoring workbench and issue #51 Mirror seam as reusable evidence to review, not as approved global mandates, until owner visual/interaction GO is recorded.
 
 ## Do's and Don'ts
 
@@ -242,6 +265,8 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 - **Do** use Manrope for product copy and JetBrains Mono for exact technical facts.
 - **Do** preserve the same semantic information order from narrow mobile to desktop.
 - **Do** expose save, conflict, authorization and current-version truth with text as well as color.
+- **Do** render Account preview and member route through the same flat Profile projection.
+- **Do** keep context under headings in sans and reserve mono for literal evidence.
 - **Do** use the accepted shared primitives and Storybook proofs before introducing a new visual dialect.
 
 ### Don't:
@@ -250,5 +275,6 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 - **Don't** use gradients, glow, glass or ambient animation without product meaning.
 - **Don't** make orange a default decoration or destructive red a brand accent.
 - **Don't** use JetBrains Mono for long-form prose or ornamental headings.
-- **Don't** promote the issue #38 authoring columns or version rail to a global pattern before owner visual/interaction GO.
+- **Don't** add decorative mono kickers above or below headings.
+- **Don't** promote the issue #38 authoring columns, version rail or issue #51 Mirror seam to global patterns before owner visual/interaction GO.
 - **Don't** imply that Preview is published; always identify the current saved `contentVersion`.

@@ -27,6 +27,13 @@ export type AccountsPrisma = Pick<
 >;
 export type AccountsPrismaClient = AccountsPrisma & TransactionClient<AccountsPrisma>;
 
+export type MemberProfilesPrisma = Pick<
+  PlatformPrisma,
+  "memberProfile" | "memberProfileAuditEvent" | "memberProfileReport"
+>;
+export type MemberProfilesPrismaClient = MemberProfilesPrisma &
+  TransactionClient<MemberProfilesPrisma>;
+
 export interface TransactionClient<Transaction> {
   $transaction<Result>(
     operation: (transaction: Transaction) => Promise<Result>,

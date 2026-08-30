@@ -11,5 +11,6 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 export { AccountsService } from './services/AccountsService';
 export { ContentLibraryService } from './services/ContentLibraryService';
 export { MaterialAuthoringService } from './services/MaterialAuthoringService';
+export { MemberProfilesService } from './services/MemberProfilesService';
 export { OperationsService } from './services/OperationsService';
 export { PublishedMaterialsService } from './services/PublishedMaterialsService';

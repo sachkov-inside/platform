@@ -9,6 +9,7 @@ import { OperationalReadiness } from "../../infrastructure/operational-readiness
 import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import { ListPublishedMaterialsController } from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
+import { MemberProfilesModule } from "../../modules/member-profiles/index.js";
 import {
   CreateDraftController,
   DeleteDraftController,
@@ -51,6 +52,7 @@ export class ApiModule {
         PlatformConfigModule.forRoot(config),
         PrismaModule,
         AccountsModule,
+        MemberProfilesModule,
         MaterialsModule,
       ],
     };

@@ -9,6 +9,7 @@ import {
 } from "@/widgets/auth-control";
 
 interface AuthStatusControlProps {
+  readonly accountLabel?: string | undefined;
   readonly initialState: AuthControlState;
   readonly presentation: "desktop" | "mobile";
 }
@@ -16,6 +17,7 @@ interface AuthStatusControlProps {
 let statusFlight: Promise<AuthControlState> | undefined;
 
 export function AuthStatusControl({
+  accountLabel,
   initialState,
   presentation,
 }: AuthStatusControlProps) {
@@ -39,9 +41,9 @@ export function AuthStatusControl({
   const displayedState = initialState === "guest" ? "guest" : state;
 
   return presentation === "desktop" ? (
-    <DesktopAuthControl state={displayedState} />
+    <DesktopAuthControl accountLabel={accountLabel} state={displayedState} />
   ) : (
-    <MobileAuthControl state={displayedState} />
+    <MobileAuthControl accountLabel={accountLabel} state={displayedState} />
   );
 }
 

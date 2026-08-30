@@ -32,7 +32,7 @@ PostgreSQL constraints and indexes that are not completely described by the Pris
 central runner applies them in order under an advisory lock and records an explicit position plus
 a SHA-256 checksum. The ledger must be an exact prefix of the running registry; an edited, missing,
 reordered, or unknown applied migration fails closed. The Prisma schema maps the resulting
-`materials`, `accounts` and `membership_entitlements` schemas and generates the ignored TypeScript
+`materials`, `accounts`, `member_profiles` and `membership_entitlements` schemas and generates the ignored TypeScript
 client during install, build, and typecheck.
 
 The Prisma cutover is a single current path. The former Kysely adapter, generated mappings,

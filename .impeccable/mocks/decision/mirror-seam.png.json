@@ -1,0 +1,7 @@
+{
+  "approved": true,
+  "approval": "Delegated fallback after the decision page and structured UI returned no selection; assigned and recommended direction chosen on 2026-08-30.",
+  "prompt": "Embedded verbatim in mirror-seam.png metadata and mirrored in mirror-seam.prompt.txt.",
+  "source": "built-in image_gen",
+  "reference": "docs/evidence/issue-110/library-desktop-1440.png"
+}

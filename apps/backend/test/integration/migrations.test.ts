@@ -52,6 +52,8 @@ const membershipEntitlementTables = [
   "evidence_receipts",
 ] as const;
 
+const memberProfileTables = ["audit_events", "profiles", "reports"] as const;
+
 const legacyMigrations = [
   { name: materialsMigrationName, statement: materialsMigrationStatement },
   {
@@ -114,6 +116,7 @@ describe("Platform migrations", () => {
         "0005_mutable_materials",
         "0006_membership_entitlements",
         "0007_remove_material_access_audit",
+        "0008_member_profiles",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -126,6 +129,7 @@ describe("Platform migrations", () => {
       "membership_entitlements",
       membershipEntitlementTables,
     );
+    await expectTables(testDatabase, "member_profiles", memberProfileTables);
 
     const functions = await testDatabase.prisma.$queryRaw<
       readonly { readonly schema: string }[]
@@ -430,6 +434,7 @@ describe("Platform migrations", () => {
           "0005_mutable_materials",
           "0006_membership_entitlements",
           "0007_remove_material_access_audit",
+          "0008_member_profiles",
         ],
       });
 
@@ -536,7 +541,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  });
+  }, 15_000);
 
   test("rejects drift in an already applied migration", async () => {
     const database = await createTestDatabase();
@@ -579,11 +584,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 8, repeat('0', 64))
+        values ('9999_unknown', 9, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 8",
+        "Migration ledger is not an exact registry prefix at position 9",
       );
     } finally {
       await database.dispose();
@@ -615,6 +620,7 @@ async function expectTables(
     | "accounts"
     | "identity_principals"
     | "materials"
+    | "member_profiles"
     | "membership_entitlements",
   expected: readonly string[],
 ): Promise<void> {

@@ -244,7 +244,7 @@ The same generation runs during install, build, and typecheck:
 pnpm --filter @inside/backend prisma:generate
 ```
 
-The Prisma schema maps the product-owned `materials`, `accounts` and
+The Prisma schema maps the product-owned `materials`, `accounts`, `member_profiles` and
 `membership_entitlements` schemas. Checked-in,
 append-only SQL migrations remain the database authority. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
@@ -265,6 +265,25 @@ pnpm --filter @inside/backend release:bootstrap-owner
 The command ensures one Account and `materials:manage`, writes only redacted Account audit events,
 and prints a JSON summary. It does not run from an application startup hook or public route and does
 not need the owner's email. Repeating it reports that no Account or permission was created.
+
+## Manual Member Profile moderation
+
+Profile reports store only a bounded reason and opaque Profile identity. List open reports through
+the release operation, then disable or restore the exact Profile without exposing a public admin
+route:
+
+```bash
+PROFILE_MODERATION_ACTION=list \
+pnpm --filter @inside/backend release:moderate-profiles
+
+PROFILE_MODERATION_ACTION=disable \
+PROFILE_PUBLIC_ID=<opaque-public-profile-id> \
+pnpm --filter @inside/backend release:moderate-profiles
+```
+
+Use `PROFILE_MODERATION_ACTION=restore` with the same `PROFILE_PUBLIC_ID` to restore it. Disable
+resolves current reports, increments the Profile version and writes redacted audit metadata; the
+operation never prints Profile fields, Account identity, Membership evidence or provider data.
 
 ## Diagnose prerequisites
 

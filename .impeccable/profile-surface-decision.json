@@ -1,0 +1,43 @@
+{
+  "title": "Account + Member Profile",
+  "question": "Выбери композицию для private Account, обязательного onboarding и member-only Profile внутри принятого Soft Technical Workshop.",
+  "options": [
+    {
+      "id": "mirror-seam",
+      "label": "Две стороны профиля",
+      "kicker": "THE ROLL",
+      "lineage": "private controls and exact member projection",
+      "thesis": "Private Account и видимая участникам проекция стоят рядом и буквально не смешиваются.",
+      "palette": ["#f4f4ef", "#20251f", "#ffffff", "#f36b32", "#d9ddd3"],
+      "materials": ["warm workshop canvas", "charcoal privacy rail", "proof-orange seam"],
+      "viewport": "Слева компактный owner editor, справа спокойный exact preview; между ними подписанная граница «Только вы / Видят участники».",
+      "risk": "На среднем desktop две стороны могут стать тесными; mobile обязан превратить seam в честную последовательность edit → preview.",
+      "comp": ".impeccable/mocks/decision/mirror-seam.png"
+    },
+    {
+      "id": "quiet-workbench",
+      "label": "Тихий workbench",
+      "lineage": "single-task profile editor",
+      "thesis": "Одна узкая рабочая колонка ведёт от имени к bio и lifecycle без постоянного preview рядом.",
+      "palette": ["#f4f4ef", "#20251f", "#ffffff", "#f36b32", "#d9ddd3"],
+      "materials": ["continuous chalk card", "hairline dividers", "mono state evidence"],
+      "viewport": "Name-first form занимает центр; visibility, version и delete/export собраны в тихий нижний utility region.",
+      "risk": "Самая ясная форма, но разделение Account/Profile запоминается слабее и preview требует отдельного перехода.",
+      "comp": ".impeccable/mocks/decision/quiet-workbench.png"
+    },
+    {
+      "id": "member-pass",
+      "label": "Member pass",
+      "lineage": "typographic member identity sheet",
+      "thesis": "Крупное имя становится рабочим артефактом профиля, а редактирование разворачивается ниже него.",
+      "palette": ["#f4f4ef", "#20251f", "#ffffff", "#f36b32", "#d9ddd3"],
+      "materials": ["oversized Manrope name", "charcoal identity plate", "orange current-state tab"],
+      "viewport": "Первый экран показывает готовый member-visible pass; owner actions лежат в компактной панели под ним.",
+      "risk": "Сильнее всего выражает identity, но без avatar имя может занять слишком много визуальной власти над утилитарной задачей.",
+      "comp": ".impeccable/mocks/decision/member-pass.png"
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "buildPath": {"value": "comp", "toggle": true},
+  "steer": true
+}

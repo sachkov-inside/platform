@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["accounts", "materials", "membership_entitlements"]
+  schemas  = ["accounts", "materials", "member_profiles", "membership_entitlements"]
 }
 
 model Account {
@@ -41,6 +41,47 @@ model AccountAuditEvent {
 
   @@map("account_audit_events")
   @@schema("accounts")
+}
+
+model MemberProfile {
+  accountId       String   @id @map("account_id") @db.Uuid
+  publicProfileId String   @unique(map: "member_profiles_public_profile_id_unique") @map("public_profile_id") @db.Uuid
+  displayName     String   @map("display_name") @db.VarChar(80)
+  bio             String?  @db.VarChar(500)
+  status          String
+  version         Int      @default(1)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@map("profiles")
+  @@schema("member_profiles")
+}
+
+model MemberProfileAuditEvent {
+  id              String   @id @db.Uuid
+  event           String
+  accountId       String   @map("account_id") @db.Uuid
+  publicProfileId String   @map("public_profile_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([accountId, createdAt(sort: Desc)], map: "member_profile_audit_account_created_idx")
+  @@map("audit_events")
+  @@schema("member_profiles")
+}
+
+model MemberProfileReport {
+  id                String   @id @db.Uuid
+  publicProfileId   String   @map("public_profile_id") @db.Uuid
+  reporterAccountId String   @map("reporter_account_id") @db.Uuid
+  reason            String
+  status            String
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@unique([publicProfileId, reporterAccountId], map: "member_profile_reports_reporter_unique")
+  @@index([status, createdAt], map: "member_profile_reports_status_created_idx")
+  @@map("reports")
+  @@schema("member_profiles")
 }
 
 model MembershipBinding {
