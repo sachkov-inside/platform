@@ -92,7 +92,6 @@ describe("Material Authoring action workflow", () => {
         materialId,
         seriesIds: [seriesId],
         preview: {
-          contentVersion: 1,
           format: "Гайд",
           tags: ["delivery"],
           title: "Один production path",

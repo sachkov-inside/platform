@@ -115,7 +115,7 @@ components:
 
 Sachkov Inside Platform — спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.
 
-Это документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`; current Preview теперь имеет bounded desktop и narrow-mobile evidence, но authoring layout и version rail остаются candidate pattern до отдельного owner visual/interaction GO.
+Это документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`; current Preview теперь имеет bounded desktop и narrow-mobile evidence. Владелец отклонил пользовательский version rail: `contentVersion` остаётся только внутренним concurrency token.
 
 **Key Characteristics:**
 
@@ -124,7 +124,7 @@ Sachkov Inside Platform — спокойная светлая инженерна
 - Rounded controls and containers with explicit grouping purpose.
 - Manrope for product and reading; JetBrains Mono only for technical facts.
 - Mobile-first semantic order preserved as space adds columns.
-- Current content version, save and publication facts stay visible and literal.
+- Save and publication facts stay visible and literal; technical content versions stay hidden.
 
 ## Colors
 
@@ -158,7 +158,7 @@ Sachkov Inside Platform — спокойная светлая инженерна
 
 **Label/Mono Font:** JetBrains Mono Variable (with `ui-monospace, monospace` fallback)
 
-**Character:** Manrope keeps application copy calm and readable while its compact semibold headings provide a clear scan hierarchy. JetBrains Mono is deliberately smaller and quieter so content versions, timestamps, duration and state facts read as evidence, not as a second visual voice.
+**Character:** Manrope keeps application copy calm and readable while its compact semibold headings provide a clear scan hierarchy. JetBrains Mono is deliberately smaller and quieter so timestamps, duration and state facts read as evidence, not as a second visual voice.
 
 ### Hierarchy
 
@@ -167,15 +167,15 @@ Sachkov Inside Platform — спокойная светлая инженерна
 - **Title:** compact card, panel and authoring titles.
 - **Body:** product copy and long-form reading; long reading regions stay near 65–72 characters.
 - **Label:** controls and field labels with medium weight rather than all-caps urgency.
-- **Technical:** content versions, state facts, timestamps, duration, metadata and code-adjacent notation.
+- **Technical:** state facts, timestamps, duration, metadata and code-adjacent notation.
 
-**The Mono Is Evidence Rule.** Use JetBrains Mono only for version/state facts, code, duration, technical notation and compact metadata; never use it as decorative body copy.
+**The Mono Is Evidence Rule.** Use JetBrains Mono only for state facts, code, duration, technical notation and compact metadata; never use it as decorative body copy.
 
 ## Layout
 
 The system is mobile-first. Narrow surfaces preserve content priority and a single semantic reading order, then add space-driven enhancements through min-width or container queries. The accepted application shell uses a continuous mobile canvas with a persistent compact bottom navigation; desktop adds the inset expandable charcoal sidebar and lets the main content own scrolling. Reading columns remain bounded near 70–72 characters, while application canvases use generous maximum widths appropriate to the task.
 
-The issue #38 authoring proof keeps metadata → document in that order on narrow screens and expresses the same order as two desktop columns inside a bounded workbench. Intermediate widths keep the form near `52rem` and use a compact two-column metadata grid instead of stretching fields across the viewport. Current Preview has desktop and 390 × 844 mobile evidence with the same `contentVersion` identity and no horizontal overflow. The sticky author header and soft rounded version group remain a candidate authoring pattern pending owner visual/interaction GO, not a required layout for other operate surfaces.
+The issue #38 authoring proof keeps metadata → document in that order on narrow screens and expresses the same order as two desktop columns inside a bounded workbench. Intermediate widths keep the form near `52rem` and use a compact two-column metadata grid instead of stretching fields across the viewport. Current Preview has desktop and 390 × 844 mobile evidence with no horizontal overflow. The sticky author header keeps save state visible without exposing a technical version group.
 
 **The Mobile Semantic Order Rule.** Responsive changes may add columns, rails or contextual controls, but they must preserve the narrow-screen information order and primary actions.
 
@@ -228,10 +228,10 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 ### Candidate Authoring Workbench
 
 - **Status:** candidate pattern from issue #38; finish verdict is `ship`, but global adoption awaits owner visual/interaction GO.
-- **Composition:** sticky author header, a soft rounded version group, and metadata → document semantic order; desktop may render the order as two bounded columns.
-- **State:** current `contentVersion` and save facts remain literal; Preview names the saved version, never adds unowned transport/security claims, never implies publication and now has desktop plus narrow-mobile proof.
+- **Composition:** sticky author header and metadata → document semantic order; desktop may render the order as two bounded columns.
+- **State:** save and publication facts remain literal; Preview never exposes `contentVersion`, adds unowned transport/security claims or implies publication.
 
-**The Owner Gate Candidate Rule.** Treat the issue #38 authoring layout and version rail as reusable evidence to review, not as an approved global mandate, until owner visual/interaction GO is recorded.
+**The Owner Gate Candidate Rule.** Treat the issue #38 authoring layout as reusable evidence to review, not as an approved global mandate, until owner visual/interaction GO is recorded. The version rail is explicitly rejected.
 
 ## Do's and Don'ts
 
@@ -241,7 +241,7 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 - **Do** reserve orange for current state, focus evidence and the next meaningful action.
 - **Do** use Manrope for product copy and JetBrains Mono for exact technical facts.
 - **Do** preserve the same semantic information order from narrow mobile to desktop.
-- **Do** expose save, conflict, authorization and current-version truth with text as well as color.
+- **Do** expose save, conflict, authorization and publication truth with text as well as color.
 - **Do** use the accepted shared primitives and Storybook proofs before introducing a new visual dialect.
 
 ### Don't:
@@ -250,5 +250,6 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 - **Don't** use gradients, glow, glass or ambient animation without product meaning.
 - **Don't** make orange a default decoration or destructive red a brand accent.
 - **Don't** use JetBrains Mono for long-form prose or ornamental headings.
-- **Don't** promote the issue #38 authoring columns or version rail to a global pattern before owner visual/interaction GO.
-- **Don't** imply that Preview is published; always identify the current saved `contentVersion`.
+- **Don't** promote the issue #38 authoring columns to a global pattern before owner visual/interaction GO.
+- **Don't** expose `contentVersion` or labels such as `v1`, `v2`, `v3` in product UI.
+- **Don't** imply that Preview is published; name the actual publication state.

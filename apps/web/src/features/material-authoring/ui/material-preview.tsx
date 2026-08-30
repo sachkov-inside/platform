@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
+import { materialTaxonomyLabel } from "@/entities/material";
 
 import type {
   MaterialPreviewBlock,
@@ -20,9 +21,9 @@ export function MaterialPreview({ preview }: MaterialPreviewProps) {
       <header>
         <div className="flex flex-wrap items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
           <span className="rounded-full bg-secondary px-2.5 py-1.5 font-semibold text-secondary-foreground">
-            {preview.format}
+            {materialTaxonomyLabel(preview.format)}
           </span>
-          <span>{preview.topic}</span>
+          <span>{materialTaxonomyLabel(preview.topic)}</span>
           <span aria-hidden="true">·</span>
           <span>{preview.accessLabel}</span>
         </div>

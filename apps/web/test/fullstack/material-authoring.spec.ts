@@ -28,9 +28,9 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
     .getByLabel("Краткое описание")
     .fill("Черновик проходит Next mutation boundary и сохраняется через Nest MaterialAuthoring.");
   await page.getByRole("combobox", { name: "Тема" }).click();
-  await page.getByRole("option", { name: "Platform" }).click();
+  await page.getByRole("option", { name: "Платформа" }).click();
   await page.getByRole("combobox", { name: "Формат" }).click();
-  await page.getByRole("option", { name: "Guide" }).click();
+  await page.getByRole("option", { name: "Руководство" }).click();
   await page.getByText("Full stack", { exact: true }).click();
   await page.getByText("Создание Platform Inside", { exact: true }).click();
   await page
@@ -48,20 +48,21 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
 
   await page.getByRole("button", { name: "Создать черновик" }).click();
   await expect(page).toHaveURL(currentMaterialEditorUrl);
-  await expect(page.getByText("v1").first()).toBeVisible();
+  await expect(page.getByText(/^v\d+$/u)).toHaveCount(0);
+  await expect(page.getByText("Версия", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Предпросмотр" })).toBeEnabled();
 
   await page.getByRole("button", { name: "Предпросмотр" }).click();
   await expect(page).toHaveURL(new RegExp(`/authoring/materials/.+/preview(?:\\?.*)?$`, "u"));
-  await expect(page.getByRole("heading", { name: "Предпросмотр текущей версии" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Предпросмотр материала" })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Current Preview без fake data", level: 1 }),
   ).toBeVisible();
   await expect(page.getByText("Текущее сохранённое содержимое из PostgreSQL.")).toBeVisible();
-  await expect(page.getByText("Guide")).toBeVisible();
-  await expect(page.getByText("Platform")).toBeVisible();
+  await expect(page.getByText("Руководство")).toBeVisible();
+  await expect(page.getByText("Платформа")).toBeVisible();
   await expect(page.getByText("Full stack")).toBeVisible();
-  await expect(page.getByText(/Это сохранённый черновик v1/)).toBeVisible();
+  await expect(page.getByText("Сохранённый черновик. Материал ещё не опубликован.")).toBeVisible();
 });
 
 test("trusted author finds every Material and returns from Editor to the same list query", async ({
@@ -76,6 +77,13 @@ test("trusted author finds every Material and returns from Editor to the same li
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Материалы", level: 1 })).toBeVisible();
   await expect(page.getByRole("link", { name: "Как устроен Inside Platform" })).toBeVisible();
+  await expect(page.getByText(/^v\d+$/u)).toHaveCount(0);
+  await expect(page.getByText("Версия", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Topic", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Format", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Платформа", { exact: true })).toBeVisible();
+  await expect(page.getByText("Руководство", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Все текущие Materials/u)).toHaveCount(0);
   await expect(
     page.getByRole("combobox", { name: "Состояние публикации" }),
   ).toContainText("Опубликованные");
@@ -101,7 +109,7 @@ test("trusted author finds every Material and returns from Editor to the same li
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
   await page.getByRole("link", { name: "Предпросмотр" }).click();
-  await expect(page.getByRole("heading", { name: "Предпросмотр текущей версии" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Предпросмотр материала" })).toBeVisible();
   await expect(page.getByText("Reader verification checklist")).toBeVisible();
   await page.getByRole("link", { name: "К материалам" }).click();
   await expect(page).toHaveURL(listUrl);
@@ -128,6 +136,7 @@ test("full-state Save is live and a stale editor preserves local input through l
   await fillPublishableDraft(page, "Mutable Material");
   await page.getByRole("button", { name: "Создать черновик" }).click();
   await expect(page).toHaveURL(currentMaterialEditorUrl);
+  await expect(page.getByRole("button", { name: "Предпросмотр" })).toBeEnabled();
   const editorUrl = page.url();
   const materialId = new URL(editorUrl).pathname.split("/").at(-1);
   if (materialId === undefined) {
@@ -137,11 +146,13 @@ test("full-state Save is live and a stale editor preserves local input through l
 
   const stalePage = await context.newPage();
   await stalePage.goto(editorUrl);
-  await expect(stalePage.getByText("v1").first()).toBeVisible();
+  await expect(stalePage.getByRole("heading", { name: "Mutable Material" })).toBeVisible();
+  await expect(stalePage.getByText(/^v\d+$/u)).toHaveCount(0);
 
   await page.getByLabel("Название").fill("Mutable Material — winner");
   await page.getByRole("button", { name: "Сохранить" }).click();
-  await expect(page.getByText("v2").first()).toBeVisible();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Сохранить" })).toBeDisabled();
 
   const localSummary = "Локальный ввод stale editor должен остаться на месте.";
   await stalePage.getByLabel("Краткое описание").fill(localSummary);
@@ -164,7 +175,6 @@ test("full-state Save is live and a stale editor preserves local input through l
   await stalePage.getByRole("button", { name: "Открыть текущую" }).click();
   const currentEditor = await currentEditorPromise;
   await currentEditor.waitForLoadState();
-  await expect(currentEditor.getByText("v2").first()).toBeVisible();
   await expect(currentEditor.getByLabel("Название")).toHaveValue(
     "Mutable Material — winner",
   );
@@ -174,7 +184,8 @@ test("full-state Save is live and a stale editor preserves local input through l
   await page.getByRole("combobox", { name: "Публикация" }).click();
   await page.getByRole("option", { name: "Опубликован" }).click();
   await page.getByRole("button", { name: "Сохранить" }).click();
-  await expect(page.getByText("v3").first()).toBeVisible();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/^v\d+$/u)).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "Публикация" })).toContainText(
     "Опубликован",
   );
@@ -189,7 +200,8 @@ test("full-state Save is live and a stale editor preserves local input through l
   await page.getByRole("combobox", { name: "Публикация" }).click();
   await page.getByRole("option", { name: "Снят с публикации" }).click();
   await page.getByRole("button", { name: "Сохранить" }).click();
-  await expect(page.getByText("v4").first()).toBeVisible();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/^v\d+$/u)).toHaveCount(0);
   await publicPage.reload();
   await expect(publicPage.getByRole("heading", { name: "Материал не найден" })).toBeVisible();
 });
@@ -306,9 +318,9 @@ async function fillPublishableDraft(page: Page, title: string) {
     .getByLabel("Краткое описание")
     .fill("Full-state Save проходит через production Editor и Nest MaterialAuthoring.");
   await page.getByRole("combobox", { name: "Тема" }).click();
-  await page.getByRole("option", { name: "Platform" }).click();
+  await page.getByRole("option", { name: "Платформа" }).click();
   await page.getByRole("combobox", { name: "Формат" }).click();
-  await page.getByRole("option", { name: "Guide" }).click();
+  await page.getByRole("option", { name: "Руководство" }).click();
   await page
     .getByRole("textbox", { name: "Содержимое материала" })
     .fill("Текущее сохранённое содержимое из PostgreSQL.");

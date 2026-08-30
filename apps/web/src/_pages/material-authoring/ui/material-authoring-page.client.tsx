@@ -87,14 +87,14 @@ export function MaterialAuthoringPageClient({
 
   useEffect(() => {
     if (created !== null) {
-      router.replace(
+      window.location.replace(
         withAuthoringReturnHref(
           `/authoring/materials/${created.materialId}`,
           returnHref,
         ),
       );
     }
-  }, [created, returnHref, router]);
+  }, [created, returnHref]);
 
   const presentation: MaterialAuthoringPresentation = {
     ...initialPresentation,
@@ -171,6 +171,9 @@ export function MaterialAuthoringPageClient({
       void navigator.clipboard.writeText(JSON.stringify(effectiveDraft, null, 2));
     },
     onDocumentChange: (document: JSONContent) => {
+      if (JSON.stringify(document) === JSON.stringify(effectiveDraft.document)) {
+        return;
+      }
       markDirty({ ...effectiveDraft, document });
     },
     onFieldChange: (field: MaterialDraftField, value: string) => {

@@ -87,7 +87,6 @@ export type MaterialPreviewBlock =
 export interface MaterialPreviewPresentation {
   readonly accessLabel: string;
   readonly blocks: readonly MaterialPreviewBlock[];
-  readonly contentVersion: number;
   readonly format: string;
   readonly summary: string;
   readonly tags: readonly string[];

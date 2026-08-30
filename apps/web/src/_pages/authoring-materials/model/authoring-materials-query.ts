@@ -6,7 +6,7 @@ import {
   withAuthoringReturnHref,
 } from "@/features/material-authoring";
 
-import type { AuthoringMaterialsQuery } from "../api/get-authoring-materials";
+import type { AuthoringMaterialsQuery } from "./authoring-materials-presentation";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 export { authoringMaterialsRootHref };

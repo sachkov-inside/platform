@@ -103,7 +103,7 @@ export function MaterialAuthoringUnexpectedPreviewState({
           </Button>
         </div>
       }
-      description="Черновик не изменён. Повторите чтение сохранённой версии."
+      description="Черновик не изменён. Повторите чтение сохранённого материала."
       detail={`Код обращения: ${reference}`}
       heading="Не удалось открыть предпросмотр"
       icon={<CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />}
@@ -154,8 +154,8 @@ export function MaterialAuthoringNotFoundState({
           <Link href={returnHref}>Вернуться к материалам</Link>
         </Button>
       }
-      description="Material с таким идентификатором не найден. Локальные изменения не отправлялись."
-      heading="Material не найден"
+      description="Материал с таким идентификатором не найден. Локальные изменения не отправлялись."
+      heading="Материал не найден"
       icon={<CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />}
       shellCurrent="create"
     />

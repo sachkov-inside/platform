@@ -9,6 +9,7 @@ import Link from "next/link";
 
 import { cn } from "@/shared/lib/utils";
 import type { MaterialPreview } from "../model/material-preview";
+import { materialTaxonomyLabel } from "../model/material-taxonomy-label";
 
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
@@ -97,7 +98,7 @@ function MaterialTaxonomy({
     <ul aria-label="Контекст материала" className="flex flex-wrap gap-1.5" role="list">
       <li>
         <span className="inline-flex min-h-7 items-center rounded-md bg-accent/10 px-2 py-1 text-[0.6875rem] font-semibold leading-4 text-foreground">
-          {material.topic}
+          {materialTaxonomyLabel(material.topic)}
         </span>
       </li>
       {material.tags.slice(0, 2).map((tag) => (
@@ -122,7 +123,7 @@ function MaterialContext({
     <span className="flex min-w-0 flex-1 items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
       <span className="inline-flex shrink-0 items-center gap-1.5">
         <FormatIcon aria-hidden="true" className="size-3.5 text-accent" />
-        {material.format}
+        {materialTaxonomyLabel(material.format)}
       </span>
       {material.seriesMemberships.map((membership) => (
         <span

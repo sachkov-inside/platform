@@ -12,7 +12,7 @@ web
 - Участник Membership находит и читает доступные материалы, управляет минимальным reading state и
   приватным Account, а через Member Profile показывает другим участникам выбранное имя и краткий bio.
 - Единственный автор первой версии — Кирилл. Он выбирает тему из доступного каталога, создаёт и
-  изменяет current Material, проверяет Preview сохранённого `contentVersion` и явно выбирает
+  изменяет current Material, проверяет Preview сохранённого состояния и явно выбирает
   publication state в full-state Save.
 - Owner agent выполняет тот же bounded authoring workflow через MCP и общие application rules, но
   не публикует автономно.
@@ -42,8 +42,8 @@ reading и authoring так, чтобы current Material, опубликован
 
 - Product terminology следует repository `CONTEXT.md`: Material, MaterialBody, publication state и
   `contentVersion` не заменяются размытыми словами «post» или historical revision.
-- Preview всегда читает current saved Material, показывает его `contentVersion` и не меняет
-  publication state.
+- Preview всегда читает current saved Material и не меняет publication state. Технический
+  `contentVersion` используется только для optimistic concurrency и не показывается в интерфейсе.
 - Authoring полностью доступен на narrow mobile. Editor показывает dirty, submitting, saved,
   authorization, conflict и infrastructure failure states без копирования backend business rules.
 - Тема Material выбирается из доступного каталога, а не вводится произвольной строкой.
@@ -74,7 +74,8 @@ reading и authoring так, чтобы current Material, опубликован
 
 ## Product Principles
 
-1. Exact state beats implied freshness: identify the Material and `contentVersion` being edited or previewed.
+1. Exact state beats implied freshness: интерфейс буквально показывает состояние сохранения и
+   публикации, а технический `contentVersion` остаётся невидимым concurrency token.
 2. One semantic workflow serves human and agent callers; adapters do not reimplement policy.
 3. Reading surfaces recede around content; authoring surfaces expose the controls and recovery
    information needed to work safely.
