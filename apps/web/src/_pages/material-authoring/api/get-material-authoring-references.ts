@@ -13,6 +13,7 @@ const referenceSchema = z.object({ id: z.uuid(), name: z.string().min(1) }).stri
 const referencesSchema = z
   .object({
     formats: z.array(referenceSchema),
+    series: z.array(referenceSchema),
     tags: z.array(referenceSchema),
     topics: z.array(referenceSchema),
   })
@@ -20,6 +21,7 @@ const referencesSchema = z
 
 export interface MaterialAuthoringReferences {
   readonly formats: readonly MaterialSelectOption[];
+  readonly series: readonly MaterialSelectOption[];
   readonly tags: readonly MaterialSelectOption[];
   readonly topics: readonly MaterialSelectOption[];
 }
@@ -37,28 +39,29 @@ export async function getMaterialAuthoringReferences(
   try {
     result = await request(accessToken);
   } catch (error) {
-    return {
-      kind: "unexpected_error",
-      reference:
-        error instanceof BackendConnectionError
-          ? error.code
-          : "unexpected-authoring-references-error",
-    };
+    if (error instanceof BackendConnectionError && error.code === "unavailable") {
+      return { kind: "unexpected_error", reference: error.code };
+    }
+    throw error;
   }
   if (!result.ok) {
     if (result.response.status === 401 || result.response.status === 403) {
       return { kind: "unauthorized" };
     }
-    return { kind: "unexpected_error", reference: "authoring-references-response" };
+    if (result.response.status === 503) {
+      return { kind: "unexpected_error", reference: "authoring-references-response" };
+    }
+    throw new TypeError("Unexpected Material authoring references response");
   }
   const parsed = referencesSchema.safeParse(result.body);
   if (!parsed.success) {
-    return { kind: "unexpected_error", reference: "authoring-references-shape" };
+    throw new TypeError("Malformed Material authoring references response");
   }
   return {
     kind: "ready",
     references: {
       formats: parsed.data.formats.map(toOption),
+      series: parsed.data.series.map(toOption),
       tags: parsed.data.tags.map(toOption),
       topics: parsed.data.topics.map(toOption),
     },

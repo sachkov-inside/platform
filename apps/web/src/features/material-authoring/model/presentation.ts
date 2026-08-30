@@ -11,6 +11,11 @@ export interface MaterialSelectOption {
   readonly value: string;
 }
 
+export interface MaterialSeriesMembershipPresentation {
+  readonly ordinal: number;
+  readonly seriesId: string;
+}
+
 export interface MaterialDraftPresentation {
   readonly access: "free" | "membership";
   readonly document: JSONContent;
@@ -18,7 +23,9 @@ export interface MaterialDraftPresentation {
   readonly materialId: string | null;
   readonly contentVersion: number | null;
   readonly readOnly: boolean;
-  readonly status: "draft" | "new";
+  readonly seriesMemberships: readonly MaterialSeriesMembershipPresentation[];
+  readonly slug: string;
+  readonly status: "draft" | "new" | "published" | "unpublished";
   readonly summary: string;
   readonly tagIds: readonly string[];
   readonly title: string;
@@ -70,6 +77,7 @@ export interface MaterialPreviewPresentation {
   readonly tags: readonly string[];
   readonly title: string;
   readonly topic: string;
+  readonly publicationState: "draft" | "published" | "unpublished";
 }
 
 export interface MaterialValidationIssue {
@@ -105,6 +113,7 @@ export type MaterialWorkspaceBlockingState =
 
 export interface MaterialAuthoringPresentation {
   readonly availableFormats: readonly MaterialSelectOption[];
+  readonly availableSeries: readonly MaterialSelectOption[];
   readonly availableTags: readonly MaterialSelectOption[];
   readonly availableTopics: readonly MaterialSelectOption[];
   readonly authorization:
@@ -123,18 +132,24 @@ export interface MaterialAuthoringPresentation {
 export type MaterialDraftField =
   | "access"
   | "formatId"
+  | "publicationState"
+  | "slug"
   | "summary"
   | "title"
   | "topicId";
 
 export interface MaterialAuthoringActions {
   readonly onBack: () => void;
-  readonly onConflictAction: (action: "compare" | "copy" | "reload") => void;
+  readonly onConflictAction: (action: "compare" | "copy" | "open_current") => void;
   readonly onDocumentChange: (document: JSONContent) => void;
   readonly onFieldChange: (field: MaterialDraftField, value: string) => void;
   readonly onOpenPreview: () => void;
   readonly onRetry: () => void;
   readonly onReturnToEditor: () => void;
   readonly onSave: (formData: FormData) => void;
+  readonly onSeriesMembershipChange: (
+    seriesId: string,
+    ordinal: number | null,
+  ) => void;
   readonly onTagToggle: (tagId: string, checked: boolean) => void;
 }

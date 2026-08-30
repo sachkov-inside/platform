@@ -23,6 +23,9 @@ export const materialAuthoringPresentation = {
     { label: "Гайд", value: "94000000-0000-4000-8000-000000000011" },
     { label: "Видео", value: "94000000-0000-4000-8000-000000000012" },
   ],
+  availableSeries: [
+    { label: "Build", value: "94000000-0000-4000-8000-000000000041" },
+  ],
   availableTags: [
     { label: "delivery", value: "94000000-0000-4000-8000-000000000021" },
     { label: "agents", value: "94000000-0000-4000-8000-000000000022" },
@@ -83,6 +86,10 @@ export const materialAuthoringPresentation = {
     materialId: "mat_developer_pipeline",
     contentVersion,
     readOnly: false,
+    seriesMemberships: [
+      { ordinal: 3, seriesId: "94000000-0000-4000-8000-000000000041" },
+    ],
+    slug: "developer-pipeline-bez-magii",
     status: "draft",
     summary: "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
     tagIds: [
@@ -136,6 +143,7 @@ export const materialAuthoringPresentation = {
     tags: ["developer pipeline", "agents", "delivery"],
     title: "Developer Pipeline без магии",
     topic: "AI для разработчиков",
+    publicationState: "draft",
   },
   save: { kind: "clean" },
   submissionId: "94000000-0000-4000-8000-000000000001",
@@ -168,6 +176,8 @@ export const emptyMaterialAuthoringPresentation = {
     materialId: null,
     contentVersion: null,
     status: "new",
+    seriesMemberships: [],
+    slug: "",
     summary: "",
     tagIds: [],
     title: "",

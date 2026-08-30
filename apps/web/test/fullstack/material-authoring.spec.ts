@@ -1,5 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type BrowserContext } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+
+const currentMaterialEditorUrl = /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 test("trusted author creates a PostgreSQL draft and opens its current Preview", async ({
   context,
@@ -43,11 +45,8 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   ).toEqual([]);
 
   await page.getByRole("button", { name: "Создать черновик" }).click();
-  await expect(page.getByText("Черновик создан")).toBeVisible();
+  await expect(page).toHaveURL(currentMaterialEditorUrl);
   await expect(page.getByText("v1").first()).toBeVisible();
-  await expect(
-    page.getByText("Адрес материала будет создан автоматически при публикации."),
-  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Preview" })).toBeEnabled();
 
   await page.getByRole("button", { name: "Preview" }).click();
@@ -61,6 +60,81 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   await expect(page.getByText("Platform")).toBeVisible();
   await expect(page.getByText("Full stack")).toBeVisible();
   await expect(page.getByText(/Это сохранённый черновик v1/)).toBeVisible();
+});
+
+test("full-state Save is live and a stale editor preserves local input through lifecycle changes", async ({
+  context,
+  page,
+}) => {
+  await addFullStackSession(context);
+  await page.goto("/authoring/materials/new");
+  await fillPublishableDraft(page, "Mutable Material");
+  await page.getByRole("button", { name: "Создать черновик" }).click();
+  await expect(page).toHaveURL(currentMaterialEditorUrl);
+  const editorUrl = page.url();
+  const materialId = editorUrl.split("/").at(-1);
+  if (materialId === undefined) {
+    throw new Error("Current Material route has no identifier");
+  }
+  const slug = `mutable-material-${materialId}`;
+
+  const stalePage = await context.newPage();
+  await stalePage.goto(editorUrl);
+  await expect(stalePage.getByText("v1").first()).toBeVisible();
+
+  await page.getByLabel("Название").fill("Mutable Material — winner");
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(page.getByText("v2").first()).toBeVisible();
+
+  const localSummary = "Локальный ввод stale editor должен остаться на месте.";
+  await stalePage.getByLabel("Краткое описание").fill(localSummary);
+  await stalePage.getByRole("button", { name: "Сохранить" }).click();
+  await expect(stalePage.getByRole("main").getByRole("alert")).toContainText(
+    "Материал изменился в другой сессии",
+  );
+  await expect(stalePage.getByLabel("Краткое описание")).toHaveValue(localSummary);
+
+  const currentPreviewPromise = context.waitForEvent("page");
+  await stalePage.getByRole("button", { name: "Сравнить" }).click();
+  const currentPreview = await currentPreviewPromise;
+  await currentPreview.waitForLoadState();
+  await expect(
+    currentPreview.getByRole("heading", { name: "Mutable Material — winner", level: 1 }),
+  ).toBeVisible();
+  await expect(stalePage.getByLabel("Краткое описание")).toHaveValue(localSummary);
+
+  const currentEditorPromise = context.waitForEvent("page");
+  await stalePage.getByRole("button", { name: "Открыть текущую" }).click();
+  const currentEditor = await currentEditorPromise;
+  await currentEditor.waitForLoadState();
+  await expect(currentEditor.getByText("v2").first()).toBeVisible();
+  await expect(currentEditor.getByLabel("Название")).toHaveValue(
+    "Mutable Material — winner",
+  );
+  await expect(stalePage.getByLabel("Краткое описание")).toHaveValue(localSummary);
+
+  await page.getByLabel("Адрес").fill(slug);
+  await page.getByRole("combobox", { name: "Публикация" }).click();
+  await page.getByRole("option", { name: "Опубликован" }).click();
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(page.getByText("v3").first()).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Публикация" })).toContainText(
+    "Опубликован",
+  );
+
+  const publicPage = await context.newPage();
+  await publicPage.goto(`/materials/${slug}`);
+  await expect(
+    publicPage.getByRole("heading", { name: "Mutable Material — winner", level: 1 }),
+  ).toBeVisible();
+  await expect(publicPage.getByText("Текущее сохранённое содержимое из PostgreSQL.")).toBeVisible();
+
+  await page.getByRole("combobox", { name: "Публикация" }).click();
+  await page.getByRole("option", { name: "Снят с публикации" }).click();
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(page.getByText("v4").first()).toBeVisible();
+  await publicPage.reload();
+  await expect(publicPage.getByRole("heading", { name: "Материал не найден" })).toBeVisible();
 });
 
 test("trusted author sees a typed not-found state for a missing current Preview", async ({
@@ -102,4 +176,18 @@ async function addFullStackSession(context: BrowserContext) {
       value: session,
     },
   ]);
+}
+
+async function fillPublishableDraft(page: Page, title: string) {
+  await page.getByLabel("Название").fill(title);
+  await page
+    .getByLabel("Краткое описание")
+    .fill("Full-state Save проходит через production Editor и Nest MaterialAuthoring.");
+  await page.getByRole("combobox", { name: "Тема" }).click();
+  await page.getByRole("option", { name: "Platform" }).click();
+  await page.getByRole("combobox", { name: "Формат" }).click();
+  await page.getByRole("option", { name: "Guide" }).click();
+  await page
+    .getByRole("textbox", { name: "Содержимое материала" })
+    .fill("Текущее сохранённое содержимое из PostgreSQL.");
 }

@@ -30,6 +30,7 @@ const noopActions = {
   onRetry: fn(),
   onReturnToEditor: fn(),
   onSave: fn(),
+  onSeriesMembershipChange: fn(),
   onTagToggle: fn(),
 } satisfies MaterialAuthoringActions;
 
@@ -52,13 +53,6 @@ function MaterialAuthoringFixture({
     onBack: noopActions.onBack,
     onConflictAction: (action) => {
       noopActions.onConflictAction(action);
-      if (action === "reload") {
-        setPresentation((current) => ({
-          ...current,
-          blocking: { kind: "none" },
-          save: { kind: "saved", savedAtLabel: "12:41" },
-        }));
-      }
     },
     onDocumentChange: (document: JSONContent) => {
       noopActions.onDocumentChange(document);
@@ -94,6 +88,23 @@ function MaterialAuthoringFixture({
     onSave: () => {
       noopActions.onSave();
       setPresentation(savedAfterEditingPresentation);
+    },
+    onSeriesMembershipChange: (seriesId, ordinal) => {
+      noopActions.onSeriesMembershipChange(seriesId, ordinal);
+      markDirty({
+        ...presentation.draft,
+        seriesMemberships:
+          ordinal === null
+            ? presentation.draft.seriesMemberships.filter(
+                (membership) => membership.seriesId !== seriesId,
+              )
+            : [
+                ...presentation.draft.seriesMemberships.filter(
+                  (membership) => membership.seriesId !== seriesId,
+                ),
+                { ordinal, seriesId },
+              ],
+      });
     },
     onTagToggle: (tagId: string, checked: boolean) => {
       noopActions.onTagToggle(tagId, checked);
@@ -186,9 +197,9 @@ export const Submitting: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const saveButton = canvas.getByRole("button", { name: "Создание…" });
+    const saveButton = canvas.getByRole("button", { name: "Сохранение…" });
     await expect(saveButton).toBeDisabled();
-    await expect(canvas.getAllByText("Создание…").length).toBeGreaterThan(0);
+    await expect(canvas.getAllByText("Сохранение…").length).toBeGreaterThan(0);
     const loader = saveButton.querySelector("svg");
     await expect(loader).not.toBeNull();
     if (loader !== null) {
@@ -250,7 +261,7 @@ export const CreatedDraft: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Черновик создан")).toBeVisible();
+    await expect(canvas.getByText("Material сохранён")).toBeVisible();
     await expect(canvas.getByLabelText("Название")).toBeDisabled();
     await expect(canvas.getByRole("button", { name: "Preview" })).toBeEnabled();
   },
@@ -266,7 +277,7 @@ export const ValidationPassed: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Черновик создан")).toBeVisible();
+    await expect(canvas.getByText("Material сохранён")).toBeVisible();
     await expect(canvas.queryByText(/2 заголовков/)).not.toBeInTheDocument();
   },
 };
@@ -294,7 +305,7 @@ export const ValidationIssues: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Черновик создан")).toBeVisible();
+    await expect(canvas.getByText("Material сохранён")).toBeVisible();
     await expect(canvas.getByText("Перед публикацией")).toBeVisible();
     await expect(canvas.getByText("Назначьте формат перед публикацией.")).toBeVisible();
     await expect(canvas.getByText("Назначьте тему перед публикацией.")).toBeVisible();
@@ -372,7 +383,7 @@ export const ExactPreview: Story = {
     await expect(canvas.getByRole("heading", { name: "Preview текущей версии" })).toBeInTheDocument();
     await expect(canvas.getAllByText(/v3/).length).toBeGreaterThan(0);
     await expect(canvasElement.querySelector("[data-preview-version-banner]")).toHaveTextContent(
-      "Это сохранённый черновик v3. Публичная версия не изменена.",
+      "Это сохранённый черновик v3. Материал ещё не опубликован.",
     );
     await expect(canvas.getByRole("heading", { name: "Developer Pipeline без магии" })).toBeInTheDocument();
   },
@@ -406,10 +417,56 @@ export const Conflict: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Ничего не перезаписано");
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Ваш локальный ввод останется здесь",
+    );
+    await expect(canvas.getByLabelText("Название")).toHaveValue(
+      "Developer Pipeline без магии",
+    );
     await expect(canvas.getByRole("button", { name: "Сравнить" })).toBeEnabled();
+    await userEvent.click(canvas.getByRole("button", { name: "Открыть текущую" }));
+    await expect(noopActions.onConflictAction).toHaveBeenCalledWith("open_current");
     await expect(canvas.getByLabelText("Название")).toBeDisabled();
     await expect(canvas.getByRole("button", { name: "Полужирный" })).toBeDisabled();
+  },
+};
+
+export const Published: Story = {
+  args: {
+    presentation: {
+      ...materialAuthoringPresentation,
+      draft: { ...materialAuthoringPresentation.draft, status: "published" },
+      preview: {
+        ...materialAuthoringPresentation.preview,
+        publicationState: "published",
+      },
+      save: { kind: "saved", savedAtLabel: "12:41" },
+      validation: { headingCount: 1, kind: "valid", plainTextLength: 214 },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByText("Опубликован").length).toBeGreaterThan(0);
+    await expect(canvas.getByLabelText("Адрес")).toHaveAttribute("readonly");
+    await userEvent.click(canvas.getByRole("button", { name: "Preview" }));
+    await expect(canvasElement.querySelector("[data-preview-version-banner]")).toHaveTextContent(
+      "Это текущая live-версия v3.",
+    );
+  },
+};
+
+export const Unpublished: Story = {
+  args: {
+    presentation: {
+      ...materialAuthoringPresentation,
+      draft: { ...materialAuthoringPresentation.draft, status: "unpublished" },
+      save: { kind: "saved", savedAtLabel: "12:41" },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByText("Снят с публикации").length).toBeGreaterThan(0);
+    await expect(canvas.getByLabelText("Название")).toBeEnabled();
   },
 };
 

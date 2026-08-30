@@ -19,6 +19,7 @@ const referenceSchema = z.object({ id: z.uuid(), name: z.string().min(1) }).stri
 const responseSchema = z
   .object({
     formats: z.array(referenceSchema),
+    series: z.array(referenceSchema),
     tags: z.array(referenceSchema),
     topics: z.array(referenceSchema),
   })

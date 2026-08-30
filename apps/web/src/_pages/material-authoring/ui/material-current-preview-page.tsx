@@ -48,7 +48,7 @@ export async function MaterialCurrentPreviewPage({
   }
   return (
     <MaterialCurrentPreview
-      editorHref="/authoring/materials/new"
+      editorHref={`/authoring/materials/${materialId}`}
       preview={state.preview}
     />
   );

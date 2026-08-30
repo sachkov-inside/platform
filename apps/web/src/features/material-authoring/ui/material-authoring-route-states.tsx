@@ -98,15 +98,17 @@ export function MaterialAuthoringUnexpectedPreviewState({
 
 export function MaterialAuthoringUnexpectedEditorState({
   reference,
+  retryHref = "/authoring/materials/new",
 }: {
   readonly reference: string;
+  readonly retryHref?: string;
 }) {
   return (
     <MaterialAuthoringStateScreen
       action={
         <div className="flex flex-wrap justify-center gap-2">
           <Button asChild>
-            <Link href="/authoring/materials/new">Повторить</Link>
+            <Link href={{ pathname: retryHref }}>Повторить</Link>
           </Button>
           <Button asChild variant="outline">
             <Link href="/library">Вернуться к материалам</Link>
@@ -116,6 +118,22 @@ export function MaterialAuthoringUnexpectedEditorState({
       description="Не удалось подтвердить сессию автора. Черновик ещё не создан, данные не изменены."
       detail={`Код обращения: ${reference}`}
       heading="Не удалось открыть редактор"
+      icon={<CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />}
+      shellCurrent="create"
+    />
+  );
+}
+
+export function MaterialAuthoringNotFoundState() {
+  return (
+    <MaterialAuthoringStateScreen
+      action={
+        <Button asChild variant="outline">
+          <Link href="/library">Вернуться к материалам</Link>
+        </Button>
+      }
+      description="Material с таким идентификатором не найден. Локальные изменения не отправлялись."
+      heading="Material не найден"
       icon={<CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />}
       shellCurrent="create"
     />

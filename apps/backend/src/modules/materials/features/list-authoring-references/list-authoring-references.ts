@@ -26,8 +26,12 @@ export function assembleListAuthoringReferences(
     }
 
     try {
-      const [formats, tags, topics] = await Promise.all([
+      const [formats, series, tags, topics] = await Promise.all([
         dependencies.prisma.format.findMany({
+          orderBy: [{ name: "asc" }, { id: "asc" }],
+          select: { id: true, name: true },
+        }),
+        dependencies.prisma.series.findMany({
           orderBy: [{ name: "asc" }, { id: "asc" }],
           select: { id: true, name: true },
         }),
@@ -40,7 +44,7 @@ export function assembleListAuthoringReferences(
           select: { id: true, name: true },
         }),
       ]);
-      return { ok: true, value: { formats, tags, topics } };
+      return { ok: true, value: { formats, series, tags, topics } };
     } catch (error) {
       return failure(mapPostgresReadError(error));
     }

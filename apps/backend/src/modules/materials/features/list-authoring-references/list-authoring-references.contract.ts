@@ -15,6 +15,7 @@ export interface ListAuthoringReferencesQuery {
 
 export interface AuthoringReferencesDto {
   readonly formats: readonly AuthoringReferenceDto[];
+  readonly series: readonly AuthoringReferenceDto[];
   readonly tags: readonly AuthoringReferenceDto[];
   readonly topics: readonly AuthoringReferenceDto[];
 }
