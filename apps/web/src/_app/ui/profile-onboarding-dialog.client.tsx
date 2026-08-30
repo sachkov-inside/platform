@@ -47,11 +47,8 @@ export function ProfileOnboardingDialog({
 
   useEffect(() => {
     if (state.kind !== "saved") return;
-    dialog.current?.close();
     router.refresh();
   }, [router, state.kind]);
-
-  if (state.kind === "saved") return null;
 
   return (
     <dialog
@@ -86,8 +83,6 @@ export function ProfileOnboardingDialog({
               autoFocus
               className="profile-field mt-2 min-h-12 w-full rounded-xl border border-input bg-background px-4 text-base shadow-sm"
               id="onboarding-display-name"
-              maxLength={80}
-              minLength={2}
               name="displayName"
               onBlur={() => {
                 setTouched(true);
@@ -132,7 +127,9 @@ export function ProfileOnboardingDialog({
           </form>
           <Button
             className="min-h-11 px-5"
-            disabled={pending || invalid}
+            disabled={
+              pending || invalid || !displayNameLengthIsValid(displayName)
+            }
             form="profile-onboarding-form"
             type="submit"
           >

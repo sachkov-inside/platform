@@ -41,6 +41,7 @@ export function AccountPageClient({
   onProfileChange,
   saveAction,
 }: AccountPageClientProps) {
+  const [profile, setProfile] = useState(initialProfile);
   const [displayName, setDisplayName] = useState(initialProfile?.displayName ?? "");
   const [bio, setBio] = useState(initialProfile?.bio ?? "");
   const [nameTouched, setNameTouched] = useState(false);
@@ -59,6 +60,7 @@ export function AccountPageClient({
         setBio(result.profile.bio ?? "");
         setNameTouched(false);
         setBioTouched(false);
+        setProfile(result.profile);
         onProfileChange?.(result.profile);
       }
       return result;
@@ -72,6 +74,7 @@ export function AccountPageClient({
         deleteDialog.current?.close();
         setDisplayName("");
         setBio("");
+        setProfile(null);
         onProfileChange?.(null);
       }
       return result;
@@ -86,10 +89,6 @@ export function AccountPageClient({
     acceptDelete,
     initialProfileMutationState,
   );
-  const savedProfile = saveState.kind === "saved" ? saveState.profile : null;
-  const profile =
-    savedProfile ?? (deleteState.kind === "deleted" ? null : initialProfile);
-
   const nameLength = memberProfileTextLength(displayName.trim());
   const bioLength = memberProfileTextLength(bio);
   const serverNameError =
@@ -165,8 +164,6 @@ export function AccountPageClient({
                 aria-invalid={nameInvalid || undefined}
                 className="profile-field mt-2 min-h-12 w-full rounded-xl border border-input bg-background px-4 text-base shadow-sm transition-colors placeholder:text-muted-foreground/65 focus:border-ring"
                 id="profile-display-name"
-                maxLength={80}
-                minLength={2}
                 name="displayName"
                 onBlur={() => {
                   setNameTouched(true);
@@ -200,7 +197,6 @@ export function AccountPageClient({
                 aria-invalid={bioInvalid || undefined}
                 className="profile-field mt-2 min-h-40 w-full resize-y rounded-xl border border-input bg-background px-4 py-3 text-base leading-7 shadow-sm transition-colors placeholder:text-muted-foreground/65 focus:border-ring"
                 id="profile-bio"
-                maxLength={500}
                 name="bio"
                 onBlur={() => {
                   setBioTouched(true);

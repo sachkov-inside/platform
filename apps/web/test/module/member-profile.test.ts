@@ -82,6 +82,22 @@ describe("Member Profile web workflow", () => {
     expect(dependencies.create).not.toHaveBeenCalled();
   });
 
+  it("counts authored fields by Unicode code point", async () => {
+    const dependencies = successfulDependencies();
+    const formData = new FormData();
+    formData.set("mode", "create");
+    formData.set("displayName", "🙂".repeat(80));
+    formData.set("bio", "🙂".repeat(500));
+
+    await expect(
+      executeSaveMemberProfile(formData, "access-token", dependencies),
+    ).resolves.toMatchObject({ kind: "saved" });
+    expect(dependencies.create).toHaveBeenCalledWith(
+      { bio: "🙂".repeat(500), displayName: "🙂".repeat(80) },
+      "access-token",
+    );
+  });
+
   it("maps field-level backend validation and stale-version conflicts", async () => {
     const invalidDependencies = {
       ...successfulDependencies(),

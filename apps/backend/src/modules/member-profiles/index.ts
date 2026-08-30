@@ -7,6 +7,7 @@ export {
 } from "./features/moderate-profile/moderate-profile.js";
 export {
   listOpenProfileReports,
+  type ListOpenProfileReportsError,
   type OpenProfileReport,
 } from "./features/list-open-profile-reports/list-open-profile-reports.js";
 export type {

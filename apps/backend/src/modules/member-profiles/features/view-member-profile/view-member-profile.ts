@@ -27,9 +27,11 @@ export async function viewMemberProfile(
       where: { publicProfileId, status: "active" },
       select: { publicProfileId: true, displayName: true, bio: true },
     });
-    return profile === null
-      ? { ok: false, error: { code: "not_found" } }
-      : { ok: true, profile: memberProfileProjection(profile) };
+    if (profile === null) return { ok: false, error: { code: "not_found" } };
+    const projection = memberProfileProjection(profile);
+    return projection === null
+      ? { ok: false, error: internalProfileError() }
+      : { ok: true, profile: projection };
   } catch {
     return { ok: false, error: internalProfileError() };
   }

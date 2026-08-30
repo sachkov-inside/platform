@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/shared/ui/select";
 
-type ProfileReportAction = (
+export type ProfileReportAction = (
   state: ProfileReportState,
   formData: FormData,
 ) => Promise<ProfileReportState>;

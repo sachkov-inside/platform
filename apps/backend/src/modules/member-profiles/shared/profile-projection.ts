@@ -3,6 +3,7 @@ import type {
   MemberProfileStatus,
   PrivateMemberProfile,
 } from "../facets/member-profiles/member-profiles.interface.js";
+import { parsePublicProfileId } from "../domain/public-profile-id.js";
 
 interface StoredMemberProfile {
   readonly publicProfileId: string;
@@ -18,10 +19,11 @@ export function privateProfileProjection(
   profile: StoredMemberProfile,
 ): PrivateMemberProfile | null {
   const status = profileStatus(profile.status);
-  return status === null
+  const publicProfileId = parsePublicProfileId(profile.publicProfileId);
+  return status === null || publicProfileId === undefined
     ? null
     : {
-        publicProfileId: profile.publicProfileId,
+        publicProfileId,
         displayName: profile.displayName,
         bio: profile.bio,
         status,
@@ -36,9 +38,12 @@ export function memberProfileProjection(
     StoredMemberProfile,
     "publicProfileId" | "displayName" | "bio"
   >,
-): MemberProfileProjection {
-  return {
-    publicProfileId: profile.publicProfileId,
+): MemberProfileProjection | null {
+  const publicProfileId = parsePublicProfileId(profile.publicProfileId);
+  return publicProfileId === undefined
+    ? null
+    : {
+    publicProfileId,
     displayName: profile.displayName,
     bio: profile.bio,
   };

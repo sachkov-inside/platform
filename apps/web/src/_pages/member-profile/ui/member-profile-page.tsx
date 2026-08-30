@@ -1,11 +1,10 @@
 import { notFound } from "next/navigation";
 
-import { MemberProfileProjection } from "@/_pages/account";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 
 import { getMemberProfile } from "../api/get-member-profile";
 import { reportMemberProfileAction } from "../api/report-member-profile.action";
-import { MemberProfileReport } from "./member-profile-report.client";
+import { MemberProfileReady } from "./member-profile-ready";
 
 export async function MemberProfilePage({
   publicProfileId,
@@ -38,16 +37,9 @@ export async function MemberProfilePage({
   }
 
   return (
-    <div className="mx-auto max-w-3xl py-4 sm:py-10">
-      <MemberProfileProjection
-        fields={result.profile}
-        headingLevel="h1"
-        label="Участник сообщества"
-      />
-      <MemberProfileReport
-        publicProfileId={result.profile.publicProfileId}
-        reportAction={reportMemberProfileAction}
-      />
-    </div>
+    <MemberProfileReady
+      profile={result.profile}
+      reportAction={reportMemberProfileAction}
+    />
   );
 }

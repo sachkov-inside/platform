@@ -14,7 +14,9 @@ async function main(): Promise<void> {
   try {
     const action = process.env.PROFILE_MODERATION_ACTION;
     if (action === "list") {
-      process.stdout.write(`${JSON.stringify(await listOpenProfileReports(prisma))}\n`);
+      const result = await listOpenProfileReports(prisma);
+      process.stdout.write(`${JSON.stringify(result)}\n`);
+      if (!result.ok) process.exitCode = 1;
       return;
     }
     if (action !== "disable" && action !== "restore") {

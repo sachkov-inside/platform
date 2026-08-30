@@ -18,21 +18,18 @@ import {
 } from "./member-profile-contract";
 
 const textField = z.string().refine((value) => !hasRejectedControlCharacters(value));
+const profileFieldsSchema = z.object({
+  bio: textField.refine((value) => codePointLength(value) <= 500),
+  displayName: textField.refine((value) => {
+    const length = codePointLength(value.trim());
+    return length >= 2 && length <= 80;
+  }),
+});
 const profileFormSchema = z.discriminatedUnion("mode", [
-  z.object({
-    bio: textField.refine((value) => codePointLength(value) <= 500),
-    displayName: textField.refine((value) => {
-      const length = codePointLength(value.trim());
-      return length >= 2 && length <= 80;
-    }),
+  profileFieldsSchema.extend({
     mode: z.literal("create"),
   }),
-  z.object({
-    bio: textField.refine((value) => codePointLength(value) <= 500),
-    displayName: textField.refine((value) => {
-      const length = codePointLength(value.trim());
-      return length >= 2 && length <= 80;
-    }),
+  profileFieldsSchema.extend({
     expectedVersion: z.coerce.number().int().positive(),
     mode: z.literal("update"),
   }),

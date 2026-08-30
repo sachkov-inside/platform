@@ -1,10 +1,13 @@
 import { saveMemberProfileAction } from "@/_pages/account.server";
 
-import { resolveAccountProfileRuntime } from "../api/resolve-account-profile-runtime";
+import type { AccountProfileRuntime } from "../api/resolve-account-profile-runtime";
 import { ProfileOnboardingDialog } from "./profile-onboarding-dialog.client";
 
-export async function ProfileOnboardingSlot() {
-  const runtime = await resolveAccountProfileRuntime();
+export function ProfileOnboardingSlot({
+  runtime,
+}: {
+  readonly runtime: AccountProfileRuntime;
+}) {
   if (runtime.kind === "unavailable") return <ProfileOnboardingUnavailable />;
   if (runtime.kind !== "authenticated" || runtime.profile !== null) return null;
   return <ProfileOnboardingDialog createAction={saveMemberProfileAction} />;

@@ -26,6 +26,10 @@ test("onboards the Account owner and preserves the complete Profile lifecycle", 
   expect(home?.status()).toBe(200);
   const onboarding = page.getByRole("dialog", { name: "Как к вам обращаться?" });
   await expect(onboarding).toBeVisible();
+  await expect(page.locator("[data-profile-gated=true]")).toHaveAttribute(
+    "inert",
+    "",
+  );
   await expect(onboarding.getByLabel("Имя")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(onboarding).toBeVisible();
@@ -33,6 +37,7 @@ test("onboards the Account owner and preserves the complete Profile lifecycle", 
   await onboarding.getByLabel("Имя").fill("Кирилл Сачков");
   await onboarding.getByRole("button", { name: "Продолжить" }).click();
   await expect(onboarding).toBeHidden();
+  await expect(page.locator("[data-profile-gated=true]")).toHaveCount(0);
   await page.getByRole("link", { name: /Открыть аккаунт/u }).click();
   await expect(page).toHaveURL(/\/account$/u);
   await expect(page.getByRole("heading", { name: "Ваш профиль" })).toBeVisible();

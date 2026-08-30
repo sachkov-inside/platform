@@ -8,9 +8,12 @@ import {
   AppShell,
   AuthAccountSlot,
   AuthControlFallback,
-  ProfileOnboardingSlot,
   QueryProvider,
 } from "@/_app";
+import {
+  ProfileOnboardingSlot,
+  resolveAccountProfileRuntime,
+} from "@/_app/index.server";
 
 import "./globals.css";
 
@@ -22,35 +25,38 @@ export const metadata: Metadata = {
   description: "Материалы, темы и серии Sachkov Inside",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default async function RootLayout({
+  children,
+}: Readonly<{ children: ReactNode }>) {
+  const profileRuntime = await resolveAccountProfileRuntime();
+  const profileGateRequired =
+    profileRuntime.kind === "unavailable" ||
+    (profileRuntime.kind === "authenticated" && profileRuntime.profile === null);
+
   return (
     <html lang="ru">
       <body>
-        <template
-          data-direction-contract="member-profile-7cf2ca08"
-          dangerouslySetInnerHTML={{
-            __html:
-              "<!-- THESIS: Private Account is an editable source beside its exact member projection, refusing a generic settings stack. OWN-WORLD: warm paper, charcoal type, fine workshop rules, scarce safety orange, rounded utility controls. STORY: the owner names themself, sees precisely what members see, then manages export or deletion without ambiguity. FIRST VIEWPORT: editor left, narrow labeled seam center, member projection right; the save action sits at the editor heading. FORM: Mirror seam, first of three dealt directions, seed 7cf2ca08. FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->",
-          }}
-        />
         <QueryProvider>
-          <AppShell
-            desktopAccountSlot={
-              <Suspense fallback={<AuthControlFallback presentation="desktop" />}>
-                <AuthAccountSlot presentation="desktop" />
-              </Suspense>
-            }
-            mobileAccountSlot={
-              <Suspense fallback={<AuthControlFallback presentation="mobile" />}>
-                <AuthAccountSlot presentation="mobile" />
-              </Suspense>
-            }
+          <div
+            data-profile-gated={profileGateRequired || undefined}
+            inert={profileGateRequired || undefined}
           >
-            {children}
-          </AppShell>
-          <Suspense fallback={null}>
-            <ProfileOnboardingSlot />
-          </Suspense>
+            <AppShell
+              desktopAccountSlot={
+                <Suspense fallback={<AuthControlFallback presentation="desktop" />}>
+                  <AuthAccountSlot presentation="desktop" />
+                </Suspense>
+              }
+              mobileAccountSlot={
+                <Suspense fallback={<AuthControlFallback presentation="mobile" />}>
+                  <AuthAccountSlot presentation="mobile" />
+                </Suspense>
+              }
+            >
+              {children}
+            </AppShell>
+          </div>
+          <ProfileOnboardingSlot runtime={profileRuntime} />
         </QueryProvider>
       </body>
     </html>

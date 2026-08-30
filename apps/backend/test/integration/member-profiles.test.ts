@@ -194,10 +194,12 @@ describe("MemberProfiles", () => {
     ).resolves.toEqual({ ok: false, error: { code: "not_found" } });
     await expect(database.prisma.memberProfileReport.count()).resolves.toBe(1);
     const openReports = await listOpenProfileReports(database.prisma);
-    expect(openReports).toHaveLength(1);
-    expect(openReports[0]?.publicProfileId).toBe(created.publicProfileId);
-    expect(openReports[0]?.reason).toBe("unsafe_content");
-    expect(typeof openReports[0]?.createdAt).toBe("string");
+    expect(openReports.ok).toBe(true);
+    if (!openReports.ok) throw new Error("Open Profile reports could not be listed");
+    expect(openReports.value).toHaveLength(1);
+    expect(openReports.value[0]?.publicProfileId).toBe(created.publicProfileId);
+    expect(openReports.value[0]?.reason).toBe("unsafe_content");
+    expect(typeof openReports.value[0]?.createdAt).toBe("string");
 
     await expect(
       moderateMemberProfile(
@@ -213,7 +215,10 @@ describe("MemberProfiles", () => {
       ok: true,
       value: { kind: "profile", profile: { status: "disabled", version: 2 } },
     });
-    await expect(listOpenProfileReports(database.prisma)).resolves.toEqual([]);
+    await expect(listOpenProfileReports(database.prisma)).resolves.toEqual({
+      ok: true,
+      value: [],
+    });
     await expect(
       moderateMemberProfile(
         database.prisma,

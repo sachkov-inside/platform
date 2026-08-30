@@ -24,6 +24,23 @@ function conflictState(): Promise<ProfileMutationState> {
   return Promise.resolve({ currentVersion: 4, kind: "conflict" });
 }
 
+function deletedState(): Promise<ProfileMutationState> {
+  return Promise.resolve({ kind: "deleted" });
+}
+
+function recreatedState(): Promise<ProfileMutationState> {
+  return Promise.resolve({
+    kind: "saved",
+    profile: {
+      ...activeProfile,
+      bio: null,
+      displayName: "Новый профиль",
+      publicProfileId: "92299055-8c7d-4388-9071-6719af177869",
+      version: 1,
+    },
+  });
+}
+
 const meta = {
   args: {
     deleteAction: preserveState,
@@ -90,6 +107,24 @@ export const Missing: Story = {
     await expect(canvas.getByRole("button", { name: "Создать" })).toBeInTheDocument();
     await expect(
       canvas.getByText(/получит новый непредсказуемый публичный адрес/iu),
+    ).toBeInTheDocument();
+  },
+};
+
+export const DeleteAndRecreate: Story = {
+  args: { deleteAction: deletedState, saveAction: recreatedState },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Удалить профиль" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Удалить безвозвратно" }),
+    );
+    await expect(canvas.getByRole("button", { name: "Создать" })).toBeInTheDocument();
+    await expect(canvas.queryByText(activeProfile.publicProfileId, { exact: false })).not.toBeInTheDocument();
+    await userEvent.type(canvas.getByLabelText("Имя"), "Новый профиль");
+    await userEvent.click(canvas.getByRole("button", { name: "Создать" }));
+    await expect(
+      canvas.getByText("92299055-8c7d-4388-9071-6719af177869", { exact: false }),
     ).toBeInTheDocument();
   },
 };
