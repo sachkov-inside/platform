@@ -1,5 +1,14 @@
+import { mkdir } from "node:fs/promises";
+import { resolve } from "node:path";
+
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 
 const currentMaterialEditorUrl = /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
 
@@ -203,7 +212,7 @@ test("full-state Save is live and a stale editor preserves local input through l
 test("trusted author publishes and unpublishes the same full state from the Materials list", async ({
   context,
   page,
-}) => {
+}, testInfo) => {
   const title = `Lifecycle из списка ${String(Date.now())}`;
   await addFullStackSession(context);
   await page.goto("/authoring/materials/new");
@@ -216,7 +225,15 @@ test("trusted author publishes and unpublishes the same full state from the Mate
   const row = page.getByRole("listitem").filter({ hasText: title });
   await expect(row).toBeVisible();
   await expect(row.getByText("Черновик", { exact: true })).toBeVisible();
-  await expect(row.getByRole("button", { name: "Удалить черновик" })).toBeVisible();
+  const deleteButton = row.getByRole("button", { name: "Удалить черновик" });
+  await expect(deleteButton).toBeVisible();
+  await captureLifecycleEvidence(page, testInfo, "live-lifecycle");
+  await deleteButton.click();
+  const deleteDialog = page.getByRole("dialog", { name: `Удалить «${title}»?` });
+  await expect(deleteDialog).toBeVisible();
+  await captureLifecycleEvidence(page, testInfo, "live-delete-confirmation");
+  await deleteDialog.getByRole("button", { name: "Оставить черновик" }).click();
+  await expect(deleteDialog).toBeHidden();
 
   await row.getByRole("button", { name: "Опубликовать" }).click();
   await expect(row.getByText("Опубликован", { exact: true })).toBeVisible({
@@ -389,4 +406,24 @@ async function fillPublishableDraft(page: Page, title: string) {
   await page
     .getByRole("textbox", { name: "Содержимое материала" })
     .fill("Текущее сохранённое содержимое из PostgreSQL.");
+}
+
+async function captureLifecycleEvidence(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+) {
+  if (process.env.CAPTURE_EVIDENCE !== "1") return;
+  const evidenceDirectory = resolve(
+    process.cwd(),
+    "../../docs/evidence/issue-150",
+  );
+  await mkdir(evidenceDirectory, { recursive: true });
+  const viewport =
+    testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
+  await page.screenshot({
+    animations: "disabled",
+    fullPage: true,
+    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+  });
 }

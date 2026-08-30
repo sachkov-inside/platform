@@ -79,6 +79,10 @@ export function MaterialAuthoringWorkspace({
       />
     );
   }
+  const canSave =
+    presentation.save.kind === "dirty" &&
+    presentation.blocking.kind === "none" &&
+    !presentation.draft.readOnly;
 
   return (
     <MaterialAuthoringShell current="create">
@@ -89,7 +93,7 @@ export function MaterialAuthoringWorkspace({
         id="authoring-content"
         tabIndex={-1}
       >
-        <EditorHeader actions={actions} presentation={presentation} />
+        <EditorHeader actions={actions} canSave={canSave} presentation={presentation} />
         <BlockingState actions={actions} presentation={presentation} />
         <AuthoringNotice presentation={presentation} />
 
@@ -107,11 +111,7 @@ export function MaterialAuthoringWorkspace({
               return;
             }
             event.preventDefault();
-            if (
-              presentation.save.kind === "dirty" &&
-              presentation.blocking.kind === "none" &&
-              !presentation.draft.readOnly
-            ) {
+            if (canSave) {
               event.currentTarget.requestSubmit();
             }
           }}
@@ -147,8 +147,9 @@ export function MaterialAuthoringWorkspace({
 
 function EditorHeader({
   actions,
+  canSave,
   presentation,
-}: MaterialAuthoringWorkspaceProps) {
+}: MaterialAuthoringWorkspaceProps & { readonly canSave: boolean }) {
   const previewDisabled =
     presentation.draft.contentVersion === null ||
     presentation.save.kind === "dirty" ||
@@ -204,7 +205,7 @@ function EditorHeader({
               variant="outline"
             />
           )}
-          <Button className="col-span-2 min-h-11 px-3 sm:col-span-1" disabled={presentation.save.kind !== "dirty" || presentation.blocking.kind !== "none" || presentation.draft.readOnly} form="material-authoring-form" type="submit">
+          <Button className="col-span-2 min-h-11 px-3 sm:col-span-1" disabled={!canSave} form="material-authoring-form" type="submit">
             {presentation.save.kind === "submitting" ? (
               <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" data-icon="inline-start" />
             ) : (
