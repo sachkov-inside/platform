@@ -25,7 +25,7 @@ export function acceptMemberProfileFields(
     const length = unicodeLength(displayName);
     if (length < 2) issues.push({ field: "displayName", code: "too_short" });
     if (length > 80) issues.push({ field: "displayName", code: "too_long" });
-    if (hasForbiddenControlCharacters(displayName)) {
+    if (hasForbiddenControlCharacters(displayName, false)) {
       issues.push({ field: "displayName", code: "invalid_characters" });
     }
   }
@@ -34,7 +34,7 @@ export function acceptMemberProfileFields(
     if (unicodeLength(bio) > 500) {
       issues.push({ field: "bio", code: "too_long" });
     }
-    if (hasForbiddenControlCharacters(bio)) {
+    if (hasForbiddenControlCharacters(bio, true)) {
       issues.push({ field: "bio", code: "invalid_characters" });
     }
   }
@@ -46,27 +46,30 @@ export function acceptMemberProfileFields(
 
 function normalizeDisplayName(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  const normalized = value.trim().replace(/\s+/gu, " ");
+  const normalized = value.trim();
   return normalized.length === 0 ? null : normalized;
 }
 
 function normalizeBio(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   if (typeof value !== "string") return "\u0000";
-  const normalized = value.replace(/\r\n?/gu, "\n").trim();
-  return normalized.length === 0 ? null : normalized;
+  return value.length === 0 || value.trim().length === 0 ? null : value;
 }
 
 function unicodeLength(value: string): number {
   return Array.from(value).length;
 }
 
-function hasForbiddenControlCharacters(value: string): boolean {
+function hasForbiddenControlCharacters(
+  value: string,
+  multiline: boolean,
+): boolean {
   return Array.from(value).some((character) => {
     const codePoint = character.codePointAt(0);
     return (
       codePoint !== undefined &&
-      ((codePoint >= 0 && codePoint <= 8) ||
+      ((!multiline && (codePoint === 9 || codePoint === 10 || codePoint === 13)) ||
+        (codePoint >= 0 && codePoint <= 8) ||
         codePoint === 11 ||
         codePoint === 12 ||
         (codePoint >= 14 && codePoint <= 31) ||

@@ -2,16 +2,15 @@
 
 import { z } from "zod";
 
-import { parseReportOutcome } from "@/_pages/account/api/member-profile-contract";
-import {
-  type ProfileReportState,
-} from "@/_pages/account/model/member-profile";
+import type { ProfileReportState } from "@/_pages/account";
 import { requestMemberProfileReport } from "@/shared/api/backend/index.server";
 import {
   getPlatformAccessToken,
   LogtoSessionUnavailableError,
   readLogtoBffConfig,
 } from "@/shared/auth/index.server";
+
+import { parseReportOutcome } from "./member-profile-contract";
 
 const reportSchema = z.object({
   publicProfileId: z.uuid(),

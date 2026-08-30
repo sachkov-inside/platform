@@ -16,6 +16,11 @@ import {
   type PrivateMemberProfile,
   type ProfileMutationState,
 } from "../model/member-profile";
+import {
+  bioLengthIsValid,
+  displayNameLengthIsValid,
+  memberProfileTextLength,
+} from "../model/profile-fields";
 import { MemberProfileProjection } from "./member-profile-projection";
 
 type ProfileMutationAction = (
@@ -26,12 +31,14 @@ type ProfileMutationAction = (
 interface AccountPageClientProps {
   readonly deleteAction: ProfileMutationAction;
   readonly initialProfile: PrivateMemberProfile | null;
+  readonly onProfileChange?: (profile: PrivateMemberProfile | null) => void;
   readonly saveAction: ProfileMutationAction;
 }
 
 export function AccountPageClient({
   deleteAction,
   initialProfile,
+  onProfileChange,
   saveAction,
 }: AccountPageClientProps) {
   const [displayName, setDisplayName] = useState(initialProfile?.displayName ?? "");
@@ -52,10 +59,11 @@ export function AccountPageClient({
         setBio(result.profile.bio ?? "");
         setNameTouched(false);
         setBioTouched(false);
+        onProfileChange?.(result.profile);
       }
       return result;
     },
-    [saveAction],
+    [onProfileChange, saveAction],
   );
   const acceptDelete = useCallback(
     async (state: ProfileMutationState, formData: FormData) => {
@@ -64,10 +72,11 @@ export function AccountPageClient({
         deleteDialog.current?.close();
         setDisplayName("");
         setBio("");
+        onProfileChange?.(null);
       }
       return result;
     },
-    [deleteAction],
+    [deleteAction, onProfileChange],
   );
   const [saveState, saveFormAction, savePending] = useActionState(
     acceptSave,
@@ -79,10 +88,10 @@ export function AccountPageClient({
   );
   const savedProfile = saveState.kind === "saved" ? saveState.profile : null;
   const profile =
-    deleteState.kind === "deleted" ? null : (savedProfile ?? initialProfile);
+    savedProfile ?? (deleteState.kind === "deleted" ? null : initialProfile);
 
-  const nameLength = codePointLength(displayName.trim());
-  const bioLength = codePointLength(bio.trim());
+  const nameLength = memberProfileTextLength(displayName.trim());
+  const bioLength = memberProfileTextLength(bio);
   const serverNameError =
     saveState.kind === "invalid_input"
       ? saveState.fieldErrors.displayName
@@ -90,13 +99,16 @@ export function AccountPageClient({
   const serverBioError =
     saveState.kind === "invalid_input" ? saveState.fieldErrors.bio : undefined;
   const nameInvalid =
-    serverNameError !== undefined || (nameTouched && (nameLength < 2 || nameLength > 80));
-  const bioInvalid = serverBioError !== undefined || (bioTouched && bioLength > 500);
-  const fieldsAreValid = nameLength >= 2 && nameLength <= 80 && bioLength <= 500;
+    serverNameError !== undefined ||
+    (nameTouched && !displayNameLengthIsValid(displayName));
+  const bioInvalid =
+    serverBioError !== undefined || (bioTouched && !bioLengthIsValid(bio));
+  const fieldsAreValid =
+    displayNameLengthIsValid(displayName) && bioLengthIsValid(bio);
   const fieldsAreDirty =
     profile === null ||
     displayName.trim() !== profile.displayName ||
-    emptyToNull(bio.trim()) !== profile.bio;
+    emptyToNull(bio) !== profile.bio;
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -233,7 +245,7 @@ export function AccountPageClient({
               Точная проекция
             </h2>
             <p className="mt-1 text-sm font-medium text-muted-foreground">
-              Видят участники
+              {profile === null ? "Появится после создания" : "Видят участники"}
             </p>
           </div>
           {profile?.status === "disabled" ? (
@@ -246,7 +258,11 @@ export function AccountPageClient({
             </div>
           ) : null}
           <MemberProfileProjection
-            fields={{ bio: emptyToNull(bio.trim()), displayName }}
+            fields={
+              profile === null
+                ? { bio: null, displayName: "" }
+                : { bio: profile.bio, displayName: profile.displayName }
+            }
           />
           {profile === null ? (
             <p className="mt-4 text-sm text-muted-foreground">
@@ -404,10 +420,6 @@ function MutationNotice({ state }: { readonly state: ProfileMutationState }) {
   );
 }
 
-function codePointLength(value: string): number {
-  return Array.from(value).length;
-}
-
 function emptyToNull(value: string): string | null {
-  return value.length === 0 ? null : value;
+  return value.trim().length === 0 ? null : value;
 }

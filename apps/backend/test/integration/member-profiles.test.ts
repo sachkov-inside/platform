@@ -55,7 +55,7 @@ describe("MemberProfiles", () => {
   test("creates one Profile per Account while allowing duplicate display names", async () => {
     const command = {
       accountId: ownerAccountId,
-      displayName: "  Кирилл   Сачков ",
+      displayName: "  Кирилл Сачков ",
       bio: null,
     };
     const concurrent = await Promise.all([
@@ -85,7 +85,7 @@ describe("MemberProfiles", () => {
     ]);
   });
 
-  test("updates through optimistic concurrency and keeps audit free of field values", async () => {
+  test("protects updates and deletes with optimistic concurrency", async () => {
     const created = await createOwnerProfile(profiles);
     const updated = await profiles.updateProfile({
       accountId: ownerAccountId,
@@ -108,6 +108,16 @@ describe("MemberProfiles", () => {
       ok: false,
       error: { code: "conflict", currentVersion: 2 },
     });
+    await expect(
+      profiles.deleteProfile({
+        accountId: ownerAccountId,
+        expectedVersion: created.version,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "conflict", currentVersion: 2 },
+    });
+    await expect(database.prisma.memberProfile.count()).resolves.toBe(1);
 
     const audit = await database.prisma.memberProfileAuditEvent.findMany();
     expect(JSON.stringify(audit)).not.toContain("Новое имя");

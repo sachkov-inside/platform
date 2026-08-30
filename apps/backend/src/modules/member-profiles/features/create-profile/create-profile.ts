@@ -1,4 +1,5 @@
 import type {
+  CreateMemberProfileError,
   CreateMemberProfileCommand,
   MemberProfileResult,
   PrivateMemberProfile,
@@ -16,7 +17,7 @@ import {
 export async function createProfile(
   prisma: MemberProfilePersistenceClient,
   command: CreateMemberProfileCommand,
-): Promise<MemberProfileResult<PrivateMemberProfile>> {
+): Promise<MemberProfileResult<PrivateMemberProfile, CreateMemberProfileError>> {
   const accepted = acceptMemberProfileFields(command);
   if (!accepted.ok) {
     return profileFailure({ code: "invalid_input", issues: accepted.issues });

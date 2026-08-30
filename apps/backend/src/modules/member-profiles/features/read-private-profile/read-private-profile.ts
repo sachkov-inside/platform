@@ -2,6 +2,7 @@ import type { AccountId } from "../../../accounts/index.js";
 import type {
   MemberProfileResult,
   PrivateProfileState,
+  ReadPrivateProfileError,
 } from "../../facets/member-profiles/member-profiles.interface.js";
 import type { MemberProfilePersistence } from "../../infrastructure/prisma.js";
 import {
@@ -13,7 +14,7 @@ import { privateProfileProjection } from "../../shared/profile-projection.js";
 export async function readPrivateProfile(
   prisma: MemberProfilePersistence,
   accountId: AccountId,
-): Promise<MemberProfileResult<PrivateProfileState>> {
+): Promise<MemberProfileResult<PrivateProfileState, ReadPrivateProfileError>> {
   try {
     const stored = await prisma.memberProfile.findUnique({
       where: { accountId },

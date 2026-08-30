@@ -11,8 +11,8 @@ import {
 } from "@/shared/api/backend/index.server";
 
 import type { ProfileMutationState } from "../model/member-profile";
+import { parseMemberProfileProblem } from "@/entities/member-profile";
 import {
-  parseMemberProfileProblem,
   parsePrivateProfile,
   profileIssueMessage,
 } from "./member-profile-contract";
@@ -20,7 +20,7 @@ import {
 const textField = z.string().refine((value) => !hasRejectedControlCharacters(value));
 const profileFormSchema = z.discriminatedUnion("mode", [
   z.object({
-    bio: textField.refine((value) => codePointLength(value.trim()) <= 500),
+    bio: textField.refine((value) => codePointLength(value) <= 500),
     displayName: textField.refine((value) => {
       const length = codePointLength(value.trim());
       return length >= 2 && length <= 80;
@@ -28,7 +28,7 @@ const profileFormSchema = z.discriminatedUnion("mode", [
     mode: z.literal("create"),
   }),
   z.object({
-    bio: textField.refine((value) => codePointLength(value.trim()) <= 500),
+    bio: textField.refine((value) => codePointLength(value) <= 500),
     displayName: textField.refine((value) => {
       const length = codePointLength(value.trim());
       return length >= 2 && length <= 80;
@@ -83,8 +83,8 @@ export async function executeSaveMemberProfile(
   let result: BackendTransportResult;
   try {
     const input = {
-      bio: emptyToNull(parsed.data.bio.trim()),
-      displayName: parsed.data.displayName,
+      bio: emptyToNull(parsed.data.bio),
+      displayName: parsed.data.displayName.trim(),
     };
     result =
       parsed.data.mode === "create"
@@ -172,7 +172,7 @@ function unavailable(
 }
 
 function emptyToNull(value: string): string | null {
-  return value.length === 0 ? null : value;
+  return value.trim().length === 0 ? null : value;
 }
 
 function codePointLength(value: string): number {

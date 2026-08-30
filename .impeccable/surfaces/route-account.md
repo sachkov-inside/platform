@@ -15,6 +15,7 @@ Finish verdict: `ship`; `material_fixes: []`. Production desktop/mobile evidence
 `docs/evidence/issue-51/`. Owner production visual GO is still pending, so Mirror seam is a
 candidate pattern backed by evidence, not a globally approved mandate. Asset production returned
 `produce: []` and `direct: []`; no raster ships.
+Owner visual acceptance and removal of the temporary #51 interface marker are tracked in #155.
 
 The memorable moment is one literal privacy seam: `Только вы` and `Видят участники`. Desktop keeps editor and exact preview beside it; narrow screens preserve the same truth as edit → preview → lifecycle actions. Onboarding is a focused modal over the current application surface and asks only `Как к вам обращаться?`.
 

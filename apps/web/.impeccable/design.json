@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-30T13:11:10Z",
+  "generatedAt": "2026-08-25T06:49:39Z",
   "title": "Design System: Sachkov Inside Platform",
   "extensions": {
     "colorMeta": {
@@ -120,12 +120,12 @@
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Restrained page and exact-preview titles with a -0.04em tracking floor." },
+      "display": { "displayName": "Display", "purpose": "Restrained page and exact-preview titles." },
       "headline": { "displayName": "Headline", "purpose": "Reading and section hierarchy." },
       "title": { "displayName": "Title", "purpose": "Compact card, panel and authoring titles." },
       "body": { "displayName": "Body", "purpose": "Product copy and long-form reading." },
       "label": { "displayName": "Label", "purpose": "Controls and form labels." },
-      "technical": { "displayName": "Technical Fact", "purpose": "Revision IDs, state, timestamps, counters, duration and code-adjacent notation." }
+      "technical": { "displayName": "Technical Fact", "purpose": "Revision IDs, state, timestamps, duration and code-adjacent notation." }
     },
     "shadows": [
       { "name": "card", "value": "0 0.75rem 2rem -1rem oklch(0.21 0.018 128 / 0.28)", "purpose": "Resting separation for interactive bounded cards and popovers." },
@@ -141,7 +141,6 @@
       { "name": "application-navigation", "value": "48rem" },
       { "name": "reader-local-navigation", "value": "40rem" },
       { "name": "library-wide-composition", "value": "52rem" },
-      { "name": "member-profile-mirror", "value": "64rem" },
       { "name": "authoring-two-column-container", "value": "68rem" }
     ]
   },
@@ -150,7 +149,7 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The single highest-priority action in a local task; Profile Save uses it only while dirty and stays disabled when unchanged.",
+      "description": "The single highest-priority action in a local task; authoring Save uses it only while dirty.",
       "html": "<button class=\"ds-btn-primary\" type=\"button\">Сохранить</button>",
       "css": ".ds-btn-primary { display:inline-flex; height:2rem; align-items:center; justify-content:center; border:1px solid transparent; border-radius:var(--radius,.875rem); background:var(--primary); color:var(--primary-foreground); padding:0 .625rem; font-family:var(--font-body); font-size:.875rem; font-weight:500; transition:background 160ms cubic-bezier(.22,1,.36,1),transform 160ms cubic-bezier(.22,1,.36,1); } .ds-btn-primary:hover { background:color-mix(in oklch,var(--primary) 80%,transparent); } .ds-btn-primary:focus-visible { outline:.1875rem solid var(--ring); outline-offset:.1875rem; } .ds-btn-primary:active { transform:translateY(1px); } .ds-btn-primary:disabled { pointer-events:none; opacity:.5; } @media (prefers-reduced-motion:reduce) { .ds-btn-primary { transition:none; } .ds-btn-primary:active { transform:none; } }"
     },
@@ -182,7 +181,7 @@
       "name": "Select Trigger",
       "kind": "input",
       "refersTo": "select-trigger",
-      "description": "The shared Radix-backed accessible select trigger for compact known option sets, including Member Profile report reasons.",
+      "description": "The accepted custom accessible select trigger for compact known option sets.",
       "html": "<button aria-expanded=\"false\" class=\"ds-select-trigger\" type=\"button\"><span>По релевантности</span><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path d=\"m6 9 6 6 6-6\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"/></svg></button>",
       "css": ".ds-select-trigger { display:flex; min-height:2.75rem; width:16rem; align-items:center; justify-content:space-between; gap:.5rem; border:1px solid var(--input); border-radius:calc(var(--radius,.875rem)*1.35); background:var(--background); color:var(--foreground); padding:0 .75rem; text-align:left; font-family:var(--font-body); font-size:.875rem; font-weight:500; transition:background 160ms cubic-bezier(.22,1,.36,1),border-color 160ms cubic-bezier(.22,1,.36,1); } .ds-select-trigger svg { width:1rem; height:1rem; flex:none; color:var(--muted-foreground); } .ds-select-trigger:hover,.ds-select-trigger[aria-expanded=\"true\"] { background:var(--muted); border-color:var(--ring); } .ds-select-trigger:focus-visible { outline:.1875rem solid var(--ring); outline-offset:.1875rem; }"
     },
@@ -211,14 +210,6 @@
       "css": ".ds-nav-current { display:flex; min-height:2.75rem; width:13rem; align-items:center; gap:.75rem; border-radius:calc(var(--radius,.875rem)*1.35); background:var(--sidebar-accent); color:var(--sidebar-accent-foreground); padding:0 .75rem; font-family:var(--font-body); font-size:.875rem; font-weight:500; text-decoration:none; transition:background 160ms cubic-bezier(.22,1,.36,1); } .ds-nav-current svg { width:1.25rem; height:1.25rem; color:var(--sidebar-primary); } .ds-nav-current i { width:.375rem; height:.375rem; margin-left:auto; border-radius:9999px; background:var(--sidebar-primary); } .ds-nav-current:hover { background:color-mix(in oklch,var(--sidebar-accent),var(--sidebar-foreground) 4%); } .ds-nav-current:focus-visible { outline:.1875rem solid var(--sidebar-ring); outline-offset:.1875rem; }"
     },
     {
-      "name": "Member Profile Projection",
-      "kind": "card",
-      "refersTo": "member-profile-projection",
-      "description": "The exact flat projection shared by Account preview and the active member route; no glow, lift or separate presentation dialect.",
-      "html": "<article class=\"ds-member-profile\"><div class=\"ds-member-profile-label\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"8\" r=\"4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><path d=\"M4 21a8 8 0 0 1 16 0\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"2\"/></svg><span>Профиль участника</span></div><div class=\"ds-member-profile-copy\"><h3>Кирилл Сачков</h3><p>Развиваю инженерные команды и изучаю agent-first delivery.</p></div><small>Sachkov Inside · member profile</small></article>",
-      "css": ".ds-member-profile { display:flex; min-height:18rem; width:min(100%,48rem); flex-direction:column; overflow:hidden; border:1px solid var(--border); border-radius:16px; background:var(--background); color:var(--foreground); padding:1.5rem; font-family:var(--font-body); box-shadow:none; } .ds-member-profile-label { display:flex; align-items:center; gap:.75rem; color:var(--muted-foreground); font-size:.875rem; font-weight:600; } .ds-member-profile-label svg { width:1.25rem; height:1.25rem; flex:none; color:var(--accent); } .ds-member-profile-copy { margin:auto 0; padding:2.5rem 0; } .ds-member-profile-copy h3 { max-width:18ch; margin:0; font-size:2.25rem; line-height:1.1; letter-spacing:-.04em; } .ds-member-profile-copy p { max-width:54ch; margin:1rem 0 0; color:var(--muted-foreground); font-size:1rem; line-height:1.75; } .ds-member-profile small { border-top:1px solid var(--border); padding-top:1rem; color:var(--muted-foreground); font-family:var(--font-utility); font-size:.6875rem; } .ds-member-profile:focus-within { outline:.1875rem solid var(--ring); outline-offset:.1875rem; }"
-    },
-    {
       "name": "Candidate Revision Rail",
       "kind": "custom",
       "refersTo": "candidate-revision-rail",
@@ -229,32 +220,28 @@
   ],
   "narrative": {
     "northStar": "Soft Technical Workshop",
-    "overview": "Sachkov Inside Platform — спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.\n\nЭто документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. Issues #38 и #51 завершили finish review со статусом `ship`; у #51 `material_fixes` пуст, а desktop/mobile evidence подтверждает production Account и точную Member Profile projection. Authoring workbench #38 и Mirror seam #51 остаются candidate patterns до отдельного owner visual/interaction GO; для #51 это особенно важно, потому что направление было выбрано delegated fallback.",
+    "overview": "Sachkov Inside Platform — спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.\n\nЭто документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`; exact Preview теперь имеет bounded desktop и narrow-mobile evidence, но authoring layout и revision rail остаются candidate pattern до отдельного owner visual/interaction GO.",
     "keyCharacteristics": [
       "Warm light canvas with bounded charcoal work regions.",
       "Scarce orange proofing signal rather than ambient decoration.",
       "Rounded controls and containers with explicit grouping purpose.",
       "Manrope for product and reading; JetBrains Mono only for technical facts.",
       "Mobile-first semantic order preserved as space adds columns.",
-      "Current content version, save and publication facts stay visible and literal.",
-      "Private Profile fields and the member-visible projection stay exact by construction."
+      "Exact revision, save and publication facts stay visible and literal."
     ],
     "rules": [
       { "name": "The Orange Proof Signal Rule", "body": "Orange marks current state, focus or a meaningful product accent; if it does not help the user verify or act, do not use it.", "section": "colors" },
-      { "name": "The Mono Is Evidence Rule", "body": "Use JetBrains Mono only for version/state facts, code, duration, technical notation and compact metadata; never use it as decorative body copy.", "section": "typography" },
-      { "name": "The Tracking Floor Rule", "body": "Headings may tighten to `-0.04em`, never beyond; context lines under headings stay in sans with ordinary tracking rather than becoming decorative mono kickers.", "section": "typography" },
+      { "name": "The Mono Is Evidence Rule", "body": "Use JetBrains Mono only for revision/state facts, code, duration, technical notation and compact metadata; never use it as decorative body copy.", "section": "typography" },
       { "name": "The Mobile Semantic Order Rule", "body": "Responsive changes may add columns, rails or contextual controls, but they must preserve the narrow-screen information order and primary actions.", "section": "layout" },
       { "name": "The Flat-by-Default Rule", "body": "Keep reading and authoring surfaces flat at rest; use elevation only when it communicates an interactive bounded object or overlay.", "section": "elevation" },
-      { "name": "The Owner Gate Candidate Rule", "body": "Treat the issue #38 authoring workbench and issue #51 Mirror seam as reusable evidence to review, not as approved global mandates, until owner visual/interaction GO is recorded.", "section": "components" }
+      { "name": "The Owner Gate Candidate Rule", "body": "Treat the issue #38 authoring layout and revision rail as reusable evidence to review, not as an approved global mandate, until owner visual/interaction GO is recorded.", "section": "components" }
     ],
     "dos": [
       "Do keep the warm light canvas dominant and bound charcoal to navigation, code, media or focused work regions.",
       "Do reserve orange for current state, focus evidence and the next meaningful action.",
       "Do use Manrope for product copy and JetBrains Mono for exact technical facts.",
       "Do preserve the same semantic information order from narrow mobile to desktop.",
-      "Do expose save, conflict, authorization and current-version truth with text as well as color.",
-      "Do render Account preview and member route through the same flat Profile projection.",
-      "Do keep context under headings in sans and reserve mono for literal evidence.",
+      "Do expose save, conflict, authorization and exact-revision truth with text as well as color.",
       "Do use the accepted shared primitives and Storybook proofs before introducing a new visual dialect."
     ],
     "donts": [
@@ -262,9 +249,8 @@
       "Don't use gradients, glow, glass or ambient animation without product meaning.",
       "Don't make orange a default decoration or destructive red a brand accent.",
       "Don't use JetBrains Mono for long-form prose or ornamental headings.",
-      "Don't add decorative mono kickers above or below headings.",
-      "Don't promote the issue #38 authoring columns, version rail or issue #51 Mirror seam to global patterns before owner visual/interaction GO.",
-      "Don't imply that Preview is published; always identify the current saved `contentVersion`."
+      "Don't promote the issue #38 authoring columns or revision rail to a global pattern before owner visual/interaction GO.",
+      "Don't imply that Preview is latest or published; always identify the exact immutable revision."
     ]
   }
 }

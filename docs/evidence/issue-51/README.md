@@ -18,6 +18,6 @@ Next full-stack smoke, after automated accessibility checks passed.
 - Finish review verdict: `ship`; `material_fixes: []`.
 - Avatar and file delivery are intentionally absent from issue #51 and tracked separately in #153.
 - Visual direction: delegated Mirror seam fallback; owner production visual GO is still required
-  before merge, so this is candidate pattern evidence rather than a global design mandate.
+  before promotion from the temporary semantic UI. Acceptance is tracked in #155.
 - Asset producer verdict: `produce: []`, `direct: []`; the PNGs are review evidence and no raster
   ships in the product.

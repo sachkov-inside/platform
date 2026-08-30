@@ -55,6 +55,7 @@ export const ActiveDesktop: Story = {
     await expect(canvas.getByLabelText("Имя")).toHaveValue("Кирилл Сачков");
     await expect(canvas.getAllByText("Кирилл Сачков")).toHaveLength(1);
     await expect(canvas.getByText("Видят участники")).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Сохранить" })).toBeDisabled();
     await expect(canvas.queryByText(/аватар/iu)).not.toBeInTheDocument();
   },
 };
@@ -98,6 +99,9 @@ export const Conflict: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText("О себе · необязательно"), " Дополнение.");
+    await expect(
+      within(canvas.getByRole("article")).getByText(activeProfile.bio),
+    ).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Сохранить" }));
     await expect(
       canvas.getByText("Профиль уже изменился в другой вкладке."),

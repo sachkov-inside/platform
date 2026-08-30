@@ -24,20 +24,13 @@ export function parseProfileBody<Schema extends z.ZodType>(
 }
 
 export function throwProfileHttpError(error: MemberProfileError): never {
-  const statusByCode: Readonly<Record<MemberProfileError["code"], HttpStatus>> = {
-    invalid_input: HttpStatus.UNPROCESSABLE_ENTITY,
-    profile_exists: HttpStatus.CONFLICT,
-    profile_not_found: HttpStatus.NOT_FOUND,
-    conflict: HttpStatus.CONFLICT,
-    internal_error: HttpStatus.INTERNAL_SERVER_ERROR,
-  };
-  const status = statusByCode[error.code];
+  const metadata = errorMetadata[error.code];
   throw new HttpException(
     {
       type: `urn:inside:problem:member-profile-${error.code.replaceAll("_", "-")}`,
-      title: titleFor(error.code),
-      status,
-      detail: detailFor(error.code),
+      title: metadata.title,
+      status: metadata.status,
+      detail: metadata.detail,
       code: error.code,
       ...(error.code === "invalid_input" ? { issues: error.issues } : {}),
       ...(error.code === "conflict" && error.currentVersion !== undefined
@@ -47,7 +40,7 @@ export function throwProfileHttpError(error: MemberProfileError): never {
         ? { correlationId: error.correlationId }
         : {}),
     },
-    status,
+    metadata.status,
   );
 }
 
@@ -55,18 +48,35 @@ export function throwMemberProfileNotFound(): never {
   throwProfileHttpError({ code: "profile_not_found" });
 }
 
-function titleFor(code: MemberProfileError["code"]): string {
-  if (code === "invalid_input") return "Profile input is invalid";
-  if (code === "profile_exists") return "Profile already exists";
-  if (code === "profile_not_found") return "Profile not found";
-  if (code === "conflict") return "Profile changed concurrently";
-  return "Profile operation failed";
-}
-
-function detailFor(code: MemberProfileError["code"]): string {
-  if (code === "invalid_input") return "Profile fields do not satisfy the accepted contract.";
-  if (code === "profile_exists") return "This Account already has a Profile.";
-  if (code === "profile_not_found") return "The requested Profile is not available.";
-  if (code === "conflict") return "Reload the Profile before saving or deleting it.";
-  return "The Profile request could not be completed.";
-}
+const errorMetadata = {
+  invalid_input: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    title: "Profile input is invalid",
+    detail: "Profile fields do not satisfy the accepted contract.",
+  },
+  profile_exists: {
+    status: HttpStatus.CONFLICT,
+    title: "Profile already exists",
+    detail: "This Account already has a Profile.",
+  },
+  profile_not_found: {
+    status: HttpStatus.NOT_FOUND,
+    title: "Profile not found",
+    detail: "The requested Profile is not available.",
+  },
+  conflict: {
+    status: HttpStatus.CONFLICT,
+    title: "Profile changed concurrently",
+    detail: "Reload the Profile before saving or deleting it.",
+  },
+  internal_error: {
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    title: "Profile operation failed",
+    detail: "The Profile request could not be completed.",
+  },
+} as const satisfies Readonly<
+  Record<
+    MemberProfileError["code"],
+    Readonly<{ status: HttpStatus; title: string; detail: string }>
+  >
+>;

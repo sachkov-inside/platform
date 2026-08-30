@@ -3,8 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 
-import type { ProfileMutationState } from "@/_pages/account/model/member-profile";
-import { initialProfileMutationState } from "@/_pages/account/model/member-profile";
+import {
+  displayNameLengthIsValid,
+  initialProfileMutationState,
+  memberProfileTextLength,
+  type ProfileMutationState,
+} from "@/_pages/account";
 import { Button } from "@/shared/ui/button";
 
 type ProfileMutationAction = (
@@ -27,13 +31,18 @@ export function ProfileOnboardingDialog({
   const [touched, setTouched] = useState(false);
   const helpId = useId();
   const errorId = useId();
-  const length = Array.from(displayName.trim()).length;
+  const length = memberProfileTextLength(displayName.trim());
   const serverError =
     state.kind === "invalid_input" ? state.fieldErrors.displayName : undefined;
-  const invalid = serverError !== undefined || (touched && (length < 2 || length > 80));
+  const invalid =
+    serverError !== undefined ||
+    (touched && !displayNameLengthIsValid(displayName));
 
   useEffect(() => {
-    dialog.current?.showModal();
+    const current = dialog.current;
+    if (current === null) return;
+    if (current.open) current.close();
+    current.showModal();
   }, []);
 
   useEffect(() => {
@@ -52,6 +61,7 @@ export function ProfileOnboardingDialog({
       onCancel={(event) => {
         event.preventDefault();
       }}
+      open
       ref={dialog}
     >
       <div className="p-6 sm:p-9">

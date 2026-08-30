@@ -2,8 +2,8 @@ import "server-only";
 
 import { cache } from "react";
 
-import { getPrivateMemberProfile } from "@/_pages/account/api/get-private-member-profile";
-import type { PrivateMemberProfile } from "@/_pages/account/model/member-profile";
+import type { PrivateMemberProfile } from "@/_pages/account";
+import { getPrivateMemberProfile } from "@/_pages/account.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 
 export type AccountProfileRuntime =

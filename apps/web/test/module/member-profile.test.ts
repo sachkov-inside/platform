@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { getPrivateMemberProfile } from "@/_pages/account/api/get-private-member-profile";
+import { requestAccountProfile } from "@/_pages/account/api/request-account-profile";
+import { accountProfileQueryKey } from "@/_pages/account/model/account-profile-query";
 import {
   executeDeleteMemberProfile,
   executeSaveMemberProfile,
@@ -34,6 +36,29 @@ describe("Member Profile web workflow", () => {
       { bio: null, displayName: "Кирилл" },
       "access-token",
     );
+  });
+
+  it("keeps one Account Profile query identity and validates the BFF payload", async () => {
+    expect(accountProfileQueryKey("viewer")).toEqual([
+      "account",
+      "profile",
+      "viewer",
+    ]);
+    const fetch = vi.fn().mockResolvedValue(
+      Response.json({ kind: "missing" }, { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    try {
+      await expect(
+        requestAccountProfile(new AbortController().signal),
+      ).resolves.toEqual({ kind: "ready", state: { kind: "missing" } });
+      expect(fetch).toHaveBeenCalledWith(
+        "/account/profile-state",
+        expect.objectContaining({ cache: "no-store" }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("rejects malformed fields before calling the backend", async () => {
@@ -99,6 +124,18 @@ describe("Member Profile web workflow", () => {
       executeDeleteMemberProfile(formData, "access-token", dependencies),
     ).resolves.toEqual({ kind: "deleted" });
     expect(dependencies.delete).toHaveBeenCalledWith(2, "access-token");
+
+    const conflictDependencies = {
+      ...successfulDependencies(),
+      delete: vi.fn().mockResolvedValue({
+        ok: false,
+        problem: { code: "conflict", currentVersion: 3, status: 409 },
+        response: Response.json({}, { status: 409 }),
+      }),
+    } satisfies ProfileMutationDependencies;
+    await expect(
+      executeDeleteMemberProfile(formData, "access-token", conflictDependencies),
+    ).resolves.toEqual({ currentVersion: 3, kind: "conflict" });
   });
 
   it("maps private missing state and fails closed for member projection", async () => {
@@ -124,6 +161,21 @@ describe("Member Profile web workflow", () => {
         }),
       ),
     ).resolves.toEqual({ kind: "not_found" });
+    await expect(
+      getMemberProfile(
+        publicProfileId,
+        "access-token",
+        vi.fn().mockResolvedValue({
+          ok: false,
+          problem: {
+            code: "internal_error",
+            correlationId: "profile-ref",
+            status: 500,
+          },
+          response: Response.json({}, { status: 500 }),
+        }),
+      ),
+    ).resolves.toEqual({ kind: "unavailable", reference: "profile-ref" });
     await expect(
       getMemberProfile(
         publicProfileId,

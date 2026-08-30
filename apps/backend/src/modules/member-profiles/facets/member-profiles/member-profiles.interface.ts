@@ -39,9 +39,32 @@ export type MemberProfileError =
   | Readonly<{ code: "conflict"; currentVersion?: number }>
   | Readonly<{ code: "internal_error"; correlationId: string }>;
 
-export type MemberProfileResult<Value> =
+export type ReadPrivateProfileError = Extract<
+  MemberProfileError,
+  { readonly code: "internal_error" }
+>;
+export type CreateMemberProfileError = Extract<
+  MemberProfileError,
+  { readonly code: "invalid_input" | "profile_exists" | "internal_error" }
+>;
+export type UpdateMemberProfileError = Extract<
+  MemberProfileError,
+  {
+    readonly code:
+      | "invalid_input"
+      | "profile_not_found"
+      | "conflict"
+      | "internal_error";
+  }
+>;
+export type DeleteMemberProfileError = Extract<
+  MemberProfileError,
+  { readonly code: "profile_not_found" | "conflict" | "internal_error" }
+>;
+
+export type MemberProfileResult<Value, Error extends MemberProfileError> =
   | Readonly<{ ok: true; value: Value }>
-  | Readonly<{ ok: false; error: MemberProfileError }>;
+  | Readonly<{ ok: false; error: Error }>;
 
 export interface CreateMemberProfileCommand extends MemberProfileFields {
   readonly accountId: AccountId;
@@ -76,16 +99,20 @@ export type ReportMemberProfileResult =
     }>;
 
 export interface MemberProfiles {
-  readPrivateProfile(accountId: AccountId): Promise<MemberProfileResult<PrivateProfileState>>;
+  readPrivateProfile(
+    accountId: AccountId,
+  ): Promise<MemberProfileResult<PrivateProfileState, ReadPrivateProfileError>>;
   createProfile(
     command: CreateMemberProfileCommand,
-  ): Promise<MemberProfileResult<PrivateMemberProfile>>;
+  ): Promise<MemberProfileResult<PrivateMemberProfile, CreateMemberProfileError>>;
   updateProfile(
     command: UpdateMemberProfileCommand,
-  ): Promise<MemberProfileResult<PrivateMemberProfile>>;
+  ): Promise<MemberProfileResult<PrivateMemberProfile, UpdateMemberProfileError>>;
   deleteProfile(
     command: DeleteMemberProfileCommand,
-  ): Promise<MemberProfileResult<Readonly<{ deleted: true }>>>;
+  ): Promise<
+    MemberProfileResult<Readonly<{ deleted: true }>, DeleteMemberProfileError>
+  >;
   viewProfile(
     viewerAccountId: AccountId,
     publicProfileId: string,

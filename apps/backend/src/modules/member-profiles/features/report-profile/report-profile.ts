@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { AccountId } from "../../../accounts/index.js";
+import { parseAccountId, type AccountId } from "../../../accounts/index.js";
 import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
 import { parsePublicProfileId } from "../../domain/public-profile-id.js";
 import type {
@@ -34,7 +34,8 @@ export async function reportProfile(
         where: { publicProfileId, status: "active" },
         select: { accountId: true },
       });
-      if (profile === null || profile.accountId === reporterAccountId) {
+      const profileAccountId = parseAccountId(profile?.accountId);
+      if (profileAccountId === undefined || profileAccountId === reporterAccountId) {
         return { ok: false, error: { code: "not_found" } };
       }
 
@@ -70,7 +71,7 @@ export async function reportProfile(
       await appendMemberProfileAuditEvent(
         transaction,
         "profile_reported",
-        profile.accountId,
+        profileAccountId,
         publicProfileId,
       );
       return { ok: true, outcome: "recorded" };

@@ -1,9 +1,11 @@
 import type {
   MemberProfileResult,
   PrivateMemberProfile,
+  UpdateMemberProfileError,
   UpdateMemberProfileCommand,
 } from "../../facets/member-profiles/member-profiles.interface.js";
 import { acceptMemberProfileFields } from "../../domain/profile-fields.js";
+import { parsePublicProfileId } from "../../domain/public-profile-id.js";
 import type { MemberProfilePersistenceClient } from "../../infrastructure/prisma.js";
 import { appendMemberProfileAuditEvent } from "../../shared/profile-audit.js";
 import { privateProfileProjection } from "../../shared/profile-projection.js";
@@ -15,7 +17,7 @@ import {
 export async function updateProfile(
   prisma: MemberProfilePersistenceClient,
   command: UpdateMemberProfileCommand,
-): Promise<MemberProfileResult<PrivateMemberProfile>> {
+): Promise<MemberProfileResult<PrivateMemberProfile, UpdateMemberProfileError>> {
   const accepted = acceptMemberProfileFields(command);
   if (!accepted.ok) {
     return profileFailure({ code: "invalid_input", issues: accepted.issues });
@@ -54,11 +56,15 @@ export async function updateProfile(
       const stored = await transaction.memberProfile.findUniqueOrThrow({
         where: { accountId: command.accountId },
       });
+      const publicProfileId = parsePublicProfileId(stored.publicProfileId);
+      if (publicProfileId === undefined) {
+        return profileFailure(internalProfileError());
+      }
       await appendMemberProfileAuditEvent(
         transaction,
         "profile_updated",
         command.accountId,
-        stored.publicProfileId,
+        publicProfileId,
       );
       const profile = privateProfileProjection(stored);
       return profile === null

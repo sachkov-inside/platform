@@ -3,7 +3,6 @@ import {
   Controller,
   Delete,
   Get,
-  Header,
   Inject,
   Post,
   Put,
@@ -135,7 +134,6 @@ export class PrivateAccountProfileController {
   }
 
   @Get("export")
-  @Header("Content-Type", "application/json; charset=utf-8")
   @ApiOperation({
     operationId: "exportMemberProfile",
     summary: "Export only the current Account owner-authored Profile fields",

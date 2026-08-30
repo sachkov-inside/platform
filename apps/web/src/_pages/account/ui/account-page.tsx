@@ -1,28 +1,4 @@
-import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
-
-import { deleteMemberProfileAction, saveMemberProfileAction } from "../api/member-profile.actions";
-import { getPrivateMemberProfile } from "../api/get-private-member-profile";
-import { AccountPageClient } from "./account-page.client";
-
-export async function AccountPage() {
-  const accessToken = await getOptionalPlatformAccessToken();
-  if (accessToken === undefined) return <AccountSignInRequired />;
-
-  const result = await getPrivateMemberProfile(accessToken);
-  if (result.kind === "unauthorized") return <AccountSignInRequired />;
-  if (result.kind === "unavailable") {
-    return <AccountUnavailable reference={result.reference} />;
-  }
-  return (
-    <AccountPageClient
-      deleteAction={deleteMemberProfileAction}
-      initialProfile={result.state.kind === "profile" ? result.state.profile : null}
-      saveAction={saveMemberProfileAction}
-    />
-  );
-}
-
-function AccountSignInRequired() {
+export function AccountSignInRequired() {
   return (
     <section className="mx-auto max-w-xl py-16 text-center">
       <h1 className="text-4xl font-bold tracking-[-0.04em]">Войдите в аккаунт</h1>
@@ -38,7 +14,7 @@ function AccountSignInRequired() {
   );
 }
 
-function AccountUnavailable({ reference }: { readonly reference: string }) {
+export function AccountUnavailable({ reference }: { readonly reference: string }) {
   return (
     <section className="mx-auto max-w-xl py-16">
       <h1 className="text-4xl font-bold tracking-[-0.04em]">Профиль временно недоступен</h1>

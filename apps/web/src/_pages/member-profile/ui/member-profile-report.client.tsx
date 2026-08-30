@@ -6,7 +6,7 @@ import { useActionState } from "react";
 import {
   initialProfileReportState,
   type ProfileReportState,
-} from "@/_pages/account/model/member-profile";
+} from "@/_pages/account";
 import {
   Select,
   SelectContent,

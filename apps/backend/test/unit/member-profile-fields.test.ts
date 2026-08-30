@@ -3,17 +3,17 @@ import { describe, expect, test } from "vitest";
 import { acceptMemberProfileFields } from "../../src/modules/member-profiles/domain/profile-fields.js";
 
 describe("Member Profile fields", () => {
-  test("normalizes the mutable display name and optional bio", () => {
+  test("trims the display name without rewriting authored nonblank text", () => {
     expect(
       acceptMemberProfileFields({
-        displayName: "  Кирилл\n  Сачков  ",
+        displayName: "  Кирилл   Сачков  ",
         bio: "  Строю инженерные продукты.\r\nПишу о практике.  ",
       }),
     ).toEqual({
       ok: true,
       fields: {
-        displayName: "Кирилл Сачков",
-        bio: "Строю инженерные продукты.\nПишу о практике.",
+        displayName: "Кирилл   Сачков",
+        bio: "  Строю инженерные продукты.\r\nПишу о практике.  ",
       },
     });
     expect(
@@ -45,6 +45,12 @@ describe("Member Profile fields", () => {
     });
     expect(
       acceptMemberProfileFields({ displayName: "Имя\u0000", bio: null }),
+    ).toEqual({
+      ok: false,
+      issues: [{ field: "displayName", code: "invalid_characters" }],
+    });
+    expect(
+      acceptMemberProfileFields({ displayName: "Кирилл\nСачков", bio: null }),
     ).toEqual({
       ok: false,
       issues: [{ field: "displayName", code: "invalid_characters" }],

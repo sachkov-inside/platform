@@ -30,6 +30,5 @@ import { MEMBER_PROFILES } from "./member-profiles.token.js";
         assembleMemberProfiles({ prisma, membershipEntitlements }),
     },
   ],
-  exports: [MEMBER_PROFILES],
 })
 export class MemberProfilesModule {}

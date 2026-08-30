@@ -1,13 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import type {
-  MemberProfileError,
-  MemberProfileResult,
-} from "../facets/member-profiles/member-profiles.interface.js";
+import type { MemberProfileError } from "../facets/member-profiles/member-profiles.interface.js";
 
-export function profileFailure<Value>(
-  error: MemberProfileError,
-): MemberProfileResult<Value> {
+export function profileFailure<Error extends MemberProfileError>(
+  error: Error,
+): Readonly<{ ok: false; error: Error }> {
   return { ok: false, error };
 }
 

@@ -7,8 +7,8 @@ import {
 } from "@/shared/api/backend/index.server";
 
 import type { PrivateMemberProfileResult } from "../model/member-profile";
+import { parseMemberProfileProblem } from "@/entities/member-profile";
 import {
-  parseMemberProfileProblem,
   parsePrivateProfileState,
 } from "./member-profile-contract";
 

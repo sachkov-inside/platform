@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import type { AccountId } from "../../accounts/index.js";
+import type { PublicProfileId } from "../domain/public-profile-id.js";
 import type { MemberProfilePersistence } from "../infrastructure/prisma.js";
 
 export type MemberProfileAuditEvent =
@@ -13,8 +15,8 @@ export type MemberProfileAuditEvent =
 export async function appendMemberProfileAuditEvent(
   prisma: MemberProfilePersistence,
   event: MemberProfileAuditEvent,
-  accountId: string,
-  publicProfileId: string,
+  accountId: AccountId,
+  publicProfileId: PublicProfileId,
 ): Promise<void> {
   await prisma.memberProfileAuditEvent.create({
     data: { id: randomUUID(), event, accountId, publicProfileId },

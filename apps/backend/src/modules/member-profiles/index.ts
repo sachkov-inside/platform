@@ -1,16 +1,19 @@
 export { MemberProfilesModule } from "./member-profiles.module.js";
-export { MEMBER_PROFILES } from "./member-profiles.token.js";
 export { assembleMemberProfiles } from "./facets/member-profiles/assemble-member-profiles.js";
 export {
-  listOpenProfileReports,
   moderateMemberProfile,
   type ModerateMemberProfileResult,
-  type OpenProfileReport,
   type ProfileModerationAction,
 } from "./features/moderate-profile/moderate-profile.js";
+export {
+  listOpenProfileReports,
+  type OpenProfileReport,
+} from "./features/list-open-profile-reports/list-open-profile-reports.js";
 export type {
   CreateMemberProfileCommand,
+  CreateMemberProfileError,
   DeleteMemberProfileCommand,
+  DeleteMemberProfileError,
   MemberProfileError,
   MemberProfileFields,
   MemberProfileProjection,
@@ -20,7 +23,9 @@ export type {
   PrivateMemberProfile,
   PrivateProfileState,
   ProfileValidationIssue,
+  ReadPrivateProfileError,
   ReportMemberProfileResult,
   UpdateMemberProfileCommand,
+  UpdateMemberProfileError,
   ViewMemberProfileResult,
 } from "./facets/member-profiles/member-profiles.interface.js";
