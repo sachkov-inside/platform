@@ -49,11 +49,27 @@ async function getPlatformAccessTokenWith(
     return active;
   }
 
-  const pending = readAccessToken(config, config.audience).finally(() => {
-    if (refreshFlights.get(flightKey) === pending) {
-      refreshFlights.delete(flightKey);
-    }
-  });
+  const pending = readAccessToken(config, config.audience)
+    .catch((error: unknown) => {
+      if (isNotAuthenticated(error)) {
+        throw new LogtoSessionUnavailableError();
+      }
+      throw error;
+    })
+    .finally(() => {
+      if (refreshFlights.get(flightKey) === pending) {
+        refreshFlights.delete(flightKey);
+      }
+    });
   refreshFlights.set(flightKey, pending);
   return pending;
+}
+
+function isNotAuthenticated(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.name === "LogtoClientError" &&
+    "code" in error &&
+    error.code === "not_authenticated"
+  );
 }
