@@ -73,6 +73,19 @@ The smoke verifies web → API → PostgreSQL, OpenAPI, MCP readiness and the id
 Material. Normal shutdown preserves the named PostgreSQL volume; `docker compose down --volumes`
 is an explicit destructive reset.
 
+## Production delivery baseline
+
+The production runtime uses prebuilt digest-addressed API and web images, a one-shot migration
+service, a restricted runtime database role, least-privilege networks and Caddy as the only public
+entry point. It is intentionally separate from the source-mounted development stack.
+
+```bash
+pnpm compose:production:smoke
+```
+
+See the [production delivery runbook](docs/runbooks/production-delivery.md) for the topology,
+configuration contract and the boundary for the upcoming GitHub Actions deployment workflow.
+
 For migrations, integration tests, manual database inspection and reset procedures, see the
 [local development runbook](docs/runbooks/local-development.md). Version policy and current
 compatibility holds are recorded in the

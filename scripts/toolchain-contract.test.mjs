@@ -122,10 +122,17 @@ describe("supported toolchain contract", () => {
   });
 
   it("pins every container image by digest and every GitHub Action by commit", () => {
-    for (const path of ["compose.yaml", ".github/workflows/application-ci.yml"]) {
+    for (const path of [
+      "compose.yaml",
+      "compose.production.yaml",
+      ".github/workflows/application-ci.yml",
+    ]) {
       const imageLines = read(path)
         .split("\n")
-        .filter((line) => /^\s*image:/u.test(line));
+        .filter(
+          (line) =>
+            /^\s*image:/u.test(line) && !line.includes("${PLATFORM_"),
+        );
       assert.ok(imageLines.length > 0, `${path} must declare at least one image`);
       assert.ok(
         imageLines.every((line) => /:\d[^\s]*@sha256:[a-f0-9]{64}$/u.test(line.trim())),
@@ -140,6 +147,62 @@ describe("supported toolchain contract", () => {
     assert.ok(
       actionLines.every((line) => /@[a-f0-9]{40}(?:\s+#\s+v\d+\.\d+\.\d+)?$/u.test(line.trim())),
     );
+  });
+
+  it("keeps production application images supplied as immutable release inputs", () => {
+    const productionCompose = read("compose.production.yaml");
+
+    assert.match(
+      productionCompose,
+      /image: \$\{PLATFORM_API_IMAGE_REPOSITORY:\?[^}]+\}@sha256:\$\{PLATFORM_API_IMAGE_DIGEST:\?[^}]+\}/u,
+    );
+    assert.match(
+      productionCompose,
+      /image: \$\{PLATFORM_MIGRATION_IMAGE_REPOSITORY:\?[^}]+\}@sha256:\$\{PLATFORM_MIGRATION_IMAGE_DIGEST:\?[^}]+\}/u,
+    );
+    assert.match(
+      productionCompose,
+      /image: \$\{PLATFORM_WEB_IMAGE_REPOSITORY:\?[^}]+\}@sha256:\$\{PLATFORM_WEB_IMAGE_DIGEST:\?[^}]+\}/u,
+    );
+    assert.doesNotMatch(productionCompose, /^\s+build:/mu);
+  });
+
+  it("keeps production database and network privileges separated", () => {
+    const productionCompose = read("compose.production.yaml");
+    const databaseRoles = read("scripts/provision-production-database-roles.sh");
+
+    assert.match(productionCompose, /DATABASE_URL: \$\{MIGRATION_DATABASE_URL:\?[^}]+\}/u);
+    assert.match(productionCompose, /DATABASE_URL: \$\{DATABASE_URL:\?Set DATABASE_URL\}/u);
+    assert.match(productionCompose, /database-roles:\n/u);
+    assert.match(productionCompose, /database-access:\n/u);
+    assert.match(productionCompose, /RELEASE_MIGRATION_IMAGE_DIGEST: \$\{PLATFORM_MIGRATION_IMAGE_DIGEST:\?[^}]+\}/u);
+    assert.match(productionCompose, /data:\n\s+internal: true/u);
+    assert.match(databaseRoles, /grant connect, create on database/u);
+    assert.match(databaseRoles, /nosuperuser nocreatedb nocreaterole noinherit noreplication nobypassrls/u);
+    assert.match(databaseRoles, /grant select, insert, update, delete on all tables/u);
+    assert.match(databaseRoles, /MIGRATION_DATABASE_URL does not authenticate as the restricted migration owner/u);
+    assert.match(databaseRoles, /DATABASE_URL does not authenticate as the restricted application role/u);
+    assert.doesNotMatch(databaseRoles, /all tables in schema public/u);
+  });
+
+  it("excludes optional build-only packages from the production API image", () => {
+    assert.match(
+      read("Dockerfile"),
+      /deploy --prod --no-optional --ignore-scripts \/workspace\/\.production\/backend/u,
+    );
+  });
+
+  it("isolates production smoke resources and removes its temporary image tags", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
+
+    assert.match(smoke, /smoke_suffix="\$\{source_revision:0:12\}-\$\$"/u);
+    assert.match(
+      smoke,
+      /docker image rm "\$PLATFORM_API_BUILD_IMAGE" "\$PLATFORM_WEB_BUILD_IMAGE"/u,
+    );
+    assert.match(smoke, /down --volumes --remove-orphans/u);
+    assert.match(smoke, /local test_status=\$\?/u);
+    assert.doesNotMatch(smoke, /down --volumes --remove-orphans \|\| true/u);
   });
 
   it("groups only patch/minor Dependabot updates", () => {

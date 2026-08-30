@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.build.json",
+  "files": ["src/entrypoints/api.ts", "src/migrations/migrate.ts"],
+  "include": []
+}
