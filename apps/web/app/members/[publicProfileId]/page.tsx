@@ -7,9 +7,13 @@ export const metadata: Metadata = {
   robots: { follow: false, index: false },
 };
 
+interface MemberProfileRouteProps {
+  readonly params: Promise<{ readonly publicProfileId: string }>;
+}
+
 export default async function Page({
   params,
-}: PageProps<"/members/[publicProfileId]">) {
+}: MemberProfileRouteProps) {
   const { publicProfileId } = await params;
   return <MemberProfilePage publicProfileId={publicProfileId} />;
 }
