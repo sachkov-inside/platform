@@ -168,7 +168,6 @@ export const materialAuthoringPresentation = {
         videoId: "94000000-0000-4000-8000-000000000053",
       },
     ],
-    contentVersion,
     format: "Guide",
     summary: "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
     tags: ["developer pipeline", "agents", "delivery"],
@@ -190,7 +189,6 @@ export const savedAfterEditingPresentation = {
   },
   preview: {
     ...materialAuthoringPresentation.preview,
-    contentVersion: savedContentVersion,
     title: "Новая версия Developer Pipeline",
   },
   save: { kind: "saved", savedAtLabel: "12:41" },

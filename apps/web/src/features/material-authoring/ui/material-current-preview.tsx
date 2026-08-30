@@ -41,10 +41,10 @@ export function MaterialCurrentPreview({
               </Button>
               <div className="min-w-0">
                 <h1 className="text-sm font-semibold" id="exact-preview-heading">
-                  Предпросмотр текущей версии
+                  Предпросмотр материала
                 </h1>
-                <p className="truncate font-mono text-[0.6875rem] text-muted-foreground">
-                  v{preview.contentVersion} · {publicationStateLabel(preview.publicationState)}
+                <p className="truncate text-xs text-muted-foreground">
+                  {publicationStateLabel(preview.publicationState)}
                 </p>
               </div>
             </div>
@@ -60,7 +60,7 @@ export function MaterialCurrentPreview({
         </header>
         <div
           className="border-b border-border bg-card px-4 py-2.5 text-center text-xs text-muted-foreground"
-          data-preview-version-banner
+          data-preview-status-banner
         >
           {previewBanner(preview)}
         </div>
@@ -86,10 +86,10 @@ function publicationStateLabel(
 function previewBanner(preview: MaterialPreviewPresentation): string {
   switch (preview.publicationState) {
     case "draft":
-      return `Это сохранённый черновик v${String(preview.contentVersion)}. Материал ещё не опубликован.`;
+      return "Сохранённый черновик. Материал ещё не опубликован.";
     case "published":
-      return `Это текущая live-версия v${String(preview.contentVersion)}.`;
+      return "Материал опубликован и доступен читателям.";
     case "unpublished":
-      return `Это сохранённая версия v${String(preview.contentVersion)}. Материал снят с публикации.`;
+      return "Материал сохранён и снят с публикации.";
   }
 }

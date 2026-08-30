@@ -96,7 +96,6 @@ describe("Authoring Materials server adapter", () => {
       kind: "ready",
       items: [
         {
-          contentVersion: 7,
           format: "Гайд",
           materialId,
           publicationState: "published",

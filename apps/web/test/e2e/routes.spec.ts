@@ -68,7 +68,7 @@ test("authoring route owns a dedicated shell outside the public application shel
   await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute("method", "post");
   await expect(page.getByRole("complementary", { name: "Боковая панель" })).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Основная" })).toHaveCount(0);
-  const authoringSidebar = page.getByRole("complementary", { name: "Authoring" });
+  const authoringSidebar = page.getByRole("complementary", { name: "Редактор" });
   await expect(authoringSidebar).toBeVisible();
   await expect(page.getByRole("main")).toHaveCount(1);
 

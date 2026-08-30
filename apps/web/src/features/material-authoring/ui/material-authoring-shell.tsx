@@ -24,7 +24,7 @@ export function MaterialAuthoringShell({
       >
         Перейти к содержанию
       </a>
-      <aside aria-label="Authoring" className="hidden w-56 shrink-0 bg-sidebar text-sidebar-foreground md:flex md:flex-col">
+      <aside aria-label="Редактор" className="hidden w-56 shrink-0 bg-sidebar text-sidebar-foreground md:flex md:flex-col">
         <div className="flex min-h-0 flex-1 flex-col px-3 py-4">
           <Link
             className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sidebar-foreground no-underline"
@@ -34,14 +34,14 @@ export function MaterialAuthoringShell({
               <PenLine aria-hidden="true" className="size-4" />
             </span>
             <span>
-              <span className="block text-sm font-semibold">Inside Authoring</span>
+              <span className="block text-sm font-semibold">Редактор Inside</span>
               <span className="block font-mono text-xs text-sidebar-foreground/60">
                 рабочее пространство
               </span>
             </span>
           </Link>
 
-          <nav aria-label="Authoring" className="mt-7 grid gap-1">
+          <nav aria-label="Редактор" className="mt-7 grid gap-1">
             <AuthoringLink
               current={current === "materials"}
               href={authoringMaterialsRootHref}
@@ -91,7 +91,7 @@ export function MaterialAuthoringShell({
       </div>
 
       <nav
-        aria-label="Authoring на мобильном"
+        aria-label="Редактор на мобильном"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
       >
         <div className="grid grid-cols-4 px-2 pt-1">

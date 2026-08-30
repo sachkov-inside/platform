@@ -8,6 +8,11 @@ import {
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 
+import type {
+  AuthoringMaterialsQuery,
+  AuthoringMaterialsState,
+} from "../model/authoring-materials-presentation";
+
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 const referenceSchema = z.object({ id: z.uuid(), name: z.string().min(1) }).strict();
 const responseSchema = z
@@ -34,37 +39,6 @@ const responseSchema = z
 const problemSchema = z
   .object({ code: z.string(), correlationId: z.string().optional() })
   .loose();
-
-export interface AuthoringMaterialsQuery {
-  readonly page: number;
-  readonly publicationState?: "draft" | "published" | "unpublished";
-  readonly search?: string;
-}
-
-export interface AuthoringMaterialListItem {
-  readonly contentVersion: number;
-  readonly format: string | null;
-  readonly materialId: string;
-  readonly publicationState: "draft" | "published" | "unpublished";
-  readonly title: string | null;
-  readonly topic: string | null;
-  readonly updatedAt: string;
-}
-
-export type AuthoringMaterialsState =
-  | {
-      readonly kind: "ready";
-      readonly items: readonly AuthoringMaterialListItem[];
-      readonly page: number;
-      readonly pageSize: number;
-      readonly totalItems: number;
-      readonly totalPages: number;
-    }
-  | { readonly kind: "signed_out" }
-  | { readonly kind: "forbidden" }
-  | { readonly kind: "unavailable"; readonly reference: string }
-  | { readonly kind: "malformed_response" }
-  | { readonly kind: "unexpected_error"; readonly reference: string };
 
 export interface AuthoringMaterialsDependencies {
   readonly list: typeof requestAuthoringMaterials;
@@ -125,7 +99,6 @@ export async function getAuthoringMaterials(
   return {
     kind: "ready",
     items: parsed.data.items.map((item) => ({
-      contentVersion: item.contentVersion,
       format: item.format?.name ?? null,
       materialId: item.materialId,
       publicationState: item.publicationState,

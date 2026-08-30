@@ -21,6 +21,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
+import { materialTaxonomyLabel } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import {
   Select,
@@ -132,9 +133,6 @@ function EditorHeader({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>{materialStateLabel(presentation.draft.status)}</span>
-              {presentation.draft.contentVersion === null ? null : (
-                <span className="truncate font-mono">v{presentation.draft.contentVersion}</span>
-              )}
               <span aria-live="polite" className="lg:hidden">
                 · {compactSaveStateLabel(presentation.save)}
               </span>
@@ -145,15 +143,7 @@ function EditorHeader({
           </div>
         </div>
         <dl className="hidden items-center gap-5 border-l border-border pl-5 lg:flex">
-          <VersionFact
-            label="Версия"
-            value={
-              presentation.draft.contentVersion === null
-                ? "не создана"
-                : `v${String(presentation.draft.contentVersion)}`
-            }
-          />
-          <VersionFact label="Состояние" value={saveStateLabel(presentation.save)} />
+          <HeaderFact label="Состояние" value={saveStateLabel(presentation.save)} />
         </dl>
         <div className="grid w-full grid-cols-2 items-center gap-2 sm:ml-auto sm:flex sm:w-auto">
           <Button className="min-h-11 px-3" disabled={previewDisabled} onClick={actions.onOpenPreview} type="button" variant="outline">
@@ -180,7 +170,7 @@ function EditorHeader({
   );
 }
 
-function VersionFact({ label, value }: { readonly label: string; readonly value: string }) {
+function HeaderFact({ label, value }: { readonly label: string; readonly value: string }) {
   return (
     <div className="min-w-0">
       <dt className="font-mono text-xs text-muted-foreground">{label}</dt>
@@ -267,7 +257,7 @@ function MetadataPanel({
             <SelectContent>
               <SelectItem className={authoringSelectItemClassName} value="unassigned">Не назначена</SelectItem>
               {presentation.availableTopics.map((topic) => (
-                <SelectItem className={authoringSelectItemClassName} key={topic.value} value={topic.value}>{topic.label}</SelectItem>
+                <SelectItem className={authoringSelectItemClassName} key={topic.value} value={topic.value}>{materialTaxonomyLabel(topic.label)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -287,7 +277,7 @@ function MetadataPanel({
             <SelectContent>
               <SelectItem className={authoringSelectItemClassName} value="unassigned">Не назначен</SelectItem>
               {presentation.availableFormats.map((format) => (
-                <SelectItem className={authoringSelectItemClassName} key={format.value} value={format.value}>{format.label}</SelectItem>
+                <SelectItem className={authoringSelectItemClassName} key={format.value} value={format.value}>{materialTaxonomyLabel(format.label)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -704,12 +694,12 @@ function AuthoringNotice({
           {presentation.validation.kind === "checking"
             ? presentation.draft.status === "new"
               ? "Создаём черновик"
-              : "Сохраняем Material"
+              : "Сохраняем материал"
             : inputInvalid
               ? "Проверьте поля"
               : presentation.draft.status === "new"
                 ? "Черновик создан"
-                : "Material сохранён"}
+                : "Материал сохранён"}
         </p>
       </div>
     </div>

@@ -129,7 +129,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Production-owned single-author Editor/exact Preview composition. Stories provide only serializable presentation fixtures; transport, authorization and persistence remain outside the UI module.",
+          "Production-композиция редактора и точного предпросмотра. Сценарии передают только сериализуемые данные представления; transport, авторизация и сохранение остаются вне UI-модуля.",
       },
     },
     nextjs: {
@@ -139,7 +139,7 @@ const meta = {
   render: ({ presentation }) => (
     <MaterialAuthoringFixture initialPresentation={presentation} />
   ),
-  title: "Pages/Authoring/Editor and exact Preview",
+  title: "Страницы/Редактор/Материал и предпросмотр",
 } satisfies Meta<typeof MaterialAuthoringWorkspace>;
 
 export default meta;
@@ -149,7 +149,7 @@ type Story = StoryObj<typeof meta>;
 export const EmptyNewDraft: Story = {
   args: { presentation: emptyMaterialAuthoringPresentation },
   globals: { viewport: { isRotated: false, value: "mobile320" } },
-  name: "Empty new draft · mobile",
+  name: "Новый черновик · мобильный",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Новый материал" })).toBeInTheDocument();
@@ -161,6 +161,7 @@ export const EmptyNewDraft: Story = {
 };
 
 export const Editing: Story = {
+  name: "Редактирование",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("group", { name: "Плейлисты" })).toBeInTheDocument();
@@ -174,14 +175,16 @@ export const Editing: Story = {
     await expect(canvas.getAllByText("Есть несохранённые изменения", { exact: true }).length).toBeGreaterThan(0);
     await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toBeDisabled();
     await userEvent.click(canvas.getByRole("button", { name: "Сохранить" }));
-    await expect(canvas.getAllByText(`v${String(savedContentVersion)}`).length).toBeGreaterThan(0);
+    await expect(canvas.queryByText(`v${String(savedContentVersion)}`)).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Версия", { exact: true })).not.toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Предпросмотр" }));
     await expect(canvas.getByRole("heading", { name: "Новая версия Developer Pipeline" })).toBeInTheDocument();
-    await expect(canvas.getAllByText(new RegExp(`v${String(savedContentVersion)}`)).length).toBeGreaterThan(0);
+    await expect(canvas.queryByText(`v${String(savedContentVersion)}`)).not.toBeInTheDocument();
   },
 };
 
 export const Dirty: Story = {
+  name: "Есть изменения",
   args: {
     presentation: { ...materialAuthoringPresentation, save: { kind: "dirty" } },
   },
@@ -193,6 +196,7 @@ export const Dirty: Story = {
 };
 
 export const Submitting: Story = {
+  name: "Сохранение",
   args: {
     presentation: { ...materialAuthoringPresentation, save: { kind: "submitting" } },
   },
@@ -212,6 +216,7 @@ export const Submitting: Story = {
 };
 
 export const Saved: Story = {
+  name: "Сохранено",
   args: {
     presentation: {
       ...materialAuthoringPresentation,
@@ -226,7 +231,7 @@ export const Saved: Story = {
     await userEvent.tab();
     await expect(canvas.getByRole("link", { name: "Перейти к содержанию" })).toHaveFocus();
     await userEvent.tab();
-    await expect(canvas.getByRole("link", { name: /Inside Authoring/ })).toHaveFocus();
+    await expect(canvas.getByRole("link", { name: /Редактор Inside/ })).toHaveFocus();
     await userEvent.tab();
     await expect(canvas.getByRole("link", { name: "Материалы" })).toHaveFocus();
     await userEvent.tab();
@@ -235,6 +240,7 @@ export const Saved: Story = {
 };
 
 export const CreatedDraft: Story = {
+  name: "Черновик создан",
   args: {
     presentation: {
       ...materialAuthoringPresentation,
@@ -264,13 +270,14 @@ export const CreatedDraft: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Material сохранён")).toBeVisible();
+    await expect(canvas.getByText("Материал сохранён")).toBeVisible();
     await expect(canvas.getByLabelText("Название")).toBeDisabled();
     await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toBeEnabled();
   },
 };
 
 export const ValidationPassed: Story = {
+  name: "Проверка пройдена",
   args: {
     presentation: {
       ...materialAuthoringPresentation,
@@ -280,12 +287,13 @@ export const ValidationPassed: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Material сохранён")).toBeVisible();
+    await expect(canvas.getByText("Материал сохранён")).toBeVisible();
     await expect(canvas.queryByText(/2 заголовков/)).not.toBeInTheDocument();
   },
 };
 
 export const ValidationIssues: Story = {
+  name: "Есть замечания",
   args: {
     presentation: {
       ...materialAuthoringPresentation,
@@ -308,7 +316,7 @@ export const ValidationIssues: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Material сохранён")).toBeVisible();
+    await expect(canvas.getByText("Материал сохранён")).toBeVisible();
     await expect(canvas.getByText("Перед публикацией")).toBeVisible();
     await expect(canvas.getByText("Назначьте формат перед публикацией.")).toBeVisible();
     await expect(canvas.getByText("Назначьте тему перед публикацией.")).toBeVisible();
@@ -316,6 +324,7 @@ export const ValidationIssues: Story = {
 };
 
 export const Unauthorized: Story = {
+  name: "Нет доступа к редактору",
   args: {
     presentation: {
       ...materialAuthoringPresentation,
@@ -330,6 +339,7 @@ export const Unauthorized: Story = {
 };
 
 export const PreviewUnauthorized: Story = {
+  name: "Нет доступа к предпросмотру",
   args: { presentation: materialAuthoringPresentation },
   render: () => <MaterialAuthoringPreviewUnauthorizedState />,
   play: async ({ canvasElement }) => {
@@ -340,6 +350,7 @@ export const PreviewUnauthorized: Story = {
 };
 
 export const PreviewUnexpectedError: Story = {
+  name: "Ошибка предпросмотра",
   args: { presentation: materialAuthoringPresentation },
   render: () => (
     <MaterialAuthoringUnexpectedPreviewState
@@ -359,6 +370,7 @@ export const PreviewUnexpectedError: Story = {
 };
 
 export const PreviewNotFound: Story = {
+  name: "Предпросмотр не найден",
   args: { presentation: materialAuthoringPresentation },
   render: () => <MaterialAuthoringPreviewNotFoundState />,
   play: async ({ canvasElement }) => {
@@ -369,6 +381,7 @@ export const PreviewNotFound: Story = {
 };
 
 export const InitialEditorUnexpectedError: Story = {
+  name: "Ошибка открытия редактора",
   args: { presentation: materialAuthoringPresentation },
   render: () => <MaterialAuthoringUnexpectedEditorState reference="identity-session" />,
   play: async ({ canvasElement }) => {
@@ -383,13 +396,13 @@ export const ExactPreview: Story = {
     presentation: { ...materialAuthoringPresentation, mode: "preview" },
   },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
-  name: "Exact Preview · desktop",
+  name: "Предпросмотр · широкий экран",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Предпросмотр текущей версии" })).toBeInTheDocument();
-    await expect(canvas.getAllByText(/v3/).length).toBeGreaterThan(0);
-    await expect(canvasElement.querySelector("[data-preview-version-banner]")).toHaveTextContent(
-      "Это сохранённый черновик v3. Материал ещё не опубликован.",
+    await expect(canvas.getByRole("heading", { name: "Предпросмотр материала" })).toBeInTheDocument();
+    await expect(canvas.queryByText("v3", { exact: true })).not.toBeInTheDocument();
+    await expect(canvasElement.querySelector("[data-preview-status-banner]")).toHaveTextContent(
+      "Сохранённый черновик. Материал ещё не опубликован.",
     );
     await expect(canvas.getByRole("heading", { name: "Developer Pipeline без магии" })).toBeInTheDocument();
     await expect(canvas.getByRole("region", { name: "Таблица в предпросмотре" })).toBeVisible();
@@ -404,16 +417,17 @@ export const ExactPreviewMobile: Story = {
     presentation: { ...materialAuthoringPresentation, mode: "preview" },
   },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
-  name: "Exact Preview · mobile",
+  name: "Предпросмотр · мобильный",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Предпросмотр текущей версии" })).toBeInTheDocument();
-    await expect(canvas.getAllByText(/v3/).length).toBeGreaterThan(0);
+    await expect(canvas.getByRole("heading", { name: "Предпросмотр материала" })).toBeInTheDocument();
+    await expect(canvas.queryByText("v3", { exact: true })).not.toBeInTheDocument();
     await expectNoHorizontalOverflow(canvasElement);
   },
 };
 
 export const Conflict: Story = {
+  name: "Конфликт сохранения",
   args: {
     presentation: {
       ...materialAuthoringPresentation,
@@ -442,6 +456,7 @@ export const Conflict: Story = {
 };
 
 export const Published: Story = {
+  name: "Опубликован",
   args: {
     presentation: {
       ...materialAuthoringPresentation,
@@ -459,13 +474,14 @@ export const Published: Story = {
     await expect(canvas.getAllByText("Опубликован").length).toBeGreaterThan(0);
     await expect(canvas.getByLabelText("Адрес")).toHaveAttribute("readonly");
     await userEvent.click(canvas.getByRole("button", { name: "Предпросмотр" }));
-    await expect(canvasElement.querySelector("[data-preview-version-banner]")).toHaveTextContent(
-      "Это текущая live-версия v3.",
+    await expect(canvasElement.querySelector("[data-preview-status-banner]")).toHaveTextContent(
+      "Материал опубликован и доступен читателям.",
     );
   },
 };
 
 export const Unpublished: Story = {
+  name: "Снят с публикации",
   args: {
     presentation: {
       ...materialAuthoringPresentation,
@@ -481,6 +497,7 @@ export const Unpublished: Story = {
 };
 
 export const InfrastructureError: Story = {
+  name: "Ошибка сервиса",
   args: {
     presentation: {
       ...materialAuthoringPresentation,
@@ -504,7 +521,7 @@ export const MobileTextZoom: Story = {
     },
   },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
-  name: "Mobile · 200% text zoom",
+  name: "Мобильный · текст 200%",
   play: async ({ canvasElement }) => {
     const root = canvasElement.ownerDocument.documentElement;
     const previousFontSize = root.style.fontSize;
