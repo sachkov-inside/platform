@@ -13,6 +13,7 @@ Create an issue in the repository that owns the outcome:
 | Product discovery, owner decision, shared document, or cross-repository work | `workspace` |
 | Change or bug in the public landing | `inside-landing` |
 | Change or bug in the Membership platform | `platform` |
+| Change or bug in the Telegram application | `inside-telegram` |
 
 A cross-repository effort has a parent issue in Workspace and repository-local child issues.
 The issue holds discussion and execution history; record confirmed durable knowledge once in a
@@ -160,6 +161,44 @@ Work is ready for owner merge when:
 Implementation, specification, and architecture changes run Standards and Spec `code-review` from
 an agreed fixed point. Trivial docs or chore work needs only a bounded diff review and relevant
 verification.
+
+### Review closure
+
+Every actionable review finding receives one explicit disposition before work is ready for merge:
+fix it in the current change, defer it to a linked issue when it is valid but outside scope, or
+reject it with concrete evidence. After fixes, re-run the relevant verification and both review
+axes from the same fixed point. Completion means both axes pass or every remaining finding has an
+explicit disposition; a raw review report is not a completion artifact.
+
+Promote a finding only when it generalizes beyond one diff. Prefer the strongest durable home:
+type, schema, test, lint or guardrail first; repository coding standard for recurring judgement;
+specification for required behaviour; ADR for a hard-to-reverse trade-off; tracker issue for
+deferred work. Pull request history is the durable home for one-off findings. Do not create a
+repository review ledger.
+
+### Architecture fitness
+
+Every durable architecture rule names its owning repository or Module and the closest executable
+fitness function. Prefer types and schemas for shape, focused tests for behaviour, import or
+dependency guardrails for seams, and integration checks for infrastructure ownership. A new or
+changed architecture seam includes a passing representative case and a negative fixture that
+proves the guardrail fails when the rule is broken. Repository-specific fitness functions run as
+part of that repository's full verification command.
+
+`inside-harness health` owns shared harness fitness: managed-package integrity, runtime discovery,
+coding-standard discoverability, and ADR lifecycle. A prose-only architecture rule states why it
+cannot yet be enforced and becomes a fitness candidate when a stable seam appears.
+
+### Pruning
+
+Review every touched instruction or decision for sediment. Keep one authority for each meaning;
+remove coding standards that are duplicated, stale, reduced to no-ops, or fully enforced by an
+executable check unless the rationale remains necessary. Git history preserves removed rules.
+
+Accepted ADRs remain as decision history. Every ADR declares `proposed`, `accepted`, `deprecated`,
+or `superseded by ADR-NNNN`; replacement creates a new ADR and points the old one at it. Delete only
+an unaccepted proposal whose discussion has no remaining value. Update context pointers when their
+target or trigger changes.
 
 Every completed agent session ends with a decision handoff in chat: the outcome, recommendation or
 decision needed, material caveats, verification performed, and direct links to the durable document,

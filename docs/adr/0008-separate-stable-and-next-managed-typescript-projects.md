@@ -1,6 +1,5 @@
 ---
-status: superseded
-superseded-by: 0010-single-typescript-7-oxc-toolchain.md
+status: superseded by ADR-0010
 ---
 
 # Separate stable and Next-managed TypeScript projects
