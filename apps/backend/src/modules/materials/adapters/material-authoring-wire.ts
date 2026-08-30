@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-export const materialIdWireSchema = z.uuid();
+export const uuidWireSchema = z.uuid();
+export const materialIdWireSchema = uuidWireSchema;
 export const idempotencyKeyWireSchema = z.string().trim().min(1).max(200);
 export const contentVersionWireSchema = z.number().int().positive();
 export const publicationStateWireSchema = z.enum([
@@ -10,7 +11,7 @@ export const publicationStateWireSchema = z.enum([
 ]);
 export const seriesMembershipWireSchema = z
   .object({
-    seriesId: materialIdWireSchema,
+    seriesId: uuidWireSchema,
     ordinal: z.number().int().positive(),
   })
   .strict();
@@ -24,9 +25,9 @@ export const materialMetadataWireSchema = z
       .max(120)
       .nullable(),
     access: z.enum(["free", "membership"]),
-    topicId: materialIdWireSchema.nullable(),
-    formatId: materialIdWireSchema.nullable(),
-    tagIds: z.array(materialIdWireSchema).max(100),
+    topicId: uuidWireSchema.nullable(),
+    formatId: uuidWireSchema.nullable(),
+    tagIds: z.array(uuidWireSchema).max(100),
     seriesMemberships: z.array(seriesMembershipWireSchema).max(100),
   })
   .strict();
