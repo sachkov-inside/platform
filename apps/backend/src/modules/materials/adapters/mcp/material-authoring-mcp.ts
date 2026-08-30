@@ -5,36 +5,15 @@ import {
 import { z } from "zod";
 
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
+import {
+  contentVersionWireSchema,
+  idempotencyKeyWireSchema,
+  materialBodySnapshotWireSchema,
+  materialIdWireSchema,
+  materialMetadataWireSchema,
+  publicationStateWireSchema,
+} from "../material-authoring-wire.js";
 
-const uuid = z.uuid();
-const idempotencyKey = z.string().trim().min(1).max(200);
-const contentVersion = z.number().int().positive();
-const publicationState = z.enum(["draft", "published", "unpublished"]);
-const seriesMembership = z
-  .object({ seriesId: uuid, ordinal: z.number().int().positive() })
-  .strict();
-const materialMetadata = z
-  .object({
-    title: z.string().trim().min(1).max(160).nullable(),
-    summary: z.string().trim().min(1).max(500).nullable(),
-    slug: z
-      .string()
-      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
-      .max(120)
-      .nullable(),
-    access: z.enum(["free", "membership"]),
-    topicId: uuid.nullable(),
-    formatId: uuid.nullable(),
-    tagIds: z.array(uuid).max(100),
-    seriesMemberships: z.array(seriesMembership).max(100),
-  })
-  .strict();
-const materialBody = z
-  .object({
-    schemaVersion: z.literal(1),
-    doc: z.record(z.string(), z.json()),
-  })
-  .strict();
 const applicationResult = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(true), value: z.json() }).strict(),
   z
@@ -74,9 +53,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
         "Create one never-published Material through Platform authoring rules. Reuse the same idempotency key when retrying an uncertain request.",
       inputSchema: z
         .object({
-          idempotencyKey,
-          metadata: materialMetadata,
-          body: materialBody,
+          idempotencyKey: idempotencyKeyWireSchema,
+          metadata: materialMetadataWireSchema,
+          body: materialBodySnapshotWireSchema,
         })
         .strict(),
       annotations: {
@@ -102,7 +81,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       title: "Load current Material",
       description:
         "Load the complete current saved Material state and contentVersion through Platform authoring authorization.",
-      inputSchema: z.object({ materialId: uuid }).strict(),
+      inputSchema: z.object({ materialId: materialIdWireSchema }).strict(),
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
@@ -126,12 +105,12 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
         "Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history.",
       inputSchema: z
         .object({
-          idempotencyKey,
-          materialId: uuid,
-          expectedContentVersion: contentVersion,
-          publicationState,
-          metadata: materialMetadata,
-          body: materialBody,
+          idempotencyKey: idempotencyKeyWireSchema,
+          materialId: materialIdWireSchema,
+          expectedContentVersion: contentVersionWireSchema,
+          publicationState: publicationStateWireSchema,
+          metadata: materialMetadataWireSchema,
+          body: materialBodySnapshotWireSchema,
         })
         .strict(),
       annotations: {
@@ -167,7 +146,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       title: "Preview current Material",
       description:
         "Render the current saved Material through canonical ContentAccess and the same safe renderer used by Platform.",
-      inputSchema: z.object({ materialId: uuid }).strict(),
+      inputSchema: z.object({ materialId: materialIdWireSchema }).strict(),
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,

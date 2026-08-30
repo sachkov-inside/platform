@@ -1,0 +1,38 @@
+import { z } from "zod";
+
+export const materialIdWireSchema = z.uuid();
+export const idempotencyKeyWireSchema = z.string().trim().min(1).max(200);
+export const contentVersionWireSchema = z.number().int().positive();
+export const publicationStateWireSchema = z.enum([
+  "draft",
+  "published",
+  "unpublished",
+]);
+export const seriesMembershipWireSchema = z
+  .object({
+    seriesId: materialIdWireSchema,
+    ordinal: z.number().int().positive(),
+  })
+  .strict();
+export const materialMetadataWireSchema = z
+  .object({
+    title: z.string().trim().min(1).max(160).nullable(),
+    summary: z.string().trim().min(1).max(500).nullable(),
+    slug: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
+      .max(120)
+      .nullable(),
+    access: z.enum(["free", "membership"]),
+    topicId: materialIdWireSchema.nullable(),
+    formatId: materialIdWireSchema.nullable(),
+    tagIds: z.array(materialIdWireSchema).max(100),
+    seriesMemberships: z.array(seriesMembershipWireSchema).max(100),
+  })
+  .strict();
+export const materialBodySnapshotWireSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    doc: z.record(z.string(), z.unknown()),
+  })
+  .strict();
