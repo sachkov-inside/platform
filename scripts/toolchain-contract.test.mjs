@@ -122,10 +122,17 @@ describe("supported toolchain contract", () => {
   });
 
   it("pins every container image by digest and every GitHub Action by commit", () => {
-    for (const path of ["compose.yaml", ".github/workflows/application-ci.yml"]) {
+    for (const path of [
+      "compose.yaml",
+      "compose.production.yaml",
+      ".github/workflows/application-ci.yml",
+    ]) {
       const imageLines = read(path)
         .split("\n")
-        .filter((line) => /^\s*image:/u.test(line));
+        .filter(
+          (line) =>
+            /^\s*image:/u.test(line) && !line.includes("${PLATFORM_"),
+        );
       assert.ok(imageLines.length > 0, `${path} must declare at least one image`);
       assert.ok(
         imageLines.every((line) => /:\d[^\s]*@sha256:[a-f0-9]{64}$/u.test(line.trim())),
@@ -140,6 +147,20 @@ describe("supported toolchain contract", () => {
     assert.ok(
       actionLines.every((line) => /@[a-f0-9]{40}(?:\s+#\s+v\d+\.\d+\.\d+)?$/u.test(line.trim())),
     );
+  });
+
+  it("keeps production application images supplied as immutable release inputs", () => {
+    const productionCompose = read("compose.production.yaml");
+
+    assert.match(
+      productionCompose,
+      /image: \$\{PLATFORM_API_IMAGE:\?Set PLATFORM_API_IMAGE to an immutable image reference\}/u,
+    );
+    assert.match(
+      productionCompose,
+      /image: \$\{PLATFORM_WEB_IMAGE:\?Set PLATFORM_WEB_IMAGE to an immutable image reference\}/u,
+    );
+    assert.doesNotMatch(productionCompose, /^\s+build:/mu);
   });
 
   it("groups only patch/minor Dependabot updates", () => {

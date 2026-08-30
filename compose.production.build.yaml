@@ -1,0 +1,16 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api-production
+      args:
+        SOURCE_REVISION: ${SOURCE_REVISION:-local}
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web-production
+      args:
+        SOURCE_REVISION: ${SOURCE_REVISION:-local}

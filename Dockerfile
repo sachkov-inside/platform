@@ -39,3 +39,50 @@ CMD ["pnpm", "--filter", "@inside/web", "dev", "--hostname", "0.0.0.0", "--port"
 
 FROM development AS storybook
 CMD ["pnpm", "--filter", "@inside/web", "storybook", "--host", "0.0.0.0"]
+
+FROM development AS backend-production-build
+
+RUN pnpm --filter @inside/backend build:production \
+    && pnpm --config.inject-workspace-packages=true \
+      --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend
+
+FROM development AS web-production-build
+
+RUN pnpm --filter @inside/web build
+
+FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS api-production
+
+ARG SOURCE_REVISION=unknown
+LABEL org.opencontainers.image.source="https://github.com/sachkov-inside/platform" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}"
+
+ENV NODE_ENV=production \
+    API_HOST=0.0.0.0 \
+    API_PORT=3001
+WORKDIR /app
+
+COPY --from=backend-production-build --chown=node:node /workspace/.production/backend/package.json ./package.json
+COPY --from=backend-production-build --chown=node:node /workspace/.production/backend/node_modules ./node_modules
+COPY --from=backend-production-build --chown=node:node /workspace/apps/backend/dist ./dist
+
+EXPOSE 3001
+USER node
+CMD ["node", "dist/entrypoints/api.js"]
+
+FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS web-production
+
+ARG SOURCE_REVISION=unknown
+LABEL org.opencontainers.image.source="https://github.com/sachkov-inside/platform" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}"
+
+ENV NODE_ENV=production \
+    HOSTNAME=0.0.0.0 \
+    PORT=3000
+WORKDIR /app
+
+COPY --from=web-production-build --chown=node:node /workspace/apps/web/.next/standalone ./
+COPY --from=web-production-build --chown=node:node /workspace/apps/web/.next/static ./apps/web/.next/static
+
+EXPOSE 3000
+USER node
+CMD ["node", "apps/web/server.js"]

@@ -11,6 +11,7 @@
     "prisma:generate": "prisma generate --config prisma.config.ts",
     "prisma:validate": "prisma validate --config prisma.config.ts",
     "build": "pnpm prisma:generate && tsc -p tsconfig.build.json",
+    "build:production": "pnpm prisma:generate && tsc -p tsconfig.production.json",
     "start:api": "node dist/entrypoints/api.js",
     "start:mcp": "node dist/entrypoints/mcp.js",
     "db:migrate": "tsx src/migrations/migrate.ts",
