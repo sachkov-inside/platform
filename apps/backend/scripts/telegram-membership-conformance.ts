@@ -9,23 +9,31 @@ import { seedLocalDevelopment } from "../src/development/seed-local-development.
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
 import { createPrismaClient } from "../src/infrastructure/prisma/index.js";
 import { migrateToLatest } from "../src/migrations/index.js";
+import {
+  localProofDatabaseUrl,
+  loopbackHttpUrl,
+} from "./conformance-safety.js";
 
 const platformPort = port("CONFORMANCE_PLATFORM_PORT", 44_101);
 const platformBase = `http://127.0.0.1:${String(platformPort)}`;
-const telegramBase = localProofUrl(
+const telegramBase = loopbackHttpUrl(
   required("CONFORMANCE_TELEGRAM_URL"),
   "CONFORMANCE_TELEGRAM_URL",
 );
-const telegramControlBase = localProofUrl(
+const telegramControlBase = loopbackHttpUrl(
   required("CONFORMANCE_TELEGRAM_CONTROL_URL"),
   "CONFORMANCE_TELEGRAM_CONTROL_URL",
 );
 const evidenceSecret = required("CONFORMANCE_EVIDENCE_SECRET");
 const linkSecret = required("CONFORMANCE_LINK_SECRET");
 const webhookSecret = required("CONFORMANCE_WEBHOOK_SECRET");
+const controlSecret = required("CONFORMANCE_CONTROL_SECRET");
 const issuer = "https://identity.telegram-conformance.invalid/oidc";
 const audience = "https://api.telegram-conformance.invalid";
-const databaseUrl = localProofUrl(required("DATABASE_URL"), "DATABASE_URL");
+const databaseUrl = localProofDatabaseUrl(
+  required("DATABASE_URL"),
+  "DATABASE_URL",
+);
 
 const prisma = createPrismaClient(databaseUrl);
 let application: Awaited<ReturnType<typeof createApiApplication>> | undefined;
@@ -362,14 +370,19 @@ async function postWebhook(payload: unknown): Promise<void> {
 async function setTelegramState(state: Record<string, string>): Promise<void> {
   const response = await fetch(`${telegramControlBase}/state`, {
     body: JSON.stringify(state),
-    headers: { "content-type": "application/json" },
+    headers: {
+      authorization: `Bearer ${controlSecret}`,
+      "content-type": "application/json",
+    },
     method: "POST",
   });
   assert(response.ok, "Telegram conformance control failed");
 }
 
 async function telegramCallCount(): Promise<number> {
-  const response = await fetch(`${telegramControlBase}/state`);
+  const response = await fetch(`${telegramControlBase}/state`, {
+    headers: { authorization: `Bearer ${controlSecret}` },
+  });
   const body = record(await response.json());
   assert(
     typeof body.calls === "number",
@@ -559,18 +572,6 @@ function counts(values: readonly string[]): Record<string, number> {
     result[value] = (result[value] ?? 0) + 1;
   }
   return result;
-}
-
-function localProofUrl(value: string, name: string): string {
-  const url = new URL(value);
-  if (
-    (url.hostname !== "127.0.0.1" && url.hostname !== "localhost") ||
-    (name === "DATABASE_URL" &&
-      !/(proof|conformance)/u.test(url.pathname.toLowerCase()))
-  ) {
-    throw new Error(`${name} must target a loopback proof database/endpoint`);
-  }
-  return value;
 }
 
 function port(name: string, fallback: number): number {
