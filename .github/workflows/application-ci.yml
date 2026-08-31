@@ -75,3 +75,11 @@ jobs:
       - name: Reject orphan application containers
         if: always()
         run: test -z "$(docker compose ps --all --quiet)"
+
+  compose-production-stack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build and verify production images and Compose
+        run: bash scripts/production-compose-smoke.sh

@@ -205,6 +205,26 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(smoke, /down --volumes --remove-orphans \|\| true/u);
   });
 
+  it("derives the production migration expectation from the registered source files", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
+
+    assert.match(smoke, /expected_migration_count=/u);
+    assert.match(smoke, /infrastructure\/postgres\/migrations/u);
+    assert.doesNotMatch(smoke, /migration_count" != "\d+"/u);
+  });
+
+  it("runs the isolated production Compose smoke as its own CI job", () => {
+    const workflow = read(".github/workflows/application-ci.yml");
+    const match = workflow.match(
+      /\n  compose-production-stack:\n([\s\S]*?)(?=\n  [a-z0-9-]+:\n|$)/u,
+    );
+
+    assert.ok(match, "Application CI must declare compose-production-stack");
+    const job = match[1];
+    assert.match(job, /run: bash scripts\/production-compose-smoke\.sh/u);
+    assert.doesNotMatch(job, /secrets\./u);
+  });
+
   it("groups only patch/minor Dependabot updates", () => {
     const dependabot = read(".github/dependabot.yml");
     const groupBodies = [...dependabot.matchAll(/^\s{6}(\S+):\n((?:\s{8,}.*\n?)*)/gmu)];
