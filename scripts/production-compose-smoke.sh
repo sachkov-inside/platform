@@ -114,6 +114,13 @@ if [[ "$library_response" != *"Библиотека"* ]]; then
   exit 1
 fi
 
+expected_migration_count="$(
+  find apps/backend/src/modules \
+    -type f \
+    -path '*/infrastructure/postgres/migrations/*.ts' \
+    | wc -l \
+    | tr -d '[:space:]'
+)"
 migration_count="$(
   "${compose[@]}" exec -T postgres psql \
     --username "$POSTGRES_USER" \
@@ -122,8 +129,8 @@ migration_count="$(
     --no-align \
     --command "select count(*) from public.platform_migrations;"
 )"
-if [[ "$migration_count" != "7" ]]; then
-  echo "Expected 7 applied migrations, received $migration_count" >&2
+if [[ "$migration_count" != "$expected_migration_count" ]]; then
+  echo "Expected $expected_migration_count applied migrations, received $migration_count" >&2
   exit 1
 fi
 
