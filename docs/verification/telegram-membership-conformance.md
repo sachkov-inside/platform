@@ -1,7 +1,7 @@
 # Telegram Membership consumer conformance
 
-Status: controlled Platform consumer proof for Platform #52. Credentialed production smoke and the
-provider-side convergence proof remain Telegram #8/release work.
+Status: **controlled two-application proof passed** for Platform #52 and Telegram #8. Credentialed
+production smoke, deployment, and traffic remain Telegram #9/release work.
 
 ## Compatibility matrix
 
@@ -15,12 +15,20 @@ provider-side convergence proof remain Telegram #8/release work.
 The identity-linking schema and named fixtures are vendored from
 `sachkov-inside/inside-telegram@e62d6a7d07cd2df611134278ffeb0e59c68cdf53` with SHA-256
 provenance. The normalized Membership Evidence corpus remains pinned to its Workspace source commit
-in `MembershipEntitlements`. Neither test nor runtime imports another checkout.
+in `MembershipEntitlements`; its schema and fixtures are byte-identical to the Telegram #8
+snapshots. Neither test nor runtime imports another checkout.
 
 ## Controlled proof
 
-The PostgreSQL/API integration corpus starts a separate loopback HTTP provider and the production
-Platform HTTP adapter. It proves:
+Platform's autonomous PostgreSQL/API corpus starts a controlled loopback provider and uses the
+production Platform HTTP adapter. In addition, the paired convergence run used:
+
+- `sachkov-inside/platform@1e10837689a39665087da26fa6038faebbeb7596`;
+- `sachkov-inside/inside-telegram@4d9aca2c5431200317a547a2c32d0fdc81e9cdb0`.
+
+It started the two real Nest/Fastify applications in separate processes and databases. Platform
+called Telegram through `HttpTelegramLinkProvider`; Telegram returned evidence through
+`HttpPlatformEvidenceAdapter`. Together the proofs establish:
 
 - a trusted Account creates a five-minute deep link whose raw bearer is returned once and never
   persisted;
@@ -34,6 +42,17 @@ Platform HTTP adapter. It proves:
 - integration authentication and schema/version mismatch create no business projection;
 - provider-specific Telegram user data is rejected by the strict normalized envelope.
 
+The two-application path additionally demonstrated initial non-member, duplicate Telegram update,
+duplicate identity conflict, real five-minute expiry during a deliberate provider outage, and
+newer provider/subject recovery. The protected Material request observed exactly zero Telegram
+membership reads while expired/outage access was denied locally.
+
+Redacted terminal counts were 3 Platform link transactions (`linked=2`,
+`recovery_required=1`), 2 current projections (`member=1`, `not_member=1`), and 18 evidence
+receipts: 5 applied observed revisions, 12 accepted unavailable reconciliation observations during
+the outage, and 1 unsupported-version audit receipt. Telegram delivered all supported evidence
+sources (`link_time=2`, `member_status_event=3`, `reconciliation=12`).
+
 Verification commands from the repository root:
 
 ```bash
@@ -44,4 +63,5 @@ git diff --check
 
 No real Telegram BotFather credential, chat identifier, Telegram user ID, email, bot token or
 production endpoint is used or recorded by this proof. Provider-field negative cases use synthetic
-contract fixtures only and never enter application persistence or logs.
+contract fixtures only and never enter application persistence or logs. Temporary runner files and
+task-specific proof databases were removed after the redacted audit was captured.
