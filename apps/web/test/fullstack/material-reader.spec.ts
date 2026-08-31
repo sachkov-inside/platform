@@ -487,6 +487,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .scrollIntoViewIfNeeded();
   await captureIssue93Evidence(page, testInfo, "reader-related");
 
+  await expect(page).toHaveTitle("Как устроен Inside Platform · Inside");
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
 });
