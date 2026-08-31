@@ -24,5 +24,5 @@ from the live PostgreSQL → Nest HTTP → Next server adapter → RSC route.
   and a repeatable 10k-row search budget of p95 ≤ 300 ms.
 - Storybook covers ready search results and no-results in addition to the existing loading, empty,
   continuation and error states. Agentation remains enabled for owner review.
-- Owner production visual GO: pending.
-- Owner merge GO: explicitly granted for this delivery chain; visual GO remains a separate gate.
+- Owner production visual GO: explicitly granted on 2026-08-31.
+- Owner merge GO: explicitly granted for this delivery chain.
