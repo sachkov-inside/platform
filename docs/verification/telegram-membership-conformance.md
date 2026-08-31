@@ -26,6 +26,10 @@ production Platform HTTP adapter. In addition, the paired convergence run used:
 - `sachkov-inside/platform@1e10837689a39665087da26fa6038faebbeb7596`;
 - `sachkov-inside/inside-telegram@4d9aca2c5431200317a547a2c32d0fdc81e9cdb0`.
 
+The durable split harness was rerun successfully at Platform
+`2aee06c55a0cf9194afd6fa9278b9a7ba296136b` and Telegram
+`6b0afc258312435b3cddec4c6c48d1202ab8b897`; application code above was unchanged.
+
 It started the two real Nest/Fastify applications in separate processes and databases. Platform
 called Telegram through `HttpTelegramLinkProvider`; Telegram returned evidence through
 `HttpPlatformEvidenceAdapter`. Together the proofs establish:
