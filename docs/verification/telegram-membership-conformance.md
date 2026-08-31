@@ -61,7 +61,27 @@ pnpm test:integration
 git diff --check
 ```
 
+The cross-application journey is reproducible without sibling imports. Start Telegram's
+`pnpm conformance:platform-provider` against a fresh loopback proof database, the Platform evidence
+endpoint, and matching synthetic credentials. Then run from this repository:
+
+```bash
+DATABASE_URL=postgresql://inside:inside@127.0.0.1:5432/<platform-proof-db> \
+CONFORMANCE_TELEGRAM_URL=http://127.0.0.1:44102 \
+CONFORMANCE_TELEGRAM_CONTROL_URL=http://127.0.0.1:44103 \
+CONFORMANCE_EVIDENCE_SECRET=issue8_evidence_proof_secret \
+CONFORMANCE_LINK_SECRET=issue8_linking_proof_secret \
+CONFORMANCE_WEBHOOK_SECRET=issue8_webhook_proof_secret \
+pnpm conformance:telegram-membership
+```
+
+`apps/backend/scripts/telegram-membership-conformance.ts` starts only Platform and drives the other
+application through authenticated HTTP/control endpoints. It rejects non-loopback URLs and
+database names without `proof`/`conformance`, waits through the real five-minute TTL, and prints a
+redacted `CONFORMANCE_RESULT`. The paired Telegram report contains the complete two-terminal
+command and disposal steps.
+
 No real Telegram BotFather credential, chat identifier, Telegram user ID, email, bot token or
 production endpoint is used or recorded by this proof. Provider-field negative cases use synthetic
-contract fixtures only and never enter application persistence or logs. Temporary runner files and
-task-specific proof databases were removed after the redacted audit was captured.
+contract fixtures only and never enter application persistence or logs. Task-specific proof
+databases were removed after the redacted audit; the safe split harness remains versioned.
