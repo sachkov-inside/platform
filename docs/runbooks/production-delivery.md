@@ -69,11 +69,17 @@ does not touch the normal development Compose project or its PostgreSQL volume.
 
 ## Release boundary
 
-The next CI/CD task will build both image targets once for an accepted `main` revision, push them to
-GHCR, resolve immutable digests, and deploy those exact references over an authenticated server
-channel. A release is successful only after the remote health check proves the expected revision.
-Rollback means selecting a previously published API/web image pair while keeping the newest
-migration image digest. The current migration runner validates the already-applied ledger and
-becomes a no-op before the older API starts. This is allowed only when that API release is declared
-compatible with the current forward-only schema; reversing database migrations remains a separate
-recovery operation.
+Every push to `main` runs `.github/workflows/production-images.yml`. The workflow builds the
+`api-production` and `web-production` targets from that exact revision, labels them with the full
+commit SHA, and publishes `ghcr.io/sachkov-inside/platform-api:<sha>` and
+`ghcr.io/sachkov-inside/platform-web:<sha>`. It authenticates with the repository `GITHUB_TOKEN`
+and grants the publishing job only `contents: read` and `packages: write`. The job exposes both
+content digests for a downstream deployment job; there is no mutable `latest` release input.
+
+The next CI/CD task will deploy those exact digest references over an authenticated server channel
+without rebuilding source. A release is successful only after the remote health check proves the
+expected revision. Rollback means selecting a previously published API/web image pair while
+keeping the newest migration image digest. The current migration runner validates the
+already-applied ledger and becomes a no-op before the older API starts. This is allowed only when
+that API release is declared compatible with the current forward-only schema; reversing database
+migrations remains a separate recovery operation.

@@ -225,6 +225,47 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(job, /secrets\./u);
   });
 
+  it("publishes exact main production images to GHCR without mutable tags", () => {
+    const workflow = read(".github/workflows/production-images.yml");
+
+    assert.match(workflow, /^on:\n {2}push:\n {4}branches: \[main\]$/mu);
+    assert.doesNotMatch(workflow, /pull_request:/u);
+    assert.match(workflow, /^permissions: \{\}$/mu);
+    assert.match(workflow, /permissions:\n {6}contents: read\n {6}packages: write/u);
+    assert.match(workflow, /username: \$\{\{ github\.actor \}\}/u);
+    assert.match(workflow, /password: \$\{\{ secrets\.GITHUB_TOKEN \}\}/u);
+
+    for (const [target, image, step] of [
+      ["api-production", "platform-api", "publish-api"],
+      ["web-production", "platform-web", "publish-web"],
+    ]) {
+      assert.match(workflow, new RegExp(`target: ${target}`, "u"));
+      assert.match(
+        workflow,
+        new RegExp(`tags: ghcr\\.io/sachkov-inside/${image}:\\$\\{\\{ github\\.sha \\}\\}`, "u"),
+      );
+      assert.match(
+        workflow,
+        new RegExp(`${image}-digest: \\$\\{\\{ steps\\.${step}\\.outputs\\.digest \\}\\}`, "u"),
+      );
+    }
+
+    assert.match(workflow, /SOURCE_REVISION=\$\{\{ github\.sha \}\}/u);
+    assert.doesNotMatch(workflow, /(?:^|:)latest(?:\s|$)/mu);
+    const secretNames = [...workflow.matchAll(/secrets\.([A-Z0-9_]+)/gu)].map(
+      ([, name]) => name,
+    );
+    assert.deepEqual([...new Set(secretNames)], ["GITHUB_TOKEN"]);
+
+    const actionLines = workflow
+      .split("\n")
+      .filter((line) => /^\s*uses:/u.test(line));
+    assert.ok(actionLines.length > 0);
+    assert.ok(
+      actionLines.every((line) => /@[a-f0-9]{40}\s+#\s+v\d+\.\d+\.\d+$/u.test(line.trim())),
+    );
+  });
+
   it("groups only patch/minor Dependabot updates", () => {
     const dependabot = read(".github/dependabot.yml");
     const groupBodies = [...dependabot.matchAll(/^\s{6}(\S+):\n((?:\s{8,}.*\n?)*)/gmu)];
