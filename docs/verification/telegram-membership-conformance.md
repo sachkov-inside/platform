@@ -26,6 +26,8 @@ Platform HTTP adapter. It proves:
   persisted;
 - a different Account cannot confirm that transaction;
 - provider confirmation alone grants no access;
+- initial evidence that races final Account confirmation is retryable and creates no durable
+  receipt until the link is confirmed;
 - authenticated fresh member evidence grants a bounded local entitlement;
 - newer removal denies, older replay cannot restore, and newer rejoin can restore;
 - expired positive evidence and provider outage fail closed;

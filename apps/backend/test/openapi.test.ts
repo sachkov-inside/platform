@@ -36,6 +36,17 @@ describe("OpenAPI contract", () => {
       ["/authoring/materials/{materialId}/preview", "get", "previewCurrentMaterial"],
       ["/accounts", "post", "establishAccount"],
       ["/accounts/current", "get", "resolveCurrentAccount"],
+      ["/accounts/current/telegram-link", "post", "beginTelegramMembershipLink"],
+      [
+        "/accounts/current/telegram-link/{linkRef}/confirm",
+        "post",
+        "confirmTelegramMembershipLink",
+      ],
+      [
+        "/integrations/telegram/v1/membership-evidence",
+        "post",
+        "acceptTelegramMembershipEvidence",
+      ],
     ] as const;
 
     for (const [path, method, operationId] of expectedOperations) {
@@ -163,6 +174,58 @@ describe("OpenAPI contract", () => {
       }
     }
   });
+
+  test("publishes concrete Telegram Membership request and error contracts", () => {
+    const document = createApiOpenApiDocument(app);
+    const begin = operation(
+      document,
+      "/accounts/current/telegram-link",
+      "post",
+    );
+    expect(begin.security).toEqual([{ logto: [] }]);
+    for (const status of ["401", "503"] as const) {
+      expect(hasResponseSchema(begin, status, "application/problem+json")).toBe(true);
+    }
+
+    const confirm = operation(
+      document,
+      "/accounts/current/telegram-link/{linkRef}/confirm",
+      "post",
+    );
+    expect(confirm).toMatchObject({
+      parameters: [
+        {
+          in: "path",
+          name: "linkRef",
+          required: true,
+          schema: { format: "uuid", type: "string" },
+        },
+      ],
+      security: [{ logto: [] }],
+    });
+    for (const status of ["400", "401", "404", "503"] as const) {
+      expect(hasResponseSchema(confirm, status, "application/problem+json")).toBe(true);
+    }
+
+    const evidence = operation(
+      document,
+      "/integrations/telegram/v1/membership-evidence",
+      "post",
+    );
+    expect(evidence.security).toEqual([{ "telegram-membership": [] }]);
+    expect(hasRequestBodySchema(evidence, "application/json")).toBe(true);
+    expect(evidence.parameters).toMatchObject([
+      {
+        in: "header",
+        name: "x-inside-membership-evidence-source",
+        required: true,
+      },
+      { in: "header", name: "idempotency-key", required: true },
+    ]);
+    for (const status of ["400", "401", "409", "422", "503"] as const) {
+      expect(hasResponseSchema(evidence, status, "application/problem+json")).toBe(true);
+    }
+  });
 });
 
 function operation(
@@ -194,6 +257,16 @@ function hasResponseSchema(
   const response = responses[status];
   if (!isRecord(response) || !isRecord(response.content)) return false;
   const media = response.content[mediaType];
+  return isRecord(media) && isRecord(media.schema);
+}
+
+function hasRequestBodySchema(
+  operation: Readonly<Record<string, unknown>>,
+  mediaType: string,
+): boolean {
+  const requestBody = operation.requestBody;
+  if (!isRecord(requestBody) || !isRecord(requestBody.content)) return false;
+  const media = requestBody.content[mediaType];
   return isRecord(media) && isRecord(media.schema);
 }
 

@@ -3,7 +3,10 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { HttpException } from "@nestjs/common";
 import { z } from "zod";
 
-import type { MembershipEvidenceAcceptance } from "../../../membership-entitlements/index.js";
+import {
+  membershipEvidenceSchema,
+  type MembershipEvidenceAcceptance,
+} from "../../../membership-entitlements/index.js";
 import type { TelegramLinkResult } from "../../index.js";
 
 export const evidenceDeliveryIdSchema = z.string().trim().min(1).max(256);
@@ -12,6 +15,15 @@ export const evidenceSourceSchema = z.enum([
   "member_status_event",
   "reconciliation",
 ]);
+export const telegramEvidenceBodySchema = membershipEvidenceSchema;
+export const telegramMembershipProblemSchema = z
+  .object({
+    type: z.string(),
+    title: z.string(),
+    status: z.number().int(),
+    code: z.string(),
+  })
+  .strict();
 export const telegramLinkStateSchema = z
   .object({
     deepLink: z.url().optional(),
@@ -81,7 +93,7 @@ export function credentialsMatch(
 export function throwTelegramLinkError(
   result: Extract<TelegramLinkResult, { readonly ok: false }>,
 ): never {
-  const status = result.error.code === "link_not_found" ? 404 : 400;
+  const status = telegramLinkFailureStatus(result.error.code);
   throw problem(status, result.error.code, "Telegram link request failed");
 }
 
@@ -112,6 +124,19 @@ function evidenceFailureStatus(
     case "principal_mismatch":
     case "replayed_evidence":
       return 409;
+    case "unavailable":
+      return 503;
+  }
+}
+
+function telegramLinkFailureStatus(
+  code: Extract<TelegramLinkResult, { readonly ok: false }>["error"]["code"],
+): number {
+  switch (code) {
+    case "invalid_input":
+      return 400;
+    case "link_not_found":
+      return 404;
     case "unavailable":
       return 503;
   }

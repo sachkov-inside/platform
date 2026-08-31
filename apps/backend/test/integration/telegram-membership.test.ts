@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { accountId } from "../../src/modules/accounts/index.js";
@@ -24,6 +25,15 @@ import {
 
 const firstAccountId = accountId("10000000-0000-4000-8000-000000000001");
 const otherAccountId = accountId("10000000-0000-4000-8000-000000000002");
+const persistedLinkRowsSchema = z.array(
+  z
+    .object({
+      account_id: z.uuid(),
+      principal_ref: z.string().min(1).max(256),
+      serialized: z.string(),
+    })
+    .strict(),
+);
 
 describe("TelegramMembership", () => {
   let clock: MutableClock;
@@ -73,20 +83,16 @@ describe("TelegramMembership", () => {
       createHash("sha256").update(rawToken ?? "").digest("base64url"),
     );
 
-    const persisted = await database.prisma.$queryRaw<
-      readonly {
-        readonly account_id: string;
-        readonly principal_ref: string;
-        readonly serialized: string;
-      }[]
-    >(Prisma.sql`
-      select
-        account_id::text,
-        principal_ref,
-        row_to_json(link_transaction)::text as serialized
-      from telegram_membership.link_transactions as link_transaction
-      where link_ref = ${begun.state.linkRef}::uuid
-    `);
+    const persisted = persistedLinkRowsSchema.parse(
+      await database.prisma.$queryRaw(Prisma.sql`
+        select
+          account_id::text,
+          principal_ref,
+          row_to_json(link_transaction)::text as serialized
+        from telegram_membership.link_transactions as link_transaction
+        where link_ref = ${begun.state.linkRef}::uuid
+      `),
+    );
     expect(persisted).toHaveLength(1);
     expect(persisted[0]).toMatchObject({
       account_id: firstAccountId,
@@ -116,6 +122,38 @@ describe("TelegramMembership", () => {
     expect(provider.confirmRequests).toHaveLength(1);
     await expect(entitlements.resolveForAccess(firstAccountId)).resolves.toEqual({
       kind: "unavailable",
+    });
+  });
+
+  test("makes initial evidence retryable until final Account confirmation", async () => {
+    ({ clock, membership, provider } = fixture(database));
+    const begun = await membership.beginLink({ accountId: firstAccountId });
+    if (!begun.ok || begun.state.status !== "pending") {
+      throw new Error("Expected a pending Telegram link");
+    }
+    const principalRef = provider.registerRequests[0]?.accountRef ?? "";
+    const command = {
+      deliveryId: "delivery-before-confirm",
+      source: "link_time" as const,
+      evidence: evidence(principalRef, "member", 1, clock.now()),
+    };
+
+    await expect(membership.acceptEvidence(command)).resolves.toEqual({
+      ok: false,
+      error: { code: "unavailable" },
+    });
+    await expect(
+      database.prisma.membershipEvidenceReceipt.count(),
+    ).resolves.toBe(0);
+
+    await membership.confirmLink({
+      accountId: firstAccountId,
+      linkRef: begun.state.linkRef,
+    });
+    await expect(membership.acceptEvidence(command)).resolves.toMatchObject({
+      ok: true,
+      outcome: "applied",
+      state: "active",
     });
   });
 

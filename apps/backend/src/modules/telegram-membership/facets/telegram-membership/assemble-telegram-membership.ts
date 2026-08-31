@@ -40,15 +40,32 @@ export function assembleTelegramMembership(
   assertDependencies(dependencies);
   const clock = dependencies.clock ?? (() => new Date());
   const membership: TelegramMembership = {
-    beginLink: (command) => beginLink(dependencies, command.accountId, clock()),
-    confirmLink: (command) =>
-      confirmLink(
-        dependencies,
-        command.accountId,
-        command.linkRef,
-        clock(),
-      ),
-    acceptEvidence: (command) => acceptEvidence(dependencies, command),
+    async beginLink(command) {
+      try {
+        return await beginLink(dependencies, command.accountId, clock());
+      } catch {
+        return failure("unavailable");
+      }
+    },
+    async confirmLink(command) {
+      try {
+        return await confirmLink(
+          dependencies,
+          command.accountId,
+          command.linkRef,
+          clock(),
+        );
+      } catch {
+        return failure("unavailable");
+      }
+    },
+    async acceptEvidence(command) {
+      try {
+        return await acceptEvidence(dependencies, command);
+      } catch {
+        return { ok: false, error: { code: "unavailable" } };
+      }
+    },
   };
   return Object.freeze(membership);
 }
@@ -220,7 +237,15 @@ async function acceptEvidence(
   const link = await dependencies.prisma.telegramLinkTransaction.findUnique({
     where: { principalRef: envelope.data.principalRef },
   });
-  if (link?.status !== "linked") {
+  if (
+    link !== null &&
+    (link.status === "pending" ||
+      link.status === "registering" ||
+      link.status === "unavailable")
+  ) {
+    return { ok: false, error: { code: "unavailable" } };
+  }
+  if (link === null || link.status !== "linked") {
     return { ok: false, error: { code: "principal_mismatch" } };
   }
   return dependencies.membershipEntitlements.acceptEvidence({
@@ -295,7 +320,7 @@ function success(state: TelegramLinkState): TelegramLinkResult {
 }
 
 function failure(
-  code: "invalid_input" | "link_not_found",
+  code: "invalid_input" | "link_not_found" | "unavailable",
 ): TelegramLinkResult {
   return { ok: false, error: { code } };
 }

@@ -142,19 +142,14 @@ describe("Telegram Membership API", () => {
       ownerToken,
     );
     const pending = readPendingLink(begun.json<unknown>());
-    await authenticated(
-      "POST",
-      `/accounts/current/telegram-link/${pending.linkRef}/confirm`,
-      ownerToken,
-    );
     const principalRef = provider.registrations.at(-1)?.body.accountRef;
     if (typeof principalRef !== "string") {
       throw new TypeError("Provider registration has no principalRef");
     }
     const checkedAt = new Date();
     const memberEvidence = evidence(principalRef, checkedAt);
-
     const receiptsBefore = await database.prisma.membershipEvidenceReceipt.count();
+
     const unauthenticated = await deliver(memberEvidence, {
       authorization: "Bearer wrong-secret",
       deliveryId: "api-evidence-unauthenticated",
@@ -165,12 +160,28 @@ describe("Telegram Membership API", () => {
       database.prisma.membershipEvidenceReceipt.count(),
     ).resolves.toBe(receiptsBefore);
 
+    const beforeConfirmation = await deliver(memberEvidence, {
+      authorization: `Bearer ${evidenceSecret}`,
+      deliveryId: "api-evidence-member-v1",
+      source: "link_time",
+    });
+    expect(beforeConfirmation.statusCode).toBe(503);
+    await expect(
+      database.prisma.membershipEvidenceReceipt.count(),
+    ).resolves.toBe(receiptsBefore);
+
+    await authenticated(
+      "POST",
+      `/accounts/current/telegram-link/${pending.linkRef}/confirm`,
+      ownerToken,
+    );
     const accepted = await deliver(memberEvidence, {
       authorization: `Bearer ${evidenceSecret}`,
       deliveryId: "api-evidence-member-v1",
       source: "link_time",
     });
     expect(accepted.statusCode).toBe(200);
+    expect(accepted.headers["cache-control"]).toBe("private, no-store");
     expect(accepted.json()).toMatchObject({
       ok: true,
       outcome: "applied",

@@ -61,6 +61,5 @@ import {
         }),
     },
   ],
-  exports: [TELEGRAM_MEMBERSHIP],
 })
 export class TelegramMembershipModule {}

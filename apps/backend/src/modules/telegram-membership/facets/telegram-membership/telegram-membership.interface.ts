@@ -24,7 +24,9 @@ export type TelegramLinkResult =
   | Readonly<{ ok: true; state: TelegramLinkState }>
   | Readonly<{
       ok: false;
-      error: { readonly code: "invalid_input" | "link_not_found" };
+      error: {
+        readonly code: "invalid_input" | "link_not_found" | "unavailable";
+      };
     }>;
 
 export interface AcceptTelegramEvidenceCommand {

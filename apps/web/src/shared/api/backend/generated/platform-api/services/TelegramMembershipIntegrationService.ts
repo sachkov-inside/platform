@@ -18,7 +18,44 @@ export class TelegramMembershipIntegrationService {
   }: {
     xInsideMembershipEvidenceSource: 'link_time' | 'member_status_event' | 'reconciliation',
     idempotencyKey: string,
-    requestBody: Record<string, any>,
+    requestBody: ({
+      checkedAt: string;
+      contractVersion: 'inside.membership-evidence.v1';
+      decision: 'member';
+      evidenceRef: string;
+      evidenceVersion: number;
+      principalRef: string;
+      reasonCode: 'chat_member';
+      telegramIdentityRef: string;
+      validUntil: string;
+    } | {
+      checkedAt: string;
+      contractVersion: 'inside.membership-evidence.v1';
+      decision: 'not_member';
+      evidenceRef: string;
+      evidenceVersion: number;
+      principalRef: string;
+      reasonCode: 'chat_not_member';
+      telegramIdentityRef: string;
+      validUntil: string;
+    } | {
+      contractVersion: 'inside.membership-evidence.v1';
+      decision: 'identity_not_linked';
+      principalRef: string;
+      reasonCode: 'identity_not_linked';
+    } | {
+      contractVersion: 'inside.membership-evidence.v1';
+      decision: 'identity_conflict';
+      principalRef: string;
+      reasonCode: 'identity_conflict';
+      telegramIdentityRef?: string;
+    } | {
+      contractVersion: 'inside.membership-evidence.v1';
+      decision: 'unavailable';
+      principalRef: string;
+      reasonCode: 'provider_unavailable';
+      telegramIdentityRef?: string;
+    }),
   }): CancelablePromise<({
     evidenceVersion: number;
     ok: boolean;

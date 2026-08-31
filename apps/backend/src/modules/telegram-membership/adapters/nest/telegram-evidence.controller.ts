@@ -20,7 +20,11 @@ import {
   PLATFORM_CONFIG,
   type PlatformConfig,
 } from "../../../../config/platform-config.js";
-import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
+import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
+import {
+  problemDetailsContent,
+  toOpenApiSchema,
+} from "../../../../infrastructure/http/zod-openapi.js";
 import type { TelegramMembership } from "../../index.js";
 import { TELEGRAM_MEMBERSHIP } from "../../telegram-membership.tokens.js";
 import {
@@ -29,6 +33,8 @@ import {
   evidenceAcceptanceSchema,
   evidenceDeliveryIdSchema,
   evidenceSourceSchema,
+  telegramEvidenceBodySchema,
+  telegramMembershipProblemSchema,
   throwEvidenceAuthenticationRequired,
   throwEvidenceError,
   throwInvalidEvidenceRequest,
@@ -36,6 +42,7 @@ import {
 
 @ApiTags("Telegram Membership integration")
 @ApiBearerAuth("telegram-membership")
+@PrivateNoStore()
 @Controller("integrations/telegram/v1/membership-evidence")
 export class TelegramEvidenceController {
   constructor(
@@ -61,18 +68,34 @@ export class TelegramEvidenceController {
     schema: toOpenApiSchema(evidenceSourceSchema),
   })
   @ApiBody({
-    schema: {
-      type: "object",
-      description:
-        "Strict inside.membership-evidence.v1 envelope from the vendored contract",
-    },
+    schema: toOpenApiSchema(telegramEvidenceBodySchema),
   })
   @ApiOkResponse({ schema: toOpenApiSchema(evidenceAcceptanceSchema) })
-  @ApiResponse({ status: 400, description: "Envelope or contract version is invalid" })
-  @ApiResponse({ status: 401, description: "Integration credential is invalid" })
-  @ApiResponse({ status: 409, description: "Principal or evidence revision conflicts" })
-  @ApiResponse({ status: 422, description: "Evidence is expired" })
-  @ApiResponse({ status: 503, description: "Evidence application is unavailable" })
+  @ApiResponse({
+    status: 400,
+    description: "Envelope or contract version is invalid",
+    content: problemDetailsContent(telegramMembershipProblemSchema),
+  })
+  @ApiResponse({
+    status: 401,
+    description: "Integration credential is invalid",
+    content: problemDetailsContent(telegramMembershipProblemSchema),
+  })
+  @ApiResponse({
+    status: 409,
+    description: "Principal or evidence revision conflicts",
+    content: problemDetailsContent(telegramMembershipProblemSchema),
+  })
+  @ApiResponse({
+    status: 422,
+    description: "Evidence is expired",
+    content: problemDetailsContent(telegramMembershipProblemSchema),
+  })
+  @ApiResponse({
+    status: 503,
+    description: "Evidence application is unavailable",
+    content: problemDetailsContent(telegramMembershipProblemSchema),
+  })
   async accept(
     @Headers("authorization") authorization: string | undefined,
     @Headers("idempotency-key") deliveryId: string | undefined,

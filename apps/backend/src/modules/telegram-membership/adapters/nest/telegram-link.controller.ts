@@ -16,7 +16,10 @@ import {
 } from "@nestjs/swagger";
 
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
-import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
+import {
+  problemDetailsContent,
+  toOpenApiSchema,
+} from "../../../../infrastructure/http/zod-openapi.js";
 import {
   AccountGuard,
   CurrentAccount,
@@ -27,6 +30,7 @@ import type { TelegramMembership } from "../../index.js";
 import { TELEGRAM_MEMBERSHIP } from "../../telegram-membership.tokens.js";
 import {
   telegramLinkStateSchema,
+  telegramMembershipProblemSchema,
   throwTelegramLinkError,
 } from "./telegram-membership-http.js";
 
@@ -48,8 +52,16 @@ export class TelegramLinkController {
     summary: "Begin a Telegram Membership link for the current Account",
   })
   @ApiOkResponse({ schema: toOpenApiSchema(telegramLinkStateSchema) })
-  @ApiResponse({ status: 401, description: "Account proof is missing or invalid" })
-  @ApiResponse({ status: 503, description: "Identity verification is unavailable" })
+  @ApiResponse({
+    status: 401,
+    description: "Account proof is missing or invalid",
+    content: problemDetailsContent(telegramMembershipProblemSchema),
+  })
+  @ApiResponse({
+    status: 503,
+    description: "Identity verification is unavailable",
+    content: problemDetailsContent(telegramMembershipProblemSchema),
+  })
   async begin(@CurrentAccount() account: AuthenticatedAccount) {
     const result = await this.membership.beginLink({
       accountId: accountId(account.accountId),
@@ -68,10 +80,26 @@ export class TelegramLinkController {
   })
   @ApiParam({ name: "linkRef", schema: { type: "string", format: "uuid" } })
   @ApiOkResponse({ schema: toOpenApiSchema(telegramLinkStateSchema) })
-  @ApiResponse({ status: 400, description: "The link reference is invalid" })
-  @ApiResponse({ status: 401, description: "Account proof is missing or invalid" })
-  @ApiResponse({ status: 404, description: "No link belongs to this Account" })
-  @ApiResponse({ status: 503, description: "Identity verification is unavailable" })
+  @ApiResponse({
+    status: 400,
+    description: "The link reference is invalid",
+    content: problemDetailsContent(telegramMembershipProblemSchema),
+  })
+  @ApiResponse({
+    status: 401,
+    description: "Account proof is missing or invalid",
+    content: problemDetailsContent(telegramMembershipProblemSchema),
+  })
+  @ApiResponse({
+    status: 404,
+    description: "No link belongs to this Account",
+    content: problemDetailsContent(telegramMembershipProblemSchema),
+  })
+  @ApiResponse({
+    status: 503,
+    description: "Identity verification is unavailable",
+    content: problemDetailsContent(telegramMembershipProblemSchema),
+  })
   async confirm(
     @CurrentAccount() account: AuthenticatedAccount,
     @Param("linkRef") linkRef: string,
