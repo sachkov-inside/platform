@@ -137,35 +137,18 @@ function violationsFor(source, specifier) {
   const sourceModule = owningModule(sourcePath);
   const importedModule = importedPath === undefined ? undefined : owningModule(importedPath);
 
-  const importsMaterialsImplementation =
-    importedPath?.startsWith("src/modules/materials/") === true &&
-    !/^src\/modules\/materials\/index\.[cm]?[jt]s$/.test(importedPath);
-  const importsFrozenMaterialsMigration =
-    importedPath?.startsWith(
-      "src/modules/materials/infrastructure/postgres/migrations/",
-    ) === true;
+  const importsCapabilityImplementation =
+    importedModule !== undefined &&
+    sourceModule !== importedModule &&
+    !/^src\/modules\/[^/]+\/index\.[cm]?[jt]s$/u.test(importedPath);
+  const importsFrozenMigration =
+    importedPath?.includes("/infrastructure/postgres/migrations/") === true;
   if (
-    importsMaterialsImplementation &&
-    sourceModule !== "materials" &&
-    !(sourcePath.startsWith("src/migrations/") && importsFrozenMaterialsMigration)
-  ) {
-    violations.push("callers must import the Materials capability index.ts");
-  }
-
-  const importsMembershipEntitlementsImplementation =
-    importedPath?.startsWith("src/modules/membership-entitlements/") === true &&
-    !/^src\/modules\/membership-entitlements\/index\.[cm]?[jt]s$/.test(importedPath);
-  const importsFrozenMembershipEntitlementsMigration =
-    importedPath?.startsWith(
-      "src/modules/membership-entitlements/infrastructure/postgres/migrations/",
-    ) === true;
-  if (
-    importsMembershipEntitlementsImplementation &&
-    sourceModule !== "membership-entitlements" &&
-    !(sourcePath.startsWith("src/migrations/") && importsFrozenMembershipEntitlementsMigration)
+    importsCapabilityImplementation &&
+    !(sourcePath.startsWith("src/migrations/") && importsFrozenMigration)
   ) {
     violations.push(
-      "callers must import the MembershipEntitlements capability index.ts",
+      `callers must import the ${importedModule} capability index.ts`,
     );
   }
 

@@ -7,6 +7,13 @@ const DEFAULT_LOGTO_AUDIENCE = "http://127.0.0.1:3001";
 const DEFAULT_LOGTO_JWKS_URL = "https://identity.inside.localhost:3301/oidc/jwks";
 const DEFAULT_EMAIL_FINGERPRINT_KEY = "inside-local-email-fingerprint-key";
 const DEFAULT_MEMBERSHIP_ACQUISITION_URL = "https://t.me/tribute";
+const DEFAULT_TELEGRAM_BOT_START_URL = "https://t.me/inside_local_bot";
+const DEFAULT_TELEGRAM_LINKING_ENDPOINT =
+  "http://127.0.0.1:3002/integrations/platform/v1/identity-links";
+const DEFAULT_TELEGRAM_LINKING_SECRET = "inside-local-telegram-link-secret";
+const DEFAULT_TELEGRAM_EVIDENCE_INGRESS_SECRET =
+  "inside-local-telegram-evidence-secret";
+const DEFAULT_TELEGRAM_LINK_LIFETIME_SECONDS = "300";
 
 export const PLATFORM_CONFIG = Symbol("PLATFORM_CONFIG");
 
@@ -29,6 +36,13 @@ export interface PlatformConfig {
   }>;
   readonly contentAccess: Readonly<{
     membershipAcquisitionUrl: string;
+  }>;
+  readonly telegramMembership: Readonly<{
+    botStartUrl: string;
+    evidenceIngressSecret: string;
+    linkingEndpoint: string;
+    linkingSecret: string;
+    linkLifetimeMs: number;
   }>;
 }
 
@@ -53,7 +67,12 @@ function readRuntimeValue(
     | "LOGTO_AUDIENCE"
     | "LOGTO_ISSUER"
     | "LOGTO_JWKS_URL"
-    | "MEMBERSHIP_ACQUISITION_URL",
+    | "MEMBERSHIP_ACQUISITION_URL"
+    | "TELEGRAM_BOT_START_URL"
+    | "TELEGRAM_EVIDENCE_INGRESS_SECRET"
+    | "TELEGRAM_LINKING_ENDPOINT"
+    | "TELEGRAM_LINKING_SECRET"
+    | "TELEGRAM_LINK_LIFETIME_SECONDS",
   mode: PlatformMode,
   localDefault: string,
 ): string {
@@ -92,6 +111,16 @@ function parseApiPort(value: string): number {
   }
 
   return port;
+}
+
+function parseTelegramLinkLifetime(value: string): number {
+  const seconds = Number(value);
+  if (!Number.isInteger(seconds) || seconds < 60 || seconds > 600) {
+    throw new Error(
+      "TELEGRAM_LINK_LIFETIME_SECONDS must be an integer between 60 and 600",
+    );
+  }
+  return seconds * 1_000;
 }
 
 function validateHttpUrl(value: string, name: string): string {
@@ -142,6 +171,93 @@ function parseIdentityConfig(
   return Object.freeze({ issuer, audience, jwksUrl, emailFingerprintKey });
 }
 
+function parseTelegramMembershipConfig(
+  environment: NodeJS.ProcessEnv,
+  mode: PlatformMode,
+): PlatformConfig["telegramMembership"] {
+  const botStartUrl = validateHttpUrl(
+    readRuntimeValue(
+      environment,
+      "TELEGRAM_BOT_START_URL",
+      mode,
+      DEFAULT_TELEGRAM_BOT_START_URL,
+    ),
+    "TELEGRAM_BOT_START_URL",
+  );
+  const botUrl = new URL(botStartUrl);
+  if (
+    botUrl.protocol !== "https:" ||
+    botUrl.hostname !== "t.me" ||
+    !/^\/[A-Za-z][A-Za-z0-9_]{4,31}$/u.test(botUrl.pathname) ||
+    botUrl.search.length > 0 ||
+    botUrl.hash.length > 0
+  ) {
+    throw new Error(
+      "TELEGRAM_BOT_START_URL must be a t.me bot deep-link base URL",
+    );
+  }
+  const linkingEndpoint = validateHttpUrl(
+    readRuntimeValue(
+      environment,
+      "TELEGRAM_LINKING_ENDPOINT",
+      mode,
+      DEFAULT_TELEGRAM_LINKING_ENDPOINT,
+    ),
+    "TELEGRAM_LINKING_ENDPOINT",
+  );
+  const linkingUrl = new URL(linkingEndpoint);
+  if (
+    (mode === "production" && linkingUrl.protocol !== "https:") ||
+    linkingUrl.username.length > 0 ||
+    linkingUrl.password.length > 0 ||
+    linkingUrl.search.length > 0 ||
+    linkingUrl.hash.length > 0 ||
+    !linkingUrl.pathname.endsWith("/integrations/platform/v1/identity-links")
+  ) {
+    throw new Error("TELEGRAM_LINKING_ENDPOINT is invalid");
+  }
+  const linkingSecret = telegramSecret(
+    readRuntimeValue(
+      environment,
+      "TELEGRAM_LINKING_SECRET",
+      mode,
+      DEFAULT_TELEGRAM_LINKING_SECRET,
+    ),
+    "TELEGRAM_LINKING_SECRET",
+  );
+  const evidenceIngressSecret = telegramSecret(
+    readRuntimeValue(
+      environment,
+      "TELEGRAM_EVIDENCE_INGRESS_SECRET",
+      mode,
+      DEFAULT_TELEGRAM_EVIDENCE_INGRESS_SECRET,
+    ),
+    "TELEGRAM_EVIDENCE_INGRESS_SECRET",
+  );
+  const linkLifetimeMs = parseTelegramLinkLifetime(
+    readRuntimeValue(
+      environment,
+      "TELEGRAM_LINK_LIFETIME_SECONDS",
+      mode,
+      DEFAULT_TELEGRAM_LINK_LIFETIME_SECONDS,
+    ),
+  );
+  return Object.freeze({
+    botStartUrl,
+    evidenceIngressSecret,
+    linkingEndpoint,
+    linkingSecret,
+    linkLifetimeMs,
+  });
+}
+
+function telegramSecret(value: string, name: string): string {
+  if (!/^[A-Za-z0-9_-]{16,256}$/u.test(value)) {
+    throw new Error(`${name} must be a base64url credential of at least 16 characters`);
+  }
+  return value;
+}
+
 export function parsePlatformConfig(
   environment: NodeJS.ProcessEnv,
 ): PlatformConfig {
@@ -165,8 +281,16 @@ export function parsePlatformConfig(
       "MEMBERSHIP_ACQUISITION_URL",
     ),
   });
+  const telegramMembership = parseTelegramMembershipConfig(environment, mode);
 
-  return Object.freeze({ mode, database, api, identity, contentAccess });
+  return Object.freeze({
+    mode,
+    database,
+    api,
+    identity,
+    contentAccess,
+    telegramMembership,
+  });
 }
 
 export function parsePlatformDatabaseConfig(

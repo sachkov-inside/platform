@@ -55,6 +55,8 @@ const membershipEntitlementTables = [
 
 const memberProfileTables = ["audit_events", "profiles", "reports"] as const;
 
+const telegramMembershipTables = ["link_transactions"] as const;
+
 const legacyMigrations = [
   { name: materialsMigrationName, statement: materialsMigrationStatement },
   {
@@ -120,6 +122,7 @@ describe("Platform migrations", () => {
         "0008_member_profiles",
         "0009_published_material_search",
         "0010_material_related_pins",
+        "0011_telegram_membership",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -133,6 +136,11 @@ describe("Platform migrations", () => {
       membershipEntitlementTables,
     );
     await expectTables(testDatabase, "member_profiles", memberProfileTables);
+    await expectTables(
+      testDatabase,
+      "telegram_membership",
+      telegramMembershipTables,
+    );
 
     const functions = await testDatabase.prisma.$queryRaw<
       readonly { readonly schema: string }[]
@@ -154,7 +162,11 @@ describe("Platform migrations", () => {
       join pg_class as target_table on target_table.oid = constraint_record.confrelid
       join pg_namespace as target_schema on target_schema.oid = target_table.relnamespace
       where constraint_record.contype = 'f'
-        and source_schema.nspname in ('materials', 'membership_entitlements')
+        and source_schema.nspname in (
+          'materials',
+          'membership_entitlements',
+          'telegram_membership'
+        )
         and source_schema.nspname <> target_schema.nspname
     `);
     expect(crossSchemaForeignKeys).toEqual([]);
@@ -440,6 +452,7 @@ describe("Platform migrations", () => {
           "0008_member_profiles",
           "0009_published_material_search",
           "0010_material_related_pins",
+          "0011_telegram_membership",
         ],
       });
 
@@ -589,11 +602,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 11, repeat('0', 64))
+        values ('9999_unknown', 12, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 11",
+        "Migration ledger is not an exact registry prefix at position 12",
       );
     } finally {
       await database.dispose();
@@ -626,7 +639,8 @@ async function expectTables(
     | "identity_principals"
     | "materials"
     | "member_profiles"
-    | "membership_entitlements",
+    | "membership_entitlements"
+    | "telegram_membership",
   expected: readonly string[],
 ): Promise<void> {
   const tables = await database.prisma.$queryRaw<

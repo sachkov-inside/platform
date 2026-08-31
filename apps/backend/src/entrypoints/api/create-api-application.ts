@@ -44,6 +44,14 @@ export function createApiOpenApiDocument(
       },
       "logto",
     )
+    .addBearerAuth(
+      {
+        type: "http",
+        scheme: "bearer",
+        description: "Dedicated Telegram-to-Platform evidence credential.",
+      },
+      "telegram-membership",
+    )
     .build();
 
   return SwaggerModule.createDocument(app, config, {

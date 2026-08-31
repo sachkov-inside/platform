@@ -30,7 +30,7 @@ const observedEvidenceBase = z
   })
   .strict();
 
-const membershipEvidenceSchema = z.discriminatedUnion("decision", [
+export const membershipEvidenceSchema = z.discriminatedUnion("decision", [
   observedEvidenceBase.extend({
     decision: z.literal("member"),
     reasonCode: z.literal("chat_member"),

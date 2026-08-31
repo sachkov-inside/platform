@@ -8,6 +8,8 @@ export {
   type MemberProfilesPrisma,
   type MemberProfilesPrismaClient,
   type PlatformPrisma,
+  type TelegramMembershipPrisma,
+  type TelegramMembershipPrismaClient,
   type TransactionClient,
 } from "./prisma-client.js";
 export { PrismaClientProvider, PrismaModule } from "./prisma.module.js";

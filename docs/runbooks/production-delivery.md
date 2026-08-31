@@ -32,9 +32,11 @@ install -m 600 .env.production.example .env.production
 ```
 
 Never commit `.env.production`. The tracked example documents names only. Identity secrets,
-cookie encryption material, the email fingerprint key, and database passwords must come from the
-deployment environment. The PostgreSQL bootstrap administrator, migration owner and long-running
-application use different roles and passwords. Migrations receive `MIGRATION_DATABASE_URL`; API
+cookie encryption material, the email fingerprint key, Telegram linking/evidence credentials, and
+database passwords must come from the deployment environment. Telegram linking uses the dedicated
+provider endpoint and bot start URL; its two directional credentials are not interchangeable. The
+PostgreSQL bootstrap administrator, migration owner and long-running application use different
+roles and passwords. Migrations receive `MIGRATION_DATABASE_URL`; API
 receives only the restricted `DATABASE_URL`. URL-encode passwords in both URLs; the short-lived
 role-provisioning containers receive their original values. The application access step is tied
 to the migration digest, so it reruns after every schema release, verifies that both connection

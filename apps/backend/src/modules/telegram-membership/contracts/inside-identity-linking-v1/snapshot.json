@@ -1,0 +1,17 @@
+{
+  "contractVersion": "inside.identity-linking.v1",
+  "sourceRepository": "sachkov-inside/inside-telegram",
+  "sourceCommit": "e62d6a7d07cd2df611134278ffeb0e59c68cdf53",
+  "importedAt": "2026-08-31",
+  "artifacts": {
+    "schema.json": {
+      "sourcePath": "src/modules/identity-linking/contracts/inside-identity-linking-v1/schema.json",
+      "sha256": "3d1895fcf6890d3c8e8e78b2a26b1e73e20e57e4b8f86ff8ec57dc7eb890f2cc"
+    },
+    "fixtures.json": {
+      "sourcePath": "src/modules/identity-linking/contracts/inside-identity-linking-v1/fixtures.json",
+      "sha256": "85e79504bf24f9a1657df4b5bc2b7eac9986f0ad86f64c2264c9542bd7b38552"
+    }
+  },
+  "driftCheck": "Compare each vendored artifact SHA-256 with the named inside-telegram path at sourceCommit; update only through a reviewed cross-repository contract change."
+}

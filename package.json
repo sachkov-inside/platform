@@ -38,6 +38,7 @@
     "compose:dev": "docker compose up --build --watch",
     "compose:smoke": "bash scripts/compose-stack-smoke.sh",
     "compose:production:smoke": "bash scripts/production-compose-smoke.sh",
+    "conformance:telegram-membership": "pnpm --filter @inside/backend conformance:telegram-membership",
     "infra:up": "docker compose up -d --wait postgres",
     "infra:down": "docker compose down",
     "smoke:health": "pnpm --filter @inside/backend smoke:health",

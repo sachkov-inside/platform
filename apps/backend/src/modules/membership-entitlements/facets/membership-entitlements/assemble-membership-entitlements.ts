@@ -1,11 +1,13 @@
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
 import { acceptMembershipEvidence } from "../../features/accept-evidence/accept-evidence.js";
+import { bindMembershipPrincipal } from "../../features/bind-principal/bind-membership-principal.js";
 import { resolveMembershipForAccess } from "../../features/resolve-membership-for-access/resolve-membership-for-access.js";
 import type {
   AcceptMembershipEvidenceCommand,
   MembershipAccessState,
   MembershipEntitlements,
   MembershipEvidenceAcceptance,
+  MembershipPrincipalBinding,
 } from "./membership-entitlements.interface.js";
 import type { AccountId } from "../../../accounts/index.js";
 
@@ -19,6 +21,17 @@ export function assembleMembershipEntitlements(
 ): MembershipEntitlements {
   const clock = dependencies.clock ?? (() => new Date());
   const membershipEntitlements: MembershipEntitlements = {
+    async bindPrincipal(command): Promise<MembershipPrincipalBinding> {
+      try {
+        return await bindMembershipPrincipal(
+          dependencies.prisma,
+          command,
+          clock(),
+        );
+      } catch {
+        return { ok: false, error: { code: "unavailable" } };
+      }
+    },
     async resolveForAccess(
       accountId: AccountId,
     ): Promise<MembershipAccessState> {

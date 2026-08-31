@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["accounts", "materials", "member_profiles", "membership_entitlements"]
+  schemas  = ["accounts", "materials", "member_profiles", "membership_entitlements", "telegram_membership"]
 }
 
 model Account {
@@ -128,6 +128,24 @@ model MembershipProjection {
 
   @@map("current_projections")
   @@schema("membership_entitlements")
+}
+
+model TelegramLinkTransaction {
+  linkRef                String   @id @map("link_ref") @db.Uuid
+  accountId              String   @map("account_id") @db.Uuid
+  principalRef           String   @unique(map: "telegram_link_principal_unique") @map("principal_ref") @db.VarChar(256)
+  returnCorrelation      String   @unique(map: "telegram_link_return_correlation_unique") @map("return_correlation") @db.VarChar(256)
+  tokenDigest            String   @unique(map: "telegram_link_token_digest_unique") @map("token_digest") @db.Char(43)
+  providerTransactionRef String?  @unique(map: "telegram_link_provider_transaction_unique") @map("provider_transaction_ref") @db.VarChar(256)
+  providerIdentityRef    String?  @map("provider_identity_ref") @db.VarChar(256)
+  status                 String
+  expiresAt              DateTime @map("expires_at") @db.Timestamptz
+  createdAt              DateTime @map("created_at") @db.Timestamptz
+  updatedAt              DateTime @map("updated_at") @db.Timestamptz
+
+  @@index([accountId, updatedAt(sort: Desc), linkRef(sort: Desc)], map: "telegram_link_account_updated_idx")
+  @@map("link_transactions")
+  @@schema("telegram_membership")
 }
 
 model Topic {

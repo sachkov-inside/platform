@@ -36,6 +36,13 @@ export type MemberProfilesPrisma = Pick<
 export type MemberProfilesPrismaClient = MemberProfilesPrisma &
   TransactionClient<MemberProfilesPrisma>;
 
+export type TelegramMembershipPrisma = Pick<
+  PlatformPrisma,
+  "telegramLinkTransaction"
+>;
+export type TelegramMembershipPrismaClient = TelegramMembershipPrisma &
+  TransactionClient<TelegramMembershipPrisma>;
+
 export interface TransactionClient<Transaction> {
   $transaction<Result>(
     operation: (transaction: Transaction) => Promise<Result>,

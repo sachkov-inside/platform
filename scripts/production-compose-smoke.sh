@@ -41,6 +41,11 @@ export LOGTO_APP_SECRET=inside-production-smoke-app-secret
 export LOGTO_COOKIE_SECRET=inside-production-smoke-cookie-secret-key
 export IDENTITY_EMAIL_FINGERPRINT_KEY=inside-production-smoke-email-fingerprint-key
 export MEMBERSHIP_ACQUISITION_URL=https://membership.production-smoke.invalid
+export TELEGRAM_BOT_START_URL=https://t.me/inside_production_smoke_bot
+export TELEGRAM_LINKING_ENDPOINT=https://telegram.production-smoke.invalid/integrations/platform/v1/identity-links
+export TELEGRAM_LINKING_SECRET=inside-production-smoke-linking-secret
+export TELEGRAM_EVIDENCE_INGRESS_SECRET=inside-production-smoke-evidence-secret
+export TELEGRAM_LINK_LIFETIME_SECONDS=300
 export WEB_BASE_URL="https://localhost:${https_port}"
 
 compose=(

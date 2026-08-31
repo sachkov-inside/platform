@@ -20,6 +20,13 @@ describe("process configuration", () => {
       LOGTO_JWKS_URL: "https://identity.example.test/oidc/jwks",
       IDENTITY_EMAIL_FINGERPRINT_KEY: "test-email-fingerprint-key-32chars",
       MEMBERSHIP_ACQUISITION_URL: "https://t.me/tribute/example",
+      TELEGRAM_BOT_START_URL: "https://t.me/inside_test_bot",
+      TELEGRAM_EVIDENCE_INGRESS_SECRET:
+        "test-telegram-evidence-ingress-secret",
+      TELEGRAM_LINKING_ENDPOINT:
+        "https://telegram.example.test/integrations/platform/v1/identity-links",
+      TELEGRAM_LINKING_SECRET: "test-telegram-linking-secret",
+      TELEGRAM_LINK_LIFETIME_SECONDS: "420",
     });
 
     expect(config).toEqual({
@@ -35,12 +42,21 @@ describe("process configuration", () => {
       contentAccess: {
         membershipAcquisitionUrl: "https://t.me/tribute/example",
       },
+      telegramMembership: {
+        botStartUrl: "https://t.me/inside_test_bot",
+        evidenceIngressSecret: "test-telegram-evidence-ingress-secret",
+        linkingEndpoint:
+          "https://telegram.example.test/integrations/platform/v1/identity-links",
+        linkingSecret: "test-telegram-linking-secret",
+        linkLifetimeMs: 420_000,
+      },
     });
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.database)).toBe(true);
     expect(Object.isFrozen(config.api)).toBe(true);
     expect(Object.isFrozen(config.identity)).toBe(true);
     expect(Object.isFrozen(config.contentAccess)).toBe(true);
+    expect(Object.isFrozen(config.telegramMembership)).toBe(true);
     expect(process.env).toEqual(processEnvironmentBefore);
   });
 
@@ -59,6 +75,14 @@ describe("process configuration", () => {
       },
       contentAccess: {
         membershipAcquisitionUrl: "https://t.me/tribute",
+      },
+      telegramMembership: {
+        botStartUrl: "https://t.me/inside_local_bot",
+        evidenceIngressSecret: "inside-local-telegram-evidence-secret",
+        linkingEndpoint:
+          "http://127.0.0.1:3002/integrations/platform/v1/identity-links",
+        linkingSecret: "inside-local-telegram-link-secret",
+        linkLifetimeMs: 300_000,
       },
     });
 
@@ -119,6 +143,20 @@ describe("process configuration", () => {
       parsePlatformConfig({ NODE_ENV: "test", API_PORT: "invalid" }),
     ).toThrow(
       "API_PORT must be an integer between 1 and 65535",
+    );
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        TELEGRAM_BOT_START_URL: "https://example.test/not-telegram",
+      }),
+    ).toThrow("TELEGRAM_BOT_START_URL must be a t.me bot deep-link base URL");
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        TELEGRAM_LINK_LIFETIME_SECONDS: "601",
+      }),
+    ).toThrow(
+      "TELEGRAM_LINK_LIFETIME_SECONDS must be an integer between 60 and 600",
     );
   });
 });
