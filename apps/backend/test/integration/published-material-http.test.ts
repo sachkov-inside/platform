@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
@@ -318,6 +320,45 @@ describe("published Material HTTP contract", () => {
     const response = await app.getHttpAdapter().getInstance().inject({
       method: "GET",
       url: "/library/materials?after=not-a-cursor",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.json()).toEqual({
+      type: "urn:inside:problem:invalid-request-shape",
+      title: "Invalid request shape",
+      status: 400,
+      code: "invalid_request_shape",
+    });
+  });
+
+  test("rejects a catalog cursor whose kind does not match its sort", async () => {
+    const fingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          formatSlugs: [],
+          seriesSlugs: ["platform-inside"],
+          sort: "series",
+          topicSlugs: [],
+        }),
+      )
+      .digest("base64url");
+    const after = Buffer.from(
+      JSON.stringify({
+        v: 2,
+        fingerprint,
+        cursor: {
+          kind: "newest",
+          materialId: "72000000-0000-4000-8000-000000000001",
+          publishedAt: "2026-01-01T00:00:00.000Z",
+        },
+      }),
+      "utf8",
+    ).toString("base64url");
+
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: `/library/materials?series=platform-inside&sort=series&after=${after}`,
     });
 
     expect(response.statusCode).toBe(400);
