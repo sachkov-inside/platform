@@ -13,6 +13,7 @@ import {
 } from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
 import { MemberProfilesModule } from "../../modules/member-profiles/index.js";
+import { TelegramMembershipModule } from "../../modules/telegram-membership/index.js";
 import {
   CreateDraftController,
   DeleteDraftController,
@@ -61,6 +62,7 @@ export class ApiModule {
         PrismaModule,
         AccountsModule,
         MemberProfilesModule,
+        TelegramMembershipModule,
         MaterialsModule,
       ],
     };

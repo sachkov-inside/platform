@@ -7,5 +7,6 @@ export type {
   MembershipEntitlements,
   MembershipEvidenceAcceptance,
   MembershipEvidenceFailureCode,
+  MembershipPrincipalBinding,
   MembershipEvidenceSource,
 } from "./facets/membership-entitlements/membership-entitlements.interface.js";

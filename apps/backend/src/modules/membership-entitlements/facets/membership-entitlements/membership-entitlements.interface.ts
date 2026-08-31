@@ -53,8 +53,19 @@ export type MembershipEvidenceAcceptance =
       error: { readonly code: MembershipEvidenceFailureCode };
     }>;
 
+export type MembershipPrincipalBinding =
+  | Readonly<{ ok: true; outcome: "bound" | "idempotent" }>
+  | Readonly<{
+      ok: false;
+      error: { readonly code: "conflict" | "invalid_input" | "unavailable" };
+    }>;
+
 export interface MembershipEntitlements {
   resolveForAccess(accountId: AccountId): Promise<MembershipAccessState>;
+  bindPrincipal(command: {
+    readonly accountId: AccountId;
+    readonly principalRef: string;
+  }): Promise<MembershipPrincipalBinding>;
   /**
    * Applies normalized evidence monotonically. Only link-time observed evidence may establish a
    * missing Account binding; events and reconciliation wait for it, and mismatches fail closed.

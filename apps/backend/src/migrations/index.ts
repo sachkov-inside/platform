@@ -42,6 +42,10 @@ import {
   name as publishedMaterialSearchMigrationName,
   statement as publishedMaterialSearchMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0009-published-material-search.js";
+import {
+  name as telegramMembershipMigrationName,
+  statement as telegramMembershipMigrationStatement,
+} from "../modules/telegram-membership/infrastructure/postgres/migrations/0011_telegram-membership.js";
 
 const migrations = [
   {
@@ -83,6 +87,10 @@ const migrations = [
   {
     name: materialRelatedPinsMigrationName,
     statement: materialRelatedPinsMigrationStatement,
+  },
+  {
+    name: telegramMembershipMigrationName,
+    statement: telegramMembershipMigrationStatement,
   },
 ] as const;
 

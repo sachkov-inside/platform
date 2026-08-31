@@ -90,6 +90,37 @@ describe("MembershipEntitlements", () => {
     },
   );
 
+  test("binds a confirmed opaque Principal idempotently and rejects silent transfer", async () => {
+    const firstAccount = accountId("90000000-0000-4000-8000-000000000001");
+    const secondAccount = accountId("90000000-0000-4000-8000-000000000002");
+    await expect(
+      membershipEntitlements.bindPrincipal({
+        accountId: firstAccount,
+        principalRef: "confirmed-principal-a",
+      }),
+    ).resolves.toEqual({ ok: true, outcome: "bound" });
+    await expect(
+      membershipEntitlements.bindPrincipal({
+        accountId: firstAccount,
+        principalRef: "confirmed-principal-a",
+      }),
+    ).resolves.toEqual({ ok: true, outcome: "idempotent" });
+    await expect(
+      membershipEntitlements.bindPrincipal({
+        accountId: secondAccount,
+        principalRef: "confirmed-principal-a",
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "conflict" } });
+    await expect(
+      membershipEntitlements.acceptEvidence({
+        accountId: firstAccount,
+        deliveryId: "confirmed-reconciliation",
+        source: "reconciliation",
+        evidence: observedEvidence("confirmed-principal-a", "member", 1),
+      }),
+    ).resolves.toMatchObject({ ok: true, outcome: "applied" });
+  });
+
   test("keeps fresh negative on provider outage and fails a stale positive closed", async () => {
     const negativeAccount = accountId("91000000-0000-4000-8000-000000000001");
     await expect(

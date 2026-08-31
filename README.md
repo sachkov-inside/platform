@@ -19,6 +19,13 @@ The repository is a pnpm workspace with two applications:
 The process-layout decision is recorded in
 [`ADR 0001`](docs/adr/0001-one-backend-multiple-entrypoints.md).
 
+The backend also owns the production Telegram Membership consumer. Authenticated Account requests
+begin and confirm a short-lived `/start` link through the provider HTTP adapter; authenticated
+evidence enters a durable inbox and updates `MembershipEntitlements`. Material and profile reads
+continue to use only the local PostgreSQL projection and never call Telegram. The controlled
+compatibility evidence is recorded in
+[`docs/verification/telegram-membership-conformance.md`](docs/verification/telegram-membership-conformance.md).
+
 ## Start the development stack
 
 A fresh clone needs Docker with Compose; host Node.js is not required for the primary path.
@@ -62,6 +69,11 @@ an installed host toolchain.
 
 The API listens on `127.0.0.1:3001`, exposes `GET /health`, and serves OpenAPI
 UI at `/openapi`.
+
+Telegram Membership exposes authenticated Account link begin at
+`POST /accounts/current/telegram-link`, confirmation/poll at
+`POST /accounts/current/telegram-link/:linkRef/confirm`, and provider evidence ingress at
+`POST /integrations/telegram/v1/membership-evidence`.
 
 The stateless Streamable HTTP MCP resource server listens on `127.0.0.1:3002/mcp`. It accepts only
 a short-lived Logto-compatible bearer token for an existing Account; every tool call independently

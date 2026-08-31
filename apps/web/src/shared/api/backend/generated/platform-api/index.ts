@@ -14,3 +14,5 @@ export { MaterialAuthoringService } from './services/MaterialAuthoringService';
 export { MemberProfilesService } from './services/MemberProfilesService';
 export { OperationsService } from './services/OperationsService';
 export { PublishedMaterialsService } from './services/PublishedMaterialsService';
+export { TelegramMembershipService } from './services/TelegramMembershipService';
+export { TelegramMembershipIntegrationService } from './services/TelegramMembershipIntegrationService';
