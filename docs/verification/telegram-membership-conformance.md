@@ -26,9 +26,11 @@ production Platform HTTP adapter. In addition, the paired convergence run used:
 - `sachkov-inside/platform@1e10837689a39665087da26fa6038faebbeb7596`;
 - `sachkov-inside/inside-telegram@4d9aca2c5431200317a547a2c32d0fdc81e9cdb0`.
 
-The durable split harness was rerun successfully at Platform
-`2aee06c55a0cf9194afd6fa9278b9a7ba296136b` and Telegram
-`6b0afc258312435b3cddec4c6c48d1202ab8b897`; application code above was unchanged.
+The hardened durable split harness was rerun successfully at Platform
+`d82d073004611bf8a7a418e359b41856653a5de1` and Telegram
+`b5ca8ec54c05570ca01c0a5a02c97e8a09977382`; application code above was unchanged. These revisions
+add strict direct-loopback database routing guards, representative negative safety tests, and a
+separate synthetic bearer for the loopback proof control plane.
 
 It started the two real Nest/Fastify applications in separate processes and databases. Platform
 called Telegram through `HttpTelegramLinkProvider`; Telegram returned evidence through
@@ -51,11 +53,13 @@ duplicate identity conflict, real five-minute expiry during a deliberate provide
 newer provider/subject recovery. The protected Material request observed exactly zero Telegram
 membership reads while expired/outage access was denied locally.
 
-Redacted terminal counts were 3 Platform link transactions (`linked=2`,
-`recovery_required=1`), 2 current projections (`member=1`, `not_member=1`), and 18 evidence
-receipts: 5 applied observed revisions, 12 accepted unavailable reconciliation observations during
-the outage, and 1 unsupported-version audit receipt. Telegram delivered all supported evidence
-sources (`link_time=2`, `member_status_event=3`, `reconciliation=12`).
+Redacted terminal counts from the hardened run were 3 Platform link transactions (`linked=2`,
+`recovery_required=1`), 1 current projection after expiry/recovery, and 18 evidence receipts: 4
+applied observed revisions, 13 accepted-without-entitlement observations, and 1 unsupported-version
+audit receipt. Received evidence sources were `link_time=2`, `member_status_event=3`, and
+`reconciliation=13`; the reconciliation count includes the direct unsupported-version audit
+request. Every named assertion was true, including zero Telegram reads from the protected Material
+request path.
 
 Verification commands from the repository root:
 
