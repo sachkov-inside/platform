@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 !.env.production.example
+!.env.release.example
 .next/
 .impeccable/review/
 .identity-proof/
