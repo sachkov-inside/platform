@@ -1,5 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { mkdir } from "node:fs/promises";
+import { resolve } from "node:path";
 
 test("server-renders the safe PostgreSQL catalog through Nest", async ({
   page,
@@ -237,7 +239,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   await expect(page).toHaveTitle("Как устроен Inside Platform · Inside");
   await expect(page.getByRole("link", { name: "В Библиотеку" }).first()).toBeVisible();
   await expect(page.getByRole("main")).toContainText("PostgreSQL хранит current Material");
-  await expect(page.getByRole("article")).toHaveCount(1);
+  await expect(page.locator("[data-reader-body]")).toHaveCount(1);
 
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Перейти к содержанию" })).toBeFocused();
@@ -394,6 +396,151 @@ test("returns the production not-found state for an unpublished slug", async ({ 
   );
   await expect(page.getByRole("heading", { name: "Материал не найден" })).toBeVisible();
   await expect(page.getByRole("link", { name: "В Библиотеку" })).toBeVisible();
+});
+
+test("navigates Library → Topic → ordered Series and exposes canonical Reader context", async ({
+  page,
+  request,
+}, testInfo) => {
+  const topicDocument = await request.get("/topics/platform");
+  const topicHtml = await topicDocument.text();
+  expect(topicDocument.status()).toBe(200);
+  expect(topicHtml).toContain("Как устроен Inside Platform");
+  expect(topicHtml).toContain("Developer Pipeline без потери контекста");
+  expect(topicHtml).not.toContain("Закрытое содержимое для участников");
+
+  await page.goto("/library");
+  const membershipCard = page
+    .getByRole("article")
+    .filter({ hasText: "Developer Pipeline без потери контекста" });
+  const topicLink = membershipCard.getByRole("link", {
+    name: "Платформа",
+    exact: true,
+  });
+  await topicLink.focus();
+  await expect(topicLink).toBeFocused();
+  await topicLink.press("Enter");
+  await expect(page).toHaveURL(/\/topics\/platform$/u);
+  await expect(page.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
+  await expect(page).toHaveTitle("Platform — тема · Inside");
+  await expect(page.getByText("Для участников")).toBeVisible();
+  await expectNoSeriousAccessibilityFindings(page);
+  await expectNoHorizontalOverflow(page);
+  await captureIssue93Evidence(page, testInfo, "topic");
+
+  const seriesNavigation = page.getByRole("navigation", {
+    name: "Плейлисты темы",
+  });
+  const seriesLink = seriesNavigation.getByRole("link", {
+    name: "Создание Platform Inside",
+  });
+  await seriesLink.focus();
+  await expect(seriesLink).toBeFocused();
+  await seriesLink.press("Enter");
+  await expect(page).toHaveURL(/\/series\/platform-inside$/u);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
+  ).toBeVisible();
+  await expect(page).toHaveTitle("Создание Platform Inside — плейлист · Inside");
+  await expect(
+    page.locator("[data-series-order] [data-series-ordinal]").evaluateAll((items) =>
+      items.map((item) => item.getAttribute("data-series-ordinal")),
+    ),
+  ).resolves.toEqual(["1", "2"]);
+  await expect(page.getByText("Как устроен Inside Platform")).toBeVisible();
+  await expect(page.getByText("Developer Pipeline без потери контекста")).toBeVisible();
+  const representativeSeriesItem = page
+    .locator("[data-series-order] [data-series-ordinal]")
+    .filter({ hasText: "Как устроен Inside Platform" });
+  const representativeOrdinal = await representativeSeriesItem.getAttribute(
+    "data-series-ordinal",
+  );
+  expect(representativeOrdinal).not.toBeNull();
+  await expectNoSeriousAccessibilityFindings(page);
+  await expectNoHorizontalOverflow(page);
+  await captureIssue93Evidence(page, testInfo, "series");
+
+  await page
+    .getByRole("link", { name: "Как устроен Inside Platform", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform$/u);
+  await expect(
+    page.getByRole("link", { name: "Platform", exact: true }),
+  ).toHaveAttribute("href", "/topics/platform");
+  const readerSeriesLink = page
+    .getByRole("list", { name: "Серии материала" })
+    .getByRole("link");
+  await expect(readerSeriesLink).toHaveAttribute("href", "/series/platform-inside");
+  await expect(readerSeriesLink).toHaveText(
+    `Создание Platform Inside · выпуск ${representativeOrdinal ?? ""}`,
+  );
+  const related = page.locator('[data-related-state="ready"]');
+  await expect(related.getByRole("heading", { name: "Похожие материалы" })).toBeVisible();
+  await expect(
+    related.getByRole("link", { name: "Архитектурная заметка 01" }),
+  ).toBeVisible();
+  await expect(
+    related.getByRole("article").first(),
+  ).toContainText("Архитектурная заметка 01");
+  await related
+    .getByRole("heading", { name: "Похожие материалы" })
+    .scrollIntoViewIfNeeded();
+  await captureIssue93Evidence(page, testInfo, "reader-related");
+
+  await expect(page).toHaveTitle("Как устроен Inside Platform · Inside");
+  await expectNoSeriousAccessibilityFindings(page);
+  await expectNoHorizontalOverflow(page);
+});
+
+async function expectNoSeriousAccessibilityFindings(page: Page) {
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(
+    accessibility.violations.filter(
+      ({ impact }) => impact === "serious" || impact === "critical",
+    ),
+  ).toEqual([]);
+}
+
+async function expectNoHorizontalOverflow(page: Page) {
+  const overflow = await page.locator("html").evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+}
+
+async function captureIssue93Evidence(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+) {
+  if (process.env.CAPTURE_ISSUE_93_EVIDENCE !== "1") return;
+  const evidenceDirectory = resolve(
+    process.cwd(),
+    "../../docs/evidence/issue-93",
+  );
+  await mkdir(evidenceDirectory, { recursive: true });
+  const viewport =
+    testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
+  await page.screenshot({
+    animations: "disabled",
+    fullPage: false,
+    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+  });
+}
+
+test("renders missing Topic and Series as controlled noindex states", async ({ page }) => {
+  for (const path of ["/topics/not-published", "/series/not-published"] as const) {
+    await page.goto(path);
+    await expect(page.locator('head meta[name="robots"]')).toHaveAttribute(
+      "content",
+      /noindex/u,
+    );
+    await expect(page.getByRole("heading", { name: "Подборка не найдена" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "В Библиотеку" })).toBeVisible();
+  }
 });
 
 test("keeps desktop shell fixed while main content owns scrolling", async ({ page }, testInfo) => {

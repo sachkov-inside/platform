@@ -105,10 +105,15 @@ describe("Library server adapter", () => {
           access: "membership",
           availability: "locked",
           topic: "Platform",
+          topicSlug: "platform",
           format: "Гайд",
           tags: ["Architecture"],
           seriesMemberships: [
-            { ordinal: 3, name: "Создание Platform Inside" },
+            {
+              ordinal: 3,
+              name: "Создание Platform Inside",
+              slug: "platform-inside",
+            },
           ],
         },
       ],

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { materialPreviewSchema } from "@/entities/material";
 import type { LibraryCatalogPage } from "../model/library-view";
 import {
   serializeLibrarySearchQuery,
@@ -12,22 +13,6 @@ const catalogFacetSchema = z
     id: z.string(),
     name: z.string(),
     slug: z.string(),
-  })
-  .strict();
-
-const materialPreviewSchema = z
-  .object({
-    access: z.enum(["free", "membership"]),
-    availability: z.enum(["available", "locked", "unavailable"]),
-    format: z.string(),
-    seriesMemberships: z.array(
-      z.object({ name: z.string(), ordinal: z.number().int().positive() }).strict(),
-    ),
-    slug: z.string(),
-    summary: z.string(),
-    tags: z.array(z.string()),
-    title: z.string(),
-    topic: z.string(),
   })
   .strict();
 

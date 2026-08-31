@@ -28,6 +28,7 @@ import {
 const materialTables = [
   "authoring_idempotency",
   "formats",
+  "material_related_pins",
   "material_search_documents",
   "material_tags",
   "materials",
@@ -118,6 +119,7 @@ describe("Platform migrations", () => {
         "0007_remove_material_access_audit",
         "0008_member_profiles",
         "0009_published_material_search",
+        "0010_material_related_pins",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -437,6 +439,7 @@ describe("Platform migrations", () => {
           "0007_remove_material_access_audit",
           "0008_member_profiles",
           "0009_published_material_search",
+          "0010_material_related_pins",
         ],
       });
 
@@ -586,11 +589,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 10, repeat('0', 64))
+        values ('9999_unknown', 11, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 10",
+        "Migration ledger is not an exact registry prefix at position 11",
       );
     } finally {
       await database.dispose();

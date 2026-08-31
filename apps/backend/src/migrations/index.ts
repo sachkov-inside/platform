@@ -27,6 +27,10 @@ import {
   statement as removeMaterialAccessAuditMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0007-remove-material-access-audit.js";
 import {
+  name as materialRelatedPinsMigrationName,
+  statement as materialRelatedPinsMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0010-material-related-pins.js";
+import {
   name as membershipEntitlementsMigrationName,
   statement as membershipEntitlementsMigrationStatement,
 } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0006_membership-entitlements.js";
@@ -75,6 +79,10 @@ const migrations = [
   {
     name: publishedMaterialSearchMigrationName,
     statement: publishedMaterialSearchMigrationStatement,
+  },
+  {
+    name: materialRelatedPinsMigrationName,
+    statement: materialRelatedPinsMigrationStatement,
   },
 ] as const;
 

@@ -207,6 +207,9 @@ function LibrarySearchForm({
             <SelectContent align="end">
               <SelectItem value="relevance">По релевантности</SelectItem>
               <SelectItem value="newest">Сначала новые</SelectItem>
+              {query.seriesSlugs.length === 1 ? (
+                <SelectItem value="series">По порядку плейлиста</SelectItem>
+              ) : null}
               <SelectItem value="title">По названию</SelectItem>
             </SelectContent>
           </Select>

@@ -28,6 +28,7 @@ const readyCatalog = {
       tags: ["Architecture"],
       title: "Как устроен Inside Platform",
       topic: "Platform",
+      topicSlug: "platform",
     },
   ],
   nextCursor: null,
@@ -72,6 +73,16 @@ describe("Library TanStack Query interface", () => {
     expect(serializeLibrarySearchQuery(parsed.query)).toBe(
       "q=%D0%BA%D0%B0%D1%80%D1%8C%D0%B5%D1%80%D0%BD%D1%8B%D0%B9+%D0%BC%D0%B0%D1%80%D1%88%D1%80%D1%83%D1%82&topic=career&topic=platform&format=video&series=career-path&after=cursor-one",
     );
+  });
+
+  it("uses author-defined order as the canonical default for one Series", () => {
+    const parsed = parseLibrarySearchParams({ series: "platform-inside" });
+
+    expect(parsed.query.sort).toBe("series");
+    expect(serializeLibrarySearchQuery(parsed.query)).toBe(
+      "series=platform-inside",
+    );
+    expect(parsed.wasNormalized).toBe(false);
   });
 
   it("publishes the successfully loaded cursor as canonical browser history", () => {

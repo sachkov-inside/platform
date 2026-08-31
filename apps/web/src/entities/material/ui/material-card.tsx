@@ -35,15 +35,12 @@ export function MaterialCard({
       data-material-id={material.slug}
       data-material-slug={material.slug}
     >
-      <Link
-        aria-labelledby={titleId}
+      <div
         className={cn(
-          "group/card grid overflow-hidden rounded-xl bg-card no-underline shadow-card transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
-          "hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-ring active:translate-y-0 active:shadow-card",
+          "group/card relative grid overflow-hidden rounded-xl bg-card no-underline shadow-card transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
+          "hover:-translate-y-0.5 hover:shadow-card-hover focus-within:shadow-card-hover active:translate-y-0 active:shadow-card",
           hasPreview && "h-full",
         )}
-        href={`/materials/${material.slug}`}
-        prefetch={false}
       >
         {hasPreview ? (
           <MaterialPoster material={material} preview={material.preview} />
@@ -55,13 +52,15 @@ export function MaterialCard({
           )}
         >
           <MaterialTaxonomy material={material} />
-          <Heading
-            className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em]"
-            id={titleId}
-          >
-            <span className="group-hover/card:underline group-hover/card:decoration-accent group-hover/card:underline-offset-4">
+          <Heading className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em]">
+            <Link
+              className="no-underline after:absolute after:inset-0 after:rounded-xl after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:underline group-hover/card:decoration-accent group-hover/card:underline-offset-4"
+              href={`/materials/${material.slug}`}
+              id={titleId}
+              prefetch={false}
+            >
               {material.title}
-            </span>
+            </Link>
           </Heading>
           <p
             className={cn(
@@ -84,7 +83,7 @@ export function MaterialCard({
             />
           </div>
         </div>
-      </Link>
+      </div>
     </article>
   );
 }
@@ -97,9 +96,13 @@ function MaterialTaxonomy({
   return (
     <ul aria-label="Контекст материала" className="flex flex-wrap gap-1.5" role="list">
       <li>
-        <span className="inline-flex min-h-7 items-center rounded-md bg-accent/10 px-2 py-1 text-[0.6875rem] font-semibold leading-4 text-foreground">
+        <Link
+          className="relative z-10 inline-flex min-h-7 items-center rounded-md bg-accent/10 px-2 py-1 text-[0.6875rem] font-semibold leading-4 text-foreground no-underline hover:bg-accent/20 focus-visible:outline-ring"
+          href={`/topics/${material.topicSlug}`}
+          prefetch={false}
+        >
           {materialTaxonomyLabel(material.topic)}
-        </span>
+        </Link>
       </li>
       {material.tags.slice(0, 2).map((tag) => (
         <li key={tag}>
@@ -120,23 +123,25 @@ function MaterialContext({
   const FormatIcon = material.preview === undefined ? BookOpenText : Play;
 
   return (
-    <span className="flex min-w-0 flex-1 items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
+    <div className="flex min-w-0 flex-1 items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
       <span className="inline-flex shrink-0 items-center gap-1.5">
         <FormatIcon aria-hidden="true" className="size-3.5 text-accent" />
         {materialTaxonomyLabel(material.format)}
       </span>
       {material.seriesMemberships.map((membership) => (
-        <span
-          className="inline-flex min-w-0 flex-1 items-center gap-1.5"
+        <Link
+          className="relative z-10 inline-flex min-h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md no-underline hover:text-foreground hover:underline hover:decoration-accent hover:underline-offset-4 focus-visible:outline-ring"
+          href={`/series/${membership.slug}`}
           key={`${membership.name}-${String(membership.ordinal)}`}
+          prefetch={false}
         >
           <ListVideo aria-hidden="true" className="size-3.5 shrink-0 text-accent" />
           <span className="min-w-0 truncate">
             {membership.name} · выпуск {membership.ordinal}
           </span>
-        </span>
+        </Link>
       ))}
-    </span>
+    </div>
   );
 }
 

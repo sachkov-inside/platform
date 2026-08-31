@@ -129,7 +129,7 @@ export function requestPublishedMaterialCatalog(
     readonly format?: readonly string[];
     readonly q?: string;
     readonly series?: readonly string[];
-    readonly sort?: "newest" | "relevance" | "title";
+    readonly sort?: "newest" | "relevance" | "series" | "title";
     readonly topic?: readonly string[];
   },
   options: {
@@ -149,6 +149,49 @@ export function requestPublishedMaterialCatalog(
           ...(query.topic === undefined ? {} : { topic: [...query.topic] }),
         },
       ),
+    200,
+    options,
+  );
+}
+
+export function requestPublishedTopic(
+  slug: string,
+  options: {
+    readonly accessToken?: string;
+    readonly signal?: AbortSignal;
+  } = {},
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new ContentLibraryService(request).readPublishedTopic({ slug }),
+    200,
+    options,
+  );
+}
+
+export function requestPublishedSeries(
+  slug: string,
+  options: {
+    readonly accessToken?: string;
+    readonly signal?: AbortSignal;
+  } = {},
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new ContentLibraryService(request).readPublishedSeries({ slug }),
+    200,
+    options,
+  );
+}
+
+export function requestRelatedPublishedMaterials(
+  slug: string,
+  options: {
+    readonly accessToken?: string;
+    readonly signal?: AbortSignal;
+  } = {},
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new ContentLibraryService(request).readRelatedPublishedMaterials({ slug }),
     200,
     options,
   );

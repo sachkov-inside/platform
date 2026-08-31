@@ -239,6 +239,39 @@ describe("ListPublishedMaterials", () => {
     });
   });
 
+  test("continues a filtered Series in author-defined order", async () => {
+    const { contentAccess, publishedMaterialReader } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+    });
+
+    const slugs: string[] = [];
+    let after: string | undefined;
+    do {
+      const page = await listPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        {
+          subject: anonymousSubject,
+          first: 1,
+          seriesSlugs: ["career-path"],
+          ...(after === undefined ? {} : { after }),
+        },
+      );
+      if (!page.ok) {
+        throw new Error(`Expected ordered Series page: ${page.error.code}`);
+      }
+      slugs.push(...page.value.items.map(({ slug }) => slug));
+      after = page.value.nextCursor ?? undefined;
+    } while (after !== undefined);
+
+    expect(slugs).toEqual([
+      "career-roadmap",
+      "career-roadmap-summary",
+      "career-roadmap-taxonomy",
+    ]);
+  });
+
   test(
     "keeps representative PostgreSQL search below the 300ms p95 budget at 10k rows",
     async () => {
@@ -353,7 +386,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
         topicId: "72000000-0000-4000-8000-000000000002",
         formatId: "72000000-0000-4000-8000-000000000003",
         tagIds: [],
-        seriesIds: [],
+        seriesIds: [careerSeriesId],
       },
       bodyText: "Summary-weight fixture",
     },
@@ -366,7 +399,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
         topicId: "72000000-0000-4000-8000-000000000002",
         formatId: "72000000-0000-4000-8000-000000000003",
         tagIds: [careerSearchTagId],
-        seriesIds: [],
+        seriesIds: [careerSeriesId],
       },
       bodyText: "Taxonomy-weight fixture",
     },

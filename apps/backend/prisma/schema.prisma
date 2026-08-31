@@ -265,6 +265,18 @@ model PublishedMaterialSeriesMembership {
   @@schema("materials")
 }
 
+model MaterialRelatedPin {
+  sourceMaterialId String @map("source_material_id") @db.Uuid
+  targetMaterialId String @map("target_material_id") @db.Uuid
+  ordinal          Int
+
+  @@id([sourceMaterialId, targetMaterialId], map: "material_related_pins_primary")
+  @@unique([sourceMaterialId, ordinal], map: "material_related_pins_source_ordinal_unique")
+  @@index([targetMaterialId], map: "material_related_pins_target_idx")
+  @@map("material_related_pins")
+  @@schema("materials")
+}
+
 model MaterialSearchDocument {
   materialId     String @id @map("material_id") @db.Uuid
   contentVersion BigInt @map("content_version") @db.BigInt

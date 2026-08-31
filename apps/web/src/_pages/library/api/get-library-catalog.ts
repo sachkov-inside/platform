@@ -2,10 +2,11 @@ import "server-only";
 
 import { z } from "zod";
 
-import type {
-  LibraryCatalogPage,
-  LibraryMaterialPreview,
-} from "@/_pages/library/model/library-view";
+import type { LibraryCatalogPage } from "@/_pages/library/model/library-view";
+import {
+  publishedMaterialProjectionSchema,
+  toMaterialPreview,
+} from "@/entities/material";
 import {
   hasActiveLibrarySearch,
   type LibrarySearchQuery,
@@ -15,28 +16,6 @@ import {
   requestPublishedMaterialCatalog,
 } from "@/shared/api/backend/index.server";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
-
-const projectionSchema = z
-  .object({
-    materialId: z.string(),
-    contentVersion: z.number().int().positive(),
-    slug: z.string(),
-    title: z.string(),
-    summary: z.string(),
-    access: z.enum(["free", "membership"]),
-    availability: z.enum(["available", "locked", "unavailable"]),
-    publishedAt: z.iso.datetime({ offset: true }),
-    topic: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
-    format: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
-    tags: z.array(z.object({ id: z.string(), name: z.string() })),
-    seriesMemberships: z.array(
-      z.object({
-        ordinal: z.number().int().positive(),
-        series: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
-      }),
-    ),
-  })
-  .strict();
 
 const catalogFacetSchema = z
   .object({
@@ -56,7 +35,7 @@ const catalogSchema = z
         topics: z.array(catalogFacetSchema),
       })
       .strict(),
-    items: z.array(projectionSchema),
+    items: z.array(publishedMaterialProjectionSchema),
     nextCursor: z.string().min(1).max(512).nullable(),
     totalCount: z.number().int().nonnegative(),
   })
@@ -149,24 +128,5 @@ function toBackendQuery(
     topic: query.topicSlugs,
     ...(after === undefined ? {} : { after }),
     ...(query.q.length === 0 ? {} : { q: query.q }),
-  };
-}
-
-function toMaterialPreview(
-  projection: z.infer<typeof projectionSchema>,
-): LibraryMaterialPreview {
-  return {
-    slug: projection.slug,
-    title: projection.title,
-    summary: projection.summary,
-    access: projection.access,
-    availability: projection.availability,
-    topic: projection.topic.name,
-    format: projection.format.name,
-    tags: projection.tags.map(({ name }) => name),
-    seriesMemberships: projection.seriesMemberships.map(({ ordinal, series }) => ({
-      ordinal,
-      name: series.name,
-    })),
   };
 }
