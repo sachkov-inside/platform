@@ -19,7 +19,7 @@ import { TelegramLinkController } from "./adapters/nest/telegram-link.controller
 import { assembleTelegramMembership } from "./facets/telegram-membership/assemble-telegram-membership.js";
 import type { TelegramMembership } from "./facets/telegram-membership/telegram-membership.interface.js";
 import { HttpTelegramLinkProvider } from "./infrastructure/http/http-telegram-link-provider.js";
-import type { TelegramLinkProvider } from "./internal/telegram-link-provider.js";
+import type { TelegramLinkProvider } from "./ports/telegram-link-provider.js";
 import {
   TELEGRAM_LINK_PROVIDER,
   TELEGRAM_MEMBERSHIP,

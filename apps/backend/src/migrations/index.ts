@@ -45,7 +45,7 @@ import {
 import {
   name as telegramMembershipMigrationName,
   statement as telegramMembershipMigrationStatement,
-} from "../modules/telegram-membership/infrastructure/postgres/migrations/0011_telegram-membership.js";
+} from "../modules/telegram-membership/infrastructure/postgres/migrations/0011-telegram-membership.js";
 
 const migrations = [
   {

@@ -6,7 +6,7 @@ import type {
   TelegramLinkProvider,
   TelegramLinkProviderConfirmation,
   TelegramLinkProviderRegistration,
-} from "../../internal/telegram-link-provider.js";
+} from "../../ports/telegram-link-provider.js";
 
 const CONTRACT_VERSION = "inside.identity-linking.v1";
 const REQUEST_TIMEOUT_MS = 5_000;

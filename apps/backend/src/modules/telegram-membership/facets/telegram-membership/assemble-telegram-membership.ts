@@ -12,7 +12,7 @@ import type {
   TelegramLinkProvider,
   TelegramLinkProviderConfirmation,
   TelegramLinkProviderRegistration,
-} from "../../internal/telegram-link-provider.js";
+} from "../../ports/telegram-link-provider.js";
 import type {
   AcceptTelegramEvidenceCommand,
   TelegramLinkResult,

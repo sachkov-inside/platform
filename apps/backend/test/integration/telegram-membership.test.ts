@@ -17,7 +17,7 @@ import type {
   TelegramLinkProvider,
   TelegramLinkProviderConfirmation,
   TelegramLinkProviderRegistration,
-} from "../../src/modules/telegram-membership/internal/telegram-link-provider.js";
+} from "../../src/modules/telegram-membership/ports/telegram-link-provider.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
