@@ -3,6 +3,7 @@ import type { PrismaClient } from "./generated/client.js";
 export type PlatformPrisma = PrismaClient;
 export type MaterialsPrisma = Pick<
   PlatformPrisma,
+  | "$executeRaw"
   | "$queryRaw"
   | "authoringIdempotency"
   | "format"

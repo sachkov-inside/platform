@@ -1,6 +1,19 @@
 import { z } from "zod";
 
 import type { LibraryCatalogPage } from "../model/library-view";
+import {
+  serializeLibrarySearchQuery,
+  type LibrarySearchQuery,
+} from "../model/library-search-query";
+
+const catalogFacetSchema = z
+  .object({
+    count: z.number().int().nonnegative(),
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+  })
+  .strict();
 
 const materialPreviewSchema = z
   .object({
@@ -22,9 +35,17 @@ const libraryCatalogPageSchema: z.ZodType<LibraryCatalogPage> =
   z.discriminatedUnion("kind", [
     z
       .object({
+        facets: z
+          .object({
+            formats: z.array(catalogFacetSchema),
+            series: z.array(catalogFacetSchema),
+            topics: z.array(catalogFacetSchema),
+          })
+          .strict(),
         kind: z.literal("ready"),
         items: z.array(materialPreviewSchema),
         nextCursor: z.string().min(1).max(512).nullable(),
+        totalCount: z.number().int().nonnegative(),
       })
       .strict(),
     z.object({ kind: z.literal("empty") }).strict(),
@@ -39,13 +60,18 @@ export class LibraryCatalogQueryError extends Error {
 }
 
 export async function requestLibraryCatalogPage(
+  query: LibrarySearchQuery,
   after: string | undefined,
   signal: AbortSignal,
 ): Promise<LibraryCatalogPage> {
+  const search = serializeLibrarySearchQuery({
+    ...query,
+    after: after ?? null,
+  });
   const response = await fetch(
-    after === undefined
+    search.length === 0
       ? "/api/library/materials"
-      : `/api/library/materials?after=${encodeURIComponent(after)}`,
+      : `/api/library/materials?${search}`,
     {
       headers: { Accept: "application/json" },
       signal,

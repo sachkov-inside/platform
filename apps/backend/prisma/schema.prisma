@@ -236,6 +236,7 @@ model PublishedMaterial {
   access         String
   topicId        String   @map("topic_id") @db.Uuid
   formatId       String   @map("format_id") @db.Uuid
+  publicSearchText String @map("public_search_text")
   publishedBy    String   @map("published_by") @db.Uuid
   publishedAt    DateTime @map("published_at") @db.Timestamptz
 

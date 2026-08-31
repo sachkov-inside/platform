@@ -7,9 +7,15 @@ import { libraryCatalogQueryKey } from "@/_pages/library";
 import { getQueryClient } from "@/shared/api/query-client";
 import { requestLibraryCatalogPage } from "../../src/_pages/library/api/request-library-catalog";
 import { libraryCatalogBrowserQueryOptions } from "../../src/_pages/library/api/library-catalog-query.browser";
+import { pushLibraryContinuationHistory } from "../../src/_pages/library/ui/library-page-history.client";
 import { createLibraryCatalogQueryOptions } from "../../src/_pages/library/model/library-catalog-query";
+import {
+  parseLibrarySearchParams,
+  serializeLibrarySearchQuery,
+} from "../../src/_pages/library/model/library-search-query";
 
 const readyCatalog = {
+  facets: { formats: [], series: [], topics: [] },
   kind: "ready",
   items: [
     {
@@ -25,8 +31,17 @@ const readyCatalog = {
     },
   ],
   nextCursor: null,
+  totalCount: 1,
 } as const;
 const viewerScope = "viewer-request-1";
+const defaultQuery = {
+  after: null,
+  formatSlugs: [],
+  q: "",
+  seriesSlugs: [],
+  sort: "relevance",
+  topicSlugs: [],
+} as const;
 
 describe("Library TanStack Query interface", () => {
   afterEach(() => {
@@ -34,14 +49,69 @@ describe("Library TanStack Query interface", () => {
     vi.unstubAllGlobals();
   });
 
+  it("normalizes shareable search, facets, sort and cursor into one canonical URL", () => {
+    const parsed = parseLibrarySearchParams({
+      after: ["cursor-one", "cursor-two"],
+      format: ["video", "INVALID", "video"],
+      ignored: "value",
+      q: "  карьерный   маршрут  ",
+      series: ["career-path", ""],
+      sort: "unknown",
+      topic: ["platform", "career", "platform"],
+    });
+
+    expect(parsed.query).toEqual({
+      after: "cursor-one",
+      formatSlugs: ["video"],
+      q: "карьерный маршрут",
+      seriesSlugs: ["career-path"],
+      sort: "relevance",
+      topicSlugs: ["career", "platform"],
+    });
+    expect(parsed.wasNormalized).toBe(true);
+    expect(serializeLibrarySearchQuery(parsed.query)).toBe(
+      "q=%D0%BA%D0%B0%D1%80%D1%8C%D0%B5%D1%80%D0%BD%D1%8B%D0%B9+%D0%BC%D0%B0%D1%80%D1%88%D1%80%D1%83%D1%82&topic=career&topic=platform&format=video&series=career-path&after=cursor-one",
+    );
+  });
+
+  it("publishes the successfully loaded cursor as canonical browser history", () => {
+    const pushState = vi.fn();
+    vi.stubGlobal("window", {
+      history: { pushState },
+      location: { pathname: "/library", search: "" },
+    });
+
+    pushLibraryContinuationHistory(
+      { ...defaultQuery, q: "career roadmap" },
+      "next_cursor",
+    );
+
+    expect(pushState).toHaveBeenCalledWith(
+      null,
+      "",
+      "/library?q=career+roadmap&after=next_cursor",
+    );
+  });
+
+  it("truncates long Unicode queries without sending a broken surrogate to NestJS", () => {
+    const parsed = parseLibrarySearchParams({
+      q: `${"a".repeat(119)}💡ignored`,
+    });
+
+    expect(parsed.query.q).toBe("a".repeat(119));
+    expect(parsed.query.q.length).toBeLessThanOrEqual(120);
+    expect(parsed.wasNormalized).toBe(true);
+  });
+
   it("uses one deterministic query key for every cursor page", () => {
-    expect(libraryCatalogQueryKey(viewerScope)).toEqual([
+    expect(libraryCatalogQueryKey(viewerScope, defaultQuery)).toEqual([
       "library",
       "catalog",
       viewerScope,
+      "",
     ]);
-    expect(libraryCatalogQueryKey("viewer-request-2")).not.toEqual(
-      libraryCatalogQueryKey(viewerScope),
+    expect(libraryCatalogQueryKey("viewer-request-2", defaultQuery)).not.toEqual(
+      libraryCatalogQueryKey(viewerScope, defaultQuery),
     );
   });
 
@@ -53,27 +123,27 @@ describe("Library TanStack Query interface", () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
-        Response.json({ ...readyCatalog, nextCursor: "next/cursor" }),
+        Response.json({ ...readyCatalog, nextCursor: "next_cursor" }),
       )
       .mockResolvedValueOnce(Response.json(readyCatalog));
     vi.stubGlobal("fetch", fetchMock);
     const queryClient = new QueryClient();
 
     const data = await queryClient.infiniteQuery({
-      ...libraryCatalogBrowserQueryOptions(viewerScope),
+      ...libraryCatalogBrowserQueryOptions(viewerScope, defaultQuery),
       pages: 2,
     });
 
-    expect(data.pageParams).toEqual([undefined, "next/cursor"]);
+    expect(data.pageParams).toEqual([undefined, "next_cursor"]);
     expect(data.pages).toHaveLength(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/library/materials");
     expect(fetchMock.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      "/api/library/materials?after=next%2Fcursor",
+      "/api/library/materials?after=next_cursor",
     );
     expect(fetchMock.mock.calls[1]?.[1]?.signal).toBeInstanceOf(AbortSignal);
     expect(
-      queryClient.getQueryData(libraryCatalogQueryKey(viewerScope)),
+      queryClient.getQueryData(libraryCatalogQueryKey(viewerScope, defaultQuery)),
     ).toEqual(data);
   });
 
@@ -86,6 +156,7 @@ describe("Library TanStack Query interface", () => {
       createLibraryCatalogQueryOptions(
         () => Promise.resolve(readyCatalog),
         viewerScope,
+        defaultQuery,
       ),
     );
 
@@ -96,7 +167,7 @@ describe("Library TanStack Query interface", () => {
 
     await expect(
       browserClient.infiniteQuery(
-        libraryCatalogBrowserQueryOptions(viewerScope),
+        libraryCatalogBrowserQueryOptions(viewerScope, defaultQuery),
       ),
     ).resolves.toMatchObject({ pages: [readyCatalog] });
     expect(fetchMock).not.toHaveBeenCalled();
@@ -110,10 +181,10 @@ describe("Library TanStack Query interface", () => {
     );
 
     await expect(
-      requestLibraryCatalogPage("next/cursor", signal),
+      requestLibraryCatalogPage(defaultQuery, "next_cursor", signal),
     ).resolves.toEqual(readyCatalog);
     expect(fetch).toHaveBeenCalledWith(
-      "/api/library/materials?after=next%2Fcursor",
+      "/api/library/materials?after=next_cursor",
       {
         headers: { Accept: "application/json" },
         signal,
@@ -130,7 +201,11 @@ describe("Library TanStack Query interface", () => {
     );
 
     await expect(
-      requestLibraryCatalogPage(undefined, AbortSignal.timeout(1_000)),
+      requestLibraryCatalogPage(
+        defaultQuery,
+        undefined,
+        AbortSignal.timeout(1_000),
+      ),
     ).rejects.toMatchObject({
       name: "LibraryCatalogQueryError",
       message: "Library query response does not match the presentation contract",
@@ -141,12 +216,19 @@ describe("Library TanStack Query interface", () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(Response.json({ items: [], nextCursor: null })),
+      vi.fn().mockResolvedValue(
+        Response.json({
+          facets: { formats: [], series: [], topics: [] },
+          items: [],
+          nextCursor: null,
+          totalCount: 0,
+        }),
+      ),
     );
 
     const response = await GET(
       new Request(
-        "https://platform-web.example.test/api/library/materials?after=next%2Fcursor",
+        "https://platform-web.example.test/api/library/materials?after=next_cursor",
       ),
     );
 
@@ -156,8 +238,10 @@ describe("Library TanStack Query interface", () => {
     );
     await expect(response.json()).resolves.toEqual({
       kind: "ready",
+      facets: { formats: [], series: [], topics: [] },
       items: [],
       nextCursor: null,
+      totalCount: 0,
     });
     const backendRequest = vi.mocked(fetch).mock.calls[0]?.[0];
     expect(backendRequest).toBeInstanceOf(Request);
@@ -165,7 +249,7 @@ describe("Library TanStack Query interface", () => {
       throw new TypeError("BFF did not use the generated server transport");
     }
     expect(backendRequest.url).toBe(
-      "https://platform-api.example.test/library/materials?after=next%2Fcursor",
+      "https://platform-api.example.test/library/materials?sort=relevance&after=next_cursor",
     );
     expect(backendRequest.cache).toBe("no-store");
   });
@@ -184,13 +268,50 @@ describe("Library TanStack Query interface", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("returns a controlled 400 when NestJS rejects an opaque cursor", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            type: "urn:inside:problem:invalid-request-shape",
+            title: "Invalid request shape",
+            status: 400,
+            code: "invalid_request_shape",
+          },
+          {
+            status: 400,
+            headers: { "Content-Type": "application/problem+json" },
+          },
+        ),
+      ),
+    );
+
+    const response = await GET(
+      new Request(
+        "https://platform-web.example.test/api/library/materials?after=opaque_cursor",
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
   it("forwards an authenticated viewer and prevents shared BFF caching", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     const fetchMock = vi.fn((request: Request) => {
       expect(request.headers.get("authorization")).toBe(
         "Bearer platform-access-token",
       );
-      return Promise.resolve(Response.json({ items: [], nextCursor: null }));
+      return Promise.resolve(
+        Response.json({
+          facets: { formats: [], series: [], topics: [] },
+          items: [],
+          nextCursor: null,
+          totalCount: 0,
+        }),
+      );
     });
     vi.stubGlobal("fetch", fetchMock);
 

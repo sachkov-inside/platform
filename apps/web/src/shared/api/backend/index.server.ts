@@ -124,7 +124,14 @@ export function readBackendBaseUrl(): string {
 }
 
 export function requestPublishedMaterialCatalog(
-  after: string | undefined,
+  query: {
+    readonly after?: string;
+    readonly format?: readonly string[];
+    readonly q?: string;
+    readonly series?: readonly string[];
+    readonly sort?: "newest" | "relevance" | "title";
+    readonly topic?: readonly string[];
+  },
   options: {
     readonly accessToken?: string;
     readonly signal?: AbortSignal;
@@ -133,7 +140,14 @@ export function requestPublishedMaterialCatalog(
   return executeGeneratedRequest(
     (request) =>
       new ContentLibraryService(request).listPublishedMaterials(
-        after === undefined ? {} : { after },
+        {
+          ...(query.after === undefined ? {} : { after: query.after }),
+          ...(query.format === undefined ? {} : { format: [...query.format] }),
+          ...(query.q === undefined ? {} : { q: query.q }),
+          ...(query.series === undefined ? {} : { series: [...query.series] }),
+          ...(query.sort === undefined ? {} : { sort: query.sort }),
+          ...(query.topic === undefined ? {} : { topic: [...query.topic] }),
+        },
       ),
     200,
     options,

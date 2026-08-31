@@ -3,6 +3,7 @@ export {
   getLibraryCatalogPage,
   handleLibraryCatalogRequest,
   libraryCatalogServerQueryOptions,
+  LibraryQueryRejectedError,
 } from "./library/index.server";
 export type {
   LibraryCatalogPage,

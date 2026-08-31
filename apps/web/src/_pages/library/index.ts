@@ -4,6 +4,11 @@ export type {
 } from "./model/library-view";
 export { libraryCatalogQueryKey } from "./model/library-catalog-query";
 export {
+  parseLibrarySearchParams,
+  serializeLibrarySearchQuery,
+  type LibrarySearchQuery,
+} from "./model/library-search-query";
+export {
   LibraryLoading,
   LibraryPage,
   LibraryUnexpectedError,

@@ -172,6 +172,32 @@ describe("published Material HTTP contract", () => {
     expect(response.body).not.toContain("blocks");
   });
 
+  test("searches the catalog with canonical URL facets and sort", async () => {
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/library/materials?q=developer%20pipeline&topic=platform&format=guide&sort=relevance",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      items: [
+        {
+          slug: "developer-pipeline-bez-poteri-konteksta",
+          availability: "locked",
+        },
+      ],
+      totalCount: 1,
+      facets: {
+        topics: [expect.objectContaining({ slug: "platform" })],
+        formats: [expect.objectContaining({ slug: "guide" })],
+        series: [expect.objectContaining({ slug: "platform-inside" })],
+      },
+    });
+    expect(response.body).not.toContain("schemaVersion");
+    expect(response.body).not.toContain("blocks");
+    expect(response.body).not.toContain("Закрытое содержимое для участников");
+  });
+
   test("returns a stable 404 outcome for an unpublished slug", async () => {
     const response = await app.getHttpAdapter().getInstance().inject({
       method: "GET",

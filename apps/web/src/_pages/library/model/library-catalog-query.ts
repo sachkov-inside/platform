@@ -1,9 +1,21 @@
 import { infiniteQueryOptions } from "@tanstack/react-query";
 
 import type { LibraryCatalogPage } from "./library-view";
+import {
+  librarySearchQueryIdentity,
+  type LibrarySearchQuery,
+} from "./library-search-query";
 
-export function libraryCatalogQueryKey(viewerScope: string) {
-  return ["library", "catalog", viewerScope] as const;
+export function libraryCatalogQueryKey(
+  viewerScope: string,
+  query: LibrarySearchQuery,
+) {
+  return [
+    "library",
+    "catalog",
+    viewerScope,
+    librarySearchQueryIdentity(query),
+  ] as const;
 }
 
 export type LoadLibraryCatalogPage = (input: {
@@ -19,12 +31,13 @@ export type LibraryCatalogQueryOptions = ReturnType<
 export function createLibraryCatalogQueryOptions(
   loadPage: LoadLibraryCatalogPage,
   viewerScope: string,
+  query: LibrarySearchQuery,
 ) {
   return infiniteQueryOptions({
-    queryKey: libraryCatalogQueryKey(viewerScope),
+    queryKey: libraryCatalogQueryKey(viewerScope, query),
     queryFn: ({ pageParam, signal }) =>
       loadPage({ after: pageParam, signal }),
-    initialPageParam: undefined as string | undefined,
+    initialPageParam: query.after ?? undefined,
     getNextPageParam: (lastPage) =>
       lastPage.kind === "ready"
         ? lastPage.nextCursor ?? undefined

@@ -2,16 +2,55 @@ import type { PublishedMaterialProjectionDto } from "../../facets/published-mate
 import type { Result } from "../../result.js";
 
 export interface ListPublishedMaterialProjectionsQuery {
-  readonly after?: {
-    readonly materialId: string;
-    readonly publishedAt: string;
-  };
+  readonly after?: PublishedMaterialProjectionCursor;
+  readonly formatSlugs?: readonly string[];
   readonly first: number;
+  readonly q?: string;
+  readonly seriesSlugs?: readonly string[];
+  readonly sort?: PublishedMaterialProjectionSort;
+  readonly topicSlugs?: readonly string[];
+}
+
+export type PublishedMaterialProjectionSort =
+  | "newest"
+  | "relevance"
+  | "title";
+
+export type PublishedMaterialProjectionCursor =
+  | {
+      readonly kind: "newest";
+      readonly materialId: string;
+      readonly publishedAt: string;
+    }
+  | {
+      readonly kind: "relevance";
+      readonly materialId: string;
+      readonly publishedAt: string;
+      readonly rank: number;
+    }
+  | {
+      readonly kind: "title";
+      readonly materialId: string;
+      readonly title: string;
+    };
+
+export interface PublishedMaterialFacetOptionDto {
+  readonly count: number;
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
 }
 
 export interface PublishedMaterialProjectionPageDto {
+  readonly continuation: PublishedMaterialProjectionCursor | null;
+  readonly facets: {
+    readonly formats: readonly PublishedMaterialFacetOptionDto[];
+    readonly series: readonly PublishedMaterialFacetOptionDto[];
+    readonly topics: readonly PublishedMaterialFacetOptionDto[];
+  };
   readonly items: readonly PublishedMaterialProjectionDto[];
   readonly hasNext: boolean;
+  readonly totalCount: number;
 }
 
 export type PublishedMaterialProjectionListError =

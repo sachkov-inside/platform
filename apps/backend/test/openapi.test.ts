@@ -61,17 +61,57 @@ describe("OpenAPI contract", () => {
     expect(health.security).toBeUndefined();
 
     const library = operation(document, "/library/materials", "get");
-    expect(library).toMatchObject({
-      operationId: "listPublishedMaterials",
-      parameters: [
-        {
-          in: "query",
-          name: "after",
-          required: false,
-          schema: { maxLength: 512, minLength: 1, type: "string" },
+    expect(library).toMatchObject({ operationId: "listPublishedMaterials" });
+    const facetParameterSchema = {
+      items: {
+        maxLength: 120,
+        pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        type: "string",
+      },
+      maxItems: 20,
+      type: "array",
+    };
+    expect(library.parameters).toEqual([
+      {
+        in: "query",
+        name: "sort",
+        required: false,
+        schema: {
+          enum: ["newest", "relevance", "title"],
+          type: "string",
         },
-      ],
-    });
+      },
+      {
+        in: "query",
+        name: "series",
+        required: false,
+        schema: facetParameterSchema,
+      },
+      {
+        in: "query",
+        name: "format",
+        required: false,
+        schema: facetParameterSchema,
+      },
+      {
+        in: "query",
+        name: "topic",
+        required: false,
+        schema: facetParameterSchema,
+      },
+      {
+        in: "query",
+        name: "q",
+        required: false,
+        schema: { maxLength: 120, minLength: 1, type: "string" },
+      },
+      {
+        in: "query",
+        name: "after",
+        required: false,
+        schema: { maxLength: 512, minLength: 1, type: "string" },
+      },
+    ]);
     expect(hasResponseSchema(library, "200", "application/json")).toBe(true);
     for (const status of ["400", "401", "500", "503"] as const) {
       expect(hasResponseSchema(library, status, "application/problem+json")).toBe(true);

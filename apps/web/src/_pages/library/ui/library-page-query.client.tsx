@@ -1,35 +1,56 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { useCallback } from "react";
 
 import { libraryCatalogBrowserQueryOptions } from "../api/library-catalog-query.browser";
 import type { LibraryCatalogQueryOptions } from "../model/library-catalog-query";
 import type { LibraryCatalogPage } from "../model/library-view";
+import type { LibrarySearchQuery } from "../model/library-search-query";
 import {
   LibraryLoading,
   LibraryPage,
   LibraryUnexpectedError,
 } from "./library-page";
+import { pushLibraryContinuationHistory } from "./library-page-history.client";
 import { VirtualizedLibraryCatalog } from "./virtualized-library-catalog.client";
 
 export function LibraryPageQuery({
+  query,
   viewerScope,
 }: {
+  readonly query: LibrarySearchQuery;
   readonly viewerScope: string;
 }) {
   return (
     <LibraryCatalogQueryView
-      queryOptions={libraryCatalogBrowserQueryOptions(viewerScope)}
+      query={query}
+      queryOptions={libraryCatalogBrowserQueryOptions(viewerScope, query)}
     />
   );
 }
 
 export function LibraryCatalogQueryView({
+  query: searchQuery,
   queryOptions,
 }: {
+  readonly query: LibrarySearchQuery;
   readonly queryOptions: LibraryCatalogQueryOptions;
 }) {
   const query = useInfiniteQuery(queryOptions);
+  const nextCursor =
+    query.data?.pages.filter(isReadyPage).at(-1)?.nextCursor ?? null;
+  const fetchNextPage = query.fetchNextPage;
+  const loadNextPage = useCallback(() => {
+    if (nextCursor === null) {
+      return;
+    }
+    void fetchNextPage().then((result) => {
+      if (!result.isError) {
+        pushLibraryContinuationHistory(searchQuery, nextCursor);
+      }
+    });
+  }, [fetchNextPage, nextCursor, searchQuery]);
 
   if (query.isPending) {
     return <LibraryLoading />;
@@ -48,6 +69,7 @@ export function LibraryCatalogQueryView({
         onRetry={() => {
           void query.refetch();
         }}
+        query={searchQuery}
         result={firstPage}
       />
     );
@@ -63,16 +85,18 @@ export function LibraryCatalogQueryView({
           hasNextPage={query.hasNextPage}
           isFetchNextPageError={query.isFetchNextPageError}
           isFetchingNextPage={query.isFetchingNextPage}
-          onLoadNextPage={() => {
-            void query.fetchNextPage();
-          }}
+          onLoadNextPage={loadNextPage}
           pages={readyPages}
+          totalCount={firstPage.totalCount}
         />
       }
+      query={searchQuery}
       result={{
+        facets: firstPage.facets,
         kind: "ready",
         items,
-        nextCursor: readyPages.at(-1)?.nextCursor ?? null,
+        nextCursor,
+        totalCount: firstPage.totalCount,
       }}
     />
   );
