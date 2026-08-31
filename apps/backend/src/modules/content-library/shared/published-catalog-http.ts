@@ -12,7 +12,10 @@ const publishedCatalogFacetHttpSchema = z
     count: z.number().int().nonnegative(),
     id: z.uuid(),
     name: z.string(),
-    slug: z.string(),
+    slug: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      .max(120),
   })
   .strict();
 

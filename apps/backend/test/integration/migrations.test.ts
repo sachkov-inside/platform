@@ -589,11 +589,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 10, repeat('0', 64))
+        values ('9999_unknown', 11, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 10",
+        "Migration ledger is not an exact registry prefix at position 11",
       );
     } finally {
       await database.dispose();
