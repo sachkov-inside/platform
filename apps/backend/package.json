@@ -42,7 +42,7 @@
     "@tiptap/extension-table": "3.30.3",
     "@tiptap/extension-unique-id": "3.30.3",
     "@tiptap/pm": "3.30.3",
-    "@tiptap/starter-kit": "3.30.3",
+    "@tiptap/starter-kit": "3.30.5",
     "fastify": "5.12.1",
     "jose": "6.2.10",
     "pg": "8.23.0",
