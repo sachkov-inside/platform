@@ -419,7 +419,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   });
   await topicLink.focus();
   await expect(topicLink).toBeFocused();
-  await page.keyboard.press("Enter");
+  await topicLink.press("Enter");
   await expect(page).toHaveURL(/\/topics\/platform$/u);
   await expect(page.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
   await expect(page).toHaveTitle("Platform — тема · Inside");
@@ -436,7 +436,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   });
   await seriesLink.focus();
   await expect(seriesLink).toBeFocused();
-  await page.keyboard.press("Enter");
+  await seriesLink.press("Enter");
   await expect(page).toHaveURL(/\/series\/platform-inside$/u);
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
