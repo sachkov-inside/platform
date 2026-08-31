@@ -21,5 +21,5 @@ PostgreSQL → Nest HTTP → generated client → Next RSC path.
   ready/empty/unavailable and route operational states.
 - Full-stack Playwright verifies the complete Library → Topic → Series → Reader navigation on
   desktop and mobile Chromium, with no serious/critical axe findings or horizontal overflow.
-- Owner production visual GO: pending.
-- Owner merge GO: explicitly granted for this delivery chain; visual GO remains a separate gate.
+- Owner production visual GO: explicitly granted on 2026-08-31.
+- Owner merge GO: explicitly granted for this delivery chain.
