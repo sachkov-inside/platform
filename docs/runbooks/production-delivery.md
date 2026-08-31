@@ -29,7 +29,11 @@ The server has two environment files with different lifecycles:
 - `shared/runtime.env` contains database, Logto, cookie, identity and Telegram secrets plus stable
   runtime configuration. It is created and edited only on the server and persists across releases.
 - `releases/<sha>/release.env` contains only the full source revision, canonical GHCR repositories
-  and immutable image digests. Deployment automation may replace this file for every release.
+  and immutable image digests. The installer never mutates committed release metadata; rollback
+  uses a short-lived candidate env file for the older API/Web pair.
+- `shared/latest-workflow-run-number`, `shared/latest-migration.env`, and the atomically selected
+  `shared/release-states/` entries are server-owned deployment state. They are updated only while
+  the deployment lock is held and must not be edited manually.
 
 Bootstrap the filesystem contract from a checked release bundle. The root must be absolute; the
 script creates `releases/` with mode `0750`, `shared/` with mode `0700`, and copies the runtime
@@ -84,13 +88,13 @@ files.
 
 The bootstrap deliberately does not install Docker, create users, edit firewall/DNS, authenticate
 to GHCR or touch a running stack. Before the owner runs it, the Linux host must already provide
-Python 3.9 or newer, Docker Engine with Compose, outbound HTTPS to GHCR/identity/Telegram
-dependencies, and inbound 80/443. The deployment identity must have access to Docker. Docker
-documents that membership in the daemon `docker` group grants root-level privileges, so choose
-that access or rootless Docker as an explicit owner decision; the repository does not silently
-modify it.
+Python 3.9 or newer, OpenSSH server, `curl`, Docker Engine with Compose, outbound HTTPS to
+GHCR/identity/Telegram dependencies, and inbound 80/443. The deployment identity must have access
+to Docker. Docker documents that membership in the daemon `docker` group grants root-level
+privileges, so choose that access or rootless Docker as an explicit owner decision; the repository
+does not silently modify it.
 
-Future deployment automation uses four separate data classes:
+Deployment automation uses four separate data classes:
 
 1. GitHub Environment `production` contains SSH transport only:
    `PLATFORM_DEPLOY_HOST`, `PLATFORM_DEPLOY_USER`, `PLATFORM_DEPLOY_SSH_PRIVATE_KEY`, and
@@ -107,6 +111,68 @@ Do not use `ssh-keyscan` inside the deployment job as trust-on-first-use. Captur
 host key in the owner-controlled bootstrap session, then store the exact known-hosts entry in the
 protected GitHub Environment. Actual Environment/secrets creation, GHCR login and server bootstrap
 remain owner gates.
+
+## Automated deployment and rollback
+
+The `deploy-production` job in `.github/workflows/production-images.yml` needs the successful image
+publication job and runs in the `production` Environment. The whole publish-to-deploy workflow uses
+the non-cancelling `platform-production` concurrency group with `queue: max`, so pending runs are
+queued instead of replaced (up to GitHub's 100-run concurrency-group limit). GitHub does not
+guarantee queued-run ordering, so the server also records the greatest accepted
+monotonic `github.run_number` under the deployment lock and rejects any lower stale run before
+validation or pull. A rerun of the same workflow run remains allowed. Deployment is intentionally
+skipped until the repository variable `PLATFORM_PRODUCTION_DEPLOY_ENABLED` is exactly `true`.
+Enable that variable only after the owner has completed all of these one-time actions:
+
+1. bootstrap `/opt/sachkov-inside/platform`, replace every runtime placeholder on the server, and
+   validate `shared/runtime.env`;
+2. authenticate the deployment user to GHCR with a server-side read-only package credential;
+3. capture and independently verify the SSH host key;
+4. create the protected GitHub Environment `production` with
+   `PLATFORM_DEPLOY_HOST`, `PLATFORM_DEPLOY_USER`, `PLATFORM_DEPLOY_SSH_PRIVATE_KEY`, and
+   `PLATFORM_DEPLOY_SSH_KNOWN_HOSTS`;
+5. optionally require owner approval on that Environment, then set the repository enable variable.
+
+The runner renders public `release.env` from the exact publish outputs and transfers only the
+allowlisted Compose, Caddy, provisioning, validation and deployment files. The SSH client uses
+`BatchMode=yes`, `IdentitiesOnly=yes`, `StrictHostKeyChecking=yes`, and the owner-provided
+known-hosts file. It never reads or uploads `shared/runtime.env`.
+
+On the server, the Python `fcntl` wrapper holds the exclusive `shared/deploy.lock` across each
+deployment or rollback, and every operation verifies the inherited locked file descriptor. An
+environment variable alone cannot bypass the lock. Validation and every Compose/Docker command run
+through the same clean environment, preserving only the explicit Docker transport/configuration
+variables needed to reach the daemon; ambient Compose or `PLATFORM_*` values cannot override the
+validated env files.
+
+The installer rejects unexpected bundle entries, durably commits the immutable release directory, pulls
+by digest, and executes database roles, migrations and application grants before replacing API,
+Web or Caddy. Immediately before invoking migrations it durably records the newest accepted
+migration repository/digest. If the process stops before or during the command, rollback reruns
+that exact migrator against the database ledger before starting the older API; if migrations had
+already completed, the same rerun is a no-op. API health, both image revision labels and the public
+HTTPS home response must pass before release state changes.
+`current` and `previous` are stable anchors into one durably and atomically replaced
+`release-state` selector, so a crash cannot expose a half-swapped pair. State files, their parent
+directories, and each newly installed release tree are `fsync`ed before success is reported. A
+failed validation, pull, migration, health, smoke, or selector replacement therefore leaves both
+successful-release pointers unchanged; if candidate containers were already started, the owner
+evaluates schema compatibility and runs the explicit rollback rather than reversing migrations.
+
+Rollback always targets `previous`, combines that immutable release's API/Web values with
+`shared/latest-migration.env`, repeats the complete deployment proof, and atomically selects the
+new current/previous pair only after success. The acknowledgement is deliberately verbose because
+forward schema compatibility is an owner decision:
+
+```bash
+bash /opt/sachkov-inside/platform/current/scripts/rollback-production-release.sh \
+  /opt/sachkov-inside/platform \
+  --acknowledge-forward-schema-compatible
+```
+
+Do not use rollback when the previous API/Web release is incompatible with the current forward-only
+schema. Restore from the database recovery procedure instead; this repository does not automate
+reverse migrations.
 
 ## Local production smoke
 
@@ -133,11 +199,10 @@ commit SHA, and publishes `ghcr.io/sachkov-inside/platform-api:<sha>` and
 and grants the publishing job only `contents: read` and `packages: write`. The job exposes both
 content digests for a downstream deployment job; there is no mutable `latest` release input.
 
-The next CI/CD task will package the tracked server files, create `release.env` from the digest
-outputs, transfer both over the authenticated channel and deploy without rebuilding source. A
-release is successful only after the remote health check proves the expected revision. Rollback
-means selecting a previously published API/web image pair while keeping the newest migration image
-digest. The current migration runner validates the already-applied ledger and becomes a no-op
-before the older API starts. This is allowed only when that API release is declared compatible with
-the current forward-only schema; reversing database migrations remains a separate recovery
-operation.
+The gated deployment job packages the tracked server files, creates `release.env` from the digest
+outputs, transfers both over the authenticated channel and deploys without rebuilding source. A
+release is successful only after remote health and revision checks pass. Rollback selects the
+previous API/Web image pair while keeping the newest migration image digest. The migration runner
+validates the already-applied ledger and becomes a no-op before the older API starts. This is
+allowed only when that API release is declared compatible with the current forward-only schema;
+reversing database migrations remains a separate recovery operation.
