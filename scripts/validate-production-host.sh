@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+repository_root="$(cd "$script_directory/.." && pwd -P)"
+# shellcheck source=production-deployment-state.sh
+source "$script_directory/production-deployment-state.sh"
 
 if [[ "${1:-}" == "--" ]]; then
   shift
@@ -213,13 +216,8 @@ for key in \
   fi
 done
 
-for key in "${runtime_keys[@]}" "${release_keys[@]}"; do
-  unset "$key"
-done
-
-compose_path="${PATH:-/usr/local/bin:/usr/bin:/bin}"
-compose_home="${HOME:-/}"
-if ! env -i PATH="$compose_path" HOME="$compose_home" docker compose \
+production_prepare_sanitized_environment
+if ! "${PRODUCTION_SANITIZED_ENVIRONMENT[@]}" docker compose \
   --env-file "$runtime_environment" \
   --env-file "$release_environment" \
   --file "$repository_root/compose.production.yaml" \

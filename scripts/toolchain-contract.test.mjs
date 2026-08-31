@@ -255,7 +255,13 @@ describe("supported toolchain contract", () => {
     const secretNames = [...workflow.matchAll(/secrets\.([A-Z0-9_]+)/gu)].map(
       ([, name]) => name,
     );
-    assert.deepEqual([...new Set(secretNames)], ["GITHUB_TOKEN"]);
+    assert.deepEqual([...new Set(secretNames)], [
+      "GITHUB_TOKEN",
+      "PLATFORM_DEPLOY_SSH_PRIVATE_KEY",
+      "PLATFORM_DEPLOY_SSH_KNOWN_HOSTS",
+      "PLATFORM_DEPLOY_HOST",
+      "PLATFORM_DEPLOY_USER",
+    ]);
 
     const actionLines = workflow
       .split("\n")

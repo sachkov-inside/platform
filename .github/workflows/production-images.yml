@@ -6,6 +6,11 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: platform-production
+  cancel-in-progress: false
+  queue: max
+
 jobs:
   publish-production-images:
     runs-on: ubuntu-latest
@@ -50,3 +55,47 @@ jobs:
         run: |
           echo 'API: ghcr.io/sachkov-inside/platform-api@${{ steps.publish-api.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"
           echo 'Web: ghcr.io/sachkov-inside/platform-web@${{ steps.publish-web.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-production:
+    needs: publish-production-images
+    if: vars.PLATFORM_PRODUCTION_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - name: Check out exact release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Prepare fail-closed SSH transport
+        env:
+          PLATFORM_DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.PLATFORM_DEPLOY_SSH_PRIVATE_KEY }}
+          PLATFORM_DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.PLATFORM_DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          test -n "$PLATFORM_DEPLOY_SSH_PRIVATE_KEY"
+          test -n "$PLATFORM_DEPLOY_SSH_KNOWN_HOSTS"
+          umask 077
+          install -d "$RUNNER_TEMP/platform-production-ssh"
+          printf '%s\n' "$PLATFORM_DEPLOY_SSH_PRIVATE_KEY" > "$RUNNER_TEMP/platform-production-ssh/key"
+          printf '%s\n' "$PLATFORM_DEPLOY_SSH_KNOWN_HOSTS" > "$RUNNER_TEMP/platform-production-ssh/known_hosts"
+          test -s "$RUNNER_TEMP/platform-production-ssh/key"
+          test -s "$RUNNER_TEMP/platform-production-ssh/known_hosts"
+      - name: Deploy exact published images
+        env:
+          PLATFORM_DEPLOY_ATTEMPT: ${{ github.run_number }}-${{ github.run_attempt }}
+          PLATFORM_DEPLOY_HOST: ${{ secrets.PLATFORM_DEPLOY_HOST }}
+          PLATFORM_DEPLOY_USER: ${{ secrets.PLATFORM_DEPLOY_USER }}
+        run: >-
+          bash scripts/deploy-production-over-ssh.sh
+          /opt/sachkov-inside/platform
+          "${{ github.sha }}"
+          "${{ needs.publish-production-images.outputs.platform-api-digest }}"
+          "${{ needs.publish-production-images.outputs.platform-web-digest }}"
+          "$PLATFORM_DEPLOY_HOST"
+          "$PLATFORM_DEPLOY_USER"
+          "$RUNNER_TEMP/platform-production-ssh/key"
+          "$RUNNER_TEMP/platform-production-ssh/known_hosts"
+      - name: Remove SSH material
+        if: always()
+        run: |
+          test -n "$RUNNER_TEMP"
+          rm -rf -- "$RUNNER_TEMP/platform-production-ssh"
