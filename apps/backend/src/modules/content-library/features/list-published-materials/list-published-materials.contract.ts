@@ -67,6 +67,6 @@ export interface ListPublishedMaterialsQuery {
   readonly first: number;
   readonly q?: string;
   readonly seriesSlugs?: readonly string[];
-  readonly sort?: "newest" | "relevance" | "title";
+  readonly sort?: "newest" | "relevance" | "series" | "title";
   readonly topicSlugs?: readonly string[];
 }

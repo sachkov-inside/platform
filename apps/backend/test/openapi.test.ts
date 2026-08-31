@@ -77,7 +77,7 @@ describe("OpenAPI contract", () => {
         name: "sort",
         required: false,
         schema: {
-          enum: ["newest", "relevance", "title"],
+          enum: ["newest", "relevance", "series", "title"],
           type: "string",
         },
       },

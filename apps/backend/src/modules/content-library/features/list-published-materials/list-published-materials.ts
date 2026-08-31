@@ -31,10 +31,22 @@ const querySchema = z
     first: z.number().int().min(1).max(24),
     q: z.string().max(120).optional(),
     seriesSlugs: facetSlugsSchema.optional(),
-    sort: z.enum(["newest", "relevance", "title"]).optional(),
+    sort: z.enum(["newest", "relevance", "series", "title"]).optional(),
     topicSlugs: facetSlugsSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((query, context) => {
+    if (
+      query.sort === "series" &&
+      new Set(query.seriesSlugs ?? []).size !== 1
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Series order requires exactly one Series filter",
+        path: ["sort"],
+      });
+    }
+  });
 
 const legacyCursorSchema = z
   .object({
@@ -58,6 +70,13 @@ const projectionCursorSchema = z.discriminatedUnion("kind", [
       materialId: z.uuid(),
       publishedAt: z.iso.datetime({ offset: true }),
       rank: z.number().nonnegative(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("series"),
+      materialId: z.uuid(),
+      ordinal: z.number().int().positive(),
     })
     .strict(),
   z
@@ -140,7 +159,7 @@ interface NormalizedCatalogQuery {
   readonly formatSlugs: readonly string[];
   readonly q: string | undefined;
   readonly seriesSlugs: readonly string[];
-  readonly sort: "newest" | "relevance" | "title";
+  readonly sort: "newest" | "relevance" | "series" | "title";
   readonly topicSlugs: readonly string[];
 }
 
@@ -148,13 +167,18 @@ function normalizeQuery(
   query: z.infer<typeof querySchema>,
 ): NormalizedCatalogQuery {
   const q = query.q?.trim().replace(/\s+/gu, " ");
+  const seriesSlugs = uniqueSorted(query.seriesSlugs ?? []);
   return {
     formatSlugs: uniqueSorted(query.formatSlugs ?? []),
     q: q === undefined || q.length === 0 ? undefined : q,
-    seriesSlugs: uniqueSorted(query.seriesSlugs ?? []),
+    seriesSlugs,
     sort:
       query.sort ??
-      (q === undefined || q.length === 0 ? "newest" : "relevance"),
+      (q === undefined || q.length === 0
+        ? seriesSlugs.length === 1
+          ? "series"
+          : "newest"
+        : "relevance"),
     topicSlugs: uniqueSorted(query.topicSlugs ?? []),
   };
 }

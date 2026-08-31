@@ -9895,6 +9895,7 @@
               "enum": [
                 "newest",
                 "relevance",
+                "series",
                 "title"
               ],
               "type": "string"

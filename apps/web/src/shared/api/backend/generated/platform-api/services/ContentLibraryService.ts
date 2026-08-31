@@ -19,7 +19,7 @@ export class ContentLibraryService {
     q,
     after,
   }: {
-    sort?: 'newest' | 'relevance' | 'title',
+    sort?: 'newest' | 'relevance' | 'series' | 'title',
     series?: Array<string>,
     format?: Array<string>,
     topic?: Array<string>,

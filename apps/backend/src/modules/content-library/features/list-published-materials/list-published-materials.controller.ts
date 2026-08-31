@@ -43,7 +43,7 @@ import { publishedCatalogPageHttpSchema } from "../../shared/published-catalog-h
 import { listPublishedMaterials } from "./list-published-materials.js";
 
 const CATALOG_PAGE_SIZE = 12;
-const catalogSortSchema = z.enum(["newest", "relevance", "title"]);
+const catalogSortSchema = z.enum(["newest", "relevance", "series", "title"]);
 const facetSlugSchema = z
   .string()
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)

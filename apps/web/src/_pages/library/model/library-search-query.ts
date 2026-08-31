@@ -4,7 +4,7 @@ const MAX_QUERY_LENGTH = 120;
 const MAX_FACET_VALUES = 20;
 const MAX_CURSOR_LENGTH = 512;
 
-export type LibraryCatalogSort = "newest" | "relevance" | "title";
+export type LibraryCatalogSort = "newest" | "relevance" | "series" | "title";
 
 export interface LibrarySearchQuery {
   readonly after: string | null;
@@ -29,12 +29,13 @@ export function parseLibrarySearchParams(
 ): ParsedLibrarySearchParams {
   const raw = toSearchParams(input);
   const q = normalizeQuery(raw.getAll("q")[0]);
+  const seriesSlugs = normalizeFacetValues(raw.getAll("series"));
   const query = {
     after: normalizeCursor(raw.getAll("after")[0]),
     formatSlugs: normalizeFacetValues(raw.getAll("format")),
     q,
-    seriesSlugs: normalizeFacetValues(raw.getAll("series")),
-    sort: normalizeSort(raw.getAll("sort")[0], q),
+    seriesSlugs,
+    sort: normalizeSort(raw.getAll("sort")[0], q, seriesSlugs),
     topicSlugs: normalizeFacetValues(raw.getAll("topic")),
   } satisfies LibrarySearchQuery;
   return {
@@ -53,7 +54,7 @@ export function serializeLibrarySearchQuery(
   appendValues(search, "topic", query.topicSlugs);
   appendValues(search, "format", query.formatSlugs);
   appendValues(search, "series", query.seriesSlugs);
-  if (query.sort !== defaultSort(query.q)) {
+  if (query.sort !== defaultSort(query.q, query.seriesSlugs)) {
     search.set("sort", query.sort);
   }
   if (query.after !== null) {
@@ -114,14 +115,24 @@ function normalizeCursor(value: string | undefined): string | null {
     : null;
 }
 
-function normalizeSort(value: string | undefined, q: string): LibraryCatalogSort {
-  return value === "newest" || value === "relevance" || value === "title"
+function normalizeSort(
+  value: string | undefined,
+  q: string,
+  seriesSlugs: readonly string[],
+): LibraryCatalogSort {
+  return value === "newest" ||
+    value === "relevance" ||
+    value === "title" ||
+    (value === "series" && seriesSlugs.length === 1)
     ? value
-    : defaultSort(q);
+    : defaultSort(q, seriesSlugs);
 }
 
-function defaultSort(_q: string): LibraryCatalogSort {
-  return "relevance";
+function defaultSort(
+  q: string,
+  seriesSlugs: readonly string[],
+): LibraryCatalogSort {
+  return q.length === 0 && seriesSlugs.length === 1 ? "series" : "relevance";
 }
 
 function appendValues(

@@ -14,6 +14,7 @@ export interface ListPublishedMaterialProjectionsQuery {
 export type PublishedMaterialProjectionSort =
   | "newest"
   | "relevance"
+  | "series"
   | "title";
 
 export type PublishedMaterialProjectionCursor =
@@ -27,6 +28,11 @@ export type PublishedMaterialProjectionCursor =
       readonly materialId: string;
       readonly publishedAt: string;
       readonly rank: number;
+    }
+  | {
+      readonly kind: "series";
+      readonly materialId: string;
+      readonly ordinal: number;
     }
   | {
       readonly kind: "title";

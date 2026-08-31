@@ -75,6 +75,16 @@ describe("Library TanStack Query interface", () => {
     );
   });
 
+  it("uses author-defined order as the canonical default for one Series", () => {
+    const parsed = parseLibrarySearchParams({ series: "platform-inside" });
+
+    expect(parsed.query.sort).toBe("series");
+    expect(serializeLibrarySearchQuery(parsed.query)).toBe(
+      "series=platform-inside",
+    );
+    expect(parsed.wasNormalized).toBe(false);
+  });
+
   it("publishes the successfully loaded cursor as canonical browser history", () => {
     const pushState = vi.fn();
     vi.stubGlobal("window", {

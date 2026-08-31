@@ -129,7 +129,7 @@ export function requestPublishedMaterialCatalog(
     readonly format?: readonly string[];
     readonly q?: string;
     readonly series?: readonly string[];
-    readonly sort?: "newest" | "relevance" | "title";
+    readonly sort?: "newest" | "relevance" | "series" | "title";
     readonly topic?: readonly string[];
   },
   options: {

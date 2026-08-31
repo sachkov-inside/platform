@@ -59,6 +59,7 @@ const publishedMaterialProjectionRowSchema = z.object({
 const searchedPublishedMaterialProjectionRowSchema =
   publishedMaterialProjectionRowSchema.extend({
     search_rank: z.coerce.number().nonnegative(),
+    series_ordinal: z.coerce.number().int().positive().nullable(),
     title_key: z.string(),
   });
 
@@ -157,6 +158,7 @@ function searchProjectionQuery(
       format.name as format_name,
       format.slug as format_slug,
       ${searchRank} as search_rank,
+      ${seriesOrdinalSql(sort)} as series_ordinal,
       lower(publication.title) as title_key,
       coalesce(
         (
@@ -190,6 +192,7 @@ function searchProjectionQuery(
     from materials.published_materials as publication
     join materials.topics as topic on topic.id = publication.topic_id
     join materials.formats as format on format.id = publication.format_id
+    ${seriesSortJoinsSql(values, sort)}
     where ${filters}
       ${cursorSql(values.after, sort, searchRank)}
     ${orderSql(sort)}
@@ -271,6 +274,11 @@ function cursorSql(
         and (${searchRank}, publication.published_at, publication.material_id)
           < (${after.rank}, ${new Date(after.publishedAt)}, ${after.materialId}::uuid)
       `;
+    case "series":
+      return Prisma.sql`
+        and (selected_membership.ordinal, publication.material_id)
+          > (${after.ordinal}, ${after.materialId}::uuid)
+      `;
     case "title":
       return Prisma.sql`
         and (lower(publication.title), publication.material_id)
@@ -285,6 +293,8 @@ function orderSql(sort: PublishedMaterialProjectionSort): Prisma.Sql {
       return Prisma.sql`order by publication.published_at desc, publication.material_id desc`;
     case "relevance":
       return Prisma.sql`order by search_rank desc, publication.published_at desc, publication.material_id desc`;
+    case "series":
+      return Prisma.sql`order by selected_membership.ordinal, publication.material_id`;
     case "title":
       return Prisma.sql`order by title_key, publication.material_id`;
   }
@@ -381,6 +391,32 @@ function effectiveProjectionSort(
     : values.sort;
 }
 
+function seriesOrdinalSql(sort: PublishedMaterialProjectionSort): Prisma.Sql {
+  return sort === "series"
+    ? Prisma.sql`selected_membership.ordinal`
+    : Prisma.sql`null::integer`;
+}
+
+function seriesSortJoinsSql(
+  values: PublishedMaterialProjectionSearchValues,
+  sort: PublishedMaterialProjectionSort,
+): Prisma.Sql {
+  if (sort !== "series") {
+    return Prisma.empty;
+  }
+  const slug = values.seriesSlugs[0];
+  if (slug === undefined || values.seriesSlugs.length !== 1) {
+    throw new TypeError("Series order requires exactly one Series filter");
+  }
+  return Prisma.sql`
+    join materials.published_material_series_memberships as selected_membership
+      on selected_membership.material_id = publication.material_id
+    join materials.series as selected_series
+      on selected_series.id = selected_membership.series_id
+     and selected_series.slug = ${slug}
+  `;
+}
+
 function toContinuation(
   row: SearchedPublishedMaterialProjectionRow,
   sort: PublishedMaterialProjectionSort,
@@ -398,6 +434,15 @@ function toContinuation(
         materialId: row.material_id,
         publishedAt: row.published_at.toISOString(),
         rank: row.search_rank,
+      };
+    case "series":
+      if (row.series_ordinal === null) {
+        throw new TypeError("Series continuation ordinal is missing");
+      }
+      return {
+        kind: sort,
+        materialId: row.material_id,
+        ordinal: row.series_ordinal,
       };
     case "title":
       return {
