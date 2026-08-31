@@ -216,7 +216,7 @@ describe("supported toolchain contract", () => {
   it("runs the isolated production Compose smoke as its own CI job", () => {
     const workflow = read(".github/workflows/application-ci.yml");
     const match = workflow.match(
-      /\n  compose-production-stack:\n([\s\S]*?)(?=\n  [a-z0-9-]+:\n|$)/u,
+      /\n {2}compose-production-stack:\n([\s\S]*?)(?=\n {2}[a-z0-9-]+:\n|$)/u,
     );
 
     assert.ok(match, "Application CI must declare compose-production-stack");
