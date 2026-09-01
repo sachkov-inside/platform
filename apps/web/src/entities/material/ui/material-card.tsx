@@ -198,7 +198,7 @@ function MaterialPoster({
     >
       <span
         aria-hidden="true"
-        className="absolute left-4 top-3 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-sidebar-foreground/55"
+        className="absolute left-4 top-3 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-sidebar-foreground/55"
       >
         {material.format}
       </span>
@@ -211,7 +211,7 @@ function MaterialPoster({
       >
         {preview.steps.map((step) => (
           <span
-            className="relative grid min-h-12 min-w-0 place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent px-1 text-center font-mono text-[0.5625rem] leading-4 text-sidebar-accent-foreground sm:text-[0.625rem]"
+            className="relative grid min-h-12 min-w-0 place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent px-1 text-center font-mono text-[0.6875rem] leading-4 text-sidebar-accent-foreground"
             key={step}
           >
             {step}

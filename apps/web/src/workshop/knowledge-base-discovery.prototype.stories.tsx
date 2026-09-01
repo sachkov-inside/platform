@@ -38,6 +38,7 @@ export const FeaturedTopic: Story = {
   name: "A · Open topic pages",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const storyBody = within(canvasElement.ownerDocument.body);
     const prototype = canvasElement.querySelector<HTMLElement>("[data-prototype-variant]");
 
     await expect(canvas.getByRole("heading", { level: 1, name: "База знаний" })).toBeVisible();
@@ -70,7 +71,12 @@ export const FeaturedTopic: Story = {
     await userEvent.click(aiTopicFilter);
     await userEvent.click(filterButton);
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
-    await expect(canvas.getByRole("combobox", { name: "Сортировка" })).toBeVisible();
+    const sortControl = canvas.getByRole("combobox", { name: "Сортировка" });
+    await userEvent.click(sortControl);
+    await userEvent.click(storyBody.getByRole("option", { name: "По названию" }));
+    await expect(
+      canvasElement.querySelector<HTMLElement>("[data-material-id]"),
+    ).toHaveAttribute("data-material-id", "material-career-resume");
   },
 };
 
