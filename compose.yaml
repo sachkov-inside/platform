@@ -38,7 +38,7 @@ services:
   migrations:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: apps/backend/Dockerfile
       target: migrations
     env_file:
       - ./config/compose/local/migrations.env
@@ -50,7 +50,7 @@ services:
   seed:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: apps/backend/Dockerfile
       target: seed
     env_file:
       - ./config/compose/local/seed.env
@@ -62,7 +62,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: apps/backend/Dockerfile
       target: api
     env_file:
       - ./config/compose/local/api.env
@@ -92,7 +92,7 @@ services:
   mcp:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: apps/backend/Dockerfile
       target: mcp
     env_file:
       - ./config/compose/local/mcp.env
@@ -122,7 +122,7 @@ services:
   material-assets-worker:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: apps/backend/Dockerfile
       target: material-assets-worker
     env_file:
       - ./config/compose/local/material-assets-worker.env
@@ -139,7 +139,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: apps/web/Dockerfile
       target: web
     env_file:
       - ./config/compose/local/web.env
@@ -166,7 +166,7 @@ services:
     profiles: [storybook]
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: apps/web/Dockerfile
       target: storybook
     env_file:
       - ./config/compose/local/storybook.env

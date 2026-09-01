@@ -11,36 +11,41 @@ const backendPackage = JSON.parse(read("apps/backend/package.json"));
 const webPackage = JSON.parse(read("apps/web/package.json"));
 const nodeVersion = read(".node-version").trim();
 const pnpmVersion = rootPackage.packageManager.replace(/^pnpm@/u, "");
+const applicationDockerfiles = ["apps/backend/Dockerfile", "apps/web/Dockerfile"];
 
 describe("supported toolchain contract", () => {
   it("keeps Docker on the repository Node and pnpm pins", () => {
-    const dockerfile = read("Dockerfile");
+    for (const path of applicationDockerfiles) {
+      const dockerfile = read(path);
 
-    assert.match(
-      dockerfile,
-      new RegExp(`^FROM node:${escapeRegExp(nodeVersion)}-alpine\\d+\\.\\d+ AS toolchain$`, "mu"),
-    );
-    assert.match(
-      dockerfile,
-      new RegExp(`corepack install --global pnpm@${escapeRegExp(pnpmVersion)}(?:\\s|$)`, "u"),
-    );
+      assert.match(
+        dockerfile,
+        new RegExp(`^FROM node:${escapeRegExp(nodeVersion)}-alpine\\d+\\.\\d+ AS toolchain$`, "mu"),
+      );
+      assert.match(
+        dockerfile,
+        new RegExp(`corepack install --global pnpm@${escapeRegExp(pnpmVersion)}(?:\\s|$)`, "u"),
+      );
+    }
   });
 
   it("copies Prisma generation inputs before dependency postinstall", () => {
-    const dockerfile = read("Dockerfile");
-    const installPosition = dockerfile.indexOf("pnpm install --frozen-lockfile");
+    for (const path of applicationDockerfiles) {
+      const dockerfile = read(path);
+      const installPosition = dockerfile.indexOf("pnpm install --frozen-lockfile");
 
-    assert.ok(installPosition > 0);
-    for (const input of [
-      "apps/backend/prisma.config.ts",
-      "apps/backend/prisma ./apps/backend/prisma",
-    ]) {
-      const copyPosition = dockerfile.indexOf(input);
-      assert.ok(copyPosition >= 0, `Dockerfile must copy ${input}`);
-      assert.ok(
-        copyPosition < installPosition,
-        `Dockerfile must copy ${input} before pnpm install`,
-      );
+      assert.ok(installPosition > 0);
+      for (const input of [
+        "apps/backend/prisma.config.ts",
+        "apps/backend/prisma ./apps/backend/prisma",
+      ]) {
+        const copyPosition = dockerfile.indexOf(input);
+        assert.ok(copyPosition >= 0, `${path} must copy ${input}`);
+        assert.ok(
+          copyPosition < installPosition,
+          `${path} must copy ${input} before pnpm install`,
+        );
+      }
     }
   });
 
@@ -191,7 +196,7 @@ describe("supported toolchain contract", () => {
 
   it("keeps production native dependencies and excludes development scripts", () => {
     assert.match(
-      read("Dockerfile"),
+      read("apps/backend/Dockerfile"),
       /deploy --prod --ignore-scripts \/workspace\/\.production\/backend/u,
     );
   });

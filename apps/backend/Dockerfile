@@ -6,7 +6,6 @@ RUN mkdir /corepack \
     && corepack install --global pnpm@11.22.0 \
     && chown -R node:node /corepack
 
-ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /workspace
 RUN chown node:node /workspace
 USER node
@@ -40,21 +39,11 @@ CMD ["pnpm", "--filter", "@inside/backend", "dev:mcp"]
 FROM development AS material-assets-worker
 CMD ["pnpm", "--filter", "@inside/backend", "dev:material-assets-worker"]
 
-FROM development AS web
-CMD ["pnpm", "--filter", "@inside/web", "dev", "--hostname", "0.0.0.0", "--port", "3000"]
-
-FROM development AS storybook
-CMD ["pnpm", "--filter", "@inside/web", "storybook", "--host", "0.0.0.0"]
-
-FROM development AS backend-production-build
+FROM development AS production-build
 
 RUN pnpm --filter @inside/backend build:production \
     && pnpm --config.inject-workspace-packages=true \
       --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend
-
-FROM development AS web-production-build
-
-RUN pnpm --filter @inside/web build
 
 FROM node:24.19.0-alpine3.23 AS api-production
 
@@ -63,24 +52,10 @@ ENV NODE_ENV=production \
     API_PORT=3001
 WORKDIR /app
 
-COPY --from=backend-production-build --chown=node:node /workspace/.production/backend/package.json ./package.json
-COPY --from=backend-production-build --chown=node:node /workspace/.production/backend/node_modules ./node_modules
-COPY --from=backend-production-build --chown=node:node /workspace/apps/backend/dist ./dist
+COPY --from=production-build --chown=node:node /workspace/.production/backend/package.json ./package.json
+COPY --from=production-build --chown=node:node /workspace/.production/backend/node_modules ./node_modules
+COPY --from=production-build --chown=node:node /workspace/apps/backend/dist ./dist
 
 EXPOSE 3001
 USER node
 CMD ["node", "dist/entrypoints/api.js"]
-
-FROM node:24.19.0-alpine3.23 AS web-production
-
-ENV NODE_ENV=production \
-    HOSTNAME=0.0.0.0 \
-    PORT=3000
-WORKDIR /app
-
-COPY --from=web-production-build --chown=node:node /workspace/apps/web/.next/standalone ./
-COPY --from=web-production-build --chown=node:node /workspace/apps/web/.next/static ./apps/web/.next/static
-
-EXPOSE 3000
-USER node
-CMD ["node", "apps/web/server.js"]

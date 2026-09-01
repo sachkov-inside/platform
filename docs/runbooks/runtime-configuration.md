@@ -58,7 +58,7 @@ Compose resolves project and host-port interpolation before containers start. Ne
 then validate the values loaded from their env files, including URL protocols, secret lengths,
 port ranges and production-only HTTPS requirements.
 
-The Dockerfile accepts no application runtime values as build arguments. Next.js has no
+The application Dockerfiles accept no runtime values as build arguments. Next.js has no
 `NEXT_PUBLIC_*` runtime configuration because those values would be frozen into browser assets
 during the image build. The web process reads server-only values when its container starts.
 
