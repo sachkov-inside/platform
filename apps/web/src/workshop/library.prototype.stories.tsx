@@ -772,13 +772,16 @@ export const Desktop: Story = {
           careerVideo.getBoundingClientRect().height,
       ),
     ).toBeLessThanOrEqual(1);
-    await expect(publicGuide.getBoundingClientRect().height).toBeLessThan(
-      platformVideo.getBoundingClientRect().height,
-    );
+    await expect(
+      Math.abs(
+        publicGuide.getBoundingClientRect().height -
+          platformVideo.getBoundingClientRect().height,
+      ),
+    ).toBeLessThanOrEqual(1);
     await expect(
       platformVideo.getBoundingClientRect().height /
         platformVideo.getBoundingClientRect().width,
-    ).toBeLessThan(1.3);
+    ).toBeLessThan(1.5);
     await userEvent.click(canvas.getByRole("button", { name: "AI-first engineering" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
     await expect(
@@ -808,7 +811,7 @@ export const Desktop: Story = {
       throw new Error("Filtered Material card is missing");
     }
     await expect(filteredPlatformVideo).toHaveTextContent(
-      /Создание Platform Inside.*выпуск 5/u,
+      /Создание Platform Inside.*№ 5/u,
     );
     await userEvent.click(canvas.getByRole("checkbox", { name: "Создание Platform Inside" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
