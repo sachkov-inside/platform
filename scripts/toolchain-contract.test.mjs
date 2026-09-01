@@ -18,7 +18,7 @@ describe("supported toolchain contract", () => {
 
     assert.match(
       dockerfile,
-      new RegExp(`^FROM node:${escapeRegExp(nodeVersion)}-alpine\\d+\\.\\d+@sha256:[a-f0-9]{64} AS toolchain$`, "mu"),
+      new RegExp(`^FROM node:${escapeRegExp(nodeVersion)}-alpine\\d+\\.\\d+ AS toolchain$`, "mu"),
     );
     assert.match(
       dockerfile,
@@ -121,7 +121,7 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(read("pnpm-workspace.yaml"), /^overrides:/mu);
   });
 
-  it("pins every container image by digest and every GitHub Action by commit", () => {
+  it("uses explicit container version tags and pins every GitHub Action by commit", () => {
     for (const path of [
       "compose.yaml",
       "compose.production.yaml",
@@ -137,12 +137,9 @@ describe("supported toolchain contract", () => {
       assert.ok(
         imageLines.every((line) => {
           const image = line.trim();
-          return (
-            /:[A-Za-z0-9][^\s]*@sha256:[a-f0-9]{64}$/u.test(image) &&
-            !/:latest@/u.test(image)
-          );
+          return /:[A-Za-z0-9][^\s@]*$/u.test(image) && !/:latest$/u.test(image);
         }),
-        `${path} contains an unpinned image`,
+        `${path} contains an image without an explicit version tag`,
       );
     }
 

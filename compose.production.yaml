@@ -2,7 +2,7 @@ name: ${PLATFORM_COMPOSE_PROJECT:-inside-platform-production}
 
 services:
   postgres:
-    image: postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
+    image: postgres:18.4-alpine3.23
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
@@ -23,7 +23,7 @@ services:
       - postgres-data:/var/lib/postgresql
 
   database-roles:
-    image: postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
+    image: postgres:18.4-alpine3.23
     command: ["sh", "/usr/local/bin/provision-production-database-roles.sh", "migration"]
     environment:
       POSTGRES_HOST: postgres
@@ -55,7 +55,7 @@ services:
     restart: "no"
 
   database-access:
-    image: postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
+    image: postgres:18.4-alpine3.23
     command: ["sh", "/usr/local/bin/provision-production-database-roles.sh", "application"]
     environment:
       POSTGRES_HOST: postgres
@@ -193,7 +193,7 @@ services:
     stop_grace_period: 10s
 
   caddy:
-    image: caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+    image: caddy:2.11.4-alpine
     environment:
       PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:?Set PLATFORM_DOMAIN}
     depends_on:

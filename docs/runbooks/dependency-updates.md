@@ -1,8 +1,10 @@
 # Dependency update policy
 
 Platform tracks the latest supported production-stable toolchain, not Current, preview or nightly
-releases. Every package, runtime and image uses an exact version; container images additionally use
-an immutable multi-platform digest, and GitHub Actions use a commit SHA with a release comment.
+releases. Every package, runtime and upstream container image uses an explicit version. Platform
+Dockerfiles, Compose files and CI service containers use readable version tags. Images published by
+Platform remain digest-addressed release artifacts, and GitHub Actions use a commit SHA with a
+release comment. The isolated Logto proof keeps its own digest-pinned provenance contract.
 
 ## Automated updates
 
@@ -18,6 +20,7 @@ runtime, declarations, Docker base and CI as one reviewed migration.
 Repository dependency changes preserve:
 
 - exact manifest pins and one `pnpm-lock.yaml`;
+- explicit non-`latest` image tags for upstream Platform runtime dependencies;
 - `minimumReleaseAge: 1440` supply-chain quarantine;
 - strict peer dependencies without overrides;
 - atomic package-family updates;

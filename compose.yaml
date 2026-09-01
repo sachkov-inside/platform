@@ -35,7 +35,7 @@ x-web-develop: &web-develop
 
 services:
   object-storage:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     command: ["server", "--console-address", ":9001", "/data"]
     environment:
       MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY_ID:-inside-local-access-key}
@@ -52,7 +52,7 @@ services:
       - object-storage-data:/data
 
   postgres:
-    image: postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
+    image: postgres:18.4-alpine3.23
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-inside}
       POSTGRES_USER: ${POSTGRES_USER:-inside}
