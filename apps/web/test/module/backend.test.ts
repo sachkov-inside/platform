@@ -32,7 +32,7 @@ describe("backend server interface", () => {
     expect(() => readBackendBaseUrl()).toThrow(
       new BackendConnectionError(
         "configuration",
-        "BACKEND_BASE_URL is required in production",
+        "BACKEND_BASE_URL is required in production mode",
       ),
     );
   });

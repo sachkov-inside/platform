@@ -3,7 +3,10 @@ import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { PgBoss } from "pg-boss";
 
-import { loadPlatformConfig } from "../config/load-platform-config.js";
+import {
+  PLATFORM_CONFIG,
+  type PlatformConfig,
+} from "../config/platform-config.js";
 import {
   MATERIAL_ASSET_MAINTENANCE,
   type MaterialAssetMaintenance,
@@ -18,10 +21,10 @@ void bootstrap().catch((error: unknown) => {
 });
 
 async function bootstrap(): Promise<void> {
-  const config = loadPlatformConfig();
   const application = await NestFactory.createApplicationContext(
-    MaterialAssetsWorkerModule.forRoot(config),
+    MaterialAssetsWorkerModule.forRoot(),
   );
+  const config = application.get<PlatformConfig>(PLATFORM_CONFIG);
   const maintenance = application.get<MaterialAssetMaintenance>(
     MATERIAL_ASSET_MAINTENANCE,
   );

@@ -6,7 +6,7 @@ import { MaterialAssetMaintenanceModule } from "../../modules/materials/index.js
 
 @Module({})
 export class MaterialAssetsWorkerModule {
-  static forRoot(config: PlatformConfig): DynamicModule {
+  static forRoot(config?: PlatformConfig): DynamicModule {
     return {
       module: MaterialAssetsWorkerModule,
       imports: [PlatformConfigModule.forRoot(config), MaterialAssetMaintenanceModule],

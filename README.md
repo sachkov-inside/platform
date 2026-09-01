@@ -67,6 +67,10 @@ stack smoke. For that optional host gate, stop the full Compose stack and use po
 It does not require host Node, pnpm or `.env`; `pnpm platform:doctor` is only a convenience alias for
 an installed host toolchain.
 
+See the [runtime configuration contract](docs/runbooks/runtime-configuration.md) for the typed
+NestJS and Next.js configuration model, local `.env`, production `runtime.env`/`release.env`, and
+Docker Compose precedence.
+
 The API listens on `127.0.0.1:3001`, exposes `GET /health`, and serves OpenAPI
 UI at `/openapi`.
 
