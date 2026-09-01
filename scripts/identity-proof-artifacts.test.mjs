@@ -10,6 +10,12 @@ import {
   ensureSignInExperience,
   mergeEnv,
 } from "./identity-proof-bootstrap.mjs";
+import {
+  isolateIdentityProofEnvironment,
+  readIdentityProofEndpoints,
+  readIdentityProofPort,
+} from "./identity-proof-environment.mjs";
+import { runIdentityProofSession } from "./identity-proof-session.mjs";
 
 const root = new URL("../", import.meta.url);
 const proofRoot = new URL("infra/identity/logto/", root);
@@ -157,6 +163,10 @@ test("identity proof bootstrap replaces the manual wizard and isolates generated
   assert.match(bootstrap, /\.identity-proof\/platform\.env/u);
   assert.match(hardening, /inside-identity-proof-116/u);
   assert.match(hardening, /inside-platform-proof-116/u);
+  assert.match(
+    hardening,
+    /\["up", "-d", "--wait", "postgres", "object-storage"\]/u,
+  );
   assert.match(hardening, /to_regclass\('identity_principals\.platform_sessions'\)/u);
   assert.match(hardening, /logs where/u);
   assert.match(nextConfig, /incomingRequests:[\s\S]+ignore:[\s\S]+callback/u);
@@ -168,6 +178,229 @@ test("identity proof bootstrap replaces the manual wizard and isolates generated
       LOGTO_APP_SECRET: "generated",
     }),
     "KEEP=unchanged\nLOGTO_APP_ID=new\nLOGTO_APP_SECRET=generated\n",
+  );
+});
+
+test("identity proof launcher isolates root env, applies ports, and cleans owned stacks", async () => {
+  const [start, development, packageSource] = await Promise.all([
+    readFile(new URL("identity-proof-start.mjs", import.meta.url), "utf8"),
+    readFile(new URL("identity-proof-dev.mjs", import.meta.url), "utf8"),
+    readFile(new URL("package.json", root), "utf8"),
+  ]);
+  const packageJson = JSON.parse(packageSource);
+  const environment = isolateIdentityProofEnvironment(
+    {
+      IDENTITY_PROOF_API_PORT: "3501",
+      IDENTITY_PROOF_POSTGRES_PORT: "55432",
+      IDENTITY_PROOF_WEB_PORT: "3500",
+      PATH: "/usr/bin",
+    },
+    [
+      [
+        "DATABASE_URL=postgresql://wrong-root-env",
+        "OBJECT_STORAGE_ENDPOINT=http://wrong-root-env:9000",
+        "WEB_BASE_URL=http://wrong-root-env:3000",
+      ].join("\n"),
+    ],
+  );
+  const calls = [];
+  const runCompose = async (project, arguments_, commandEnvironment, capture) => {
+    calls.push({
+      arguments: arguments_,
+      capture,
+      environment: { ...commandEnvironment },
+      project,
+      type: "compose",
+    });
+    return "";
+  };
+  const runPnpm = async (arguments_, commandEnvironment) => {
+    calls.push({
+      arguments: arguments_,
+      environment: { ...commandEnvironment },
+      type: "pnpm",
+    });
+  };
+
+  await runIdentityProofSession({
+    environment,
+    readGeneratedEnvironment: async () => ({
+      BACKEND_BASE_URL: "http://127.0.0.1:3501",
+      DATABASE_URL: "postgresql://inside:inside@127.0.0.1:55432/inside",
+      WEB_BASE_URL: "http://127.0.0.1:3500",
+    }),
+    runCompose,
+    runPnpm,
+  });
+
+  const migration = calls.find(
+    (call) => call.type === "pnpm" && call.arguments.includes("db:migrate"),
+  );
+  assert.equal(
+    migration.environment.DATABASE_URL,
+    "postgresql://inside:inside@127.0.0.1:55432/inside",
+  );
+  assert.equal(migration.environment.OBJECT_STORAGE_ENDPOINT, "");
+  assert.equal(migration.environment.WEB_BASE_URL, "http://127.0.0.1:3500");
+  const platformUp = calls.find(
+    (call) =>
+      call.type === "compose" &&
+      call.project === "platform" &&
+      call.arguments[0] === "up",
+  );
+  const identityUp = calls.find(
+    (call) =>
+      call.type === "compose" &&
+      call.project === "identity" &&
+      call.arguments[0] === "up",
+  );
+  assert.equal(identityUp.environment.COMPOSE_PROJECT_NAME, "inside-identity-proof");
+  assert.equal(platformUp.environment.COMPOSE_PROJECT_NAME, "inside-platform");
+  assert.equal(platformUp.environment.POSTGRES_HOST_PORT, "55432");
+  assert.deepEqual(
+    calls.slice(-2).map(({ arguments: arguments_, project }) => [
+      project,
+      arguments_,
+    ]),
+    [
+      ["platform", ["down"]],
+      ["identity", ["down"]],
+    ],
+  );
+  assert.deepEqual(readIdentityProofEndpoints(environment), {
+    apiPort: 3501,
+    backendBaseUrl: "http://127.0.0.1:3501",
+    webBaseUrl: "http://127.0.0.1:3500",
+    webPort: 3500,
+  });
+  const rootOnlyProofOverrides = isolateIdentityProofEnvironment({}, [
+    [
+      "IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS=60",
+      "IDENTITY_PROOF_API_PORT=3998",
+      "IDENTITY_PROOF_POSTGRES_PORT=55439",
+      "IDENTITY_PROOF_WEB_PORT=3999",
+    ].join("\n"),
+  ]);
+  assert.deepEqual(readIdentityProofEndpoints(rootOnlyProofOverrides), {
+    apiPort: 3001,
+    backendBaseUrl: "http://127.0.0.1:3001",
+    webBaseUrl: "http://127.0.0.1:3000",
+    webPort: 3000,
+  });
+  assert.equal(rootOnlyProofOverrides.IDENTITY_PROOF_POSTGRES_PORT, undefined);
+  assert.equal(
+    rootOnlyProofOverrides.IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS,
+    undefined,
+  );
+  assert.doesNotMatch(development, /loadEnvFile|resolve\(root, "\.env"\)/u);
+  assert.match(start, /infra\/identity\/logto\/compose\.env/u);
+  assert.match(
+    packageJson.scripts["identity:proof:up"],
+    /--env-file infra\/identity\/logto\/compose\.env/u,
+  );
+  assert.equal(readIdentityProofPort({}, "IDENTITY_PROOF_API_PORT", 3001), 3001);
+  assert.equal(
+    readIdentityProofPort(
+      { IDENTITY_PROOF_API_PORT: "3501" },
+      "IDENTITY_PROOF_API_PORT",
+      3001,
+    ),
+    3501,
+  );
+  assert.throws(
+    () => readIdentityProofPort(
+      { IDENTITY_PROOF_API_PORT: "0" },
+      "IDENTITY_PROOF_API_PORT",
+      3001,
+    ),
+    /IDENTITY_PROOF_API_PORT must be a valid TCP port/u,
+  );
+});
+
+test("identity proof launcher rejects any running Platform service", async () => {
+  const composeCalls = [];
+  await assert.rejects(
+    runIdentityProofSession({
+      environment: {},
+      readGeneratedEnvironment: async () => ({}),
+      runCompose: async (project, arguments_) => {
+        composeCalls.push([project, arguments_]);
+        return project === "platform" ? "object-storage\n" : "";
+      },
+      runPnpm: async () => undefined,
+    }),
+    /Platform Compose stack is already running/u,
+  );
+  assert.deepEqual(composeCalls, [
+    ["platform", ["ps", "--services", "--status", "running"]],
+  ]);
+});
+
+test("identity proof launcher cleans both owned stacks after development stops", async () => {
+  const calls = [];
+  await assert.rejects(
+    runIdentityProofSession({
+      environment: {},
+      readGeneratedEnvironment: async () => ({}),
+      runCompose: async (project, arguments_) => {
+        calls.push(["compose", project, arguments_]);
+        return "";
+      },
+      runPnpm: async (arguments_) => {
+        calls.push(["pnpm", arguments_]);
+        if (arguments_[0] === "identity:proof:dev") {
+          throw new Error("development process terminated");
+        }
+      },
+    }),
+    /development process terminated/u,
+  );
+  assert.deepEqual(calls.slice(-2), [
+    ["compose", "platform", ["down"]],
+    ["compose", "identity", ["down"]],
+  ]);
+});
+
+test("identity proof launcher stops startup and cleans ownership after interruption", async () => {
+  const calls = [];
+  let interrupted = false;
+  await assert.rejects(
+    runIdentityProofSession({
+      environment: {},
+      readGeneratedEnvironment: async () => ({}),
+      runCompose: async (project, arguments_) => {
+        calls.push(["compose", project, arguments_]);
+        if (project === "identity" && arguments_[0] === "up") {
+          interrupted = true;
+        }
+        return "";
+      },
+      runPnpm: async (arguments_) => {
+        calls.push(["pnpm", arguments_]);
+      },
+      shouldStop: () => interrupted,
+    }),
+    /startup was interrupted/u,
+  );
+  assert.equal(
+    calls.some(
+      (call) => call[0] === "pnpm" && call[1][0] === "identity:proof:bootstrap",
+    ),
+    false,
+  );
+  assert.deepEqual(calls.at(-1), ["compose", "identity", ["down"]]);
+});
+
+test("identity hardening proof uses an exact semantic logout assertion", async () => {
+  const hardeningSpec = await readFile(
+    new URL("apps/web/test/identity/identity-proof.spec.ts", root),
+    "utf8",
+  );
+
+  assert.doesNotMatch(hardeningSpec, /locator\([^\n]+hasText: "Выйти"/u);
+  assert.match(
+    hardeningSpec,
+    /getByRole\("button", \{ exact: true, name: "Выйти" \}\)/u,
   );
 });
 

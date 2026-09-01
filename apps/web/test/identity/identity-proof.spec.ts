@@ -145,7 +145,9 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
       throw new Error("Real Logto callback failed");
     }
     await expect(page).toHaveURL(`${webBaseUrl}/`);
-    await expect(page.locator('button:visible', { hasText: "Выйти" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { exact: true, name: "Выйти" }),
+    ).toBeVisible();
     expect(callbackUrl).toContain("/callback?");
 
     const cookies = await page.context().cookies();
@@ -187,7 +189,9 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await recovery.locator('button:visible', { hasText: "Войти" }).click();
     await recovery.waitForURL((url) => url.origin === webBaseUrl);
     expect(new URL(recovery.url()).searchParams.get("authentication")).not.toBe("failed");
-    await expect(recovery.locator('button:visible', { hasText: "Выйти" })).toBeVisible();
+    await expect(
+      recovery.getByRole("button", { exact: true, name: "Выйти" }),
+    ).toBeVisible();
 
     const existingAccountAttempts = await Promise.all(
       Array.from({ length: 9 }, () => sendFromFreshFlow(browser, recipient)),
