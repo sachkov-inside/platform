@@ -1,7 +1,9 @@
 # Issue 91 — Library search evidence
 
 The screenshots were captured on 2026-08-31 from the exact production-owned Library component and
-from the live PostgreSQL → Nest HTTP → Next server adapter → RSC route.
+the then-current PostgreSQL → Nest HTTP → Next server adapter → RSC route. They are historical
+visual evidence: ADR 0011 supersedes the captured SSR/hydration, cursor-history and submit-search
+behaviour.
 
 | Surface | Desktop | Mobile controls | Mobile result |
 | --- | --- | --- | --- |
@@ -14,11 +16,10 @@ from the live PostgreSQL → Nest HTTP → Next server adapter → RSC route.
 - Desktop viewport: `1440 × 1024`; mobile viewport: `390 × 844`.
 - The visible query, selected Topic, relevance sort, active-filter count, result count and safe
   closed-Material teaser are all owned by the canonical URL state.
-- The live response contains the public title/summary only; the closed body is absent from the
-  server-rendered HTML and catalog responses.
-- Full-stack Playwright proves RU/EN queries, valid cursor share/reload/back/forward, no-results,
-  malformed-value normalization and rejected-cursor recovery on real PostgreSQL in desktop and
-  mobile Chromium.
+- The captured live response contained the public title/summary only; the closed body was absent
+  from the server-rendered HTML and catalog responses.
+- The captured full-stack proof covered RU/EN queries, cursor share/reload/back/forward,
+  no-results, malformed-value normalization and rejected-cursor recovery on real PostgreSQL.
 - Backend integration pins title → summary → public-taxonomy ranking, proves OR within one facet,
   AND between facets, stable cursor binding, safe free/closed projections, natural GIN index use
   and a repeatable 10k-row search budget of p95 ≤ 300 ms.

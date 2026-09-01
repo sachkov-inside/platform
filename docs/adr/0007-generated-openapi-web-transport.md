@@ -4,11 +4,18 @@ status: accepted
 
 # Generate the Web transport contract from Nest OpenAPI
 
+> ADR 0011 supersedes this decision's Library-specific SSR/hydration path. The generated transport,
+> direct RSC transport and same-origin browser BFF boundaries remain current.
+
 Nest owns Platform's HTTP wire contract. The repository commits a deterministic OpenAPI document
 and generates an immutable TypeScript client from it. Web keeps that client and its local HTTP
 adapter behind the local `src/shared/api/backend` module; feature adapters receive response
 bodies as `unknown`, validate the external JSON with focused Zod schemas, and map it into their own
 presentation models and known UI outcomes.
+
+Recursive `RenderedMaterialBody` blocks are a concrete generated OpenAPI contract shared by the
+published reader and authoring preview; they are not exposed as `unknown` or duplicated as separate
+Web schemas.
 
 This keeps URL, parameter, success and Problem Details types synchronized without letting generated
 code own feature policy. `openapi-typescript-codegen` is used because its template generator does
@@ -33,4 +40,5 @@ wire headers so feature controllers do not duplicate protocol strings.
 runtime, generated types and manual Nest operation paths inside their owning module. The negative
 fixture proves that a plain helper reachable from a `"use client"` entry cannot import the transport,
 read a public Nest address or issue an absolute backend request. Focused adapter tests remain
-responsible for runtime validation, Problem Details mapping and SSR hydration behaviour.
+responsible for runtime validation, Problem Details mapping and the selected client-query or SSR
+hydration behaviour.

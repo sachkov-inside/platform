@@ -12,7 +12,7 @@ import Link from "next/link";
 import type {
   LibraryDiscoveryKind,
   LibraryDiscoveryResult,
-} from "@/_pages/library-discovery/model/library-discovery-view";
+} from "@/features/library-discovery";
 import { MaterialCard, type MaterialPreview } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 

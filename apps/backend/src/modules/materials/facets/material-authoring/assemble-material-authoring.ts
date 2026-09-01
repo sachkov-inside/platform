@@ -8,22 +8,29 @@ import { assemblePreviewMaterial } from "../../features/preview-material/preview
 import { assembleReorderSeries } from "../../features/reorder-series/reorder-series.js";
 import { assembleSaveMaterial } from "../../features/save-material/save-material.js";
 import { assembleValidateMaterial } from "../../features/validate-material/validate-material.js";
+import { assembleTransitionMaterialPublication } from "../../features/transition-material-publication/transition-material-publication.js";
 import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
 import type { MaterialAuthoring } from "./material-authoring.js";
 
 export function assembleMaterialAuthoring(
   dependencies: MaterialAuthoringDependencies,
 ): MaterialAuthoring {
+  const loadMaterial = assembleLoadMaterial(dependencies);
+  const saveMaterial = assembleSaveMaterial(dependencies);
   return {
     createDraft: assembleCreateDraft(dependencies),
     deleteDraft: assembleDeleteDraft(dependencies),
-    loadMaterial: assembleLoadMaterial(dependencies),
+    loadMaterial,
     loadSeriesOrder: assembleLoadSeriesOrder(dependencies),
     listReferences: assembleListAuthoringReferences(dependencies),
     listMaterials: assembleListMaterials(dependencies),
     previewMaterial: assemblePreviewMaterial(dependencies),
     reorderSeries: assembleReorderSeries(dependencies),
-    saveMaterial: assembleSaveMaterial(dependencies),
+    saveMaterial,
+    transitionPublication: assembleTransitionMaterialPublication({
+      loadMaterial,
+      saveMaterial,
+    }),
     validateMaterial: assembleValidateMaterial(dependencies),
   };
 }

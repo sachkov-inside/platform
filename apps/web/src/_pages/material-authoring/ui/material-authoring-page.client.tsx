@@ -3,10 +3,8 @@
 import type { JSONContent } from "@tiptap/core";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 import {
-  startTransition,
-  useActionState,
-  useCallback,
   useEffect,
   useRef,
   useState,
@@ -17,62 +15,53 @@ import {
   type MaterialAuthoringActions,
   type MaterialAuthoringPresentation,
   type MaterialDraftField,
-  initialMaterialLifecycleActionState,
+} from "@/widgets/material-authoring/editor";
+import {
+  mutateMaterialLifecycle,
   type MaterialLifecycleActionState,
-  withAuthoringReturnHref,
-} from "@/features/material-authoring";
+} from "@/features/material-lifecycle";
+import { withAuthoringReturnHref } from "@/shared/routing/authoring";
 
+import {
+  createMaterialDraft,
+  saveMaterial,
+} from "../api/material-authoring.browser";
 import {
   initialMaterialAuthoringActionState,
   type MaterialAuthoringActionState,
 } from "../model/material-authoring-action-state";
 
-type MaterialMutationAction = (
-  state: MaterialAuthoringActionState,
-  formData: FormData,
-) => Promise<MaterialAuthoringActionState>;
-
-type MaterialLifecycleMutationAction = (
-  state: MaterialLifecycleActionState,
-  formData: FormData,
-) => Promise<MaterialLifecycleActionState>;
-
 interface MaterialAuthoringPageClientProps {
   readonly initialPresentation: MaterialAuthoringPresentation;
-  readonly lifecycleAction: MaterialLifecycleMutationAction;
-  readonly mutationAction: MaterialMutationAction;
   readonly returnHref: Route;
 }
 
 export function MaterialAuthoringPageClient({
   initialPresentation,
-  lifecycleAction,
-  mutationAction,
   returnHref,
 }: MaterialAuthoringPageClientProps) {
   const router = useRouter();
-  const [actionState, dispatch, pending] = useActionState(
-    mutationAction,
-    initialMaterialAuthoringActionState,
-  );
+  const materialMutation = useMutation<MaterialAuthoringActionState, Error, FormData>({
+    mutationFn: async (formData) =>
+      initialPresentation.draft.status === "new"
+        ? await createMaterialDraft(formData)
+        : await saveMaterial(formData),
+  });
+  const deletionMutation = useMutation({
+    mutationFn: mutateMaterialLifecycle,
+    onSuccess: (result) => {
+      if (result.kind === "deleted") router.replace(returnHref);
+    },
+  });
+  const actionState = materialMutation.data ?? initialMaterialAuthoringActionState;
+  const pending = materialMutation.isPending;
   const [draft, setDraft] = useState(initialPresentation.draft);
   const [dirty, setDirty] = useState(false);
   const [noticeRevision, setNoticeRevision] = useState(0);
   const retryData = useRef<FormData | null>(null);
-  const acceptDelete = useCallback(
-    async (state: MaterialLifecycleActionState, formData: FormData) => {
-      const result = await lifecycleAction(state, formData);
-      if (result.kind === "deleted") {
-        router.replace(returnHref);
-      }
-      return result;
-    },
-    [lifecycleAction, returnHref, router],
-  );
-  const [deletionState, deleteAction, deletionPending] = useActionState(
-    acceptDelete,
-    initialMaterialLifecycleActionState,
-  );
+  const deletionState: MaterialLifecycleActionState =
+    deletionMutation.data ?? { kind: "idle" };
+  const deletionPending = deletionMutation.isPending;
 
   const failedMutation =
     actionState.kind === "conflict" ||
@@ -84,24 +73,7 @@ export function MaterialAuthoringPageClient({
   const created = actionState.kind === "created" ? actionState.draft : null;
   const saved = actionState.kind === "saved" ? actionState : null;
   const persistedDraft =
-    created !== null
-      ? {
-          ...draft,
-          canDelete: true,
-          access: created.access,
-          contentVersion: created.contentVersion,
-          document: created.document,
-          formatId: created.formatId ?? "unassigned",
-          materialId: created.materialId,
-          readOnly: false,
-          seriesIds: created.seriesIds,
-          status: "draft" as const,
-          summary: created.summary,
-          tagIds: created.tagIds,
-          title: created.title,
-          topicId: created.topicId ?? "unassigned",
-        }
-      : saved !== null
+    saved !== null
         ? {
             ...draft,
             canDelete:
@@ -148,14 +120,14 @@ export function MaterialAuthoringPageClient({
               kind: "conflict",
               staleContentVersion: actionState.staleContentVersion,
             }
-          : actionState.kind === "not_found"
+      : actionState.kind === "not_found"
             ? { kind: "not_found" }
             : { kind: "none" },
     deletion: { pending: deletionPending, state: deletionState },
     draft: effectiveDraft,
     mode: "editor",
     noticeRevision,
-    preview: created?.preview ?? null,
+    preview: null,
     save: pending
       ? { kind: "submitting" }
       : failedMutation || (dirty && !persistedDraftIsNewer)
@@ -166,11 +138,9 @@ export function MaterialAuthoringPageClient({
     submissionId: saved?.nextSubmissionId ?? initialPresentation.submissionId,
     validation: pending
       ? { kind: "checking" }
-      : (created?.validation ??
-        saved?.validation ??
-        (actionState.kind === "invalid_input"
+      : actionState.kind === "invalid_input"
           ? { issues: actionState.issues, kind: "invalid", scope: "input" }
-          : { kind: "idle" })),
+          : { kind: "idle" },
   };
 
   const markDirty = (nextDraft: MaterialAuthoringPresentation["draft"]) => {
@@ -223,9 +193,7 @@ export function MaterialAuthoringPageClient({
       markDirty({ ...effectiveDraft, [field]: value });
     },
     onDelete: (formData: FormData) => {
-      startTransition(() => {
-        deleteAction(formData);
-      });
+      deletionMutation.mutate(formData);
     },
     onOpenPreview: () => {
       if (effectiveDraft.materialId !== null) {
@@ -241,9 +209,7 @@ export function MaterialAuthoringPageClient({
       if (retryData.current !== null) {
         setDirty(false);
         setNoticeRevision((current) => current + 1);
-        startTransition(() => {
-          dispatch(retryData.current ?? new FormData());
-        });
+        materialMutation.mutate(retryData.current);
       }
     },
     onReturnToEditor: () => {
@@ -257,12 +223,11 @@ export function MaterialAuthoringPageClient({
       );
     },
     onSave: (formData: FormData) => {
+      formData.set("document", JSON.stringify(effectiveDraft.document));
       retryData.current = copyFormData(formData);
       setDirty(false);
       setNoticeRevision((current) => current + 1);
-      startTransition(() => {
-        dispatch(formData);
-      });
+      materialMutation.mutate(formData);
     },
     onTagToggle: (tagId: string, checked: boolean) => {
       markDirty({

@@ -1,7 +1,7 @@
 import { ArrowLeft, CloudOff } from "lucide-react";
 import Link from "next/link";
 
-import { MaterialAuthoringShell, authoringMaterialsRootHref } from "@/features/material-authoring";
+import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
 
 type RouteState =
@@ -18,7 +18,7 @@ export function SeriesOrderRouteState({
 }) {
   const content = routeStateContent(state);
   return (
-    <MaterialAuthoringShell current="playlists">
+    <>
       <main
         className="grid h-full min-h-svh place-items-center bg-background p-6 text-center md:min-h-0"
         id="authoring-content"
@@ -49,7 +49,7 @@ export function SeriesOrderRouteState({
           </div>
         </div>
       </main>
-    </MaterialAuthoringShell>
+    </>
   );
 }
 

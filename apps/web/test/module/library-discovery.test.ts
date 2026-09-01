@@ -4,7 +4,7 @@ import {
   getPublishedSeries,
   getPublishedTopic,
   getRelatedMaterials,
-} from "@/_pages/library-discovery.server";
+} from "@/features/library-discovery.server";
 
 const publishedProjection = {
   materialId: "72000000-0000-4000-8000-000000000020",

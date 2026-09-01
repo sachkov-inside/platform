@@ -5,7 +5,7 @@ import { z } from "zod";
 import {
   materialDocumentSchema,
   type MaterialDraftPresentation,
-} from "@/features/material-authoring";
+} from "@/widgets/material-authoring/model";
 import {
   BackendConnectionError,
   requestCurrentMaterial,
@@ -13,7 +13,7 @@ import {
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 
-import { getMaterialAuthoringReferences } from "./get-material-authoring-references";
+import { getMaterialAuthoringReferences } from "@/features/material-authoring-references.server";
 
 const seriesMembershipSchema = z
   .object({ ordinal: z.number().int().positive(), seriesId: z.uuid() })

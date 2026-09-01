@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { MaterialPreviewPresentation } from "@/features/material-authoring";
+import type { MaterialPreviewPresentation } from "@/widgets/material-authoring/model";
 import {
   BackendConnectionError,
   requestMaterialAuthoringReferences,
@@ -11,7 +11,7 @@ import {
 } from "@/shared/api/backend/index.server";
 
 import { mapCurrentMaterialPreview } from "./material-preview-mapper";
-import { getMaterialAuthoringReferences } from "./get-material-authoring-references";
+import { getMaterialAuthoringReferences } from "@/features/material-authoring-references.server";
 
 const materialIdSchema = z.uuid();
 const problemSchema = z

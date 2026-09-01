@@ -1,69 +1,14 @@
-export type ReaderMark =
-  | { readonly kind: "bold" | "code" | "italic" | "strike" }
-  | { readonly kind: "link"; readonly href: string };
+import type { RenderedBlock, RenderedMark, RenderedText } from "@/entities/material";
 
-export interface ReaderText {
-  readonly kind: "text";
-  readonly text: string;
-  readonly marks: readonly ReaderMark[];
-}
-
-export type ReaderBlock =
-  | { readonly kind: "paragraph"; readonly content: readonly ReaderText[] }
-  | {
-      readonly kind: "heading";
-      readonly level: 2 | 3 | 4;
-      readonly content: readonly ReaderText[];
-    }
-  | {
-      readonly kind: "bullet_list" | "ordered_list";
-      readonly items: readonly (readonly ReaderBlock[])[];
-    }
-  | { readonly kind: "blockquote"; readonly content: readonly ReaderBlock[] }
-  | { readonly kind: "code_block"; readonly text: string }
-  | { readonly kind: "horizontal_rule" }
-  | {
-      readonly kind: "table";
-      readonly rows: readonly {
-        readonly cells: readonly {
-          readonly header: boolean;
-          readonly content: readonly ReaderBlock[];
-        }[];
-      }[];
-    }
-  | {
-      readonly kind: "callout";
-      readonly tone: "note" | "tip" | "warning";
-      readonly content: readonly ReaderBlock[];
-    }
-  | {
-      readonly kind: "image";
-      readonly assetId: string;
-      readonly alt: string;
-      readonly caption?: string | undefined;
-      readonly height?: number | undefined;
-      readonly variants?: readonly { readonly height: number; readonly width: number }[] | undefined;
-      readonly width?: number | undefined;
-    }
-  | {
-      readonly kind: "file";
-      readonly assetId: string;
-      readonly contentType?: string | undefined;
-      readonly filename?: string | undefined;
-      readonly label: string;
-      readonly size?: number | undefined;
-    }
-  | {
-      readonly kind: "video";
-      readonly videoId: string;
-      readonly caption?: string | undefined;
-    };
+export type ReaderMark = RenderedMark;
+export type ReaderText = RenderedText;
+export type ReaderBlock = RenderedBlock;
 
 export interface MaterialReaderMetadata {
   readonly access: "free" | "membership";
   readonly contentVersion: number;
-  readonly materialId: string;
   readonly format: { readonly name: string; readonly slug: string };
+  readonly materialId: string;
   readonly publishedAt: string;
   readonly seriesMemberships: readonly {
     readonly ordinal: number;

@@ -1,7 +1,14 @@
 # Backend architecture audit
 
-Статус: принятое архитектурное направление и research evidence для
+Статус: исторический snapshot и research evidence для
 [Platform #58](https://github.com/sachkov-inside/platform/issues/58), 2026-08-23.
+
+> Этот документ исследует прежнюю Kysely/revision-based реализацию и не является описанием
+> текущей архитектуры. Текущую feature-first/Prisma организацию задают
+> [ADR 0004](../adr/0004-feature-first-backend-modules.md) и
+> [ADR 0005](../adr/0005-prisma-in-use-cases.md), а mutable Materials model —
+> [ADR 0009](../adr/0009-one-mutable-material.md) и
+> [Platform v1 specification](../specifications/platform-v1.md).
 
 Владелец подтвердил направление в обсуждении #58. Material-specific implementation и
 синхронизация durable contract смержены через

@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { RecursiveSchema1schema0 } from '../models/RecursiveSchema1schema0';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class MaterialAuthoringService {
@@ -268,7 +269,7 @@ export class MaterialAuthoringService {
     materialId: string,
   }): CancelablePromise<{
     body: {
-      blocks: Array<any>;
+      blocks: Array<RecursiveSchema1schema0>;
       schemaVersion: 1;
     };
     cacheScope: 'private-no-store';
@@ -295,6 +296,41 @@ export class MaterialAuthoringService {
       path: {
         'materialId': materialId,
       },
+    });
+  }
+  /**
+   * Publish or unpublish the current Material without resending its content
+   * @returns any
+   * @throws ApiError
+   */
+  public transitionMaterialPublication({
+    idempotencyKey,
+    materialId,
+    requestBody,
+  }: {
+    idempotencyKey: string,
+    materialId: string,
+    requestBody: {
+      expectedContentVersion: number;
+      publicationState: 'published' | 'unpublished';
+    },
+  }): CancelablePromise<{
+    contentVersion: number;
+    materialId: string;
+    publicationState: 'draft' | 'published' | 'unpublished';
+    publishedAt: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'PATCH',
+      url: '/authoring/materials/{materialId}/publication',
+      path: {
+        'materialId': materialId,
+      },
+      headers: {
+        'idempotency-key': idempotencyKey,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
     });
   }
   /**

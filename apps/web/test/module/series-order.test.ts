@@ -7,7 +7,7 @@ vi.mock("@/shared/auth/index.server", () => ({
 }));
 
 import { getSeriesOrder } from "@/_pages/series-order/api/get-series-order";
-import { executeReorderSeries } from "@/_pages/series-order/api/reorder-series.action";
+import { executeReorderSeries } from "@/_pages/series-order/api/reorder-series";
 
 const seriesId = "96000000-0000-4000-8000-000000000001";
 const firstId = "96000000-0000-4000-8000-000000000002";

@@ -152,9 +152,18 @@ same unit, adapter, integration, and HTTP outcomes before changing product behav
   calls same-origin, feature-owned Next BFF routes. Do not add a universal proxy, generated TanStack
   hooks, generated Zod schemas or generated UI models without a concrete consumer and a new owner
   decision.
-- `pnpm --filter @inside/web guardrails` owns this seam's environment ownership, import and
-  browser-bypass fitness functions, including negative fixtures. Focused Web tests own runtime
-  config validation, transport error mapping and TanStack hydration behaviour.
+- Interactive Web writes use TanStack `useMutation`, a browser adapter and a capability-owned Route
+  Handler. The shared BFF helper owns Origin, session, private no-store and the 2 MiB transport
+  boundary; the feature owns input parsing and outcome mapping. Server Actions are outside the
+  current mutation contract; ADR 0012 owns that trade-off.
+- Each server-state surface has one runtime cache owner. A browser-owned live or infinite surface
+  renders only its shell in RSC and does not prefetch or dehydrate the same query. A surface that
+  requires server-rendered initial results uses request-isolated TanStack prefetch and hydration as
+  one coherent path.
+- `pnpm --filter @inside/web guardrails` owns environment ownership, browser bypass, FSD direction,
+  Server Action and lightweight authoring bundle fitness functions, including negative fixtures.
+  Focused Web tests own runtime config validation, transport error mapping and the selected TanStack
+  client or hydration behaviour.
 - Keep editor and explicit CLI checks on a committed TypeScript project that excludes stale
   `.next/dev` artifacts. Next route generation uses its managed project and the project-local
   TypeScript 7 CLI; do not re-enable the removed JavaScript compiler API checker.

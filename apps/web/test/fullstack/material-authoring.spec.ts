@@ -266,7 +266,10 @@ test("trusted author finds every Material and returns from Editor to the same li
   await expect(page).toHaveURL(listUrl);
   await expect(page.getByRole("link", { name: "Как устроен Inside Platform" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Новый материал" }).first().click();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Новый материал" })
+    .click();
   await expect(page.getByRole("heading", { name: "Новый материал" })).toBeVisible();
   await page.getByRole("button", { name: "Вернуться к материалам" }).click();
   await expect(page).toHaveURL(listUrl);

@@ -1,8 +1,14 @@
 # Platform v1 engineering contract research
 
-Статус: repository-owned evidence, comparison и rationale для canonical
+Статус: исторический snapshot, repository-owned evidence, comparison и rationale для canonical
 [Platform v1 application specification](../specifications/platform-v1.md) и
 [Platform #27](https://github.com/sachkov-inside/platform/issues/27), 2026-08-22.
+
+> Этот документ сохраняет исходное сравнение Kysely/revision-based вариантов и не является
+> текущим implementation contract. Текущие backend и Materials решения задают
+> [ADR 0004](../adr/0004-feature-first-backend-modules.md),
+> [ADR 0005](../adr/0005-prisma-in-use-cases.md),
+> [ADR 0009](../adr/0009-one-mutable-material.md) и canonical specification выше.
 
 Документ отделяет repository-owned decisions от проверенных ограничений выбранного stack и
 фиксирует согласованные frontend organization, backend module/interface seams, validation, write

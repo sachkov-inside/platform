@@ -2,7 +2,7 @@ import type {
   MaterialAuthoringPresentation,
   MaterialPreviewBlock,
   MaterialPreviewText,
-} from "@/features/material-authoring";
+} from "@/widgets/material-authoring";
 
 const text = (value: string): MaterialPreviewText => ({
   kind: "text",

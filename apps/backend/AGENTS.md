@@ -33,8 +33,9 @@ scan and every negative fixture pass.
 - When changing Prisma access, raw SQL, schema mapping, or persistence placement, read
   [`ADR 0005`](../../docs/adr/0005-prisma-in-use-cases.md).
 - When changing the Materials interface, model, body codec, composition, or persistence, read
-  [`docs/adr/0002-deep-materials-module.md`](../../docs/adr/0002-deep-materials-module.md) and the
-  backend contract in [`docs/specifications/platform-v1.md`](../../docs/specifications/platform-v1.md).
+  [`ADR 0002`](../../docs/adr/0002-deep-materials-module.md), its mutable-model replacement
+  [`ADR 0009`](../../docs/adr/0009-one-mutable-material.md), and the backend contract in
+  [`docs/specifications/platform-v1.md`](../../docs/specifications/platform-v1.md).
 - When changing an entrypoint or process lifecycle, or proposing another backend package, process,
   or deployable, read
   [`docs/adr/0001-one-backend-multiple-entrypoints.md`](../../docs/adr/0001-one-backend-multiple-entrypoints.md)

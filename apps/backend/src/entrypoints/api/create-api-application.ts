@@ -10,7 +10,10 @@ import {
 } from "@nestjs/swagger";
 
 import type { PlatformConfig } from "../../config/platform-config.js";
+import { hoistZodRecursiveSchemas } from "../../infrastructure/http/zod-openapi.js";
 import { ApiModule } from "./api.module.js";
+
+const MAX_HTTP_BODY_BYTES = 2 * 1_024 * 1_024;
 
 export async function createApiApplication(
   config?: PlatformConfig,
@@ -18,7 +21,7 @@ export async function createApiApplication(
 ): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(
     ApiModule.forRoot(config),
-    new FastifyAdapter(),
+    new FastifyAdapter({ bodyLimit: MAX_HTTP_BODY_BYTES }),
     options,
   );
   await app.register(multipart, {
@@ -58,7 +61,9 @@ export function createApiOpenApiDocument(
     )
     .build();
 
-  return SwaggerModule.createDocument(app, config, {
+  const document = SwaggerModule.createDocument(app, config, {
     autoTagControllers: false,
   });
+  hoistZodRecursiveSchemas(document);
+  return document;
 }

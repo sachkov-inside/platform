@@ -337,6 +337,21 @@ describe("supported toolchain contract", () => {
       /docker compose logs --no-color mcp\s*\|\s*grep --quiet/u,
     );
   });
+
+  it("keeps Compose Watch source files aligned with the current application routes", () => {
+    const smoke = read("scripts/compose-watch-smoke.sh");
+    const sourcePaths = [
+      ...smoke.matchAll(/^(?:backend|web)_source="([^"]+)"$/gmu),
+    ].map(([, path]) => path);
+
+    assert.equal(sourcePaths.length, 2);
+    for (const path of sourcePaths) {
+      assert.doesNotThrow(
+        () => read(path),
+        `Compose Watch source does not exist: ${path}`,
+      );
+    }
+  });
 });
 
 function escapeRegExp(value) {

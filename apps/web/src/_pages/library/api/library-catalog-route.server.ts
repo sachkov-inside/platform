@@ -14,7 +14,7 @@ const PRIVATE_NO_STORE_HEADERS = {
   "Cache-Control": "private, no-store",
 } as const;
 
-/** Feature-owned BFF adapter for browser continuations of the public catalog. */
+/** Feature-owned BFF adapter for the browser-owned catalog. */
 export async function handleLibraryCatalogRequest(
   request: Request,
   accessToken?: string,
