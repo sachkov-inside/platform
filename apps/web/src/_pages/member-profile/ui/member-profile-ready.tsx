@@ -1,7 +1,7 @@
 import {
   MemberProfileProjection,
   type MemberProfileProjectionData,
-} from "@/_pages/account";
+} from "@/entities/member-profile";
 
 export function MemberProfileReady({ profile }: {
   readonly profile: MemberProfileProjectionData;

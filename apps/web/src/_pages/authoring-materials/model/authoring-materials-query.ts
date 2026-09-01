@@ -4,7 +4,7 @@ import type { Route } from "next";
 import {
   authoringMaterialsRootHref,
   withAuthoringReturnHref,
-} from "@/features/material-authoring";
+} from "@/shared/routing/authoring";
 
 import type { AuthoringMaterialsQuery } from "./authoring-materials-presentation";
 

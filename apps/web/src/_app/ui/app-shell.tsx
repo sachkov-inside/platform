@@ -7,11 +7,10 @@ import {
   ApplicationShell,
   type ApplicationNavigationItem,
 } from "@/widgets/application-shell";
+import { AuthStatusControl } from "./auth-status-control.client";
 
 interface AppShellProps {
   readonly children: ReactNode;
-  readonly desktopAccountSlot?: ReactNode | undefined;
-  readonly mobileAccountSlot?: ReactNode | undefined;
 }
 
 const navigationItems = [
@@ -21,19 +20,15 @@ const navigationItems = [
 ] satisfies readonly ApplicationNavigationItem[];
 
 /** Connects the accepted application shell to App Router route state. */
-export function AppShell({ children, desktopAccountSlot, mobileAccountSlot }: AppShellProps) {
+export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
-
-  if (pathname.startsWith("/authoring/")) {
-    return children;
-  }
 
   return (
     <ApplicationShell
       accountLabel="Гость"
       currentPath={pathname}
-      desktopAccountSlot={desktopAccountSlot}
-      mobileAccountSlot={mobileAccountSlot}
+      desktopAccountSlot={<AuthStatusControl presentation="desktop" />}
+      mobileAccountSlot={<AuthStatusControl presentation="mobile" />}
       navigationItems={navigationItems}
     >
       {children}

@@ -51,6 +51,7 @@ pnpm dev:web
 pnpm dev:api
 pnpm dev:mcp
 
+pnpm docs:check
 pnpm lint
 pnpm typecheck
 pnpm test
@@ -59,13 +60,19 @@ pnpm check
 pnpm check:full
 ```
 
-`pnpm check` is the normal code/build/UI gate and does not require the shared Compose database.
+`pnpm docs:check` validates agent-document pointers and current Materials documentation invariants.
+`pnpm check` includes it as the first normal code/build/UI gate and does not require the shared
+Compose database.
 `pnpm check:full` additionally runs isolated real-PostgreSQL integration tests and the live local
 stack smoke. For that optional host gate, stop the full Compose stack and use postgres-only
 `pnpm infra:up`, because the smoke owns host ports 3000, 3001 and 3002. Run
 `bash scripts/doctor.sh` for a read-only Docker-only prerequisite and Compose-contract diagnosis.
 It does not require host Node, pnpm or `.env`; `pnpm platform:doctor` is only a convenience alias for
 an installed host toolchain.
+
+See the [runtime configuration contract](docs/runbooks/runtime-configuration.md) for the typed
+NestJS and Next.js configuration model, local `.env`, production `runtime.env`/`release.env`, and
+Docker Compose precedence.
 
 The API listens on `127.0.0.1:3001`, exposes `GET /health`, and serves OpenAPI
 UI at `/openapi`.

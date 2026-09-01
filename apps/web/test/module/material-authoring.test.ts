@@ -15,7 +15,6 @@ vi.mock("@/shared/auth/index.server", () => {
   };
 });
 
-import { createMaterialDraftAction } from "@/_pages/material-authoring/api/create-material-draft.action";
 import {
   executeCreateMaterialDraft,
   type MaterialDraftWorkflowDependencies,
@@ -32,9 +31,11 @@ import {
 } from "@/_pages/material-authoring/api/save-material";
 import { CurrentMaterialAuthoringPage } from "@/_pages/material-authoring/ui/current-material-authoring-page";
 import { MaterialCurrentPreviewPage } from "@/_pages/material-authoring/ui/material-current-preview-page";
-import { mutateMaterialLifecycleAction } from "@/features/material-authoring.server";
 import { LogtoSessionUnavailableError } from "@/shared/auth/index.server";
-import { BackendConnectionError } from "@/shared/api/backend/index.server";
+import {
+  BackendConnectionError,
+  type requestMaterialPreview,
+} from "@/shared/api/backend/index.server";
 
 const materialId = "94000000-0000-4000-8000-000000000010";
 const submissionId = "94000000-0000-4000-8000-000000000011";
@@ -63,38 +64,7 @@ describe("Material Authoring action workflow", () => {
     expect(authMocks.getPlatformAccessToken).not.toHaveBeenCalled();
   });
 
-  it("maps a missing session in the actual server action", async () => {
-    authMocks.getPlatformAccessToken.mockRejectedValueOnce(
-      new LogtoSessionUnavailableError(),
-    );
-
-    await expect(
-      createMaterialDraftAction({ kind: "idle" }, validFormData()),
-    ).resolves.toEqual({ kind: "unauthorized" });
-  });
-
-  it("re-authenticates lifecycle mutations inside the actual server action", async () => {
-    authMocks.getPlatformAccessToken.mockRejectedValueOnce(
-      new LogtoSessionUnavailableError(),
-    );
-
-    await expect(
-      mutateMaterialLifecycleAction(
-        { kind: "idle" },
-        lifecycleFormData("delete"),
-      ),
-    ).resolves.toEqual({ kind: "unauthorized" });
-  });
-
-  it("maps an unexpected identity failure in the actual server action", async () => {
-    authMocks.getPlatformAccessToken.mockRejectedValueOnce(new TypeError("invalid session"));
-
-    await expect(
-      createMaterialDraftAction({ kind: "idle" }, validFormData()),
-    ).resolves.toEqual({ kind: "unexpected_error", reference: "identity-session" });
-  });
-
-  it("creates one idempotent draft and maps its current safe Preview", async () => {
+  it("creates one idempotent draft without post-commit reads", async () => {
     const dependencies = successfulDependencies();
 
     await expect(
@@ -104,20 +74,6 @@ describe("Material Authoring action workflow", () => {
       draft: {
         contentVersion: 1,
         materialId,
-        seriesIds: [seriesId],
-        preview: {
-          format: "Гайд",
-          tags: ["delivery"],
-          title: "Один production path",
-          topic: "Platform",
-          blocks: [
-            {
-              kind: "paragraph",
-              content: [{ kind: "text", marks: [], text: "Current из PostgreSQL." }],
-            },
-          ],
-        },
-        validation: { kind: "valid" },
       },
     });
 
@@ -132,8 +88,6 @@ describe("Material Authoring action workflow", () => {
       }),
       "access-token",
     );
-    expect(dependencies.validate).toHaveBeenCalledWith(materialId, 1, "access-token");
-    expect(dependencies.preview).toHaveBeenCalledWith(materialId, "access-token");
   });
 
   it("rejects malformed form input before the Nest mutation", async () => {
@@ -148,8 +102,6 @@ describe("Material Authoring action workflow", () => {
       issues: [{ path: "/document" }],
     });
     expect(dependencies.create).not.toHaveBeenCalled();
-    expect(dependencies.validate).not.toHaveBeenCalled();
-    expect(dependencies.preview).not.toHaveBeenCalled();
   });
 
   it("returns the typed unauthorized state for a denied author", async () => {
@@ -165,7 +117,6 @@ describe("Material Authoring action workflow", () => {
     await expect(
       executeCreateMaterialDraft(validFormData(), "access-token", dependencies),
     ).resolves.toEqual({ kind: "forbidden" });
-    expect(dependencies.preview).not.toHaveBeenCalled();
   });
 
   it("keeps an infrastructure failure retryable with the same submission key", async () => {
@@ -298,7 +249,7 @@ describe("Material Authoring action workflow", () => {
       getCurrentMaterial(materialId, "access-token", malformedCurrent),
     ).rejects.toThrow("Malformed Current Material response");
 
-    const preview = successfulDependencies().preview;
+    const preview = successfulPreview();
     const response = await preview(materialId, "access-token");
     if (!response.ok) throw new Error("Preview fixture must succeed");
     const malformedPreview = structuredClone(response.body) as {
@@ -309,7 +260,7 @@ describe("Material Authoring action workflow", () => {
   });
 
   it("maps the complete rendered Preview block vocabulary", async () => {
-    const preview = successfulDependencies().preview;
+    const preview = successfulPreview();
     const response = await preview(materialId, "access-token");
     if (!response.ok) throw new Error("Preview fixture must succeed");
     const representativePreview = structuredClone(response.body) as {
@@ -373,7 +324,6 @@ describe("Material Authoring action workflow", () => {
       contentVersion: 4,
       kind: "saved",
       publicationState: "published",
-      validation: { kind: "valid" },
     });
     expect(dependencies.save).toHaveBeenCalledOnce();
     expect(dependencies.save).toHaveBeenCalledWith(
@@ -396,7 +346,6 @@ describe("Material Authoring action workflow", () => {
       },
       "access-token",
     );
-    expect(dependencies.validate).toHaveBeenCalledWith(materialId, 4, "access-token");
   });
 
   it("maps a stale Save to conflict without validating or replacing local input", async () => {
@@ -423,7 +372,6 @@ describe("Material Authoring action workflow", () => {
     });
     expect(formData.get("title")).toBe("Saved Material");
     expect(formData.get("document")).toContain("Local full state");
-    expect(dependencies.validate).not.toHaveBeenCalled();
   });
 
   it("retries dependency failure with the same idempotency key", async () => {
@@ -493,15 +441,6 @@ function validFormData(): FormData {
   return formData;
 }
 
-function lifecycleFormData(operation: "delete" | "publish" | "unpublish") {
-  const formData = new FormData();
-  formData.set("expectedContentVersion", "3");
-  formData.set("materialId", materialId);
-  formData.set("operation", operation);
-  formData.set("submissionId", submissionId);
-  return formData;
-}
-
 function successfulDependencies(): MaterialDraftWorkflowDependencies {
   return {
     create: vi.fn().mockResolvedValue({
@@ -514,7 +453,11 @@ function successfulDependencies(): MaterialDraftWorkflowDependencies {
       },
       response: Response.json({}, { status: 201 }),
     }),
-    preview: vi.fn().mockResolvedValue({
+  };
+}
+
+function successfulPreview(): typeof requestMaterialPreview {
+  return vi.fn().mockResolvedValue({
       ok: true,
       body: {
         body: {
@@ -542,19 +485,7 @@ function successfulDependencies(): MaterialDraftWorkflowDependencies {
         publicationState: "draft",
       },
       response: Response.json({}),
-    }),
-    references: successfulReferences(),
-    validate: vi.fn().mockResolvedValue({
-      ok: true,
-      body: {
-        contentVersion: 1,
-        extraction: { headings: [], plainText: "Current из PostgreSQL.", resources: [] },
-        materialId,
-        projectionDigest: "digest",
-      },
-      response: Response.json({}),
-    }),
-  };
+    });
 }
 
 function successfulReferences() {
@@ -607,16 +538,6 @@ function successfulSaveDependencies(): SaveMaterialDependencies {
         materialId,
         publicationState: "published",
         publishedAt: "2026-08-30T08:00:00.000Z",
-      },
-      ok: true,
-      response: Response.json({}),
-    }),
-    validate: vi.fn().mockResolvedValue({
-      body: {
-        contentVersion: 4,
-        extraction: { headings: [], plainText: "Local full state", resources: [] },
-        materialId,
-        projectionDigest: "digest-v4",
       },
       ok: true,
       response: Response.json({}),

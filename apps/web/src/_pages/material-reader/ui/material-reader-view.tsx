@@ -8,8 +8,8 @@ import type {
   ReaderMark,
   ReaderText,
 } from "@/_pages/material-reader/model/material-reader-view";
-import type { LibraryDiscoveryResult } from "@/_pages/library-discovery";
-import { RelatedMaterialsSection } from "@/_pages/library-discovery";
+import type { LibraryDiscoveryResult } from "@/features/library-discovery";
+import { RelatedMaterialsSection } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
 import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";

@@ -9,7 +9,7 @@ import { MaterialsModule } from "../modules/materials/index.js";
 
 @Module({ providers: [OperationalReadiness] })
 export class McpModule {
-  static forRoot(config: PlatformConfig): DynamicModule {
+  static forRoot(config?: PlatformConfig): DynamicModule {
     return {
       module: McpModule,
       imports: [

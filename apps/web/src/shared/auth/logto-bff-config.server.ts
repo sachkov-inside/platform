@@ -2,7 +2,11 @@ import "server-only";
 
 import type { LogtoNextConfig } from "@logto/next";
 
-type RuntimeMode = "development" | "production" | "test";
+import {
+  parseWebRuntimeConfig,
+  readWebRuntimeConfig,
+  type WebRuntimeConfig,
+} from "@/shared/config/index.server";
 
 export type ResolvedLogtoBffConfig = LogtoNextConfig & {
   readonly appSecret: string;
@@ -11,52 +15,31 @@ export type ResolvedLogtoBffConfig = LogtoNextConfig & {
   readonly resources: string[];
 };
 
-const localDefaults = {
-  LOGTO_ENDPOINT: "https://identity.inside.localhost:3301",
-  LOGTO_AUDIENCE: "http://127.0.0.1:3001",
-  LOGTO_APP_ID: "inside-web-local",
-  LOGTO_APP_SECRET: "inside-web-local-confidential-secret",
-  LOGTO_COOKIE_SECRET: "inside-local-logto-cookie-secret-key",
-  WEB_BASE_URL: "http://127.0.0.1:3000",
-} as const;
-
 export function parseLogtoBffConfig(
   environment: NodeJS.ProcessEnv,
 ): ResolvedLogtoBffConfig {
-  const mode = runtimeMode(environment.NODE_ENV);
-  const endpoint = readValue(environment, "LOGTO_ENDPOINT", mode);
-  const audience = readValue(environment, "LOGTO_AUDIENCE", mode);
-  const appId = readValue(environment, "LOGTO_APP_ID", mode);
-  const appSecret = readValue(environment, "LOGTO_APP_SECRET", mode);
-  const cookieSecret = readValue(environment, "LOGTO_COOKIE_SECRET", mode);
-  const baseUrl = readValue(environment, "WEB_BASE_URL", mode);
-
-  validateUrl(endpoint, "LOGTO_ENDPOINT", true);
-  validateUrl(audience, "LOGTO_AUDIENCE", false);
-  validateUrl(baseUrl, "WEB_BASE_URL", mode === "production");
-  if (appSecret.length < 16) {
-    throw new Error("LOGTO_APP_SECRET must contain at least 16 characters");
-  }
-  if (cookieSecret.length < 32) {
-    throw new Error("LOGTO_COOKIE_SECRET must contain at least 32 characters");
-  }
-
-  const resources = [audience];
-  Object.freeze(resources);
-  return Object.freeze({
-    endpoint,
-    appId,
-    appSecret,
-    audience,
-    cookieSecret,
-    cookieSecure: mode === "production",
-    baseUrl,
-    resources,
-  });
+  return resolveLogtoBffConfig(parseWebRuntimeConfig(environment));
 }
 
 export function readLogtoBffConfig(): ResolvedLogtoBffConfig {
-  return parseLogtoBffConfig(process.env);
+  return resolveLogtoBffConfig(readWebRuntimeConfig());
+}
+
+function resolveLogtoBffConfig(
+  config: WebRuntimeConfig,
+): ResolvedLogtoBffConfig {
+  const resources = [config.identity.audience];
+  Object.freeze(resources);
+  return Object.freeze({
+    endpoint: config.identity.endpoint,
+    appId: config.identity.appId,
+    appSecret: config.identity.appSecret,
+    audience: config.identity.audience,
+    cookieSecret: config.identity.cookieSecret,
+    cookieSecure: config.mode === "production",
+    baseUrl: config.identity.baseUrl,
+    resources,
+  });
 }
 
 export function logtoSessionCookieName(appId: string): string {
@@ -71,48 +54,4 @@ export function hasLogtoSessionCookie(
   appId: string,
 ): boolean {
   return cookieNames.includes(logtoSessionCookieName(appId));
-}
-
-function runtimeMode(value: string | undefined): RuntimeMode {
-  if (value === "development" || value === "test" || value === "production") {
-    return value;
-  }
-  return "production";
-}
-
-function readValue(
-  environment: NodeJS.ProcessEnv,
-  name: keyof typeof localDefaults,
-  mode: RuntimeMode,
-): string {
-  const value = environment[name]?.trim();
-  if (value !== undefined && value.length > 0) {
-    return value;
-  }
-  if (mode !== "production") {
-    return localDefaults[name];
-  }
-  throw new Error(`${name} is required in production mode`);
-}
-
-function validateUrl(value: string, name: string, requireHttps: boolean): void {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error(`${name} must be an absolute URL`);
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`${name} must use HTTP or HTTPS`);
-  }
-  if (requireHttps && url.protocol !== "https:" && !isLoopback(url)) {
-    throw new Error(`${name} must use HTTPS`);
-  }
-}
-
-function isLoopback(url: URL): boolean {
-  return (
-    url.protocol === "http:" &&
-    (url.hostname === "127.0.0.1" || url.hostname === "[::1]" || url.hostname === "localhost")
-  );
 }

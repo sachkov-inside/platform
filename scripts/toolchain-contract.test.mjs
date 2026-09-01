@@ -229,6 +229,12 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(smoke, /migration_count" != "\d+"/u);
   });
 
+  it("retries transient TLS failures in the production smoke", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
+
+    assert.equal(smoke.match(/--retry-all-errors/gu)?.length, 2);
+  });
+
   it("runs the isolated production Compose smoke as its own CI job", () => {
     const workflow = read(".github/workflows/application-ci.yml");
     const match = workflow.match(
@@ -330,6 +336,21 @@ describe("supported toolchain contract", () => {
       smoke,
       /docker compose logs --no-color mcp\s*\|\s*grep --quiet/u,
     );
+  });
+
+  it("keeps Compose Watch source files aligned with the current application routes", () => {
+    const smoke = read("scripts/compose-watch-smoke.sh");
+    const sourcePaths = [
+      ...smoke.matchAll(/^(?:backend|web)_source="([^"]+)"$/gmu),
+    ].map(([, path]) => path);
+
+    assert.equal(sourcePaths.length, 2);
+    for (const path of sourcePaths) {
+      assert.doesNotThrow(
+        () => read(path),
+        `Compose Watch source does not exist: ${path}`,
+      );
+    }
   });
 });
 

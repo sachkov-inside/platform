@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { MemberProfileProjectionData } from "@/_pages/account";
+import type { MemberProfileProjectionData } from "@/entities/member-profile";
 
 const projectionResponseSchema = z
   .object({

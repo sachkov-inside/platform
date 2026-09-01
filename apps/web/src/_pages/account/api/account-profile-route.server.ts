@@ -1,12 +1,14 @@
 import "server-only";
 
 import {
+  handleAuthenticatedMutation,
   getPlatformAccessToken,
   LogtoSessionUnavailableError,
   readLogtoBffConfig,
 } from "@/shared/auth/index.server";
 
 import { getPrivateMemberProfile } from "./get-private-member-profile";
+import { executeSaveMemberProfile } from "./mutate-member-profile";
 
 export async function handleAccountProfileRequest(): Promise<Response> {
   let accessToken: string;
@@ -33,6 +35,10 @@ export async function handleAccountProfileRequest(): Promise<Response> {
     });
   }
   return Response.json(result.state, { headers: privateHeaders() });
+}
+
+export function handleSaveMemberProfileRequest(request: Request): Promise<Response> {
+  return handleAuthenticatedMutation(request, executeSaveMemberProfile);
 }
 
 function privateHeaders(): Record<string, string> {

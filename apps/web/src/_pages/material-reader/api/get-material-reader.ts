@@ -5,82 +5,13 @@ import { z } from "zod";
 import type {
   MaterialReaderMetadata,
   MaterialReaderResult,
-  ReaderBlock,
-  ReaderMark,
-  ReaderText,
 } from "@/_pages/material-reader/model/material-reader-view";
 import {
   BackendConnectionError,
   requestPublishedMaterial,
 } from "@/shared/api/backend/index.server";
+import { renderedMaterialBodySchema } from "@/entities/material";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
-
-const readerMarkSchema: z.ZodType<ReaderMark> = z.union([
-  z.object({ kind: z.enum(["bold", "code", "italic", "strike"]) }),
-  z.object({ kind: z.literal("link"), href: z.string() }),
-]);
-
-const readerTextSchema: z.ZodType<ReaderText> = z.object({
-  kind: z.literal("text"),
-  text: z.string(),
-  marks: z.array(readerMarkSchema),
-});
-
-const readerBlockSchema: z.ZodType<ReaderBlock> = z.lazy(() =>
-  z.discriminatedUnion("kind", [
-    z.object({ kind: z.literal("paragraph"), content: z.array(readerTextSchema) }),
-    z.object({
-      kind: z.literal("heading"),
-      level: z.union([z.literal(2), z.literal(3), z.literal(4)]),
-      content: z.array(readerTextSchema),
-    }),
-    z.object({ kind: z.literal("bullet_list"), items: z.array(z.array(readerBlockSchema)) }),
-    z.object({ kind: z.literal("ordered_list"), items: z.array(z.array(readerBlockSchema)) }),
-    z.object({ kind: z.literal("blockquote"), content: z.array(readerBlockSchema) }),
-    z.object({ kind: z.literal("code_block"), text: z.string() }),
-    z.object({ kind: z.literal("horizontal_rule") }),
-    z.object({
-      kind: z.literal("table"),
-      rows: z.array(
-        z.object({
-          cells: z.array(
-            z.object({
-              header: z.boolean(),
-              content: z.array(readerBlockSchema),
-            }),
-          ),
-        }),
-      ),
-    }),
-    z.object({
-      kind: z.literal("callout"),
-      tone: z.enum(["note", "tip", "warning"]),
-      content: z.array(readerBlockSchema),
-    }),
-    z.object({
-      kind: z.literal("image"),
-      assetId: z.string(),
-      alt: z.string(),
-      caption: z.string().optional(),
-      height: z.number().int().positive().optional(),
-      variants: z.array(z.object({ height: z.number().int().positive(), width: z.number().int().positive() })).optional(),
-      width: z.number().int().positive().optional(),
-    }),
-    z.object({
-      kind: z.literal("file"),
-      assetId: z.string(),
-      contentType: z.string().optional(),
-      filename: z.string().optional(),
-      label: z.string(),
-      size: z.number().int().positive().optional(),
-    }),
-    z.object({
-      kind: z.literal("video"),
-      videoId: z.string(),
-      caption: z.string().optional(),
-    }),
-  ]),
-);
 
 const projectionSchema = z.object({
   materialId: z.string(),
@@ -106,7 +37,7 @@ const publishedMaterialSchema = z.discriminatedUnion("kind", [
     kind: z.literal("available"),
     cacheScope: z.enum(["public", "private-no-store"]),
     projection: projectionSchema,
-    body: z.object({ schemaVersion: z.literal(1), blocks: z.array(readerBlockSchema) }),
+    body: renderedMaterialBodySchema,
   }),
   z.object({
     kind: z.literal("teaser"),
@@ -189,8 +120,8 @@ function toMaterialMetadata(
   projection: z.infer<typeof projectionSchema>,
 ): MaterialReaderMetadata {
   return {
-    materialId: projection.materialId,
     contentVersion: projection.contentVersion,
+    materialId: projection.materialId,
     slug: projection.slug,
     title: projection.title,
     summary: projection.summary,

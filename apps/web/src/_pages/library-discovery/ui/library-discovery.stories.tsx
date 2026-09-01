@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import type { LibraryDiscoveryResult } from "@/_pages/library-discovery/model/library-discovery-view";
+import {
+  RelatedMaterialsSection,
+  type LibraryDiscoveryResult,
+} from "@/features/library-discovery";
 import type { MaterialPreview } from "@/entities/material";
 import {
   ApplicationShell,
@@ -14,7 +17,6 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
-import { RelatedMaterialsSection } from "./related-materials-section";
 
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },

@@ -1,10 +1,23 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 import { hasLogtoSessionCookie } from "./logto-bff-config.server";
 
 export async function getOptionalPlatformAccessToken(
+  request?: Request,
+): Promise<string | undefined> {
+  return request === undefined
+    ? getOptionalPlatformAccessTokenRsc()
+    : resolveOptionalPlatformAccessToken(request);
+}
+
+const getOptionalPlatformAccessTokenRsc = cache(() =>
+  resolveOptionalPlatformAccessToken(),
+);
+
+async function resolveOptionalPlatformAccessToken(
   request?: Request,
 ): Promise<string | undefined> {
   const cookieNames =

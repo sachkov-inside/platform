@@ -17,8 +17,26 @@ const fixtures = [
     diagnostics: ["browser code cannot address Nest directly"],
   },
   {
+    root: "test/guardrails/fixtures/architecture/runtime-configuration",
+    diagnostics: [
+      "application runtime environment belongs to the server-only config module",
+    ],
+  },
+  {
     root: "test/guardrails/fixtures/architecture/absolute-fetch",
     diagnostics: ["browser code cannot call a Nest operation by absolute URL"],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/layer-direction",
+    diagnostics: ["features cannot import the upper widgets layer"],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/server-action",
+    diagnostics: ["Server Actions are not part of the client-owned mutation path"],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/editor-bundle",
+    diagnostics: ["lightweight authoring routes cannot reach the Tiptap editor bundle"],
   },
 ];
 

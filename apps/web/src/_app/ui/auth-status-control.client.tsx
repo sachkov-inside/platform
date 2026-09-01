@@ -10,7 +10,6 @@ import {
 
 interface AuthStatusControlProps {
   readonly accountLabel?: string | undefined;
-  readonly initialState: AuthControlState;
   readonly presentation: "desktop" | "mobile";
 }
 
@@ -18,15 +17,11 @@ let statusFlight: Promise<AuthControlState> | undefined;
 
 export function AuthStatusControl({
   accountLabel,
-  initialState,
   presentation,
 }: AuthStatusControlProps) {
-  const [state, setState] = useState(initialState);
+  const [state, setState] = useState<AuthControlState>("guest");
 
   useEffect(() => {
-    if (initialState === "guest") {
-      return;
-    }
     let active = true;
     void loadAuthStatus().then((authoritativeState) => {
       if (active) {
@@ -36,14 +31,12 @@ export function AuthStatusControl({
     return () => {
       active = false;
     };
-  }, [initialState]);
-
-  const displayedState = initialState === "guest" ? "guest" : state;
+  }, []);
 
   return presentation === "desktop" ? (
-    <DesktopAuthControl accountLabel={accountLabel} state={displayedState} />
+    <DesktopAuthControl accountLabel={accountLabel} state={state} />
   ) : (
-    <MobileAuthControl accountLabel={accountLabel} state={displayedState} />
+    <MobileAuthControl accountLabel={accountLabel} state={state} />
   );
 }
 

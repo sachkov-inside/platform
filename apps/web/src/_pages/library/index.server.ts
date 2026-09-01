@@ -1,4 +1,3 @@
-export { libraryCatalogServerQueryOptions } from "./api/library-catalog-query.server";
 export {
   getLibraryCatalogPage,
   LibraryQueryRejectedError,

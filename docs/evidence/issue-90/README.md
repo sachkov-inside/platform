@@ -1,9 +1,9 @@
 # Issue 90 — Library evidence
 
 The screenshots below were captured on 2026-08-25 before the TanStack infinite-catalog upgrade.
-They are retained as historical visual-review context, not as evidence of the current 13-card
-continuation behaviour. Current behaviour is proved by the checked-in full-stack Playwright test
-and `pnpm smoke:fullstack`.
+They are retained as historical visual-review context, not as evidence of the current catalog
+architecture. ADR 0011 supersedes the captured SSR/hydration and virtualization details; current
+behaviour is proved by the checked-in full-stack Playwright test and `pnpm smoke:fullstack`.
 
 | Historical surface | Desktop | Mobile |
 | --- | --- | --- |
@@ -14,9 +14,10 @@ and `pnpm smoke:fullstack`.
 - Storybook: `Pages/Library/Production` (`Ready · desktop` and `Ready · mobile`)
 - Desktop viewport: `1440 × 1024`
 - Mobile viewport: `390 × 844`
-- The local seed publishes 13 Materials through the application interface. The first 12 are
-  server-rendered through PostgreSQL → Nest HTTP → the server-only Next adapter; TanStack Query
-  then loads the cursor continuation when the catalog sentinel enters the viewport.
+- At capture time, the local seed published 13 Materials through the application interface. The
+  first 12 were server-rendered through PostgreSQL → Nest HTTP → the server-only Next adapter;
+  TanStack Query then loaded the cursor continuation when the catalog sentinel entered the
+  viewport.
 - Catalog responses and rendered cards expose only safe projections; the closed Material body is
   absent from the HTTP payload and page.
 - Keyboard smoke covers the skip link and Material links. Full-stack automation proves that the

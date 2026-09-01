@@ -126,6 +126,12 @@ export { PreviewMaterialController } from "./features/preview-material/preview-m
 export { ReorderSeriesController } from "./features/reorder-series/reorder-series.controller.js";
 export { ReadPublishedMaterialController } from "./features/read-published-material/read-published-material.controller.js";
 export { SaveMaterialController } from "./features/save-material/save-material.controller.js";
+export { TransitionMaterialPublicationController } from "./features/transition-material-publication/transition-material-publication.controller.js";
+export type {
+  TransitionMaterialPublicationCommand,
+  TransitionMaterialPublicationError,
+  TransitionMaterialPublicationOperation,
+} from "./features/transition-material-publication/transition-material-publication.contract.js";
 export { ValidateMaterialController } from "./features/validate-material/validate-material.controller.js";
 export { UploadMaterialAssetController } from "./features/upload-material-asset/upload-material-asset.controller.js";
 export { DeliverMaterialAssetController } from "./features/deliver-material-asset/deliver-material-asset.controller.js";
