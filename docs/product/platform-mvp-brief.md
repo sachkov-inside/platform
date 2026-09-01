@@ -59,14 +59,14 @@ Telegram linking, Membership state и recovery actions. Member Profile — от�
 profile не индексируется и никогда не содержит email, Platform или Telegram internal identifiers,
 Telegram username, linking/evidence, security или audit data. Exact поля, avatar, discoverability
 и visibility policy утверждены владельцем в Platform #51 и уточнены в Platform #189: Profile содержит
-обязательное изменяемое non-unique display name и optional bio, создаётся через обязательный
-name-only onboarding после первого sign-in и открывается active members по opaque URL без directory
-или search. Owner создаёт и редактирует Profile в private Account; self-service export/delete и
-participant reporting отсутствуют, optimistic version защищает edit, а disabled state остаётся
-виден только owner. Owner-only release operation может скрыть или восстановить точный Profile по
-opaque identity без публичной admin surface. Avatar, любые image/file операции и S3 delivery
-вынесены в Platform #153 и не блокируют text Profile vertical; это не расширяет brief до публичной
-социальной сети.
+обязательное изменяемое non-unique display name и optional bio. Profile не является глобальным gate:
+после первого sign-in Account без Profile может пользоваться доступными surfaces, а owner явно
+создаёт и затем редактирует Profile в private Account. Profile открывается active members по opaque
+URL без directory или search; self-service export/delete и participant reporting отсутствуют,
+optimistic version защищает edit, а disabled state остаётся виден только owner. Owner-only release
+operation может скрыть или восстановить точный Profile по opaque identity без публичной admin
+surface. Avatar, любые image/file операции и S3 delivery вынесены в Platform #153 и не блокируют
+text Profile vertical; это не расширяет brief до публичной социальной сети.
 
 Платформа не принимает оплату и не управляет подпиской. Один outbound CTA ведёт на
 Platform-configured Tribute URL: Platform не читает Tribute API/webhooks и не делает access decision
@@ -122,7 +122,8 @@ authority находится в платформе.
 
 - **Главная** — редакционная витрина и навигационная точка входа: новые и избранные материалы,
   темы, активные плейлисты и быстрые переходы в разделы;
-- **База знаний** — полный список контента с полнотекстовым поиском и фильтрами;
+- **База знаний** — полностью client-owned список контента: полнотекстовый поиск и фильтры
+  применяются без навигации страницы, а продолжение каталога загружается обычным infinite scroll;
 - **страница темы** — краткая витрина направления с его плейлистами и материалами;
 - **страница плейлиста** — описание и упорядоченный состав выпусков.
 

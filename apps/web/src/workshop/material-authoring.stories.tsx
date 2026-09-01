@@ -4,7 +4,6 @@ import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import {
-  authoringMaterialsRootHref,
   MaterialAuthoringPreviewUnauthorizedState,
   MaterialAuthoringPreviewNotFoundState,
   MaterialAuthoringUnexpectedEditorState,
@@ -13,8 +12,11 @@ import {
   type MaterialAuthoringActions,
   type MaterialAuthoringPresentation,
   type MaterialDraftField,
+} from "@/widgets/material-authoring";
+import {
+  authoringMaterialsRootHref,
   withAuthoringReturnHref,
-} from "@/features/material-authoring";
+} from "@/shared/routing/authoring";
 
 import {
   emptyMaterialAuthoringPresentation,
@@ -37,7 +39,8 @@ const noopActions = {
   onTagToggle: fn(),
 } satisfies MaterialAuthoringActions;
 const recordSavedPublicationState = fn(
-  (publicationState: FormDataEntryValue | null) => publicationState,
+  (publicationState: "draft" | "published" | "unpublished") =>
+    publicationState,
 );
 
 function MaterialAuthoringFixture({
@@ -64,8 +67,8 @@ function MaterialAuthoringFixture({
       noopActions.onDocumentChange(document);
       markDirty({ ...presentation.draft, document });
     },
-    onDelete: (formData: FormData) => {
-      noopActions.onDelete(formData);
+    onDelete: (input) => {
+      noopActions.onDelete(input);
     },
     onFieldChange: (field: MaterialDraftField, value: string) => {
       noopActions.onFieldChange(field, value);
@@ -94,9 +97,9 @@ function MaterialAuthoringFixture({
       noopActions.onReturnToEditor();
       setPresentation((current) => ({ ...current, mode: "editor" }));
     },
-    onSave: (formData: FormData) => {
+    onSave: (publicationState) => {
       noopActions.onSave();
-      recordSavedPublicationState(formData.get("publicationState"));
+      recordSavedPublicationState(publicationState);
       setPresentation(savedAfterEditingPresentation);
     },
     onSeriesToggle: (seriesId, checked) => {
@@ -251,16 +254,15 @@ export const Saved: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getAllByText("Сохранено 12:41", { exact: true }).length).toBeGreaterThan(0);
+    await expect(canvas.getByText("Материал сохранён")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toBeEnabled();
     await expect(canvas.getByRole("button", { name: "Сохранить" })).toBeDisabled();
     await userEvent.tab();
-    await expect(canvas.getByRole("link", { name: "Перейти к содержанию" })).toHaveFocus();
+    await expect(
+      canvas.getByRole("button", { name: "Вернуться к материалам" }),
+    ).toHaveFocus();
     await userEvent.tab();
-    await expect(canvas.getByRole("link", { name: /Редактор Inside/ })).toHaveFocus();
-    await userEvent.tab();
-    await expect(canvas.getByRole("link", { name: "Материалы" })).toHaveFocus();
-    await userEvent.tab();
-    await expect(canvas.getByRole("link", { name: "Новый материал" })).toHaveFocus();
+    await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toHaveFocus();
   },
 };
 

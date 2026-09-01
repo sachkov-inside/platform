@@ -1,42 +1,37 @@
 "use client";
 
 import { ArrowDown, ArrowLeft, ArrowUp, Check, LoaderCircle } from "lucide-react";
-import { startTransition, useActionState, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useState } from "react";
 
-import {
-  MaterialAuthoringShell,
-  MaterialAuthoringSignInActions,
-} from "@/features/material-authoring";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
 import type {
-  SeriesOrderActionState,
-  SeriesOrderMutation,
+  ReorderSeriesResult,
   SeriesOrderPresentation,
 } from "../model/presentation";
-
-const initialState = { kind: "idle" } as const satisfies SeriesOrderActionState;
+import { reorderSeries } from "../api/series-order.browser";
 
 export function SeriesOrderManager({
-  action,
   onBack,
   onRefresh,
   onSelectPlaylist,
   presentation,
 }: {
-  readonly action: SeriesOrderMutation;
   readonly onBack: () => void;
   readonly onRefresh: () => void;
   readonly onSelectPlaylist: (seriesId: string) => void;
   readonly presentation: SeriesOrderPresentation;
 }) {
-  const [state, dispatch, pending] = useActionState(action, initialState);
+  const mutation = useMutation({ mutationFn: reorderSeries });
+  const result = mutation.data ?? null;
+  const pending = mutation.isPending;
   const [items, setItems] = useState(presentation.items);
   const [submittedOrder, setSubmittedOrder] = useState<readonly string[] | null>(null);
   const baselineIds =
-    state.kind === "saved" && submittedOrder !== null
+    result?.kind === "saved" && submittedOrder !== null
       ? submittedOrder
       : presentation.items.map(({ materialId }) => materialId);
   const dirty = items.some(
@@ -44,7 +39,7 @@ export function SeriesOrderManager({
       materialId !== baselineIds[index],
   );
   const expectedOrderVersion =
-    state.kind === "saved" ? state.orderVersion : presentation.orderVersion;
+    result?.kind === "saved" ? result.orderVersion : presentation.orderVersion;
 
   const move = (index: number, offset: -1 | 1) => {
     const destination = index + offset;
@@ -57,7 +52,7 @@ export function SeriesOrderManager({
   };
 
   return (
-    <MaterialAuthoringShell current="playlists">
+    <>
       <main className="h-full min-h-svh overflow-y-auto bg-background px-4 pb-20 pt-5 text-foreground sm:px-6 md:min-h-0" id="authoring-content" tabIndex={-1}>
         <div className="mx-auto w-full max-w-4xl">
           <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
@@ -89,17 +84,15 @@ export function SeriesOrderManager({
             id="series-order-form"
             onSubmit={(event) => {
               event.preventDefault();
-              setSubmittedOrder(items.map(({ materialId }) => materialId));
-              const formData = new FormData(event.currentTarget);
-              startTransition(() => {
-                dispatch(formData);
+              const orderedMaterialIds = items.map(({ materialId }) => materialId);
+              setSubmittedOrder(orderedMaterialIds);
+              mutation.mutate({
+                expectedOrderVersion,
+                orderedMaterialIds,
+                seriesId: presentation.seriesId,
               });
             }}
           >
-            <input name="expectedOrderVersion" type="hidden" value={expectedOrderVersion} />
-            <input name="orderedMaterialIds" type="hidden" value={JSON.stringify(items.map(({ materialId }) => materialId))} />
-            <input name="seriesId" type="hidden" value={presentation.seriesId} />
-
             {items.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border bg-card px-5 py-14 text-center">
                 <h2 className="text-lg font-semibold">Плейлист пока пуст</h2>
@@ -128,15 +121,20 @@ export function SeriesOrderManager({
 
           <div className="sticky bottom-4 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-3 shadow-card backdrop-blur-sm">
             <p aria-live="polite" className="text-sm text-muted-foreground">
-              {actionMessage(state, dirty)}
+              {actionMessage(result, dirty)}
             </p>
-            {state.kind === "conflict" ? (
+            {result?.kind === "conflict" ? (
               <Button onClick={onRefresh} type="button" variant="outline">Обновить список</Button>
-            ) : state.kind === "unauthorized" ? (
-              <MaterialAuthoringSignInActions
-                returnHref={`/authoring/playlists/${presentation.seriesId}`}
-              />
-            ) : state.kind === "error" ? (
+            ) : result?.kind === "unauthorized" ? (
+              <form action="/auth/sign-in" method="post">
+                <input
+                  name="returnTo"
+                  type="hidden"
+                  value={`/authoring/playlists/${presentation.seriesId}`}
+                />
+                <Button type="submit">Войти</Button>
+              </form>
+            ) : result?.kind === "error" ? (
               <Button form="series-order-form" type="submit" variant="outline">
                 Повторить сохранение
               </Button>
@@ -149,20 +147,20 @@ export function SeriesOrderManager({
           </div>
         </div>
       </main>
-    </MaterialAuthoringShell>
+    </>
   );
 }
 
-function actionMessage(state: SeriesOrderActionState, dirty: boolean): string {
-  if (state.kind === "saved") return "Порядок сохранён.";
-  if (state.kind === "conflict") {
+function actionMessage(result: ReorderSeriesResult | null, dirty: boolean): string {
+  if (result?.kind === "saved") return "Порядок сохранён.";
+  if (result?.kind === "conflict") {
     return "Состав или порядок изменился в другой вкладке.";
   }
-  if (state.kind === "unauthorized") {
+  if (result?.kind === "unauthorized") {
     return "Сессия завершилась. Войдите снова, чтобы продолжить.";
   }
-  if (state.kind === "error") {
-    return `Не удалось сохранить. Код обращения: ${state.reference}`;
+  if (result?.kind === "error") {
+    return `Не удалось сохранить. Код обращения: ${result.reference}`;
   }
   return dirty ? "Есть несохранённые изменения." : "Порядок не изменён.";
 }

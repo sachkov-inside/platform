@@ -1,3 +1,5 @@
+"use client";
+
 import { DatabaseZap, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 
@@ -5,7 +7,12 @@ import type {
   LibraryCatalogFacet,
   LibraryCatalogPage,
 } from "@/_pages/library/model/library-view";
-import type { LibrarySearchQuery } from "@/_pages/library/model/library-search-query";
+import {
+  parseLibrarySearchParams,
+  serializeLibrarySearchQuery,
+  type LibraryCatalogSort,
+  type LibrarySearchQuery,
+} from "@/_pages/library/model/library-search-query";
 import { formatFoundMaterialCount } from "@/_pages/library/model/format-material-count";
 import { MaterialCard, materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
@@ -19,11 +26,15 @@ import {
 
 export function LibraryPage({
   catalog,
+  isRefreshing = false,
+  onQueryChange,
   onRetry,
   query,
   result,
 }: {
   readonly catalog?: React.ReactNode;
+  readonly isRefreshing?: boolean;
+  readonly onQueryChange: (query: LibrarySearchQuery) => void;
   readonly onRetry?: () => void;
   readonly query: LibrarySearchQuery;
   readonly result: LibraryCatalogPage;
@@ -33,13 +44,25 @@ export function LibraryPage({
       ? result.facets
       : { formats: [], series: [], topics: [] };
   return (
-    <div className="@container/library -mx-5 -mb-7 overflow-hidden bg-background sm:-mx-8 sm:-mb-10 md:m-0 md:overflow-visible md:bg-transparent">
+    <div
+      aria-busy={isRefreshing}
+      className="@container/library -mx-5 -mb-7 overflow-hidden bg-background sm:-mx-8 sm:-mb-10 md:m-0 md:overflow-visible md:bg-transparent"
+    >
       <LibraryHeader />
       <div className="px-5 pb-7 sm:px-8 sm:pb-10 md:px-0 md:pb-0">
-        <LibrarySearchForm facets={facets} query={query} />
+        <LibrarySearchForm
+          facets={facets}
+          isRefreshing={isRefreshing}
+          onQueryChange={onQueryChange}
+          query={query}
+        />
         {result.kind === "ready"
           ? result.totalCount === 0
-            ? <LibraryNoResults />
+            ? <LibraryNoResults
+                onReset={() => {
+                  onQueryChange(emptyLibraryQuery());
+                }}
+              />
             : catalog ?? (
                 <LibraryCatalog
                   items={result.items}
@@ -156,6 +179,8 @@ export function LibraryCatalog({
 
 function LibrarySearchForm({
   facets,
+  isRefreshing,
+  onQueryChange,
   query,
 }: {
   readonly facets: {
@@ -163,6 +188,8 @@ function LibrarySearchForm({
     readonly series: readonly LibraryCatalogFacet[];
     readonly topics: readonly LibraryCatalogFacet[];
   };
+  readonly isRefreshing: boolean;
+  readonly onQueryChange: (query: LibrarySearchQuery) => void;
   readonly query: LibrarySearchQuery;
 }) {
   const activeFilterCount =
@@ -171,8 +198,13 @@ function LibrarySearchForm({
     query.seriesSlugs.length;
 
   return (
-    <form action="/library" className="pt-4 sm:pt-6" method="get">
-      <div className="grid gap-3 @min-[52rem]/library:grid-cols-[minmax(0,1fr)_12rem_auto] @min-[52rem]/library:items-end">
+    <form
+      className="pt-4 sm:pt-6"
+      onSubmit={(event) => {
+        event.preventDefault();
+      }}
+    >
+      <div className="grid gap-3 @min-[52rem]/library:grid-cols-[minmax(0,1fr)_12rem] @min-[52rem]/library:items-end">
         <div>
           <label className="mb-2 block text-sm font-semibold" htmlFor="library-search">
             Поиск по базе знаний
@@ -184,12 +216,15 @@ function LibrarySearchForm({
             />
             <input
               className="min-h-12 w-full rounded-xl border border-input bg-card pl-10 pr-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
-              defaultValue={query.q}
               id="library-search"
               maxLength={120}
               name="q"
+              onChange={(event) => {
+                onQueryChange(changeLibraryQuery(query, { q: event.currentTarget.value }));
+              }}
               placeholder="Название, тема, тег"
               type="search"
+              value={query.q}
             />
           </div>
         </div>
@@ -197,7 +232,15 @@ function LibrarySearchForm({
           <span className="mb-2 block text-sm font-semibold" id="library-sort-label">
             Сортировка
           </span>
-          <Select defaultValue={query.sort} name="sort">
+          <Select
+            name="sort"
+            onValueChange={(value) => {
+              onQueryChange(
+                changeLibraryQuery(query, { sort: value as LibraryCatalogSort }),
+              );
+            }}
+            value={query.sort}
+          >
             <SelectTrigger
               aria-labelledby="library-sort-label"
               className="min-h-12 w-full"
@@ -214,10 +257,11 @@ function LibrarySearchForm({
             </SelectContent>
           </Select>
         </div>
-        <Button className="min-h-12 px-5" type="submit">
-          Найти
-        </Button>
       </div>
+
+      <p aria-live="polite" className="mt-2 min-h-5 text-xs text-muted-foreground">
+        {isRefreshing ? "Обновляем материалы…" : "Фильтры применяются сразу"}
+      </p>
 
       {facets.topics.length + facets.formats.length + facets.series.length > 0 ? (
         <details className="mt-3 rounded-xl bg-muted/75 p-4" open>
@@ -234,19 +278,25 @@ function LibrarySearchForm({
             <LibraryFilterFieldset
               legend="Тема"
               name="topic"
+              onQueryChange={onQueryChange}
               options={facets.topics}
+              query={query}
               selected={query.topicSlugs}
             />
             <LibraryFilterFieldset
               legend="Формат"
               name="format"
+              onQueryChange={onQueryChange}
               options={facets.formats}
+              query={query}
               selected={query.formatSlugs}
             />
             <LibraryFilterFieldset
               legend="Плейлисты"
               name="series"
+              onQueryChange={onQueryChange}
               options={facets.series}
+              query={query}
               selected={query.seriesSlugs}
             />
           </div>
@@ -255,8 +305,15 @@ function LibrarySearchForm({
 
       {query.q.length > 0 || activeFilterCount > 0 ? (
         <div className="mt-3 flex justify-end">
-          <Button asChild className="min-h-11 px-4" variant="ghost">
-            <Link href="/library">Сбросить поиск и фильтры</Link>
+          <Button
+            className="min-h-11 px-4"
+            onClick={() => {
+              onQueryChange(emptyLibraryQuery());
+            }}
+            type="button"
+            variant="ghost"
+          >
+            Сбросить поиск и фильтры
           </Button>
         </div>
       ) : null}
@@ -267,12 +324,16 @@ function LibrarySearchForm({
 function LibraryFilterFieldset({
   legend,
   name,
+  onQueryChange,
   options,
+  query,
   selected,
 }: {
   readonly legend: string;
   readonly name: "format" | "series" | "topic";
+  readonly onQueryChange: (query: LibrarySearchQuery) => void;
   readonly options: readonly LibraryCatalogFacet[];
+  readonly query: LibrarySearchQuery;
   readonly selected: readonly string[];
 }) {
   return (
@@ -285,8 +346,18 @@ function LibraryFilterFieldset({
           <label className="cursor-pointer" key={option.id}>
             <input
               className="peer sr-only"
-              defaultChecked={selected.includes(option.slug)}
+              checked={selected.includes(option.slug)}
               name={name}
+              onChange={(event) => {
+                const values = event.currentTarget.checked
+                  ? [...selected, option.slug]
+                  : selected.filter((slug) => slug !== option.slug);
+                onQueryChange(
+                  changeLibraryQuery(query, {
+                    [facetProperty(name)]: values,
+                  }),
+                );
+              }}
               type="checkbox"
               value={option.slug}
             />
@@ -303,7 +374,7 @@ function LibraryFilterFieldset({
   );
 }
 
-function LibraryNoResults() {
+function LibraryNoResults({ onReset }: { readonly onReset: () => void }) {
   return (
     <section
       aria-labelledby="library-no-results-heading"
@@ -316,11 +387,40 @@ function LibraryNoResults() {
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
         Измените запрос или сбросьте фильтры.
       </p>
-      <Button asChild className="mt-5 min-h-11 px-4" variant="outline">
-        <Link href="/library">Показать все материалы</Link>
+      <Button
+        className="mt-5 min-h-11 px-4"
+        onClick={onReset}
+        type="button"
+        variant="outline"
+      >
+        Показать все материалы
       </Button>
     </section>
   );
+}
+
+function changeLibraryQuery(
+  query: LibrarySearchQuery,
+  patch: Partial<LibrarySearchQuery>,
+): LibrarySearchQuery {
+  const search = serializeLibrarySearchQuery({
+    ...query,
+    ...patch,
+    after: null,
+  });
+  return parseLibrarySearchParams(new URLSearchParams(search)).query;
+}
+
+function emptyLibraryQuery(): LibrarySearchQuery {
+  return parseLibrarySearchParams(new URLSearchParams()).query;
+}
+
+function facetProperty(
+  name: "format" | "series" | "topic",
+): "formatSlugs" | "seriesSlugs" | "topicSlugs" {
+  if (name === "format") return "formatSlugs";
+  if (name === "series") return "seriesSlugs";
+  return "topicSlugs";
 }
 
 export function LibraryMaterialGrid({
@@ -335,12 +435,12 @@ export function LibraryMaterialGrid({
   return (
     <ul
       {...(label === undefined ? {} : { "aria-label": label })}
-      className={`${className} grid grid-cols-1 items-start justify-items-center gap-4 @min-[40rem]/library:grid-cols-2 @min-[68rem]/library:grid-cols-3`}
+      className={`${className} grid grid-cols-1 items-stretch justify-items-center gap-4 @min-[40rem]/library:grid-cols-2 @min-[68rem]/library:grid-cols-3`}
       data-material-grid
       role="list"
     >
       {items.map((material) => (
-        <li className="w-full max-w-[28rem]" key={material.slug}>
+        <li className="h-full w-full max-w-[28rem]" key={material.slug}>
           <MaterialCard headingLevel="h3" material={material} />
         </li>
       ))}
@@ -356,7 +456,6 @@ function LibraryEmpty() {
           <Link href="/map">Открыть Карту</Link>
         </Button>
       }
-      message="После публикации материалы появятся здесь автоматически."
       state="empty"
       title="Опубликованных материалов пока нет"
     />
@@ -395,7 +494,7 @@ function LibraryStatus({
   title,
 }: {
   readonly action: React.ReactNode;
-  readonly message: string;
+  readonly message?: string;
   readonly state: string;
   readonly title: string;
 }) {
@@ -412,9 +511,11 @@ function LibraryStatus({
         <h2 className="relative mt-5 max-w-[20ch] text-balance text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
           {title}
         </h2>
-        <p className="relative mt-4 max-w-[60ch] text-pretty leading-7 text-muted-foreground">
-          {message}
-        </p>
+        {message === undefined ? null : (
+          <p className="relative mt-4 max-w-[60ch] text-pretty leading-7 text-muted-foreground">
+            {message}
+          </p>
+        )}
         <div className="relative mt-7">{action}</div>
       </div>
     </section>

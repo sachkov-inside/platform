@@ -1,9 +1,9 @@
 import { queryOptions } from "@tanstack/react-query";
 
-import type { PrivateMemberProfileResult } from "./member-profile";
+import type { PrivateMemberProfileResult } from "@/entities/member-profile";
 
-export function accountProfileQueryKey(viewerScope: string) {
-  return ["account", "profile", viewerScope] as const;
+export function accountProfileQueryKey() {
+  return ["account", "profile"] as const;
 }
 
 export type LoadAccountProfile = (input: {
@@ -16,10 +16,9 @@ export type AccountProfileQueryOptions = ReturnType<
 
 export function createAccountProfileQueryOptions(
   loadProfile: LoadAccountProfile,
-  viewerScope: string,
 ) {
   return queryOptions({
-    queryKey: accountProfileQueryKey(viewerScope),
+    queryKey: accountProfileQueryKey(),
     queryFn: ({ signal }) => loadProfile({ signal }),
   });
 }

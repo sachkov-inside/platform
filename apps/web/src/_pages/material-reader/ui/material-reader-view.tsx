@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpenText, FileText, ImageIcon, Play } from "lucide-react";
+import { ArrowLeft, BookOpenText } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -8,16 +8,17 @@ import type {
   ReaderMark,
   ReaderText,
 } from "@/_pages/material-reader/model/material-reader-view";
-import type { LibraryDiscoveryResult } from "@/_pages/library-discovery";
-import { RelatedMaterialsSection } from "@/_pages/library-discovery";
+import type { RelatedMaterialsResult } from "@/features/library-discovery";
+import { RelatedMaterialsSection } from "@/features/library-discovery";
 import { materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
+import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
 import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
 
 export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
-  readonly related?: LibraryDiscoveryResult;
+  readonly related?: RelatedMaterialsResult;
 }
 
 interface OutlineItem {
@@ -26,16 +27,9 @@ interface OutlineItem {
   readonly level: 2 | 3 | 4;
 }
 
-interface ResourceItem {
-  readonly id: string;
-  readonly kind: "file" | "image" | "video";
-  readonly label: string;
-}
-
 /** Client-safe presentation shared by the production RSC route and Storybook. */
 export function MaterialReaderView({ body, material, related }: MaterialReaderViewProps) {
   const outline = collectOutline(body);
-  const resources = collectResources(body);
 
   return (
     <div className="@container/material-reader" data-material-reader-state="available">
@@ -47,10 +41,9 @@ export function MaterialReaderView({ body, material, related }: MaterialReaderVi
           className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[0.96875rem] leading-[1.7] sm:mt-12 sm:text-[1.0625rem]"
           data-reader-body
         >
-          <ReaderBlocks blocks={body} path={[]} />
+          <ReaderBlocks blocks={body} contentVersion={material.contentVersion} materialId={material.materialId} path={[]} />
         </article>
       </div>
-      {resources.length > 0 ? <ReaderResources resources={resources} /> : null}
       {related === undefined ? null : (
         <RelatedMaterialsSection result={related} sourceSlug={material.slug} />
       )}
@@ -188,22 +181,30 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
 
 function ReaderBlocks({
   blocks,
+  contentVersion,
+  materialId,
   path,
 }: {
   readonly blocks: readonly ReaderBlock[];
+  readonly contentVersion: number;
+  readonly materialId: string;
   readonly path: readonly number[];
 }) {
   return blocks.map((block, index) => {
     const blockPath = [...path, index];
-    return <ReaderBlockView block={block} key={blockPath.join("-")} path={blockPath} />;
+    return <ReaderBlockView block={block} contentVersion={contentVersion} key={blockPath.join("-")} materialId={materialId} path={blockPath} />;
   });
 }
 
 function ReaderBlockView({
   block,
+  contentVersion,
+  materialId,
   path,
 }: {
   readonly block: ReaderBlock;
+  readonly contentVersion: number;
+  readonly materialId: string;
   readonly path: readonly number[];
 }) {
   switch (block.kind) {
@@ -231,7 +232,7 @@ function ReaderBlockView({
         <List className="mt-5 space-y-2 pl-6 marker:text-accent">
           {block.items.map((item, index) => (
             <li key={index}>
-              <ReaderBlocks blocks={item} path={[...path, index]} />
+              <ReaderBlocks blocks={item} contentVersion={contentVersion} materialId={materialId} path={[...path, index]} />
             </li>
           ))}
         </List>
@@ -240,7 +241,7 @@ function ReaderBlockView({
     case "blockquote":
       return (
         <blockquote className="mt-6 border-l-4 border-accent pl-5 text-muted-foreground">
-          <ReaderBlocks blocks={block.content} path={path} />
+          <ReaderBlocks blocks={block.content} contentVersion={contentVersion} materialId={materialId} path={path} />
         </blockquote>
       );
     case "code_block":
@@ -255,7 +256,7 @@ function ReaderBlockView({
     case "horizontal_rule":
       return <hr className="my-10 border-border" />;
     case "table":
-      return <ReaderTable block={block} path={path} />;
+      return <ReaderTable block={block} contentVersion={contentVersion} materialId={materialId} path={path} />;
     case "callout":
       return (
         <aside
@@ -263,26 +264,32 @@ function ReaderBlockView({
           className="mt-6 rounded-xl bg-secondary px-5 py-5 text-[0.9375rem] leading-7 text-secondary-foreground sm:px-6"
         >
           <p className="font-semibold">{calloutLabel(block.tone)}</p>
-          <ReaderBlocks blocks={block.content} path={path} />
+          <ReaderBlocks blocks={block.content} contentVersion={contentVersion} materialId={materialId} path={path} />
         </aside>
       );
     case "image":
       return (
-        <MaterialResourcePlaceholder
+        <MaterialAssetImage
           alt={block.alt}
+          assetId={block.assetId}
           caption={block.caption}
-          className="mt-7"
-          id={resourceId(path)}
-          kind="image"
+          contentVersion={contentVersion}
+          height={block.height}
+          materialId={materialId}
+          variants={block.variants}
+          width={block.width}
         />
       );
     case "file":
       return (
-        <MaterialResourcePlaceholder
-          className="mt-6"
-          id={resourceId(path)}
-          kind="file"
+        <MaterialAssetFile
+          assetId={block.assetId}
+          contentType={block.contentType}
+          contentVersion={contentVersion}
+          filename={block.filename}
           label={block.label}
+          materialId={materialId}
+          size={block.size}
         />
       );
     case "video":
@@ -335,9 +342,13 @@ function applyMarks(text: string, marks: readonly ReaderMark[], key: number): Re
 
 function ReaderTable({
   block,
+  contentVersion,
+  materialId,
   path,
 }: {
   readonly block: Extract<ReaderBlock, { readonly kind: "table" }>;
+  readonly contentVersion: number;
+  readonly materialId: string;
   readonly path: readonly number[];
 }) {
   return (
@@ -362,6 +373,8 @@ function ReaderTable({
                   >
                     <ReaderBlocks
                       blocks={cell.content}
+                      contentVersion={contentVersion}
+                      materialId={materialId}
                       path={[...path, rowIndex, cellIndex]}
                     />
                   </Cell>
@@ -372,32 +385,6 @@ function ReaderTable({
         </tbody>
       </table>
     </div>
-  );
-}
-
-function ReaderResources({ resources }: { readonly resources: readonly ResourceItem[] }) {
-  return (
-    <section aria-labelledby="reader-resources" className="mt-14 max-w-[70ch] sm:mt-16">
-      <h2 className="text-xl font-semibold tracking-[-0.03em] sm:text-2xl" id="reader-resources">
-        Ресурсы
-      </h2>
-      <ul className="mt-4 grid gap-2" role="list">
-        {resources.map((resource) => {
-          const Icon = resource.kind === "file" ? FileText : resource.kind === "image" ? ImageIcon : Play;
-          return (
-            <li key={resource.id}>
-              <a
-                className="flex min-h-14 items-center gap-3 rounded-xl bg-muted/60 px-4 py-3 text-sm font-semibold no-underline hover:bg-muted"
-                href={`#${resource.id}`}
-              >
-                <Icon aria-hidden="true" className="size-4 shrink-0 text-accent" />
-                {resource.label}
-              </a>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
   );
 }
 
@@ -413,33 +400,6 @@ function collectOutline(blocks: readonly ReaderBlock[], path: readonly number[] 
     if (block.kind === "bullet_list" || block.kind === "ordered_list") {
       return block.items.flatMap((item, itemIndex) =>
         collectOutline(item, [...blockPath, itemIndex]),
-      );
-    }
-    return [];
-  });
-}
-
-function collectResources(
-  blocks: readonly ReaderBlock[],
-  path: readonly number[] = [],
-): ResourceItem[] {
-  return blocks.flatMap((block, index): ResourceItem[] => {
-    const blockPath = [...path, index];
-    if (block.kind === "file") {
-      return [{ id: resourceId(blockPath), kind: "file", label: block.label }];
-    }
-    if (block.kind === "image") {
-      return [{ id: resourceId(blockPath), kind: "image", label: block.caption ?? block.alt }];
-    }
-    if (block.kind === "video") {
-      return [{ id: resourceId(blockPath), kind: "video", label: block.caption ?? "Видео" }];
-    }
-    if (block.kind === "blockquote" || block.kind === "callout") {
-      return collectResources(block.content, blockPath);
-    }
-    if (block.kind === "bullet_list" || block.kind === "ordered_list") {
-      return block.items.flatMap((item, itemIndex) =>
-        collectResources(item, [...blockPath, itemIndex]),
       );
     }
     return [];

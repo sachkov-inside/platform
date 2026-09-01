@@ -2,8 +2,7 @@
 .env
 .env.*
 !.env.example
-!.env.production.example
-!.env.release.example
+config/compose/production/*.env
 .next/
 .impeccable/review/
 .identity-proof/

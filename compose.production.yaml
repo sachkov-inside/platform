@@ -2,100 +2,44 @@ name: ${PLATFORM_COMPOSE_PROJECT:-inside-platform-production}
 
 services:
   postgres:
-    image: postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    image: postgres:18.4-alpine3.23
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/postgres.env
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:?Set POSTGRES_USER} -d ${POSTGRES_DB:?Set POSTGRES_DB}",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
         ]
       interval: 5s
       timeout: 5s
       retries: 12
-    networks:
-      - data
     restart: unless-stopped
     volumes:
       - postgres-data:/var/lib/postgresql
 
-  database-roles:
-    image: postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
-    command: ["sh", "/usr/local/bin/provision-production-database-roles.sh", "migration"]
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
-      MIGRATION_DATABASE_USER: ${MIGRATION_DATABASE_USER:?Set MIGRATION_DATABASE_USER}
-      MIGRATION_DATABASE_PASSWORD: ${MIGRATION_DATABASE_PASSWORD:?Set MIGRATION_DATABASE_PASSWORD}
+  migrations:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: api-production
+    command: ["node", "dist/migrations/migrate.js"]
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/migrations.env
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - data
     restart: "no"
-    volumes:
-      - ./scripts/provision-production-database-roles.sh:/usr/local/bin/provision-production-database-roles.sh:ro
-
-  migrations:
-    image: ${PLATFORM_MIGRATION_IMAGE_REPOSITORY:?Set PLATFORM_MIGRATION_IMAGE_REPOSITORY}@sha256:${PLATFORM_MIGRATION_IMAGE_DIGEST:?Set PLATFORM_MIGRATION_IMAGE_DIGEST}
-    command: ["node", "dist/migrations/migrate.js"]
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: ${MIGRATION_DATABASE_URL:?Set MIGRATION_DATABASE_URL}
-    depends_on:
-      database-roles:
-        condition: service_completed_successfully
-    networks:
-      - data
-    restart: "no"
-
-  database-access:
-    image: postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
-    command: ["sh", "/usr/local/bin/provision-production-database-roles.sh", "application"]
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
-      MIGRATION_DATABASE_USER: ${MIGRATION_DATABASE_USER:?Set MIGRATION_DATABASE_USER}
-      APPLICATION_DATABASE_USER: ${APPLICATION_DATABASE_USER:?Set APPLICATION_DATABASE_USER}
-      APPLICATION_DATABASE_PASSWORD: ${APPLICATION_DATABASE_PASSWORD:?Set APPLICATION_DATABASE_PASSWORD}
-      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?Set MIGRATION_DATABASE_URL}
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
-      RELEASE_MIGRATION_IMAGE_DIGEST: ${PLATFORM_MIGRATION_IMAGE_DIGEST:?Set PLATFORM_MIGRATION_IMAGE_DIGEST}
-    depends_on:
-      migrations:
-        condition: service_completed_successfully
-    networks:
-      - data
-    restart: "no"
-    volumes:
-      - ./scripts/provision-production-database-roles.sh:/usr/local/bin/provision-production-database-roles.sh:ro
 
   api:
-    image: ${PLATFORM_API_IMAGE_REPOSITORY:?Set PLATFORM_API_IMAGE_REPOSITORY}@sha256:${PLATFORM_API_IMAGE_DIGEST:?Set PLATFORM_API_IMAGE_DIGEST}
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
-      API_HOST: 0.0.0.0
-      API_PORT: "3001"
-      LOGTO_ISSUER: ${LOGTO_ISSUER:?Set LOGTO_ISSUER}
-      LOGTO_AUDIENCE: ${LOGTO_AUDIENCE:?Set LOGTO_AUDIENCE}
-      LOGTO_JWKS_URL: ${LOGTO_JWKS_URL:?Set LOGTO_JWKS_URL}
-      IDENTITY_EMAIL_FINGERPRINT_KEY: ${IDENTITY_EMAIL_FINGERPRINT_KEY:?Set IDENTITY_EMAIL_FINGERPRINT_KEY}
-      MEMBERSHIP_ACQUISITION_URL: ${MEMBERSHIP_ACQUISITION_URL:?Set MEMBERSHIP_ACQUISITION_URL}
-      TELEGRAM_BOT_START_URL: ${TELEGRAM_BOT_START_URL:?Set TELEGRAM_BOT_START_URL}
-      TELEGRAM_LINKING_ENDPOINT: ${TELEGRAM_LINKING_ENDPOINT:?Set TELEGRAM_LINKING_ENDPOINT}
-      TELEGRAM_LINKING_SECRET: ${TELEGRAM_LINKING_SECRET:?Set TELEGRAM_LINKING_SECRET}
-      TELEGRAM_EVIDENCE_INGRESS_SECRET: ${TELEGRAM_EVIDENCE_INGRESS_SECRET:?Set TELEGRAM_EVIDENCE_INGRESS_SECRET}
-      TELEGRAM_LINK_LIFETIME_SECONDS: ${TELEGRAM_LINK_LIFETIME_SECONDS:-300}
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: api-production
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/api.env
     depends_on:
-      database-access:
+      migrations:
         condition: service_completed_successfully
     healthcheck:
       test:
@@ -109,23 +53,31 @@ services:
       timeout: 5s
       retries: 12
     init: true
-    networks:
-      - application
-      - data
+    restart: unless-stopped
+    stop_grace_period: 10s
+
+  profile-avatars-worker:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: api-production
+    command: ["node", "dist/entrypoints/profile-avatars-worker.js"]
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/profile-avatars-worker.env
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    init: true
     restart: unless-stopped
     stop_grace_period: 10s
 
   web:
-    image: ${PLATFORM_WEB_IMAGE_REPOSITORY:?Set PLATFORM_WEB_IMAGE_REPOSITORY}@sha256:${PLATFORM_WEB_IMAGE_DIGEST:?Set PLATFORM_WEB_IMAGE_DIGEST}
-    environment:
-      NODE_ENV: production
-      BACKEND_BASE_URL: http://api:3001
-      LOGTO_ENDPOINT: ${LOGTO_ENDPOINT:?Set LOGTO_ENDPOINT}
-      LOGTO_AUDIENCE: ${LOGTO_AUDIENCE:?Set LOGTO_AUDIENCE}
-      LOGTO_APP_ID: ${LOGTO_APP_ID:?Set LOGTO_APP_ID}
-      LOGTO_APP_SECRET: ${LOGTO_APP_SECRET:?Set LOGTO_APP_SECRET}
-      LOGTO_COOKIE_SECRET: ${LOGTO_COOKIE_SECRET:?Set LOGTO_COOKIE_SECRET}
-      WEB_BASE_URL: ${WEB_BASE_URL:?Set WEB_BASE_URL}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: web-production
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/web.env
     depends_on:
       api:
         condition: service_healthy
@@ -141,35 +93,24 @@ services:
       timeout: 5s
       retries: 18
     init: true
-    networks:
-      - application
-      - edge
     restart: unless-stopped
     stop_grace_period: 10s
 
   caddy:
-    image: caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
-    environment:
-      PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:?Set PLATFORM_DOMAIN}
+    image: caddy:2.11.4-alpine
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/caddy.env
     depends_on:
       web:
         condition: service_healthy
     ports:
       - "${PLATFORM_HTTP_PORT:-80}:80"
       - "${PLATFORM_HTTPS_PORT:-443}:443"
-    networks:
-      - edge
     restart: unless-stopped
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-
-networks:
-  application:
-  data:
-    internal: true
-  edge:
 
 volumes:
   postgres-data:

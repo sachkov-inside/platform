@@ -31,14 +31,14 @@ compatibility evidence is recorded in
 A fresh clone needs Docker with Compose; host Node.js is not required for the primary path.
 
 ```bash
-docker compose up --build --watch
+docker compose up --build
 ```
 
-This starts PostgreSQL, a one-shot migration/seed bootstrap, Nest API, MCP and Next web. Open web at
+This starts PostgreSQL, one-shot migration and development seed jobs, Nest API, MCP and Next web. Open web at
 <http://127.0.0.1:3000>, API health/OpenAPI at <http://127.0.0.1:3001/health> and
-<http://127.0.0.1:3001/openapi>, and MCP at <http://127.0.0.1:3002/mcp>. Source changes synchronize
-through Compose Watch without host `node_modules`; manifest and lockfile changes rebuild the
-affected images.
+<http://127.0.0.1:3001/openapi>, and MCP at <http://127.0.0.1:3002/mcp>. Rebuild the affected
+service after a source or dependency change, or use the host `pnpm dev*` commands for a faster
+development loop.
 
 ## Commands
 
@@ -51,6 +51,7 @@ pnpm dev:web
 pnpm dev:api
 pnpm dev:mcp
 
+pnpm docs:check
 pnpm lint
 pnpm typecheck
 pnpm test
@@ -59,13 +60,19 @@ pnpm check
 pnpm check:full
 ```
 
-`pnpm check` is the normal code/build/UI gate and does not require the shared Compose database.
+`pnpm docs:check` validates agent-document pointers and current Materials documentation invariants.
+`pnpm check` includes it as the first normal code/build/UI gate and does not require the shared
+Compose database.
 `pnpm check:full` additionally runs isolated real-PostgreSQL integration tests and the live local
 stack smoke. For that optional host gate, stop the full Compose stack and use postgres-only
 `pnpm infra:up`, because the smoke owns host ports 3000, 3001 and 3002. Run
 `bash scripts/doctor.sh` for a read-only Docker-only prerequisite and Compose-contract diagnosis.
 It does not require host Node, pnpm or `.env`; `pnpm platform:doctor` is only a convenience alias for
 an installed host toolchain.
+
+See the [runtime configuration contract](docs/runbooks/runtime-configuration.md) for the typed
+NestJS and Next.js configuration model, local `.env`, server-owned production env files and Docker
+Compose precedence.
 
 The API listens on `127.0.0.1:3001`, exposes `GET /health`, and serves OpenAPI
 UI at `/openapi`.
@@ -96,9 +103,11 @@ is an explicit destructive reset.
 
 ## Production delivery baseline
 
-The production runtime uses prebuilt digest-addressed API and web images, a one-shot migration
-service, a restricted runtime database role, least-privilege networks and Caddy as the only public
-entry point. It is intentionally separate from the source-mounted development stack.
+The current production Compose file is the deliberately small starting point for the CI/CD course.
+It builds API and web from the checked-out source, runs migrations once, uses one database account
+and lets Compose create its default network. Caddy is the public entry point. Registry images,
+digests, separate database roles, explicit networks and automated deployment are intentionally not
+implemented yet.
 
 ```bash
 pnpm compose:production:smoke

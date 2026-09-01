@@ -42,6 +42,21 @@ describe("process configuration", () => {
       contentAccess: {
         membershipAcquisitionUrl: "https://t.me/tribute/example",
       },
+      objectStorage: {
+        accessKeyId: "inside-local-access-key",
+        buckets: {
+          protected: "inside-local-protected",
+          public: "inside-local-public",
+          quarantine: "inside-local-quarantine",
+        },
+        endpoint: "http://127.0.0.1:9000",
+        forcePathStyle: true,
+        orphanGraceMs: 86_400_000,
+        profileAvatarOrphanGraceMs: 86_400_000,
+        region: "ru-central1",
+        secretAccessKey: "inside-local-secret-key",
+        signedGetTtlSeconds: 60,
+      },
       telegramMembership: {
         botStartUrl: "https://t.me/inside_test_bot",
         evidenceIngressSecret: "test-telegram-evidence-ingress-secret",
@@ -56,6 +71,8 @@ describe("process configuration", () => {
     expect(Object.isFrozen(config.api)).toBe(true);
     expect(Object.isFrozen(config.identity)).toBe(true);
     expect(Object.isFrozen(config.contentAccess)).toBe(true);
+    expect(Object.isFrozen(config.objectStorage)).toBe(true);
+    expect(Object.isFrozen(config.objectStorage.buckets)).toBe(true);
     expect(Object.isFrozen(config.telegramMembership)).toBe(true);
     expect(process.env).toEqual(processEnvironmentBefore);
   });
@@ -75,6 +92,21 @@ describe("process configuration", () => {
       },
       contentAccess: {
         membershipAcquisitionUrl: "https://t.me/tribute",
+      },
+      objectStorage: {
+        accessKeyId: "inside-local-access-key",
+        buckets: {
+          protected: "inside-local-protected",
+          public: "inside-local-public",
+          quarantine: "inside-local-quarantine",
+        },
+        endpoint: "http://127.0.0.1:9000",
+        forcePathStyle: true,
+        orphanGraceMs: 86_400_000,
+        profileAvatarOrphanGraceMs: 86_400_000,
+        region: "ru-central1",
+        secretAccessKey: "inside-local-secret-key",
+        signedGetTtlSeconds: 60,
       },
       telegramMembership: {
         botStartUrl: "https://t.me/inside_local_bot",
@@ -158,6 +190,34 @@ describe("process configuration", () => {
     ).toThrow(
       "TELEGRAM_LINK_LIFETIME_SECONDS must be an integer between 60 and 600",
     );
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS: "301",
+      }),
+    ).toThrow(
+      "OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS must be an integer between 1 and 300",
+    );
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        PROFILE_AVATAR_ORPHAN_GRACE_SECONDS: "3599",
+      }),
+    ).toThrow(
+      "PROFILE_AVATAR_ORPHAN_GRACE_SECONDS must be an integer between 3600 and 2592000",
+    );
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        OBJECT_STORAGE_FORCE_PATH_STYLE: "garbage",
+      }),
+    ).toThrow("OBJECT_STORAGE_FORCE_PATH_STYLE must be true or false");
+    expect(
+      parsePlatformConfig({
+        NODE_ENV: "development",
+        OBJECT_STORAGE_FORCE_PATH_STYLE: "false",
+      }).objectStorage.forcePathStyle,
+    ).toBe(false);
   });
 });
 

@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { loadRepositoryEnvironment } from "./load-repository-environment.js";
 import type { PlatformMode } from "./platform-config.js";
 
 const DEFAULT_MCP_HOST = "127.0.0.1";
@@ -12,11 +11,6 @@ export interface McpConfig {
   readonly host: string;
   readonly port: number;
   readonly serverUrl: string;
-}
-
-export function loadMcpConfig(mode: PlatformMode): McpConfig {
-  loadRepositoryEnvironment();
-  return parseMcpConfig(process.env, mode);
 }
 
 export function parseMcpConfig(

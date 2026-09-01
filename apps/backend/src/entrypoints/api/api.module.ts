@@ -26,7 +26,10 @@ import {
   ReorderSeriesController,
   ReadPublishedMaterialController,
   SaveMaterialController,
+  TransitionMaterialPublicationController,
   ValidateMaterialController,
+  UploadMaterialAssetController,
+  DeliverMaterialAssetController,
 } from "../../modules/materials/index.js";
 import { HealthController } from "./health.controller.js";
 
@@ -42,10 +45,13 @@ import { HealthController } from "./health.controller.js";
     LoadMaterialController,
     LoadSeriesOrderController,
     SaveMaterialController,
+    TransitionMaterialPublicationController,
     DeleteDraftController,
     ValidateMaterialController,
     PreviewMaterialController,
     ReorderSeriesController,
+    UploadMaterialAssetController,
+    DeliverMaterialAssetController,
   ],
   providers: [
     OperationalReadiness,
@@ -54,7 +60,7 @@ import { HealthController } from "./health.controller.js";
   ],
 })
 export class ApiModule {
-  static forRoot(config: PlatformConfig): DynamicModule {
+  static forRoot(config?: PlatformConfig): DynamicModule {
     return {
       module: ApiModule,
       imports: [

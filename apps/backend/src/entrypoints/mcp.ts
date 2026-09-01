@@ -1,7 +1,10 @@
 import "reflect-metadata";
 
-import { loadMcpConfig } from "../config/mcp-config.js";
-import { loadPlatformConfig } from "../config/load-platform-config.js";
+import { parseMcpConfig } from "../config/mcp-config.js";
+import {
+  PLATFORM_CONFIG,
+  type PlatformConfig,
+} from "../config/platform-config.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import {
   ACCOUNTS,
@@ -22,9 +25,9 @@ void bootstrap().catch((error: unknown) => {
 });
 
 async function bootstrap(): Promise<void> {
-  const config = loadPlatformConfig();
-  const mcpConfig = loadMcpConfig(config.mode);
-  const application = await createMcpApplication(config);
+  const application = await createMcpApplication();
+  const config = application.get<PlatformConfig>(PLATFORM_CONFIG);
+  const mcpConfig = parseMcpConfig(process.env, config.mode);
   const shutdown = listenForShutdownSignal();
   const server = createMcpHttpServer({
     accounts: application.get<Accounts>(ACCOUNTS),

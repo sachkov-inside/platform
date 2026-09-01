@@ -9,6 +9,7 @@ import type {
   PreviewMaterialError,
   SaveMaterialError,
   ReorderSeriesError,
+  TransitionMaterialPublicationError,
   ValidateMaterialError,
 } from "../../index.js";
 import {
@@ -62,6 +63,13 @@ export const saveMaterialBodySchema = z
     publicationState: publicationStateWireSchema,
     metadata: materialMetadataSelectionSchema,
     body: materialBodySnapshotSchema,
+  })
+  .strict();
+
+export const transitionMaterialPublicationBodySchema = z
+  .object({
+    expectedContentVersion: contentVersionSchema,
+    publicationState: z.enum(["published", "unpublished"]),
   })
   .strict();
 
@@ -124,10 +132,11 @@ export const validatedMaterialSchema = z
           z.discriminatedUnion("kind", [
             z.object({
               kind: z.literal("image"),
+              assetId: z.uuid(),
               alt: z.string(),
               caption: z.string().optional(),
             }),
-            z.object({ kind: z.literal("file"), label: z.string() }),
+            z.object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() }),
             z.object({
               kind: z.literal("video"),
               caption: z.string().optional(),
@@ -139,9 +148,59 @@ export const validatedMaterialSchema = z
   })
   .strict();
 
-// Rendered blocks are recursively nested. The owning web adapter validates the
-// exact recursive shape; OpenAPI keeps a stable envelope without an inline $ref.
-export const renderedBlockSchema = z.unknown();
+const renderedMarkSchema = z.union([
+  z.object({ kind: z.enum(["bold", "code", "italic", "strike"]) }).strict(),
+  z.object({ href: z.string(), kind: z.literal("link") }).strict(),
+]);
+
+const renderedTextSchema = z
+  .object({
+    kind: z.literal("text"),
+    marks: z.array(renderedMarkSchema),
+    text: z.string(),
+  })
+  .strict();
+
+export const renderedBlockSchema: z.ZodType = z.lazy(() =>
+  z.discriminatedUnion("kind", [
+    z.object({ content: z.array(renderedTextSchema), kind: z.literal("paragraph") }).strict(),
+    z.object({ content: z.array(renderedTextSchema), kind: z.literal("heading"), level: z.union([z.literal(2), z.literal(3), z.literal(4)]) }).strict(),
+    z.object({ items: z.array(z.array(renderedBlockSchema)), kind: z.literal("bullet_list") }).strict(),
+    z.object({ items: z.array(z.array(renderedBlockSchema)), kind: z.literal("ordered_list") }).strict(),
+    z.object({ content: z.array(renderedBlockSchema), kind: z.literal("blockquote") }).strict(),
+    z.object({ kind: z.literal("code_block"), text: z.string() }).strict(),
+    z.object({ kind: z.literal("horizontal_rule") }).strict(),
+    z.object({ kind: z.literal("table"), rows: z.array(z.object({ cells: z.array(z.object({ content: z.array(renderedBlockSchema), header: z.boolean() }).strict()) }).strict()) }).strict(),
+    z.object({ content: z.array(renderedBlockSchema), kind: z.literal("callout"), tone: z.enum(["note", "tip", "warning"]) }).strict(),
+    z.object({
+      alt: z.string(),
+      assetId: z.uuid(),
+      caption: z.string().optional(),
+      height: z.number().int().positive().optional(),
+      kind: z.literal("image"),
+      variants: z
+        .array(
+          z
+            .object({
+              height: z.number().int().positive(),
+              width: z.number().int().positive(),
+            })
+            .strict(),
+        )
+        .optional(),
+      width: z.number().int().positive().optional(),
+    }).strict(),
+    z.object({
+      assetId: z.uuid(),
+      contentType: z.string().optional(),
+      filename: z.string().optional(),
+      kind: z.literal("file"),
+      label: z.string(),
+      size: z.number().int().nonnegative().optional(),
+    }).strict(),
+    z.object({ caption: z.string().optional(), kind: z.literal("video"), videoId: z.uuid() }).strict(),
+  ]),
+);
 
 export const previewMaterialSchema = z
   .object({
@@ -204,6 +263,7 @@ type MaterialAuthoringTransportError =
   | PreviewMaterialError
   | SaveMaterialError
   | ReorderSeriesError
+  | TransitionMaterialPublicationError
   | ValidateMaterialError;
 
 export type MaterialAuthoringErrorStatus = 403 | 404 | 409 | 422 | 500 | 503;

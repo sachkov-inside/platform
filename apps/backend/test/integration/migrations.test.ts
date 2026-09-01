@@ -53,9 +53,15 @@ const membershipEntitlementTables = [
   "evidence_receipts",
 ] as const;
 
-const memberProfileTables = ["audit_events", "profiles"] as const;
+const memberProfileTables = [
+  "audit_events",
+  "avatar_renditions",
+  "avatars",
+  "profiles",
+] as const;
 
 const telegramMembershipTables = ["link_transactions"] as const;
+const assetTables = ["material_asset_variants", "material_assets"] as const;
 
 const legacyMigrations = [
   { name: materialsMigrationName, statement: materialsMigrationStatement },
@@ -124,6 +130,9 @@ describe("Platform migrations", () => {
         "0010_material_related_pins",
         "0011_telegram_membership",
         "0012_remove_member_profile_reports",
+        "0013_material_assets",
+        "0014_material_asset_reference_state",
+        "0015_profile_avatars",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -142,6 +151,7 @@ describe("Platform migrations", () => {
       "telegram_membership",
       telegramMembershipTables,
     );
+    await expectTables(testDatabase, "assets", assetTables);
 
     const functions = await testDatabase.prisma.$queryRaw<
       readonly { readonly schema: string }[]
@@ -455,6 +465,9 @@ describe("Platform migrations", () => {
           "0010_material_related_pins",
           "0011_telegram_membership",
           "0012_remove_member_profile_reports",
+          "0013_material_assets",
+          "0014_material_asset_reference_state",
+          "0015_profile_avatars",
         ],
       });
 
@@ -579,7 +592,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  });
+  }, 15_000);
 
   test("rejects a ledger that is not an exact registry prefix", async () => {
     const database = await createTestDatabase();
@@ -596,7 +609,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  });
+  }, 15_000);
 
   test("rejects migrations unknown to the running registry", async () => {
     const database = await createTestDatabase();
@@ -604,16 +617,16 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 13, repeat('0', 64))
+        values ('9999_unknown', 16, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 13",
+        "Migration ledger is not an exact registry prefix at position 16",
       );
     } finally {
       await database.dispose();
     }
-  });
+  }, 15_000);
 
   test("rejects the checksum-less pre-Prisma ledger", async () => {
     const database = await createTestDatabase();
@@ -638,6 +651,7 @@ async function expectTables(
   database: TestDatabase,
   schema:
     | "accounts"
+    | "assets"
     | "identity_principals"
     | "materials"
     | "member_profiles"

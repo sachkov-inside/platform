@@ -139,9 +139,12 @@ same unit, adapter, integration, and HTTP outcomes before changing product behav
 - Nest owns the HTTP wire contract. Commit the deterministic schema and generated Web transport
   types, and run `pnpm api:generate` after changing an operation. `pnpm api:check` is the drift
   fitness function used by CI.
-- `apps/web/src/shared/api/backend` owns direct Nest requests, the generated client and its local
-  HTTP adapter, backend URL configuration and request timeouts. Application code imports that module's interface;
-  it does not duplicate Nest URLs or import the codegen runtime or generated artifacts directly.
+- `apps/web/src/shared/config` owns server-only runtime environment parsing and validation,
+  including the backend URL. `apps/web/src/shared/api/backend` owns direct Nest requests, the
+  generated client, its local HTTP adapter and request timeouts, and consumes the typed runtime
+  config. Other application code imports these modules' interfaces; it does not read application
+  environment variables, duplicate Nest URLs, or import the codegen runtime or generated artifacts
+  directly.
 - Treat generated response types as compile-time guidance, not runtime proof. Feature adapters keep
   external response bodies as `unknown`, validate focused wire schemas with Zod, and then map known
   Problem Details into feature outcomes and success bodies into presentation models.
@@ -149,9 +152,22 @@ same unit, adapter, integration, and HTTP outcomes before changing product behav
   calls same-origin, feature-owned Next BFF routes. Do not add a universal proxy, generated TanStack
   hooks, generated Zod schemas or generated UI models without a concrete consumer and a new owner
   decision.
-- `pnpm --filter @inside/web guardrails` owns this seam's import and browser-bypass fitness
-  functions, including the negative fixture. Focused Web tests own transport error mapping and
-  TanStack hydration behaviour.
+- Interactive Web writes use TanStack `useMutation`, a browser adapter and a capability-owned Route
+  Handler. The shared BFF helper owns Origin, session, private no-store and a bounded transport
+  boundary. Its default is 2 MiB; a larger capability uses an explicitly named, narrowly scoped
+  override with focused boundary tests. The feature owns input parsing and outcome mapping. Model
+  each product operation as a named mutation with exact input/result types and a browser adapter
+  that declares a literal same-origin route and HTTP method. Do not select unrelated writes through
+  `operation`, `mode`, a dynamic route or a dynamic method. Server Actions are outside the current
+  mutation contract; ADR 0012 owns these trade-offs.
+- Each server-state surface has one runtime cache owner. A browser-owned live or infinite surface
+  renders only its shell in RSC and does not prefetch or dehydrate the same query. A surface that
+  requires server-rendered initial results uses request-isolated TanStack prefetch and hydration as
+  one coherent path.
+- `pnpm --filter @inside/web guardrails` owns environment ownership, browser bypass, FSD direction,
+  Server Action, explicit browser mutation and lightweight authoring bundle fitness functions,
+  including negative fixtures. Focused Web tests own runtime config validation, transport error
+  mapping and the selected TanStack client or hydration behaviour.
 - Keep editor and explicit CLI checks on a committed TypeScript project that excludes stale
   `.next/dev` artifacts. Next route generation uses its managed project and the project-local
   TypeScript 7 CLI; do not re-enable the removed JavaScript compiler API checker.

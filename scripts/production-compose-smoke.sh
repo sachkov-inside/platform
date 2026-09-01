@@ -6,53 +6,75 @@ cd "$repository_root"
 
 http_port="${PRODUCTION_SMOKE_HTTP_PORT:-38080}"
 https_port="${PRODUCTION_SMOKE_HTTPS_PORT:-38443}"
-source_revision="$(git rev-parse HEAD)"
-smoke_suffix="${source_revision:0:12}-$$"
-project_name="inside-platform-production-smoke-${smoke_suffix}"
+project_name="inside-platform-production-smoke-$$"
+runtime_config_dir="$(mktemp -d "${TMPDIR:-/tmp}/inside-platform-production-smoke-env.XXXXXX")"
+postgres_db=inside
+postgres_user=inside
 
 export PLATFORM_COMPOSE_PROJECT="$project_name"
-export PLATFORM_DOMAIN=localhost
 export PLATFORM_HTTP_PORT="$http_port"
 export PLATFORM_HTTPS_PORT="$https_port"
-export PLATFORM_API_IMAGE_REPOSITORY=local.invalid/inside-platform-api
-export PLATFORM_API_IMAGE_DIGEST=0000000000000000000000000000000000000000000000000000000000000000
-export PLATFORM_MIGRATION_IMAGE_REPOSITORY=local.invalid/inside-platform-api
-export PLATFORM_MIGRATION_IMAGE_DIGEST=0000000000000000000000000000000000000000000000000000000000000000
-export PLATFORM_WEB_IMAGE_REPOSITORY=local.invalid/inside-platform-web
-export PLATFORM_WEB_IMAGE_DIGEST=0000000000000000000000000000000000000000000000000000000000000000
-export PLATFORM_API_BUILD_IMAGE="inside-platform-api:production-smoke-${smoke_suffix}"
-export PLATFORM_WEB_BUILD_IMAGE="inside-platform-web:production-smoke-${smoke_suffix}"
-export SOURCE_REVISION="$source_revision"
-export POSTGRES_DB=inside
-export POSTGRES_USER=inside_admin
-export POSTGRES_PASSWORD=inside-production-smoke-bootstrap-password
-export MIGRATION_DATABASE_USER=inside_migrator
-export MIGRATION_DATABASE_PASSWORD=inside-production-smoke-migration-password
-export APPLICATION_DATABASE_USER=inside_app
-export APPLICATION_DATABASE_PASSWORD=inside-production-smoke-application-password
-export MIGRATION_DATABASE_URL=postgresql://inside_migrator:inside-production-smoke-migration-password@postgres:5432/inside
-export DATABASE_URL=postgresql://inside_app:inside-production-smoke-application-password@postgres:5432/inside
-export LOGTO_ISSUER=https://identity.production-smoke.invalid/oidc
-export LOGTO_ENDPOINT=https://identity.production-smoke.invalid
-export LOGTO_AUDIENCE=https://api.production-smoke.invalid
-export LOGTO_JWKS_URL=https://identity.production-smoke.invalid/oidc/jwks
-export LOGTO_APP_ID=inside-production-smoke
-export LOGTO_APP_SECRET=inside-production-smoke-app-secret
-export LOGTO_COOKIE_SECRET=inside-production-smoke-cookie-secret-key
-export IDENTITY_EMAIL_FINGERPRINT_KEY=inside-production-smoke-email-fingerprint-key
-export MEMBERSHIP_ACQUISITION_URL=https://membership.production-smoke.invalid
-export TELEGRAM_BOT_START_URL=https://t.me/inside_production_smoke_bot
-export TELEGRAM_LINKING_ENDPOINT=https://telegram.production-smoke.invalid/integrations/platform/v1/identity-links
-export TELEGRAM_LINKING_SECRET=inside-production-smoke-linking-secret
-export TELEGRAM_EVIDENCE_INGRESS_SECRET=inside-production-smoke-evidence-secret
-export TELEGRAM_LINK_LIFETIME_SECONDS=300
-export WEB_BASE_URL="https://localhost:${https_port}"
+export PLATFORM_CONFIG_DIR="$runtime_config_dir"
+
+cat >"$runtime_config_dir/postgres.env" <<EOF
+POSTGRES_DB=$postgres_db
+POSTGRES_USER=$postgres_user
+POSTGRES_PASSWORD=inside-production-smoke-password
+EOF
+
+cat >"$runtime_config_dir/migrations.env" <<EOF
+NODE_ENV=production
+DATABASE_URL=postgresql://inside:inside-production-smoke-password@postgres:5432/inside
+EOF
+
+cat >"$runtime_config_dir/api.env" <<EOF
+NODE_ENV=production
+DATABASE_URL=postgresql://inside:inside-production-smoke-password@postgres:5432/inside
+API_HOST=0.0.0.0
+API_PORT=3001
+LOGTO_ISSUER=https://identity.production-smoke.invalid/oidc
+LOGTO_AUDIENCE=https://api.production-smoke.invalid
+LOGTO_JWKS_URL=https://identity.production-smoke.invalid/oidc/jwks
+IDENTITY_EMAIL_FINGERPRINT_KEY=inside-production-smoke-email-fingerprint-key
+MEMBERSHIP_ACQUISITION_URL=https://membership.production-smoke.invalid
+TELEGRAM_BOT_START_URL=https://t.me/inside_production_smoke_bot
+TELEGRAM_LINKING_ENDPOINT=https://telegram.production-smoke.invalid/integrations/platform/v1/identity-links
+TELEGRAM_LINKING_SECRET=inside-production-smoke-linking-secret
+TELEGRAM_EVIDENCE_INGRESS_SECRET=inside-production-smoke-evidence-secret
+TELEGRAM_LINK_LIFETIME_SECONDS=300
+OBJECT_STORAGE_ENDPOINT=https://storage.production-smoke.invalid
+OBJECT_STORAGE_REGION=ru-central1
+OBJECT_STORAGE_ACCESS_KEY_ID=inside-production-smoke-storage-access-key
+OBJECT_STORAGE_SECRET_ACCESS_KEY=inside-production-smoke-storage-secret-key
+OBJECT_STORAGE_PUBLIC_BUCKET=inside-production-smoke-public
+OBJECT_STORAGE_PROTECTED_BUCKET=inside-production-smoke-protected
+OBJECT_STORAGE_QUARANTINE_BUCKET=inside-production-smoke-quarantine
+OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS=60
+MATERIAL_ASSET_ORPHAN_GRACE_SECONDS=86400
+PROFILE_AVATAR_ORPHAN_GRACE_SECONDS=86400
+EOF
+
+cp "$runtime_config_dir/api.env" "$runtime_config_dir/profile-avatars-worker.env"
+
+cat >"$runtime_config_dir/web.env" <<EOF
+NODE_ENV=production
+BACKEND_BASE_URL=http://api:3001
+LOGTO_ENDPOINT=https://identity.production-smoke.invalid
+LOGTO_AUDIENCE=https://api.production-smoke.invalid
+LOGTO_APP_ID=inside-production-smoke
+LOGTO_APP_SECRET=inside-production-smoke-app-secret
+LOGTO_COOKIE_SECRET=inside-production-smoke-cookie-secret-key
+WEB_BASE_URL=https://localhost:${https_port}
+EOF
+
+cat >"$runtime_config_dir/caddy.env" <<EOF
+PLATFORM_DOMAIN=localhost
+EOF
 
 compose=(
   docker compose
   --project-name "$project_name"
   --file compose.production.yaml
-  --file compose.production.build.yaml
 )
 
 cleanup() {
@@ -60,14 +82,11 @@ cleanup() {
   local cleanup_status=0
   trap - EXIT
 
-  if ! "${compose[@]}" down --volumes --remove-orphans; then
-    echo "Failed to remove production smoke containers or persistent data" >&2
+  if ! "${compose[@]}" down --rmi local --volumes --remove-orphans; then
+    echo "Failed to remove production smoke containers, local images or persistent data" >&2
     cleanup_status=1
   fi
-  if ! docker image rm "$PLATFORM_API_BUILD_IMAGE" "$PLATFORM_WEB_BUILD_IMAGE"; then
-    echo "Failed to remove production smoke image tags" >&2
-    cleanup_status=1
-  fi
+  rm -r "$runtime_config_dir"
 
   if ((test_status != 0)); then
     exit "$test_status"
@@ -77,8 +96,21 @@ cleanup() {
 trap cleanup EXIT
 
 "${compose[@]}" config --quiet
-"${compose[@]}" build api web
-"${compose[@]}" up --detach --wait
+"${compose[@]}" up --detach --build --wait
+
+avatar_worker_container_id="$("${compose[@]}" ps --quiet profile-avatars-worker)"
+avatar_worker_state="$(docker container inspect "$avatar_worker_container_id" --format '{{.State.Status}}:{{.RestartCount}}')"
+if [[ "$avatar_worker_state" != "running:0" ]]; then
+  echo "Profile Avatar worker did not stay running without restarts: $avatar_worker_state" >&2
+  "${compose[@]}" logs profile-avatars-worker >&2
+  exit 1
+fi
+avatar_worker_logs="$("${compose[@]}" logs profile-avatars-worker)"
+if [[ "$avatar_worker_logs" != *'"process":"profile-avatars-worker","status":"ready"'* ]]; then
+  echo "Profile Avatar worker did not report readiness" >&2
+  printf '%s\n' "$avatar_worker_logs" >&2
+  exit 1
+fi
 
 api_health="$(
   "${compose[@]}" exec -T api node -e \
@@ -94,7 +126,9 @@ home_response="$(
     --fail \
     --insecure \
     --retry 10 \
+    --retry-all-errors \
     --retry-connrefused \
+    --retry-delay 1 \
     --silent \
     --show-error \
     "https://localhost:${https_port}/"
@@ -109,7 +143,9 @@ library_response="$(
     --fail \
     --insecure \
     --retry 10 \
+    --retry-all-errors \
     --retry-connrefused \
+    --retry-delay 1 \
     --silent \
     --show-error \
     "https://localhost:${https_port}/library"
@@ -128,8 +164,8 @@ expected_migration_count="$(
 )"
 migration_count="$(
   "${compose[@]}" exec -T postgres psql \
-    --username "$POSTGRES_USER" \
-    --dbname "$POSTGRES_DB" \
+    --username "$postgres_user" \
+    --dbname "$postgres_db" \
     --tuples-only \
     --no-align \
     --command "select count(*) from public.platform_migrations;"
@@ -139,68 +175,4 @@ if [[ "$migration_count" != "$expected_migration_count" ]]; then
   exit 1
 fi
 
-migration_role_contract="$(
-  "${compose[@]}" exec -T postgres psql \
-    --username "$POSTGRES_USER" \
-    --dbname "$POSTGRES_DB" \
-    --tuples-only \
-    --no-align \
-    --command "select concat(rolsuper, ':', rolcreatedb, ':', rolcreaterole, ':', rolreplication, ':', rolbypassrls) from pg_roles where rolname = '$MIGRATION_DATABASE_USER';"
-)"
-if [[ "$migration_role_contract" != "f:f:f:f:f" ]]; then
-  echo "Migration database role exceeds its schema-owner contract: $migration_role_contract" >&2
-  exit 1
-fi
-
-runtime_role_contract="$(
-  "${compose[@]}" exec -T postgres psql \
-    --username "$POSTGRES_USER" \
-    --dbname "$POSTGRES_DB" \
-    --tuples-only \
-    --no-align \
-    --command "select concat(rolsuper, ':', rolcreatedb, ':', rolcreaterole, ':', rolreplication, ':', rolbypassrls, ':', has_schema_privilege(rolname, 'materials', 'create'), ':', has_table_privilege(rolname, 'public.platform_migrations', 'select')) from pg_roles where rolname = '$APPLICATION_DATABASE_USER';"
-)"
-if [[ "$runtime_role_contract" != "f:f:f:f:f:f:f" ]]; then
-  echo "Application database role exceeds its runtime contract: $runtime_role_contract" >&2
-  exit 1
-fi
-
-runtime_material_count="$(
-  "${compose[@]}" exec -T \
-    --env "PGPASSWORD=$APPLICATION_DATABASE_PASSWORD" \
-    postgres psql \
-      --host postgres \
-      --username "$APPLICATION_DATABASE_USER" \
-      --dbname "$POSTGRES_DB" \
-      --tuples-only \
-      --no-align \
-      --command "select count(*) from materials.materials;"
-)"
-if [[ "$runtime_material_count" != "0" ]]; then
-  echo "Application database role could not read the migrated schema" >&2
-  exit 1
-fi
-
-for image in "$PLATFORM_API_BUILD_IMAGE" "$PLATFORM_WEB_BUILD_IMAGE"; do
-  image_user="$(docker image inspect "$image" --format '{{.Config.User}}')"
-  image_revision="$(
-    docker image inspect "$image" \
-      --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
-  )"
-  if [[ "$image_user" != "node" ]]; then
-    echo "Expected $image to run as node, received $image_user" >&2
-    exit 1
-  fi
-  if [[ "$image_revision" != "$source_revision" ]]; then
-    echo "Expected $image revision $source_revision, received $image_revision" >&2
-    exit 1
-  fi
-done
-
-if ! docker run --rm --entrypoint sh "$PLATFORM_API_BUILD_IMAGE" -c \
-  "test ! -e /app/dist/development && test ! -e /app/dist/entrypoints/mcp.js"; then
-  echo "API image contains a development or unrelated process entrypoint" >&2
-  exit 1
-fi
-
-echo "Production Compose smoke passed: immutable app images -> migrations -> API -> web -> Caddy"
+echo "Production Compose smoke passed: migrations -> Profile Avatar worker -> API -> web -> Caddy"

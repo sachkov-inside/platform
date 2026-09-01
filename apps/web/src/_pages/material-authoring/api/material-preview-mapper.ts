@@ -2,89 +2,10 @@ import "server-only";
 
 import { z } from "zod";
 
-import type {
-  MaterialPreviewBlock,
-  MaterialPreviewMark,
-  MaterialPreviewPresentation,
-  MaterialPreviewText,
-} from "@/features/material-authoring";
+import { renderedMaterialBodySchema } from "@/entities/material";
+import type { MaterialPreviewPresentation } from "@/widgets/material-authoring/model";
 
-import type { MaterialAuthoringReferences } from "./get-material-authoring-references";
-
-const markSchema: z.ZodType<MaterialPreviewMark> = z.union([
-  z.object({ kind: z.enum(["bold", "code", "italic", "strike"]) }).strict(),
-  z.object({ href: z.string(), kind: z.literal("link") }).strict(),
-]);
-
-const textSchema: z.ZodType<MaterialPreviewText> = z
-  .object({
-    kind: z.literal("text"),
-    marks: z.array(markSchema),
-    text: z.string(),
-  })
-  .strict();
-
-const blockSchema: z.ZodType<MaterialPreviewBlock> = z.lazy(() =>
-  z.discriminatedUnion("kind", [
-    z.object({ content: z.array(textSchema), kind: z.literal("paragraph") }).strict(),
-    z
-      .object({
-        content: z.array(textSchema),
-        kind: z.literal("heading"),
-        level: z.union([z.literal(2), z.literal(3), z.literal(4)]),
-      })
-      .strict(),
-    z.object({ items: z.array(z.array(blockSchema)), kind: z.literal("bullet_list") }).strict(),
-    z.object({ items: z.array(z.array(blockSchema)), kind: z.literal("ordered_list") }).strict(),
-    z.object({ content: z.array(blockSchema), kind: z.literal("blockquote") }).strict(),
-    z.object({ kind: z.literal("code_block"), text: z.string() }).strict(),
-    z.object({ kind: z.literal("horizontal_rule") }).strict(),
-    z
-      .object({
-        kind: z.literal("table"),
-        rows: z.array(
-          z
-            .object({
-              cells: z.array(
-                z
-                  .object({
-                    content: z.array(blockSchema),
-                    header: z.boolean(),
-                  })
-                  .strict(),
-              ),
-            })
-            .strict(),
-        ),
-      })
-      .strict(),
-    z
-      .object({
-        content: z.array(blockSchema),
-        kind: z.literal("callout"),
-        tone: z.enum(["note", "tip", "warning"]),
-      })
-      .strict(),
-    z
-      .object({
-        alt: z.string(),
-        assetId: z.uuid(),
-        caption: z.string().optional(),
-        kind: z.literal("image"),
-      })
-      .strict(),
-    z
-      .object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() })
-      .strict(),
-    z
-      .object({
-        caption: z.string().optional(),
-        kind: z.literal("video"),
-        videoId: z.uuid(),
-      })
-      .strict(),
-  ]),
-);
+import type { MaterialAuthoringReferences } from "@/features/material-authoring-references.server";
 
 const seriesMembershipSchema = z
   .object({ ordinal: z.number().int().positive(), seriesId: z.uuid() })
@@ -92,7 +13,7 @@ const seriesMembershipSchema = z
 
 const previewSchema = z
   .object({
-    body: z.object({ blocks: z.array(blockSchema), schemaVersion: z.literal(1) }).strict(),
+    body: renderedMaterialBodySchema,
     cacheScope: z.literal("private-no-store"),
     contentVersion: z.number().int().positive(),
     materialId: z.uuid(),
@@ -151,11 +72,13 @@ export function mapCurrentMaterialPreview(
         accessLabel:
           current.metadata.access === "membership" ? "Для участников" : "Бесплатный",
         blocks: current.body.blocks,
+        contentVersion: current.contentVersion,
         format: referenceLabel(
           current.metadata.formatId,
           references?.formats,
           "Формат не назначен",
         ),
+        materialId: current.materialId,
         summary: current.metadata.summary ?? "Без описания",
         tags: current.metadata.tagIds.map(
           (tagId) =>

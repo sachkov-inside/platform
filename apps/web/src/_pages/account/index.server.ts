@@ -1,4 +1,7 @@
-export { accountProfileServerQueryOptions } from "./api/account-profile-query.server";
-export { handleAccountProfileRequest } from "./api/account-profile-route.server";
+export {
+  handleAccountProfileRequest,
+  handleCreateMemberProfileRequest,
+  handleUpdateMemberProfileRequest,
+} from "./api/account-profile-route.server";
 export { getPrivateMemberProfile } from "./api/get-private-member-profile";
-export { saveMemberProfileAction } from "./api/member-profile.actions";
+export { proxyProfileAvatarMutation } from "./api/profile-avatar-bff.server";

@@ -12,7 +12,7 @@ import {
   LibraryUnexpectedError,
 } from "@/_pages/library/ui/library-page";
 import { LibraryCatalogQueryView } from "@/_pages/library/ui/library-page-query.client";
-import { VirtualizedLibraryCatalog } from "@/_pages/library/ui/virtualized-library-catalog.client";
+import { InfiniteLibraryCatalog } from "@/_pages/library/ui/infinite-library-catalog.client";
 import type { MaterialPreview } from "@/entities/material";
 import {
   ApplicationShell,
@@ -146,7 +146,7 @@ function AutoLoadCatalogHarness() {
   const [pageCount, setPageCount] = useState(1);
 
   return (
-    <VirtualizedLibraryCatalog
+    <InfiniteLibraryCatalog
       hasNextPage={pageCount < 2}
       isFetchNextPageError={false}
       isFetchingNextPage={false}
@@ -165,7 +165,7 @@ function RetryCatalogHarness() {
   return (
     <>
       <output aria-label="Попыток повторной загрузки">{attempts}</output>
-      <VirtualizedLibraryCatalog
+      <InfiniteLibraryCatalog
         hasNextPage
         isFetchNextPageError
         isFetchingNextPage={false}
@@ -190,16 +190,19 @@ function CachedCatalogNavigationHarness() {
         },
       }),
   );
-  const queryOptions = useMemo(
-    () =>
-      createLibraryCatalogQueryOptions(({ after }) => {
-        setRequestCount((current) => current + 1);
-        return Promise.resolve(
-          after === undefined
-            ? createCatalogPage(0)
-            : { ...createCatalogPage(1), nextCursor: null },
-        );
-      }, "storybook-viewer", defaultQuery),
+  const createQueryOptions = useMemo(
+    () => (query: LibrarySearchQuery) =>
+      createLibraryCatalogQueryOptions(
+        ({ after }) => {
+          setRequestCount((current) => current + 1);
+          return Promise.resolve(
+            after === undefined
+              ? createCatalogPage(0)
+              : { ...createCatalogPage(1), nextCursor: null },
+          );
+        },
+        query,
+      ),
     [],
   );
 
@@ -212,7 +215,6 @@ function CachedCatalogNavigationHarness() {
         {screen === "idle" ? (
           <button
             onClick={() => {
-              window.sessionStorage.removeItem("inside:library-scroll:v1");
               queryClient.clear();
               setScreen("catalog");
             }}
@@ -244,8 +246,8 @@ function CachedCatalogNavigationHarness() {
       </div>
       {screen === "catalog" ? (
         <LibraryCatalogQueryView
-          query={defaultQuery}
-          queryOptions={queryOptions}
+          createQueryOptions={createQueryOptions}
+          initialQuery={defaultQuery}
         />
       ) : null}
       {screen === "detail" ? <p>Карточка материала</p> : null}
@@ -267,7 +269,7 @@ function ProductionShell({ children }: { readonly children: React.ReactNode }) {
 }
 
 const meta = {
-  args: { query: defaultQuery },
+  args: { onQueryChange: () => undefined, query: defaultQuery },
   component: LibraryPage,
   decorators: [
     (Story) => (
@@ -280,7 +282,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Production-owned Library presentation used by the RSC route and Storybook fixtures, including canonical Topic and Series links.",
+          "Production-owned client Library presentation and Storybook fixtures, including immediate filters plus canonical Topic and Series links.",
       },
     },
     nextjs: { appDirectory: true },
@@ -323,7 +325,7 @@ export const ReadyDesktop: Story = {
     ).toHaveAttribute("href", "/topics/product-engineering");
     await expect(
       within(firstCard).getByRole("link", {
-        name: "Создание Platform Inside · выпуск 5",
+        name: "Создание Platform Inside № 5",
       }),
     ).toHaveAttribute("href", "/series/platform-inside");
     await expect(canvas.getByText("Бесплатно")).toBeInTheDocument();
@@ -465,12 +467,12 @@ export const AutoLoadsContinuation: Story = {
   },
 };
 
-export const VirtualizesLoadedPages: Story = {
+export const RendersLoadedPages: Story = {
   args: { result: { kind: "empty" } },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
-  name: "Infinite catalog · virtualization",
+  name: "Infinite catalog · loaded pages",
   render: () => (
-    <VirtualizedLibraryCatalog
+    <InfiniteLibraryCatalog
       hasNextPage={false}
       isFetchNextPageError={false}
       isFetchingNextPage={false}
@@ -480,16 +482,8 @@ export const VirtualizesLoadedPages: Story = {
     />
   ),
   play: async ({ canvasElement }) => {
-    const main = canvasElement.querySelector<HTMLElement>("main");
-    if (main === null) {
-      throw new Error("Application shell main scroll container is missing");
-    }
-
-    await expect(canvasElement.querySelectorAll("article").length).toBeLessThan(96);
-    main.scrollTo({ top: main.scrollHeight });
-    await waitFor(() =>
-      expect(within(canvasElement).getByText("Материал 8.12")).toBeInTheDocument(),
-    );
+    await expect(canvasElement.querySelectorAll("article")).toHaveLength(96);
+    await expect(within(canvasElement).getByText("Материал 8.12")).toBeInTheDocument();
   },
 };
 
@@ -510,29 +504,27 @@ export const RetriesContinuationExplicitly: Story = {
   },
 };
 
-export const RestoresCatalogScroll: Story = {
+export const ReusesCachedCatalog: Story = {
   args: { result: { kind: "empty" } },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
-  name: "Infinite catalog · cached navigation restoration",
+  name: "Infinite catalog · cached remount",
   render: () => <CachedCatalogNavigationHarness />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const main = canvasElement.querySelector<HTMLElement>("main");
-    if (main === null) {
-      throw new Error("Application shell main scroll container is missing");
-    }
-
     await userEvent.click(canvas.getByRole("button", { name: "Начать проверку" }));
-    await waitFor(() => expect(main.scrollHeight).toBeGreaterThan(1_000));
-    main.scrollTo({ top: main.scrollHeight });
+    await waitFor(() =>
+      expect(canvas.getByText("Материал 1.12")).toBeInTheDocument(),
+    );
+    const loadMore = canvas.queryByRole("button", { name: "Показать ещё" });
+    if (loadMore !== null) {
+      await userEvent.click(loadMore);
+    }
     await waitFor(() =>
       expect(canvas.getByText("Материал 2.12")).toBeInTheDocument(),
     );
     await expect(
       canvas.getByRole("status", { name: "Запросов к каталогу" }),
     ).toHaveTextContent("2");
-    main.scrollTo({ top: 1_000 });
-    await waitFor(() => expect(main.scrollTop).toBeGreaterThan(800));
     await userEvent.click(canvas.getByRole("button", { name: "Открыть материал" }));
     await userEvent.click(
       canvas.getByRole("button", { name: "Вернуться в базу знаний" }),
@@ -543,7 +535,6 @@ export const RestoresCatalogScroll: Story = {
     await expect(
       canvas.getByRole("status", { name: "Запросов к каталогу" }),
     ).toHaveTextContent("2");
-    await waitFor(() => expect(main.scrollTop).toBeGreaterThan(800));
   },
 };
 

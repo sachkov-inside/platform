@@ -6,10 +6,9 @@ import {
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
   MaterialAuthoringUnexpectedEditorState,
-  type MaterialAuthoringPresentation,
-  withAuthoringReturnHref,
-} from "@/features/material-authoring";
-import { mutateMaterialLifecycleAction } from "@/features/material-authoring.server";
+} from "@/widgets/material-authoring/route-states";
+import type { MaterialAuthoringPresentation } from "@/widgets/material-authoring/model";
+import { withAuthoringReturnHref } from "@/shared/routing/authoring";
 import {
   getPlatformAccessTokenRsc,
   LogtoSessionUnavailableError,
@@ -17,7 +16,6 @@ import {
 } from "@/shared/auth/index.server";
 
 import { getCurrentMaterial } from "../api/get-current-material";
-import { saveMaterialAction } from "../api/save-material.action";
 import { MaterialAuthoringPageClient } from "./material-authoring-page.client";
 
 export async function CurrentMaterialAuthoringPage({
@@ -71,7 +69,7 @@ export async function CurrentMaterialAuthoringPage({
     availableTopics: state.references.references.topics,
     authorization: { kind: "allowed" },
     blocking: { kind: "none" },
-    deletion: { pending: false, state: { kind: "idle" } },
+    deletion: { pending: false, result: null },
     draft: state.draft,
     mode: "editor",
     noticeRevision: 0,
@@ -84,8 +82,6 @@ export async function CurrentMaterialAuthoringPage({
     <MaterialAuthoringPageClient
       initialPresentation={initialPresentation}
       key={materialId}
-      lifecycleAction={mutateMaterialLifecycleAction}
-      mutationAction={saveMaterialAction}
       returnHref={returnHref}
     />
   );

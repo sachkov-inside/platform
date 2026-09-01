@@ -43,6 +43,10 @@ import {
   statement as removeMemberProfileReportsMigrationStatement,
 } from "../modules/member-profiles/infrastructure/postgres/migrations/0012-remove-member-profile-reports.js";
 import {
+  name as profileAvatarsMigrationName,
+  statement as profileAvatarsMigrationStatement,
+} from "../modules/member-profiles/infrastructure/postgres/migrations/0015-profile-avatars.js";
+import {
   name as publishedMaterialSearchMigrationName,
   statement as publishedMaterialSearchMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0009-published-material-search.js";
@@ -50,6 +54,14 @@ import {
   name as telegramMembershipMigrationName,
   statement as telegramMembershipMigrationStatement,
 } from "../modules/telegram-membership/infrastructure/postgres/migrations/0011-telegram-membership.js";
+import {
+  name as materialAssetsMigrationName,
+  statement as materialAssetsMigrationStatement,
+} from "../modules/assets/infrastructure/postgres/migrations/0013-material-assets.js";
+import {
+  name as materialAssetReferenceStateMigrationName,
+  statement as materialAssetReferenceStateMigrationStatement,
+} from "../modules/assets/infrastructure/postgres/migrations/0014-material-asset-reference-state.js";
 
 const migrations = [
   {
@@ -99,6 +111,18 @@ const migrations = [
   {
     name: removeMemberProfileReportsMigrationName,
     statement: removeMemberProfileReportsMigrationStatement,
+  },
+  {
+    name: materialAssetsMigrationName,
+    statement: materialAssetsMigrationStatement,
+  },
+  {
+    name: materialAssetReferenceStateMigrationName,
+    statement: materialAssetReferenceStateMigrationStatement,
+  },
+  {
+    name: profileAvatarsMigrationName,
+    statement: profileAvatarsMigrationStatement,
   },
 ] as const;
 

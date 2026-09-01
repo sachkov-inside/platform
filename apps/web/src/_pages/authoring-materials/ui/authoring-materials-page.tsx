@@ -3,7 +3,6 @@ import {
   LogtoSessionUnavailableError,
   readLogtoBffConfig,
 } from "@/shared/auth/index.server";
-import { mutateMaterialLifecycleAction } from "@/features/material-authoring.server";
 
 import { getAuthoringMaterials } from "../api/get-authoring-materials";
 import {
@@ -30,7 +29,6 @@ export async function AuthoringMaterialsPage({
     if (error instanceof LogtoSessionUnavailableError) {
       return (
         <AuthoringMaterialsView
-          lifecycleAction={mutateMaterialLifecycleAction}
           query={query}
           state={{ kind: "signed_out" }}
         />
@@ -41,7 +39,6 @@ export async function AuthoringMaterialsPage({
 
   return (
     <AuthoringMaterialsView
-      lifecycleAction={mutateMaterialLifecycleAction}
       query={query}
       state={await getAuthoringMaterials(query, accessToken)}
     />

@@ -5,18 +5,35 @@ import type {
   AuthoringMaterialsQuery,
   AuthoringMaterialsState,
 } from "@/_pages/authoring-materials/model/authoring-materials-presentation";
-import type { MaterialLifecycleActionState } from "@/features/material-authoring";
 import {
   AuthoringMaterialsLoading,
   AuthoringMaterialsView,
 } from "@/_pages/authoring-materials/ui/authoring-materials-view";
+import { withMutationFetch } from "./mutation-mock";
+
+const lifecycleMutationSpy = fn(
+  (_input: RequestInfo | URL, init?: RequestInit) => {
+    const formData = init?.body;
+    if (!(formData instanceof FormData)) {
+      return Promise.resolve(new Response(null, { status: 400 }));
+    }
+    const publicationState = formData.get("publicationState");
+    return Promise.resolve(
+      Response.json({
+        contentVersion: publicationState === "published" ? 5 : 6,
+        kind: "saved",
+        nextSubmissionId:
+          publicationState === "published"
+            ? "96000000-0000-4000-8000-000000000021"
+            : "96000000-0000-4000-8000-000000000022",
+        publicationState:
+          publicationState === "published" ? "published" : "unpublished",
+      }),
+    );
+  },
+);
 
 const query = { page: 1 } satisfies AuthoringMaterialsQuery;
-const lifecycleAction = fn(
-  (
-    state: MaterialLifecycleActionState,
-  ): Promise<MaterialLifecycleActionState> => Promise.resolve(state),
-);
 const readyState = {
   kind: "ready",
   items: [
@@ -62,7 +79,6 @@ const readyState = {
 
 const meta = {
   args: {
-    lifecycleAction,
     query,
     state: readyState,
   },
@@ -105,6 +121,43 @@ export const Populated: Story = {
   },
 };
 
+export const PublicationUsesLatestReceipt: Story = {
+  args: {
+    state: {
+      ...readyState,
+      items: readyState.items.slice(2, 3),
+      totalItems: 1,
+      totalPages: 1,
+    },
+  },
+  decorators: [withMutationFetch(lifecycleMutationSpy)],
+  name: "Публикация · последовательные команды",
+  play: async ({ canvasElement }) => {
+    lifecycleMutationSpy.mockClear();
+    const canvas = within(canvasElement);
+
+    await userEvent.click(canvas.getByRole("button", { name: "Опубликовать" }));
+    await expect(await canvas.findByText("Материал опубликован.")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Снять с публикации" }));
+    await expect(
+      await canvas.findByText("Материал снят с публикации."),
+    ).toBeVisible();
+
+    const firstBody = lifecycleMutationSpy.mock.calls[0]?.[1]?.body;
+    const secondBody = lifecycleMutationSpy.mock.calls[1]?.[1]?.body;
+    await expect(firstBody).toBeInstanceOf(FormData);
+    await expect(secondBody).toBeInstanceOf(FormData);
+    if (!(firstBody instanceof FormData) || !(secondBody instanceof FormData)) return;
+    await expect(firstBody.get("publicationState")).toBe("published");
+    await expect(firstBody.get("expectedContentVersion")).toBe("4");
+    await expect(secondBody.get("publicationState")).toBe("unpublished");
+    await expect(secondBody.get("expectedContentVersion")).toBe("5");
+    await expect(secondBody.get("submissionId")).toBe(
+      "96000000-0000-4000-8000-000000000021",
+    );
+  },
+};
+
 export const Mobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Список · мобильный",
@@ -121,11 +174,13 @@ export const Keyboard: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.tab();
-    await expect(canvas.getByRole("link", { name: "Перейти к содержанию" })).toHaveFocus();
+    await expect(canvas.getByRole("link", { name: "Новый материал" })).toHaveFocus();
     await userEvent.tab();
-    await expect(canvas.getByRole("link", { name: /Редактор Inside/u })).toHaveFocus();
-    await userEvent.tab();
-    await expect(canvas.getByRole("link", { name: "Материалы" })).toHaveFocus();
+    await expect(
+      canvas.getByRole("searchbox", {
+        name: "Поиск по названию, описанию или адресу",
+      }),
+    ).toHaveFocus();
   },
 };
 

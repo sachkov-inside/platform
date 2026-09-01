@@ -23,6 +23,17 @@ export type MaterialsPrismaTransaction = MaterialsPrisma;
 export type MaterialsPrismaClient = MaterialsPrisma &
   TransactionClient<MaterialsPrismaTransaction>;
 
+export type AssetsPrisma = Pick<
+  PlatformPrisma,
+  | "$executeRaw"
+  | "$queryRaw"
+  | "materialAsset"
+  | "materialAssetVariant"
+>;
+export type AssetsPrismaTransaction = AssetsPrisma;
+export type AssetsPrismaClient = AssetsPrisma &
+  TransactionClient<AssetsPrismaTransaction>;
+
 export type AccountsPrisma = Pick<
   PlatformPrisma,
   "$queryRaw" | "account" | "accountAuditEvent" | "accountPermission"
@@ -31,7 +42,11 @@ export type AccountsPrismaClient = AccountsPrisma & TransactionClient<AccountsPr
 
 export type MemberProfilesPrisma = Pick<
   PlatformPrisma,
-  "memberProfile" | "memberProfileAuditEvent"
+  | "$executeRaw"
+  | "memberProfile"
+  | "memberProfileAuditEvent"
+  | "profileAvatar"
+  | "profileAvatarRendition"
 >;
 export type MemberProfilesPrismaClient = MemberProfilesPrisma &
   TransactionClient<MemberProfilesPrisma>;

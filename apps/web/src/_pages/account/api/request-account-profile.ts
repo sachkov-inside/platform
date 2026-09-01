@@ -1,4 +1,4 @@
-import type { PrivateMemberProfileResult } from "../model/member-profile";
+import type { PrivateMemberProfileResult } from "@/entities/member-profile";
 import { parsePrivateProfileState } from "./member-profile-contract";
 
 export async function requestAccountProfile(
@@ -6,7 +6,7 @@ export async function requestAccountProfile(
 ): Promise<PrivateMemberProfileResult> {
   let response: Response;
   try {
-    response = await fetch("/account/profile-state", {
+    response = await fetch("/api/account/profile", {
       cache: "no-store",
       headers: { accept: "application/json" },
       signal,

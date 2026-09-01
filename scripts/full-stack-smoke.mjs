@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 import { wrapSession } from "@logto/node";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 
+import { signalProcessGroup } from "./process-group-signal.mjs";
+
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpmPath = process.env.npm_execpath;
 
@@ -25,6 +27,7 @@ const webPort = process.env.FULLSTACK_WEB_PORT ?? "3000";
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
 const mcpPort = process.env.FULLSTACK_MCP_PORT ?? "3002";
 const mcpServerUrl = `http://127.0.0.1:${mcpPort}/mcp`;
+const fullStackAccessTokenTtlSeconds = 300;
 const childEnvironment = { ...process.env };
 childEnvironment.NODE_ENV ??= "development";
 const fullStackIdentity = await startFullStackIdentity();
@@ -90,13 +93,18 @@ try {
     ...childEnvironment,
     BACKEND_BASE_URL: apiBaseUrl,
   });
-  const accessToken = await fullStackIdentity.createAccessToken();
+  const mcpAccessToken = await fullStackIdentity.createAccessToken();
   await runPnpm(["--filter", "@inside/backend", "smoke:mcp-authoring"], {
     ...childEnvironment,
-    MCP_SMOKE_ACCESS_TOKEN: accessToken.token,
+    MCP_SMOKE_ACCESS_TOKEN: mcpAccessToken.token,
     MCP_SMOKE_SERVER_URL: mcpServerUrl,
   });
-  const fullStackSession = await fullStackIdentity.createSession(accessToken);
+  await runPnpm(
+    ["--filter", "@inside/backend", "smoke:grant-full-stack-membership"],
+    childEnvironment,
+  );
+  const browserAccessToken = await fullStackIdentity.createAccessToken();
+  const fullStackSession = await fullStackIdentity.createSession(browserAccessToken);
   await runPnpm(["--filter", "@inside/web", "test:fullstack"], {
     ...childEnvironment,
     FULLSTACK_API_BASE_URL: apiBaseUrl,
@@ -206,8 +214,8 @@ async function stopProcess({ child, detached }) {
   }
   if (process.platform === "win32" || !detached) {
     child.kill("SIGTERM");
-  } else {
-    signalProcessGroup(child.pid, "SIGTERM");
+  } else if (!signalProcessGroup(child.pid, "SIGTERM")) {
+    child.kill("SIGTERM");
   }
   await Promise.race([
     new Promise((resolveExit) => child.once("exit", resolveExit)),
@@ -216,8 +224,8 @@ async function stopProcess({ child, detached }) {
   if (child.exitCode === null) {
     if (process.platform === "win32" || !detached) {
       child.kill("SIGKILL");
-    } else {
-      signalProcessGroup(child.pid, "SIGKILL");
+    } else if (!signalProcessGroup(child.pid, "SIGKILL")) {
+      child.kill("SIGKILL");
     }
   }
 }
@@ -232,16 +240,6 @@ function cleanup() {
 async function handleSignal(signal) {
   interruptedSignal ??= signal;
   await cleanup();
-}
-
-function signalProcessGroup(pid, signal) {
-  try {
-    process.kill(-pid, signal);
-  } catch (error) {
-    if (!(error instanceof Error) || !Reflect.has(error, "code") || error.code !== "ESRCH") {
-      throw error;
-    }
-  }
 }
 
 function retainOutput(output, chunk) {
@@ -292,9 +290,9 @@ async function startFullStackIdentity() {
         .setAudience(audience)
         .setSubject(subject)
         .setIssuedAt(now)
-        .setExpirationTime(now + 300)
+        .setExpirationTime(now + fullStackAccessTokenTtlSeconds)
         .sign(keyPair.privateKey);
-      return { token, expiresAt: now + 300 };
+      return { token, expiresAt: now + fullStackAccessTokenTtlSeconds };
     },
     createSession: async ({ token, expiresAt }) => {
       return wrapSession(
@@ -321,7 +319,7 @@ async function startFullStackIdentity() {
       LOGTO_JWKS_URL: `http://127.0.0.1:${String(address.port)}/jwks`,
       OWNER_LOGTO_ISSUER: issuer,
       OWNER_LOGTO_SUBJECT: subject,
-      WEB_BASE_URL: "https://web.fullstack.test",
+      WEB_BASE_URL: webBaseUrl,
     },
     close: () =>
       new Promise((resolveClose, rejectClose) => {

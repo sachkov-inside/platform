@@ -11,13 +11,14 @@ import Link from "next/link";
 
 import type {
   LibraryDiscoveryKind,
-  LibraryDiscoveryResult,
-} from "@/_pages/library-discovery/model/library-discovery-view";
+  PublishedSeriesResult,
+  PublishedTopicResult,
+} from "@/features/library-discovery";
 import { MaterialCard, type MaterialPreview } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 
 type ResolvedDiscoveryResult = Exclude<
-  LibraryDiscoveryResult,
+  PublishedSeriesResult | PublishedTopicResult,
   { readonly kind: "not-found" | "unavailable" }
 >;
 
@@ -53,11 +54,6 @@ export function LibraryDiscoveryView({
         <h1 className="relative mt-2 max-w-[24ch] text-balance text-3xl font-semibold leading-[1.08] tracking-[-0.035em] sm:text-4xl @min-[64rem]/discovery:text-5xl">
           {result.reference.name}
         </h1>
-        <p className="relative mt-4 max-w-[62ch] text-pretty leading-7 text-muted-foreground">
-          {isSeries
-            ? "Материалы идут в порядке, который задал автор. Номер выпуска показывает текущее место в плейлисте."
-            : "Опубликованные материалы и плейлисты, связанные с этой темой."}
-        </p>
       </header>
 
       {result.kind === "empty" ? (
@@ -125,7 +121,7 @@ function SeriesMaterials({
             Выпуски
           </h2>
           <p className="mt-1 font-mono text-xs text-muted-foreground">
-            {result.items.length} в текущей выборке
+            {formatMaterialCount(result.items.length)}
           </p>
         </div>
         {topics.length > 0 ? (
@@ -177,11 +173,11 @@ function SeriesMaterials({
 function MaterialGrid({ items }: { readonly items: readonly MaterialPreview[] }) {
   return (
     <ul
-      className="mt-5 grid grid-cols-1 items-start justify-items-center gap-4 @min-[40rem]/discovery:grid-cols-2 @min-[68rem]/discovery:grid-cols-3"
+      className="mt-5 grid grid-cols-1 items-stretch justify-items-center gap-4 @min-[40rem]/discovery:grid-cols-2 @min-[68rem]/discovery:grid-cols-3"
       role="list"
     >
       {items.map((material) => (
-        <li className="w-full max-w-[28rem]" key={material.slug}>
+        <li className="h-full w-full max-w-[28rem]" key={material.slug}>
           <MaterialCard headingLevel="h3" material={material} />
         </li>
       ))}
@@ -199,16 +195,11 @@ function DiscoveryContinuation({
   }
   const parameter = result.discoveryKind === "series" ? "series" : "topic";
   return (
-    <p className="mt-6 max-w-[62ch] rounded-xl bg-muted px-4 py-3 text-sm leading-6 text-muted-foreground">
-      Здесь показана первая часть подборки. Полный список доступен в{" "}
-      <Link
-        className="font-semibold text-foreground underline decoration-border underline-offset-4 hover:decoration-accent"
-        href={`/library?${parameter}=${encodeURIComponent(result.reference.slug)}`}
-      >
-        Базе знаний
+    <Button asChild className="mt-6" variant="outline">
+      <Link href={`/library?${parameter}=${encodeURIComponent(result.reference.slug)}`}>
+        Показать все материалы
       </Link>
-      .
-    </p>
+    </Button>
   );
 }
 
@@ -219,9 +210,6 @@ function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
       <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em]">
         {kind === "series" ? "В плейлисте пока нет выпусков" : "В теме пока нет материалов"}
       </h2>
-      <p className="mt-3 max-w-[58ch] leading-7 text-muted-foreground">
-        Опубликованные материалы появятся здесь автоматически.
-      </p>
       <Button asChild className="mt-6" size="lg" variant="outline">
         <Link href="/library">Открыть Базу знаний</Link>
       </Button>
@@ -397,4 +385,19 @@ function uniqueBySlug<T extends { readonly name: string; readonly slug: string }
   items: readonly T[],
 ): readonly T[] {
   return [...new Map(items.map((item) => [item.slug, item])).values()];
+}
+
+function formatMaterialCount(count: number) {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  const noun =
+    mod100 >= 11 && mod100 <= 14
+      ? "материалов"
+      : mod10 === 1
+        ? "материал"
+        : mod10 >= 2 && mod10 <= 4
+          ? "материала"
+          : "материалов";
+
+  return `${String(count)} ${noun}`;
 }

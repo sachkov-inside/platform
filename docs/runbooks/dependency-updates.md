@@ -1,16 +1,19 @@
 # Dependency update policy
 
 Platform tracks the latest supported production-stable toolchain, not Current, preview or nightly
-releases. Every package, runtime and image uses an exact version; container images additionally use
-an immutable multi-platform digest, and GitHub Actions use a commit SHA with a release comment.
+releases. Every package, runtime and upstream container image uses an explicit version. Platform
+Dockerfiles and Compose files use readable version tags for upstream images. Application image
+publication and immutable release identity are intentionally absent from the current teaching
+baseline and will be introduced by the CI/CD course. The isolated Logto proof keeps its own
+digest-pinned provenance contract.
 
 ## Automated updates
 
 Dependabot checks the pnpm workspace, Docker sources and GitHub Actions weekly. Patch and minor
 updates are grouped, with Next, Tiptap, Storybook and React families kept atomic. Major updates stay
 in separate pull requests. Security patch/minor updates use their own groups; security majors are
-also separate pull requests. No dependency pull request is auto-merged: every one runs the complete
-pull-request CI and remains owner-controlled.
+also separate pull requests. No dependency pull request is auto-merged. Until the CI/CD course
+restores application CI, its complete gate is run manually and the change remains owner-controlled.
 
 `@types/node` stays on the same major as `.node-version`. A Node LTS major change updates the
 runtime, declarations, Docker base and CI as one reviewed migration.
@@ -18,6 +21,7 @@ runtime, declarations, Docker base and CI as one reviewed migration.
 Repository dependency changes preserve:
 
 - exact manifest pins and one `pnpm-lock.yaml`;
+- explicit non-`latest` image tags for upstream Platform runtime dependencies;
 - `minimumReleaseAge: 1440` supply-chain quarantine;
 - strict peer dependencies without overrides;
 - atomic package-family updates;

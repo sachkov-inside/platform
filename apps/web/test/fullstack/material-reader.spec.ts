@@ -3,7 +3,7 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
-test("server-renders the safe PostgreSQL catalog through Nest", async ({
+test("loads the safe PostgreSQL catalog through the client-owned Library query", async ({
   page,
   request,
 }) => {
@@ -19,7 +19,8 @@ test("server-renders the safe PostgreSQL catalog through Nest", async ({
   const initialHtml = await documentResponse.text();
 
   expect(documentResponse.status()).toBe(200);
-  expect(initialHtml).toContain("Developer Pipeline без потери контекста");
+  expect(initialHtml).toContain("База знаний");
+  expect(initialHtml).not.toContain("Developer Pipeline без потери контекста");
   expect(initialHtml).not.toContain("Закрытое содержимое для участников");
 
   const continuation = page.waitForResponse(
@@ -70,31 +71,10 @@ test("server-renders the safe PostgreSQL catalog through Nest", async ({
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
-  await expect(page).toHaveURL(/[?&]after=[A-Za-z0-9_-]+/u);
-  const continuationUrl = page.url();
-  const continuationTitle = await page
-    .getByRole("article")
-    .last()
-    .getByRole("heading", { level: 3 })
-    .textContent();
-  expect(continuationTitle).not.toBeNull();
-  const sharedContinuation = await request.get(continuationUrl);
-  expect(sharedContinuation.status()).toBe(200);
-  expect(await sharedContinuation.text()).toContain(continuationTitle);
-
-  await page.reload();
-  expect(page.url()).toBe(continuationUrl);
-  await expect(page.getByRole("article")).toHaveCount(1);
-  await expect(
-    page.getByRole("link", { name: continuationTitle ?? "" }),
-  ).toBeVisible();
-  await page.goBack();
   await expect(page).toHaveURL(/\/library$/u);
-  await page.goForward();
-  expect(page.url()).toBe(continuationUrl);
-  await expect(
-    page.getByRole("link", { name: continuationTitle ?? "" }),
-  ).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("article").first()).toBeVisible();
+  await expect(page).toHaveURL(/\/library$/u);
   expect(browserErrors).toEqual([]);
 });
 
@@ -102,11 +82,18 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   page,
   request,
 }) => {
+  let documentRequestCount = 0;
+  page.on("request", (browserRequest) => {
+    if (browserRequest.resourceType() === "document") {
+      documentRequestCount += 1;
+    }
+  });
   const englishUrl = "/library?q=developer+pipeline";
   const englishDocument = await request.get(englishUrl);
   const englishHtml = await englishDocument.text();
   expect(englishDocument.status()).toBe(200);
-  expect(englishHtml).toContain("Developer Pipeline без потери контекста");
+  expect(englishHtml).toContain("База знаний");
+  expect(englishHtml).not.toContain("Developer Pipeline без потери контекста");
   expect(englishHtml).not.toContain("Закрытое содержимое для участников");
 
   await page.goto(englishUrl);
@@ -117,6 +104,24 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
     page.getByRole("link", { name: "Developer Pipeline без потери контекста" }),
   ).toBeVisible();
   await expect(page.getByText("1 материал найден")).toBeVisible();
+  const documentsBeforeFilter = documentRequestCount;
+  const filteredResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/library/materials?") &&
+      response.url().includes("topic=platform") &&
+      response.status() === 200,
+  );
+  const platformFilter = page.getByRole("checkbox", {
+    name: /^Platform \d+$/u,
+  });
+  await platformFilter.focus();
+  await page.keyboard.press("Space");
+  await expect(platformFilter).toBeChecked();
+  await filteredResponse;
+  expect(documentRequestCount).toBe(documentsBeforeFilter);
+  expect(new URL(page.url()).searchParams.getAll("topic")).toEqual([
+    "platform",
+  ]);
   const sharedUrl = page.url();
 
   await page.reload();
@@ -141,10 +146,9 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   ).toBeVisible();
 
   await page.getByLabel("Поиск по базе знаний").fill("nothing can match 404404");
-  await page.getByRole("button", { name: "Найти" }).click();
   await expect(page.getByRole("heading", { name: "Ничего не найдено" })).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Сбросить поиск и фильтры" }),
+    page.getByRole("button", { name: "Сбросить поиск и фильтры" }),
   ).toBeVisible();
   expect(new URL(page.url()).searchParams.get("q")).toBe(
     "nothing can match 404404",

@@ -12,6 +12,13 @@ export type MaterialResource = Readonly<{
   materialId: MaterialId;
 }>;
 
+export type AssetResource = Readonly<{
+  kind: "asset";
+  assetId: string;
+}>;
+
+export type Resource = MaterialResource | AssetResource;
+
 export type AccessAction = "read" | "preview" | "download" | "play";
 
 export type EnforcementPoint =
@@ -25,7 +32,7 @@ export type EnforcementPoint =
 
 export interface AccessOperation {
   readonly itemId: string;
-  readonly resource: MaterialResource;
+  readonly resource: Resource;
   readonly action: AccessAction;
 }
 
@@ -38,7 +45,7 @@ export interface AccessBatchRequest {
 
 export interface AccessRequest {
   readonly subject: Subject;
-  readonly resource: MaterialResource;
+  readonly resource: Resource;
   readonly action: AccessAction;
   readonly enforcementPoint: EnforcementPoint;
   readonly correlationId: string;

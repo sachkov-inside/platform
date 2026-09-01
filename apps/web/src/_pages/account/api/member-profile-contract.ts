@@ -4,12 +4,14 @@ import type {
   PrivateMemberProfile,
   PrivateMemberProfileState,
   ProfileField,
-} from "../model/member-profile";
+} from "@/entities/member-profile";
 
 const fieldsSchema = z.object({ bio: z.string().nullable(), displayName: z.string() }).strict();
+const avatarSchema = z.object({ avatarId: z.uuid() }).strict();
 
 const privateProfileSchema = fieldsSchema
   .extend({
+    avatar: avatarSchema.nullable(),
     createdAt: z.iso.datetime(),
     publicProfileId: z.uuid(),
     status: z.enum(["active", "disabled"]),

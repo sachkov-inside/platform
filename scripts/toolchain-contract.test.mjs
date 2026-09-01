@@ -11,36 +11,41 @@ const backendPackage = JSON.parse(read("apps/backend/package.json"));
 const webPackage = JSON.parse(read("apps/web/package.json"));
 const nodeVersion = read(".node-version").trim();
 const pnpmVersion = rootPackage.packageManager.replace(/^pnpm@/u, "");
+const applicationDockerfiles = ["apps/backend/Dockerfile", "apps/web/Dockerfile"];
 
 describe("supported toolchain contract", () => {
   it("keeps Docker on the repository Node and pnpm pins", () => {
-    const dockerfile = read("Dockerfile");
+    for (const path of applicationDockerfiles) {
+      const dockerfile = read(path);
 
-    assert.match(
-      dockerfile,
-      new RegExp(`^FROM node:${escapeRegExp(nodeVersion)}-alpine\\d+\\.\\d+@sha256:[a-f0-9]{64} AS toolchain$`, "mu"),
-    );
-    assert.match(
-      dockerfile,
-      new RegExp(`corepack install --global pnpm@${escapeRegExp(pnpmVersion)}(?:\\s|$)`, "u"),
-    );
+      assert.match(
+        dockerfile,
+        new RegExp(`^FROM node:${escapeRegExp(nodeVersion)}-alpine\\d+\\.\\d+ AS toolchain$`, "mu"),
+      );
+      assert.match(
+        dockerfile,
+        new RegExp(`corepack install --global pnpm@${escapeRegExp(pnpmVersion)}(?:\\s|$)`, "u"),
+      );
+    }
   });
 
   it("copies Prisma generation inputs before dependency postinstall", () => {
-    const dockerfile = read("Dockerfile");
-    const installPosition = dockerfile.indexOf("pnpm install --frozen-lockfile");
+    for (const path of applicationDockerfiles) {
+      const dockerfile = read(path);
+      const installPosition = dockerfile.indexOf("pnpm install --frozen-lockfile");
 
-    assert.ok(installPosition > 0);
-    for (const input of [
-      "apps/backend/prisma.config.ts",
-      "apps/backend/prisma ./apps/backend/prisma",
-    ]) {
-      const copyPosition = dockerfile.indexOf(input);
-      assert.ok(copyPosition >= 0, `Dockerfile must copy ${input}`);
-      assert.ok(
-        copyPosition < installPosition,
-        `Dockerfile must copy ${input} before pnpm install`,
-      );
+      assert.ok(installPosition > 0);
+      for (const input of [
+        "apps/backend/prisma.config.ts",
+        "apps/backend/prisma ./apps/backend/prisma",
+      ]) {
+        const copyPosition = dockerfile.indexOf(input);
+        assert.ok(copyPosition >= 0, `${path} must copy ${input}`);
+        assert.ok(
+          copyPosition < installPosition,
+          `${path} must copy ${input} before pnpm install`,
+        );
+      }
     }
   });
 
@@ -121,88 +126,107 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(read("pnpm-workspace.yaml"), /^overrides:/mu);
   });
 
-  it("pins every container image by digest and every GitHub Action by commit", () => {
-    for (const path of [
-      "compose.yaml",
-      "compose.production.yaml",
-      ".github/workflows/application-ci.yml",
-    ]) {
+  it("uses explicit container version tags", () => {
+    for (const path of ["compose.yaml", "compose.production.yaml"]) {
       const imageLines = read(path)
         .split("\n")
-        .filter(
-          (line) =>
-            /^\s*image:/u.test(line) && !line.includes("${PLATFORM_"),
-        );
+        .filter((line) => /^\s*image:/u.test(line));
       assert.ok(imageLines.length > 0, `${path} must declare at least one image`);
       assert.ok(
-        imageLines.every((line) => /:\d[^\s]*@sha256:[a-f0-9]{64}$/u.test(line.trim())),
-        `${path} contains an unpinned image`,
+        imageLines.every((line) => {
+          const image = line.trim();
+          return /:[A-Za-z0-9][^\s@]*$/u.test(image) && !/:latest$/u.test(image);
+        }),
+        `${path} contains an image without an explicit version tag`,
       );
     }
-
-    const actionLines = read(".github/workflows/application-ci.yml")
-      .split("\n")
-      .filter((line) => /^\s*uses:/u.test(line));
-    assert.ok(actionLines.length > 0);
-    assert.ok(
-      actionLines.every((line) => /@[a-f0-9]{40}(?:\s+#\s+v\d+\.\d+\.\d+)?$/u.test(line.trim())),
-    );
   });
 
-  it("keeps production application images supplied as immutable release inputs", () => {
+  it("keeps the production baseline buildable from the checked-out source", () => {
     const productionCompose = read("compose.production.yaml");
 
-    assert.match(
-      productionCompose,
-      /image: \$\{PLATFORM_API_IMAGE_REPOSITORY:\?[^}]+\}@sha256:\$\{PLATFORM_API_IMAGE_DIGEST:\?[^}]+\}/u,
-    );
-    assert.match(
-      productionCompose,
-      /image: \$\{PLATFORM_MIGRATION_IMAGE_REPOSITORY:\?[^}]+\}@sha256:\$\{PLATFORM_MIGRATION_IMAGE_DIGEST:\?[^}]+\}/u,
-    );
-    assert.match(
-      productionCompose,
-      /image: \$\{PLATFORM_WEB_IMAGE_REPOSITORY:\?[^}]+\}@sha256:\$\{PLATFORM_WEB_IMAGE_DIGEST:\?[^}]+\}/u,
-    );
-    assert.doesNotMatch(productionCompose, /^\s+build:/mu);
+    for (const service of ["migrations", "api", "web"]) {
+      assert.match(
+        productionCompose,
+        new RegExp(`  ${service}:\\n(?:    .*\\n)*?    build:\\n`, "u"),
+      );
+    }
+    assert.doesNotMatch(productionCompose, /PLATFORM_(?:API|WEB|MIGRATION)_IMAGE/u);
+    assert.doesNotMatch(productionCompose, /@sha256:/u);
   });
 
-  it("keeps production database and network privileges separated", () => {
+  it("keeps the production teaching baseline intentionally small", () => {
     const productionCompose = read("compose.production.yaml");
-    const databaseRoles = read("scripts/provision-production-database-roles.sh");
 
-    assert.match(productionCompose, /DATABASE_URL: \$\{MIGRATION_DATABASE_URL:\?[^}]+\}/u);
-    assert.match(productionCompose, /DATABASE_URL: \$\{DATABASE_URL:\?Set DATABASE_URL\}/u);
-    assert.match(productionCompose, /database-roles:\n/u);
-    assert.match(productionCompose, /database-access:\n/u);
-    assert.match(productionCompose, /RELEASE_MIGRATION_IMAGE_DIGEST: \$\{PLATFORM_MIGRATION_IMAGE_DIGEST:\?[^}]+\}/u);
-    assert.match(productionCompose, /data:\n\s+internal: true/u);
-    assert.match(databaseRoles, /grant connect, create on database/u);
-    assert.match(databaseRoles, /nosuperuser nocreatedb nocreaterole noinherit noreplication nobypassrls/u);
-    assert.match(databaseRoles, /grant select, insert, update, delete on all tables/u);
-    assert.match(databaseRoles, /MIGRATION_DATABASE_URL does not authenticate as the restricted migration owner/u);
-    assert.match(databaseRoles, /DATABASE_URL does not authenticate as the restricted application role/u);
-    assert.doesNotMatch(databaseRoles, /all tables in schema public/u);
+    assert.doesNotMatch(productionCompose, /^ {2}database-roles:/mu);
+    assert.doesNotMatch(productionCompose, /^ {2}database-access:/mu);
+    assert.doesNotMatch(productionCompose, /^ {2}material-assets-worker:/mu);
+    assert.doesNotMatch(productionCompose, /^networks:/mu);
+    const avatarWorker = productionCompose.match(
+      /\n {2}profile-avatars-worker:\n([\s\S]*?)(?=\n {2}[a-z][a-z0-9-]*:\n|$)/u,
+    );
+    assert.ok(avatarWorker, "production must run Profile Avatar cleanup");
+    assert.match(avatarWorker[1], /dockerfile: apps\/backend\/Dockerfile/u);
+    assert.match(avatarWorker[1], /target: api-production/u);
+    assert.match(avatarWorker[1], /profile-avatars-worker\.env/u);
   });
 
-  it("excludes optional build-only packages from the production API image", () => {
+  it("keeps runtime configuration in service-owned env files", () => {
+    const localCompose = read("compose.yaml");
+    const productionCompose = read("compose.production.yaml");
+
+    assert.doesNotMatch(`${localCompose}\n${productionCompose}`, /^\s+environment:/mu);
+    assert.doesNotMatch(localCompose, /^ {2}bootstrap:/mu);
+    assert.match(localCompose, /^ {2}migrations:/mu);
+    assert.match(localCompose, /^ {2}seed:/mu);
+
+    for (const path of [
+      "config/compose/local/object-storage.env",
+      "config/compose/local/postgres.env",
+      "config/compose/local/migrations.env",
+      "config/compose/local/seed.env",
+      "config/compose/local/api.env",
+      "config/compose/local/mcp.env",
+      "config/compose/local/material-assets-worker.env",
+      "config/compose/local/profile-avatars-worker.env",
+      "config/compose/local/web.env",
+      "config/compose/local/storybook.env",
+      "config/compose/production/compose.env.example",
+      "config/compose/production/postgres.env.example",
+      "config/compose/production/migrations.env.example",
+      "config/compose/production/api.env.example",
+      "config/compose/production/profile-avatars-worker.env.example",
+      "config/compose/production/web.env.example",
+      "config/compose/production/caddy.env.example",
+    ]) {
+      assert.ok(read(path).trim().length > 0, `${path} must not be empty`);
+    }
+  });
+
+  it("keeps production native dependencies and excludes development scripts", () => {
     assert.match(
-      read("Dockerfile"),
-      /deploy --prod --no-optional --ignore-scripts \/workspace\/\.production\/backend/u,
+      read("apps/backend/Dockerfile"),
+      /deploy --prod --ignore-scripts \/workspace\/\.production\/backend/u,
     );
   });
 
-  it("isolates production smoke resources and removes its temporary image tags", () => {
+  it("isolates production smoke resources and removes local build images", () => {
     const smoke = read("scripts/production-compose-smoke.sh");
 
-    assert.match(smoke, /smoke_suffix="\$\{source_revision:0:12\}-\$\$"/u);
+    assert.match(smoke, /project_name="inside-platform-production-smoke-\$\$"/u);
+    assert.match(smoke, /down --rmi local --volumes --remove-orphans/u);
+    assert.match(smoke, /local test_status=\$\?/u);
+    assert.doesNotMatch(smoke, /down --rmi local --volumes --remove-orphans \|\| true/u);
+  });
+
+  it("checks Profile Avatar worker readiness without a pipefail-sensitive grep", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
+
+    assert.doesNotMatch(smoke, /\|\s*rg(?:\s|$)/u);
     assert.match(
       smoke,
-      /docker image rm "\$PLATFORM_API_BUILD_IMAGE" "\$PLATFORM_WEB_BUILD_IMAGE"/u,
+      /\[\[ "\$avatar_worker_logs" != \*'"process":"profile-avatars-worker","status":"ready"'\* \]\]/u,
     );
-    assert.match(smoke, /down --volumes --remove-orphans/u);
-    assert.match(smoke, /local test_status=\$\?/u);
-    assert.doesNotMatch(smoke, /down --volumes --remove-orphans \|\| true/u);
   });
 
   it("derives the production migration expectation from the registered source files", () => {
@@ -213,63 +237,27 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(smoke, /migration_count" != "\d+"/u);
   });
 
-  it("runs the isolated production Compose smoke as its own CI job", () => {
-    const workflow = read(".github/workflows/application-ci.yml");
-    const match = workflow.match(
-      /\n {2}compose-production-stack:\n([\s\S]*?)(?=\n {2}[a-z0-9-]+:\n|$)/u,
-    );
+  it("retries transient TLS failures in the production smoke", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
 
-    assert.ok(match, "Application CI must declare compose-production-stack");
-    const job = match[1];
-    assert.match(job, /run: bash scripts\/production-compose-smoke\.sh/u);
-    assert.doesNotMatch(job, /secrets\./u);
+    assert.equal(smoke.match(/--retry-all-errors/gu)?.length, 2);
   });
 
-  it("publishes exact main production images to GHCR without mutable tags", () => {
-    const workflow = read(".github/workflows/production-images.yml");
+  it("keeps Profile Avatar cleanup grace in service-owned env files", () => {
+    const developmentCompose = read("compose.yaml");
+    const workerBlock = developmentCompose.match(
+      /\n {2}profile-avatars-worker:\n([\s\S]*?)(?=\n {2}[a-z][a-z0-9-]*:\n|$)/u,
+    );
 
-    assert.match(workflow, /^on:\n {2}push:\n {4}branches: \[main\]$/mu);
-    assert.doesNotMatch(workflow, /pull_request:/u);
-    assert.match(workflow, /^permissions: \{\}$/mu);
-    assert.match(workflow, /permissions:\n {6}contents: read\n {6}packages: write/u);
-    assert.match(workflow, /username: \$\{\{ github\.actor \}\}/u);
-    assert.match(workflow, /password: \$\{\{ secrets\.GITHUB_TOKEN \}\}/u);
-
-    for (const [target, image, step] of [
-      ["api-production", "platform-api", "publish-api"],
-      ["web-production", "platform-web", "publish-web"],
+    assert.ok(workerBlock, "compose.yaml must declare profile-avatars-worker");
+    assert.match(workerBlock[1], /profile-avatars-worker\.env/u);
+    for (const path of [
+      "config/compose/local/profile-avatars-worker.env",
+      "config/compose/production/api.env.example",
+      "config/compose/production/profile-avatars-worker.env.example",
     ]) {
-      assert.match(workflow, new RegExp(`target: ${target}`, "u"));
-      assert.match(
-        workflow,
-        new RegExp(`tags: ghcr\\.io/sachkov-inside/${image}:\\$\\{\\{ github\\.sha \\}\\}`, "u"),
-      );
-      assert.match(
-        workflow,
-        new RegExp(`${image}-digest: \\$\\{\\{ steps\\.${step}\\.outputs\\.digest \\}\\}`, "u"),
-      );
+      assert.match(read(path), /^PROFILE_AVATAR_ORPHAN_GRACE_SECONDS=86400$/mu);
     }
-
-    assert.match(workflow, /SOURCE_REVISION=\$\{\{ github\.sha \}\}/u);
-    assert.doesNotMatch(workflow, /(?:^|:)latest(?:\s|$)/mu);
-    const secretNames = [...workflow.matchAll(/secrets\.([A-Z0-9_]+)/gu)].map(
-      ([, name]) => name,
-    );
-    assert.deepEqual([...new Set(secretNames)], [
-      "GITHUB_TOKEN",
-      "PLATFORM_DEPLOY_SSH_PRIVATE_KEY",
-      "PLATFORM_DEPLOY_SSH_KNOWN_HOSTS",
-      "PLATFORM_DEPLOY_HOST",
-      "PLATFORM_DEPLOY_USER",
-    ]);
-
-    const actionLines = workflow
-      .split("\n")
-      .filter((line) => /^\s*uses:/u.test(line));
-    assert.ok(actionLines.length > 0);
-    assert.ok(
-      actionLines.every((line) => /@[a-f0-9]{40}\s+#\s+v\d+\.\d+\.\d+$/u.test(line.trim())),
-    );
   });
 
   it("groups only patch/minor Dependabot updates", () => {
@@ -300,6 +288,14 @@ describe("supported toolchain contract", () => {
       smoke,
       /docker compose logs --no-color mcp\s*\|\s*grep --quiet/u,
     );
+  });
+
+  it("keeps local Compose free of Watch automation", () => {
+    const compose = read("compose.yaml");
+
+    assert.doesNotMatch(compose, /^x-.*-develop:/mu);
+    assert.doesNotMatch(compose, /^\s+(?:develop|watch):/mu);
+    assert.doesNotMatch(read("package.json"), /compose:dev|--watch/u);
   });
 });
 

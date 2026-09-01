@@ -6,13 +6,13 @@ import {
 } from "@/_pages/authoring-materials/api/get-authoring-materials";
 import { parseAuthoringMaterialsQuery } from "@/_pages/authoring-materials/model/authoring-materials-query";
 import {
-  executeMaterialLifecycleMutation,
-  type MaterialLifecycleDependencies,
-} from "@/features/material-authoring/api/material-lifecycle";
+  executeDeleteMaterialDraft,
+  executeTransitionMaterialPublication,
+} from "@/features/material-lifecycle.operations.server";
 import {
   parseAuthoringReturnHref,
   withAuthoringReturnHref,
-} from "@/features/material-authoring";
+} from "@/shared/routing/authoring";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 
 const materialId = "96000000-0000-4000-8000-000000000001";
@@ -249,43 +249,26 @@ describe("Authoring Materials server adapter", () => {
     ).resolves.toEqual({ kind: "malformed_response" });
   });
 
-  it("publishes from the list through one optimistic full-state Save", async () => {
+  it("publishes from the list through one intent request", async () => {
     const dependencies = lifecycleDependencies();
 
     await expect(
-      executeMaterialLifecycleMutation(
-        lifecycleFormData("publish"),
+      executeTransitionMaterialPublication(
+        publicationFormData("published"),
         "access-token",
-        dependencies,
+        dependencies.transition,
       ),
     ).resolves.toMatchObject({
       contentVersion: 8,
       kind: "saved",
       publicationState: "published",
     });
-    expect(dependencies.load).toHaveBeenCalledWith(materialId, "access-token");
-    expect(dependencies.save).toHaveBeenCalledWith(
+    expect(dependencies.transition).toHaveBeenCalledWith(
       {
-        access: "membership",
-        document: {
-          content: [
-            {
-              content: [{ text: "Current full state", type: "text" }],
-              type: "paragraph",
-            },
-          ],
-          type: "doc",
-        },
         expectedContentVersion: 7,
-        formatId: "96000000-0000-4000-8000-000000000002",
-        idempotencyKey: `web-lifecycle-${submissionId}`,
+        idempotencyKey: `web-transition-material-publication-${submissionId}`,
         materialId,
         publicationState: "published",
-        seriesIds: ["96000000-0000-4000-8000-000000000006"],
-        summary: "Current summary",
-        tagIds: ["96000000-0000-4000-8000-000000000005"],
-        title: "Управляемый Material",
-        topicId: "96000000-0000-4000-8000-000000000003",
       },
       "access-token",
     );
@@ -293,25 +276,25 @@ describe("Authoring Materials server adapter", () => {
 
   it("deletes a draft with the list version and preserves its key across retry", async () => {
     const dependencies = lifecycleDependencies();
-    const formData = lifecycleFormData("delete");
+    const formData = deletionFormData();
 
     await expect(
-      executeMaterialLifecycleMutation(formData, "access-token", dependencies),
+      executeDeleteMaterialDraft(formData, "access-token", dependencies.delete),
     ).resolves.toEqual({ kind: "deleted", materialId });
     await expect(
-      executeMaterialLifecycleMutation(formData, "access-token", dependencies),
+      executeDeleteMaterialDraft(formData, "access-token", dependencies.delete),
     ).resolves.toEqual({ kind: "deleted", materialId });
     expect(dependencies.delete).toHaveBeenCalledTimes(2);
     expect(dependencies.delete).toHaveBeenNthCalledWith(
       2,
       {
         expectedContentVersion: 7,
-        idempotencyKey: `web-lifecycle-${submissionId}`,
+        idempotencyKey: `web-delete-material-draft-${submissionId}`,
         materialId,
       },
       "access-token",
     );
-    expect(dependencies.load).not.toHaveBeenCalled();
+    expect(dependencies.transition).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -327,7 +310,7 @@ describe("Authoring Materials server adapter", () => {
         currentContentVersion: 8,
         status: 409,
       }),
-      target: "save" as const,
+      target: "transition" as const,
     },
     {
       expected: {
@@ -340,7 +323,7 @@ describe("Authoring Materials server adapter", () => {
         issues: [{ code: "required", path: "/metadata/title" }],
         status: 422,
       }),
-      target: "save" as const,
+      target: "transition" as const,
     },
     {
       expected: {
@@ -358,7 +341,7 @@ describe("Authoring Materials server adapter", () => {
       expected: { kind: "forbidden" },
       operation: "publish" as const,
       response: problemResult(403, { code: "forbidden", status: 403 }),
-      target: "load" as const,
+      target: "transition" as const,
     },
     {
       expected: { kind: "not_found" },
@@ -377,7 +360,7 @@ describe("Authoring Materials server adapter", () => {
         correlationId: "materials-offline",
         status: 503,
       }),
-      target: "save" as const,
+      target: "transition" as const,
     },
     {
       expected: {
@@ -398,21 +381,37 @@ describe("Authoring Materials server adapter", () => {
       dependencies[target].mockResolvedValue(response);
 
       await expect(
-        executeMaterialLifecycleMutation(
-          lifecycleFormData(operation),
-          "access-token",
-          dependencies,
-        ),
+        operation === "delete"
+          ? executeDeleteMaterialDraft(
+              deletionFormData(),
+              "access-token",
+              dependencies.delete,
+            )
+          : executeTransitionMaterialPublication(
+              publicationFormData(
+                operation === "publish" ? "published" : "unpublished",
+              ),
+              "access-token",
+              dependencies.transition,
+            ),
       ).resolves.toEqual(expected);
     },
   );
 });
 
-function lifecycleFormData(operation: "delete" | "publish" | "unpublish") {
+function publicationFormData(publicationState: "published" | "unpublished") {
   const formData = new FormData();
   formData.set("expectedContentVersion", "7");
   formData.set("materialId", materialId);
-  formData.set("operation", operation);
+  formData.set("publicationState", publicationState);
+  formData.set("submissionId", submissionId);
+  return formData;
+}
+
+function deletionFormData() {
+  const formData = new FormData();
+  formData.set("expectedContentVersion", "7");
+  formData.set("materialId", materialId);
   formData.set("submissionId", submissionId);
   return formData;
 }
@@ -424,45 +423,7 @@ function lifecycleDependencies() {
       ok: true,
       response: Response.json({}),
     }),
-    load: vi.fn().mockResolvedValue({
-      body: {
-        body: {
-          doc: {
-            content: [
-              {
-                content: [{ text: "Current full state", type: "text" }],
-                type: "paragraph",
-              },
-            ],
-            type: "doc",
-          },
-          schemaVersion: 1,
-        },
-        contentVersion: 7,
-        firstPublishedAt: null,
-        materialId,
-        metadata: {
-          access: "membership",
-          formatId: "96000000-0000-4000-8000-000000000002",
-          seriesMemberships: [
-            {
-              ordinal: 1,
-              seriesId: "96000000-0000-4000-8000-000000000006",
-            },
-          ],
-          slug: null,
-          summary: "Current summary",
-          tagIds: ["96000000-0000-4000-8000-000000000005"],
-          title: "Управляемый Material",
-          topicId: "96000000-0000-4000-8000-000000000003",
-        },
-        publicationState: "draft",
-        publishedAt: null,
-      },
-      ok: true,
-      response: Response.json({}),
-    }),
-    save: vi.fn().mockResolvedValue({
+    transition: vi.fn().mockResolvedValue({
       body: {
         contentVersion: 8,
         materialId,
@@ -472,7 +433,7 @@ function lifecycleDependencies() {
       ok: true,
       response: Response.json({}),
     }),
-  } satisfies MaterialLifecycleDependencies;
+  };
 }
 
 function problemResult(status: number, problem: Record<string, unknown>) {

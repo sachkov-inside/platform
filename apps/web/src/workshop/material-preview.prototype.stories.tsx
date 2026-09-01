@@ -24,9 +24,6 @@ function HybridCatalogBoard() {
           <h1 className="break-words text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
             База знаний
           </h1>
-          <p className="mt-4 max-w-[66ch] text-pretty text-base leading-7 text-muted-foreground">
-            Видео с превью и текстовые материалы без искусственных заглушек.
-          </p>
         </header>
         <section aria-labelledby="materials-heading" className="@container/material-catalog mt-9 max-w-[80rem]">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -59,9 +56,6 @@ function MediaCardBoard() {
           <h1 className="text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
             Карточка материала
           </h1>
-          <p className="mt-4 text-base leading-7 text-muted-foreground">
-            Один bounded component: preview у video и content-first composition у текста.
-          </p>
         </header>
         <div className="mt-9 max-w-[46rem]">
           <MaterialCard material={materialFixtures.platformDeliveryVideo} />
@@ -160,13 +154,10 @@ export const HybridCatalog: Story = {
     await expect(guideCard.getBoundingClientRect().width).toBeLessThan(750);
     await expect(
       Math.abs(
-        platformVideo.getBoundingClientRect().height -
-          careerVideo.getBoundingClientRect().height,
+        guideCard.getBoundingClientRect().height -
+          platformVideo.getBoundingClientRect().height,
       ),
     ).toBeLessThanOrEqual(1);
-    await expect(guideCard.getBoundingClientRect().height).toBeLessThan(
-      platformVideo.getBoundingClientRect().height,
-    );
   },
   render: () => <HybridCatalogBoard />,
 };
@@ -222,7 +213,7 @@ export const MediaCard: Story = {
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
     await expect(card.getBoundingClientRect().width).toBeLessThan(750);
     await expect(
-      within(card).getByText(/Создание Platform Inside.*выпуск 5/u),
+      within(card).getByRole("link", { name: /Создание Platform Inside № 5/u }),
     ).toBeInTheDocument();
     await expect(within(card).getByText("developer pipeline")).toBeInTheDocument();
     await expect(

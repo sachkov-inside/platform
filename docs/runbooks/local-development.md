@@ -8,10 +8,17 @@ not host Node.js or a host `node_modules` directory.
 The default stack contains:
 
 - PostgreSQL 18.4 with a persistent named volume;
-- one `bootstrap` job that applies migrations and the deterministic development seed;
+- MinIO with separate public-delivery, protected and quarantine buckets; its S3-compatible API is
+  on <http://127.0.0.1:9000> and console is on <http://127.0.0.1:9001>;
+- one `migrations` job that applies the schema and one `seed` job that adds deterministic
+  development data;
 - Nest API on <http://127.0.0.1:3001> with health and OpenAPI endpoints;
 - the long-running MCP process at <http://127.0.0.1:3002/mcp> over the same application and database
   lifecycle;
+- `material-assets-worker`, which consumes the durable `pg-boss` cleanup queue and has no HTTP
+  listener;
+- `profile-avatars-worker`, which consumes the independent durable ProfileAvatar cleanup queue and
+  has no HTTP listener;
 - Next.js web on <http://127.0.0.1:3000>.
 
 The optional Logto email-code proof is a separate, disposable Compose project with isolated ports
@@ -27,10 +34,10 @@ It owns different Compose project names and ports, proves the pinned Logto recip
 and dependency recovery behavior, verifies one local `Account` and no Platform session table, then
 removes only its disposable volumes.
 
-API and web expose real healthchecks. API and MCP wait for healthy PostgreSQL and a successful
-bootstrap; web waits for healthy API. Storybook is an optional profile on
-<http://127.0.0.1:6006>. Integration tests continue to use their own temporary PostgreSQL through
-Testcontainers and never share the Compose database.
+API and web expose real healthchecks. API, MCP, the Material Asset worker and the Profile Avatar
+worker wait for healthy PostgreSQL and a successful seed; web waits for healthy API. Storybook is
+an optional profile on <http://127.0.0.1:6006>. Integration tests continue to use their own
+temporary PostgreSQL and MinIO through Testcontainers and never share the Compose data services.
 
 The production API exposes health, OpenAPI, the published catalog and the Material Reader endpoint.
 The local MCP adapter exposes delegated Material authoring over production application interfaces;
@@ -60,18 +67,26 @@ explicit port such as `PLAYWRIGHT_PORT=3200 pnpm check`; never stop another work
 From the repository root:
 
 ```bash
-docker compose up --build --watch
+docker compose up --build
 ```
 
 This one command builds exact Node/pnpm development images, starts PostgreSQL, migrates and seeds
-it once, then starts API, MCP and web. Compose Watch synchronizes backend and frontend source into
-the containers without a host `node_modules`. A package manifest, workspace manifest or lockfile
-change performs a controlled image rebuild.
+it once, then starts API, MCP and web. Rebuild the affected service after a source, package
+manifest, workspace manifest or lockfile change. For a faster edit loop, use the optional host
+Node.js commands below.
 
-The checked-in local credentials are defaults. A root `.env` copied from `.env.example` is optional
-for overrides and for the host fallback; already exported variables take precedence. Inside the
-Compose network, applications use `postgres` and `api` service DNS. Browser-facing URLs remain on
-`127.0.0.1`.
+The checked-in `config/compose/local/*.env` files contain safe container-only development values.
+A root `.env` copied from `.env.example` is optional for host-process overrides and Compose host
+ports; already exported variables take precedence. Next.js host fallback uses the same checked-in
+defaults or variables exported by its launcher shell. Inside the Compose network, applications use
+`postgres` and `api` service DNS.
+Browser-facing URLs remain on `127.0.0.1`. See the
+[runtime configuration contract](runtime-configuration.md) for ownership, precedence, validation,
+and the production env-file boundary.
+
+The API creates only the three named local buckets in development mode. Objects use random,
+immutable keys and are never written over. The persistent `object-storage-data` volume follows the
+same ownership and non-destructive restart rules as PostgreSQL.
 
 For a detached stack suitable for smoke commands:
 
@@ -83,7 +98,7 @@ bash scripts/compose-stack-smoke.sh
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
 database-backed readiness, one stable free `kak-ustroen-inside-platform` Material with current
 stored content and one safe closed catalog Material. Repeating `docker compose down` and the
-detached startup preserves the database volume and proves the bootstrap seed remains stable.
+detached startup preserves the database volume and proves the development seed remains stable.
 
 Stop without deleting data:
 
@@ -98,10 +113,10 @@ After shutdown, `docker compose ps --all` should list no application containers.
 Start the default stack plus Storybook:
 
 ```bash
-docker compose --profile storybook up --build --watch
+docker compose --profile storybook up --build
 ```
 
-The profile uses the same frozen container dependencies and Compose Watch source synchronization.
+The profile uses the same frozen container dependencies as the default stack.
 
 ## Optional host Node.js fallback
 
@@ -135,14 +150,17 @@ metadata at `/.well-known/oauth-protected-resource/mcp` and send the delegated t
 `Authorization: Bearer` header. Production provider setup and public routing remain outside this
 repository task.
 
-Every backend process loads the optional repository `.env` once and parses one immutable
-`PlatformConfig`. `NODE_ENV=development` enables checked-in local defaults; absent `NODE_ENV` is
-production, where database and API listen values are required.
+NestJS loads the optional repository `.env` through `@nestjs/config`, validates it with Zod, and
+injects one immutable `PlatformConfig`. Next.js validates one server-only `WebRuntimeConfig` during
+Node.js server startup. `NODE_ENV=development` enables checked-in local defaults; absent
+`NODE_ENV` is production, where all runtime values are required.
 
 Inspect the running host fallback or Compose stack:
 
 - health: <http://127.0.0.1:3001/health>
 - OpenAPI UI: <http://127.0.0.1:3001/openapi>
+- local S3-compatible endpoint: <http://127.0.0.1:9000>
+- local Object Storage console: <http://127.0.0.1:9001>
 - MCP Streamable HTTP endpoint: <http://127.0.0.1:3002/mcp>
 - MCP protected-resource metadata: <http://127.0.0.1:3002/.well-known/oauth-protected-resource/mcp>
 - published Material API: <http://127.0.0.1:3001/materials/kak-ustroen-inside-platform>
@@ -181,10 +199,9 @@ pnpm check:full
 
 This adds isolated Testcontainers integration tests and the host full-stack smoke. Stop the full
 Compose stack and start only `pnpm infra:up` first, because the host smoke owns ports 3000, 3001 and
-3002.
-CI runs that gate and a separate Docker-only contract that builds all image targets, starts a clean
-volume, restarts against the preserved volume, exercises Compose Watch and rejects orphan
-containers.
+3002. The current CI/CD teaching baseline runs these commands manually. The course will add the
+application workflow that runs the full gate and the separate Docker-only contract on a clean
+runner.
 
 Run only the real-PostgreSQL backend suite with:
 
@@ -214,10 +231,11 @@ from materials.materials
 order by created_at;
 ```
 
-The seed is safe to repeat manually:
+The migration and seed jobs are safe to repeat manually:
 
 ```bash
-docker compose run --rm bootstrap
+docker compose run --rm migrations
+docker compose run --rm seed
 ```
 
 The seed refuses non-development mode, uses stable idempotency keys, and creates twelve free
@@ -244,7 +262,7 @@ The same generation runs during install, build, and typecheck:
 pnpm --filter @inside/backend prisma:generate
 ```
 
-The Prisma schema maps the product-owned `materials`, `accounts`, `member_profiles`,
+The Prisma schema maps the product-owned `materials`, `assets`, `accounts`, `member_profiles`,
 `membership_entitlements` and `telegram_membership` schemas. Checked-in,
 append-only SQL migrations remain the database authority. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
@@ -292,7 +310,7 @@ Inspect service state and logs with:
 
 ```bash
 docker compose ps
-docker compose logs postgres bootstrap api mcp web
+docker compose logs postgres migrations seed api mcp web
 ```
 
 If a required port is occupied, inspect its owner and wait for the owning worktree's handoff. Do

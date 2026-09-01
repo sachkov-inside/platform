@@ -9,6 +9,7 @@ import { readPublishedMaterial } from "../../features/read-published-material/re
 import type { ReadPublishedMaterialQuery } from "../../features/read-published-material/read-published-material.contract.js";
 import { discoverPublishedMaterialProjections } from "../../features/discover-published-material-projections/discover-published-material-projections.js";
 import type { DiscoverPublishedMaterialProjectionsQuery } from "../../features/discover-published-material-projections/discover-published-material-projections.contract.js";
+import type { MaterialAssets } from "../../../assets/index.js";
 
 export function assemblePublishedMaterialReader(dependencies: {
   readonly prisma: MaterialsPrismaClient;
@@ -16,6 +17,7 @@ export function assemblePublishedMaterialReader(dependencies: {
   readonly materialContent: MaterialContent;
   readonly materialBodyOperations: MaterialBodyOperations;
   readonly membershipAcquisitionUrl: string;
+  readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
 }): PublishedMaterialReader {
   return Object.freeze({
     discoverProjections: (query: DiscoverPublishedMaterialProjectionsQuery) =>

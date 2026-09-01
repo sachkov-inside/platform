@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { RecursiveSchema1schema0 } from '../models/RecursiveSchema1schema0';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class MaterialAuthoringService {
@@ -213,6 +214,51 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Upload and finalize an immutable Material asset
+   * @returns any
+   * @throws ApiError
+   */
+  public uploadMaterialAsset({
+    idempotencyKey,
+    materialId,
+    formData,
+  }: {
+    idempotencyKey: string,
+    materialId: string,
+    formData: {
+      checksumSha256: string;
+      declaredSize: number;
+      file: Blob;
+      kind: 'file' | 'image';
+    },
+  }): CancelablePromise<{
+    assetId: string;
+    contentType: string;
+    filename: string;
+    height?: number;
+    kind: 'file' | 'image';
+    size: number;
+    state: 'ready';
+    variants?: Array<{
+      height: number;
+      width: number;
+    }>;
+    width?: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/materials/{materialId}/assets',
+      path: {
+        'materialId': materialId,
+      },
+      headers: {
+        'idempotency-key': idempotencyKey,
+      },
+      formData: formData,
+      mediaType: 'multipart/form-data',
+    });
+  }
+  /**
    * Render the current saved Material
    * @returns any
    * @throws ApiError
@@ -223,7 +269,7 @@ export class MaterialAuthoringService {
     materialId: string,
   }): CancelablePromise<{
     body: {
-      blocks: Array<any>;
+      blocks: Array<RecursiveSchema1schema0>;
       schemaVersion: 1;
     };
     cacheScope: 'private-no-store';
@@ -253,6 +299,41 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Publish or unpublish the current Material without resending its content
+   * @returns any
+   * @throws ApiError
+   */
+  public transitionMaterialPublication({
+    idempotencyKey,
+    materialId,
+    requestBody,
+  }: {
+    idempotencyKey: string,
+    materialId: string,
+    requestBody: {
+      expectedContentVersion: number;
+      publicationState: 'published' | 'unpublished';
+    },
+  }): CancelablePromise<{
+    contentVersion: number;
+    materialId: string;
+    publicationState: 'draft' | 'published' | 'unpublished';
+    publishedAt: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'PATCH',
+      url: '/authoring/materials/{materialId}/publication',
+      path: {
+        'materialId': materialId,
+      },
+      headers: {
+        'idempotency-key': idempotencyKey,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Validate the current Material for publication
    * @returns any
    * @throws ApiError
@@ -273,9 +354,11 @@ export class MaterialAuthoringService {
       plainText: string;
       resources: Array<({
         alt: string;
+        assetId: string;
         caption?: string;
         kind: 'image';
       } | {
+        assetId: string;
         kind: 'file';
         label: string;
       } | {

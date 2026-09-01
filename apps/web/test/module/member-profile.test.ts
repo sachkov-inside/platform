@@ -4,13 +4,18 @@ import { getPrivateMemberProfile } from "@/_pages/account/api/get-private-member
 import { requestAccountProfile } from "@/_pages/account/api/request-account-profile";
 import { accountProfileQueryKey } from "@/_pages/account/model/account-profile-query";
 import {
-  executeSaveMemberProfile,
-  type ProfileMutationDependencies,
-} from "@/_pages/account/api/mutate-member-profile";
+  executeCreateMemberProfile,
+  executeUpdateMemberProfile,
+} from "@/_pages/account.operations.server";
 import { getMemberProfile } from "@/_pages/member-profile/api/get-member-profile";
+import {
+  profileInitials,
+  shouldUseAvatarImage,
+} from "@/entities/member-profile";
 
 const publicProfileId = "d3acb421-85e2-4c79-9dfa-4b2c925e56e8";
 const profile = {
+  avatar: null,
   bio: "Строю платформу.",
   createdAt: "2026-08-30T10:00:00.000Z",
   displayName: "Кирилл",
@@ -21,15 +26,28 @@ const profile = {
 } as const;
 
 describe("Member Profile web workflow", () => {
+  it("derives deterministic Unicode initials for the avatar fallback", () => {
+    expect(profileInitials("  Кирилл   Сачков ")).toBe("КС");
+    expect(profileInitials("Prince")).toBe("P");
+    expect(profileInitials("🙂 Emoji")).toBe("🙂E");
+    expect(profileInitials("  ")).toBe("SI");
+  });
+
+  it("retries image delivery when a failed avatar is replaced", () => {
+    const oldUrl = "/avatar/old/320";
+    const newUrl = "/avatar/new/320";
+    expect(shouldUseAvatarImage(oldUrl, null)).toBe(true);
+    expect(shouldUseAvatarImage(oldUrl, oldUrl)).toBe(false);
+    expect(shouldUseAvatarImage(newUrl, oldUrl)).toBe(true);
+  });
   it("creates an accepted Profile and keeps an empty bio nullable", async () => {
     const dependencies = successfulDependencies();
     const formData = new FormData();
-    formData.set("mode", "create");
     formData.set("displayName", "Кирилл");
     formData.set("bio", "  ");
 
     await expect(
-      executeSaveMemberProfile(formData, "access-token", dependencies),
+      executeCreateMemberProfile(formData, "access-token", dependencies.create),
     ).resolves.toEqual({ kind: "saved", profile });
     expect(dependencies.create).toHaveBeenCalledWith(
       { bio: null, displayName: "Кирилл" },
@@ -38,11 +56,7 @@ describe("Member Profile web workflow", () => {
   });
 
   it("keeps one Account Profile query identity and validates the BFF payload", async () => {
-    expect(accountProfileQueryKey("viewer")).toEqual([
-      "account",
-      "profile",
-      "viewer",
-    ]);
+    expect(accountProfileQueryKey()).toEqual(["account", "profile"]);
     const fetch = vi.fn().mockResolvedValue(
       Response.json({ kind: "missing" }, { status: 200 }),
     );
@@ -52,7 +66,7 @@ describe("Member Profile web workflow", () => {
         requestAccountProfile(new AbortController().signal),
       ).resolves.toEqual({ kind: "ready", state: { kind: "missing" } });
       expect(fetch).toHaveBeenCalledWith(
-        "/account/profile-state",
+        "/api/account/profile",
         expect.objectContaining({ cache: "no-store" }),
       );
     } finally {
@@ -63,14 +77,13 @@ describe("Member Profile web workflow", () => {
   it("rejects malformed fields before calling the backend", async () => {
     const dependencies = successfulDependencies();
     const formData = new FormData();
-    formData.set("mode", "create");
     formData.set("displayName", "К");
     formData.set("bio", "");
 
-    const result = await executeSaveMemberProfile(
+    const result = await executeCreateMemberProfile(
       formData,
       "access-token",
-      dependencies,
+      dependencies.create,
     );
     expect(result.kind).toBe("invalid_input");
     expect(
@@ -84,12 +97,11 @@ describe("Member Profile web workflow", () => {
   it("counts authored fields by Unicode code point", async () => {
     const dependencies = successfulDependencies();
     const formData = new FormData();
-    formData.set("mode", "create");
     formData.set("displayName", "🙂".repeat(80));
     formData.set("bio", "🙂".repeat(500));
 
     await expect(
-      executeSaveMemberProfile(formData, "access-token", dependencies),
+      executeCreateMemberProfile(formData, "access-token", dependencies.create),
     ).resolves.toMatchObject({ kind: "saved" });
     expect(dependencies.create).toHaveBeenCalledWith(
       { bio: "🙂".repeat(500), displayName: "🙂".repeat(80) },
@@ -109,9 +121,13 @@ describe("Member Profile web workflow", () => {
         },
         response: Response.json({}, { status: 422 }),
       }),
-    } satisfies ProfileMutationDependencies;
+    };
     await expect(
-      executeSaveMemberProfile(updateForm(), "access-token", invalidDependencies),
+      executeUpdateMemberProfile(
+        updateForm(),
+        "access-token",
+        invalidDependencies.update,
+      ),
     ).resolves.toEqual({
       fieldErrors: { bio: "Описание должно быть не длиннее 500 символов." },
       kind: "invalid_input",
@@ -124,9 +140,13 @@ describe("Member Profile web workflow", () => {
         problem: { code: "conflict", currentVersion: 4, status: 409 },
         response: Response.json({}, { status: 409 }),
       }),
-    } satisfies ProfileMutationDependencies;
+    };
     await expect(
-      executeSaveMemberProfile(updateForm(), "access-token", conflictDependencies),
+      executeUpdateMemberProfile(
+        updateForm(),
+        "access-token",
+        conflictDependencies.update,
+      ),
     ).resolves.toEqual({ currentVersion: 4, kind: "conflict" });
   });
 
@@ -175,6 +195,7 @@ describe("Member Profile web workflow", () => {
         vi.fn().mockResolvedValue({
           body: {
             profile: {
+              avatar: null,
               bio: profile.bio,
               displayName: profile.displayName,
               publicProfileId,
@@ -188,7 +209,7 @@ describe("Member Profile web workflow", () => {
   });
 });
 
-function successfulDependencies(): ProfileMutationDependencies {
+function successfulDependencies() {
   return {
     create: vi.fn().mockResolvedValue({
       body: { profile },
@@ -205,7 +226,6 @@ function successfulDependencies(): ProfileMutationDependencies {
 
 function updateForm(): FormData {
   const formData = new FormData();
-  formData.set("mode", "update");
   formData.set("displayName", "Кирилл");
   formData.set("bio", "Строю платформу.");
   formData.set("expectedVersion", "2");

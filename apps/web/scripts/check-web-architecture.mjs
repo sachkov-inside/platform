@@ -32,6 +32,16 @@ const backendOperationPathPatterns = [...backendOperationPaths].map(
       "u",
     ),
 );
+const runtimeConfigurationNames = new Set([
+  "BACKEND_BASE_URL",
+  "LOGTO_ENDPOINT",
+  "LOGTO_AUDIENCE",
+  "LOGTO_APP_ID",
+  "LOGTO_APP_SECRET",
+  "LOGTO_COOKIE_SECRET",
+  "NODE_ENV",
+  "WEB_BASE_URL",
+]);
 
 function sourceFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -87,7 +97,67 @@ function hasUseClientDirective(program) {
   return false;
 }
 
+function hasDirective(program, directive) {
+  return program.body.some(
+    (statement) =>
+      statement.type === "ExpressionStatement" &&
+      statement.directive === directive,
+  );
+}
+
+const layerRanks = new Map([
+  ["shared", 0],
+  ["entities", 1],
+  ["features", 2],
+  ["widgets", 3],
+  ["_pages", 4],
+  ["_app", 5],
+  ["app", 5],
+]);
+
+function moduleLayer(file) {
+  const segments = scannedPath(file).split("/");
+  const sourceIndex = segments.lastIndexOf("src");
+  const appIndex = segments.lastIndexOf("app");
+  const layerIndex = sourceIndex >= 0 ? sourceIndex + 1 : appIndex;
+  const layer = segments[layerIndex];
+  if (!layerRanks.has(layer)) return undefined;
+  const rawSlice = segments[layerIndex + 1] ?? "";
+  return {
+    layer,
+    rank: layerRanks.get(layer),
+    slice: rawSlice.split(".")[0] ?? rawSlice,
+  };
+}
+
+function layerFinding(importer, dependency) {
+  const source = moduleLayer(importer);
+  const target = moduleLayer(dependency);
+  if (source === undefined || target === undefined) return undefined;
+  if (target.rank > source.rank) {
+    return `${scannedPath(importer)}: ${source.layer} cannot import the upper ${target.layer} layer`;
+  }
+  if (
+    source.layer === target.layer &&
+    ["_pages", "widgets", "features", "entities"].includes(source.layer) &&
+    source.slice !== target.slice
+  ) {
+    return `${scannedPath(importer)}: ${source.layer} slices cannot import each other (${source.slice} -> ${target.slice})`;
+  }
+  return undefined;
+}
+
 function readsBackendEndpointEnvironment(program) {
+  return readsProcessEnvironment(program, isBackendEndpointName);
+}
+
+function readsRuntimeConfigurationEnvironment(program) {
+  return readsProcessEnvironment(program, (name) =>
+    runtimeConfigurationNames.has(name),
+  );
+}
+
+function readsProcessEnvironment(program, matchesName) {
   let found = false;
   new Visitor({
     MemberExpression(node) {
@@ -96,7 +166,7 @@ function readsBackendEndpointEnvironment(program) {
         node.object.object.type === "Identifier" &&
         node.object.object.name === "process" &&
         memberPropertyName(node.object) === "env" &&
-        isBackendEndpointName(memberPropertyName(node))
+        matchesName(memberPropertyName(node))
       ) {
         found = true;
       }
@@ -138,6 +208,58 @@ function callsNestOperationByAbsoluteUrl(program) {
         isNestOperationUrl(
           resolveAbsoluteFetchArgument(argument, absoluteStringBindings),
         )
+      ) {
+        found = true;
+      }
+    },
+  }).visit(program);
+  return found;
+}
+
+function callsSameOriginMutationDynamically(program) {
+  const directBindings = new Set();
+  const namespaceBindings = new Set();
+  for (const statement of program.body) {
+    if (
+      statement.type !== "ImportDeclaration" ||
+      statement.source.value !== "@/shared/api/same-origin-mutation"
+    ) {
+      continue;
+    }
+    for (const specifier of statement.specifiers) {
+      if (
+        specifier.type === "ImportSpecifier" &&
+        (specifier.imported.name ?? specifier.imported.value) ===
+          "requestSameOriginMutation"
+      ) {
+        directBindings.add(specifier.local.name);
+      }
+      if (specifier.type === "ImportNamespaceSpecifier") {
+        namespaceBindings.add(specifier.local.name);
+      }
+    }
+  }
+
+  let found = false;
+  new Visitor({
+    CallExpression(node) {
+      const callsDirectBinding =
+        node.callee.type === "Identifier" && directBindings.has(node.callee.name);
+      const callsNamespaceBinding =
+        node.callee.type === "MemberExpression" &&
+        node.callee.object.type === "Identifier" &&
+        namespaceBindings.has(node.callee.object.name) &&
+        memberPropertyName(node.callee) === "requestSameOriginMutation";
+      if (!callsDirectBinding && !callsNamespaceBinding) return;
+      const route = node.arguments[0];
+      const method = node.arguments[1];
+      if (
+        route === undefined ||
+        route.type === "SpreadElement" ||
+        method === undefined ||
+        method.type === "SpreadElement" ||
+        literalString(route) === undefined ||
+        literalString(method) === undefined
       ) {
         found = true;
       }
@@ -254,9 +376,18 @@ while (pendingBrowserFiles.length > 0) {
 const findings = [...parsedFiles].flatMap(([file, program]) => {
   const sourcePath = scannedPath(file);
   const insideBackendTransport = sourcePath.startsWith("src/shared/api/backend/");
+  const insideRuntimeConfiguration =
+    sourcePath === "src/shared/config/runtime-config.server.ts";
+  const insideApplicationRouting =
+    sourcePath.startsWith("src/shared/routing/") ||
+    sourcePath.startsWith("src/widgets/authoring-shell/");
   const isBrowserCode = browserFiles.has(file);
   const specifiers = moduleSpecifiers(program);
   const findingsForFile = specifiers.flatMap((specifier) => {
+    const dependency = resolveLocalModule(file, specifier, parsedFiles);
+    const boundaryFinding =
+      dependency === undefined ? undefined : layerFinding(file, dependency);
+    if (boundaryFinding !== undefined) return [boundaryFinding];
     if (!insideBackendTransport && specifier === "openapi-typescript-codegen") {
       return [`${sourcePath}: codegen runtime belongs to the backend transport module`];
     }
@@ -275,8 +406,15 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
     return [];
   });
 
+  if (hasDirective(program, "use server")) {
+    findingsForFile.push(
+      `${sourcePath}: Server Actions are not part of the client-owned mutation path; use TanStack Query and a same-origin Route Handler`,
+    );
+  }
+
   if (
     !insideBackendTransport &&
+    !insideApplicationRouting &&
     stringLiterals(program).some((value) => backendOperationPaths.has(value))
   ) {
     findingsForFile.push(
@@ -293,8 +431,48 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
       `${sourcePath}: browser code cannot call a Nest operation by absolute URL; use a same-origin BFF route`,
     );
   }
+  if (callsSameOriginMutationDynamically(program)) {
+    findingsForFile.push(
+      `${sourcePath}: each browser mutation must declare a literal same-origin route and HTTP method`,
+    );
+  }
+  if (
+    !insideRuntimeConfiguration &&
+    readsRuntimeConfigurationEnvironment(program)
+  ) {
+    findingsForFile.push(
+      `${sourcePath}: application runtime environment belongs to the server-only config module`,
+    );
+  }
   return findingsForFile;
 });
+
+for (const entry of [...parsedFiles.keys()].filter((file) =>
+  [
+    "app/authoring/materials/page.tsx",
+    "app/authoring/playlists/page.tsx",
+    "app/authoring/playlists/[seriesId]/page.tsx",
+  ].some((suffix) => scannedPath(file).endsWith(suffix)),
+)) {
+  const visited = new Set();
+  const pending = [entry];
+  while (pending.length > 0) {
+    const file = pending.pop();
+    if (file === undefined || visited.has(file)) continue;
+    visited.add(file);
+    const program = parsedFiles.get(file);
+    if (program === undefined) continue;
+    for (const specifier of moduleSpecifiers(program)) {
+      if (specifier.startsWith("@tiptap/")) {
+        findings.push(
+          `${scannedPath(entry)}: lightweight authoring routes cannot reach the Tiptap editor bundle (via ${scannedPath(file)})`,
+        );
+      }
+      const dependency = resolveLocalModule(file, specifier, parsedFiles);
+      if (dependency !== undefined) pending.push(dependency);
+    }
+  }
+}
 
 if (findings.length > 0) {
   process.stderr.write(`${findings.sort().join("\n")}\n`);

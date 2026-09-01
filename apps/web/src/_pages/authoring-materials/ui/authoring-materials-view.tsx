@@ -14,7 +14,6 @@ import {
 import Link from "next/link";
 import type { Route } from "next";
 
-import { MaterialAuthoringShell } from "@/features/material-authoring";
 import { materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import {
@@ -38,15 +37,12 @@ import {
 } from "../model/authoring-materials-query";
 import {
   AuthoringMaterialActions,
-  type MaterialLifecycleMutationAction,
 } from "./authoring-material-actions.client";
 
 export function AuthoringMaterialsView({
-  lifecycleAction,
   query,
   state,
 }: {
-  readonly lifecycleAction: MaterialLifecycleMutationAction;
   readonly query: AuthoringMaterialsQuery;
   readonly state: AuthoringMaterialsState;
 }) {
@@ -55,10 +51,7 @@ export function AuthoringMaterialsView({
     return <AuthoringMaterialsStateView query={query} state={state} />;
   }
   return (
-    <MaterialAuthoringShell
-      createHref={authoringDestinationHref("/authoring/materials/new", returnHref)}
-      current="materials"
-    >
+    <>
       <main
         aria-labelledby="authoring-materials-heading"
         className="h-full min-h-svh overflow-y-auto bg-background text-foreground md:min-h-0 md:overscroll-y-contain"
@@ -85,14 +78,13 @@ export function AuthoringMaterialsView({
 
           <AuthoringMaterialsFilters query={query} totalItems={state.totalItems} />
           <AuthoringMaterialsResults
-            lifecycleAction={lifecycleAction}
             query={query}
             returnHref={returnHref}
             state={state}
           />
         </div>
       </main>
-    </MaterialAuthoringShell>
+    </>
   );
 }
 
@@ -163,12 +155,10 @@ function AuthoringMaterialsFilters({
 }
 
 function AuthoringMaterialsResults({
-  lifecycleAction,
   query,
   returnHref,
   state,
 }: {
-  readonly lifecycleAction: MaterialLifecycleMutationAction;
   readonly query: AuthoringMaterialsQuery;
   readonly returnHref: Route;
   readonly state: Extract<AuthoringMaterialsState, { readonly kind: "ready" }>;
@@ -219,7 +209,6 @@ function AuthoringMaterialsResults({
         {state.items.map((material) => (
           <AuthoringMaterialRow
             key={material.materialId}
-            lifecycleAction={lifecycleAction}
             material={material}
             returnHref={returnHref}
           />
@@ -231,11 +220,9 @@ function AuthoringMaterialsResults({
 }
 
 function AuthoringMaterialRow({
-  lifecycleAction,
   material,
   returnHref,
 }: {
-  readonly lifecycleAction: MaterialLifecycleMutationAction;
   readonly material: AuthoringMaterialListItem;
   readonly returnHref: Route;
 }) {
@@ -288,7 +275,6 @@ function AuthoringMaterialRow({
         </Button>
         <AuthoringMaterialActions
           editorHref={authoringDestinationHref(editorPath, returnHref)}
-          lifecycleAction={lifecycleAction}
           material={material}
         />
       </div>
@@ -389,7 +375,7 @@ function AuthoringMaterialsStateView({
   const currentHref = authoringMaterialsHref(query);
   const view = stateView(state);
   return (
-    <MaterialAuthoringShell current="materials">
+    <>
       <main
         className="grid h-full min-h-svh place-items-center bg-background px-5 py-12 text-foreground md:min-h-0"
         id="authoring-content"
@@ -431,7 +417,7 @@ function AuthoringMaterialsStateView({
           </div>
         </section>
       </main>
-    </MaterialAuthoringShell>
+    </>
   );
 }
 
@@ -475,7 +461,7 @@ function stateView(state: Exclude<AuthoringMaterialsState, { readonly kind: "rea
 
 export function AuthoringMaterialsLoading() {
   return (
-    <MaterialAuthoringShell current="materials">
+    <>
       <main
         aria-busy="true"
         aria-label="Загрузка списка материалов"
@@ -498,7 +484,7 @@ export function AuthoringMaterialsLoading() {
           </div>
         </div>
       </main>
-    </MaterialAuthoringShell>
+    </>
   );
 }
 

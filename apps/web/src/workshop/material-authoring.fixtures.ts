@@ -2,7 +2,7 @@ import type {
   MaterialAuthoringPresentation,
   MaterialPreviewBlock,
   MaterialPreviewText,
-} from "@/features/material-authoring";
+} from "@/widgets/material-authoring";
 
 const text = (value: string): MaterialPreviewText => ({
   kind: "text",
@@ -39,7 +39,7 @@ export const materialAuthoringPresentation = {
   ],
   authorization: { kind: "allowed" },
   blocking: { kind: "none" },
-  deletion: { pending: false, state: { kind: "idle" } },
+  deletion: { pending: false, result: null },
   draft: {
     access: "membership",
     canDelete: true,
@@ -103,6 +103,8 @@ export const materialAuthoringPresentation = {
   noticeRevision: 0,
   preview: {
     accessLabel: "Для участников",
+    contentVersion: 7,
+    materialId: "94000000-0000-4000-8000-000000000101",
     blocks: [
       paragraph(
         "Developer Pipeline превращает issue в проверяемый результат и сохраняет owner gates видимыми на всём пути.",
@@ -156,7 +158,13 @@ export const materialAuthoringPresentation = {
         alt: "Схема Developer Pipeline",
         assetId: "94000000-0000-4000-8000-000000000051",
         caption: "Путь от issue до owner GO",
+        height: 900,
         kind: "image",
+        variants: [
+          { height: 450, width: 480 },
+          { height: 900, width: 960 },
+        ],
+        width: 960,
       },
       {
         assetId: "94000000-0000-4000-8000-000000000052",

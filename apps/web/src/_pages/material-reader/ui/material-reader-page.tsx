@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 
-import { getRelatedMaterials } from "@/_pages/library-discovery.server";
-import { getMaterialReader } from "@/_pages/material-reader/api/get-material-reader";
-import { RelatedMaterialsSection } from "@/_pages/library-discovery";
+import { getRelatedMaterials } from "@/features/library-discovery.server";
+import { loadMaterialReader } from "../api/load-material-reader";
+import { RelatedMaterialsSection } from "@/features/library-discovery";
 import { MaterialReaderAccess, MaterialReaderUnavailable } from "./material-reader-states";
 import { MaterialReaderView } from "./material-reader-view";
 
@@ -14,7 +14,7 @@ export async function MaterialReaderPage({
   readonly slug: string;
 }) {
   const [result, related] = await Promise.all([
-    getMaterialReader(slug, accessToken),
+    loadMaterialReader(slug, accessToken),
     getRelatedMaterials(slug, accessToken),
   ]);
   if (result.kind === "not-found") {

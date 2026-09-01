@@ -2,55 +2,72 @@
 
 import type { Route } from "next";
 import Link from "next/link";
-import { startTransition, useActionState } from "react";
+import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 
 import {
-  initialMaterialLifecycleActionState,
+  deleteMaterialDraft,
   MaterialDeleteDialog,
   MaterialPublicationActionButton,
-  type MaterialLifecycleActionState,
-} from "@/features/material-authoring";
+  transitionMaterialPublication,
+  type TransitionMaterialPublicationResult,
+} from "@/features/material-lifecycle";
 
 import type { AuthoringMaterialListItem } from "../model/authoring-materials-presentation";
 
-export type MaterialLifecycleMutationAction = (
-  state: MaterialLifecycleActionState,
-  formData: FormData,
-) => Promise<MaterialLifecycleActionState>;
-
 export function AuthoringMaterialActions({
   editorHref,
-  lifecycleAction,
   material,
 }: {
   readonly editorHref: Route;
-  readonly lifecycleAction: MaterialLifecycleMutationAction;
   readonly material: AuthoringMaterialListItem;
 }) {
-  const [publicationState, publicationAction, publicationPending] =
-    useActionState(lifecycleAction, initialMaterialLifecycleActionState);
-  const [deletionState, deletionAction, deletionPending] = useActionState(
-    lifecycleAction,
-    initialMaterialLifecycleActionState,
-  );
-  const operation =
-    material.publicationState === "published" ? "unpublish" : "publish";
+  const router = useRouter();
+  const publicationMutation = useMutation({
+    mutationFn: transitionMaterialPublication,
+    onSuccess: (result) => {
+      if (result.kind === "saved") router.refresh();
+    },
+  });
+  const deletionMutation = useMutation({
+    mutationFn: deleteMaterialDraft,
+    onSuccess: (result) => {
+      if (result.kind === "deleted") router.refresh();
+    },
+  });
+  const publicationResult = publicationMutation.data ?? null;
+  const deletionResult = deletionMutation.data ?? null;
+  const publicationPending = publicationMutation.isPending;
+  const deletionPending = deletionMutation.isPending;
+  const publicationStatus =
+    publicationResult?.kind === "saved"
+      ? publicationResult.publicationState
+      : material.publicationState;
+  const contentVersion =
+    publicationResult?.kind === "saved"
+      ? publicationResult.contentVersion
+      : material.contentVersion;
+  const publicationState =
+    publicationStatus === "published" ? "unpublished" : "published";
+  const operation = publicationState === "published" ? "publish" : "unpublish";
   const submissionId =
-    publicationState.kind === "saved"
-      ? publicationState.nextSubmissionId
+    publicationResult?.kind === "saved"
+      ? publicationResult.nextSubmissionId
       : material.submissionId;
 
   return (
     <>
-      <form action={publicationAction}>
-        <input
-          name="expectedContentVersion"
-          type="hidden"
-          value={material.contentVersion}
-        />
-        <input name="materialId" type="hidden" value={material.materialId} />
-        <input name="operation" type="hidden" value={operation} />
-        <input name="submissionId" type="hidden" value={submissionId} />
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          publicationMutation.mutate({
+            expectedContentVersion: contentVersion,
+            materialId: material.materialId,
+            publicationState,
+            submissionId,
+          });
+        }}
+      >
         <MaterialPublicationActionButton
           className="min-h-11 w-full"
           disabled={publicationPending || deletionPending}
@@ -60,67 +77,63 @@ export function AuthoringMaterialActions({
           variant="outline"
         />
       </form>
-      {material.canDelete ? (
+      {material.canDelete && publicationResult?.kind !== "saved" ? (
         <MaterialDeleteDialog
-          contentVersion={material.contentVersion}
+          contentVersion={contentVersion}
           materialId={material.materialId}
-          onDelete={(formData) => {
-            startTransition(() => {
-              deletionAction(formData);
-            });
-          }}
+          onDelete={deletionMutation.mutate}
           pending={deletionPending}
-          state={deletionState}
+          result={deletionResult}
           submissionId={material.submissionId}
           title={material.title}
         />
       ) : null}
-      <PublicationNotice editorHref={editorHref} state={publicationState} />
+      <PublicationNotice editorHref={editorHref} result={publicationResult} />
     </>
   );
 }
 
 function PublicationNotice({
   editorHref,
-  state,
+  result,
 }: {
   readonly editorHref: Route;
-  readonly state: MaterialLifecycleActionState;
+  readonly result: TransitionMaterialPublicationResult | null;
 }) {
-  if (state.kind === "idle" || state.kind === "deleted") return null;
-  if (state.kind === "saved") {
+  if (result === null) return null;
+  if (result.kind === "saved") {
     return (
       <p
         className="col-span-2 text-sm font-medium text-foreground sm:basis-full"
         role="status"
       >
-        {state.publicationState === "published"
+        {result.publicationState === "published"
           ? "Материал опубликован."
           : "Материал снят с публикации."}
       </p>
     );
   }
   const message =
-    state.kind === "unauthorized"
+    result.kind === "unauthorized"
       ? "Сессия завершилась. Войдите снова."
-      : state.kind === "forbidden"
+      : result.kind === "forbidden"
         ? "У аккаунта больше нет права управлять материалами."
-        : state.kind === "not_found"
+        : result.kind === "not_found"
           ? "Материал больше не найден. Обновите список."
-          : state.kind === "conflict"
+          : result.kind === "conflict"
             ? "Материал изменился в другой сессии. Обновите список."
-            : state.kind === "invalid_input"
+            : result.kind === "invalid_input"
               ? "Материал пока нельзя опубликовать."
-              : state.kind === "infrastructure_error"
-                ? `Действие временно недоступно. Код: ${state.reference}`
-                : `Не удалось проверить результат. Код: ${state.reference}`;
+              : result.kind === "infrastructure_error"
+                ? `Действие временно недоступно. Код: ${result.reference}`
+                : `Не удалось проверить результат. Код: ${result.reference}`;
   return (
     <div
       className="col-span-2 rounded-xl border border-destructive/30 bg-destructive/6 p-3 text-sm sm:basis-full"
       role="alert"
     >
       <p>{message}</p>
-      {state.kind === "invalid_input" ? (
+      {result.kind === "invalid_input" ? (
         <Link
           className="mt-2 inline-block font-semibold underline underline-offset-4"
           href={editorHref}

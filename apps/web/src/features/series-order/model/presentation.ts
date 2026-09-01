@@ -12,14 +12,23 @@ export interface SeriesOrderPresentation {
   readonly seriesId: string;
 }
 
-export type SeriesOrderActionState =
-  | { readonly kind: "idle" }
-  | { readonly kind: "saved"; readonly orderVersion: string }
-  | { readonly kind: "conflict" }
-  | { readonly kind: "unauthorized" }
-  | { readonly kind: "error"; readonly reference: string };
+export interface ReorderSeriesInput {
+  readonly expectedOrderVersion: string;
+  readonly orderedMaterialIds: readonly string[];
+  readonly seriesId: string;
+}
 
-export type SeriesOrderMutation = (
-  state: SeriesOrderActionState,
-  formData: FormData,
-) => Promise<SeriesOrderActionState>;
+export type ReorderSeriesResult = z.infer<typeof reorderSeriesResultSchema>;
+import { z } from "zod";
+
+export const reorderSeriesResultSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("saved"),
+      orderVersion: z.string().regex(/^[a-f0-9]{64}$/u),
+    })
+    .strict(),
+  z.object({ kind: z.literal("conflict") }).strict(),
+  z.object({ kind: z.literal("unauthorized") }).strict(),
+  z.object({ kind: z.literal("error"), reference: z.string() }).strict(),
+]);

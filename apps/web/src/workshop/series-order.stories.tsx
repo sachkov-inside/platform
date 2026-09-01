@@ -3,26 +3,18 @@ import { expect, fn, userEvent, within } from "storybook/test";
 
 import {
   SeriesOrderManager,
-  type SeriesOrderMutation,
 } from "@/features/series-order";
+import { withMutationFetch } from "./mutation-mock";
 
-const saveOrderSpy = fn();
-const saveOrder: SeriesOrderMutation = (state, formData) => {
-  saveOrderSpy(state, formData);
-  return Promise.resolve({ kind: "saved", orderVersion: "b".repeat(64) });
-};
-const conflictOrder: SeriesOrderMutation = () => Promise.resolve({ kind: "conflict" });
-const failedOrderSpy = fn();
-const failedOrder: SeriesOrderMutation = (state, formData) => {
-  failedOrderSpy(state, formData);
-  return Promise.resolve({ kind: "error", reference: "series-order-save" });
-};
-const unauthorizedOrder: SeriesOrderMutation = () =>
-  Promise.resolve({ kind: "unauthorized" });
+const saveOrderSpy = fn(() =>
+  Promise.resolve(Response.json({ kind: "saved", orderVersion: "b".repeat(64) })),
+);
+const failedOrderSpy = fn(() =>
+  Promise.resolve(Response.json({ kind: "error", reference: "series-order-save" })),
+);
 
 const meta = {
   args: {
-    action: saveOrder,
     onBack: fn(),
     onRefresh: fn(),
     onSelectPlaylist: fn(),
@@ -64,6 +56,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Reordering: Story = {
+  decorators: [withMutationFetch(saveOrderSpy)],
   play: async ({ canvasElement }) => {
     saveOrderSpy.mockClear();
     const canvas = within(canvasElement);
@@ -82,7 +75,11 @@ export const Empty: Story = {
 };
 
 export const Conflict: Story = {
-  args: { action: conflictOrder },
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(Response.json({ kind: "conflict" })),
+    ),
+  ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await moveFirstItem(canvasElement);
@@ -95,7 +92,7 @@ export const Conflict: Story = {
 };
 
 export const SaveError: Story = {
-  args: { action: failedOrder },
+  decorators: [withMutationFetch(failedOrderSpy)],
   play: async ({ canvasElement }) => {
     failedOrderSpy.mockClear();
     const canvas = within(canvasElement);
@@ -110,7 +107,11 @@ export const SaveError: Story = {
 };
 
 export const SessionExpired: Story = {
-  args: { action: unauthorizedOrder },
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(Response.json({ kind: "unauthorized" })),
+    ),
+  ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await moveFirstItem(canvasElement);

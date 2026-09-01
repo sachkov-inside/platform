@@ -2,6 +2,7 @@ import type { NestApplicationOptions } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter } from "@nestjs/platform-fastify";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
+import multipart from "@fastify/multipart";
 import {
   DocumentBuilder,
   type OpenAPIObject,
@@ -9,17 +10,23 @@ import {
 } from "@nestjs/swagger";
 
 import type { PlatformConfig } from "../../config/platform-config.js";
+import { hoistZodRecursiveSchemas } from "../../infrastructure/http/zod-openapi.js";
 import { ApiModule } from "./api.module.js";
 
+const MAX_HTTP_BODY_BYTES = 2 * 1_024 * 1_024;
+
 export async function createApiApplication(
-  config: PlatformConfig,
+  config?: PlatformConfig,
   options: NestApplicationOptions = {},
 ): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(
     ApiModule.forRoot(config),
-    new FastifyAdapter(),
+    new FastifyAdapter({ bodyLimit: MAX_HTTP_BODY_BYTES }),
     options,
   );
+  await app.register(multipart, {
+    limits: { fields: 4, fileSize: 25 * 1024 * 1024, files: 1, parts: 5 },
+  });
   SwaggerModule.setup("openapi", app, () => createApiOpenApiDocument(app));
   app.enableShutdownHooks();
 
@@ -54,7 +61,9 @@ export function createApiOpenApiDocument(
     )
     .build();
 
-  return SwaggerModule.createDocument(app, config, {
+  const document = SwaggerModule.createDocument(app, config, {
     autoTagControllers: false,
   });
+  hoistZodRecursiveSchemas(document);
+  return document;
 }

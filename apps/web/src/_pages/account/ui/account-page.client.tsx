@@ -1,37 +1,32 @@
 "use client";
 
 import { Check, Copy, RotateCcw } from "lucide-react";
-import { useActionState, useCallback, useId, useState } from "react";
-
-import { Button } from "@/shared/ui/button";
+import { useMutation } from "@tanstack/react-query";
+import { useId, useState } from "react";
 
 import {
-  initialProfileMutationState,
-  type PrivateMemberProfile,
-  type ProfileMutationState,
-} from "../model/member-profile";
-import {
+  MemberProfileProjection,
   bioLengthIsValid,
   displayNameLengthIsValid,
   memberProfileTextLength,
-} from "../model/profile-fields";
-import { MemberProfileProjection } from "./member-profile-projection";
+  type PrivateMemberProfile,
+} from "@/entities/member-profile";
+import { Button } from "@/shared/ui/button";
 
-type ProfileMutationAction = (
-  state: ProfileMutationState,
-  formData: FormData,
-) => Promise<ProfileMutationState>;
+import { createMemberProfile } from "../api/create-member-profile.browser";
+import { updateMemberProfile } from "../api/update-member-profile.browser";
+import type { CreateMemberProfileResult } from "../model/create-member-profile";
+import type { UpdateMemberProfileResult } from "../model/update-member-profile";
+import { ProfileAvatarEditor } from "./profile-avatar-editor.client";
 
 interface AccountPageClientProps {
   readonly initialProfile: PrivateMemberProfile | null;
   readonly onProfileChange?: (profile: PrivateMemberProfile) => void;
-  readonly saveAction: ProfileMutationAction;
 }
 
 export function AccountPageClient({
   initialProfile,
   onProfileChange,
-  saveAction,
 }: AccountPageClientProps) {
   const [profile, setProfile] = useState(initialProfile);
   const [displayName, setDisplayName] = useState(initialProfile?.displayName ?? "");
@@ -43,9 +38,9 @@ export function AccountPageClient({
   const nameErrorId = useId();
   const bioHelpId = useId();
   const bioErrorId = useId();
-  const acceptSave = useCallback(
-    async (state: ProfileMutationState, formData: FormData) => {
-      const result = await saveAction(state, formData);
+  const createMutation = useMutation({
+    mutationFn: createMemberProfile,
+    onSuccess: (result) => {
       if (result.kind === "saved") {
         setDisplayName(result.profile.displayName);
         setBio(result.profile.bio ?? "");
@@ -54,22 +49,31 @@ export function AccountPageClient({
         setProfile(result.profile);
         onProfileChange?.(result.profile);
       }
-      return result;
     },
-    [onProfileChange, saveAction],
-  );
-  const [saveState, saveFormAction, savePending] = useActionState(
-    acceptSave,
-    initialProfileMutationState,
-  );
+  });
+  const updateMutation = useMutation({
+    mutationFn: updateMemberProfile,
+    onSuccess: (result) => {
+      if (result.kind === "saved") {
+        setDisplayName(result.profile.displayName);
+        setBio(result.profile.bio ?? "");
+        setNameTouched(false);
+        setBioTouched(false);
+        setProfile(result.profile);
+        onProfileChange?.(result.profile);
+      }
+    },
+  });
+  const saveResult = updateMutation.data ?? createMutation.data ?? null;
+  const savePending = createMutation.isPending || updateMutation.isPending;
   const nameLength = memberProfileTextLength(displayName.trim());
   const bioLength = memberProfileTextLength(bio);
   const serverNameError =
-    saveState.kind === "invalid_input"
-      ? saveState.fieldErrors.displayName
+    saveResult?.kind === "invalid_input"
+      ? saveResult.fieldErrors.displayName
       : undefined;
   const serverBioError =
-    saveState.kind === "invalid_input" ? saveState.fieldErrors.bio : undefined;
+    saveResult?.kind === "invalid_input" ? saveResult.fieldErrors.bio : undefined;
   const nameInvalid =
     serverNameError !== undefined ||
     (nameTouched && !displayNameLengthIsValid(displayName));
@@ -95,7 +99,21 @@ export function AccountPageClient({
         </form>
       </header>
 
-      <form action={saveFormAction} className="grid gap-8 lg:grid-cols-2 lg:gap-12">
+      <form
+        className="grid gap-8 lg:grid-cols-2 lg:gap-12"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (profile === null) {
+            createMutation.mutate({ bio, displayName });
+            return;
+          }
+          updateMutation.mutate({
+            bio,
+            displayName,
+            expectedVersion: profile.version,
+          });
+        }}
+      >
         <section aria-labelledby="profile-editor-heading" className="min-w-0">
           <div className="mb-7 flex items-start justify-between gap-4">
             <div>
@@ -117,11 +135,16 @@ export function AccountPageClient({
             </Button>
           </div>
 
-          <input name="mode" type="hidden" value={profile === null ? "create" : "update"} />
-          {profile === null ? null : (
-            <input name="expectedVersion" type="hidden" value={profile.version} />
-          )}
           <div className="grid gap-7">
+            {profile === null ? null : (
+              <ProfileAvatarEditor
+                onProfileChange={(updated) => {
+                  setProfile(updated);
+                  onProfileChange?.(updated);
+                }}
+                profile={profile}
+              />
+            )}
             <div>
               <label className="text-sm font-semibold" htmlFor="profile-display-name">
                 Имя
@@ -188,7 +211,7 @@ export function AccountPageClient({
             </div>
           </div>
 
-          <MutationNotice state={saveState} />
+          <MutationNotice result={saveResult} />
         </section>
 
         <section aria-labelledby="profile-preview-heading" className="min-w-0 border-t border-border pt-7 lg:border-t-0 lg:pt-0">
@@ -216,8 +239,13 @@ export function AccountPageClient({
           <MemberProfileProjection
             fields={
               profile === null
-                ? { bio: null, displayName: "" }
-                : { bio: profile.bio, displayName: profile.displayName }
+                ? { avatar: null, bio: null, displayName: "" }
+                : {
+                    avatar: profile.avatar,
+                    bio: profile.bio,
+                    displayName: profile.displayName,
+                    publicProfileId: profile.publicProfileId,
+                  }
             }
           />
           {profile === null ? (
@@ -269,9 +297,13 @@ function ProfileLink({
   );
 }
 
-function MutationNotice({ state }: { readonly state: ProfileMutationState }) {
-  if (state.kind === "idle") return null;
-  if (state.kind === "saved") {
+function MutationNotice({
+  result,
+}: {
+  readonly result: CreateMemberProfileResult | UpdateMemberProfileResult | null;
+}) {
+  if (result === null) return null;
+  if (result.kind === "saved") {
     return (
       <p className="mt-5 flex items-center gap-2 text-sm font-semibold text-foreground" role="status">
         <Check aria-hidden="true" className="size-4 text-accent" />
@@ -279,7 +311,7 @@ function MutationNotice({ state }: { readonly state: ProfileMutationState }) {
       </p>
     );
   }
-  if (state.kind === "conflict") {
+  if (result.kind === "conflict") {
     return (
       <div className="mt-5 rounded-xl border border-accent/35 bg-accent/6 p-4 text-sm" role="alert">
         <p className="font-semibold">Профиль уже изменился в другой вкладке.</p>
@@ -292,12 +324,12 @@ function MutationNotice({ state }: { readonly state: ProfileMutationState }) {
       </div>
     );
   }
-  if (state.kind === "invalid_input") return null;
+  if (result.kind === "invalid_input") return null;
   return (
     <p className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm" role="alert">
-      {state.kind === "unauthorized"
+      {result.kind === "unauthorized"
         ? "Сессия завершилась. Войдите снова, чтобы продолжить."
-        : `Не удалось выполнить действие. Повторите попытку. Код: ${state.reference}`}
+        : `Не удалось выполнить действие. Повторите попытку. Код: ${result.reference}`}
     </p>
   );
 }

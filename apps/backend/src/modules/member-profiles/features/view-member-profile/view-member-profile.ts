@@ -25,7 +25,12 @@ export async function viewMemberProfile(
 
     const profile = await prisma.memberProfile.findFirst({
       where: { publicProfileId, status: "active" },
-      select: { publicProfileId: true, displayName: true, bio: true },
+      select: {
+        avatarId: true,
+        bio: true,
+        displayName: true,
+        publicProfileId: true,
+      },
     });
     if (profile === null) return { ok: false, error: { code: "not_found" } };
     const projection = memberProfileProjection(profile);

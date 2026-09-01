@@ -4,6 +4,8 @@ export { assembleCurrentAccountPermissions } from "./adapters/accounts/current-a
 export { assembleDeterministicMembershipEntitlements } from "./adapters/membership/deterministic-membership-entitlements.js";
 export type {
   AccountPermissions,
+  AssetResourceFacts,
+  AssetResourceFactsAdapter,
   ContentAccessDependencies,
   MaterialResourceFacts,
   MaterialResourceFactsAdapter,
@@ -23,5 +25,6 @@ export {
   type DenyReason,
   type EnforcementPoint,
   type MaterialResource,
+  type Resource,
   type Subject,
 } from "./facets/content-access/content-access.interface.js";

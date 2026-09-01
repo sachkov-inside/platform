@@ -1,19 +1,15 @@
 import { randomUUID } from "node:crypto";
 import type { Route } from "next";
 
-import {
-  MaterialAuthoringUnexpectedEditorState,
-  type MaterialAuthoringPresentation,
-  withAuthoringReturnHref,
-} from "@/features/material-authoring";
-import { mutateMaterialLifecycleAction } from "@/features/material-authoring.server";
+import { MaterialAuthoringUnexpectedEditorState } from "@/widgets/material-authoring/route-states";
+import type { MaterialAuthoringPresentation } from "@/widgets/material-authoring/model";
+import { withAuthoringReturnHref } from "@/shared/routing/authoring";
 import {
   getOptionalPlatformAccessToken,
   LogtoSessionUnavailableError,
 } from "@/shared/auth/index.server";
 
-import { createMaterialDraftAction } from "../api/create-material-draft.action";
-import { getMaterialAuthoringReferences } from "../api/get-material-authoring-references";
+import { getMaterialAuthoringReferences } from "@/features/material-authoring-references.server";
 import { MaterialAuthoringPageClient } from "./material-authoring-page.client";
 
 export async function MaterialAuthoringPage({ returnHref }: { readonly returnHref: Route }) {
@@ -52,7 +48,7 @@ export async function MaterialAuthoringPage({ returnHref }: { readonly returnHre
           : "unauthorized",
     },
     blocking: { kind: "none" },
-    deletion: { pending: false, state: { kind: "idle" } },
+    deletion: { pending: false, result: null },
     draft: {
       access: "free",
       canDelete: false,
@@ -79,8 +75,6 @@ export async function MaterialAuthoringPage({ returnHref }: { readonly returnHre
     <MaterialAuthoringPageClient
       initialPresentation={initialPresentation}
       key="new-material"
-      lifecycleAction={mutateMaterialLifecycleAction}
-      mutationAction={createMaterialDraftAction}
       returnHref={returnHref}
     />
   );

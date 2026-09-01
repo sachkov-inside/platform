@@ -8,8 +8,12 @@ export { CancelablePromise, CancelError } from './core/CancelablePromise';
 export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
+export type { RecursiveSchema0schema0 } from './models/RecursiveSchema0schema0';
+export type { RecursiveSchema1schema0 } from './models/RecursiveSchema1schema0';
+
 export { AccountsService } from './services/AccountsService';
 export { ContentLibraryService } from './services/ContentLibraryService';
+export { MaterialAssetsService } from './services/MaterialAssetsService';
 export { MaterialAuthoringService } from './services/MaterialAuthoringService';
 export { MemberProfilesService } from './services/MemberProfilesService';
 export { OperationsService } from './services/OperationsService';

@@ -8,6 +8,7 @@ import type { LoadSeriesOrderOperation } from "../../features/load-series-order/
 import type { ReorderSeriesOperation } from "../../features/reorder-series/reorder-series.contract.js";
 import type { SaveMaterialOperation } from "../../features/save-material/save-material.contract.js";
 import type { ValidateMaterialOperation } from "../../features/validate-material/validate-material.contract.js";
+import type { TransitionMaterialPublicationOperation } from "../../features/transition-material-publication/transition-material-publication.contract.js";
 
 export interface MaterialAuthoring {
   readonly createDraft: CreateDraftOperation;
@@ -19,5 +20,6 @@ export interface MaterialAuthoring {
   readonly previewMaterial: PreviewMaterialOperation;
   readonly reorderSeries: ReorderSeriesOperation;
   readonly saveMaterial: SaveMaterialOperation;
+  readonly transitionPublication: TransitionMaterialPublicationOperation;
   readonly validateMaterial: ValidateMaterialOperation;
 }

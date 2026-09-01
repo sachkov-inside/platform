@@ -53,6 +53,12 @@ NavigationPage; Library is instead a generated view of Materials and is labelled
 the Russian product interface.
 _Avoid_: Material, generated index
 
+**MaterialAsset**:
+An immutable non-video image or downloadable file owned by exactly one Material and referenced
+inline from its current MaterialBody. It inherits the Material access class and is deliverable only
+while ready and currently authorized.
+_Avoid_: Media library item, attachment URL, mutable file
+
 ## Access and activity
 
 **Account**:

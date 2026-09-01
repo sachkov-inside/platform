@@ -521,6 +521,7 @@ describe("Accounts API", () => {
     expect(visible.headers["x-robots-tag"]).toBe("noindex, nofollow");
     expect(visible.json()).toEqual({
       profile: {
+        avatar: null,
         publicProfileId: privateProfile.publicProfileId,
         displayName: "Кирилл Сачков",
         bio: "Инженер и автор.",
