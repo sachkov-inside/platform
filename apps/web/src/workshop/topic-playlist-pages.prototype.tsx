@@ -66,10 +66,12 @@ interface PlaylistMaterialFixture {
 
 interface TopicPageFixture extends CollectionMetadataContract {
   readonly materials: readonly MaterialPreviewFixture[];
+  readonly playlists: readonly RelatedPlaylistFixture[];
 }
 
 interface PlaylistPageFixture extends CollectionMetadataContract {
   readonly materials: readonly PlaylistMaterialFixture[];
+  readonly topics: readonly { readonly name: string; readonly slug: string }[];
 }
 
 const navigationItems = [
@@ -308,24 +310,25 @@ const playlistMaterials = [
   },
 ] as const satisfies readonly PlaylistMaterialFixture[];
 
-const baseTopic = {
-  materials: topicMaterials,
-  name: "Продуктовая разработка",
-  slug: "product-engineering",
-  summary:
-    "Проектирование продукта, архитектуры и процесса поставки как одной проверяемой системы.",
-} as const satisfies TopicPageFixture;
+const baseTopic = buildTopicPresentationFixture(
+  {
+    name: "Продуктовая разработка",
+    slug: "product-engineering",
+    summary:
+      "Проектирование продукта, архитектуры и процесса поставки как одной проверяемой системы.",
+  },
+  topicMaterials,
+);
 
-const basePlaylist = {
-  ...platformPlaylistMetadata,
-  materials: playlistMaterials,
-} as const satisfies PlaylistPageFixture;
+const basePlaylist = buildPlaylistPresentationFixture(
+  platformPlaylistMetadata,
+  playlistMaterials,
+);
 
 export function TopicPagePrototype({
   scenario = "populated",
 }: TopicPagePrototypeProps) {
   const topic = getTopicFixture(scenario);
-  const playlists = getRelatedPlaylists(topic.materials);
 
   return (
     <PrototypeShell>
@@ -335,21 +338,21 @@ export function TopicPagePrototype({
         data-collection-scenario={scenario}
       >
         <CollectionBreadcrumb current={topic.name} kind="Тема" />
-        <TopicHeader playlistCount={playlists.length} topic={topic} />
+        <TopicHeader topic={topic} />
 
         <section aria-labelledby="topic-playlists" className="mt-10 sm:mt-14">
           <SectionHeading
-            countLabel={formatPlaylistCount(playlists.length)}
+            countLabel={formatPlaylistCount(topic.playlists.length)}
             description="Маршруты, в которых есть материалы этой темы. Плейлист может продолжаться в других темах."
             id="topic-playlists"
             title="Плейлисты по теме"
           />
-          {playlists.length > 0 ? (
+          {topic.playlists.length > 0 ? (
             <ul
               className="mt-5 grid max-w-[66rem] grid-cols-1 items-start gap-4 @min-[42rem]/collection:grid-cols-[repeat(auto-fill,minmax(18rem,20rem))]"
               role="list"
             >
-              {playlists.map((playlist) => (
+              {topic.playlists.map((playlist) => (
                 <li key={playlist.slug}>
                   <RelatedPlaylistCard playlist={playlist} />
                 </li>
@@ -480,13 +483,7 @@ function CollectionBreadcrumb({
   );
 }
 
-function TopicHeader({
-  playlistCount,
-  topic,
-}: {
-  readonly playlistCount: number;
-  readonly topic: TopicPageFixture;
-}) {
+function TopicHeader({ topic }: { readonly topic: TopicPageFixture }) {
   return (
     <header className="mt-5 grid gap-7 border-b border-border pb-8 sm:pb-10 @min-[52rem]/collection:grid-cols-[minmax(0,1fr)_22rem] @min-[52rem]/collection:items-end">
       <div className="min-w-0">
@@ -497,7 +494,7 @@ function TopicHeader({
           {topic.summary}
         </p>
         <p className="mt-6 font-mono text-xs text-muted-foreground">
-          {formatMaterialCount(topic.materials.length)} · {formatPlaylistCount(playlistCount)}
+          {formatMaterialCount(topic.materials.length)} · {formatPlaylistCount(topic.playlists.length)}
         </p>
       </div>
       <TopicSystemArtwork />
@@ -539,8 +536,6 @@ function TopicSystemArtwork() {
 }
 
 function PlaylistHeader({ playlist }: { readonly playlist: PlaylistPageFixture }) {
-  const topics = getPlaylistTopics(playlist.materials);
-
   return (
     <header className="mt-5 border-b border-border pb-8 sm:pb-10">
       <div className="grid gap-7 @min-[58rem]/collection:grid-cols-[minmax(0,1fr)_18rem] @min-[58rem]/collection:items-end">
@@ -559,10 +554,10 @@ function PlaylistHeader({ playlist }: { readonly playlist: PlaylistPageFixture }
           <p className="font-mono text-xs text-muted-foreground">
             {formatMaterialCount(playlist.materials.length)}
           </p>
-          {topics.length > 0 ? (
+          {playlist.topics.length > 0 ? (
             <nav aria-label="Темы плейлиста" className="mt-4">
               <ul className="flex flex-wrap gap-2" role="list">
-                {topics.map((topic) => (
+                {playlist.topics.map((topic) => (
                   <li key={topic.slug}>
                     <Link
                       className="inline-flex min-h-10 items-center rounded-xl bg-muted px-3 py-2 text-sm font-semibold text-foreground no-underline hover:bg-secondary focus-visible:outline-ring"
@@ -721,13 +716,10 @@ function InlineEmpty({
 
 function getTopicFixture(scenario: CollectionScenario): TopicPageFixture {
   if (scenario === "empty") {
-    return { ...baseTopic, materials: [] };
+    return buildTopicPresentationFixture(baseTopic, []);
   }
   if (scenario === "sparse") {
-    return {
-      ...baseTopic,
-      materials: [topicMaterials[0]],
-    };
+    return buildTopicPresentationFixture(baseTopic, [topicMaterials[0]]);
   }
   if (scenario === "long-title") {
     return {
@@ -742,10 +734,10 @@ function getTopicFixture(scenario: CollectionScenario): TopicPageFixture {
 
 function getPlaylistFixture(scenario: CollectionScenario): PlaylistPageFixture {
   if (scenario === "empty") {
-    return { ...basePlaylist, materials: [] };
+    return buildPlaylistPresentationFixture(basePlaylist, []);
   }
   if (scenario === "sparse") {
-    return { ...basePlaylist, materials: [playlistMaterials[0]] };
+    return buildPlaylistPresentationFixture(basePlaylist, [playlistMaterials[0]]);
   }
   if (scenario === "long-title") {
     return {
@@ -755,6 +747,32 @@ function getPlaylistFixture(scenario: CollectionScenario): PlaylistPageFixture {
     };
   }
   return basePlaylist;
+}
+
+/**
+ * Prototype stand-ins for the production application adapter. React receives a complete
+ * presentation model and never owns collection policy or relationship aggregation.
+ */
+function buildTopicPresentationFixture(
+  metadata: CollectionMetadataContract,
+  materials: readonly MaterialPreviewFixture[],
+): TopicPageFixture {
+  return {
+    ...metadata,
+    materials,
+    playlists: getRelatedPlaylists(materials),
+  };
+}
+
+function buildPlaylistPresentationFixture(
+  metadata: CollectionMetadataContract,
+  materials: readonly PlaylistMaterialFixture[],
+): PlaylistPageFixture {
+  return {
+    ...metadata,
+    materials,
+    topics: getPlaylistTopics(materials),
+  };
 }
 
 function getRelatedPlaylists(
