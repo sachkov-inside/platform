@@ -25,6 +25,8 @@ const navigationItems = [
 ] satisfies readonly ApplicationNavigationItem[];
 
 const material = {
+  materialId: "02000000-0000-4000-8000-000000000010",
+  contentVersion: 7,
   access: "free",
   format: { name: "Гайд", slug: "guide" },
   publishedAt: "2026-08-25T05:00:00.000Z",
@@ -170,6 +172,12 @@ const body = [
     assetId: "image-agent-path",
     alt: "Маршрут от project rules через skill к evidence",
     caption: "Один authority, один workflow, одна проверка",
+    height: 900,
+    variants: [
+      { height: 450, width: 480 },
+      { height: 900, width: 960 },
+    ],
+    width: 960,
   },
   {
     kind: "file",
@@ -261,7 +269,8 @@ export const Mobile: Story = {
     ).toBeInTheDocument();
     await expect(canvas.getByRole("navigation", { name: "Мобильная навигация" })).toBeInTheDocument();
     await expect(canvas.getByText("В этом материале", { selector: "summary" })).toBeInTheDocument();
-    await expect(canvas.getByRole("heading", { name: "Ресурсы" })).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" })).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: /Чек-лист проверки repository-owned skill/u })).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(1);
   },
 };
@@ -274,7 +283,7 @@ export const Desktop: Story = {
     await expect(canvas.getByRole("navigation", { name: "В этом материале" })).toBeInTheDocument();
     await expect(canvas.getAllByRole("link", { name: "В Библиотеку" })).toHaveLength(2);
     await expect(canvas.getByRole("region", { name: "Таблица в материале" })).toBeInTheDocument();
-    await expect(canvas.getByRole("heading", { name: "Ресурсы" })).toBeInTheDocument();
+    await expect(canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" })).toBeInTheDocument();
   },
 };
 

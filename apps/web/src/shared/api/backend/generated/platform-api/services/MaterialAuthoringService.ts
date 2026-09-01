@@ -213,6 +213,51 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Upload and finalize an immutable Material asset
+   * @returns any
+   * @throws ApiError
+   */
+  public uploadMaterialAsset({
+    idempotencyKey,
+    materialId,
+    formData,
+  }: {
+    idempotencyKey: string,
+    materialId: string,
+    formData: {
+      checksumSha256: string;
+      declaredSize: number;
+      file: Blob;
+      kind: 'file' | 'image';
+    },
+  }): CancelablePromise<{
+    assetId: string;
+    contentType: string;
+    filename: string;
+    height?: number;
+    kind: 'file' | 'image';
+    size: number;
+    state: 'ready';
+    variants?: Array<{
+      height: number;
+      width: number;
+    }>;
+    width?: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/materials/{materialId}/assets',
+      path: {
+        'materialId': materialId,
+      },
+      headers: {
+        'idempotency-key': idempotencyKey,
+      },
+      formData: formData,
+      mediaType: 'multipart/form-data',
+    });
+  }
+  /**
    * Render the current saved Material
    * @returns any
    * @throws ApiError
@@ -273,9 +318,11 @@ export class MaterialAuthoringService {
       plainText: string;
       resources: Array<({
         alt: string;
+        assetId: string;
         caption?: string;
         kind: 'image';
       } | {
+        assetId: string;
         kind: 'file';
         label: string;
       } | {

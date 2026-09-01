@@ -1,4 +1,5 @@
 import type { MaterialsPrismaClient } from "../../infrastructure/prisma/index.js";
+import type { MaterialAssets } from "../assets/index.js";
 import {
   assembleContentAccess,
   assembleDeterministicMembershipEntitlements,
@@ -27,6 +28,10 @@ export function assembleMaterials(dependencies: {
   readonly prisma: MaterialsPrismaClient;
   readonly authorPolicy: AuthorPolicy;
   readonly contentAccess?: ContentAccess;
+  readonly materialAssets?: Pick<
+    MaterialAssets,
+    "inspectReferences" | "loadPresentations" | "markUnreferenced"
+  >;
   readonly membershipAcquisitionUrl?: string;
 }): Materials {
   const materialContent = assembleMaterialContent({
@@ -48,6 +53,9 @@ export function assembleMaterials(dependencies: {
     authorPolicy: dependencies.authorPolicy,
     contentAccess,
     materialBodyOperations,
+    ...(dependencies.materialAssets === undefined
+      ? {}
+      : { materialAssets: dependencies.materialAssets }),
   };
   return Object.freeze({
     authoring: assembleMaterialAuthoring(shared),

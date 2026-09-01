@@ -27,6 +27,8 @@ import {
   ReadPublishedMaterialController,
   SaveMaterialController,
   ValidateMaterialController,
+  UploadMaterialAssetController,
+  DeliverMaterialAssetController,
 } from "../../modules/materials/index.js";
 import { HealthController } from "./health.controller.js";
 
@@ -46,6 +48,8 @@ import { HealthController } from "./health.controller.js";
     ValidateMaterialController,
     PreviewMaterialController,
     ReorderSeriesController,
+    UploadMaterialAssetController,
+    DeliverMaterialAssetController,
   ],
   providers: [
     OperationalReadiness,

@@ -271,12 +271,13 @@ function collect(
     case "image":
       resources.push({
         kind: "image",
+        assetId: block.assetId,
         alt: block.alt,
         ...(block.caption === undefined ? {} : { caption: block.caption }),
       });
       return;
     case "file":
-      resources.push({ kind: "file", label: block.label });
+      resources.push({ assetId: block.assetId, kind: "file", label: block.label });
       return;
     case "video":
       resources.push({

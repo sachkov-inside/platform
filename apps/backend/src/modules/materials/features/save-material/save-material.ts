@@ -34,7 +34,7 @@ import { materializeMetadataSelection } from "../../shared/materialize-metadata-
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
-import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
+import { lockMaterialAssetReferenceSet, lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
 import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
@@ -79,6 +79,11 @@ export function assembleSaveMaterial(
     if (!extraction.ok) {
       return failure(extraction.error);
     }
+    const assetReferences = extraction.value.resources.flatMap((resource) =>
+      resource.kind === "video"
+        ? []
+        : [{ assetId: resource.assetId, kind: resource.kind }],
+    );
     const authorization = await authorizeManager(
       dependencies.authorPolicy,
       command.actor,
@@ -131,11 +136,12 @@ export function assembleSaveMaterial(
               (command.publicationState === "published" && selectedValues.title !== null
                 ? await allocateMaterialSlug(transaction, selectedValues.title)
                 : null);
+            const savedAt = new Date();
             const next = locked.lifecycle.save({
               expectedContentVersion: command.expectedContentVersion,
               publicationState: command.publicationState,
               slug,
-              now: new Date(),
+              now: savedAt,
             });
             if (!next.ok) {
               return rollback(next.error);
@@ -159,6 +165,23 @@ export function assembleSaveMaterial(
               materializedMetadata,
               rollback,
             );
+            if (dependencies.materialAssets !== undefined) {
+              await lockMaterialAssetReferenceSet(transaction, command.materialId);
+              const assetIssues = await dependencies.materialAssets.inspectReferences(
+                command.materialId,
+                assetReferences,
+              );
+              if (!assetIssues.ok) return rollback(assetIssues.error);
+              if (assetIssues.value.length > 0) {
+                return rollback({
+                  code: "invalid_reference",
+                  issues: assetIssues.value.map((issue) => ({
+                    code: issue.code,
+                    path: "/body",
+                  })),
+                });
+              }
+            }
 
             const entersPublished =
               locked.lifecycle.publicationState !== "published" &&
@@ -182,7 +205,7 @@ export function assembleSaveMaterial(
                 firstPublishedAt: next.value.firstPublishedAt,
                 publishedAt: next.value.publishedAt,
                 publishedBy,
-                updatedAt: new Date(),
+                updatedAt: savedAt,
               },
             });
             await replaceCurrentRelations(
@@ -212,6 +235,14 @@ export function assembleSaveMaterial(
               await transaction.materialSearchDocument.deleteMany({
                 where: { materialId: command.materialId },
               });
+            }
+            if (dependencies.materialAssets !== undefined) {
+              const marked = await dependencies.materialAssets.markUnreferenced({
+                materialId: command.materialId,
+                orphanedAt: savedAt,
+                referencedAssetIds: assetReferences.map(({ assetId }) => assetId),
+              });
+              if (!marked.ok) return rollback(marked.error);
             }
             return {
               kind: "material",

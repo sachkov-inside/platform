@@ -2,6 +2,7 @@ import type { NestApplicationOptions } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter } from "@nestjs/platform-fastify";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
+import multipart from "@fastify/multipart";
 import {
   DocumentBuilder,
   type OpenAPIObject,
@@ -20,6 +21,9 @@ export async function createApiApplication(
     new FastifyAdapter(),
     options,
   );
+  await app.register(multipart, {
+    limits: { fields: 4, fileSize: 25 * 1024 * 1024, files: 1, parts: 5 },
+  });
   SwaggerModule.setup("openapi", app, () => createApiOpenApiDocument(app));
   app.enableShutdownHooks();
 

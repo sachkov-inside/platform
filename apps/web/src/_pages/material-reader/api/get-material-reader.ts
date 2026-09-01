@@ -62,8 +62,18 @@ const readerBlockSchema: z.ZodType<ReaderBlock> = z.lazy(() =>
       assetId: z.string(),
       alt: z.string(),
       caption: z.string().optional(),
+      height: z.number().int().positive().optional(),
+      variants: z.array(z.object({ height: z.number().int().positive(), width: z.number().int().positive() })).optional(),
+      width: z.number().int().positive().optional(),
     }),
-    z.object({ kind: z.literal("file"), assetId: z.string(), label: z.string() }),
+    z.object({
+      kind: z.literal("file"),
+      assetId: z.string(),
+      contentType: z.string().optional(),
+      filename: z.string().optional(),
+      label: z.string(),
+      size: z.number().int().positive().optional(),
+    }),
     z.object({
       kind: z.literal("video"),
       videoId: z.string(),
@@ -179,6 +189,8 @@ function toMaterialMetadata(
   projection: z.infer<typeof projectionSchema>,
 ): MaterialReaderMetadata {
   return {
+    materialId: projection.materialId,
+    contentVersion: projection.contentVersion,
     slug: projection.slug,
     title: projection.title,
     summary: projection.summary,

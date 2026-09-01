@@ -321,7 +321,7 @@ async function startFullStackIdentity() {
       LOGTO_JWKS_URL: `http://127.0.0.1:${String(address.port)}/jwks`,
       OWNER_LOGTO_ISSUER: issuer,
       OWNER_LOGTO_SUBJECT: subject,
-      WEB_BASE_URL: "https://web.fullstack.test",
+      WEB_BASE_URL: webBaseUrl,
     },
     close: () =>
       new Promise((resolveClose, rejectClose) => {

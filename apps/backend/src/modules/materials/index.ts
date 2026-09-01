@@ -109,6 +109,7 @@ export type {
   ValidationIssue,
 } from "./domain/material-body/material-body.js";
 export { MaterialsModule } from "./materials.module.js";
+export { MaterialAssetMaintenanceModule } from "./material-asset-maintenance.module.js";
 export { assembleMaterialAuthoringMcpServer } from "./adapters/mcp/material-authoring-mcp.js";
 export { assembleMaterials, type Materials } from "./assemble-materials.js";
 export {
@@ -126,3 +127,10 @@ export { ReorderSeriesController } from "./features/reorder-series/reorder-serie
 export { ReadPublishedMaterialController } from "./features/read-published-material/read-published-material.controller.js";
 export { SaveMaterialController } from "./features/save-material/save-material.controller.js";
 export { ValidateMaterialController } from "./features/validate-material/validate-material.controller.js";
+export { UploadMaterialAssetController } from "./features/upload-material-asset/upload-material-asset.controller.js";
+export { DeliverMaterialAssetController } from "./features/deliver-material-asset/deliver-material-asset.controller.js";
+export {
+  MATERIAL_ASSET_MAINTENANCE,
+  type CleanupMaterialAssetsResult,
+  type MaterialAssetMaintenance,
+} from "./features/cleanup-material-assets/cleanup-material-assets.js";

@@ -19,6 +19,17 @@ export interface MaterialResourceFactsAdapter {
   findOne(materialId: MaterialId): Promise<MaterialResourceFacts | null>;
 }
 
+export interface AssetResourceFacts {
+  readonly assetId: string;
+  readonly kind: "file" | "image";
+  readonly materialId: MaterialId;
+}
+
+export interface AssetResourceFactsAdapter {
+  findMany(assetIds: readonly string[]): Promise<readonly AssetResourceFacts[]>;
+  findOne(assetId: string): Promise<AssetResourceFacts | null>;
+}
+
 export interface AccountPermissions {
   hasMaterialsManage(accountId: AccountId): Promise<boolean>;
 }
@@ -30,6 +41,7 @@ export type MembershipEntitlements = Pick<
 >;
 
 export interface ContentAccessDependencies {
+  readonly assetResourceFacts?: AssetResourceFactsAdapter;
   readonly materialResourceFacts: MaterialResourceFactsAdapter;
   readonly accountPermissions: AccountPermissions;
   readonly membershipEntitlements: MembershipEntitlements;

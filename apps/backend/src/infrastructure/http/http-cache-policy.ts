@@ -9,17 +9,19 @@ import {
 import { Reflector } from "@nestjs/core";
 import type { FastifyReply } from "fastify";
 import type { FastifyRequest } from "fastify";
-import { type Observable, tap } from "rxjs";
+import { map, type Observable, tap } from "rxjs";
 
 const CACHE_POLICY_METADATA = Symbol("http-cache-policy");
 
 type HttpCachePolicy =
   | "private-no-store"
+  | "material-asset-delivery"
   | "public-catalog"
   | "viewer-aware-catalog"
   | "published-material-response";
 
 const cacheControlByPolicy = {
+  "material-asset-delivery": "private, no-store",
   "private-no-store": "private, no-store",
   "public-catalog": "public, max-age=30, stale-while-revalidate=60",
 } as const;
@@ -42,6 +44,12 @@ export const PublishedMaterialCache = () =>
     "published-material-response" satisfies HttpCachePolicy,
   );
 
+export const MaterialAssetDeliveryCache = () =>
+  SetMetadata(
+    CACHE_POLICY_METADATA,
+    "material-asset-delivery" satisfies HttpCachePolicy,
+  );
+
 @Injectable()
 export class HttpCachePolicyInterceptor implements NestInterceptor {
   constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
@@ -56,6 +64,11 @@ export class HttpCachePolicyInterceptor implements NestInterceptor {
     }
 
     const response = context.switchToHttp().getResponse<FastifyReply>();
+    if (policy === "material-asset-delivery") {
+      return next.handle().pipe(
+        map((body: unknown) => sendMaterialAssetDelivery(response, body)),
+      );
+    }
     return next.handle().pipe(
       tap((body: unknown) => {
         response.header(
@@ -65,6 +78,59 @@ export class HttpCachePolicyInterceptor implements NestInterceptor {
       }),
     );
   }
+}
+
+function sendMaterialAssetDelivery(
+  response: FastifyReply,
+  body: unknown,
+): Buffer | undefined {
+  if (!isMaterialAssetDelivery(body)) {
+    throw new TypeError("Material asset controller returned an invalid response");
+  }
+  response.header(
+    "Cache-Control",
+    body.cacheScope === "public-immutable"
+      ? "public, max-age=31536000, immutable"
+      : cacheControlByPolicy["private-no-store"],
+  );
+  response.header("X-Content-Type-Options", "nosniff");
+  if (body.kind === "redirect") {
+    response.status(302);
+    response.header("Location", body.location);
+    return undefined;
+  }
+  response.header("Content-Type", body.contentType);
+  response.header("Content-Length", String(body.contentLength));
+  if (body.contentDisposition !== undefined) {
+    response.header("Content-Disposition", body.contentDisposition);
+  }
+  return Buffer.from(body.body);
+}
+
+function isMaterialAssetDelivery(value: unknown): value is
+  | Readonly<{
+      body: Uint8Array;
+      cacheScope: "public-immutable";
+      contentDisposition?: string;
+      contentLength: number;
+      contentType: string;
+      kind: "bytes";
+    }>
+  | Readonly<{
+      cacheScope: "private-no-store";
+      kind: "redirect";
+      location: string;
+    }> {
+  if (typeof value !== "object" || value === null || !("kind" in value)) return false;
+  if (value.kind === "redirect") {
+    return "cacheScope" in value && value.cacheScope === "private-no-store" &&
+      "location" in value && typeof value.location === "string";
+  }
+  return value.kind === "bytes" && "cacheScope" in value &&
+    value.cacheScope === "public-immutable" && "body" in value &&
+    value.body instanceof Uint8Array && "contentLength" in value &&
+    typeof value.contentLength === "number" && "contentType" in value &&
+    typeof value.contentType === "string";
 }
 
 function resolveCacheControl(

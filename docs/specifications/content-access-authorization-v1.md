@@ -109,7 +109,8 @@ caller не передаёт.
 | Material preview | Реальный privileged path уже существует. | Preview текущего сохранённого Material требует свежей проверки `materials:manage` до body/private metadata load. |
 | Web page и REST | Реальные entrypoints используют Published Material reader. | Они передают trusted Account либо anonymous; route-local policy запрещена. |
 | MCP | Materials tools ещё отсутствуют. | Первый adapter использует user-delegated owner Account и ту же permission; service identity не создаётся. |
-| Asset и Video | Owning modules и delivery adapters отсутствуют. | Vocabulary зарезервирован для conformance, но production adapters появляются только с реальным consumer. |
+| MaterialAsset | Production upload/read/download adapters реализованы в #180. | Version-bound route передаёт `assetId` в exact Asset/Action allow, сверяет `checkedContentVersion` и current body reference до private locator; Membership presign ограничен `validUntil`. |
+| Video | Owning module и delivery adapter отсутствуют. | Vocabulary зарезервирован для conformance, production adapter появляется только с реальным consumer. |
 
 ## Subject и authorization facts
 
@@ -325,9 +326,13 @@ Published Material delivery order:
 
 Preview передаёт `materialId`, требует current `materials:manage` и загружает текущее сохранённое
 состояние только после allow. Обычный public reader даже для manager не открывает draft/unpublished:
-для них используется Preview. Будущие Asset/Video adapters сначала load safe relationship facts, а
-private locator/credential получают только после single-resource authorize. Cover остаётся частью
-public projection; inline media, downloads и video наследуют защиту owning Material.
+для них используется Preview. MaterialAsset adapter сначала load-ит только safe owner/kind facts,
+вызывает single-resource authorize с exact `assetId` и `read | download | preview`, сверяет
+route `contentVersion` с decision и conditional query подтверждает exact reference в current body;
+только затем получает private locator. Stale version или removed/replaced reference masked как
+not found. Membership presign живёт меньше `validUntil` с clock-safety margin. Будущий Video adapter
+следует тому же порядку. Cover остаётся частью public projection; inline media, downloads и video
+наследуют защиту owning Material.
 
 Public projections и free bodies могут быть shared-cacheable. Personalized availability
 накладывается после public cache. Membership body, protected decision, credential и permission

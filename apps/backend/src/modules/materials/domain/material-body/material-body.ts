@@ -71,8 +71,18 @@ export type RenderedBlock =
       readonly assetId: string;
       readonly alt: string;
       readonly caption?: string;
+      readonly height?: number;
+      readonly variants?: readonly { readonly height: number; readonly width: number }[];
+      readonly width?: number;
     }
-  | { readonly kind: "file"; readonly assetId: string; readonly label: string }
+  | {
+      readonly kind: "file";
+      readonly assetId: string;
+      readonly contentType?: string;
+      readonly filename?: string;
+      readonly label: string;
+      readonly size?: number;
+    }
   | { readonly kind: "video"; readonly videoId: string; readonly caption?: string };
 
 export interface RenderedMaterialBody {
@@ -83,10 +93,11 @@ export interface RenderedMaterialBody {
 export type MaterialBodyResourceSummary =
   | {
       readonly kind: "image";
+      readonly assetId: string;
       readonly alt: string;
       readonly caption?: string;
     }
-  | { readonly kind: "file"; readonly label: string }
+  | { readonly kind: "file"; readonly assetId: string; readonly label: string }
   | { readonly kind: "video"; readonly caption?: string };
 
 export interface MaterialBodyExtraction {

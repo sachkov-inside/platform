@@ -139,11 +139,13 @@ describe("MaterialBodyOperations", () => {
         resources: [
           {
             kind: "image",
+            assetId: "02000000-0000-4000-8000-000000000001",
             alt: "Delivery stages",
             caption: "One retained path",
           },
           {
             kind: "file",
+            assetId: "02000000-0000-4000-8000-000000000002",
             label: "Pipeline checklist",
           },
           {

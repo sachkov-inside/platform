@@ -21,6 +21,7 @@ export function MaterialCurrentPreview({
   materialsHref = authoringMaterialsRootHref,
   preview,
 }: MaterialCurrentPreviewProps) {
+  const editorLink = linkTarget(editorHref);
   return (
     <MaterialAuthoringShell current="preview">
       <main
@@ -34,7 +35,7 @@ export function MaterialCurrentPreview({
           <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <Button asChild className="size-11" size="icon-lg" variant="ghost">
-                <Link href={{ pathname: editorHref }}>
+                <Link href={editorLink}>
                   <ArrowLeft aria-hidden="true" />
                   <span className="sr-only">Вернуться в редактор</span>
                 </Link>
@@ -53,7 +54,7 @@ export function MaterialCurrentPreview({
                 <Link href={materialsHref}>К материалам</Link>
               </Button>
               <Button asChild>
-                <Link href={{ pathname: editorHref }}>Вернуться в редактор</Link>
+                <Link href={editorLink}>Вернуться в редактор</Link>
               </Button>
             </div>
           </div>
@@ -68,6 +69,14 @@ export function MaterialCurrentPreview({
       </main>
     </MaterialAuthoringShell>
   );
+}
+
+function linkTarget(href: string) {
+  const url = new URL(href, "https://inside.invalid");
+  return {
+    pathname: url.pathname,
+    query: Object.fromEntries(url.searchParams),
+  };
 }
 
 function publicationStateLabel(

@@ -58,3 +58,12 @@ export async function lockMaterialForLifecycleChange(
         publishedBy: row.published_by,
       };
 }
+
+export async function lockMaterialAssetReferenceSet(
+  transaction: MaterialsPrismaTransaction,
+  materialIdValue: MaterialId,
+): Promise<void> {
+  await transaction.$executeRaw(Prisma.sql`
+    select pg_advisory_xact_lock(hashtextextended(${materialIdValue}, 0))
+  `);
+}

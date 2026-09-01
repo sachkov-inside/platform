@@ -16,7 +16,10 @@ const runtimeModeSchema = z.enum(["development", "test", "production"]);
 const identitySchema = z
   .object({
     endpoint: httpUrlSchema("LOGTO_ENDPOINT").refine(
-      (value) => new URL(value).protocol === "https:",
+      (value) => {
+        const url = new URL(value);
+        return url.protocol === "https:" || isLoopbackHttpUrl(url);
+      },
       { message: "LOGTO_ENDPOINT must use HTTPS" },
     ),
     audience: httpUrlSchema("LOGTO_AUDIENCE"),
@@ -67,9 +70,11 @@ export function parseWebRuntimeConfig(
       config.error.issues[0]?.message ?? "Web runtime configuration is invalid",
     );
   }
+  const baseUrl = new URL(config.data.identity.baseUrl);
   if (
     mode === "production" &&
-    new URL(config.data.identity.baseUrl).protocol !== "https:"
+    baseUrl.protocol !== "https:" &&
+    !isLoopbackHttpUrl(baseUrl)
   ) {
     throw new Error("WEB_BASE_URL must use HTTPS");
   }
@@ -130,4 +135,13 @@ function httpUrlSchema(name: string) {
       }
     })
     .transform(({ value }) => value);
+}
+
+function isLoopbackHttpUrl(url: URL): boolean {
+  return (
+    url.protocol === "http:" &&
+    (url.hostname === "127.0.0.1" ||
+      url.hostname === "[::1]" ||
+      url.hostname === "localhost")
+  );
 }

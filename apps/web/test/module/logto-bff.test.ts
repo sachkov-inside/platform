@@ -66,6 +66,30 @@ describe("Logto BFF configuration", () => {
     ).toThrow("LOGTO_ENDPOINT is required in production mode");
   });
 
+  it("permits HTTP only on loopback for the production-mode full-stack harness", () => {
+    const production: NodeJS.ProcessEnv = {
+      NODE_ENV: "production",
+      BACKEND_BASE_URL: "http://127.0.0.1:3001",
+      LOGTO_ENDPOINT: "https://identity.example.test",
+      LOGTO_AUDIENCE: "http://127.0.0.1:3001",
+      LOGTO_APP_ID: "inside-web",
+      LOGTO_APP_SECRET: "inside-web-confidential-secret",
+      LOGTO_COOKIE_SECRET: secret,
+    };
+    expect(
+      parseLogtoBffConfig({
+        ...production,
+        WEB_BASE_URL: "http://127.0.0.1:3000",
+      }).baseUrl,
+    ).toBe("http://127.0.0.1:3000");
+    expect(() =>
+      parseLogtoBffConfig({
+        ...production,
+        WEB_BASE_URL: "http://inside.example.test",
+      }),
+    ).toThrow("WEB_BASE_URL must use HTTPS");
+  });
+
   it("binds the exact API audience only to the authorization-code exchange", () => {
     const authorizationCode = bindAuthorizationCodeResource(
       {
