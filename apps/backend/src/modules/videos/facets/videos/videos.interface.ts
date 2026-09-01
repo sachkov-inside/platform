@@ -41,9 +41,43 @@ export type VideoError =
   | { readonly code: "video_not_found" }
   | { readonly code: "video_not_ready" };
 
-export type VideoResult<Value> =
+export type VideoResult<Value, Error extends VideoError = VideoError> =
   | Readonly<{ ok: true; value: Value }>
-  | Readonly<{ ok: false; error: VideoError }>;
+  | Readonly<{ ok: false; error: Error }>;
+
+type VideoOperationError<Code extends VideoError["code"]> = Extract<
+  VideoError,
+  { readonly code: Code }
+>;
+
+type OperationResult<Value, Code extends VideoError["code"]> = VideoResult<
+  Value,
+  VideoOperationError<Code>
+>;
+
+export type InitVideoUploadResult = OperationResult<
+  { readonly uploadEndpoint: string; readonly video: VideoDto },
+  | "dependency_unavailable"
+  | "forbidden"
+  | "idempotency_key_reused"
+  | "invalid_request"
+  | "upload_outcome_unknown"
+>;
+
+export type AttachVideoResult = OperationResult<
+  VideoDto,
+  "dependency_unavailable" | "forbidden" | "invalid_request" | "provider_mismatch"
+>;
+
+export type ReconcileVideoResult = OperationResult<
+  VideoDto,
+  "dependency_unavailable" | "forbidden" | "invalid_request" | "provider_mismatch" | "video_not_found"
+>;
+
+export type AcceptVideoWebhookResult = OperationResult<
+  void,
+  "dependency_unavailable" | "invalid_request" | "provider_mismatch" | "video_not_found"
+>;
 
 export interface Videos {
   initUpload(input: {
@@ -54,41 +88,51 @@ export interface Videos {
     readonly idempotencyKey: string;
     readonly materialId: string;
     readonly title: string;
-  }): Promise<VideoResult<{ readonly uploadEndpoint: string; readonly video: VideoDto }>>;
+  }): Promise<InitVideoUploadResult>;
   attachExisting(input: {
     readonly access: VideoAccess;
     readonly actor: string;
     readonly materialId: string;
     readonly providerVideoId: string;
-  }): Promise<VideoResult<VideoDto>>;
+  }): Promise<AttachVideoResult>;
   reconcile(input: {
     readonly actor: string;
     readonly videoId: string;
-  }): Promise<VideoResult<VideoDto>>;
+  }): Promise<ReconcileVideoResult>;
   acceptWebhook(input: {
     readonly event: string;
     readonly providerStatus?: string;
     readonly providerVideoId: string;
-  }): Promise<VideoResult<void>>;
+  }): Promise<AcceptVideoWebhookResult>;
   inspectPrimaryReference(input: {
     readonly access: VideoAccess;
     readonly materialId: string;
     readonly videoId: string;
-  }): Promise<VideoResult<void>>;
+  }): Promise<OperationResult<
+    void,
+    "dependency_unavailable" | "invalid_request" | "provider_mismatch" | "video_not_found" | "video_not_ready"
+  >>;
   loadPresentation(input: {
     readonly materialId: string;
     readonly videoId: string;
-  }): Promise<VideoResult<VideoPresentation | null>>;
-  loadAccessFacts(videoIds: readonly string[]): Promise<VideoResult<readonly VideoAccessFacts[]>>;
-  loadPlayback(videoId: string): Promise<VideoResult<VideoPlayback | null>>;
+  }): Promise<OperationResult<VideoPresentation | null, "dependency_unavailable" | "invalid_request">>;
+  loadAccessFacts(videoIds: readonly string[]): Promise<
+    OperationResult<readonly VideoAccessFacts[], "dependency_unavailable" | "invalid_request">
+  >;
+  loadPlayback(videoId: string): Promise<
+    OperationResult<VideoPlayback | null, "dependency_unavailable" | "invalid_request" | "video_not_ready">
+  >;
   loadProgress(input: {
     readonly accountId: string;
     readonly videoId: string;
-  }): Promise<VideoResult<{ readonly positionSeconds: number } | null>>;
+  }): Promise<OperationResult<
+    { readonly positionSeconds: number } | null,
+    "dependency_unavailable" | "invalid_request"
+  >>;
   saveProgress(input: {
     readonly accountId: string;
     readonly durationSeconds: number;
     readonly positionSeconds: number;
     readonly videoId: string;
-  }): Promise<VideoResult<void>>;
+  }): Promise<OperationResult<void, "dependency_unavailable" | "invalid_request">>;
 }

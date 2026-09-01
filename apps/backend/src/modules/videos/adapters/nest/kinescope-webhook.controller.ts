@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, HttpCode, HttpException, Inject, Post, UnauthorizedException } from "@nestjs/common";
+import { Body, Controller, Headers, HttpCode, HttpException, Inject, Post } from "@nestjs/common";
 import { ApiBasicAuth, ApiBody, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { z } from "zod";
 
@@ -18,9 +18,9 @@ const webhookSchema = z.object({
   }).loose(),
 }).loose();
 const acceptedSchema = z.object({ accepted: z.literal(true) }).strict();
-const integrationProblemSchema = z.object({
-  code: z.string(),
-  status: z.number().int(),
+const integrationProblemSchema = (status: number, codes: readonly [string, ...string[]]) => z.object({
+  code: z.enum(codes),
+  status: z.literal(status),
   title: z.string(),
   type: z.string(),
 }).loose();
@@ -40,9 +40,11 @@ export class KinescopeWebhookController {
   @ApiOperation({ operationId: "acceptKinescopeVideoWebhook", summary: "Accept and durably reconcile a Kinescope Video status event" })
   @ApiBody({ schema: toOpenApiSchema(webhookSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(acceptedSchema) })
-  @ApiResponse({ status: 400, content: problemDetailsContent(integrationProblemSchema) })
-  @ApiResponse({ status: 401, content: problemDetailsContent(integrationProblemSchema) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(integrationProblemSchema) })
+  @ApiResponse({ status: 400, content: problemDetailsContent(integrationProblemSchema(400, ["invalid_request"])) })
+  @ApiResponse({ status: 401, content: problemDetailsContent(integrationProblemSchema(401, ["invalid_basic_credentials"])) })
+  @ApiResponse({ status: 404, content: problemDetailsContent(integrationProblemSchema(404, ["video_not_found"])) })
+  @ApiResponse({ status: 409, content: problemDetailsContent(integrationProblemSchema(409, ["provider_mismatch"])) })
+  @ApiResponse({ status: 503, content: problemDetailsContent(integrationProblemSchema(503, ["dependency_unavailable"])) })
   async webhook(
     @Headers("authorization") authorization: string | undefined,
     @Body() input: unknown,
@@ -51,7 +53,7 @@ export class KinescopeWebhookController {
       authorization,
       this.config.kinescope.webhookUsername,
       this.config.kinescope.webhookPassword,
-    )) throw new UnauthorizedException();
+    )) throw new HttpException({ code: "invalid_basic_credentials", status: 401 }, 401);
     const parsed = webhookSchema.safeParse(input);
     if (!parsed.success) throw new HttpException({ code: "invalid_request", status: 400 }, 400);
     const accepted = await this.videos.acceptWebhook({
@@ -60,8 +62,18 @@ export class KinescopeWebhookController {
       providerVideoId: parsed.data.data.id,
     });
     if (!accepted.ok) {
-      throw new HttpException({ code: accepted.error.code, status: 503, retryable: true }, 503);
+      switch (accepted.error.code) {
+        case "invalid_request": throw new HttpException({ code: accepted.error.code, status: 400 }, 400);
+        case "video_not_found": throw new HttpException({ code: accepted.error.code, status: 404 }, 404);
+        case "provider_mismatch": throw new HttpException({ code: accepted.error.code, status: 409 }, 409);
+        case "dependency_unavailable": throw new HttpException({ code: accepted.error.code, status: 503, retryable: true }, 503);
+        default: return assertNever(accepted.error);
+      }
     }
     return { accepted: true };
   }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unexpected Kinescope webhook error: ${JSON.stringify(value)}`);
 }

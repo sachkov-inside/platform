@@ -70,6 +70,10 @@ import {
   name as primaryVideoMigrationName,
   statement as primaryVideoMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0017-primary-video.js";
+import {
+  name as durableVideoUploadAttemptsMigrationName,
+  statement as durableVideoUploadAttemptsMigrationStatement,
+} from "../modules/videos/infrastructure/postgres/migrations/0018-durable-video-upload-attempts.js";
 
 const migrations = [
   {
@@ -134,6 +138,10 @@ const migrations = [
   },
   { name: videosMigrationName, statement: videosMigrationStatement },
   { name: primaryVideoMigrationName, statement: primaryVideoMigrationStatement },
+  {
+    name: durableVideoUploadAttemptsMigrationName,
+    statement: durableVideoUploadAttemptsMigrationStatement,
+  },
 ] as const;
 
 export function migrateToLatest(

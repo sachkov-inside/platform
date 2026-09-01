@@ -8,6 +8,20 @@ import { accountId as checkedAccountId } from "../../../accounts/index.js";
 
 export const VIDEO_PLAYBACK = Symbol("VIDEO_PLAYBACK");
 
+export type VideoPlaybackError =
+  | Readonly<{ code: "access_denied" }>
+  | Readonly<{ code: "dependency_unavailable" }>
+  | Readonly<{ code: "invalid_request" }>
+  | Readonly<{ code: "video_mismatch" }>
+  | Readonly<{ code: "video_not_ready" }>;
+
+type VideoPlaybackFailure = {
+  [Code in VideoPlaybackError["code"]]: Readonly<{
+    ok: false;
+    error: Extract<VideoPlaybackError, { readonly code: Code }>;
+  }>;
+}[VideoPlaybackError["code"]];
+
 export type PlaybackSessionResult =
   | Readonly<{
       ok: true;
@@ -19,10 +33,11 @@ export type PlaybackSessionResult =
         readonly videoId: string;
       };
     }>
-  | Readonly<{
-      ok: false;
-      error: { readonly code: "access_denied" | "dependency_unavailable" | "video_mismatch" | "video_not_ready" };
-    }>;
+  | VideoPlaybackFailure;
+
+export type SaveVideoProgressResult =
+  | Readonly<{ ok: true; value: undefined }>
+  | VideoPlaybackFailure;
 
 export interface VideoPlayback {
   createSession(input: {
@@ -41,7 +56,7 @@ export interface VideoPlayback {
     readonly materialId: string;
     readonly positionSeconds: number;
     readonly videoId: string;
-  }): Promise<boolean>;
+  }): Promise<SaveVideoProgressResult>;
 }
 
 export function assembleVideoPlayback(dependencies: {
@@ -66,21 +81,18 @@ export function assembleVideoPlayback(dependencies: {
         subject: input.subject,
       });
       if (decision.effect === "deny") {
-        return {
-          ok: false,
-          error: {
-            code: decision.reason === "dependency_unavailable"
-              ? "dependency_unavailable"
-              : "access_denied",
-          },
-        };
+        return decision.reason === "dependency_unavailable"
+          ? failure("dependency_unavailable")
+          : failure("access_denied");
       }
       const loaded = await dependencies.videos.loadPlayback(input.videoId);
       if (!loaded.ok) {
-        return {
-          ok: false,
-          error: { code: loaded.error.code === "video_not_ready" ? "video_not_ready" : "dependency_unavailable" },
-        };
+        switch (loaded.error.code) {
+          case "dependency_unavailable": return failure("dependency_unavailable");
+          case "invalid_request": return failure("invalid_request");
+          case "video_not_ready": return failure("video_not_ready");
+          default: return assertNever(loaded.error);
+        }
       }
       if (loaded.value === null || loaded.value.materialId !== input.materialId) {
         return { ok: false, error: { code: "video_mismatch" } };
@@ -88,7 +100,13 @@ export function assembleVideoPlayback(dependencies: {
       const progress = input.subject.kind === "account"
         ? await dependencies.videos.loadProgress({ accountId: input.subject.accountId, videoId: input.videoId })
         : { ok: true as const, value: null };
-      if (!progress.ok) return { ok: false, error: { code: "dependency_unavailable" } };
+      if (!progress.ok) {
+        switch (progress.error.code) {
+          case "dependency_unavailable": return failure("dependency_unavailable");
+          case "invalid_request": return failure("invalid_request");
+          default: return assertNever(progress.error);
+        }
+      }
       const issuedAt = Math.floor(clock().getTime() / 1000);
       const drmAuthToken = loaded.value.access === "membership"
         ? await new SignJWT({ pid: loaded.value.providerVideoId, vid: loaded.value.videoId })
@@ -145,18 +163,56 @@ export function assembleVideoPlayback(dependencies: {
 
     async saveProgress(input) {
       const playback = await dependencies.videos.loadPlayback(input.videoId);
-      if (!playback.ok || playback.value === null || playback.value.materialId !== input.materialId) return false;
+      if (!playback.ok) {
+        switch (playback.error.code) {
+          case "dependency_unavailable": return failure("dependency_unavailable");
+          case "invalid_request": return failure("invalid_request");
+          case "video_not_ready": return failure("video_not_ready");
+          default: return assertNever(playback.error);
+        }
+      }
+      if (playback.value === null || playback.value.materialId !== input.materialId) {
+        return failure("video_mismatch");
+      }
+      let subject: Subject;
+      try {
+        subject = { kind: "account", accountId: checkedAccountId(input.accountId) };
+      } catch {
+        return failure("invalid_request");
+      }
       const decision = await dependencies.contentAccess.authorize({
         action: "play",
         correlationId: randomUUID(),
         enforcementPoint: "playback_token_issue",
         resource: { kind: "video", videoId: input.videoId },
-        subject: { kind: "account", accountId: checkedAccountId(input.accountId) },
+        subject,
       });
-      if (decision.effect === "deny") return false;
+      if (decision.effect === "deny") {
+        return decision.reason === "dependency_unavailable"
+          ? failure("dependency_unavailable")
+          : failure("access_denied");
+      }
       const saved = await dependencies.videos.saveProgress(input);
-      return saved.ok;
+      if (saved.ok) return { ok: true, value: undefined };
+      switch (saved.error.code) {
+        case "dependency_unavailable": return failure("dependency_unavailable");
+        case "invalid_request": return failure("invalid_request");
+        default: return assertNever(saved.error);
+      }
     },
   };
   return Object.freeze(playback);
+}
+
+type PlaybackErrorCode = Extract<PlaybackSessionResult, { readonly ok: false }>["error"]["code"];
+
+function failure<Code extends PlaybackErrorCode>(code: Code): Readonly<{
+  ok: false;
+  error: { readonly code: Code };
+}> {
+  return { ok: false, error: { code } };
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unexpected Video playback result: ${JSON.stringify(value)}`);
 }

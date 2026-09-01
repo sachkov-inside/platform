@@ -130,6 +130,12 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     await expect(database.prisma.videoWebhookInbox.count({
       where: { providerVideoId, reconciledAt: null },
     })).resolves.toBe(1);
+    providerAvailable = true;
+    await expect(videos.reconcile({ actor, videoId: initialized.value.video.videoId }))
+      .resolves.toMatchObject({ ok: true, value: { state: "ready" } });
+    await expect(database.prisma.videoWebhookInbox.count({
+      where: { providerVideoId, reconciledAt: null },
+    })).resolves.toBe(0);
   });
 
   test("maps an unknown authoritative provider status to a visible failed state", async () => {

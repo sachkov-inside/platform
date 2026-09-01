@@ -17,7 +17,9 @@ import {
 } from "../../domain/video-identifiers.js";
 import type { VideoProvider, ProviderVideo } from "../../ports/video-provider.js";
 import type {
+  InitVideoUploadResult,
   VideoDto,
+  VideoError,
   VideoResult,
   Videos,
   VideoState,
@@ -196,6 +198,7 @@ export function assembleVideos(dependencies: {
       if (!(await managerAllowed(parsed.data.actor))) return forbidden();
       const projectId = dependencies.projects[parsed.data.access];
       try {
+        const reconciliationCutoff = now();
         const remote = await dependencies.provider.find({ id: parsed.data.providerVideoId, projectId });
         if (
           remote === null ||
@@ -212,25 +215,33 @@ export function assembleVideos(dependencies: {
         }
         const lifecycle = providerLifecycle(remote);
         const savedAt = now();
-        const saved = await dependencies.prisma.video.create({
-          data: {
-            id: newVideoId(),
-            access: parsed.data.access,
-            createdAt: savedAt,
-            createdBy: parsed.data.actor,
-            failureCode: lifecycle.failureCode,
-            lastSyncedAt: savedAt,
-            materialId: parsed.data.materialId,
-            projectId,
-            providerEmbedLocator: lifecycle.embedLocator,
-            providerMessage: remote.message ?? null,
-            providerStatus: remote.status,
-            providerVideoId: parsed.data.providerVideoId,
-            readyAt: lifecycle.state === "ready" ? savedAt : null,
-            state: lifecycle.state,
-            title: remote.title,
-            updatedAt: savedAt,
-          },
+        const saved = await dependencies.prisma.$transaction(async (transaction) => {
+          const video = await transaction.video.create({
+            data: {
+              id: newVideoId(),
+              access: parsed.data.access,
+              createdAt: savedAt,
+              createdBy: parsed.data.actor,
+              failureCode: lifecycle.failureCode,
+              lastSyncedAt: savedAt,
+              materialId: parsed.data.materialId,
+              projectId,
+              providerEmbedLocator: lifecycle.embedLocator,
+              providerMessage: remote.message ?? null,
+              providerStatus: remote.status,
+              providerVideoId: parsed.data.providerVideoId,
+              readyAt: lifecycle.state === "ready" ? savedAt : null,
+              state: lifecycle.state,
+              title: remote.title,
+              updatedAt: savedAt,
+            },
+          });
+          await markPendingWebhooksReconciled(
+            transaction,
+            parsed.data.providerVideoId,
+            reconciliationCutoff,
+          );
+          return video;
         });
         return { ok: true, value: toDto(saved) };
       } catch {
@@ -250,7 +261,7 @@ export function assembleVideos(dependencies: {
       if (!parsed.success) return invalidRequest();
       try {
         const receivedAt = now();
-        const inbox = await dependencies.prisma.videoWebhookInbox.create({
+        await dependencies.prisma.videoWebhookInbox.create({
           data: {
             id: newVideoWebhookInboxId(),
             event: parsed.data.event,
@@ -265,10 +276,6 @@ export function assembleVideos(dependencies: {
         if (local === null) return { ok: true, value: undefined };
         const reconciled = await reconcileById(videoIdSchema.parse(local.id));
         if (!reconciled.ok) return reconciled;
-        await dependencies.prisma.videoWebhookInbox.update({
-          where: { id: inbox.id },
-          data: { reconciledAt: now() },
-        });
         return { ok: true, value: undefined };
       } catch {
         return dependencyUnavailable();
@@ -398,7 +405,7 @@ export function assembleVideos(dependencies: {
     },
     input: z.output<typeof initInput>,
     projectId: string,
-  ): Promise<VideoResult<{ readonly uploadEndpoint: string; readonly video: VideoDto }>> {
+  ): Promise<InitVideoUploadResult> {
     if (
       attempt.access !== input.access ||
       attempt.filename !== input.filename ||
@@ -441,20 +448,20 @@ export function assembleVideos(dependencies: {
       if (pending === null) return;
       const reconciled = await reconcileById(videoId);
       if (!reconciled.ok) return;
-      await dependencies.prisma.videoWebhookInbox.updateMany({
-        where: { providerVideoId, reconciledAt: null, receivedAt: { lte: cutoff } },
-        data: { reconciledAt: now() },
-      });
     } catch {
       // The durable inbox stays pending for the next browser poll or provider retry.
     }
   }
 
-  async function reconcileById(videoId: VideoId): Promise<VideoResult<VideoDto>> {
+  async function reconcileById(videoId: VideoId): Promise<VideoResult<
+    VideoDto,
+    Extract<VideoError, { readonly code: "dependency_unavailable" | "provider_mismatch" | "video_not_found" }>
+  >> {
     try {
       const local = await dependencies.prisma.video.findUnique({ where: { id: videoId } });
       if (local === null) return videoNotFound();
       const localProviderVideoId = providerVideoIdSchema.parse(local.providerVideoId);
+      const reconciliationCutoff = now();
       const remote = await dependencies.provider.find({ id: localProviderVideoId, projectId: local.projectId });
       if (
         remote === null ||
@@ -463,24 +470,43 @@ export function assembleVideos(dependencies: {
       ) return providerMismatch();
       const lifecycle = providerLifecycle(remote);
       const syncedAt = now();
-      const updated = await dependencies.prisma.video.update({
-        where: { id: local.id },
-        data: {
-          failureCode: lifecycle.failureCode,
-          lastSyncedAt: syncedAt,
-          providerEmbedLocator: lifecycle.embedLocator,
-          providerMessage: remote.message ?? null,
-          providerStatus: remote.status,
-          readyAt: lifecycle.state === "ready" ? local.readyAt ?? syncedAt : null,
-          state: lifecycle.state,
-          title: remote.title,
-          updatedAt: syncedAt,
-        },
+      const updated = await dependencies.prisma.$transaction(async (transaction) => {
+        const video = await transaction.video.update({
+          where: { id: videoId },
+          data: {
+            failureCode: lifecycle.failureCode,
+            lastSyncedAt: syncedAt,
+            providerEmbedLocator: lifecycle.embedLocator,
+            providerMessage: remote.message ?? null,
+            providerStatus: remote.status,
+            readyAt: lifecycle.state === "ready" ? local.readyAt ?? syncedAt : null,
+            state: lifecycle.state,
+            title: remote.title,
+            updatedAt: syncedAt,
+          },
+        });
+        await markPendingWebhooksReconciled(
+          transaction,
+          localProviderVideoId,
+          reconciliationCutoff,
+        );
+        return video;
       });
       return { ok: true, value: toDto(updated) };
     } catch {
       return dependencyUnavailable();
     }
+  }
+
+  async function markPendingWebhooksReconciled(
+    transaction: Pick<VideosPrismaClient, "videoWebhookInbox">,
+    providerVideoId: ProviderVideoId,
+    cutoff: Date,
+  ): Promise<void> {
+    await transaction.videoWebhookInbox.updateMany({
+      where: { providerVideoId, reconciledAt: null, receivedAt: { lte: cutoff } },
+      data: { reconciledAt: now() },
+    });
   }
 }
 
@@ -521,10 +547,15 @@ function parseVideoState(value: string): VideoState {
   return z.enum(["uploading", "processing", "ready", "failed"]).parse(value);
 }
 
-const invalidRequest = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "invalid_request" } });
-const forbidden = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "forbidden" } });
-const dependencyUnavailable = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "dependency_unavailable", retryable: true } });
-const providerMismatch = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "provider_mismatch" } });
-const uploadOutcomeUnknown = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "upload_outcome_unknown" } });
-const videoNotFound = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "video_not_found" } });
-const videoNotReady = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "video_not_ready" } });
+type VideoFailure<Code extends VideoError["code"]> = Readonly<{
+  ok: false;
+  error: Extract<VideoError, { readonly code: Code }>;
+}>;
+
+const invalidRequest = (): VideoFailure<"invalid_request"> => ({ ok: false, error: { code: "invalid_request" } });
+const forbidden = (): VideoFailure<"forbidden"> => ({ ok: false, error: { code: "forbidden" } });
+const dependencyUnavailable = (): VideoFailure<"dependency_unavailable"> => ({ ok: false, error: { code: "dependency_unavailable", retryable: true } });
+const providerMismatch = (): VideoFailure<"provider_mismatch"> => ({ ok: false, error: { code: "provider_mismatch" } });
+const uploadOutcomeUnknown = (): VideoFailure<"upload_outcome_unknown"> => ({ ok: false, error: { code: "upload_outcome_unknown" } });
+const videoNotFound = (): VideoFailure<"video_not_found"> => ({ ok: false, error: { code: "video_not_found" } });
+const videoNotReady = (): VideoFailure<"video_not_ready"> => ({ ok: false, error: { code: "video_not_ready" } });

@@ -24,11 +24,16 @@ import {
 import { z } from "zod";
 
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
-import { problemDetailsContent, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
+import {
+  problemDetailsContent,
+  problemDetailsOneOfContent,
+  toOpenApiSchema,
+} from "../../../../infrastructure/http/zod-openapi.js";
 import {
   AccountGuard,
   AccountProblemDetailsFilter,
   CurrentAccount,
+  accountProblemSchema,
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
 import { VIDEOS } from "../../videos.module.js";
@@ -53,21 +58,6 @@ const attachmentBodySchema = z.object({
   access: z.enum(["free", "membership"]),
   providerVideoId: z.string().min(1).max(256),
 }).strict();
-const videoProblemSchema = z.object({
-  code: z.enum([
-    "dependency_unavailable",
-    "forbidden",
-    "idempotency_key_reused",
-    "invalid_request",
-    "provider_mismatch",
-    "upload_outcome_unknown",
-    "video_not_found",
-    "video_not_ready",
-  ]),
-  status: z.number().int(),
-  title: z.string(),
-  type: z.string(),
-}).loose();
 
 @ApiTags("Material video authoring")
 @ApiBearerAuth("logto")
@@ -88,7 +78,12 @@ export class VideoAuthoringController {
   @ApiParam({ name: "materialId", schema: toOpenApiSchema(z.uuid()) })
   @ApiBody({ schema: toOpenApiSchema(initBodySchema) })
   @ApiCreatedResponse({ schema: toOpenApiSchema(initResponseSchema) })
-  @VideoErrorResponses()
+  @VideoErrorResponses({
+    400: ["invalid_request"],
+    403: ["forbidden"],
+    409: ["idempotency_key_reused", "upload_outcome_unknown"],
+    503: ["dependency_unavailable"],
+  })
   async initUpload(
     @CurrentAccount() current: AuthenticatedAccount,
     @Param("materialId") materialId: string,
@@ -111,7 +106,12 @@ export class VideoAuthoringController {
   @ApiBody({ schema: toOpenApiSchema(attachmentBodySchema) })
   @ApiParam({ name: "materialId", schema: toOpenApiSchema(z.uuid()) })
   @ApiCreatedResponse({ schema: toOpenApiSchema(videoSchema) })
-  @VideoErrorResponses()
+  @VideoErrorResponses({
+    400: ["invalid_request"],
+    403: ["forbidden"],
+    409: ["provider_mismatch"],
+    503: ["dependency_unavailable"],
+  })
   async attach(
     @CurrentAccount() current: AuthenticatedAccount,
     @Param("materialId") materialId: string,
@@ -128,7 +128,13 @@ export class VideoAuthoringController {
   @ApiOperation({ operationId: "reconcileMaterialVideo", summary: "Reconcile Video lifecycle from Kinescope" })
   @ApiParam({ name: "videoId", schema: toOpenApiSchema(z.uuid()) })
   @ApiOkResponse({ schema: toOpenApiSchema(videoSchema) })
-  @VideoErrorResponses()
+  @VideoErrorResponses({
+    400: ["invalid_request"],
+    403: ["forbidden"],
+    404: ["video_not_found"],
+    409: ["provider_mismatch"],
+    503: ["dependency_unavailable"],
+  })
   async reconcile(
     @CurrentAccount() current: AuthenticatedAccount,
     @Param("videoId") videoId: string,
@@ -139,12 +145,35 @@ export class VideoAuthoringController {
   }
 }
 
-function VideoErrorResponses(): MethodDecorator {
+type VideoProblemCodes = Partial<Record<400 | 403 | 404 | 409 | 503, readonly [VideoError["code"], ...VideoError["code"][]]>>;
+
+function VideoErrorResponses(codes: VideoProblemCodes): MethodDecorator {
   return (target, propertyKey, descriptor) => {
-    for (const status of [400, 403, 404, 409, 503]) {
-      ApiResponse({ status, content: problemDetailsContent(videoProblemSchema) })(target, propertyKey, descriptor);
+    for (const status of [400, 401, 403, 404, 409, 500, 503] as const) {
+      const videoCodes = status === 401 || status === 500 ? undefined : codes[status];
+      const accountFailure = status === 400 || status === 401 || status === 409 || status === 500 || status === 503;
+      if (videoCodes === undefined && !accountFailure) continue;
+      const videoSchema = videoCodes === undefined ? undefined : videoProblemSchema(status, videoCodes);
+      const content = videoSchema === undefined
+        ? problemDetailsContent(accountProblemSchema)
+        : accountFailure
+          ? problemDetailsOneOfContent(videoSchema, accountProblemSchema)
+          : problemDetailsContent(videoSchema);
+      ApiResponse({ status, content })(target, propertyKey, descriptor);
     }
   };
+}
+
+function videoProblemSchema(
+  status: number,
+  codes: readonly [VideoError["code"], ...VideoError["code"][]],
+) {
+  return z.object({
+    code: z.enum(codes),
+    status: z.literal(status),
+    title: z.string(),
+    type: z.string(),
+  }).loose();
 }
 
 function parse<Schema extends z.ZodType>(schema: Schema, input: unknown): z.output<Schema> {
@@ -154,10 +183,23 @@ function parse<Schema extends z.ZodType>(schema: Schema, input: unknown): z.outp
 }
 
 function throwVideoError(error: VideoError): never {
-  const status = error.code === "forbidden" ? 403
-    : error.code === "video_not_found" ? 404
-      : error.code === "dependency_unavailable" ? 503
-        : error.code === "invalid_request" ? 400
-          : 409;
-  throw new HttpException({ code: error.code, status, ...(error.code === "dependency_unavailable" ? { retryable: true } : {}) }, status);
+  switch (error.code) {
+    case "invalid_request": throw videoException(400, error.code);
+    case "forbidden": throw videoException(403, error.code);
+    case "video_not_found": throw videoException(404, error.code);
+    case "idempotency_key_reused":
+    case "provider_mismatch":
+    case "upload_outcome_unknown":
+    case "video_not_ready": throw videoException(409, error.code);
+    case "dependency_unavailable": throw videoException(503, error.code, true);
+    default: return assertNever(error);
+  }
+}
+
+function videoException(status: number, code: VideoError["code"], retryable = false): HttpException {
+  return new HttpException({ code, status, ...(retryable ? { retryable: true } : {}) }, status);
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unexpected Video authoring error: ${JSON.stringify(value)}`);
 }

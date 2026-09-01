@@ -106,6 +106,11 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await page.getByLabel(/ID существующего видео/u).fill(`replacement-provider-${suffix}`);
   await page.getByRole("button", { name: "Привязать" }).click();
   await expect(page.getByText("Готово к Save")).toBeVisible();
+  const preSaveSession = await page.request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(preSaveSession.status()).toBe(200);
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
   await page.goto(`/materials/${slug}`);

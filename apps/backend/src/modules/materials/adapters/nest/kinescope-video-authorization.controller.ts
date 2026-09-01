@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Headers, HttpCode, HttpException, Inject, Post, UnauthorizedException } from "@nestjs/common";
+import { Body, Controller, Headers, HttpCode, HttpException, Inject, Post } from "@nestjs/common";
 import { ApiBasicAuth, ApiBody, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { z } from "zod";
 
@@ -16,9 +16,9 @@ const authorizationSchema = z.object({
   user_agent: z.string().optional(),
 }).loose();
 const authorizedSchema = z.object({ authorized: z.literal(true) }).strict();
-const authorizationProblemSchema = z.object({
-  code: z.string(),
-  status: z.number().int(),
+const authorizationProblemSchema = (status: number, codes: readonly [string, ...string[]]) => z.object({
+  code: z.enum(codes),
+  status: z.literal(status),
   title: z.string(),
   type: z.string(),
 }).loose();
@@ -38,9 +38,9 @@ export class KinescopeVideoAuthorizationController {
   @ApiOperation({ operationId: "authorizeKinescopeVideoPlayback", summary: "Repeat the member access decision for a Kinescope DRM request" })
   @ApiBody({ schema: toOpenApiSchema(authorizationSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(authorizedSchema) })
-  @ApiResponse({ status: 400, content: problemDetailsContent(authorizationProblemSchema) })
-  @ApiResponse({ status: 401, content: problemDetailsContent(authorizationProblemSchema) })
-  @ApiResponse({ status: 403, content: problemDetailsContent(authorizationProblemSchema) })
+  @ApiResponse({ status: 400, content: problemDetailsContent(authorizationProblemSchema(400, ["invalid_request"])) })
+  @ApiResponse({ status: 401, content: problemDetailsContent(authorizationProblemSchema(401, ["invalid_basic_credentials"])) })
+  @ApiResponse({ status: 403, content: problemDetailsContent(authorizationProblemSchema(403, ["access_denied"])) })
   async authorize(
     @Headers("authorization") authorization: string | undefined,
     @Body() input: unknown,
@@ -49,11 +49,11 @@ export class KinescopeVideoAuthorizationController {
       authorization,
       this.config.kinescope.callbackUsername,
       this.config.kinescope.callbackPassword,
-    )) throw new UnauthorizedException();
+    )) throw new HttpException({ code: "invalid_basic_credentials", status: 401 }, 401);
     const parsed = authorizationSchema.safeParse(input);
     if (!parsed.success) throw new HttpException({ code: "invalid_request", status: 400 }, 400);
     if (!(await this.playback.authorizeProvider({ providerVideoId: parsed.data.id, token: parsed.data.token }))) {
-      throw new ForbiddenException();
+      throw new HttpException({ code: "access_denied", status: 403 }, 403);
     }
     return { authorized: true };
   }
