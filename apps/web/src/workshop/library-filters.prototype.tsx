@@ -16,6 +16,7 @@ export interface LibraryFiltersProps {
   readonly selectedFormats: readonly string[];
   readonly selectedSeriesIds: readonly string[];
   readonly selectedTopics: readonly string[];
+  readonly seriesLabel?: string;
   readonly seriesOptions: readonly LibraryFilterOption[];
   readonly setSelectedFormats: (values: readonly string[]) => void;
   readonly setSelectedSeriesIds: (values: readonly string[]) => void;
@@ -31,6 +32,7 @@ export function LibraryFilters({
   selectedFormats,
   selectedSeriesIds,
   selectedTopics,
+  seriesLabel = "Серия",
   seriesOptions,
   setSelectedFormats,
   setSelectedSeriesIds,
@@ -66,7 +68,7 @@ export function LibraryFilters({
         />
         <FilterGroup
           compact={compact}
-          legend="Серия"
+          legend={seriesLabel}
           options={seriesOptions}
           selected={selectedSeriesIds}
           setSelected={setSelectedSeriesIds}

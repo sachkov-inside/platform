@@ -9,6 +9,7 @@
   #content > div:has(
     > :is(
       [data-prototype="library-responsive"],
+      [data-prototype="knowledge-base-responsive"],
       [data-prototype="material-reader-responsive"]
     )
   ) {
