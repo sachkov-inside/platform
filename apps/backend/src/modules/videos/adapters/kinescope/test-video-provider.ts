@@ -4,14 +4,15 @@ import type { ProviderVideo, VideoProvider } from "../../ports/video-provider.js
 
 export function createTestVideoProvider(): VideoProvider {
   const videos = new Map<string, ProviderVideo>();
+  const findCounts = new Map<string, number>();
   const provider: VideoProvider = {
     initUpload(input) {
       const id = randomUUID();
       videos.set(id, {
-        embedLocator: `https://kinescope.io/embed/${id}`,
+        embedLocator: null,
         id,
         projectId: input.projectId,
-        status: "done",
+        status: "processing",
         title: input.title,
       });
       return Promise.resolve({
@@ -20,8 +21,22 @@ export function createTestVideoProvider(): VideoProvider {
       });
     },
     find(input) {
+      const findCount = (findCounts.get(input.id) ?? 0) + 1;
+      findCounts.set(input.id, findCount);
+      if (input.id.startsWith("test-outage-once-") && findCount === 1) {
+        return Promise.reject(new Error("Test provider outage"));
+      }
       const known = videos.get(input.id);
-      if (known !== undefined) return Promise.resolve(known);
+      if (known !== undefined) {
+        if (known.status === "processing") {
+          videos.set(input.id, {
+            ...known,
+            embedLocator: `https://kinescope.io/embed/${input.id}`,
+            status: "done",
+          });
+        }
+        return Promise.resolve(known);
+      }
       return Promise.resolve({
         embedLocator: `https://kinescope.io/embed/${input.id}`,
         id: input.id,

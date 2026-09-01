@@ -8,6 +8,7 @@ import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-polic
 import {
   problemDetailsContent,
   problemDetailsOneOfContent,
+  problemDetailsSchema,
   toOpenApiSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
 import {
@@ -53,10 +54,10 @@ export class VideoPlaybackController {
   @ApiParam({ name: "materialId", schema: toOpenApiSchema(z.uuid()) })
   @ApiParam({ name: "videoId", schema: toOpenApiSchema(z.uuid()) })
   @ApiOkResponse({ schema: toOpenApiSchema(playbackSchema) })
-  @ApiResponse({ status: 400, content: problemDetailsOneOfContent(playbackProblemSchema(400, ["invalid_request"]), accountProblemSchema) })
-  @ApiResponse({ status: 403, content: problemDetailsContent(playbackProblemSchema(403, ["access_denied", "video_mismatch"])) })
-  @ApiResponse({ status: 409, content: problemDetailsOneOfContent(playbackProblemSchema(409, ["video_not_ready"]), accountProblemSchema) })
-  @ApiResponse({ status: 503, content: problemDetailsOneOfContent(playbackProblemSchema(503, ["dependency_unavailable"]), accountProblemSchema) })
+  @ApiResponse({ status: 400, content: problemDetailsOneOfContent(problemDetailsSchema(400, ["invalid_request"]), accountProblemSchema) })
+  @ApiResponse({ status: 403, content: problemDetailsContent(problemDetailsSchema(403, ["access_denied", "video_mismatch"])) })
+  @ApiResponse({ status: 409, content: problemDetailsOneOfContent(problemDetailsSchema(409, ["video_not_ready"]), accountProblemSchema) })
+  @ApiResponse({ status: 503, content: problemDetailsOneOfContent(problemDetailsSchema(503, ["dependency_unavailable"]), accountProblemSchema) })
   async create(
     @OptionalCurrentAccount() current: AuthenticatedAccount | undefined,
     @Param("materialId") materialId: string,
@@ -91,12 +92,12 @@ export class VideoProgressController {
   @ApiBody({ schema: toOpenApiSchema(progressSchema) })
   @ApiParam({ name: "materialId", schema: toOpenApiSchema(z.uuid()) })
   @ApiParam({ name: "videoId", schema: toOpenApiSchema(z.uuid()) })
-  @ApiResponse({ status: 400, content: problemDetailsOneOfContent(playbackProblemSchema(400, ["invalid_request"]), accountProblemSchema) })
+  @ApiResponse({ status: 400, content: problemDetailsOneOfContent(problemDetailsSchema(400, ["invalid_request"]), accountProblemSchema) })
   @ApiResponse({ status: 401, content: problemDetailsContent(accountProblemSchema) })
-  @ApiResponse({ status: 403, content: problemDetailsContent(playbackProblemSchema(403, ["access_denied", "video_mismatch"])) })
-  @ApiResponse({ status: 409, content: problemDetailsOneOfContent(playbackProblemSchema(409, ["video_not_ready"]), accountProblemSchema) })
+  @ApiResponse({ status: 403, content: problemDetailsContent(problemDetailsSchema(403, ["access_denied", "video_mismatch"])) })
+  @ApiResponse({ status: 409, content: problemDetailsOneOfContent(problemDetailsSchema(409, ["video_not_ready"]), accountProblemSchema) })
   @ApiResponse({ status: 500, content: problemDetailsContent(accountProblemSchema) })
-  @ApiResponse({ status: 503, content: problemDetailsOneOfContent(playbackProblemSchema(503, ["dependency_unavailable"]), accountProblemSchema) })
+  @ApiResponse({ status: 503, content: problemDetailsOneOfContent(problemDetailsSchema(503, ["dependency_unavailable"]), accountProblemSchema) })
   async save(
     @CurrentAccount() current: AuthenticatedAccount,
     @Param("materialId") materialId: string,
@@ -113,18 +114,6 @@ export class VideoProgressController {
     });
     if (!saved.ok) throwPlaybackError(saved.error);
   }
-}
-
-function playbackProblemSchema(
-  status: number,
-  codes: readonly [PlaybackError["code"], ...PlaybackError["code"][]],
-) {
-  return z.object({
-    code: z.enum(codes),
-    status: z.literal(status),
-    title: z.string(),
-    type: z.string(),
-  }).loose();
 }
 
 function throwPlaybackError(error: PlaybackError): never {

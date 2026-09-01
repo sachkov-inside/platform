@@ -272,6 +272,60 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     })).resolves.toBe(0);
   });
 
+  test("reconciles a webhook that arrives while attach lookup is in flight", async () => {
+    const providerVideoId = `attach-race-${randomUUID()}`;
+    let releaseLookup: (() => void) | undefined;
+    let markLookupStarted: (() => void) | undefined;
+    const lookupStarted = new Promise<void>((resolve) => { markLookupStarted = resolve; });
+    const lookupReleased = new Promise<void>((resolve) => { releaseLookup = resolve; });
+    let findCalls = 0;
+    const provider: VideoProvider = {
+      initUpload: () => Promise.reject(new Error("unused")),
+      async find(input) {
+        findCalls += 1;
+        if (findCalls === 1) {
+          markLookupStarted?.();
+          await lookupReleased;
+        }
+        return {
+          embedLocator: `https://kinescope.io/embed/${providerVideoId}`,
+          id: providerVideoId,
+          projectId: input.projectId,
+          status: "done",
+          title: "Attach race",
+        };
+      },
+    };
+    let clockTick = 0;
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      clock: () => new Date(Date.UTC(2026, 8, 2, 12, 0, clockTick++)),
+      prisma: database.prisma,
+      provider,
+      projects: { free: "public-project", membership: "member-project" },
+    });
+    const attaching = videos.attachExisting({
+      access: "free",
+      actor: randomUUID(),
+      materialId: randomUUID(),
+      providerVideoId,
+    });
+
+    await lookupStarted;
+    await expect(videos.acceptWebhook({
+      event: "media.update.status",
+      providerStatus: "done",
+      providerVideoId,
+    })).resolves.toEqual({ ok: true, value: undefined });
+    releaseLookup?.();
+
+    await expect(attaching).resolves.toMatchObject({ ok: true, value: { state: "ready" } });
+    expect(findCalls).toBe(2);
+    await expect(database.prisma.videoWebhookInbox.count({
+      where: { providerVideoId, reconciledAt: null },
+    })).resolves.toBe(0);
+  });
+
   test("rejects a provider response whose identity does not match the lookup", async () => {
     const provider: VideoProvider = {
       initUpload: () => Promise.reject(new Error("unused")),

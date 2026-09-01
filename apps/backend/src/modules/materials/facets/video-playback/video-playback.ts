@@ -192,7 +192,12 @@ export function assembleVideoPlayback(dependencies: {
           ? failure("dependency_unavailable")
           : failure("access_denied");
       }
-      const saved = await dependencies.videos.saveProgress(input);
+      const saved = await dependencies.videos.saveProgress({
+        accountId: input.accountId,
+        durationSeconds: input.durationSeconds,
+        positionSeconds: input.positionSeconds,
+        videoId: input.videoId,
+      });
       if (saved.ok) return { ok: true, value: undefined };
       switch (saved.error.code) {
         case "dependency_unavailable": return failure("dependency_unavailable");

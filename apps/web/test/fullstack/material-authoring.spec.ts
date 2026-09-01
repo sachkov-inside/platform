@@ -32,14 +32,17 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await fillPublishableDraft(page, title);
   await page.getByRole("button", { name: "Создать черновик" }).click();
   await expect(page).toHaveURL(currentMaterialEditorUrl);
+  const visibleEditor = page.locator("main[data-material-authoring='true']:visible");
+  await expect(visibleEditor).toBeVisible({ timeout: 15_000 });
   const editorUrl = page.url();
 
-  await page.getByLabel("Видео для загрузки").setInputFiles({
+  await visibleEditor.getByLabel("Видео для загрузки").setInputFiles({
     buffer: Buffer.from("Full-stack test Video\n"),
     mimeType: "video/mp4",
     name: `test-video-${suffix}.mp4`,
   });
-  await expect(page.getByText("Готово к Save")).toBeVisible();
+  await expect(page.getByText("Kinescope обрабатывает видео")).toBeVisible();
+  await expect(page.getByText("Готово к Save")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Опубликовать" }).click();
@@ -49,7 +52,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   expect(readerResponse?.headers()["content-security-policy"]).toContain("frame-src https://kinescope.io");
   expect(readerResponse?.headers()["content-security-policy"]).toContain("script-src 'self' 'unsafe-inline' https://player.kinescope.io");
   await expect(page.getByRole("heading", { name: "Видео", level: 2 })).toBeVisible();
-  await expect(page.getByText(`test-video-${suffix}`)).toBeVisible();
+  await expect(page.locator("p:visible", { hasText: `test-video-${suffix}` })).toBeVisible();
   await expect(page.getByRole("button", { name: "Загрузить player" })).toBeVisible();
   await expect(page.locator("iframe")).toHaveCount(0);
   expect(providerRequests).toEqual([]);
@@ -89,7 +92,8 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     headers: { origin: new URL(page.url()).origin },
     multipart: { durationSeconds: "120", materialId, positionSeconds: "37", videoId },
   });
-  expect(progress.status()).toBe(204);
+  expect(progress.status()).toBe(200);
+  await expect(progress.json()).resolves.toEqual({ kind: "saved" });
   const resumedSession = await page.request.post("/api/material-video-playback-sessions", {
     headers: { origin: new URL(page.url()).origin },
     multipart: { materialId, videoId },
@@ -103,7 +107,9 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await captureVideoEvidence(page, testInfo, "reader-privacy-facade");
 
   await page.goto(editorUrl);
-  await page.getByLabel(/ID существующего видео/u).fill(`replacement-provider-${suffix}`);
+  await page.getByLabel(/ID существующего видео/u).fill(`test-outage-once-${suffix}`);
+  await page.getByRole("button", { name: "Привязать" }).click();
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
   await page.getByRole("button", { name: "Привязать" }).click();
   await expect(page.getByText("Готово к Save")).toBeVisible();
   const preSaveSession = await page.request.post("/api/material-video-playback-sessions", {
@@ -166,7 +172,8 @@ test("member primary Video denies anonymous playback and issues a DRM proof to a
 
   await page.goto(`/materials/${slug}`);
   const videoSection = page.locator("section[data-video-id]");
-  const materialId = await page.locator("[data-material-id]").getAttribute("data-material-id");
+  const materialId = await page.locator("[data-material-reader-state][data-material-id]")
+    .getAttribute("data-material-id");
   const videoId = await videoSection.getAttribute("data-video-id");
   if (materialId === null || videoId === null) throw new Error("Member Video identity is missing");
   const anonymousSession = await request.post("/api/material-video-playback-sessions", {
@@ -174,6 +181,7 @@ test("member primary Video denies anonymous playback and issues a DRM proof to a
     multipart: { materialId, videoId },
   });
   expect(anonymousSession.status()).toBe(403);
+  await addFullStackMemberSession(context);
   const memberSession = await page.request.post("/api/material-video-playback-sessions", {
     headers: { origin: new URL(page.url()).origin },
     multipart: { materialId, videoId },
@@ -187,6 +195,7 @@ test("member primary Video denies anonymous playback and issues a DRM proof to a
   expect(memberBody).toMatchObject({ progressScope: "account", videoId });
   expect(memberBody.drmAuthToken).toEqual(expect.any(String));
 
+  await addFullStackSession(context);
   await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
   const row = page.getByRole("listitem").filter({ hasText: title });
   await row.getByRole("button", { name: "Снять с публикации" }).click();
@@ -685,8 +694,19 @@ test("guest cannot reach the production playlist manager", async ({ page }) => {
 });
 
 async function addFullStackSession(context: BrowserContext) {
+  await addSessionCookie(context, "FULLSTACK_LOGTO_SESSION");
+}
+
+async function addFullStackMemberSession(context: BrowserContext) {
+  await addSessionCookie(context, "FULLSTACK_LOGTO_MEMBER_SESSION");
+}
+
+async function addSessionCookie(
+  context: BrowserContext,
+  environmentName: "FULLSTACK_LOGTO_MEMBER_SESSION" | "FULLSTACK_LOGTO_SESSION",
+) {
   const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const session = process.env.FULLSTACK_LOGTO_SESSION;
+  const session = process.env[environmentName];
   if (cookieName === undefined || session === undefined) {
     throw new Error("Full-stack Logto session fixture is missing");
   }

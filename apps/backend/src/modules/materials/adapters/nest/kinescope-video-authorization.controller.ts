@@ -5,7 +5,7 @@ import { z } from "zod";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../../../../config/platform-config.js";
 import { basicCredentialsMatch } from "../../../../infrastructure/http/basic-credentials.js";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
-import { problemDetailsContent, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
+import { problemDetailsContent, problemDetailsSchema, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import { VIDEO_PLAYBACK, type VideoPlayback } from "../../facets/video-playback/video-playback.js";
 
 const authorizationSchema = z.object({
@@ -16,13 +16,6 @@ const authorizationSchema = z.object({
   user_agent: z.string().optional(),
 }).loose();
 const authorizedSchema = z.object({ authorized: z.literal(true) }).strict();
-const authorizationProblemSchema = (status: number, codes: readonly [string, ...string[]]) => z.object({
-  code: z.enum(codes),
-  status: z.literal(status),
-  title: z.string(),
-  type: z.string(),
-}).loose();
-
 @ApiTags("Kinescope integration")
 @ApiBasicAuth("kinescope-callback")
 @PrivateNoStore()
@@ -38,9 +31,9 @@ export class KinescopeVideoAuthorizationController {
   @ApiOperation({ operationId: "authorizeKinescopeVideoPlayback", summary: "Repeat the member access decision for a Kinescope DRM request" })
   @ApiBody({ schema: toOpenApiSchema(authorizationSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(authorizedSchema) })
-  @ApiResponse({ status: 400, content: problemDetailsContent(authorizationProblemSchema(400, ["invalid_request"])) })
-  @ApiResponse({ status: 401, content: problemDetailsContent(authorizationProblemSchema(401, ["invalid_basic_credentials"])) })
-  @ApiResponse({ status: 403, content: problemDetailsContent(authorizationProblemSchema(403, ["access_denied"])) })
+  @ApiResponse({ status: 400, content: problemDetailsContent(problemDetailsSchema(400, ["invalid_request"])) })
+  @ApiResponse({ status: 401, content: problemDetailsContent(problemDetailsSchema(401, ["invalid_basic_credentials"])) })
+  @ApiResponse({ status: 403, content: problemDetailsContent(problemDetailsSchema(403, ["access_denied"])) })
   async authorize(
     @Headers("authorization") authorization: string | undefined,
     @Body() input: unknown,

@@ -184,7 +184,10 @@ export function assembleVideos(dependencies: {
           });
           return saved;
         });
-        await reconcilePendingWebhooks(initializedProviderVideoId.data, videoIdSchema.parse(video.id));
+        if (!(await reconcilePendingWebhooks(
+          initializedProviderVideoId.data,
+          videoIdSchema.parse(video.id),
+        ))) return dependencyUnavailable();
         return { ok: true, value: { uploadEndpoint: initialized.uploadEndpoint, video: toDto(video) } };
       } catch {
         await markUploadOutcomeUnknown(attemptId);
@@ -209,9 +212,14 @@ export function assembleVideos(dependencies: {
           where: { providerVideoId: remote.id, projectId },
         });
         if (duplicate !== null) {
-          return duplicate.materialId === parsed.data.materialId && duplicate.access === parsed.data.access
-            ? { ok: true, value: toDto(duplicate) }
-            : providerMismatch();
+          if (duplicate.materialId !== parsed.data.materialId || duplicate.access !== parsed.data.access) {
+            return providerMismatch();
+          }
+          if (!(await reconcilePendingWebhooks(
+            providerVideoIdSchema.parse(duplicate.providerVideoId),
+            videoIdSchema.parse(duplicate.id),
+          ))) return dependencyUnavailable();
+          return { ok: true, value: toDto(duplicate) };
         }
         const lifecycle = providerLifecycle(remote);
         const savedAt = now();
@@ -243,6 +251,10 @@ export function assembleVideos(dependencies: {
           );
           return video;
         });
+        if (!(await reconcilePendingWebhooks(
+          parsed.data.providerVideoId,
+          videoIdSchema.parse(saved.id),
+        ))) return dependencyUnavailable();
         return { ok: true, value: toDto(saved) };
       } catch {
         return dependencyUnavailable();
@@ -420,9 +432,12 @@ export function assembleVideos(dependencies: {
       const video = await dependencies.prisma.video.findUnique({
         where: { id: videoIdSchema.parse(attempt.videoId) },
       });
-      return video === null
-        ? uploadOutcomeUnknown()
-        : { ok: true, value: { uploadEndpoint: attempt.uploadEndpoint, video: toDto(video) } };
+      if (video === null) return uploadOutcomeUnknown();
+      if (!(await reconcilePendingWebhooks(
+        providerVideoIdSchema.parse(video.providerVideoId),
+        videoIdSchema.parse(video.id),
+      ))) return dependencyUnavailable();
+      return { ok: true, value: { uploadEndpoint: attempt.uploadEndpoint, video: toDto(video) } };
     } catch {
       return dependencyUnavailable();
     }
@@ -439,17 +454,18 @@ export function assembleVideos(dependencies: {
     }).catch(() => undefined);
   }
 
-  async function reconcilePendingWebhooks(providerVideoId: ProviderVideoId, videoId: VideoId): Promise<void> {
+  async function reconcilePendingWebhooks(providerVideoId: ProviderVideoId, videoId: VideoId): Promise<boolean> {
     const cutoff = now();
     try {
       const pending = await dependencies.prisma.videoWebhookInbox.findFirst({
         where: { providerVideoId, reconciledAt: null, receivedAt: { lte: cutoff } },
       });
-      if (pending === null) return;
+      if (pending === null) return true;
       const reconciled = await reconcileById(videoId);
-      if (!reconciled.ok) return;
+      return reconciled.ok;
     } catch {
       // The durable inbox stays pending for the next browser poll or provider retry.
+      return false;
     }
   }
 

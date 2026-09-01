@@ -27,6 +27,7 @@ import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-polic
 import {
   problemDetailsContent,
   problemDetailsOneOfContent,
+  problemDetailsSchema,
   toOpenApiSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
 import {
@@ -153,7 +154,7 @@ function VideoErrorResponses(codes: VideoProblemCodes): MethodDecorator {
       const videoCodes = status === 401 || status === 500 ? undefined : codes[status];
       const accountFailure = status === 400 || status === 401 || status === 409 || status === 500 || status === 503;
       if (videoCodes === undefined && !accountFailure) continue;
-      const videoSchema = videoCodes === undefined ? undefined : videoProblemSchema(status, videoCodes);
+      const videoSchema = videoCodes === undefined ? undefined : problemDetailsSchema(status, videoCodes);
       const content = videoSchema === undefined
         ? problemDetailsContent(accountProblemSchema)
         : accountFailure
@@ -162,18 +163,6 @@ function VideoErrorResponses(codes: VideoProblemCodes): MethodDecorator {
       ApiResponse({ status, content })(target, propertyKey, descriptor);
     }
   };
-}
-
-function videoProblemSchema(
-  status: number,
-  codes: readonly [VideoError["code"], ...VideoError["code"][]],
-) {
-  return z.object({
-    code: z.enum(codes),
-    status: z.literal(status),
-    title: z.string(),
-    type: z.string(),
-  }).loose();
 }
 
 function parse<Schema extends z.ZodType>(schema: Schema, input: unknown): z.output<Schema> {

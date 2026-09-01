@@ -104,6 +104,36 @@ describe("Video playback authorization", () => {
     })).resolves.toEqual({ ok: false, error: { code: "access_denied" } });
     expect(videos.loadPlayback).toHaveBeenCalledTimes(1);
   });
+
+  test("maps progress to the strict Videos port without leaking Material context", async () => {
+    const authorize = vi.fn().mockResolvedValue({
+      decidedAt: now.toISOString(),
+      effect: "allow",
+      reason: "public_resource",
+    });
+    const videos = videoDependencies("free");
+    const playback = assembleVideoPlayback({
+      clock: () => now,
+      contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
+      jwtSecret: "test-playback-secret-with-at-least-32-characters",
+      jwtTtlSeconds: 60,
+      videos,
+    });
+
+    await expect(playback.saveProgress({
+      accountId: account,
+      durationSeconds: 120,
+      materialId,
+      positionSeconds: 37,
+      videoId,
+    })).resolves.toEqual({ ok: true, value: undefined });
+    expect(videos.saveProgress).toHaveBeenCalledWith({
+      accountId: account,
+      durationSeconds: 120,
+      positionSeconds: 37,
+      videoId,
+    });
+  });
 });
 
 function videoDependencies(access: "free" | "membership") {

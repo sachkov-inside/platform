@@ -5,7 +5,7 @@ import { z } from "zod";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../../../../config/platform-config.js";
 import { basicCredentialsMatch } from "../../../../infrastructure/http/basic-credentials.js";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
-import { problemDetailsContent, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
+import { problemDetailsContent, problemDetailsSchema, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import { VIDEOS } from "../../videos.module.js";
 import type { Videos } from "../../facets/videos/videos.interface.js";
 
@@ -18,13 +18,6 @@ const webhookSchema = z.object({
   }).loose(),
 }).loose();
 const acceptedSchema = z.object({ accepted: z.literal(true) }).strict();
-const integrationProblemSchema = (status: number, codes: readonly [string, ...string[]]) => z.object({
-  code: z.enum(codes),
-  status: z.literal(status),
-  title: z.string(),
-  type: z.string(),
-}).loose();
-
 @ApiTags("Kinescope integration")
 @ApiBasicAuth("kinescope-webhook")
 @PrivateNoStore()
@@ -40,11 +33,11 @@ export class KinescopeWebhookController {
   @ApiOperation({ operationId: "acceptKinescopeVideoWebhook", summary: "Accept and durably reconcile a Kinescope Video status event" })
   @ApiBody({ schema: toOpenApiSchema(webhookSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(acceptedSchema) })
-  @ApiResponse({ status: 400, content: problemDetailsContent(integrationProblemSchema(400, ["invalid_request"])) })
-  @ApiResponse({ status: 401, content: problemDetailsContent(integrationProblemSchema(401, ["invalid_basic_credentials"])) })
-  @ApiResponse({ status: 404, content: problemDetailsContent(integrationProblemSchema(404, ["video_not_found"])) })
-  @ApiResponse({ status: 409, content: problemDetailsContent(integrationProblemSchema(409, ["provider_mismatch"])) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(integrationProblemSchema(503, ["dependency_unavailable"])) })
+  @ApiResponse({ status: 400, content: problemDetailsContent(problemDetailsSchema(400, ["invalid_request"])) })
+  @ApiResponse({ status: 401, content: problemDetailsContent(problemDetailsSchema(401, ["invalid_basic_credentials"])) })
+  @ApiResponse({ status: 404, content: problemDetailsContent(problemDetailsSchema(404, ["video_not_found"])) })
+  @ApiResponse({ status: 409, content: problemDetailsContent(problemDetailsSchema(409, ["provider_mismatch"])) })
+  @ApiResponse({ status: 503, content: problemDetailsContent(problemDetailsSchema(503, ["dependency_unavailable"])) })
   async webhook(
     @Headers("authorization") authorization: string | undefined,
     @Body() input: unknown,
