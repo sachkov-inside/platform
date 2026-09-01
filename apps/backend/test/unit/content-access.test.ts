@@ -615,7 +615,7 @@ describe("ContentAccess authorization", () => {
     });
   });
 
-  test("rejects a body-linked action for Material before private subject reads", async () => {
+  test("re-runs protected Material policy for a body-linked download", async () => {
     const facts = membershipMaterial(6);
     let permissionReads = 0;
     let membershipReads = 0;
@@ -652,8 +652,9 @@ describe("ContentAccess authorization", () => {
       decisionId: "invalid-action-decision-id",
       policyVersion: "content-access-v1",
       decidedAt,
-      effect: "deny",
-      reason: "resource_action_invalid",
+      effect: "allow",
+      reason: "materials_manager",
+      checkedContentVersion: facts.contentVersion,
     });
     await expect(
       contentAccess.checkAvailabilityMany({
@@ -671,11 +672,11 @@ describe("ContentAccess authorization", () => {
     ).resolves.toEqual({
       ok: true,
       items: [
-        { itemId: "invalid-action-item", availability: "unavailable" },
+        { itemId: "invalid-action-item", availability: "available" },
       ],
     });
     expect({ permissionReads, membershipReads }).toEqual({
-      permissionReads: 0,
+      permissionReads: 2,
       membershipReads: 0,
     });
   });

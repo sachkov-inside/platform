@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
+import type { MaterialAssets } from "../../../assets/index.js";
 import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
 import { materialId } from "../../domain/material-identifiers.js";
 import { normalizedUuidSchema } from "../../domain/uuid.js";
@@ -13,6 +14,7 @@ import type {
   PublishedMaterialReadResult,
   ReadPublishedMaterialQuery,
 } from "./read-published-material.contract.js";
+import { hydrateMaterialAssets } from "../../domain/material-body/hydrate-material-assets.js";
 
 const querySchema = z
   .object({
@@ -40,6 +42,7 @@ export async function readPublishedMaterial(
     readonly materialContent: MaterialContent;
     readonly materialBodyOperations: MaterialBodyOperations;
     readonly membershipAcquisitionUrl: string;
+    readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
   },
   query: ReadPublishedMaterialQuery,
 ): Promise<PublishedMaterialReadResult> {
@@ -115,6 +118,15 @@ export async function readPublishedMaterial(
       if (!rendered.ok) {
         return internalError();
       }
+      const extraction = dependencies.materialBodyOperations.extract(body.value);
+      if (!extraction.ok) return internalError();
+      const presentations = dependencies.materialAssets === undefined
+        ? []
+        : await dependencies.materialAssets.loadPresentations(
+            projection.materialId,
+            extraction.value.resources.flatMap((resource) =>
+              resource.kind === "video" ? [] : [resource.assetId]),
+          );
       return {
         ok: true,
         value: {
@@ -122,7 +134,7 @@ export async function readPublishedMaterial(
           cacheScope:
             access.reason === "public_resource" ? "public" : "private-no-store",
           projection,
-          body: rendered.value,
+          body: hydrateMaterialAssets(rendered.value, presentations),
         },
       };
     }

@@ -70,11 +70,21 @@ const blockSchema: z.ZodType<MaterialPreviewBlock> = z.lazy(() =>
         alt: z.string(),
         assetId: z.uuid(),
         caption: z.string().optional(),
+        height: z.number().int().positive().optional(),
         kind: z.literal("image"),
+        variants: z.array(z.object({ height: z.number().int().positive(), width: z.number().int().positive() }).strict()).optional(),
+        width: z.number().int().positive().optional(),
       })
       .strict(),
     z
-      .object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() })
+      .object({
+        assetId: z.uuid(),
+        contentType: z.string().optional(),
+        filename: z.string().optional(),
+        kind: z.literal("file"),
+        label: z.string(),
+        size: z.number().int().positive().optional(),
+      })
       .strict(),
     z
       .object({
@@ -156,6 +166,7 @@ export function mapCurrentMaterialPreview(
           references?.formats,
           "Формат не назначен",
         ),
+        materialId: current.materialId,
         summary: current.metadata.summary ?? "Без описания",
         tags: current.metadata.tagIds.map(
           (tagId) =>

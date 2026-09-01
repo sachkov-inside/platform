@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["accounts", "materials", "member_profiles", "membership_entitlements", "telegram_membership"]
+  schemas  = ["accounts", "assets", "materials", "member_profiles", "membership_entitlements", "telegram_membership"]
 }
 
 model Account {
@@ -302,4 +302,56 @@ model MaterialSearchDocument {
 
   @@map("material_search_documents")
   @@schema("materials")
+}
+
+model MaterialAsset {
+  id                   String    @id @db.Uuid
+  materialId           String    @map("material_id") @db.Uuid
+  uploadedBy           String    @map("uploaded_by") @db.Uuid
+  kind                 String
+  state                String
+  idempotencyKey       String    @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint   String    @map("request_fingerprint") @db.Char(64)
+  originalFilename     String    @map("original_filename") @db.VarChar(255)
+  declaredContentType  String    @map("declared_content_type") @db.VarChar(255)
+  declaredSize         Int       @map("declared_size")
+  expectedChecksum     String    @map("expected_checksum") @db.Char(64)
+  actualContentType    String?   @map("actual_content_type") @db.VarChar(255)
+  actualSize           Int?      @map("actual_size")
+  actualChecksum       String?   @map("actual_checksum") @db.Char(64)
+  width                Int?
+  height               Int?
+  objectNonce          String    @map("object_nonce") @db.Uuid
+  quarantineObjectKey  String    @map("quarantine_object_key") @db.VarChar(512)
+  protectedObjectKey   String?   @map("protected_object_key") @db.VarChar(512)
+  publicObjectKey      String?   @map("public_object_key") @db.VarChar(512)
+  failureCode          String?   @map("failure_code") @db.VarChar(64)
+  orphanedAt           DateTime  @default(now()) @map("orphaned_at") @db.Timestamptz
+  cleanupClaimedAt     DateTime? @map("cleanup_claimed_at") @db.Timestamptz
+  readyAt              DateTime? @map("ready_at") @db.Timestamptz
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  materialAssetVariants MaterialAssetVariant[]
+
+  @@unique([materialId, uploadedBy, idempotencyKey], map: "material_assets_upload_idempotency_unique")
+  @@index([materialId, state], map: "material_assets_material_state_idx")
+  @@index([state, orphanedAt], map: "material_assets_cleanup_idx")
+  @@map("material_assets")
+  @@schema("assets")
+}
+
+model MaterialAssetVariant {
+  assetId            String @map("asset_id") @db.Uuid
+  width              Int
+  height             Int
+  contentType        String @map("content_type") @db.VarChar(255)
+  byteSize           Int    @map("byte_size")
+  checksumSha256     String @map("checksum_sha256") @db.Char(64)
+  protectedObjectKey String @map("protected_object_key") @db.VarChar(512)
+  publicObjectKey    String @map("public_object_key") @db.VarChar(512)
+  asset              MaterialAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([assetId, width], map: "material_asset_variants_primary")
+  @@map("material_asset_variants")
+  @@schema("assets")
 }

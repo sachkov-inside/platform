@@ -83,6 +83,22 @@ export function assembleValidateMaterial(
         if (!extraction.ok) {
           return rollback(extraction.error);
         }
+        if (dependencies.materialAssets !== undefined) {
+          const assetIssues = await dependencies.materialAssets.inspectReferences(
+            parsed.value.materialId,
+            extraction.value.resources.flatMap((resource) =>
+              resource.kind === "video"
+                ? []
+                : [{ assetId: resource.assetId, kind: resource.kind }],
+            ),
+          );
+          if (assetIssues.length > 0) {
+            return rollback({
+              code: "invalid_reference",
+              issues: assetIssues.map((issue) => ({ code: issue.code, path: "/body" })),
+            });
+          }
+        }
         return {
           materialId: parsed.value.materialId,
           contentVersion: current.value.lifecycle.contentVersion,

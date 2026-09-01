@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
+import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets/ui/material-asset-blocks";
 import { materialTaxonomyLabel } from "@/entities/material";
 
 import type {
@@ -43,14 +44,14 @@ export function MaterialPreview({ preview }: MaterialPreviewProps) {
       </header>
       <div className="mt-12 space-y-6 text-pretty text-[1rem] leading-[1.75] sm:text-[1.0625rem]">
         {preview.blocks.map((block, index) => (
-          <PreviewBlock block={block} key={`${block.kind}-${String(index)}`} />
+          <PreviewBlock block={block} key={`${block.kind}-${String(index)}`} materialId={preview.materialId} />
         ))}
       </div>
     </article>
   );
 }
 
-function PreviewBlock({ block }: { readonly block: MaterialPreviewBlock }) {
+function PreviewBlock({ block, materialId }: { readonly block: MaterialPreviewBlock; readonly materialId: string }) {
   switch (block.kind) {
     case "paragraph":
       return <p>{renderInline(block.content)}</p>;
@@ -72,7 +73,7 @@ function PreviewBlock({ block }: { readonly block: MaterialPreviewBlock }) {
           {block.items.map((item, index) => (
             <li key={index}>
               {item.map((child, childIndex) => (
-                <PreviewBlock block={child} key={`${child.kind}-${String(childIndex)}`} />
+                <PreviewBlock block={child} key={`${child.kind}-${String(childIndex)}`} materialId={materialId} />
               ))}
             </li>
           ))}
@@ -83,7 +84,7 @@ function PreviewBlock({ block }: { readonly block: MaterialPreviewBlock }) {
       return (
         <blockquote className="border-l border-border pl-5 text-muted-foreground">
           {block.content.map((child, index) => (
-            <PreviewBlock block={child} key={`${child.kind}-${String(index)}`} />
+            <PreviewBlock block={child} key={`${child.kind}-${String(index)}`} materialId={materialId} />
           ))}
         </blockquote>
       );
@@ -96,7 +97,7 @@ function PreviewBlock({ block }: { readonly block: MaterialPreviewBlock }) {
     case "horizontal_rule":
       return <hr className="my-10 border-border" />;
     case "table":
-      return <PreviewTable block={block} />;
+      return <PreviewTable block={block} materialId={materialId} />;
     case "callout":
       return (
         <aside className="rounded-xl bg-secondary px-5 py-5 text-secondary-foreground">
@@ -105,21 +106,26 @@ function PreviewBlock({ block }: { readonly block: MaterialPreviewBlock }) {
           </div>
           <div className="mt-2 space-y-3">
             {block.content.map((child, index) => (
-              <PreviewBlock block={child} key={`${child.kind}-${String(index)}`} />
+              <PreviewBlock block={child} key={`${child.kind}-${String(index)}`} materialId={materialId} />
             ))}
           </div>
         </aside>
       );
     case "image":
       return (
-        <MaterialResourcePlaceholder
+        <MaterialAssetImage
           alt={block.alt}
+          assetId={block.assetId}
           caption={block.caption}
-          kind="image"
+          height={block.height}
+          materialId={materialId}
+          preview
+          variants={block.variants}
+          width={block.width}
         />
       );
     case "file":
-      return <MaterialResourcePlaceholder kind="file" label={block.label} />;
+      return <MaterialAssetFile assetId={block.assetId} contentType={block.contentType} filename={block.filename} label={block.label} materialId={materialId} preview size={block.size} />;
     case "video":
       return (
         <MaterialResourcePlaceholder caption={block.caption} kind="video" />
@@ -129,8 +135,10 @@ function PreviewBlock({ block }: { readonly block: MaterialPreviewBlock }) {
 
 function PreviewTable({
   block,
+  materialId,
 }: {
   readonly block: Extract<MaterialPreviewBlock, { readonly kind: "table" }>;
+  readonly materialId: string;
 }) {
   return (
     <div
@@ -154,7 +162,7 @@ function PreviewTable({
                   >
                     <div className="space-y-3">
                       {cell.content.map((child, childIndex) => (
-                        <PreviewBlock block={child} key={`${child.kind}-${String(childIndex)}`} />
+                        <PreviewBlock block={child} key={`${child.kind}-${String(childIndex)}`} materialId={materialId} />
                       ))}
                     </div>
                   </Cell>

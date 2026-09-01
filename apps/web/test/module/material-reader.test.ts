@@ -71,6 +71,7 @@ describe("Material Reader server adapter", () => {
     await expect(getMaterialReader("inside-platform-overview")).resolves.toEqual({
       kind: "available",
       material: {
+        materialId: "72000000-0000-4000-8000-000000000020",
         slug: "inside-platform-overview",
         title: "Как устроен Inside Platform",
         summary: "Один реальный published Material.",

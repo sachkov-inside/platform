@@ -46,6 +46,15 @@ export TELEGRAM_LINKING_ENDPOINT=https://telegram.production-smoke.invalid/integ
 export TELEGRAM_LINKING_SECRET=inside-production-smoke-linking-secret
 export TELEGRAM_EVIDENCE_INGRESS_SECRET=inside-production-smoke-evidence-secret
 export TELEGRAM_LINK_LIFETIME_SECONDS=300
+export OBJECT_STORAGE_ENDPOINT=https://storage.production-smoke.invalid
+export OBJECT_STORAGE_REGION=ru-central1
+export OBJECT_STORAGE_ACCESS_KEY_ID=inside-production-smoke-storage-access-key
+export OBJECT_STORAGE_SECRET_ACCESS_KEY=inside-production-smoke-storage-secret-key
+export OBJECT_STORAGE_PUBLIC_BUCKET=inside-production-smoke-public
+export OBJECT_STORAGE_PROTECTED_BUCKET=inside-production-smoke-protected
+export OBJECT_STORAGE_QUARANTINE_BUCKET=inside-production-smoke-quarantine
+export OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS=60
+export MATERIAL_ASSET_ORPHAN_GRACE_SECONDS=86400
 export WEB_BASE_URL="https://localhost:${https_port}"
 
 compose=(

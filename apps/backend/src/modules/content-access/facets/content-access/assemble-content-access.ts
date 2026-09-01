@@ -212,7 +212,7 @@ function needsMembership(
   facts: MaterialResourceFacts,
   action: AccessAction,
 ): boolean {
-  return action === "read" &&
+  return (action === "read" || action === "download") &&
     facts.publicationState === "published" &&
     facts.access === "membership";
 }
@@ -285,13 +285,13 @@ function resourceReason(
   facts: MaterialResourceFacts,
   action: AccessAction,
 ): DenyReason | "public_resource" | undefined {
-  if (action !== "read" && action !== "preview") {
+  if (action !== "read" && action !== "download" && action !== "preview") {
     return "resource_action_invalid";
   }
-  if (action === "read" && facts.publicationState !== "published") {
+  if ((action === "read" || action === "download") && facts.publicationState !== "published") {
     return "resource_unpublished";
   }
-  if (action === "read" && facts.access === "free") {
+  if ((action === "read" || action === "download") && facts.access === "free") {
     return "public_resource";
   }
   return undefined;

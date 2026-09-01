@@ -103,6 +103,7 @@ export const materialAuthoringPresentation = {
   noticeRevision: 0,
   preview: {
     accessLabel: "Для участников",
+    materialId: "94000000-0000-4000-8000-000000000101",
     blocks: [
       paragraph(
         "Developer Pipeline превращает issue в проверяемый результат и сохраняет owner gates видимыми на всём пути.",
@@ -156,7 +157,13 @@ export const materialAuthoringPresentation = {
         alt: "Схема Developer Pipeline",
         assetId: "94000000-0000-4000-8000-000000000051",
         caption: "Путь от issue до owner GO",
+        height: 900,
         kind: "image",
+        variants: [
+          { height: 450, width: 480 },
+          { height: 900, width: 960 },
+        ],
+        width: 960,
       },
       {
         assetId: "94000000-0000-4000-8000-000000000052",

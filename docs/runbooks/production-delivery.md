@@ -26,8 +26,9 @@ runtime command.
 
 The server has two environment files with different lifecycles:
 
-- `shared/runtime.env` contains database, Logto, cookie, identity and Telegram secrets plus stable
-  runtime configuration. It is created and edited only on the server and persists across releases.
+- `shared/runtime.env` contains database, Logto, cookie, identity, Telegram and Yandex Object
+  Storage secrets plus stable runtime configuration. It is created and edited only on the server
+  and persists across releases.
 - `releases/<sha>/release.env` contains only the full source revision, canonical GHCR repositories
   and immutable image digests. The installer never mutates committed release metadata; rollback
   uses a short-lived candidate env file for the older API/Web pair.
@@ -48,6 +49,14 @@ The command is idempotent and never replaces an existing runtime file. Edit that
 controlled server session and replace every tracked placeholder. Never commit or upload it to
 GitHub. Identity secrets, cookie encryption material, the email fingerprint key, Telegram
 linking/evidence credentials, and database passwords must come from this server-only file.
+The Yandex service account static access key and secret also stay only in this file. Provision the
+three distinct private buckets named by `OBJECT_STORAGE_PUBLIC_BUCKET`,
+`OBJECT_STORAGE_PROTECTED_BUCKET` and `OBJECT_STORAGE_QUARANTINE_BUCKET` before enabling deploy;
+production startup deliberately does not create infrastructure. Grant the runtime service account
+only object read/write/delete permissions for those buckets. Public Material bytes are delivered
+through the guarded API rather than a bucket ACL. Credential creation, bucket provisioning and the
+first rollout remain explicit owner gates; no Object Storage credential belongs in GitHub or the
+repository.
 Telegram linking uses the dedicated provider endpoint and bot start URL; its two directional
 credentials are not interchangeable. The PostgreSQL bootstrap administrator, migration owner and
 long-running application use different roles and passwords. Migrations receive

@@ -15,6 +15,7 @@ import {
   parseCommand,
 } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
+import { hydrateMaterialAssets } from "../../domain/material-body/hydrate-material-assets.js";
 
 const previewMaterialQuery = z
   .object({ actor: accountId, materialId: materialIdSchema })
@@ -75,6 +76,15 @@ export function assemblePreviewMaterial(
       if (!rendered.ok) {
         return rendered;
       }
+      const resources = dependencies.materialBodyOperations.extract(current.value.body);
+      if (!resources.ok) return resources;
+      const presentations = dependencies.materialAssets === undefined
+        ? []
+        : await dependencies.materialAssets.loadPresentations(
+            parsed.value.materialId,
+            resources.value.resources.flatMap((resource) =>
+              resource.kind === "video" ? [] : [resource.assetId]),
+          );
       return {
         ok: true,
         value: {
@@ -83,7 +93,7 @@ export function assemblePreviewMaterial(
           publicationState: current.value.lifecycle.publicationState,
           metadata: current.value.metadata.toValues(),
           cacheScope: "private-no-store",
-          body: rendered.value,
+          body: hydrateMaterialAssets(rendered.value, presentations),
         },
       };
     } catch (error) {

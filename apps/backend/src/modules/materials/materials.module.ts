@@ -25,6 +25,8 @@ import {
   MembershipEntitlementsModule,
   type MembershipEntitlements,
 } from "../membership-entitlements/index.js";
+import { AssetsModule, MATERIAL_ASSETS, OBJECT_STORAGE, type MaterialAssets } from "../assets/index.js";
+import type { ObjectStorage } from "../../infrastructure/object-storage/index.js";
 import { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
 import { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
 import type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
@@ -41,17 +43,30 @@ import {
   MATERIAL_CONTENT,
   type MaterialContent,
 } from "./facets/material-content/material-content.js";
+import {
+  assembleMaterialAssetAuthoring,
+  MATERIAL_ASSET_AUTHORING,
+  type MaterialAssetAuthoring,
+} from "./features/upload-material-asset/upload-material-asset.js";
+import {
+  assembleMaterialAssetDelivery,
+  MATERIAL_ASSET_DELIVERY,
+  type MaterialAssetDelivery,
+} from "./features/deliver-material-asset/deliver-material-asset.js";
+import { MaterialAssetCleanupScheduler } from "./adapters/nest/material-asset-cleanup.scheduler.js";
 
 @Module({
-  imports: [PrismaModule, AccountsModule, MembershipEntitlementsModule],
+  imports: [PrismaModule, AccountsModule, AssetsModule, MembershipEntitlementsModule],
   providers: [
+    MaterialAssetCleanupScheduler,
     {
       provide: MATERIAL_AUTHORING,
-      inject: [PrismaClientProvider, ACCOUNTS, CONTENT_ACCESS],
+      inject: [PrismaClientProvider, ACCOUNTS, CONTENT_ACCESS, MATERIAL_ASSETS],
       useFactory: (
         prisma: PrismaClientProvider,
         accounts: Accounts,
         contentAccess: ContentAccess,
+        materialAssets: MaterialAssets,
       ): MaterialAuthoring => {
         const accountPermissions = assembleCurrentAccountPermissions(accounts);
         const authorPolicy: AuthorPolicy = {
@@ -62,6 +77,7 @@ import {
           prisma,
           authorPolicy,
           contentAccess,
+          materialAssets,
           materialBodyOperations,
         });
       },
@@ -71,6 +87,29 @@ import {
       inject: [PrismaClientProvider],
       useFactory: (prisma: PrismaClientProvider): MaterialContent =>
         assembleMaterialContent({ prisma, materialBodyOperations }),
+    },
+    {
+      provide: MATERIAL_ASSET_AUTHORING,
+      inject: [MATERIAL_AUTHORING, MATERIAL_ASSETS],
+      useFactory: (
+        authoring: MaterialAuthoring,
+        assets: MaterialAssets,
+      ): MaterialAssetAuthoring => assembleMaterialAssetAuthoring({ assets, authoring }),
+    },
+    {
+      provide: MATERIAL_ASSET_DELIVERY,
+      inject: [MATERIAL_ASSETS, CONTENT_ACCESS, OBJECT_STORAGE, PLATFORM_CONFIG],
+      useFactory: (
+        assets: MaterialAssets,
+        contentAccess: ContentAccess,
+        objectStorage: ObjectStorage,
+        config: PlatformConfig,
+      ): MaterialAssetDelivery => assembleMaterialAssetDelivery({
+        assets,
+        contentAccess,
+        objectStorage,
+        signedGetTtlSeconds: config.objectStorage.signedGetTtlSeconds,
+      }),
     },
     {
       provide: CONTENT_ACCESS,
@@ -93,18 +132,21 @@ import {
         CONTENT_ACCESS,
         MATERIAL_CONTENT,
         PLATFORM_CONFIG,
+        MATERIAL_ASSETS,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
         contentAccess: ContentAccess,
         materialContent: MaterialContent,
         config: PlatformConfig,
+        materialAssets: MaterialAssets,
       ): PublishedMaterialReader =>
         assemblePublishedMaterialReader({
           prisma,
           contentAccess,
           materialContent,
           materialBodyOperations,
+          materialAssets,
           membershipAcquisitionUrl:
             config.contentAccess.membershipAcquisitionUrl,
         }),
@@ -113,6 +155,8 @@ import {
   exports: [
     CONTENT_ACCESS,
     MATERIAL_AUTHORING,
+    MATERIAL_ASSET_AUTHORING,
+    MATERIAL_ASSET_DELIVERY,
     PUBLISHED_MATERIAL_READER,
   ],
 })

@@ -23,6 +23,17 @@ export type MaterialsPrismaTransaction = MaterialsPrisma;
 export type MaterialsPrismaClient = MaterialsPrisma &
   TransactionClient<MaterialsPrismaTransaction>;
 
+export type AssetsPrisma = Pick<
+  PlatformPrisma,
+  | "$executeRaw"
+  | "$queryRaw"
+  | "materialAsset"
+  | "materialAssetVariant"
+>;
+export type AssetsPrismaTransaction = AssetsPrisma;
+export type AssetsPrismaClient = AssetsPrisma &
+  TransactionClient<AssetsPrismaTransaction>;
+
 export type AccountsPrisma = Pick<
   PlatformPrisma,
   "$queryRaw" | "account" | "accountAuditEvent" | "accountPermission"

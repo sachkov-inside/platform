@@ -34,7 +34,7 @@ import { materializeMetadataSelection } from "../../shared/materialize-metadata-
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
-import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
+import { lockMaterialAssetReferenceSet, lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
 import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
@@ -159,6 +159,26 @@ export function assembleSaveMaterial(
               materializedMetadata,
               rollback,
             );
+            if (dependencies.materialAssets !== undefined) {
+              await lockMaterialAssetReferenceSet(transaction, command.materialId);
+              const assetIssues = await dependencies.materialAssets.inspectReferences(
+                command.materialId,
+                extraction.value.resources.flatMap((resource) =>
+                  resource.kind === "video"
+                    ? []
+                    : [{ assetId: resource.assetId, kind: resource.kind }],
+                ),
+              );
+              if (assetIssues.length > 0) {
+                return rollback({
+                  code: "invalid_reference",
+                  issues: assetIssues.map((issue) => ({
+                    code: issue.code,
+                    path: "/body",
+                  })),
+                });
+              }
+            }
 
             const entersPublished =
               locked.lifecycle.publicationState !== "published" &&

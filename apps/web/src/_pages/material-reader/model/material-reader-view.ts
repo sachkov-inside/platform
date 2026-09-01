@@ -41,8 +41,18 @@ export type ReaderBlock =
       readonly assetId: string;
       readonly alt: string;
       readonly caption?: string | undefined;
+      readonly height?: number | undefined;
+      readonly variants?: readonly { readonly height: number; readonly width: number }[] | undefined;
+      readonly width?: number | undefined;
     }
-  | { readonly kind: "file"; readonly assetId: string; readonly label: string }
+  | {
+      readonly kind: "file";
+      readonly assetId: string;
+      readonly contentType?: string | undefined;
+      readonly filename?: string | undefined;
+      readonly label: string;
+      readonly size?: number | undefined;
+    }
   | {
       readonly kind: "video";
       readonly videoId: string;
@@ -51,6 +61,7 @@ export type ReaderBlock =
 
 export interface MaterialReaderMetadata {
   readonly access: "free" | "membership";
+  readonly materialId: string;
   readonly format: { readonly name: string; readonly slug: string };
   readonly publishedAt: string;
   readonly seriesMemberships: readonly {

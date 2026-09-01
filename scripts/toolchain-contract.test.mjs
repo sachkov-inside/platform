@@ -135,7 +135,13 @@ describe("supported toolchain contract", () => {
         );
       assert.ok(imageLines.length > 0, `${path} must declare at least one image`);
       assert.ok(
-        imageLines.every((line) => /:\d[^\s]*@sha256:[a-f0-9]{64}$/u.test(line.trim())),
+        imageLines.every((line) => {
+          const image = line.trim();
+          return (
+            /:[A-Za-z0-9][^\s]*@sha256:[a-f0-9]{64}$/u.test(image) &&
+            !/:latest@/u.test(image)
+          );
+        }),
         `${path} contains an unpinned image`,
       );
     }

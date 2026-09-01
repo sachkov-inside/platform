@@ -36,6 +36,10 @@ export interface MaterialContent {
     readonly materialId: MaterialId;
     readonly checkedContentVersion: number;
   }): Promise<Result<MaterialBodySnapshot | null, MaterialContentError>>;
+  containsAssetReference(input: {
+    readonly assetId: string;
+    readonly materialId: string;
+  }): Promise<boolean>;
 }
 
 export const MATERIAL_CONTENT = Symbol("MATERIAL_CONTENT");
@@ -147,6 +151,26 @@ export function assembleMaterialContent(dependencies: {
       } catch (error) {
         return { ok: false, error: mapPostgresReadError(error) };
       }
+    },
+
+    async containsAssetReference(input: { readonly assetId: string; readonly materialId: string }) {
+      const parsed = z.object({ assetId: z.uuid(), materialId: z.uuid() }).strict().safeParse(input);
+      if (!parsed.success) throw new TypeError("Material asset reference query is invalid");
+      const row = await dependencies.prisma.material.findUnique({
+        where: { id: parsed.data.materialId },
+        select: { body: true, schemaVersion: true },
+      });
+      if (row === null) return false;
+      const body = dependencies.materialBodyOperations.accept({
+        doc: row.body,
+        schemaVersion: row.schemaVersion,
+      });
+      if (!body.ok) throw new TypeError("Stored Material body is invalid");
+      const extraction = dependencies.materialBodyOperations.extract(body.value);
+      if (!extraction.ok) throw new TypeError("Stored Material body cannot be inspected");
+      return extraction.value.resources.some(
+        (resource) => resource.kind !== "video" && resource.assetId === parsed.data.assetId,
+      );
     },
   });
 }

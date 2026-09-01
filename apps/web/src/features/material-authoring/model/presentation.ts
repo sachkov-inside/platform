@@ -77,9 +77,19 @@ export type MaterialPreviewBlock =
       readonly alt: string;
       readonly assetId: string;
       readonly caption?: string | undefined;
+      readonly height?: number | undefined;
       readonly kind: "image";
+      readonly variants?: readonly { readonly height: number; readonly width: number }[] | undefined;
+      readonly width?: number | undefined;
     }
-  | { readonly assetId: string; readonly kind: "file"; readonly label: string }
+  | {
+      readonly assetId: string;
+      readonly contentType?: string | undefined;
+      readonly filename?: string | undefined;
+      readonly kind: "file";
+      readonly label: string;
+      readonly size?: number | undefined;
+    }
   | {
       readonly caption?: string | undefined;
       readonly kind: "video";
@@ -90,6 +100,7 @@ export interface MaterialPreviewPresentation {
   readonly accessLabel: string;
   readonly blocks: readonly MaterialPreviewBlock[];
   readonly format: string;
+  readonly materialId: string;
   readonly summary: string;
   readonly tags: readonly string[];
   readonly title: string;
