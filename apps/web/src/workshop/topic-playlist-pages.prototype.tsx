@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -7,15 +9,22 @@ import {
   Play,
 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import {
   ApplicationShell,
   type ApplicationNavigationItem,
 } from "@/widgets/application-shell";
 import {
+  applyMaterialCatalogState,
+  MaterialCatalogControls,
+  type MaterialSortOrder,
+} from "@/workshop/material-catalog-controls.prototype";
+import {
   MaterialCard,
   type MaterialPreviewFixture,
 } from "@/workshop/material-preview.prototype";
+import { PlaylistCard } from "@/workshop/playlist-card.prototype";
 
 /**
  * PROTOTYPE #208. Two canonical pages answer how a Topic gathers related Playlists and Materials,
@@ -329,6 +338,22 @@ export function TopicPagePrototype({
   scenario = "populated",
 }: TopicPagePrototypeProps) {
   const topic = getTopicFixture(scenario);
+  const [query, setQuery] = useState("");
+  const [selectedFormats, setSelectedFormats] = useState<readonly string[]>([]);
+  const [selectedSeriesIds, setSelectedSeriesIds] = useState<readonly string[]>([]);
+  const [sortOrder, setSortOrder] = useState<MaterialSortOrder>("default");
+  const visibleMaterials = applyMaterialCatalogState(topic.materials, {
+    query,
+    selectedFormats,
+    selectedSeriesIds,
+    selectedTopics: [],
+    sortOrder,
+  });
+  const formatOptions = unique(topic.materials.map((material) => material.format));
+  const seriesOptions = topic.playlists.map((playlist) => ({
+    label: playlist.name,
+    value: `series-${playlist.slug}`,
+  }));
 
   return (
     <PrototypeShell>
@@ -340,54 +365,76 @@ export function TopicPagePrototype({
         <CollectionBreadcrumb current={topic.name} kind="Тема" />
         <TopicHeader topic={topic} />
 
-        <section aria-labelledby="topic-playlists" className="mt-10 sm:mt-14">
+        <section
+          aria-labelledby="topic-playlists"
+          className="@container/playlist-surface mt-10 sm:mt-14"
+        >
           <SectionHeading
             countLabel={formatPlaylistCount(topic.playlists.length)}
-            description="Маршруты, в которых есть материалы этой темы. Плейлист может продолжаться в других темах."
             id="topic-playlists"
             title="Плейлисты по теме"
           />
           {topic.playlists.length > 0 ? (
             <ul
-              className="mt-5 grid max-w-[66rem] grid-cols-1 items-start gap-4 @min-[42rem]/collection:grid-cols-[repeat(auto-fill,minmax(18rem,20rem))]"
+              className="mt-5 grid max-w-[68rem] grid-cols-1 gap-4 @min-[48rem]/playlist-surface:grid-cols-2"
               role="list"
             >
               {topic.playlists.map((playlist) => (
                 <li key={playlist.slug}>
-                  <RelatedPlaylistCard playlist={playlist} />
+                  <PlaylistCard
+                    playlist={{
+                      countLabel: `${String(playlist.matchingCount)} по теме · ${String(playlist.totalCount)} всего`,
+                      name: playlist.name,
+                      slug: playlist.slug,
+                      summary: playlist.summary,
+                    }}
+                  />
                 </li>
               ))}
             </ul>
           ) : (
-            <InlineEmpty
-              description="Когда материал темы войдёт в плейлист, маршрут появится здесь автоматически."
-              title="Плейлистов по теме пока нет"
-            />
+            <InlineEmpty title="Плейлистов по теме пока нет" />
           )}
         </section>
 
         <section aria-labelledby="topic-materials" className="mt-12 sm:mt-16">
           <SectionHeading
-            countLabel={formatMaterialCount(topic.materials.length)}
-            description="Все опубликованные материалы направления — без скрытого ограничения первой страницей каталога."
+            countLabel={formatMaterialCount(visibleMaterials.length)}
             id="topic-materials"
             title="Материалы"
           />
           {topic.materials.length > 0 ? (
+            <MaterialCatalogControls
+              formatOptions={formatOptions}
+              idPrefix="topic-materials"
+              query={query}
+              selectedFormats={selectedFormats}
+              selectedSeriesIds={selectedSeriesIds}
+              selectedTopics={[]}
+              seriesOptions={seriesOptions}
+              setQuery={setQuery}
+              setSelectedFormats={setSelectedFormats}
+              setSelectedSeriesIds={setSelectedSeriesIds}
+              setSortOrder={setSortOrder}
+              sortOrder={sortOrder}
+              topicOptions={[]}
+            />
+          ) : null}
+          {visibleMaterials.length > 0 ? (
             <ul
-              className="mt-5 grid grid-cols-1 items-start gap-4 @min-[40rem]/collection:grid-cols-2 @min-[66rem]/collection:grid-cols-3"
+              className="mt-5 grid grid-cols-1 items-stretch gap-4 @min-[40rem]/collection:grid-cols-2 @min-[66rem]/collection:grid-cols-3"
+              data-material-grid
               role="list"
             >
-              {topic.materials.map((material) => (
-                <li className="w-full max-w-[24rem]" key={material.id}>
+              {visibleMaterials.map((material) => (
+                <li className="h-full w-full max-w-[28rem]" key={material.id}>
                   <MaterialCard headingLevel="h3" material={material} />
                 </li>
               ))}
             </ul>
           ) : (
             <InlineEmpty
-              description="Опубликованные материалы появятся здесь автоматически."
-              title="В теме пока нет материалов"
+              title={topic.materials.length === 0 ? "В теме пока нет материалов" : "Ничего не найдено"}
             />
           )}
         </section>
@@ -414,7 +461,6 @@ export function PlaylistPagePrototype({
         <section aria-labelledby="playlist-materials" className="mt-10 sm:mt-14">
           <SectionHeading
             countLabel={formatMaterialCount(playlist.materials.length)}
-            description="Плейлист открывается целиком: переход из темы не скрывает материалы других направлений."
             id="playlist-materials"
             title="Материалы по порядку"
           />
@@ -429,10 +475,7 @@ export function PlaylistPagePrototype({
               ))}
             </ol>
           ) : (
-            <InlineEmpty
-              description="Автор сможет добавить материалы и задать их порядок в админке."
-              title="Плейлист пока пуст"
-            />
+            <InlineEmpty title="Плейлист пока пуст" />
           )}
         </section>
       </div>
@@ -578,58 +621,20 @@ function PlaylistHeader({ playlist }: { readonly playlist: PlaylistPageFixture }
 
 function SectionHeading({
   countLabel,
-  description,
   id,
   title,
 }: {
   readonly countLabel: string;
-  readonly description: string;
   readonly id: string;
   readonly title: string;
 }) {
   return (
-    <div className="flex max-w-[68rem] flex-col justify-between gap-3 @min-[48rem]/collection:flex-row @min-[48rem]/collection:items-end">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-[-0.03em]" id={id}>
-          {title}
-        </h2>
-        <p className="mt-1 font-mono text-xs text-muted-foreground">{countLabel}</p>
-      </div>
-      <p className="max-w-[56ch] text-sm leading-6 text-muted-foreground">{description}</p>
+    <div>
+      <h2 className="text-2xl font-semibold tracking-[-0.03em]" id={id}>
+        {title}
+      </h2>
+      <p className="mt-1 font-mono text-xs text-muted-foreground">{countLabel}</p>
     </div>
-  );
-}
-
-function RelatedPlaylistCard({
-  playlist,
-}: {
-  readonly playlist: RelatedPlaylistFixture;
-}) {
-  return (
-    <Link
-      className="group/playlist flex min-h-52 flex-col rounded-2xl bg-card p-5 text-foreground no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
-      data-related-playlist
-      href={`/series/${playlist.slug}`}
-    >
-      <span className="flex items-start justify-between gap-4">
-        <span className="grid size-10 place-items-center rounded-xl bg-sidebar text-sidebar-primary">
-          <ListVideo aria-hidden="true" className="size-4.5" />
-        </span>
-        <ArrowUpRight
-          aria-hidden="true"
-          className="size-5 text-muted-foreground transition-transform group-hover/playlist:-translate-y-0.5 group-hover/playlist:translate-x-0.5 motion-reduce:transform-none"
-        />
-      </span>
-      <span className="mt-5 block text-lg font-semibold leading-6 tracking-[-0.025em]">
-        {playlist.name}
-      </span>
-      <span className="mt-2 block text-sm leading-5 text-muted-foreground">
-        {playlist.summary}
-      </span>
-      <span className="mt-auto block pt-5 font-mono text-[0.6875rem] text-muted-foreground">
-        {playlist.matchingCount} по этой теме · {playlist.totalCount} всего
-      </span>
-    </Link>
   );
 }
 
@@ -698,18 +703,13 @@ function PlaylistMaterialRow({
 }
 
 function InlineEmpty({
-  description,
   title,
 }: {
-  readonly description: string;
   readonly title: string;
 }) {
   return (
     <div className="mt-5 max-w-[42rem] border-y border-border py-7">
       <h3 className="text-lg font-semibold tracking-[-0.02em]">{title}</h3>
-      <p className="mt-2 max-w-[56ch] text-sm leading-6 text-muted-foreground">
-        {description}
-      </p>
     </div>
   );
 }
@@ -822,4 +822,8 @@ function formatCount(count: number, one: string, few: string, many: string) {
     mod100 >= 11 && mod100 <= 14 ? many : mod10 === 1 ? one : mod10 >= 2 && mod10 <= 4 ? few : many;
 
   return `${String(count)} ${noun}`;
+}
+
+function unique(values: readonly string[]): readonly string[] {
+  return [...new Set(values)];
 }

@@ -35,11 +35,32 @@ export const TopicDesktop: Story = {
     ).toBeVisible();
     await expect(canvas.getByRole("heading", { level: 2, name: "Плейлисты по теме" })).toBeVisible();
     await expect(canvas.getByRole("heading", { level: 2, name: "Материалы" })).toBeVisible();
-    await expect(canvasElement.querySelectorAll("[data-related-playlist]")).toHaveLength(3);
+    await expect(canvasElement.querySelectorAll("[data-playlist-card]")).toHaveLength(3);
+    await expect(canvas.queryByText(/без скрытого ограничения/u)).not.toBeInTheDocument();
+    await expect(canvas.queryByText(/Плейлист может продолжаться/u)).not.toBeInTheDocument();
 
-    for (const card of canvasElement.querySelectorAll<HTMLElement>("[data-related-playlist]")) {
-      await expect(card.getBoundingClientRect().width).toBeLessThanOrEqual(340);
+    for (const card of canvasElement.querySelectorAll<HTMLElement>("[data-playlist-card]")) {
+      await expect(card.getBoundingClientRect().width).toBeLessThanOrEqual(540);
     }
+
+    const search = canvas.getByRole("searchbox", { name: "Поиск по материалам" });
+    await userEvent.type(search, "приёмка");
+    await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
+    await userEvent.click(canvas.getByRole("button", { name: "Очистить поиск" }));
+    await expect(canvasElement.querySelectorAll("article")).toHaveLength(5);
+
+    const guide = canvasElement.querySelector<HTMLElement>(
+      '[data-material-id="material-product-boundary"]',
+    );
+    const video = canvasElement.querySelector<HTMLElement>(
+      '[data-material-id="material-delivery-pipeline"]',
+    );
+    if (guide === null || video === null) {
+      throw new Error("Mixed-format Material cards are missing");
+    }
+    await expect(
+      Math.abs(guide.getBoundingClientRect().height - video.getBoundingClientRect().height),
+    ).toBeLessThanOrEqual(1);
   },
 };
 
@@ -52,7 +73,7 @@ export const TopicMobile: Story = {
     const canvas = within(canvasElement);
     const breadcrumb = canvas.getByRole("navigation", { name: "Хлебные крошки" });
     const knowledgeBaseLink = within(breadcrumb).getByRole("link", { name: "База знаний" });
-    const firstPlaylist = canvasElement.querySelector<HTMLElement>("[data-related-playlist]");
+    const firstPlaylist = canvasElement.querySelector<HTMLElement>("[data-playlist-card]");
     if (firstPlaylist === null) {
       throw new Error("Related playlist card is missing");
     }
@@ -102,6 +123,7 @@ export const PlaylistDesktop: Story = {
       canvas.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
     ).toBeVisible();
     await expect(canvas.getByRole("navigation", { name: "Темы плейлиста" })).toBeVisible();
+    await expect(canvas.queryByText(/Плейлист открывается целиком/u)).not.toBeInTheDocument();
     await expect(
       [...canvasElement.querySelectorAll("[data-playlist-ordinal]")].map((item) =>
         item.getAttribute("data-playlist-ordinal"),
