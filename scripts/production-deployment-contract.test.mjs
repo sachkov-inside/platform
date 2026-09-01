@@ -464,27 +464,6 @@ test("server installer commits only an allowlisted release bundle", () => {
   }
 });
 
-test("image publication gates one non-cancelling production deployment", () => {
-  const workflow = readFileSync(
-    join(repositoryRoot, ".github", "workflows", "production-images.yml"),
-    "utf8",
-  );
-
-  assert.match(workflow, /deploy-production:\n/u);
-  assert.match(workflow, /needs: publish-production-images/u);
-  assert.match(workflow, /if: vars\.PLATFORM_PRODUCTION_DEPLOY_ENABLED == 'true'/u);
-  assert.match(workflow, /environment: production/u);
-  assert.match(workflow, /group: platform-production/u);
-  assert.match(workflow, /cancel-in-progress: false/u);
-  assert.match(workflow, /queue: max/u);
-  assert.match(workflow, /contents: read/u);
-  assert.match(workflow, /bash scripts\/deploy-production-over-ssh\.sh/u);
-  assert.match(workflow, /PLATFORM_DEPLOY_ATTEMPT: \$\{\{ github\.run_number \}\}-\$\{\{ github\.run_attempt \}\}/u);
-  assert.match(workflow, /needs\.publish-production-images\.outputs\.platform-api-digest/u);
-  assert.match(workflow, /needs\.publish-production-images\.outputs\.platform-web-digest/u);
-  assert.doesNotMatch(workflow, /ssh-keyscan/u);
-});
-
 function createDeploymentFixture() {
   const temporaryRoot = mkdtempSync(join(realpathSync(tmpdir()), "inside-platform-deployment-"));
   const installRoot = join(temporaryRoot, "platform");

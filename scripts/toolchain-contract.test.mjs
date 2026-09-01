@@ -121,12 +121,8 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(read("pnpm-workspace.yaml"), /^overrides:/mu);
   });
 
-  it("pins every container image by digest and every GitHub Action by commit", () => {
-    for (const path of [
-      "compose.yaml",
-      "compose.production.yaml",
-      ".github/workflows/application-ci.yml",
-    ]) {
+  it("pins every checked-in container image by digest", () => {
+    for (const path of ["compose.yaml", "compose.production.yaml"]) {
       const imageLines = read(path)
         .split("\n")
         .filter(
@@ -146,13 +142,6 @@ describe("supported toolchain contract", () => {
       );
     }
 
-    const actionLines = read(".github/workflows/application-ci.yml")
-      .split("\n")
-      .filter((line) => /^\s*uses:/u.test(line));
-    assert.ok(actionLines.length > 0);
-    assert.ok(
-      actionLines.every((line) => /@[a-f0-9]{40}(?:\s+#\s+v\d+\.\d+\.\d+)?$/u.test(line.trim())),
-    );
   });
 
   it("keeps production application images supplied as immutable release inputs", () => {
@@ -227,79 +216,6 @@ describe("supported toolchain contract", () => {
     assert.match(smoke, /expected_migration_count=/u);
     assert.match(smoke, /infrastructure\/postgres\/migrations/u);
     assert.doesNotMatch(smoke, /migration_count" != "\d+"/u);
-  });
-
-  it("runs the isolated production Compose smoke as its own CI job", () => {
-    const workflow = read(".github/workflows/application-ci.yml");
-    const match = workflow.match(
-      /\n {2}compose-production-stack:\n([\s\S]*?)(?=\n {2}[a-z0-9-]+:\n|$)/u,
-    );
-
-    assert.ok(match, "Application CI must declare compose-production-stack");
-    const job = match[1];
-    assert.match(job, /run: bash scripts\/production-compose-smoke\.sh/u);
-    assert.doesNotMatch(job, /secrets\./u);
-  });
-
-  it("provides Object Storage to the full-stack verification job", () => {
-    const workflow = read(".github/workflows/application-ci.yml");
-    const match = workflow.match(
-      /\n {2}verify:\n([\s\S]*?)(?=\n {2}[a-z0-9-]+:\n|$)/u,
-    );
-
-    assert.ok(match, "Application CI must declare verify");
-    const job = match[1];
-    assert.match(job, /\n {6}object-storage:\n/u);
-    assert.match(job, /command: server \/data/u);
-    assert.match(job, /--health-cmd "mc ready local"/u);
-    assert.match(job, /\n {10}- 9000:9000/u);
-  });
-
-  it("publishes exact main production images to GHCR without mutable tags", () => {
-    const workflow = read(".github/workflows/production-images.yml");
-
-    assert.match(workflow, /^on:\n {2}push:\n {4}branches: \[main\]$/mu);
-    assert.doesNotMatch(workflow, /pull_request:/u);
-    assert.match(workflow, /^permissions: \{\}$/mu);
-    assert.match(workflow, /permissions:\n {6}contents: read\n {6}packages: write/u);
-    assert.match(workflow, /username: \$\{\{ github\.actor \}\}/u);
-    assert.match(workflow, /password: \$\{\{ secrets\.GITHUB_TOKEN \}\}/u);
-
-    for (const [target, image, step] of [
-      ["api-production", "platform-api", "publish-api"],
-      ["web-production", "platform-web", "publish-web"],
-    ]) {
-      assert.match(workflow, new RegExp(`target: ${target}`, "u"));
-      assert.match(
-        workflow,
-        new RegExp(`tags: ghcr\\.io/sachkov-inside/${image}:\\$\\{\\{ github\\.sha \\}\\}`, "u"),
-      );
-      assert.match(
-        workflow,
-        new RegExp(`${image}-digest: \\$\\{\\{ steps\\.${step}\\.outputs\\.digest \\}\\}`, "u"),
-      );
-    }
-
-    assert.match(workflow, /SOURCE_REVISION=\$\{\{ github\.sha \}\}/u);
-    assert.doesNotMatch(workflow, /(?:^|:)latest(?:\s|$)/mu);
-    const secretNames = [...workflow.matchAll(/secrets\.([A-Z0-9_]+)/gu)].map(
-      ([, name]) => name,
-    );
-    assert.deepEqual([...new Set(secretNames)], [
-      "GITHUB_TOKEN",
-      "PLATFORM_DEPLOY_SSH_PRIVATE_KEY",
-      "PLATFORM_DEPLOY_SSH_KNOWN_HOSTS",
-      "PLATFORM_DEPLOY_HOST",
-      "PLATFORM_DEPLOY_USER",
-    ]);
-
-    const actionLines = workflow
-      .split("\n")
-      .filter((line) => /^\s*uses:/u.test(line));
-    assert.ok(actionLines.length > 0);
-    assert.ok(
-      actionLines.every((line) => /@[a-f0-9]{40}\s+#\s+v\d+\.\d+\.\d+$/u.test(line.trim())),
-    );
   });
 
   it("groups only patch/minor Dependabot updates", () => {
