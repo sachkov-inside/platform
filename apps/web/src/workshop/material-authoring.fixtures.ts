@@ -39,7 +39,7 @@ export const materialAuthoringPresentation = {
   ],
   authorization: { kind: "allowed" },
   blocking: { kind: "none" },
-  deletion: { pending: false, state: { kind: "idle" } },
+  deletion: { pending: false, result: null },
   draft: {
     access: "membership",
     canDelete: true,

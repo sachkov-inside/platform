@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { SeriesOrderActionState } from "@/features/series-order";
+import type { ReorderSeriesResult } from "@/features/series-order";
 import {
   requestSeriesReorder,
   type BackendTransportResult,
@@ -21,7 +21,7 @@ export async function executeReorderSeries(
   formData: FormData,
   accessToken: string,
   request: typeof requestSeriesReorder = requestSeriesReorder,
-): Promise<SeriesOrderActionState> {
+): Promise<ReorderSeriesResult> {
   const parsed = formSchema.safeParse({
     expectedOrderVersion: formData.get("expectedOrderVersion"),
     orderedMaterialIds: formData.get("orderedMaterialIds"),

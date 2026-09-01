@@ -5,10 +5,8 @@ import {
   type AuthoringMaterialsDependencies,
 } from "@/_pages/authoring-materials/api/get-authoring-materials";
 import { parseAuthoringMaterialsQuery } from "@/_pages/authoring-materials/model/authoring-materials-query";
-import {
-  executeMaterialLifecycleMutation,
-  type MaterialLifecycleDependencies,
-} from "@/features/material-lifecycle/api/material-lifecycle";
+import { executeDeleteMaterialDraft } from "@/features/material-lifecycle/api/delete-material-draft";
+import { executeTransitionMaterialPublication } from "@/features/material-lifecycle/api/transition-material-publication";
 import {
   parseAuthoringReturnHref,
   withAuthoringReturnHref,
@@ -253,10 +251,10 @@ describe("Authoring Materials server adapter", () => {
     const dependencies = lifecycleDependencies();
 
     await expect(
-      executeMaterialLifecycleMutation(
-        lifecycleFormData("publish"),
+      executeTransitionMaterialPublication(
+        publicationFormData("published"),
         "access-token",
-        dependencies,
+        dependencies.transition,
       ),
     ).resolves.toMatchObject({
       contentVersion: 8,
@@ -266,7 +264,7 @@ describe("Authoring Materials server adapter", () => {
     expect(dependencies.transition).toHaveBeenCalledWith(
       {
         expectedContentVersion: 7,
-        idempotencyKey: `web-lifecycle-${submissionId}`,
+        idempotencyKey: `web-transition-material-publication-${submissionId}`,
         materialId,
         publicationState: "published",
       },
@@ -276,20 +274,20 @@ describe("Authoring Materials server adapter", () => {
 
   it("deletes a draft with the list version and preserves its key across retry", async () => {
     const dependencies = lifecycleDependencies();
-    const formData = lifecycleFormData("delete");
+    const formData = deletionFormData();
 
     await expect(
-      executeMaterialLifecycleMutation(formData, "access-token", dependencies),
+      executeDeleteMaterialDraft(formData, "access-token", dependencies.delete),
     ).resolves.toEqual({ kind: "deleted", materialId });
     await expect(
-      executeMaterialLifecycleMutation(formData, "access-token", dependencies),
+      executeDeleteMaterialDraft(formData, "access-token", dependencies.delete),
     ).resolves.toEqual({ kind: "deleted", materialId });
     expect(dependencies.delete).toHaveBeenCalledTimes(2);
     expect(dependencies.delete).toHaveBeenNthCalledWith(
       2,
       {
         expectedContentVersion: 7,
-        idempotencyKey: `web-lifecycle-${submissionId}`,
+        idempotencyKey: `web-delete-material-draft-${submissionId}`,
         materialId,
       },
       "access-token",
@@ -381,21 +379,37 @@ describe("Authoring Materials server adapter", () => {
       dependencies[target].mockResolvedValue(response);
 
       await expect(
-        executeMaterialLifecycleMutation(
-          lifecycleFormData(operation),
-          "access-token",
-          dependencies,
-        ),
+        operation === "delete"
+          ? executeDeleteMaterialDraft(
+              deletionFormData(),
+              "access-token",
+              dependencies.delete,
+            )
+          : executeTransitionMaterialPublication(
+              publicationFormData(
+                operation === "publish" ? "published" : "unpublished",
+              ),
+              "access-token",
+              dependencies.transition,
+            ),
       ).resolves.toEqual(expected);
     },
   );
 });
 
-function lifecycleFormData(operation: "delete" | "publish" | "unpublish") {
+function publicationFormData(publicationState: "published" | "unpublished") {
   const formData = new FormData();
   formData.set("expectedContentVersion", "7");
   formData.set("materialId", materialId);
-  formData.set("operation", operation);
+  formData.set("publicationState", publicationState);
+  formData.set("submissionId", submissionId);
+  return formData;
+}
+
+function deletionFormData() {
+  const formData = new FormData();
+  formData.set("expectedContentVersion", "7");
+  formData.set("materialId", materialId);
   formData.set("submissionId", submissionId);
   return formData;
 }
@@ -417,7 +431,7 @@ function lifecycleDependencies() {
       ok: true,
       response: Response.json({}),
     }),
-  } satisfies MaterialLifecycleDependencies;
+  };
 }
 
 function problemResult(status: number, problem: Record<string, unknown>) {

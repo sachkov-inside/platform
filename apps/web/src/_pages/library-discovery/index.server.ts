@@ -1,1 +1,4 @@
-export { LibraryDiscoveryPage } from "./ui/library-discovery-page";
+export {
+  PublishedSeriesPage,
+  PublishedTopicPage,
+} from "./ui/library-discovery-page";

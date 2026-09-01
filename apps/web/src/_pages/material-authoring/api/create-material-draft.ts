@@ -11,9 +11,9 @@ import {
 } from "@/shared/api/backend/index.server";
 
 import type {
-  CreateMaterialDraftActionState,
+  CreateMaterialDraftResult,
   CreatedMaterialDraft,
-} from "../model/create-material-draft-state";
+} from "../model/create-material-draft";
 import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
@@ -71,7 +71,7 @@ export async function executeCreateMaterialDraft(
   formData: FormData,
   accessToken: string,
   dependencies: MaterialDraftWorkflowDependencies = productionDependencies,
-): Promise<CreateMaterialDraftActionState> {
+): Promise<CreateMaterialDraftResult> {
   const parsed = parseForm(formData);
   if (!parsed.ok) {
     return { issues: parsed.issues, kind: "invalid_input" };
@@ -141,7 +141,7 @@ function parseForm(
   };
 }
 
-function mapMutationProblem(result: Extract<BackendTransportResult, { readonly ok: false }>): CreateMaterialDraftActionState {
+function mapMutationProblem(result: Extract<BackendTransportResult, { readonly ok: false }>): CreateMaterialDraftResult {
   const parsed = problemSchema.safeParse(result.problem);
   if (result.response.status === 401) return { kind: "unauthorized" };
   if (result.response.status === 403) return { kind: "forbidden" };
@@ -186,7 +186,7 @@ function formIssueMessage(field: string): string {
   }
 }
 
-function unexpected(error: unknown): Extract<CreateMaterialDraftActionState, { readonly kind: "unexpected_error" }> {
+function unexpected(error: unknown): Extract<CreateMaterialDraftResult, { readonly kind: "unexpected_error" }> {
   const reference =
     error instanceof BackendConnectionError ? error.code : "unexpected-authoring-error";
   return { kind: "unexpected_error", reference };

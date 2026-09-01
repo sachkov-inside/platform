@@ -3,10 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { getPrivateMemberProfile } from "@/_pages/account/api/get-private-member-profile";
 import { requestAccountProfile } from "@/_pages/account/api/request-account-profile";
 import { accountProfileQueryKey } from "@/_pages/account/model/account-profile-query";
-import {
-  executeSaveMemberProfile,
-  type ProfileMutationDependencies,
-} from "@/_pages/account/api/mutate-member-profile";
+import { executeCreateMemberProfile } from "@/_pages/account/api/create-member-profile";
+import { executeUpdateMemberProfile } from "@/_pages/account/api/update-member-profile";
 import { getMemberProfile } from "@/_pages/member-profile/api/get-member-profile";
 import {
   profileInitials,
@@ -43,12 +41,11 @@ describe("Member Profile web workflow", () => {
   it("creates an accepted Profile and keeps an empty bio nullable", async () => {
     const dependencies = successfulDependencies();
     const formData = new FormData();
-    formData.set("mode", "create");
     formData.set("displayName", "Кирилл");
     formData.set("bio", "  ");
 
     await expect(
-      executeSaveMemberProfile(formData, "access-token", dependencies),
+      executeCreateMemberProfile(formData, "access-token", dependencies.create),
     ).resolves.toEqual({ kind: "saved", profile });
     expect(dependencies.create).toHaveBeenCalledWith(
       { bio: null, displayName: "Кирилл" },
@@ -78,14 +75,13 @@ describe("Member Profile web workflow", () => {
   it("rejects malformed fields before calling the backend", async () => {
     const dependencies = successfulDependencies();
     const formData = new FormData();
-    formData.set("mode", "create");
     formData.set("displayName", "К");
     formData.set("bio", "");
 
-    const result = await executeSaveMemberProfile(
+    const result = await executeCreateMemberProfile(
       formData,
       "access-token",
-      dependencies,
+      dependencies.create,
     );
     expect(result.kind).toBe("invalid_input");
     expect(
@@ -99,12 +95,11 @@ describe("Member Profile web workflow", () => {
   it("counts authored fields by Unicode code point", async () => {
     const dependencies = successfulDependencies();
     const formData = new FormData();
-    formData.set("mode", "create");
     formData.set("displayName", "🙂".repeat(80));
     formData.set("bio", "🙂".repeat(500));
 
     await expect(
-      executeSaveMemberProfile(formData, "access-token", dependencies),
+      executeCreateMemberProfile(formData, "access-token", dependencies.create),
     ).resolves.toMatchObject({ kind: "saved" });
     expect(dependencies.create).toHaveBeenCalledWith(
       { bio: "🙂".repeat(500), displayName: "🙂".repeat(80) },
@@ -124,9 +119,13 @@ describe("Member Profile web workflow", () => {
         },
         response: Response.json({}, { status: 422 }),
       }),
-    } satisfies ProfileMutationDependencies;
+    };
     await expect(
-      executeSaveMemberProfile(updateForm(), "access-token", invalidDependencies),
+      executeUpdateMemberProfile(
+        updateForm(),
+        "access-token",
+        invalidDependencies.update,
+      ),
     ).resolves.toEqual({
       fieldErrors: { bio: "Описание должно быть не длиннее 500 символов." },
       kind: "invalid_input",
@@ -139,9 +138,13 @@ describe("Member Profile web workflow", () => {
         problem: { code: "conflict", currentVersion: 4, status: 409 },
         response: Response.json({}, { status: 409 }),
       }),
-    } satisfies ProfileMutationDependencies;
+    };
     await expect(
-      executeSaveMemberProfile(updateForm(), "access-token", conflictDependencies),
+      executeUpdateMemberProfile(
+        updateForm(),
+        "access-token",
+        conflictDependencies.update,
+      ),
     ).resolves.toEqual({ currentVersion: 4, kind: "conflict" });
   });
 
@@ -204,7 +207,7 @@ describe("Member Profile web workflow", () => {
   });
 });
 
-function successfulDependencies(): ProfileMutationDependencies {
+function successfulDependencies() {
   return {
     create: vi.fn().mockResolvedValue({
       body: { profile },
@@ -221,7 +224,6 @@ function successfulDependencies(): ProfileMutationDependencies {
 
 function updateForm(): FormData {
   const formData = new FormData();
-  formData.set("mode", "update");
   formData.set("displayName", "Кирилл");
   formData.set("bio", "Строю платформу.");
   formData.set("expectedVersion", "2");

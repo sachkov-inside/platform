@@ -11,7 +11,7 @@ import {
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 
-import type { SaveMaterialActionState } from "../model/save-material-state";
+import type { SaveMaterialResult } from "../model/save-material";
 import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
@@ -59,7 +59,7 @@ export async function executeSaveMaterial(
   formData: FormData,
   accessToken: string,
   dependencies: SaveMaterialDependencies = productionDependencies,
-): Promise<SaveMaterialActionState> {
+): Promise<SaveMaterialResult> {
   const parsed = parseForm(formData);
   if (!parsed.ok) {
     return { issues: parsed.issues, kind: "invalid_input" };
@@ -147,7 +147,7 @@ function parseForm(
 function mapSaveProblem(
   result: Extract<BackendTransportResult, { readonly ok: false }>,
   staleContentVersion: number,
-): SaveMaterialActionState {
+): SaveMaterialResult {
   if (result.response.status === 401) return { kind: "unauthorized" };
   if (result.response.status === 403) return { kind: "forbidden" };
   const problem = problemSchema.safeParse(result.problem);

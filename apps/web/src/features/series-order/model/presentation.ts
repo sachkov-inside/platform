@@ -12,14 +12,14 @@ export interface SeriesOrderPresentation {
   readonly seriesId: string;
 }
 
-export type SeriesOrderActionState =
-  | { readonly kind: "idle" }
+export interface ReorderSeriesInput {
+  readonly expectedOrderVersion: string;
+  readonly orderedMaterialIds: readonly string[];
+  readonly seriesId: string;
+}
+
+export type ReorderSeriesResult =
   | { readonly kind: "saved"; readonly orderVersion: string }
   | { readonly kind: "conflict" }
   | { readonly kind: "unauthorized" }
   | { readonly kind: "error"; readonly reference: string };
-
-export type SeriesOrderMutation = (
-  state: SeriesOrderActionState,
-  formData: FormData,
-) => Promise<SeriesOrderActionState>;

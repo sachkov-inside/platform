@@ -2,7 +2,10 @@ import { z } from "zod";
 
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 
-import type { SeriesOrderActionState } from "../model/presentation";
+import type {
+  ReorderSeriesInput,
+  ReorderSeriesResult,
+} from "../model/presentation";
 
 const stateSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("saved"), orderVersion: z.string().regex(/^[a-f0-9]{64}$/u) }).strict(),
@@ -12,8 +15,12 @@ const stateSchema = z.discriminatedUnion("kind", [
 ]);
 
 export async function reorderSeries(
-  formData: FormData,
-): Promise<SeriesOrderActionState> {
+  input: ReorderSeriesInput,
+): Promise<ReorderSeriesResult> {
+  const formData = new FormData();
+  formData.set("expectedOrderVersion", input.expectedOrderVersion);
+  formData.set("orderedMaterialIds", JSON.stringify(input.orderedMaterialIds));
+  formData.set("seriesId", input.seriesId);
   const result = await requestSameOriginMutation(
     "/api/authoring/series/order",
     "PUT",

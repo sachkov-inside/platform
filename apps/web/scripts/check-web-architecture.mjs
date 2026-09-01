@@ -216,6 +216,33 @@ function callsNestOperationByAbsoluteUrl(program) {
   return found;
 }
 
+function callsSameOriginMutationDynamically(program) {
+  let found = false;
+  new Visitor({
+    CallExpression(node) {
+      if (
+        node.callee.type !== "Identifier" ||
+        node.callee.name !== "requestSameOriginMutation"
+      ) {
+        return;
+      }
+      const route = node.arguments[0];
+      const method = node.arguments[1];
+      if (
+        route === undefined ||
+        route.type === "SpreadElement" ||
+        method === undefined ||
+        method.type === "SpreadElement" ||
+        literalString(route) === undefined ||
+        literalString(method) === undefined
+      ) {
+        found = true;
+      }
+    },
+  }).visit(program);
+  return found;
+}
+
 function resolveAbsoluteFetchArgument(argument, absoluteStringBindings) {
   const literal = literalString(argument);
   if (literal !== undefined && /^https?:\/\//u.test(literal)) {
@@ -377,6 +404,11 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
   if (isBrowserCode && callsNestOperationByAbsoluteUrl(program)) {
     findingsForFile.push(
       `${sourcePath}: browser code cannot call a Nest operation by absolute URL; use a same-origin BFF route`,
+    );
+  }
+  if (callsSameOriginMutationDynamically(program)) {
+    findingsForFile.push(
+      `${sourcePath}: each browser mutation must declare a literal same-origin route and HTTP method`,
     );
   }
   if (

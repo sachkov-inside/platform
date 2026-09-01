@@ -36,8 +36,10 @@ it owns routing, metadata, route states, and composition.
   of adding TanStack Query. Query `staleTime` is client-cache policy, not an HTTP cache header;
   declare public or private HTTP caching at the BFF/backend boundary.
 - Interactive writes use one path: `useMutation` → browser adapter → same-origin capability Route
-  Handler → generated Nest transport. Put the `QueryProvider` in the lowest route layout shared by
-  its consumers. The current client-owned mutation contract is recorded in
+  Handler → generated Nest transport. Give each product operation its own `useMutation`, named
+  browser adapter, exact input/result types and literal route/method; share only transport and
+  authentication mechanics. Put the `QueryProvider` in the lowest route layout shared by its
+  consumers. The current client-owned mutation contract is recorded in
   [`ADR 0012`](../../docs/adr/0012-browser-owned-interactive-mutations.md).
 
 ## Verification

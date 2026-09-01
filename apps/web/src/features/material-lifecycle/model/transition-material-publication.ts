@@ -1,22 +1,24 @@
-/** Browser-visible outcomes for Material publication and deletion commands. */
-export type MaterialLifecycleOperation = "delete" | "publish" | "unpublish";
+export interface TransitionMaterialPublicationInput {
+  readonly expectedContentVersion: number;
+  readonly materialId: string;
+  readonly publicationState: "published" | "unpublished";
+  readonly submissionId: string;
+}
 
-export interface MaterialLifecycleIssue {
+export interface MaterialPublicationIssue {
   readonly code: string;
   readonly path: string;
 }
 
-export type MaterialLifecycleActionState =
-  | { readonly kind: "idle" }
+export type TransitionMaterialPublicationResult =
   | {
       readonly contentVersion: number;
       readonly kind: "saved";
       readonly nextSubmissionId: string;
       readonly publicationState: "published" | "unpublished";
     }
-  | { readonly kind: "deleted"; readonly materialId: string }
   | {
-      readonly issues: readonly MaterialLifecycleIssue[];
+      readonly issues: readonly MaterialPublicationIssue[];
       readonly kind: "invalid_input";
     }
   | { readonly kind: "unauthorized" }
@@ -26,14 +28,9 @@ export type MaterialLifecycleActionState =
       readonly currentContentVersion?: number;
       readonly kind: "conflict";
       readonly reason:
-        | "draft_deletion_forbidden"
         | "idempotency_key_reused"
         | "invalid_publication_transition"
         | "stale_content_version";
     }
   | { readonly kind: "infrastructure_error"; readonly reference: string }
   | { readonly kind: "unexpected_error"; readonly reference: string };
-
-export const initialMaterialLifecycleActionState = {
-  kind: "idle",
-} as const satisfies MaterialLifecycleActionState;

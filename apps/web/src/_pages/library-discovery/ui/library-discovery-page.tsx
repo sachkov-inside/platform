@@ -1,22 +1,51 @@
 import { notFound } from "next/navigation";
 
-import type { LibraryDiscoveryKind } from "@/features/library-discovery";
-import { loadLibraryDiscovery } from "@/features/library-discovery.server";
+import type {
+  LibraryDiscoveryKind,
+  LibraryDiscoveryResult,
+} from "@/features/library-discovery";
+import {
+  loadPublishedSeries,
+  loadPublishedTopic,
+} from "@/features/library-discovery.server";
 import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
 
-export async function LibraryDiscoveryPage({
+export async function PublishedTopicPage({
   accessToken,
-  kind,
   slug,
 }: {
   readonly accessToken?: string;
-  readonly kind: Exclude<LibraryDiscoveryKind, "related">;
   readonly slug: string;
 }) {
-  const result = await loadLibraryDiscovery(kind, slug, accessToken);
+  return renderDiscoveryResult(
+    await loadPublishedTopic(slug, accessToken),
+    "topic",
+    slug,
+  );
+}
+
+export async function PublishedSeriesPage({
+  accessToken,
+  slug,
+}: {
+  readonly accessToken?: string;
+  readonly slug: string;
+}) {
+  return renderDiscoveryResult(
+    await loadPublishedSeries(slug, accessToken),
+    "series",
+    slug,
+  );
+}
+
+function renderDiscoveryResult(
+  result: LibraryDiscoveryResult,
+  kind: Exclude<LibraryDiscoveryKind, "related">,
+  slug: string,
+) {
   if (result.kind === "not-found") {
     notFound();
   }

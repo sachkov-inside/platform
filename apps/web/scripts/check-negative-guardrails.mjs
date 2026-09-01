@@ -35,6 +35,12 @@ const fixtures = [
     diagnostics: ["Server Actions are not part of the client-owned mutation path"],
   },
   {
+    root: "test/guardrails/fixtures/architecture/dynamic-mutation",
+    diagnostics: [
+      "each browser mutation must declare a literal same-origin route and HTTP method",
+    ],
+  },
+  {
     root: "test/guardrails/fixtures/architecture/editor-bundle",
     diagnostics: ["lightweight authoring routes cannot reach the Tiptap editor bundle"],
   },

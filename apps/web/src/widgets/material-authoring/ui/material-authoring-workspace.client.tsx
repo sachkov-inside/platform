@@ -90,41 +90,21 @@ export function MaterialAuthoringWorkspace({
         }}
         onSubmit={(event) => {
           event.preventDefault();
-          const formData = new FormData(event.currentTarget);
           const submitter =
             event.nativeEvent instanceof SubmitEvent ? event.nativeEvent.submitter : null;
-          if (
+          const requestedPublicationState =
             submitter instanceof HTMLButtonElement &&
             submitter.name === "publicationState"
-          ) {
-            formData.set("publicationState", submitter.value);
-          }
-          actions.onSave(formData);
+              ? submitter.value
+              : presentation.draft.status;
+          actions.onSave(
+            requestedPublicationState === "published" ||
+              requestedPublicationState === "unpublished"
+              ? requestedPublicationState
+              : "draft",
+          );
         }}
       >
-        <input
-          name="expectedContentVersion"
-          type="hidden"
-          value={presentation.draft.contentVersion ?? ""}
-        />
-        <input
-          name="materialId"
-          type="hidden"
-          value={presentation.draft.materialId ?? ""}
-        />
-        <input
-          name="publicationState"
-          type="hidden"
-          value={
-            presentation.draft.status === "new" ? "draft" : presentation.draft.status
-          }
-        />
-        <input
-          name="seriesIds"
-          type="hidden"
-          value={JSON.stringify(presentation.draft.seriesIds)}
-        />
-        <input name="submissionId" type="hidden" value={presentation.submissionId} />
         <MaterialMetadataPanel actions={actions} presentation={presentation} />
         <section
           aria-labelledby="document-heading"

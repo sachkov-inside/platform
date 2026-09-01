@@ -2,10 +2,13 @@ import { z } from "zod";
 
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 
-import type { ProfileMutationState } from "../model/member-profile";
+import type {
+  CreateMemberProfileInput,
+  CreateMemberProfileResult,
+} from "../model/create-member-profile";
 import { parsePrivateProfile } from "./member-profile-contract";
 
-const mutationStateSchema = z.discriminatedUnion("kind", [
+const resultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("saved"), profile: z.unknown() }).strict(),
   z
     .object({
@@ -22,28 +25,36 @@ const mutationStateSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("unavailable"), reference: z.string() }).strict(),
 ]);
 
-export function saveMemberProfile(formData: FormData): Promise<ProfileMutationState> {
-  return mutateProfile(formData);
-}
-
-async function mutateProfile(formData: FormData): Promise<ProfileMutationState> {
-  const result = await requestSameOriginMutation(
+export async function createMemberProfile(
+  input: CreateMemberProfileInput,
+): Promise<CreateMemberProfileResult> {
+  const formData = new FormData();
+  formData.set("bio", input.bio);
+  formData.set("displayName", input.displayName);
+  const response = await requestSameOriginMutation(
     "/api/account/profile",
     "POST",
     formData,
   );
-  if (!result.ok) {
-    return result.status === 401 || result.status === 403
+  if (!response.ok) {
+    return response.status === 401 || response.status === 403
       ? { kind: "unauthorized" }
-      : { kind: "unavailable", reference: `profile-bff-${String(result.status)}` };
+      : {
+          kind: "unavailable",
+          reference: `create-member-profile-bff-${String(response.status)}`,
+        };
   }
 
-  const parsed = mutationStateSchema.safeParse(result.body);
+  const parsed = resultSchema.safeParse(response.body);
   if (!parsed.success) {
-    return { kind: "unavailable", reference: "profile-bff-contract" };
+    return { kind: "unavailable", reference: "create-member-profile-bff-contract" };
   }
   if (parsed.data.kind === "saved") {
-    return { kind: "saved", profile: parsePrivateProfile({ profile: parsed.data.profile }) };
+    try {
+      return { kind: "saved", profile: parsePrivateProfile({ profile: parsed.data.profile }) };
+    } catch {
+      return { kind: "unavailable", reference: "create-member-profile-bff-contract" };
+    }
   }
   if (parsed.data.kind === "invalid_input") {
     return {
@@ -58,10 +69,8 @@ async function mutateProfile(formData: FormData): Promise<ProfileMutationState> 
       kind: "invalid_input",
     };
   }
-  if (parsed.data.kind === "conflict") {
-    return parsed.data.currentVersion === undefined
-      ? { kind: "conflict" }
-      : { currentVersion: parsed.data.currentVersion, kind: "conflict" };
-  }
-  return parsed.data;
+  if (parsed.data.kind !== "conflict") return parsed.data;
+  return parsed.data.currentVersion === undefined
+    ? { kind: "conflict" }
+    : { currentVersion: parsed.data.currentVersion, kind: "conflict" };
 }

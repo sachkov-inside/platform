@@ -5,22 +5,25 @@ import { useId, useRef } from "react";
 
 import { Button } from "@/shared/ui/button";
 
-import type { MaterialLifecycleActionState } from "../model/material-lifecycle-state";
+import type {
+  DeleteMaterialDraftInput,
+  DeleteMaterialDraftResult,
+} from "../model/delete-material-draft";
 
 export function MaterialDeleteDialog({
   contentVersion,
   materialId,
   onDelete,
   pending,
-  state,
+  result,
   submissionId,
   title,
 }: {
   readonly contentVersion: number;
   readonly materialId: string;
-  readonly onDelete: (formData: FormData) => void;
+  readonly onDelete: (input: DeleteMaterialDraftInput) => void;
   readonly pending: boolean;
-  readonly state: MaterialLifecycleActionState;
+  readonly result: DeleteMaterialDraftResult | null;
   readonly submissionId: string;
   readonly title: string | null;
 }) {
@@ -75,7 +78,7 @@ export function MaterialDeleteDialog({
               {materialId}
             </p>
           ) : null}
-          <DeletionNotice state={state} />
+          <DeletionNotice result={result} />
           <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button
               className="min-h-11 px-4"
@@ -92,15 +95,11 @@ export function MaterialDeleteDialog({
               className="min-h-11 px-4"
               disabled={pending}
               onClick={() => {
-                const formData = new FormData();
-                formData.set(
-                  "expectedContentVersion",
-                  String(contentVersion),
-                );
-                formData.set("materialId", materialId);
-                formData.set("operation", "delete");
-                formData.set("submissionId", submissionId);
-                onDelete(formData);
+                onDelete({
+                  expectedContentVersion: contentVersion,
+                  materialId,
+                  submissionId,
+                });
               }}
               type="button"
               variant="destructive"
@@ -114,33 +113,35 @@ export function MaterialDeleteDialog({
   );
 }
 
-function DeletionNotice({ state }: { readonly state: MaterialLifecycleActionState }) {
-  if (state.kind === "idle" || state.kind === "deleted" || state.kind === "saved") {
-    return null;
-  }
+function DeletionNotice({
+  result,
+}: {
+  readonly result: DeleteMaterialDraftResult | null;
+}) {
+  if (result === null || result.kind === "deleted") return null;
   const message =
-    state.kind === "unauthorized"
+    result.kind === "unauthorized"
       ? "Сессия завершилась. Войдите снова, чтобы удалить черновик."
-      : state.kind === "forbidden"
+      : result.kind === "forbidden"
         ? "У текущего аккаунта больше нет права управлять материалами."
-        : state.kind === "not_found"
+        : result.kind === "not_found"
           ? "Материал уже удалён или больше недоступен. Обновите список."
-          : state.kind === "conflict"
-            ? state.reason === "draft_deletion_forbidden"
+          : result.kind === "conflict"
+            ? result.reason === "draft_deletion_forbidden"
               ? "Материал уже публиковался и больше не может быть удалён как безопасный черновик."
               : "Материал изменился в другой сессии. Обновите страницу перед удалением."
-            : state.kind === "invalid_input"
+            : result.kind === "invalid_input"
               ? "Не удалось проверить запрос на удаление. Обновите страницу."
-              : state.kind === "infrastructure_error"
-                ? `Удаление временно недоступно. Повторите с тем же запросом. Код: ${state.reference}`
-                : `Не удалось проверить результат удаления. Код: ${state.reference}`;
+              : result.kind === "infrastructure_error"
+                ? `Удаление временно недоступно. Повторите с тем же запросом. Код: ${result.reference}`
+                : `Не удалось проверить результат удаления. Код: ${result.reference}`;
   return (
     <div
       className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm leading-6"
       role="alert"
     >
       <p>{message}</p>
-      {state.kind === "conflict" || state.kind === "not_found" ? (
+      {result.kind === "conflict" || result.kind === "not_found" ? (
         <button
           className="mt-2 inline-flex items-center gap-2 font-semibold underline underline-offset-4"
           onClick={() => {

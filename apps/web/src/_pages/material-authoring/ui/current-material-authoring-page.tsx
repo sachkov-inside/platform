@@ -69,7 +69,7 @@ export async function CurrentMaterialAuthoringPage({
     availableTopics: state.references.references.topics,
     authorization: { kind: "allowed" },
     blocking: { kind: "none" },
-    deletion: { pending: false, state: { kind: "idle" } },
+    deletion: { pending: false, result: null },
     draft: state.draft,
     mode: "editor",
     noticeRevision: 0,
