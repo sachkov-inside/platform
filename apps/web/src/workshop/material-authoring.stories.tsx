@@ -32,6 +32,7 @@ const noopActions = {
   onDelete: fn(),
   onFieldChange: fn(),
   onOpenPreview: fn(),
+  onPrimaryVideoChange: fn(),
   onRetry: fn(),
   onReturnToEditor: fn(),
   onSave: fn(),
@@ -84,6 +85,10 @@ function MaterialAuthoringFixture({
     onOpenPreview: () => {
       noopActions.onOpenPreview();
       setPresentation((current) => ({ ...current, mode: "preview" }));
+    },
+    onPrimaryVideoChange: (primaryVideoId) => {
+      noopActions.onPrimaryVideoChange(primaryVideoId);
+      markDirty({ ...presentation.draft, primaryVideoId });
     },
     onRetry: () => {
       noopActions.onRetry();
@@ -435,7 +440,7 @@ export const ExactPreview: Story = {
     await expect(canvas.getByRole("region", { name: "Таблица в предпросмотре" })).toBeVisible();
     await expect(canvas.getByRole("img", { name: "Схема Developer Pipeline" })).toBeVisible();
     await expect(canvas.getByText("Checklist проверки")).toBeVisible();
-    await expect(canvas.getByText("Видео пока недоступно для просмотра")).toBeVisible();
+    await expect(canvas.queryByText("Видео пока недоступно для просмотра")).not.toBeInTheDocument();
   },
 };
 

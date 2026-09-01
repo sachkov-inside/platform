@@ -10,6 +10,7 @@ export interface MaterialResourceFacts {
   readonly publicationState: "draft" | "published" | "unpublished";
   readonly access: "free" | "membership";
   readonly contentVersion: number;
+  readonly primaryVideoId: string | null;
 }
 
 export interface MaterialResourceFactsAdapter {
@@ -30,6 +31,17 @@ export interface AssetResourceFactsAdapter {
   findOne(assetId: string): Promise<AssetResourceFacts | null>;
 }
 
+export interface VideoResourceFacts {
+  readonly videoId: string;
+  readonly materialId: MaterialId;
+  readonly access: "free" | "membership";
+}
+
+export interface VideoResourceFactsAdapter {
+  findMany(videoIds: readonly string[]): Promise<readonly VideoResourceFacts[]>;
+  findOne(videoId: string): Promise<VideoResourceFacts | null>;
+}
+
 export interface AccountPermissions {
   hasMaterialsManage(accountId: AccountId): Promise<boolean>;
 }
@@ -42,6 +54,7 @@ export type MembershipEntitlements = Pick<
 
 export interface ContentAccessDependencies {
   readonly assetResourceFacts?: AssetResourceFactsAdapter;
+  readonly videoResourceFacts?: VideoResourceFactsAdapter;
   readonly materialResourceFacts: MaterialResourceFactsAdapter;
   readonly accountPermissions: AccountPermissions;
   readonly membershipEntitlements: MembershipEntitlements;

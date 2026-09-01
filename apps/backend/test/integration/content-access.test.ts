@@ -23,6 +23,7 @@ const material: MaterialResourceFacts = {
   publicationState: "published",
   access: "membership",
   contentVersion: 7,
+  primaryVideoId: null,
 };
 
 describe("ContentAccess current Platform facts", () => {

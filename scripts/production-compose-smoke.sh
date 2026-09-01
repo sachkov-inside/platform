@@ -52,6 +52,18 @@ OBJECT_STORAGE_QUARANTINE_BUCKET=inside-production-smoke-quarantine
 OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS=60
 MATERIAL_ASSET_ORPHAN_GRACE_SECONDS=86400
 PROFILE_AVATAR_ORPHAN_GRACE_SECONDS=86400
+KINESCOPE_PROVIDER_MODE=real
+KINESCOPE_API_BASE_URL=https://api.kinescope.io
+KINESCOPE_UPLOADER_BASE_URL=https://uploader.kinescope.io
+KINESCOPE_API_TOKEN=inside-production-smoke-kinescope-token
+KINESCOPE_PUBLIC_PROJECT_ID=inside-production-smoke-public-project
+KINESCOPE_MEMBERSHIP_PROJECT_ID=inside-production-smoke-membership-project
+KINESCOPE_CALLBACK_USERNAME=inside-production-smoke-callback
+KINESCOPE_CALLBACK_PASSWORD=inside-production-smoke-callback-password
+KINESCOPE_WEBHOOK_USERNAME=inside-production-smoke-webhook
+KINESCOPE_WEBHOOK_PASSWORD=inside-production-smoke-webhook-password
+KINESCOPE_PLAYBACK_JWT_SECRET=inside-production-smoke-playback-signing-secret
+KINESCOPE_PLAYBACK_JWT_TTL_SECONDS=60
 EOF
 
 cp "$runtime_config_dir/api.env" "$runtime_config_dir/profile-avatars-worker.env"

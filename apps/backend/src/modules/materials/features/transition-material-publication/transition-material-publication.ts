@@ -33,6 +33,7 @@ export function assembleTransitionMaterialPublication(dependencies: {
         topicId: current.value.metadata.topicId,
       },
       publicationState: command.publicationState,
+      primaryVideoId: current.value.primaryVideoId,
     });
   };
 }

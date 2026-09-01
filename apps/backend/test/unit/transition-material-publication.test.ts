@@ -26,6 +26,7 @@ describe("Transition Material publication", () => {
       },
       publicationState: "draft" as const,
       publishedAt: null,
+      primaryVideoId: null,
     };
     const receipt = {
       contentVersion: 5,
@@ -65,6 +66,7 @@ describe("Transition Material publication", () => {
         topicId: null,
       },
       publicationState: "published",
+      primaryVideoId: null,
     });
   });
 });

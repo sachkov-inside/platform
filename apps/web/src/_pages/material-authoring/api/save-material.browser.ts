@@ -16,6 +16,7 @@ export async function saveMaterial(
   formData.set("formatId", input.formatId);
   formData.set("materialId", input.materialId);
   formData.set("publicationState", input.publicationState);
+  formData.set("primaryVideoId", input.primaryVideoId ?? "none");
   formData.set("seriesIds", JSON.stringify(input.seriesIds));
   formData.set("submissionId", input.submissionId);
   formData.set("summary", input.summary);

@@ -118,6 +118,7 @@ describe("Material lifecycle", () => {
         publicationState: "published",
         access: "free",
         contentVersion: 3,
+        primaryVideoId: null,
       },
     });
     expect(
@@ -134,6 +135,7 @@ describe("Material lifecycle", () => {
           publicationState: "published",
           access: "free",
           contentVersion: 3,
+          primaryVideoId: null,
         },
       ],
     });

@@ -109,6 +109,13 @@ export type {
   ValidationIssue,
 } from "./domain/material-body/material-body.js";
 export { MaterialsModule } from "./materials.module.js";
+export {
+  KinescopeIntegrationController,
+  VideoAuthoringController,
+  VideoPlaybackController,
+  VideoProgressController,
+} from "./features/video-playback/video.controller.js";
+export { VIDEO_PLAYBACK, assembleVideoPlayback } from "./features/video-playback/video-playback.js";
 export { MaterialAssetMaintenanceModule } from "./material-asset-maintenance.module.js";
 export { assembleMaterialAuthoringMcpServer } from "./adapters/mcp/material-authoring-mcp.js";
 export { assembleMaterials, type Materials } from "./assemble-materials.js";

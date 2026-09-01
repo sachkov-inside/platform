@@ -62,6 +62,14 @@ import {
   name as materialAssetReferenceStateMigrationName,
   statement as materialAssetReferenceStateMigrationStatement,
 } from "../modules/assets/infrastructure/postgres/migrations/0014-material-asset-reference-state.js";
+import {
+  name as videosMigrationName,
+  statement as videosMigrationStatement,
+} from "../modules/videos/infrastructure/postgres/migrations/0016-videos.js";
+import {
+  name as primaryVideoMigrationName,
+  statement as primaryVideoMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0017-primary-video.js";
 
 const migrations = [
   {
@@ -124,6 +132,8 @@ const migrations = [
     name: profileAvatarsMigrationName,
     statement: profileAvatarsMigrationStatement,
   },
+  { name: videosMigrationName, statement: videosMigrationStatement },
+  { name: primaryVideoMigrationName, statement: primaryVideoMigrationStatement },
 ] as const;
 
 export function migrateToLatest(

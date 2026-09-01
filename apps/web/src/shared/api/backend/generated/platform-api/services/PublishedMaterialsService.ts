@@ -23,6 +23,12 @@ export class PublishedMaterialsService {
     };
     cacheScope: 'public' | 'private-no-store';
     kind: 'available';
+    primaryVideo: {
+      failureCode?: string;
+      state: 'uploading' | 'processing' | 'ready' | 'failed';
+      title: string;
+      videoId: string;
+    } | null;
     projection: {
       access: 'free' | 'membership';
       contentVersion: number;
@@ -32,6 +38,7 @@ export class PublishedMaterialsService {
         slug: string;
       };
       materialId: string;
+      primaryVideoId: string | null;
       publishedAt: string;
       seriesMemberships: Array<{
         ordinal: number;
@@ -73,6 +80,7 @@ export class PublishedMaterialsService {
         slug: string;
       };
       materialId: string;
+      primaryVideoId: string | null;
       publishedAt: string;
       seriesMemberships: Array<{
         ordinal: number;

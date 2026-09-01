@@ -127,12 +127,6 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
           });
         }
       }
-      if (type === "video") {
-        const videoId = stringAttribute(value, "videoId");
-        if (videoId === undefined || !isUuid(videoId)) {
-          issues.push({ code: "invalid_video_id", path: validationIssuePath([...path, "attrs", "videoId"]) });
-        }
-      }
     }
 
     const marks = value.marks;
@@ -178,7 +172,7 @@ function canonicalize(value: JsonValue): JsonValue {
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([name, attribute]) => [
           name,
-          (name === "nodeId" || name === "assetId" || name === "videoId") &&
+          (name === "nodeId" || name === "assetId") &&
           typeof attribute === "string" &&
           isUuid(attribute)
             ? attribute.toLowerCase()

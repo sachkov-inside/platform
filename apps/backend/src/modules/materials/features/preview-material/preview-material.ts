@@ -82,8 +82,7 @@ export function assemblePreviewMaterial(
         ? { ok: true as const, value: [] }
         : await dependencies.materialAssets.loadPresentations(
             parsed.value.materialId,
-            resources.value.resources.flatMap((resource) =>
-              resource.kind === "video" ? [] : [resource.assetId]),
+            resources.value.resources.map((resource) => resource.assetId),
           );
       if (!loadedPresentations.ok) return loadedPresentations;
       return {

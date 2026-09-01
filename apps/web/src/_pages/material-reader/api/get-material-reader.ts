@@ -21,6 +21,7 @@ const projectionSchema = z.object({
   summary: z.string(),
   access: z.enum(["free", "membership"]),
   publishedAt: z.iso.datetime({ offset: true }),
+  primaryVideoId: z.uuid().nullable(),
   topic: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
   format: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
   tags: z.array(z.object({ id: z.string(), name: z.string() })),
@@ -38,6 +39,12 @@ const publishedMaterialSchema = z.discriminatedUnion("kind", [
     cacheScope: z.enum(["public", "private-no-store"]),
     projection: projectionSchema,
     body: renderedMaterialBodySchema,
+    primaryVideo: z.object({
+      failureCode: z.string().optional(),
+      state: z.enum(["uploading", "processing", "ready", "failed"]),
+      title: z.string(),
+      videoId: z.uuid(),
+    }).strict().nullable(),
   }),
   z.object({
     kind: z.literal("teaser"),
@@ -112,7 +119,7 @@ export async function getMaterialReader(
 
   const material = toMaterialMetadata(parsed.data.projection);
   return parsed.data.kind === "available"
-    ? { kind: "available", material, body: parsed.data.body.blocks }
+    ? { kind: "available", material, body: parsed.data.body.blocks, primaryVideo: parsed.data.primaryVideo }
     : { kind: "access", material, cta: parsed.data.access.cta };
 }
 

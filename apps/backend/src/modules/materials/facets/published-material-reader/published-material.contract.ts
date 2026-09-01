@@ -6,6 +6,7 @@ export interface PublishedMaterialProjectionDto {
   readonly summary: string;
   readonly access: "free" | "membership";
   readonly publishedAt: string;
+  readonly primaryVideoId: string | null;
   readonly topic: {
     readonly id: string;
     readonly name: string;

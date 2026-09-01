@@ -34,6 +34,12 @@ export type AssetsPrismaTransaction = AssetsPrisma;
 export type AssetsPrismaClient = AssetsPrisma &
   TransactionClient<AssetsPrismaTransaction>;
 
+export type VideosPrisma = Pick<
+  PlatformPrisma,
+  "video" | "videoPlaybackProgress" | "videoUploadAttempt" | "videoWebhookInbox"
+>;
+export type VideosPrismaClient = VideosPrisma & TransactionClient<VideosPrisma>;
+
 export type AccountsPrisma = Pick<
   PlatformPrisma,
   "$queryRaw" | "account" | "accountAuditEvent" | "accountPermission"

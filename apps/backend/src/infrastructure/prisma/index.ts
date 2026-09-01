@@ -14,6 +14,8 @@ export {
   type TelegramMembershipPrisma,
   type TelegramMembershipPrismaClient,
   type TransactionClient,
+  type VideosPrisma,
+  type VideosPrismaClient,
 } from "./prisma-client.js";
 export { PrismaClientProvider, PrismaModule } from "./prisma.module.js";
 export { Prisma } from "./generated/client.js";

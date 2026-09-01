@@ -3,6 +3,7 @@ import type { ContentAccess } from "../../../content-access/index.js";
 import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
 import type { AuthorPolicy } from "../../ports/author-policy.js";
 import type { MaterialAssets } from "../../../assets/index.js";
+import type { Videos } from "../../../videos/index.js";
 
 export interface MaterialAuthoringDependencies {
   readonly prisma: MaterialsPrismaClient;
@@ -13,4 +14,5 @@ export interface MaterialAuthoringDependencies {
     MaterialAssets,
     "inspectReferences" | "loadPresentations" | "markUnreferenced"
   >;
+  readonly videos?: Pick<Videos, "inspectPrimaryReference">;
 }

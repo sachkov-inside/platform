@@ -56,6 +56,7 @@ export async function MaterialAuthoringPage({ returnHref }: { readonly returnHre
       document: { content: [{ type: "paragraph" }], type: "doc" },
       formatId: "unassigned",
       materialId: null,
+      primaryVideoId: null,
       readOnly: false,
       seriesIds: [],
       status: "new",

@@ -62,6 +62,7 @@ const memberProfileTables = [
 
 const telegramMembershipTables = ["link_transactions"] as const;
 const assetTables = ["material_asset_variants", "material_assets"] as const;
+const videoTables = ["playback_progress", "upload_attempts", "videos", "webhook_inbox"] as const;
 
 const legacyMigrations = [
   { name: materialsMigrationName, statement: materialsMigrationStatement },
@@ -133,6 +134,8 @@ describe("Platform migrations", () => {
         "0013_material_assets",
         "0014_material_asset_reference_state",
         "0015_profile_avatars",
+        "0016_videos",
+        "0017_primary_video",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -152,6 +155,7 @@ describe("Platform migrations", () => {
       telegramMembershipTables,
     );
     await expectTables(testDatabase, "assets", assetTables);
+    await expectTables(testDatabase, "videos", videoTables);
 
     const functions = await testDatabase.prisma.$queryRaw<
       readonly { readonly schema: string }[]
@@ -468,6 +472,8 @@ describe("Platform migrations", () => {
           "0013_material_assets",
           "0014_material_asset_reference_state",
           "0015_profile_avatars",
+          "0016_videos",
+          "0017_primary_video",
         ],
       });
 
@@ -617,11 +623,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 16, repeat('0', 64))
+        values ('9999_unknown', 18, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 16",
+        "Migration ledger is not an exact registry prefix at position 18",
       );
     } finally {
       await database.dispose();
@@ -656,7 +662,8 @@ async function expectTables(
     | "materials"
     | "member_profiles"
     | "membership_entitlements"
-    | "telegram_membership",
+    | "telegram_membership"
+    | "videos",
   expected: readonly string[],
 ): Promise<void> {
   const tables = await database.prisma.$queryRaw<

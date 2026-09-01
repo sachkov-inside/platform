@@ -193,14 +193,6 @@ export function fullRepresentativeDocument(): MaterialBodySnapshot {
             label: "Pipeline checklist",
           },
         },
-        {
-          type: "video",
-          attrs: {
-            nodeId: "01000000-0000-4000-8000-000000000010",
-            videoId: "03000000-0000-4000-8000-000000000001",
-            caption: "Platform build episode",
-          },
-        },
       ],
     },
   };

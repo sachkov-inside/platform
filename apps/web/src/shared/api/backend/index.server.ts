@@ -16,4 +16,5 @@ export {
 export * from "./content-library.server";
 export * from "./material-assets.server";
 export * from "./material-authoring.server";
+export * from "./material-videos.server";
 export * from "./member-profiles.server";

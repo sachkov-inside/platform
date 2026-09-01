@@ -27,8 +27,10 @@ import {
 } from "../membership-entitlements/index.js";
 import { AssetsModule, MATERIAL_ASSETS, OBJECT_STORAGE, type MaterialAssets } from "../assets/index.js";
 import type { ObjectStorage } from "../../infrastructure/object-storage/index.js";
+import { VIDEOS, VideosModule, type Videos } from "../videos/index.js";
 import { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
 import { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
+import { assembleVideoResourceFacts } from "./adapters/content-access/video-resource-facts.js";
 import { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
 import type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
 import { MATERIAL_AUTHORING } from "./facets/material-authoring/material-authoring.token.js";
@@ -54,18 +56,24 @@ import {
   MATERIAL_ASSET_DELIVERY,
   type MaterialAssetDelivery,
 } from "./features/deliver-material-asset/deliver-material-asset.js";
+import {
+  assembleVideoPlayback,
+  VIDEO_PLAYBACK,
+  type VideoPlaybackService,
+} from "./features/video-playback/video-playback.js";
 
 @Module({
-  imports: [PrismaModule, AccountsModule, AssetsModule, MembershipEntitlementsModule],
+  imports: [PrismaModule, AccountsModule, AssetsModule, MembershipEntitlementsModule, VideosModule],
   providers: [
     {
       provide: MATERIAL_AUTHORING,
-      inject: [PrismaClientProvider, ACCOUNTS, CONTENT_ACCESS, MATERIAL_ASSETS],
+      inject: [PrismaClientProvider, ACCOUNTS, CONTENT_ACCESS, MATERIAL_ASSETS, VIDEOS],
       useFactory: (
         prisma: PrismaClientProvider,
         accounts: Accounts,
         contentAccess: ContentAccess,
         materialAssets: MaterialAssets,
+        videos: Videos,
       ): MaterialAuthoring => {
         const accountPermissions = assembleCurrentAccountPermissions(accounts);
         const authorPolicy: AuthorPolicy = {
@@ -77,6 +85,7 @@ import {
           authorPolicy,
           contentAccess,
           materialAssets,
+          videos,
           materialBodyOperations,
         });
       },
@@ -120,15 +129,17 @@ import {
     },
     {
       provide: CONTENT_ACCESS,
-      inject: [MATERIAL_CONTENT, MATERIAL_ASSETS, ACCOUNTS, MEMBERSHIP_ENTITLEMENTS],
+      inject: [MATERIAL_CONTENT, MATERIAL_ASSETS, VIDEOS, ACCOUNTS, MEMBERSHIP_ENTITLEMENTS],
       useFactory: (
         materialContent: MaterialContent,
         materialAssets: MaterialAssets,
+        videos: Videos,
         accounts: Accounts,
         membershipEntitlements: MembershipEntitlements,
       ): ContentAccess =>
         assembleContentAccess({
           assetResourceFacts: assembleAssetResourceFacts(materialAssets),
+          videoResourceFacts: assembleVideoResourceFacts(videos),
           materialResourceFacts: assembleMaterialResourceFacts(materialContent),
           accountPermissions: assembleCurrentAccountPermissions(accounts),
           membershipEntitlements,
@@ -142,6 +153,7 @@ import {
         MATERIAL_CONTENT,
         PLATFORM_CONFIG,
         MATERIAL_ASSETS,
+        VIDEOS,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -149,6 +161,7 @@ import {
         materialContent: MaterialContent,
         config: PlatformConfig,
         materialAssets: MaterialAssets,
+        videos: Videos,
       ): PublishedMaterialReader =>
         assemblePublishedMaterialReader({
           prisma,
@@ -156,9 +169,24 @@ import {
           materialContent,
           materialBodyOperations,
           materialAssets,
+          videos,
           membershipAcquisitionUrl:
             config.contentAccess.membershipAcquisitionUrl,
         }),
+    },
+    {
+      provide: VIDEO_PLAYBACK,
+      inject: [CONTENT_ACCESS, VIDEOS, PLATFORM_CONFIG],
+      useFactory: (
+        contentAccess: ContentAccess,
+        videos: Videos,
+        config: PlatformConfig,
+      ): VideoPlaybackService => assembleVideoPlayback({
+        contentAccess,
+        jwtSecret: config.kinescope.playbackJwtSecret,
+        jwtTtlSeconds: config.kinescope.playbackJwtTtlSeconds,
+        videos,
+      }),
     },
   ],
   exports: [
@@ -167,6 +195,7 @@ import {
     MATERIAL_ASSET_AUTHORING,
     MATERIAL_ASSET_DELIVERY,
     PUBLISHED_MATERIAL_READER,
+    VIDEO_PLAYBACK,
   ],
 })
 export class MaterialsModule {}
