@@ -31,8 +31,9 @@ defaults apply only when `NODE_ENV` is `development` or `test`. Missing `NODE_EN
 
 The production files are copied manually before the first start, kept outside Git and restricted
 to their owner. `compose.env` configures the Compose project and published ports. `postgres.env`,
-`migrations.env`, `api.env`, `web.env` and `caddy.env` are passed only to their owning services.
-CI/CD lessons will later automate their secure delivery without adding secrets to Git or images.
+`migrations.env`, `api.env`, `profile-avatars-worker.env`, `web.env` and `caddy.env` are
+passed only to their owning services. CI/CD lessons will later automate their secure delivery
+without adding secrets to Git or images.
 
 Do not add `.env.development` or `.env.test`. Local defaults and explicit test fixtures keep those
 modes deterministic. Do not bake application runtime secrets into a Docker image or pass them as

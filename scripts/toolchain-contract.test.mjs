@@ -162,6 +162,13 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(productionCompose, /^ {2}database-access:/mu);
     assert.doesNotMatch(productionCompose, /^ {2}material-assets-worker:/mu);
     assert.doesNotMatch(productionCompose, /^networks:/mu);
+    const avatarWorker = productionCompose.match(
+      /\n {2}profile-avatars-worker:\n([\s\S]*?)(?=\n {2}[a-z][a-z0-9-]*:\n|$)/u,
+    );
+    assert.ok(avatarWorker, "production must run Profile Avatar cleanup");
+    assert.match(avatarWorker[1], /dockerfile: apps\/backend\/Dockerfile/u);
+    assert.match(avatarWorker[1], /target: api-production/u);
+    assert.match(avatarWorker[1], /profile-avatars-worker\.env/u);
   });
 
   it("keeps runtime configuration in service-owned env files", () => {
@@ -181,12 +188,14 @@ describe("supported toolchain contract", () => {
       "config/compose/local/api.env",
       "config/compose/local/mcp.env",
       "config/compose/local/material-assets-worker.env",
+      "config/compose/local/profile-avatars-worker.env",
       "config/compose/local/web.env",
       "config/compose/local/storybook.env",
       "config/compose/production/compose.env.example",
       "config/compose/production/postgres.env.example",
       "config/compose/production/migrations.env.example",
       "config/compose/production/api.env.example",
+      "config/compose/production/profile-avatars-worker.env.example",
       "config/compose/production/web.env.example",
       "config/compose/production/caddy.env.example",
     ]) {
@@ -210,6 +219,16 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(smoke, /down --rmi local --volumes --remove-orphans \|\| true/u);
   });
 
+  it("checks Profile Avatar worker readiness without a pipefail-sensitive grep", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
+
+    assert.doesNotMatch(smoke, /\|\s*rg(?:\s|$)/u);
+    assert.match(
+      smoke,
+      /\[\[ "\$avatar_worker_logs" != \*'"process":"profile-avatars-worker","status":"ready"'\* \]\]/u,
+    );
+  });
+
   it("derives the production migration expectation from the registered source files", () => {
     const smoke = read("scripts/production-compose-smoke.sh");
 
@@ -222,6 +241,23 @@ describe("supported toolchain contract", () => {
     const smoke = read("scripts/production-compose-smoke.sh");
 
     assert.equal(smoke.match(/--retry-all-errors/gu)?.length, 2);
+  });
+
+  it("keeps Profile Avatar cleanup grace in service-owned env files", () => {
+    const developmentCompose = read("compose.yaml");
+    const workerBlock = developmentCompose.match(
+      /\n {2}profile-avatars-worker:\n([\s\S]*?)(?=\n {2}[a-z][a-z0-9-]*:\n|$)/u,
+    );
+
+    assert.ok(workerBlock, "compose.yaml must declare profile-avatars-worker");
+    assert.match(workerBlock[1], /profile-avatars-worker\.env/u);
+    for (const path of [
+      "config/compose/local/profile-avatars-worker.env",
+      "config/compose/production/api.env.example",
+      "config/compose/production/profile-avatars-worker.env.example",
+    ]) {
+      assert.match(read(path), /^PROFILE_AVATAR_ORPHAN_GRACE_SECONDS=86400$/mu);
+    }
   });
 
   it("groups only patch/minor Dependabot updates", () => {

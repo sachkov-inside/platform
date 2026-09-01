@@ -7,8 +7,13 @@ export const memberProfileFieldsSchema = z
   })
   .strict();
 
+export const memberProfileAvatarSchema = z
+  .object({ avatarId: z.uuid() })
+  .strict();
+
 export const privateMemberProfileSchema = memberProfileFieldsSchema
   .extend({
+    avatar: memberProfileAvatarSchema.nullable(),
     publicProfileId: z.uuid(),
     status: z.enum(["active", "disabled"]),
     version: z.number().int().positive(),
@@ -25,7 +30,10 @@ export const privateProfileStateSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const memberProfileProjectionSchema = memberProfileFieldsSchema
-  .extend({ publicProfileId: z.uuid() })
+  .extend({
+    avatar: memberProfileAvatarSchema.nullable(),
+    publicProfileId: z.uuid(),
+  })
   .strict();
 
 export const memberProfileMutationBodySchema = z

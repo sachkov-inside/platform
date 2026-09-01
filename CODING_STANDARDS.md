@@ -153,9 +153,10 @@ same unit, adapter, integration, and HTTP outcomes before changing product behav
   hooks, generated Zod schemas or generated UI models without a concrete consumer and a new owner
   decision.
 - Interactive Web writes use TanStack `useMutation`, a browser adapter and a capability-owned Route
-  Handler. The shared BFF helper owns Origin, session, private no-store and the 2 MiB transport
-  boundary; the feature owns input parsing and outcome mapping. Server Actions are outside the
-  current mutation contract; ADR 0012 owns that trade-off.
+  Handler. The shared BFF helper owns Origin, session, private no-store and a bounded transport
+  boundary. Its default is 2 MiB; a larger capability uses an explicitly named, narrowly scoped
+  override with focused boundary tests. The feature owns input parsing and outcome mapping. Server
+  Actions are outside the current mutation contract; ADR 0012 owns that trade-off.
 - Each server-state surface has one runtime cache owner. A browser-owned live or infinite surface
   renders only its shell in RSC and does not prefetch or dehydrate the same query. A surface that
   requires server-rendered initial results uses request-isolated TanStack prefetch and hydration as

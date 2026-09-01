@@ -53,7 +53,12 @@ const membershipEntitlementTables = [
   "evidence_receipts",
 ] as const;
 
-const memberProfileTables = ["audit_events", "profiles"] as const;
+const memberProfileTables = [
+  "audit_events",
+  "avatar_renditions",
+  "avatars",
+  "profiles",
+] as const;
 
 const telegramMembershipTables = ["link_transactions"] as const;
 const assetTables = ["material_asset_variants", "material_assets"] as const;
@@ -127,6 +132,7 @@ describe("Platform migrations", () => {
         "0012_remove_member_profile_reports",
         "0013_material_assets",
         "0014_material_asset_reference_state",
+        "0015_profile_avatars",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -461,6 +467,7 @@ describe("Platform migrations", () => {
           "0012_remove_member_profile_reports",
           "0013_material_assets",
           "0014_material_asset_reference_state",
+          "0015_profile_avatars",
         ],
       });
 
@@ -610,11 +617,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 15, repeat('0', 64))
+        values ('9999_unknown', 16, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 15",
+        "Migration ledger is not an exact registry prefix at position 16",
       );
     } finally {
       await database.dispose();

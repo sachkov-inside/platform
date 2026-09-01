@@ -39,6 +39,9 @@ CMD ["pnpm", "--filter", "@inside/backend", "dev:mcp"]
 FROM development AS material-assets-worker
 CMD ["pnpm", "--filter", "@inside/backend", "dev:material-assets-worker"]
 
+FROM development AS profile-avatars-worker
+CMD ["pnpm", "--filter", "@inside/backend", "dev:profile-avatars-worker"]
+
 FROM development AS production-build
 
 RUN pnpm --filter @inside/backend build:production \

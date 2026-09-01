@@ -48,12 +48,51 @@ model MemberProfile {
   publicProfileId String   @unique(map: "member_profiles_public_profile_id_unique") @map("public_profile_id") @db.Uuid
   displayName     String   @map("display_name") @db.VarChar(80)
   bio             String?  @db.VarChar(500)
+  avatarId        String?  @map("avatar_id") @db.Uuid
   status          String
   version         Int      @default(1)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  avatar          ProfileAvatar? @relation("CurrentProfileAvatar", fields: [avatarId, accountId], references: [id, accountId])
+  ownedAvatars    ProfileAvatar[] @relation("ProfileOwnedAvatars")
 
+  @@unique([avatarId, accountId], map: "member_profiles_avatar_account_unique")
   @@map("profiles")
+  @@schema("member_profiles")
+}
+
+model ProfileAvatar {
+  id                  String    @id @db.Uuid
+  accountId           String    @map("account_id") @db.Uuid
+  state               String
+  failureCode         String?   @map("failure_code") @db.VarChar(64)
+  currentlyReferenced Boolean   @default(false) @map("currently_referenced")
+  orphanedAt          DateTime  @default(now()) @map("orphaned_at") @db.Timestamptz
+  cleanupClaimedAt    DateTime? @map("cleanup_claimed_at") @db.Timestamptz
+  readyAt             DateTime? @map("ready_at") @db.Timestamptz
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  currentProfile      MemberProfile? @relation("CurrentProfileAvatar")
+  ownerProfile        MemberProfile  @relation("ProfileOwnedAvatars", fields: [accountId], references: [accountId], onDelete: Cascade)
+  renditions          ProfileAvatarRendition[]
+
+  @@unique([id, accountId], map: "profile_avatars_id_account_unique")
+  @@index([orphanedAt, updatedAt], map: "profile_avatars_cleanup_idx")
+  @@map("avatars")
+  @@schema("member_profiles")
+}
+
+model ProfileAvatarRendition {
+  avatarId          String @map("avatar_id") @db.Uuid
+  size              Int
+  contentType       String @map("content_type") @db.VarChar(255)
+  byteSize          Int    @map("byte_size")
+  checksumSha256    String @map("checksum_sha256") @db.Char(64)
+  protectedObjectKey String @map("protected_object_key") @db.VarChar(512)
+  avatar            ProfileAvatar @relation(fields: [avatarId], references: [id], onDelete: Cascade)
+
+  @@id([avatarId, size], map: "profile_avatar_renditions_primary")
+  @@map("avatar_renditions")
   @@schema("member_profiles")
 }
 

@@ -136,6 +136,23 @@ services:
     init: true
     stop_grace_period: 10s
 
+  profile-avatars-worker:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: profile-avatars-worker
+    env_file:
+      - ./config/compose/local/profile-avatars-worker.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+      object-storage:
+        condition: service_healthy
+    init: true
+    stop_grace_period: 10s
+
   web:
     build:
       context: .

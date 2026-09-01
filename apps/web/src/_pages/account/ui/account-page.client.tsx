@@ -18,6 +18,7 @@ import {
   initialProfileMutationState,
   type ProfileMutationState,
 } from "../model/member-profile";
+import { ProfileAvatarEditor } from "./profile-avatar-editor.client";
 
 interface AccountPageClientProps {
   readonly initialProfile: PrivateMemberProfile | null;
@@ -119,6 +120,15 @@ export function AccountPageClient({
             <input name="expectedVersion" type="hidden" value={profile.version} />
           )}
           <div className="grid gap-7">
+            {profile === null ? null : (
+              <ProfileAvatarEditor
+                onProfileChange={(updated) => {
+                  setProfile(updated);
+                  onProfileChange?.(updated);
+                }}
+                profile={profile}
+              />
+            )}
             <div>
               <label className="text-sm font-semibold" htmlFor="profile-display-name">
                 Имя
@@ -213,8 +223,13 @@ export function AccountPageClient({
           <MemberProfileProjection
             fields={
               profile === null
-                ? { bio: null, displayName: "" }
-                : { bio: profile.bio, displayName: profile.displayName }
+                ? { avatar: null, bio: null, displayName: "" }
+                : {
+                    avatar: profile.avatar,
+                    bio: profile.bio,
+                    displayName: profile.displayName,
+                    publicProfileId: profile.publicProfileId,
+                  }
             }
           />
           {profile === null ? (

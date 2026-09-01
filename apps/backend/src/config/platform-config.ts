@@ -26,6 +26,7 @@ const DEFAULT_OBJECT_STORAGE_PROTECTED_BUCKET = "inside-local-protected";
 const DEFAULT_OBJECT_STORAGE_QUARANTINE_BUCKET = "inside-local-quarantine";
 const DEFAULT_OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS = "60";
 const DEFAULT_MATERIAL_ASSET_ORPHAN_GRACE_SECONDS = "86400";
+const DEFAULT_PROFILE_AVATAR_ORPHAN_GRACE_SECONDS = "86400";
 
 export const PLATFORM_CONFIG = Symbol("PLATFORM_CONFIG");
 
@@ -90,6 +91,11 @@ const objectStorageSchema = z
       .transform((value) => value === "true"),
     orphanGraceMs: integerStringSchema(
       "MATERIAL_ASSET_ORPHAN_GRACE_SECONDS must be an integer between 3600 and 2592000",
+      3_600,
+      2_592_000,
+    ).transform((seconds) => seconds * 1_000),
+    profileAvatarOrphanGraceMs: integerStringSchema(
+      "PROFILE_AVATAR_ORPHAN_GRACE_SECONDS must be an integer between 3600 and 2592000",
       3_600,
       2_592_000,
     ).transform((seconds) => seconds * 1_000),
@@ -265,6 +271,12 @@ export function parsePlatformConfig(
         mode,
         DEFAULT_MATERIAL_ASSET_ORPHAN_GRACE_SECONDS,
       ),
+      profileAvatarOrphanGraceMs: readRuntimeValue(
+        environment,
+        "PROFILE_AVATAR_ORPHAN_GRACE_SECONDS",
+        mode,
+        DEFAULT_PROFILE_AVATAR_ORPHAN_GRACE_SECONDS,
+      ),
       region: readRuntimeValue(
         environment,
         "OBJECT_STORAGE_REGION",
@@ -405,6 +417,7 @@ function readRuntimeValue(
     | "OBJECT_STORAGE_REGION"
     | "OBJECT_STORAGE_SECRET_ACCESS_KEY"
     | "OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS"
+    | "PROFILE_AVATAR_ORPHAN_GRACE_SECONDS"
     | "TELEGRAM_BOT_START_URL"
     | "TELEGRAM_EVIDENCE_INGRESS_SECRET"
     | "TELEGRAM_LINKING_ENDPOINT"

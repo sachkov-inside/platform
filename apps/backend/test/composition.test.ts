@@ -11,6 +11,7 @@ import {
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
 import { MaterialAssetsWorkerModule } from "../src/entrypoints/material-assets-worker/material-assets-worker.module.js";
+import { ProfileAvatarsWorkerModule } from "../src/entrypoints/profile-avatars-worker/profile-avatars-worker.module.js";
 import { OperationalReadiness } from "../src/infrastructure/operational-readiness.js";
 import {
   PrismaClientProvider,
@@ -25,6 +26,7 @@ import {
   PUBLISHED_MATERIAL_READER,
 } from "../src/modules/materials/index.js";
 import { MEMBERSHIP_ENTITLEMENTS } from "../src/modules/membership-entitlements/index.js";
+import { PROFILE_AVATAR_MAINTENANCE } from "../src/modules/member-profiles/index.js";
 
 const config = parsePlatformConfig({
   NODE_ENV: "test",
@@ -104,6 +106,16 @@ describe("backend process composition", () => {
     );
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toEqual(config);
+  });
+
+  it("binds the Avatar maintenance worker to the same typed config", async () => {
+    application = await NestFactory.createApplicationContext(
+      ProfileAvatarsWorkerModule.forRoot(config),
+      { logger: false },
+    );
+
+    expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
+    expect(application.get(PROFILE_AVATAR_MAINTENANCE)).toBeDefined();
   });
 
   it("keeps the API running while health reports an unreachable database", async () => {

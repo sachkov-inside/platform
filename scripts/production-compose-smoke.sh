@@ -51,7 +51,10 @@ OBJECT_STORAGE_PROTECTED_BUCKET=inside-production-smoke-protected
 OBJECT_STORAGE_QUARANTINE_BUCKET=inside-production-smoke-quarantine
 OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS=60
 MATERIAL_ASSET_ORPHAN_GRACE_SECONDS=86400
+PROFILE_AVATAR_ORPHAN_GRACE_SECONDS=86400
 EOF
+
+cp "$runtime_config_dir/api.env" "$runtime_config_dir/profile-avatars-worker.env"
 
 cat >"$runtime_config_dir/web.env" <<EOF
 NODE_ENV=production
@@ -95,6 +98,20 @@ trap cleanup EXIT
 "${compose[@]}" config --quiet
 "${compose[@]}" up --detach --build --wait
 
+avatar_worker_container_id="$("${compose[@]}" ps --quiet profile-avatars-worker)"
+avatar_worker_state="$(docker container inspect "$avatar_worker_container_id" --format '{{.State.Status}}:{{.RestartCount}}')"
+if [[ "$avatar_worker_state" != "running:0" ]]; then
+  echo "Profile Avatar worker did not stay running without restarts: $avatar_worker_state" >&2
+  "${compose[@]}" logs profile-avatars-worker >&2
+  exit 1
+fi
+avatar_worker_logs="$("${compose[@]}" logs profile-avatars-worker)"
+if [[ "$avatar_worker_logs" != *'"process":"profile-avatars-worker","status":"ready"'* ]]; then
+  echo "Profile Avatar worker did not report readiness" >&2
+  printf '%s\n' "$avatar_worker_logs" >&2
+  exit 1
+fi
+
 api_health="$(
   "${compose[@]}" exec -T api node -e \
     "fetch('http://127.0.0.1:3001/health').then(async r=>{process.stdout.write(await r.text());if(!r.ok)process.exit(1)}).catch(error=>{console.error(error);process.exit(1)})"
@@ -111,6 +128,7 @@ home_response="$(
     --retry 10 \
     --retry-all-errors \
     --retry-connrefused \
+    --retry-delay 1 \
     --silent \
     --show-error \
     "https://localhost:${https_port}/"
@@ -127,6 +145,7 @@ library_response="$(
     --retry 10 \
     --retry-all-errors \
     --retry-connrefused \
+    --retry-delay 1 \
     --silent \
     --show-error \
     "https://localhost:${https_port}/library"
@@ -156,4 +175,4 @@ if [[ "$migration_count" != "$expected_migration_count" ]]; then
   exit 1
 fi
 
-echo "Production Compose smoke passed: migrations -> API -> web -> Caddy"
+echo "Production Compose smoke passed: migrations -> Profile Avatar worker -> API -> web -> Caddy"

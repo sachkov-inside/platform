@@ -5,13 +5,14 @@ the starting point for the CI/CD course, not a finished automated delivery syste
 
 ## What runs
 
-`compose.production.yaml` starts five services in order:
+`compose.production.yaml` starts six services in order:
 
 1. PostgreSQL becomes healthy.
 2. `migrations` builds the backend production target and applies the schema once.
 3. `api` builds the same backend production target and becomes healthy.
-4. `web` builds the Next.js production target and becomes healthy.
-5. Caddy exposes web over HTTP and HTTPS.
+4. `profile-avatars-worker` builds the backend target and starts bounded orphan cleanup.
+5. `web` builds the Next.js production target and becomes healthy.
+6. Caddy exposes web over HTTP and HTTPS.
 
 The application images are built directly from the checked-out source with Compose. There is no
 registry input, digest-addressed release, GitHub Actions application workflow, SSH deployment,
@@ -22,6 +23,10 @@ problem each one solves.
 The Material Asset worker remains part of the application and local development stack, but it is
 not started by this temporary production baseline. Orphaned Material Asset cleanup therefore does
 not run here until the worker is added back during production hardening.
+
+Profile Avatar cleanup is part of the feature's safe storage lifecycle, so its dedicated worker is
+present even in this small baseline. Configure its retention window with
+`PROFILE_AVATAR_ORPHAN_GRACE_SECONDS`.
 
 ## Runtime configuration
 
@@ -61,8 +66,9 @@ without rebuilding source.
 ## Local production smoke
 
 The isolated smoke uses synthetic runtime values, builds the current production targets, applies
-all migrations, verifies API health and checks the home and Library pages through Caddy. It removes
-its containers, volumes and Compose-built images after the run.
+all migrations, verifies the Profile Avatar worker readiness log and API health, and checks the home
+and Library pages through Caddy. It removes its containers, volumes and Compose-built images after
+the run.
 
 ```bash
 pnpm compose:production:smoke

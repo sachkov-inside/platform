@@ -9,6 +9,10 @@ export {
   type BackendHealth,
   type BackendTransportResult,
 } from "./transport-core.server";
+export {
+  backendProxyProblem,
+  copyBackendResponse,
+} from "./backend-proxy-response.server";
 export * from "./content-library.server";
 export * from "./material-assets.server";
 export * from "./material-authoring.server";

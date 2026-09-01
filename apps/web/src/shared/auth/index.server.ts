@@ -10,7 +10,11 @@ export {
 export { providerCallbackUrl } from "./provider-callback-url.server";
 export { safePostSignInReturnUri } from "./safe-post-sign-in-return.server";
 export { isSameOriginMutation } from "./same-origin-mutation.server";
-export { handleAuthenticatedMutation } from "./authenticated-mutation-handler.server";
+export {
+  handleAuthenticatedMutation,
+  type AuthenticatedMutationFailure,
+  type StreamingMutationOptions,
+} from "./authenticated-mutation-handler.server";
 export {
   getPlatformAccessToken,
   getPlatformAccessTokenRsc,

@@ -6,6 +6,7 @@ import { MemberProfileProjection } from "./member-profile-projection";
 const meta = {
   args: {
     fields: {
+      avatar: null,
       bio: "Проектирую устойчивые процессы разработки и делюсь практикой.",
       displayName: "Анна",
     },
@@ -36,5 +37,20 @@ export const WithBio: Story = {
 };
 
 export const WithoutBio: Story = {
-  args: { fields: { bio: null, displayName: "Анна" } },
+  args: { fields: { avatar: null, bio: null, displayName: "Анна" } },
+};
+
+export const LongUnbrokenName: Story = {
+  args: {
+    fields: {
+      avatar: null,
+      bio: "Проверка переноса длинного имени на узком экране.",
+      displayName: "ОченьДлинноеНеразрывноеИмяУчастникаСообществаБезПробелов",
+    },
+  },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const article = within(canvasElement).getByRole("article");
+    await expect(article.scrollWidth).toBeLessThanOrEqual(article.clientWidth);
+  },
 };
