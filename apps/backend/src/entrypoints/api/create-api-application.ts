@@ -13,7 +13,7 @@ import type { PlatformConfig } from "../../config/platform-config.js";
 import { ApiModule } from "./api.module.js";
 
 export async function createApiApplication(
-  config: PlatformConfig,
+  config?: PlatformConfig,
   options: NestApplicationOptions = {},
 ): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(

@@ -218,6 +218,11 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(smoke, /migration_count" != "\d+"/u);
   });
 
+  it("retries transient TLS failures in the production smoke", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
+
+    assert.equal(smoke.match(/--retry-all-errors/gu)?.length, 2);
+  });
   it("groups only patch/minor Dependabot updates", () => {
     const dependabot = read(".github/dependabot.yml");
     const groupBodies = [...dependabot.matchAll(/^\s{6}(\S+):\n((?:\s{8,}.*\n?)*)/gmu)];

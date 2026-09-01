@@ -1,11 +1,14 @@
 import "reflect-metadata";
 
-import { loadPlatformConfig } from "../config/load-platform-config.js";
+import {
+  PLATFORM_CONFIG,
+  type PlatformConfig,
+} from "../config/platform-config.js";
 import { createApiApplication } from "./api/create-api-application.js";
 
 async function bootstrap(): Promise<void> {
-  const config = loadPlatformConfig();
-  const app = await createApiApplication(config);
+  const app = await createApiApplication();
+  const config = app.get<PlatformConfig>(PLATFORM_CONFIG);
 
   try {
     await app.listen(config.api.port, config.api.host);

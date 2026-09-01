@@ -193,7 +193,21 @@ describe("process configuration", () => {
         NODE_ENV: "test",
         OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS: "301",
       }),
-    ).toThrow("OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS must be an integer between 1 and 300");
+    ).toThrow(
+      "OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS must be an integer between 1 and 300",
+    );
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        OBJECT_STORAGE_FORCE_PATH_STYLE: "garbage",
+      }),
+    ).toThrow("OBJECT_STORAGE_FORCE_PATH_STYLE must be true or false");
+    expect(
+      parsePlatformConfig({
+        NODE_ENV: "development",
+        OBJECT_STORAGE_FORCE_PATH_STYLE: "false",
+      }).objectStorage.forcePathStyle,
+    ).toBe(false);
   });
 });
 
