@@ -28,30 +28,32 @@ export function MaterialCard({
 
   return (
     <article
-      className={cn(
-        "@container/material-card w-full max-w-[28rem]",
-        hasPreview ? "h-full" : "self-start",
-      )}
+      className="@container/material-card h-full w-full max-w-[28rem]"
       data-material-id={material.slug}
       data-material-slug={material.slug}
     >
       <div
-        className={cn(
-          "group/card relative grid overflow-hidden rounded-xl bg-card no-underline shadow-card transition-[box-shadow,transform] duration-200 motion-reduce:transform-none motion-reduce:transition-none",
-          "hover:-translate-y-0.5 hover:shadow-card-hover focus-within:shadow-card-hover active:translate-y-0 active:shadow-card",
-          hasPreview && "h-full",
-        )}
+        className="group/card relative grid h-full overflow-hidden rounded-xl bg-card no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-within:shadow-card-hover active:translate-y-0 active:shadow-card motion-reduce:transform-none motion-reduce:transition-none"
       >
         {hasPreview ? (
           <MaterialPoster material={material} preview={material.preview} />
         ) : null}
         <div
           className={cn(
-            "flex min-w-0 flex-col p-4",
+            "flex h-full min-w-0 flex-col p-4",
             hasPreview && "min-h-[12.5rem]",
           )}
         >
-          <MaterialTaxonomy material={material} />
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <MaterialFormat material={material} />
+            <AccessLabel
+              access={material.access}
+              availability={material.availability}
+            />
+          </div>
+          <div className="mt-3">
+            <MaterialTaxonomy material={material} />
+          </div>
           <Heading className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em]">
             <Link
               className="no-underline after:absolute after:inset-0 after:rounded-xl after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:underline group-hover/card:decoration-accent group-hover/card:underline-offset-4"
@@ -63,25 +65,11 @@ export function MaterialCard({
             </Link>
           </Heading>
           <p
-            className={cn(
-              "mt-2 text-sm leading-5 text-muted-foreground",
-              hasPreview ? "line-clamp-1" : "line-clamp-2",
-            )}
+            className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground"
           >
             {material.summary}
           </p>
-          <div
-            className={cn(
-              "flex flex-wrap items-end justify-between gap-2",
-              hasPreview ? "mt-auto pt-3" : "mt-3",
-            )}
-          >
-            <MaterialContext material={material} />
-            <AccessLabel
-              access={material.access}
-              availability={material.availability}
-            />
-          </div>
+          <MaterialPlaylists material={material} />
         </div>
       </div>
     </article>
@@ -115,7 +103,7 @@ function MaterialTaxonomy({
   );
 }
 
-function MaterialContext({
+function MaterialFormat({
   material,
 }: {
   readonly material: MaterialPreview;
@@ -123,25 +111,42 @@ function MaterialContext({
   const FormatIcon = material.preview === undefined ? BookOpenText : Play;
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
-      <span className="inline-flex shrink-0 items-center gap-1.5">
-        <FormatIcon aria-hidden="true" className="size-3.5 text-accent" />
-        {materialTaxonomyLabel(material.format)}
-      </span>
+    <span className="inline-flex min-h-7 shrink-0 items-center gap-1.5 font-mono text-[0.6875rem] text-muted-foreground">
+      <FormatIcon aria-hidden="true" className="size-3.5 text-accent" />
+      {materialTaxonomyLabel(material.format)}
+    </span>
+  );
+}
+
+function MaterialPlaylists({
+  material,
+}: {
+  readonly material: MaterialPreview;
+}) {
+  if (material.seriesMemberships.length === 0) {
+    return null;
+  }
+
+  return (
+    <ul
+      aria-label="Плейлисты материала"
+      className="mt-auto grid gap-1.5 border-t border-border pt-3 font-mono text-[0.6875rem] text-muted-foreground"
+      role="list"
+    >
       {material.seriesMemberships.map((membership) => (
-        <Link
-          className="relative z-10 inline-flex min-h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md no-underline hover:text-foreground hover:underline hover:decoration-accent hover:underline-offset-4 focus-visible:outline-ring"
-          href={`/series/${membership.slug}`}
-          key={`${membership.name}-${String(membership.ordinal)}`}
-          prefetch={false}
-        >
-          <ListVideo aria-hidden="true" className="size-3.5 shrink-0 text-accent" />
-          <span className="min-w-0 truncate">
-            {membership.name} · выпуск {membership.ordinal}
-          </span>
-        </Link>
+        <li key={`${membership.name}-${String(membership.ordinal)}`}>
+          <Link
+            className="relative z-10 grid min-h-9 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-lg px-1.5 py-2 no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
+            href={`/series/${membership.slug}`}
+            prefetch={false}
+          >
+            <ListVideo aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-accent" />
+            <span className="min-w-0 break-words leading-4">{membership.name}</span>
+            <span className="shrink-0 text-muted-foreground">№ {membership.ordinal}</span>
+          </Link>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 

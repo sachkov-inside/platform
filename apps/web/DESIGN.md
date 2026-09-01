@@ -223,7 +223,13 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 ### Material Card
 
 - **Style:** accepted bounded Material preview with optional real `16:9` media, compact taxonomy, short title/summary, exact format/access facts and restrained elevation.
-- **Behavior:** no artificial media placeholder; a Material without preview remains content-first and naturally shorter.
+- **Mixed-format rhythm:** cards stretch to the shared grid row so Guides and Videos do not leave broken gaps. A Guide stays content-first and never receives an artificial media placeholder.
+- **Metadata:** format and access occupy the top status row. Playlist memberships use separate readable rows with the full playlist name and ordinal; they never compete with the access label in one clipped footer.
+
+### Discovery Copy
+
+- **Content over mechanics:** headings and labels name content or actions. Reading and discovery surfaces do not narrate pagination, query limits, projection rules, automatic relationships or other implementation mechanics.
+- **Recovery is allowed:** explanatory copy appears only when it helps the user make a decision or recover from an empty, unavailable or invalid state.
 
 ### Account and Member Profile
 
@@ -260,6 +266,7 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 - **Don't** use gradients, glow, glass or ambient animation without product meaning.
 - **Don't** make orange a default decoration or destructive red a brand accent.
 - **Don't** use JetBrains Mono for long-form prose or ornamental headings.
+- **Don't** explain how a catalog query, pagination boundary or derived relationship works inside ordinary page copy.
 - **Don't** promote the issue #38 authoring columns to a global pattern before owner visual/interaction GO.
 - **Don't** expose `contentVersion` or labels such as `v1`, `v2`, `v3` in product UI.
 - **Don't** imply that Preview is published; name the actual publication state.
