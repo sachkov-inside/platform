@@ -255,7 +255,7 @@ CTA.
 | ID | Requirement / invariant | Actor journey | Surface или `No UI` | Обязательные observable states/actions | Source |
 |---|---|---|---|---|---|
 | R01 | Public home с editorial discovery | Visitor/member открывает Platform и выбирает направление | Home | New feed, Topics, active Series, Карта; after login conditional Продолжить + short history | [Platform navigation][platform-brief-navigation] |
-| R02 | Полный published catalog | Любой actor просматривает все карточки | Library | loading, populated, empty; card free/closed status; pagination/continuation contract ещё открыт | [Workspace v1 scope][workspace-v1-scope] |
+| R02 | Полный published catalog | Любой actor просматривает все карточки | Library | client-owned loading, populated, empty; card free/closed status; cursor continuation через automatic infinite scroll и явный fallback | [Workspace v1 scope][workspace-v1-scope] |
 | R03 | Full-text search | Любой actor ищет RU/EN terms | Library/search | query, loading, results, no results, controlled failure; typo/normalization fixture | [Workspace search flow][workspace-search-flow] |
 | R04 | Filters только из real metadata | Любой actor уточняет выдачу | Library/search | Тема/Формат/Серия; multi-select OR within facet, AND across facets; Tags visible/searchable | [Publishing audit navigation][audit-navigation] |
 | R05 | Topic navigation | Любой actor открывает направление | Topic | description/context, Series и Material cards, empty/partial | [Platform navigation][platform-brief-navigation] |
@@ -290,7 +290,7 @@ CTA.
 | R34 | Platform does not bill/manage subscription | Visitor sees inline Membership offer and completes acquisition externally | Closed Material offer; `No UI` for checkout/subscription management | `Получить доступ` opens one Platform-configured Tribute URL; no per-Material URL, prices/plans/payment history/cancel controls or entitlement inference from click | [Platform actors][platform-brief-actors] |
 | R35 | Single author, no editorial team/UGC | Кирилл completes whole publish flow | Author surfaces | no role assignment, review queue, collaborative cursors/comments or contributor onboarding | [Platform author][platform-brief-author] |
 | R36 | Safe public/protected separation | Any actor opens cached/public/protected path | All public/Material surfaces | public projection survives; protected content is private/no-store; dependency failure never falls back open | [Workspace read flow][workspace-read-flow] |
-| R37 | SEO for discoverable public value | Search crawler/public visitor reaches content | Home/Library/Topic/Series/Roadmap/cards/free and locked Material teasers | SSR, stable canonical URLs, public metadata, sitemap, crawlable links; protected body/resources absent, private surfaces noindex | [Workspace SEO][workspace-seo] |
+| R37 | SEO for discoverable public value | Search crawler/public visitor reaches content | Home/Topic/Series/Roadmap/cards/free and locked Material teasers; Library route metadata | Content surfaces use SSR, stable canonical URLs, public metadata, sitemap and crawlable links; Library keeps canonical URL/metadata but its catalog is client-owned; protected body/resources absent, private surfaces noindex | [Workspace SEO][workspace-seo] |
 | R38 | Accessible responsive critical journeys | Keyboard/screen-reader/mobile user navigates/reads/links/plays/authors | All browser surfaces | semantic headings/landmarks, visible focus, names, announced errors; non-pointer alternatives; zoom/narrow/reduced motion safe | [Workspace accessibility][workspace-accessibility] |
 | R39 | Measured performance budgets | Visitor uses public/search/protected non-video pages | Home/Library/Topic/Series/Roadmap/Material | loading/partial UI must not hide failures; budgets verified on fixed corpus, not designed visually here | [Workspace performance][workspace-performance] |
 | R40 | Deferred capabilities stay absent | Any actor uses v1 | `No UI` | no AI search, notifications/email center, advanced progress, assignments, achievements, gamification, multi-tier/billing, comments/community | [Workspace v1 scope][workspace-v1-scope] |
@@ -334,7 +334,7 @@ CTA.
 |---|---|---|---|---|
 | Home | Public visitor | Public composition: ready / loading / partial / empty | Открыть Library, Roadmap, Topic, Series или Material | Не показывать fake personal progress |
 | Home | Any authenticated human Account | Public composition + empty/populated recent/read layer | Открыть доступный Material, вручную mark read/unread, открыть Account; author area только при permission | History/permission не grant-ят closed access и не создают общий course percentage |
-| Library/search | Все | Initial / searching / results / no results / controlled failure; published membership cards locked без доступа и unlocked для active member/manager | Ввести query, применить/сбросить доступные real-data filters, открыть card | Не искать client-side по закрытому body и не выдумывать facets |
+| Library/search | Все | Client loading / searching / results / no results / controlled failure; published membership cards locked без доступа и unlocked для active member/manager | Мгновенно применить/сбросить real-data filters без page navigation, ввести debounced query, автоматически догрузить cursor continuation, открыть card | Не искать client-side по закрытому body, не выдумывать facets и не публиковать cursor в URL |
 | Topic | Все | Ready / empty / partial | Открыть Series или Material, перейти в Library с Topic context | Не хранить отдельную копию Material metadata |
 | Series | Все | Ready / empty / partial / long ordered list | Открыть episode; authenticated actor видит read/unread | Не скрывать порядок closed Series и не вычислять percent complete |
 | Roadmap | Все | Ready / partial links / editorial empty | Следовать curated/query links в generated views и Materials | Не превращать Roadmap в Topic, Series или duplicated catalog |
@@ -549,7 +549,7 @@ utilities.
 
 HOME                              LIBRARY
 [h1: Главная]                     [h1: Библиотека]
-[Continue reading — if history]   [search input] [Search]
+[Continue reading — if history]   [search input — applies automatically]
 [short recent history]            [Filters: Тема / Формат / Серия]
 [h2: Новые материалы]             [active filter summary] [Clear]
 [Material card]
@@ -557,7 +557,7 @@ HOME                              LIBRARY
 [h2: Темы]                        [Material result card]
 [Topic links]
 [h2: Активные серии]              [Material result card]
-[Series link + ordered context]   [pagination / Load more if chosen]
+[Series link + ordered context]   [auto load sentinel / Load more fallback]
 [Roadmap entry]
 
 [footer navigation]
@@ -565,8 +565,9 @@ HOME                              LIBRARY
 
 Home content priority after sign-in: page purpose → continuation when present → short history → new
 feed → Topics → active Series → Карта. Anonymous Home omits personal regions. Library priority:
-query → multi-select filter state → result status → results. Empty/no-results replaces only the
-result region and keeps query/clear action.
+query → multi-select filter state → result status → results. Query/filter changes replace the
+canonical URL state without page navigation; cursor continuation stays internal. Empty/no-results
+replaces only the result region and keeps query/clear action.
 
 ### Desktop Home and responsive Topic / Series / Roadmap
 

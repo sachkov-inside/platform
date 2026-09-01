@@ -4,10 +4,7 @@ import { CloudOff } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
 
-import {
-  authoringMaterialsRootHref,
-  MaterialAuthoringShell,
-} from "@/features/material-authoring";
+import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
 
 export default function ErrorPage({
@@ -22,7 +19,7 @@ export default function ErrorPage({
   }, [error]);
 
   return (
-    <MaterialAuthoringShell current="materials">
+    <>
       <main
         className="grid h-full min-h-svh place-items-center bg-background px-5 py-12 text-foreground md:min-h-0"
         id="authoring-content"
@@ -54,6 +51,6 @@ export default function ErrorPage({
           </div>
         </section>
       </main>
-    </MaterialAuthoringShell>
+    </>
   );
 }

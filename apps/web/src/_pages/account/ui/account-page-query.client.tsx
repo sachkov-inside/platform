@@ -3,7 +3,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { accountProfileBrowserQueryOptions } from "../api/account-profile-query.browser";
-import type { ProfileMutationState } from "../model/member-profile";
 import { accountProfileQueryKey } from "../model/account-profile-query";
 import { AccountPageClient } from "./account-page.client";
 import {
@@ -11,19 +10,8 @@ import {
   AccountUnavailable,
 } from "./account-page";
 
-type ProfileMutationAction = (
-  state: ProfileMutationState,
-  formData: FormData,
-) => Promise<ProfileMutationState>;
-
-export function AccountPageQuery({
-  saveAction,
-  viewerScope,
-}: {
-  readonly saveAction: ProfileMutationAction;
-  readonly viewerScope: string;
-}) {
-  const options = accountProfileBrowserQueryOptions(viewerScope);
+export function AccountPageQuery() {
+  const options = accountProfileBrowserQueryOptions();
   const query = useQuery(options);
   const queryClient = useQueryClient();
 
@@ -44,12 +32,11 @@ export function AccountPageQuery({
         query.data.state.kind === "profile" ? query.data.state.profile : null
       }
       onProfileChange={(profile) => {
-        queryClient.setQueryData(accountProfileQueryKey(viewerScope), {
+        queryClient.setQueryData(accountProfileQueryKey(), {
           kind: "ready",
           state: { kind: "profile", profile },
         });
       }}
-      saveAction={saveAction}
     />
   );
 }

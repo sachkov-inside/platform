@@ -6,7 +6,7 @@ import {
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 
-import type { MemberProfileProjectionData } from "@/_pages/account";
+import type { MemberProfileProjectionData } from "@/entities/member-profile";
 import { parseMemberProfileProblem } from "@/entities/member-profile";
 
 import { parseMemberProfileProjection } from "./member-profile-contract";

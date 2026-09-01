@@ -97,6 +97,56 @@ function hasUseClientDirective(program) {
   return false;
 }
 
+function hasDirective(program, directive) {
+  return program.body.some(
+    (statement) =>
+      statement.type === "ExpressionStatement" &&
+      statement.directive === directive,
+  );
+}
+
+const layerRanks = new Map([
+  ["shared", 0],
+  ["entities", 1],
+  ["features", 2],
+  ["widgets", 3],
+  ["_pages", 4],
+  ["_app", 5],
+  ["app", 5],
+]);
+
+function moduleLayer(file) {
+  const segments = scannedPath(file).split("/");
+  const sourceIndex = segments.lastIndexOf("src");
+  const appIndex = segments.lastIndexOf("app");
+  const layerIndex = sourceIndex >= 0 ? sourceIndex + 1 : appIndex;
+  const layer = segments[layerIndex];
+  if (!layerRanks.has(layer)) return undefined;
+  const rawSlice = segments[layerIndex + 1] ?? "";
+  return {
+    layer,
+    rank: layerRanks.get(layer),
+    slice: rawSlice.replace(/\.(?:server|client)?\.[cm]?[jt]sx?$/u, ""),
+  };
+}
+
+function layerFinding(importer, dependency) {
+  const source = moduleLayer(importer);
+  const target = moduleLayer(dependency);
+  if (source === undefined || target === undefined) return undefined;
+  if (target.rank > source.rank) {
+    return `${scannedPath(importer)}: ${source.layer} cannot import the upper ${target.layer} layer`;
+  }
+  if (
+    source.layer === target.layer &&
+    ["_pages", "widgets", "features", "entities"].includes(source.layer) &&
+    source.slice !== target.slice
+  ) {
+    return `${scannedPath(importer)}: ${source.layer} slices cannot import each other (${source.slice} -> ${target.slice})`;
+  }
+  return undefined;
+}
+
 function readsBackendEndpointEnvironment(program) {
   return readsProcessEnvironment(program, isBackendEndpointName);
 }
@@ -276,9 +326,16 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
   const insideBackendTransport = sourcePath.startsWith("src/shared/api/backend/");
   const insideRuntimeConfiguration =
     sourcePath === "src/shared/config/runtime-config.server.ts";
+  const insideApplicationRouting =
+    sourcePath.startsWith("src/shared/routing/") ||
+    sourcePath.startsWith("src/widgets/authoring-shell/");
   const isBrowserCode = browserFiles.has(file);
   const specifiers = moduleSpecifiers(program);
   const findingsForFile = specifiers.flatMap((specifier) => {
+    const dependency = resolveLocalModule(file, specifier, parsedFiles);
+    const boundaryFinding =
+      dependency === undefined ? undefined : layerFinding(file, dependency);
+    if (boundaryFinding !== undefined) return [boundaryFinding];
     if (!insideBackendTransport && specifier === "openapi-typescript-codegen") {
       return [`${sourcePath}: codegen runtime belongs to the backend transport module`];
     }
@@ -297,8 +354,15 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
     return [];
   });
 
+  if (hasDirective(program, "use server")) {
+    findingsForFile.push(
+      `${sourcePath}: Server Actions are not part of the client-owned mutation path; use TanStack Query and a same-origin Route Handler`,
+    );
+  }
+
   if (
     !insideBackendTransport &&
+    !insideApplicationRouting &&
     stringLiterals(program).some((value) => backendOperationPaths.has(value))
   ) {
     findingsForFile.push(
@@ -325,6 +389,33 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
   }
   return findingsForFile;
 });
+
+for (const entry of [...parsedFiles.keys()].filter((file) =>
+  [
+    "app/authoring/materials/page.tsx",
+    "app/authoring/playlists/page.tsx",
+    "app/authoring/playlists/[seriesId]/page.tsx",
+  ].some((suffix) => scannedPath(file).endsWith(suffix)),
+)) {
+  const visited = new Set();
+  const pending = [entry];
+  while (pending.length > 0) {
+    const file = pending.pop();
+    if (file === undefined || visited.has(file)) continue;
+    visited.add(file);
+    const program = parsedFiles.get(file);
+    if (program === undefined) continue;
+    for (const specifier of moduleSpecifiers(program)) {
+      if (specifier.startsWith("@tiptap/")) {
+        findings.push(
+          `${scannedPath(entry)}: lightweight authoring routes cannot reach the Tiptap editor bundle (via ${scannedPath(file)})`,
+        );
+      }
+      const dependency = resolveLocalModule(file, specifier, parsedFiles);
+      if (dependency !== undefined) pending.push(dependency);
+    }
+  }
+}
 
 if (findings.length > 0) {
   process.stderr.write(`${findings.sort().join("\n")}\n`);

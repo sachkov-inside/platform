@@ -10,32 +10,15 @@ test("creates or edits the Account Profile and preserves the member projection",
 }, testInfo) => {
   await addFullStackSession(context);
 
-  const profileStateResponse = await page.request.get("/account/profile-state");
+  const profileStateResponse = await page.request.get("/api/account/profile");
   expect(profileStateResponse.status()).toBe(200);
   const profileState = (await profileStateResponse.json()) as { readonly kind?: string };
+  const account = await page.goto("/account");
+  expect(account?.status()).toBe(200);
   if (profileState.kind === "missing") {
-    const home = await page.goto("/");
-    expect(home?.status()).toBe(200);
-    const onboarding = page.getByRole("dialog", { name: "Как к вам обращаться?" });
-    await expect(onboarding).toBeVisible();
-    await expect(page.locator("[data-profile-gated=true]")).toHaveAttribute(
-      "inert",
-      "",
-    );
-    await expect(onboarding.getByLabel("Имя")).toBeFocused();
-    await page.keyboard.press("Escape");
-    await expect(onboarding).toBeVisible();
-
-    await onboarding.getByLabel("Имя").fill("Кирилл Сачков");
-    await onboarding.getByRole("button", { name: "Продолжить" }).click();
-    await expect(onboarding).toBeHidden();
-    await expect(page.locator("[data-profile-gated=true]")).toHaveCount(0);
-    await page.getByRole("link", { name: /Открыть аккаунт/u }).click();
-    await expect(page).toHaveURL(/\/account$/u);
+    await page.getByLabel("Имя").fill("Кирилл Сачков");
   } else {
     expect(profileState.kind).toBe("profile");
-    const account = await page.goto("/account");
-    expect(account?.status()).toBe(200);
   }
   await expect(page.getByRole("heading", { name: "Ваш профиль" })).toBeVisible();
 
@@ -44,7 +27,7 @@ test("creates or edits the Account Profile and preserves the member projection",
       ? "Развиваю инженерные команды и проверяю agent-first delivery на практике."
       : "Развиваю инженерные команды и изучаю agent-first delivery.";
   await page.getByLabel("О себе · необязательно").fill(bio);
-  await page.getByRole("button", { name: "Сохранить" }).click();
+  await page.getByRole("button", { name: /Создать|Сохранить/u }).click();
   await expect(page.getByText("Профиль сохранён.")).toBeVisible();
   await expect(page.getByRole("article").getByText(bio)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Профиль участника" })).toBeVisible();

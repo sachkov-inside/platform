@@ -26,6 +26,18 @@ const fixtures = [
     root: "test/guardrails/fixtures/architecture/absolute-fetch",
     diagnostics: ["browser code cannot call a Nest operation by absolute URL"],
   },
+  {
+    root: "test/guardrails/fixtures/architecture/layer-direction",
+    diagnostics: ["features cannot import the upper widgets layer"],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/server-action",
+    diagnostics: ["Server Actions are not part of the client-owned mutation path"],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/editor-bundle",
+    diagnostics: ["lightweight authoring routes cannot reach the Tiptap editor bundle"],
+  },
 ];
 
 for (const fixture of fixtures) {

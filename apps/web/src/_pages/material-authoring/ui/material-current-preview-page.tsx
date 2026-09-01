@@ -2,9 +2,9 @@ import {
   MaterialAuthoringPreviewUnauthorizedState,
   MaterialAuthoringPreviewNotFoundState,
   MaterialAuthoringUnexpectedPreviewState,
-  MaterialCurrentPreview,
-  withAuthoringReturnHref,
-} from "@/features/material-authoring";
+} from "@/widgets/material-authoring/route-states";
+import { MaterialCurrentPreview } from "@/widgets/material-authoring/preview";
+import { withAuthoringReturnHref } from "@/shared/routing/authoring";
 import type { Route } from "next";
 import {
   getPlatformAccessTokenRsc,

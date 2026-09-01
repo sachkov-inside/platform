@@ -1,56 +1,123 @@
 "use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
-import { libraryCatalogBrowserQueryOptions } from "../api/library-catalog-query.browser";
+import { libraryCatalogQueryOptions } from "../api/library-catalog.browser";
 import type { LibraryCatalogQueryOptions } from "../model/library-catalog-query";
 import type { LibraryCatalogPage } from "../model/library-view";
-import type { LibrarySearchQuery } from "../model/library-search-query";
+import {
+  parseLibrarySearchParams,
+  serializeLibrarySearchQuery,
+  type LibrarySearchQuery,
+} from "../model/library-search-query";
+import { InfiniteLibraryCatalog } from "./infinite-library-catalog.client";
 import {
   LibraryLoading,
   LibraryPage,
   LibraryUnexpectedError,
 } from "./library-page";
-import { pushLibraryContinuationHistory } from "./library-page-history.client";
-import { VirtualizedLibraryCatalog } from "./virtualized-library-catalog.client";
 
-export function LibraryPageQuery({
-  query,
-  viewerScope,
-}: {
-  readonly query: LibrarySearchQuery;
-  readonly viewerScope: string;
-}) {
+const SEARCH_DEBOUNCE_MS = 250;
+
+export function LibraryPageQuery() {
+  const locationSearch = useSyncExternalStore(
+    subscribeToInitialLocation,
+    readLocationSearch,
+    readServerLocationSearch,
+  );
+  const initialQuery = useMemo(
+    () =>
+      locationSearch === null
+        ? null
+        : withoutCursor(
+            parseLibrarySearchParams(new URLSearchParams(locationSearch)).query,
+          ),
+    [locationSearch],
+  );
+
+  if (initialQuery === null) {
+    return <LibraryLoading />;
+  }
+
   return (
     <LibraryCatalogQueryView
-      query={query}
-      queryOptions={libraryCatalogBrowserQueryOptions(viewerScope, query)}
+      createQueryOptions={libraryCatalogQueryOptions}
+      initialQuery={initialQuery}
     />
   );
 }
 
+function subscribeToInitialLocation(): () => void {
+  return () => undefined;
+}
+
+function readLocationSearch(): string | null {
+  return window.location.search;
+}
+
+function readServerLocationSearch(): null {
+  return null;
+}
+
 export function LibraryCatalogQueryView({
-  query: searchQuery,
-  queryOptions,
+  createQueryOptions,
+  initialQuery,
 }: {
-  readonly query: LibrarySearchQuery;
-  readonly queryOptions: LibraryCatalogQueryOptions;
+  readonly createQueryOptions: (
+    query: LibrarySearchQuery,
+  ) => LibraryCatalogQueryOptions;
+  readonly initialQuery: LibrarySearchQuery;
 }) {
-  const query = useInfiniteQuery(queryOptions);
-  const nextCursor =
-    query.data?.pages.filter(isReadyPage).at(-1)?.nextCursor ?? null;
-  const fetchNextPage = query.fetchNextPage;
+  const [searchQuery, setSearchQuery] = useState(() =>
+    withoutCursor(initialQuery),
+  );
+  const debouncedSearch = useDebouncedValue(searchQuery.q, SEARCH_DEBOUNCE_MS);
+  const requestQuery = useMemo(
+    () => withoutCursor({ ...searchQuery, q: debouncedSearch }),
+    [debouncedSearch, searchQuery],
+  );
+  const query = useInfiniteQuery({
+    ...createQueryOptions(requestQuery),
+    enabled: typeof window !== "undefined",
+    placeholderData: keepPreviousData,
+  });
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = query;
+
+  useEffect(() => {
+    replaceLibraryUrl(requestQuery);
+  }, [requestQuery]);
+
+  useEffect(() => {
+    const restoreUrlQuery = () => {
+      setSearchQuery(
+        withoutCursor(
+          parseLibrarySearchParams(new URLSearchParams(window.location.search))
+            .query,
+        ),
+      );
+    };
+    window.addEventListener("popstate", restoreUrlQuery);
+    return () => {
+      window.removeEventListener("popstate", restoreUrlQuery);
+    };
+  }, []);
+
+  const changeQuery = useCallback((nextQuery: LibrarySearchQuery) => {
+    setSearchQuery(withoutCursor(nextQuery));
+  }, []);
   const loadNextPage = useCallback(() => {
-    if (nextCursor === null) {
+    if (!hasNextPage || isFetchingNextPage) {
       return;
     }
-    void fetchNextPage().then((result) => {
-      if (!result.isError) {
-        pushLibraryContinuationHistory(searchQuery, nextCursor);
-      }
-    });
-  }, [fetchNextPage, nextCursor, searchQuery]);
+    void fetchNextPage();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   if (query.isPending) {
     return <LibraryLoading />;
@@ -66,6 +133,8 @@ export function LibraryCatalogQueryView({
   if (firstPage.kind !== "ready") {
     return (
       <LibraryPage
+        isRefreshing={query.isFetching}
+        onQueryChange={changeQuery}
         onRetry={() => {
           void query.refetch();
         }}
@@ -81,7 +150,7 @@ export function LibraryCatalogQueryView({
   return (
     <LibraryPage
       catalog={
-        <VirtualizedLibraryCatalog
+        <InfiniteLibraryCatalog
           hasNextPage={query.hasNextPage}
           isFetchNextPageError={query.isFetchNextPageError}
           isFetchingNextPage={query.isFetchingNextPage}
@@ -90,12 +159,14 @@ export function LibraryCatalogQueryView({
           totalCount={firstPage.totalCount}
         />
       }
+      isRefreshing={query.isFetching && !query.isFetchingNextPage}
+      onQueryChange={changeQuery}
       query={searchQuery}
       result={{
         facets: firstPage.facets,
         kind: "ready",
         items,
-        nextCursor,
+        nextCursor: readyPages.at(-1)?.nextCursor ?? null,
         totalCount: firstPage.totalCount,
       }}
     />
@@ -111,4 +182,31 @@ function isReadyPage(
   page: LibraryCatalogPage,
 ): page is ReadyLibraryCatalogPage {
   return page.kind === "ready";
+}
+
+function withoutCursor(query: LibrarySearchQuery): LibrarySearchQuery {
+  return { ...query, after: null };
+}
+
+function replaceLibraryUrl(query: LibrarySearchQuery): void {
+  const search = serializeLibrarySearchQuery(withoutCursor(query));
+  const href = search.length === 0 ? "/library" : `/library?${search}`;
+  if (`${window.location.pathname}${window.location.search}` !== href) {
+    window.history.replaceState(null, "", href);
+  }
+}
+
+function useDebouncedValue<Value>(value: Value, delay: number): Value {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebounced(value);
+    }, delay);
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [delay, value]);
+
+  return debounced;
 }

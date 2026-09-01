@@ -174,11 +174,11 @@ production trade-off подтверждён evidence, а не заранее д�
 - Public interface использует domain names без storage suffix: `MaterialBodySnapshot` и
   `RenderedMaterialBody`. Persisted body сохраняет явный schema discriminator, а exact codec names
   могут содержать `V1` внутри implementation.
-- Production `Accounts` owner module использует тот же singleton Prisma lifecycle через
-  capability-scoped client. `MaterialsModule` ещё не потребляет этот facet и
-  использует принятую anonymous/read-only baseline policy внутри published-reading assembly.
-  Межмодульный provider export и static import появятся вместе с первым реальным authorization
-  consumer; placeholder/global policy ради декоративного graph не создаётся.
+- Production `MaterialsModule` статически импортирует `Accounts` и `MembershipEntitlements`,
+  собирает `ContentAccess` из их public interfaces и экспортирует authoring, access и published-read
+  facets для реальных consumers. Framework-agnostic `assembleMaterials` принимает те же policy
+  seams для acceptance tests и non-Nest entrypoints; placeholder/global policy ради декоративного
+  graph не создаётся.
 
 ### Validation, results and write atomicity
 
@@ -209,12 +209,11 @@ production trade-off подтверждён evidence, а не заранее д�
   mapping tests; journey E2E добавляются с реальными surfaces.
 - По мере появления owning capabilities membership evidence ingestion, provider reconciliation и callbacks получают
   concurrency, idempotency, stale-state и failure-path tests в том же repeatable setup.
-- Testcontainers PostgreSQL принят как future test lifecycle direction: один container на
-  integration run с isolation, сохраняющей real commit/rollback и multiple-connection semantics.
-  Exact dependency version и isolation mechanics принадлежат #30 implementation brief.
-- Platform-local shared strict TypeScript base, type-aware Oxlint, frontend/backend
-  import rules и Prisma schema mapping checks приняты как future enforcement. #27 не добавляет
-  dependencies, lint/config/CI rules и не меняет shared harness.
+- Testcontainers PostgreSQL обеспечивает integration lifecycle: один container на integration run
+  с isolation, сохраняющей real commit/rollback и multiple-connection semantics. Capability
+  acceptance tests проходят через public interfaces и реальные migrations.
+- Platform-local strict TypeScript, type-aware Oxlint, frontend/backend import guardrails и Prisma
+  schema mapping checks являются обязательной частью `pnpm check`.
 - Для engineering choices #27 не создаёт ADR и отдельные prototype/proof tickets. #30 фиксирует
   exact versions, types, SQL и test isolation в required implementation brief и доказывает их
   retained vertical slice и tests. Focused ADR добавляется в тот же PR только при реально
@@ -224,7 +223,7 @@ production trade-off подтверждён evidence, а не заранее д�
 
 | Process | Responsibility | Не владеет |
 |---|---|---|
-| `web` | SSR/RSC public, member и admin surfaces; BFF session; coarse access states | Membership policy, provider secrets, direct database access |
+| `web` | SSR/RSC там, где нужен публичный document; client-owned workspaces и mutations; BFF session и coarse access states | Membership policy, provider secrets, direct database access |
 | `api` | REST/OpenAPI adapters, identity mapping, uploads/callbacks и application commands | route-local domain rules |
 | `<capability>-worker` | конкретные durable projection, reconciliation или provider jobs | generic job graph, отдельная domain model или write path |
 | `mcp` | authenticated tools/resources поверх application interfaces | SQL или human Membership identity |
@@ -345,10 +344,11 @@ Published body читается только для current `published` state; d
    protected request никогда не provision-ит Account.
 4. Sign-out делегируется official Logto SDK: local provider context очищается, refresh revoke и
    provider end-session выполняются provider flow. Local Platform session отсутствует.
-5. После первого sign-in Account без Profile получает обязательный name-only onboarding. Он создаёт
-   Profile с mutable non-unique display name длиной 2–80 symbols; optional bio до 500 symbols
-   редактируется позже в private Account. Avatar/file/image отсутствуют и добавляются отдельно
-   через S3-backed [#153](https://github.com/sachkov-inside/platform/issues/153).
+5. Profile не является глобальным gate после первого sign-in: Account без Profile может пользоваться
+   доступными ему surfaces и явно создаёт Profile в private Account. Форма принимает mutable
+   non-unique display name длиной 2–80 symbols и optional bio до 500 symbols; там же владелец позже
+   редактирует оба поля. Avatar/file/image отсутствуют и добавляются отдельно через S3-backed
+   [#153](https://github.com/sachkov-inside/platform/issues/153).
 6. `MemberProfiles` хранит Profile в отдельной `member_profiles` schema. Owner read/create/edit
    принимает trusted Account, update требует `expectedVersion`. Self-service export/delete и
    participant reporting не являются частью Profile interface.
@@ -451,8 +451,9 @@ Published body читается только для current `published` state; d
 
 ### SEO
 
-- home, Library, Topic, Series, Roadmap, public cards и free Materials имеют stable canonical URLs,
-  server-rendered metadata, sitemap и crawlable internal links;
+- home, Topic, Series, Roadmap, public cards и free Materials имеют stable canonical URLs,
+  server-rendered content/metadata, sitemap и crawlable internal links; Library сохраняет stable
+  canonical URL и server-rendered metadata, но browser-owned catalog загружает через BFF;
 - closed card может индексироваться, но closed body отсутствует в HTML, RSC, structured data,
   search response и shared cache;
 - draft, preview, admin, Account, Member Profile и MCP surfaces имеют `noindex` и не
@@ -494,17 +495,19 @@ Published body читается только для current `published` state; d
    и [#31](https://github.com/sachkov-inside/platform/issues/31) поставили versioned body codec,
    validation/renderer и первоначальный revision-based authoring/read path. Owner decision #132 и
    ADR 0009 supersede-ят revision lifecycle, но сохраняют deep Materials module и body schema.
-4. **Mutable Material convergence:** #133 переносит текущее published содержимое в один mutable
-   Material, удаляет revision/history interfaces и поставляет full-state Save, finite publication
-   states, contentVersion conflicts и immediate projections до начала MaterialId-based #112.
+4. **Mutable Material convergence:** [#133](https://github.com/sachkov-inside/platform/issues/133),
+   поставленный [PR #135](https://github.com/sachkov-inside/platform/pull/135), перенёс published
+   содержимое в один mutable Material, удалил revision/history interfaces и поставил full-state
+   Save, finite publication states, contentVersion conflicts и immediate projections.
 5. **Application consumers:** после #31 production Reader и Library поставляются законченными
    vertical slices: [#89](https://github.com/sachkov-inside/platform/issues/89) соединяет public
    Material read с production route, [#90](https://github.com/sachkov-inside/platform/issues/90)
    поставляет real catalog, а [#91](https://github.com/sachkov-inside/platform/issues/91) и
    [#93](https://github.com/sachkov-inside/platform/issues/93) последовательно добавляют RU/EN
    search, URL facets/sort и Topic/Series/related navigation. Safe agent authoring
-   [#29](https://github.com/sachkov-inside/platform/issues/29) остаётся thin MCP adapter и ждёт
-   production Accounts, ContentAccess и application-owned full-state Save contract.
+   [#29](https://github.com/sachkov-inside/platform/issues/29) поставлен
+   [PR #154](https://github.com/sachkov-inside/platform/pull/154) как thin MCP adapter поверх
+   production Accounts, ContentAccess и того же application-owned full-state Save contract.
 6. **Technical frontend foundation:** завершённая
    [#36](https://github.com/sachkov-inside/platform/issues/36) создала в существующем `apps/web`
    App Router/FSD composition, server-only backend seam, root layouts, routes/navigation
@@ -527,9 +530,10 @@ Published body читается только для current `published` state; d
    production vertical slice; #91 и #93 расширяют уже работающий Library journey. Для authoring
    [#38](https://github.com/sachkov-inside/platform/issues/38) сначала получает отдельный
    owner-accepted Storybook proof Editor/current-state Preview; после proof и working Account #49
-   [#94](https://github.com/sachkov-inside/platform/issues/94) поставляет production create + saved
-   Draft Preview, а [#95](https://github.com/sachkov-inside/platform/issues/95) — full-state Save и conflict
-   recovery. Каждый production ticket использует принятые UI public interfaces/tokens, соединяет
+   [#94](https://github.com/sachkov-inside/platform/issues/94) поставил production create + saved
+   Draft Preview через PR #142, а [#95](https://github.com/sachkov-inside/platform/issues/95) —
+   full-state Save и conflict recovery через PR #143. Каждый production ticket использует принятые
+   UI public interfaces/tokens, соединяет
    их с реальными application interfaces и добавляет только component needs собственного surface;
    второй UI system, fixture data path или browser-owned business rules запрещены. #20/#21 остаются
    structural и owner-taste inputs, а закрытые #22/#23, #28, #37, #39 и superseded #40 —

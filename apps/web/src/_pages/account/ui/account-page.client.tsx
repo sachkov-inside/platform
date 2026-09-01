@@ -1,37 +1,32 @@
 "use client";
 
 import { Check, Copy, RotateCcw } from "lucide-react";
-import { useActionState, useCallback, useId, useState } from "react";
-
-import { Button } from "@/shared/ui/button";
+import { useMutation } from "@tanstack/react-query";
+import { useId, useState } from "react";
 
 import {
-  initialProfileMutationState,
-  type PrivateMemberProfile,
-  type ProfileMutationState,
-} from "../model/member-profile";
-import {
+  MemberProfileProjection,
   bioLengthIsValid,
   displayNameLengthIsValid,
   memberProfileTextLength,
-} from "../model/profile-fields";
-import { MemberProfileProjection } from "./member-profile-projection";
+  type PrivateMemberProfile,
+} from "@/entities/member-profile";
+import { Button } from "@/shared/ui/button";
 
-type ProfileMutationAction = (
-  state: ProfileMutationState,
-  formData: FormData,
-) => Promise<ProfileMutationState>;
+import { saveMemberProfile } from "../api/member-profile.browser";
+import {
+  initialProfileMutationState,
+  type ProfileMutationState,
+} from "../model/member-profile";
 
 interface AccountPageClientProps {
   readonly initialProfile: PrivateMemberProfile | null;
   readonly onProfileChange?: (profile: PrivateMemberProfile) => void;
-  readonly saveAction: ProfileMutationAction;
 }
 
 export function AccountPageClient({
   initialProfile,
   onProfileChange,
-  saveAction,
 }: AccountPageClientProps) {
   const [profile, setProfile] = useState(initialProfile);
   const [displayName, setDisplayName] = useState(initialProfile?.displayName ?? "");
@@ -43,9 +38,9 @@ export function AccountPageClient({
   const nameErrorId = useId();
   const bioHelpId = useId();
   const bioErrorId = useId();
-  const acceptSave = useCallback(
-    async (state: ProfileMutationState, formData: FormData) => {
-      const result = await saveAction(state, formData);
+  const saveMutation = useMutation({
+    mutationFn: saveMemberProfile,
+    onSuccess: (result) => {
       if (result.kind === "saved") {
         setDisplayName(result.profile.displayName);
         setBio(result.profile.bio ?? "");
@@ -54,14 +49,10 @@ export function AccountPageClient({
         setProfile(result.profile);
         onProfileChange?.(result.profile);
       }
-      return result;
     },
-    [onProfileChange, saveAction],
-  );
-  const [saveState, saveFormAction, savePending] = useActionState(
-    acceptSave,
-    initialProfileMutationState,
-  );
+  });
+  const saveState = saveMutation.data ?? initialProfileMutationState;
+  const savePending = saveMutation.isPending;
   const nameLength = memberProfileTextLength(displayName.trim());
   const bioLength = memberProfileTextLength(bio);
   const serverNameError =
@@ -95,7 +86,13 @@ export function AccountPageClient({
         </form>
       </header>
 
-      <form action={saveFormAction} className="grid gap-8 lg:grid-cols-2 lg:gap-12">
+      <form
+        className="grid gap-8 lg:grid-cols-2 lg:gap-12"
+        onSubmit={(event) => {
+          event.preventDefault();
+          saveMutation.mutate(new FormData(event.currentTarget));
+        }}
+      >
         <section aria-labelledby="profile-editor-heading" className="min-w-0">
           <div className="mb-7 flex items-start justify-between gap-4">
             <div>

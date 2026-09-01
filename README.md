@@ -51,6 +51,7 @@ pnpm dev:web
 pnpm dev:api
 pnpm dev:mcp
 
+pnpm docs:check
 pnpm lint
 pnpm typecheck
 pnpm test
@@ -59,7 +60,9 @@ pnpm check
 pnpm check:full
 ```
 
-`pnpm check` is the normal code/build/UI gate and does not require the shared Compose database.
+`pnpm docs:check` validates agent-document pointers and current Materials documentation invariants.
+`pnpm check` includes it as the first normal code/build/UI gate and does not require the shared
+Compose database.
 `pnpm check:full` additionally runs isolated real-PostgreSQL integration tests and the live local
 stack smoke. For that optional host gate, stop the full Compose stack and use postgres-only
 `pnpm infra:up`, because the smoke owns host ports 3000, 3001 and 3002. Run

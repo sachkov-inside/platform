@@ -1,24 +1,8 @@
-import type { JSONContent } from "@tiptap/core";
-
-import type {
-  MaterialPreviewPresentation,
-  MaterialValidationIssue,
-  MaterialValidationState,
-} from "@/features/material-authoring";
+import type { MaterialValidationIssue } from "@/widgets/material-authoring/model";
 
 export interface CreatedMaterialDraft {
-  readonly access: "free" | "membership";
   readonly contentVersion: number;
-  readonly document: JSONContent;
-  readonly formatId: string | null;
   readonly materialId: string;
-  readonly preview: MaterialPreviewPresentation;
-  readonly seriesIds: readonly string[];
-  readonly summary: string;
-  readonly tagIds: readonly string[];
-  readonly title: string;
-  readonly topicId: string | null;
-  readonly validation: Exclude<MaterialValidationState, { readonly kind: "checking" | "idle" }>;
 }
 
 export type CreateMaterialDraftActionState =

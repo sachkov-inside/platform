@@ -2,39 +2,52 @@
 
 import type { Route } from "next";
 import Link from "next/link";
-import { startTransition, useActionState } from "react";
+import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 
 import {
   initialMaterialLifecycleActionState,
   MaterialDeleteDialog,
   MaterialPublicationActionButton,
   type MaterialLifecycleActionState,
-} from "@/features/material-authoring";
+  mutateMaterialLifecycle,
+} from "@/features/material-lifecycle";
 
 import type { AuthoringMaterialListItem } from "../model/authoring-materials-presentation";
 
-export type MaterialLifecycleMutationAction = (
-  state: MaterialLifecycleActionState,
-  formData: FormData,
-) => Promise<MaterialLifecycleActionState>;
-
 export function AuthoringMaterialActions({
   editorHref,
-  lifecycleAction,
   material,
 }: {
   readonly editorHref: Route;
-  readonly lifecycleAction: MaterialLifecycleMutationAction;
   readonly material: AuthoringMaterialListItem;
 }) {
-  const [publicationState, publicationAction, publicationPending] =
-    useActionState(lifecycleAction, initialMaterialLifecycleActionState);
-  const [deletionState, deletionAction, deletionPending] = useActionState(
-    lifecycleAction,
-    initialMaterialLifecycleActionState,
-  );
-  const operation =
-    material.publicationState === "published" ? "unpublish" : "publish";
+  const router = useRouter();
+  const publicationMutation = useMutation({
+    mutationFn: mutateMaterialLifecycle,
+    onSuccess: (result) => {
+      if (result.kind === "saved") router.refresh();
+    },
+  });
+  const deletionMutation = useMutation({
+    mutationFn: mutateMaterialLifecycle,
+    onSuccess: (result) => {
+      if (result.kind === "deleted") router.refresh();
+    },
+  });
+  const publicationState = publicationMutation.data ?? initialMaterialLifecycleActionState;
+  const deletionState = deletionMutation.data ?? initialMaterialLifecycleActionState;
+  const publicationPending = publicationMutation.isPending;
+  const deletionPending = deletionMutation.isPending;
+  const publicationStatus =
+    publicationState.kind === "saved"
+      ? publicationState.publicationState
+      : material.publicationState;
+  const contentVersion =
+    publicationState.kind === "saved"
+      ? publicationState.contentVersion
+      : material.contentVersion;
+  const operation = publicationStatus === "published" ? "unpublish" : "publish";
   const submissionId =
     publicationState.kind === "saved"
       ? publicationState.nextSubmissionId
@@ -42,11 +55,16 @@ export function AuthoringMaterialActions({
 
   return (
     <>
-      <form action={publicationAction}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          publicationMutation.mutate(new FormData(event.currentTarget));
+        }}
+      >
         <input
           name="expectedContentVersion"
           type="hidden"
-          value={material.contentVersion}
+          value={contentVersion}
         />
         <input name="materialId" type="hidden" value={material.materialId} />
         <input name="operation" type="hidden" value={operation} />
@@ -60,14 +78,12 @@ export function AuthoringMaterialActions({
           variant="outline"
         />
       </form>
-      {material.canDelete ? (
+      {material.canDelete && publicationState.kind !== "saved" ? (
         <MaterialDeleteDialog
-          contentVersion={material.contentVersion}
+          contentVersion={contentVersion}
           materialId={material.materialId}
           onDelete={(formData) => {
-            startTransition(() => {
-              deletionAction(formData);
-            });
+            deletionMutation.mutate(formData);
           }}
           pending={deletionPending}
           state={deletionState}
