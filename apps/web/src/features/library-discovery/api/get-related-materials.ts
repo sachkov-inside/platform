@@ -5,13 +5,13 @@ import {
   requestRelatedPublishedMaterials,
 } from "@/shared/api/backend/index.server";
 
-import type { LibraryDiscoveryResult } from "../model/library-discovery-view";
+import type { RelatedMaterialsResult } from "../model/library-discovery-view";
 import { mapLibraryDiscoveryResult } from "./map-library-discovery-result";
 
 export async function getRelatedMaterials(
   slug: string,
   accessToken?: string,
-): Promise<LibraryDiscoveryResult> {
+): Promise<RelatedMaterialsResult> {
   try {
     const result = await requestRelatedPublishedMaterials(slug, {
       ...(accessToken === undefined ? {} : { accessToken }),

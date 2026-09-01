@@ -5,13 +5,13 @@ import {
   requestPublishedTopic,
 } from "@/shared/api/backend/index.server";
 
-import type { LibraryDiscoveryResult } from "../model/library-discovery-view";
+import type { PublishedTopicResult } from "../model/library-discovery-view";
 import { mapLibraryDiscoveryResult } from "./map-library-discovery-result";
 
 export async function getPublishedTopic(
   slug: string,
   accessToken?: string,
-): Promise<LibraryDiscoveryResult> {
+): Promise<PublishedTopicResult> {
   try {
     const result = await requestPublishedTopic(slug, {
       ...(accessToken === undefined ? {} : { accessToken }),

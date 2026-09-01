@@ -1,7 +1,7 @@
 import { RefreshCw, Sparkles } from "lucide-react";
 import Link from "next/link";
 
-import type { LibraryDiscoveryResult } from "../model/library-discovery-view";
+import type { RelatedMaterialsResult } from "../model/library-discovery-view";
 import { MaterialCard } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 
@@ -9,7 +9,7 @@ export function RelatedMaterialsSection({
   result,
   sourceSlug,
 }: {
-  readonly result: LibraryDiscoveryResult;
+  readonly result: RelatedMaterialsResult;
   readonly sourceSlug: string;
 }) {
   if (result.kind === "unavailable" || result.kind === "not-found") {

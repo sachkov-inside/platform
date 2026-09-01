@@ -1,35 +1,10 @@
-import { z } from "zod";
-
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 
-import type {
-  SaveMaterialInput,
-  SaveMaterialResult,
+import {
+  saveMaterialResultSchema,
+  type SaveMaterialInput,
+  type SaveMaterialResult,
 } from "../model/save-material";
-
-const issueSchema = z.object({ message: z.string(), path: z.string() }).strict();
-const resultSchema = z.discriminatedUnion("kind", [
-  z
-    .object({
-      contentVersion: z.number().int().positive(),
-      kind: z.literal("saved"),
-      nextSubmissionId: z.uuid(),
-      publicationState: z.enum(["draft", "published", "unpublished"]),
-    })
-    .strict(),
-  z.object({ issues: z.array(issueSchema), kind: z.literal("invalid_input") }).strict(),
-  z.object({ kind: z.literal("unauthorized") }).strict(),
-  z.object({ kind: z.literal("forbidden") }).strict(),
-  z.object({ kind: z.literal("not_found") }).strict(),
-  z
-    .object({
-      currentContentVersion: z.number().int().positive(),
-      kind: z.literal("conflict"),
-      staleContentVersion: z.number().int().positive(),
-    })
-    .strict(),
-  z.object({ kind: z.literal("infrastructure_error"), reference: z.string() }).strict(),
-]);
 
 export async function saveMaterial(
   input: SaveMaterialInput,
@@ -61,7 +36,7 @@ export async function saveMaterial(
           reference: `save-material-bff-${String(response.status)}`,
         };
   }
-  const parsed = resultSchema.safeParse(response.body);
+  const parsed = saveMaterialResultSchema.safeParse(response.body);
   return parsed.success
     ? parsed.data
     : { kind: "infrastructure_error", reference: "save-material-bff-contract" };

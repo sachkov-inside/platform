@@ -29,10 +29,12 @@ const discoveryNotFoundSchema = z
   })
   .strict();
 
-export function mapLibraryDiscoveryResult(
+export function mapLibraryDiscoveryResult<
+  const DiscoveryKind extends LibraryDiscoveryKind,
+>(
   result: BackendTransportResult,
-  discoveryKind: LibraryDiscoveryKind,
-): LibraryDiscoveryResult {
+  discoveryKind: DiscoveryKind,
+): LibraryDiscoveryResult<DiscoveryKind> {
   if (!result.ok && result.response.status === 404) {
     if (!discoveryNotFoundSchema.safeParse(result.problem).success) {
       throw invalidContract("Discovery 404 response does not match the contract");

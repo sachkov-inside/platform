@@ -5,8 +5,10 @@ import {
   type AuthoringMaterialsDependencies,
 } from "@/_pages/authoring-materials/api/get-authoring-materials";
 import { parseAuthoringMaterialsQuery } from "@/_pages/authoring-materials/model/authoring-materials-query";
-import { executeDeleteMaterialDraft } from "@/features/material-lifecycle/api/delete-material-draft";
-import { executeTransitionMaterialPublication } from "@/features/material-lifecycle/api/transition-material-publication";
+import {
+  executeDeleteMaterialDraft,
+  executeTransitionMaterialPublication,
+} from "@/features/material-lifecycle/operations.server";
 import {
   parseAuthoringReturnHref,
   withAuthoringReturnHref,

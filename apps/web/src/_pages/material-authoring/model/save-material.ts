@@ -1,6 +1,40 @@
 import type { JSONContent } from "@tiptap/core";
+import { z } from "zod";
 
-import type { MaterialValidationIssue } from "@/widgets/material-authoring/model";
+const issueSchema = z.object({ message: z.string(), path: z.string() }).strict();
+
+export const saveMaterialResultSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      contentVersion: z.number().int().positive(),
+      kind: z.literal("saved"),
+      nextSubmissionId: z.uuid(),
+      publicationState: z.enum(["draft", "published", "unpublished"]),
+    })
+    .strict(),
+  z
+    .object({
+      issues: z.array(issueSchema).readonly(),
+      kind: z.literal("invalid_input"),
+    })
+    .strict(),
+  z.object({ kind: z.literal("unauthorized") }).strict(),
+  z.object({ kind: z.literal("forbidden") }).strict(),
+  z.object({ kind: z.literal("not_found") }).strict(),
+  z
+    .object({
+      currentContentVersion: z.number().int().positive(),
+      kind: z.literal("conflict"),
+      staleContentVersion: z.number().int().positive(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("infrastructure_error"),
+      reference: z.string(),
+    })
+    .strict(),
+]);
 
 export interface SaveMaterialInput {
   readonly access: "free" | "membership";
@@ -17,24 +51,4 @@ export interface SaveMaterialInput {
   readonly topicId: string;
 }
 
-export type SaveMaterialResult =
-  | {
-      readonly issues: readonly MaterialValidationIssue[];
-      readonly kind: "invalid_input";
-    }
-  | { readonly kind: "unauthorized" | "forbidden" | "not_found" }
-  | {
-      readonly currentContentVersion: number;
-      readonly kind: "conflict";
-      readonly staleContentVersion: number;
-    }
-  | {
-      readonly kind: "infrastructure_error";
-      readonly reference: string;
-    }
-  | {
-      readonly contentVersion: number;
-      readonly kind: "saved";
-      readonly nextSubmissionId: string;
-      readonly publicationState: "draft" | "published" | "unpublished";
-    };
+export type SaveMaterialResult = z.infer<typeof saveMaterialResultSchema>;

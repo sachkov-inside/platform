@@ -217,15 +217,40 @@ function callsNestOperationByAbsoluteUrl(program) {
 }
 
 function callsSameOriginMutationDynamically(program) {
+  const directBindings = new Set();
+  const namespaceBindings = new Set();
+  for (const statement of program.body) {
+    if (
+      statement.type !== "ImportDeclaration" ||
+      statement.source.value !== "@/shared/api/same-origin-mutation"
+    ) {
+      continue;
+    }
+    for (const specifier of statement.specifiers) {
+      if (
+        specifier.type === "ImportSpecifier" &&
+        (specifier.imported.name ?? specifier.imported.value) ===
+          "requestSameOriginMutation"
+      ) {
+        directBindings.add(specifier.local.name);
+      }
+      if (specifier.type === "ImportNamespaceSpecifier") {
+        namespaceBindings.add(specifier.local.name);
+      }
+    }
+  }
+
   let found = false;
   new Visitor({
     CallExpression(node) {
-      if (
-        node.callee.type !== "Identifier" ||
-        node.callee.name !== "requestSameOriginMutation"
-      ) {
-        return;
-      }
+      const callsDirectBinding =
+        node.callee.type === "Identifier" && directBindings.has(node.callee.name);
+      const callsNamespaceBinding =
+        node.callee.type === "MemberExpression" &&
+        node.callee.object.type === "Identifier" &&
+        namespaceBindings.has(node.callee.object.name) &&
+        memberPropertyName(node.callee) === "requestSameOriginMutation";
+      if (!callsDirectBinding && !callsNamespaceBinding) return;
       const route = node.arguments[0];
       const method = node.arguments[1];
       if (

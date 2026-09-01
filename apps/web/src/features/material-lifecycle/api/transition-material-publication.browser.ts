@@ -1,40 +1,10 @@
-import { z } from "zod";
-
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 
-import type {
-  TransitionMaterialPublicationInput,
-  TransitionMaterialPublicationResult,
+import {
+  transitionMaterialPublicationResultSchema,
+  type TransitionMaterialPublicationInput,
+  type TransitionMaterialPublicationResult,
 } from "../model/transition-material-publication";
-
-const issueSchema = z.object({ code: z.string(), path: z.string() }).strict();
-const resultSchema = z.discriminatedUnion("kind", [
-  z
-    .object({
-      contentVersion: z.number().int().positive(),
-      kind: z.literal("saved"),
-      nextSubmissionId: z.uuid(),
-      publicationState: z.enum(["published", "unpublished"]),
-    })
-    .strict(),
-  z.object({ kind: z.literal("invalid_input"), issues: z.array(issueSchema) }).strict(),
-  z.object({ kind: z.literal("unauthorized") }).strict(),
-  z.object({ kind: z.literal("forbidden") }).strict(),
-  z.object({ kind: z.literal("not_found") }).strict(),
-  z
-    .object({
-      currentContentVersion: z.number().int().positive().optional(),
-      kind: z.literal("conflict"),
-      reason: z.enum([
-        "idempotency_key_reused",
-        "invalid_publication_transition",
-        "stale_content_version",
-      ]),
-    })
-    .strict(),
-  z.object({ kind: z.literal("infrastructure_error"), reference: z.string() }).strict(),
-  z.object({ kind: z.literal("unexpected_error"), reference: z.string() }).strict(),
-]);
 
 export async function transitionMaterialPublication(
   input: TransitionMaterialPublicationInput,
@@ -58,7 +28,9 @@ export async function transitionMaterialPublication(
           reference: `transition-material-publication-bff-${String(response.status)}`,
         };
   }
-  const parsed = resultSchema.safeParse(response.body);
+  const parsed = transitionMaterialPublicationResultSchema.safeParse(
+    response.body,
+  );
   if (!parsed.success) {
     return {
       kind: "unexpected_error",

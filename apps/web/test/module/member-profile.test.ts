@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { getPrivateMemberProfile } from "@/_pages/account/api/get-private-member-profile";
 import { requestAccountProfile } from "@/_pages/account/api/request-account-profile";
 import { accountProfileQueryKey } from "@/_pages/account/model/account-profile-query";
-import { executeCreateMemberProfile } from "@/_pages/account/api/create-member-profile";
-import { executeUpdateMemberProfile } from "@/_pages/account/api/update-member-profile";
+import {
+  executeCreateMemberProfile,
+  executeUpdateMemberProfile,
+} from "@/_pages/account/operations.server";
 import { getMemberProfile } from "@/_pages/member-profile/api/get-member-profile";
 import {
   profileInitials,
