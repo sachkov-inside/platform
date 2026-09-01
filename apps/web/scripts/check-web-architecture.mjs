@@ -126,7 +126,7 @@ function moduleLayer(file) {
   return {
     layer,
     rank: layerRanks.get(layer),
-    slice: rawSlice.replace(/\.(?:server|client)?\.[cm]?[jt]sx?$/u, ""),
+    slice: rawSlice.split(".")[0] ?? rawSlice,
   };
 }
 
@@ -208,6 +208,58 @@ function callsNestOperationByAbsoluteUrl(program) {
         isNestOperationUrl(
           resolveAbsoluteFetchArgument(argument, absoluteStringBindings),
         )
+      ) {
+        found = true;
+      }
+    },
+  }).visit(program);
+  return found;
+}
+
+function callsSameOriginMutationDynamically(program) {
+  const directBindings = new Set();
+  const namespaceBindings = new Set();
+  for (const statement of program.body) {
+    if (
+      statement.type !== "ImportDeclaration" ||
+      statement.source.value !== "@/shared/api/same-origin-mutation"
+    ) {
+      continue;
+    }
+    for (const specifier of statement.specifiers) {
+      if (
+        specifier.type === "ImportSpecifier" &&
+        (specifier.imported.name ?? specifier.imported.value) ===
+          "requestSameOriginMutation"
+      ) {
+        directBindings.add(specifier.local.name);
+      }
+      if (specifier.type === "ImportNamespaceSpecifier") {
+        namespaceBindings.add(specifier.local.name);
+      }
+    }
+  }
+
+  let found = false;
+  new Visitor({
+    CallExpression(node) {
+      const callsDirectBinding =
+        node.callee.type === "Identifier" && directBindings.has(node.callee.name);
+      const callsNamespaceBinding =
+        node.callee.type === "MemberExpression" &&
+        node.callee.object.type === "Identifier" &&
+        namespaceBindings.has(node.callee.object.name) &&
+        memberPropertyName(node.callee) === "requestSameOriginMutation";
+      if (!callsDirectBinding && !callsNamespaceBinding) return;
+      const route = node.arguments[0];
+      const method = node.arguments[1];
+      if (
+        route === undefined ||
+        route.type === "SpreadElement" ||
+        method === undefined ||
+        method.type === "SpreadElement" ||
+        literalString(route) === undefined ||
+        literalString(method) === undefined
       ) {
         found = true;
       }
@@ -377,6 +429,11 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
   if (isBrowserCode && callsNestOperationByAbsoluteUrl(program)) {
     findingsForFile.push(
       `${sourcePath}: browser code cannot call a Nest operation by absolute URL; use a same-origin BFF route`,
+    );
+  }
+  if (callsSameOriginMutationDynamically(program)) {
+    findingsForFile.push(
+      `${sourcePath}: each browser mutation must declare a literal same-origin route and HTTP method`,
     );
   }
   if (

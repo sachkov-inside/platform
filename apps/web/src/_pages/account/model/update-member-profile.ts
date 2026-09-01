@@ -1,7 +1,12 @@
 import type { PrivateMemberProfile, ProfileField } from "@/entities/member-profile";
 
-export type ProfileMutationState =
-  | { readonly kind: "idle" }
+export interface UpdateMemberProfileInput {
+  readonly bio: string;
+  readonly displayName: string;
+  readonly expectedVersion: number;
+}
+
+export type UpdateMemberProfileResult =
   | {
       readonly fieldErrors: Partial<Readonly<Record<ProfileField, string>>>;
       readonly kind: "invalid_input";
@@ -16,5 +21,3 @@ export type ProfileMutationState =
     }
   | { readonly kind: "unauthorized" }
   | { readonly kind: "unavailable"; readonly reference: string };
-
-export const initialProfileMutationState: ProfileMutationState = { kind: "idle" };

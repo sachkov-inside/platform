@@ -2,87 +2,53 @@ import "server-only";
 
 import { z } from "zod";
 
+import { parseMemberProfileProblem } from "@/entities/member-profile";
 import {
   BackendConnectionError,
-  requestMemberProfileCreation,
   requestMemberProfileUpdate,
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 
-import type { ProfileMutationState } from "../model/member-profile";
-import { parseMemberProfileProblem } from "@/entities/member-profile";
+import type { UpdateMemberProfileResult } from "../model/update-member-profile";
 import {
   parsePrivateProfile,
   profileIssueMessage,
 } from "./member-profile-contract";
 
 const textField = z.string().refine((value) => !hasRejectedControlCharacters(value));
-const profileFieldsSchema = z.object({
-  bio: textField.refine((value) => codePointLength(value) <= 500),
-  displayName: textField.refine((value) => {
-    const length = codePointLength(value.trim());
-    return length >= 2 && length <= 80;
-  }),
-});
-const profileFormSchema = z.discriminatedUnion("mode", [
-  profileFieldsSchema.extend({
-    mode: z.literal("create"),
-  }),
-  profileFieldsSchema.extend({
+const formSchema = z
+  .object({
+    bio: textField.refine((value) => codePointLength(value) <= 500),
+    displayName: textField.refine((value) => {
+      const length = codePointLength(value.trim());
+      return length >= 2 && length <= 80;
+    }),
     expectedVersion: z.coerce.number().int().positive(),
-    mode: z.literal("update"),
-  }),
-]);
+  })
+  .strict();
 
-export interface ProfileMutationDependencies {
-  readonly create: typeof requestMemberProfileCreation;
-  readonly update: typeof requestMemberProfileUpdate;
-}
-
-const productionDependencies: ProfileMutationDependencies = {
-  create: requestMemberProfileCreation,
-  update: requestMemberProfileUpdate,
-};
-
-export async function executeSaveMemberProfile(
+export async function executeUpdateMemberProfile(
   formData: FormData,
   accessToken: string,
-  dependencies: ProfileMutationDependencies = productionDependencies,
-): Promise<ProfileMutationState> {
-  const parsed = profileFormSchema.safeParse({
+  request: typeof requestMemberProfileUpdate = requestMemberProfileUpdate,
+): Promise<UpdateMemberProfileResult> {
+  const parsed = formSchema.safeParse({
     bio: formData.get("bio"),
     displayName: formData.get("displayName"),
     expectedVersion: formData.get("expectedVersion"),
-    mode: formData.get("mode"),
   });
-  if (!parsed.success) {
-    const fields = new Set(parsed.error.issues.map((issue) => issue.path[0]));
-    return {
-      fieldErrors: {
-        ...(fields.has("bio")
-          ? { bio: "Описание должно быть не длиннее 500 символов." }
-          : {}),
-        ...(fields.has("displayName")
-          ? { displayName: "Укажите имя длиной от 2 до 80 символов." }
-          : {}),
-      },
-      kind: "invalid_input",
-    };
-  }
+  if (!parsed.success) return invalidProfileFields(parsed.error);
 
   let result: BackendTransportResult;
   try {
-    const input = {
-      bio: emptyToNull(parsed.data.bio),
-      displayName: parsed.data.displayName.trim(),
-    };
-    result =
-      parsed.data.mode === "create"
-        ? await dependencies.create(input, accessToken)
-        : await dependencies.update(
-            { ...input, expectedVersion: parsed.data.expectedVersion },
-            accessToken,
-          );
+    result = await request(
+      {
+        bio: emptyToNull(parsed.data.bio),
+        displayName: parsed.data.displayName.trim(),
+        expectedVersion: parsed.data.expectedVersion,
+      },
+      accessToken,
+    );
   } catch (error) {
     return unavailable(error);
   }
@@ -93,12 +59,12 @@ export async function executeSaveMemberProfile(
       return unavailable(error);
     }
   }
-  return mapProblem(result);
+  return mapUpdateProfileProblem(result);
 }
 
-function mapProblem(
+function mapUpdateProfileProblem(
   result: Extract<BackendTransportResult, { readonly ok: false }>,
-): ProfileMutationState {
+): UpdateMemberProfileResult {
   if (result.response.status === 401) return { kind: "unauthorized" };
   const problem = parseMemberProfileProblem(result.problem);
   if (problem?.code === "invalid_input") {
@@ -112,11 +78,7 @@ function mapProblem(
     }
     return { fieldErrors, kind: "invalid_input" };
   }
-  if (
-    problem?.code === "conflict" ||
-    problem?.code === "profile_exists" ||
-    problem?.code === "profile_not_found"
-  ) {
+  if (problem?.code === "conflict" || problem?.code === "profile_not_found") {
     return {
       ...(problem.currentVersion === undefined
         ? {}
@@ -126,17 +88,30 @@ function mapProblem(
   }
   return {
     kind: "unavailable",
-    reference: problem?.correlationId ?? problem?.code ?? "profile-response",
+    reference: problem?.correlationId ?? problem?.code ?? "update-profile-response",
   };
 }
 
-function unavailable(
-  error: unknown,
-): Extract<ProfileMutationState, { readonly kind: "unavailable" }> {
+function invalidProfileFields(error: z.ZodError): UpdateMemberProfileResult {
+  const fields = new Set(error.issues.map((issue) => issue.path[0]));
+  return {
+    fieldErrors: {
+      ...(fields.has("bio")
+        ? { bio: "Описание должно быть не длиннее 500 символов." }
+        : {}),
+      ...(fields.has("displayName")
+        ? { displayName: "Укажите имя длиной от 2 до 80 символов." }
+        : {}),
+    },
+    kind: "invalid_input",
+  };
+}
+
+function unavailable(error: unknown): UpdateMemberProfileResult {
   return {
     kind: "unavailable",
     reference:
-      error instanceof BackendConnectionError ? error.code : "profile-contract",
+      error instanceof BackendConnectionError ? error.code : "update-profile-contract",
   };
 }
 

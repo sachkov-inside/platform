@@ -155,16 +155,19 @@ same unit, adapter, integration, and HTTP outcomes before changing product behav
 - Interactive Web writes use TanStack `useMutation`, a browser adapter and a capability-owned Route
   Handler. The shared BFF helper owns Origin, session, private no-store and a bounded transport
   boundary. Its default is 2 MiB; a larger capability uses an explicitly named, narrowly scoped
-  override with focused boundary tests. The feature owns input parsing and outcome mapping. Server
-  Actions are outside the current mutation contract; ADR 0012 owns that trade-off.
+  override with focused boundary tests. The feature owns input parsing and outcome mapping. Model
+  each product operation as a named mutation with exact input/result types and a browser adapter
+  that declares a literal same-origin route and HTTP method. Do not select unrelated writes through
+  `operation`, `mode`, a dynamic route or a dynamic method. Server Actions are outside the current
+  mutation contract; ADR 0012 owns these trade-offs.
 - Each server-state surface has one runtime cache owner. A browser-owned live or infinite surface
   renders only its shell in RSC and does not prefetch or dehydrate the same query. A surface that
   requires server-rendered initial results uses request-isolated TanStack prefetch and hydration as
   one coherent path.
 - `pnpm --filter @inside/web guardrails` owns environment ownership, browser bypass, FSD direction,
-  Server Action and lightweight authoring bundle fitness functions, including negative fixtures.
-  Focused Web tests own runtime config validation, transport error mapping and the selected TanStack
-  client or hydration behaviour.
+  Server Action, explicit browser mutation and lightweight authoring bundle fitness functions,
+  including negative fixtures. Focused Web tests own runtime config validation, transport error
+  mapping and the selected TanStack client or hydration behaviour.
 - Keep editor and explicit CLI checks on a committed TypeScript project that excludes stale
   `.next/dev` artifacts. Next route generation uses its managed project and the project-local
   TypeScript 7 CLI; do not re-enable the removed JavaScript compiler API checker.

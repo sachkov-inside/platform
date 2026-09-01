@@ -39,7 +39,8 @@ const noopActions = {
   onTagToggle: fn(),
 } satisfies MaterialAuthoringActions;
 const recordSavedPublicationState = fn(
-  (publicationState: FormDataEntryValue | null) => publicationState,
+  (publicationState: "draft" | "published" | "unpublished") =>
+    publicationState,
 );
 
 function MaterialAuthoringFixture({
@@ -66,8 +67,8 @@ function MaterialAuthoringFixture({
       noopActions.onDocumentChange(document);
       markDirty({ ...presentation.draft, document });
     },
-    onDelete: (formData: FormData) => {
-      noopActions.onDelete(formData);
+    onDelete: (input) => {
+      noopActions.onDelete(input);
     },
     onFieldChange: (field: MaterialDraftField, value: string) => {
       noopActions.onFieldChange(field, value);
@@ -96,9 +97,9 @@ function MaterialAuthoringFixture({
       noopActions.onReturnToEditor();
       setPresentation((current) => ({ ...current, mode: "editor" }));
     },
-    onSave: (formData: FormData) => {
+    onSave: (publicationState) => {
       noopActions.onSave();
-      recordSavedPublicationState(formData.get("publicationState"));
+      recordSavedPublicationState(publicationState);
       setPresentation(savedAfterEditingPresentation);
     },
     onSeriesToggle: (seriesId, checked) => {

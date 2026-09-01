@@ -1,7 +1,10 @@
 import type { JSONContent } from "@tiptap/core";
 
 import type { RenderedBlock, RenderedMark, RenderedText } from "@/entities/material";
-import type { MaterialLifecycleActionState } from "@/features/material-lifecycle";
+import type {
+  DeleteMaterialDraftInput,
+  DeleteMaterialDraftResult,
+} from "@/features/material-lifecycle";
 
 export type MaterialSaveState =
   | { readonly kind: "clean" }
@@ -90,7 +93,7 @@ export interface MaterialAuthoringPresentation {
   readonly blocking: MaterialWorkspaceBlockingState;
   readonly deletion: {
     readonly pending: boolean;
-    readonly state: MaterialLifecycleActionState;
+    readonly result: DeleteMaterialDraftResult | null;
   };
   readonly draft: MaterialDraftPresentation;
   readonly mode: "editor" | "preview";
@@ -112,12 +115,14 @@ export interface MaterialAuthoringActions {
   readonly onBack: () => void;
   readonly onConflictAction: (action: "compare" | "copy" | "open_current") => void;
   readonly onDocumentChange: (document: JSONContent) => void;
-  readonly onDelete: (formData: FormData) => void;
+  readonly onDelete: (input: DeleteMaterialDraftInput) => void;
   readonly onFieldChange: (field: MaterialDraftField, value: string) => void;
   readonly onOpenPreview: () => void;
   readonly onRetry: () => void;
   readonly onReturnToEditor: () => void;
-  readonly onSave: (formData: FormData) => void;
+  readonly onSave: (
+    publicationState: "draft" | "published" | "unpublished",
+  ) => void;
   readonly onSeriesToggle: (seriesId: string, checked: boolean) => void;
   readonly onTagToggle: (tagId: string, checked: boolean) => void;
 }

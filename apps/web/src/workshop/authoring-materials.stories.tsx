@@ -17,17 +17,17 @@ const lifecycleMutationSpy = fn(
     if (!(formData instanceof FormData)) {
       return Promise.resolve(new Response(null, { status: 400 }));
     }
-    const operation = formData.get("operation");
+    const publicationState = formData.get("publicationState");
     return Promise.resolve(
       Response.json({
-        contentVersion: operation === "publish" ? 5 : 6,
+        contentVersion: publicationState === "published" ? 5 : 6,
         kind: "saved",
         nextSubmissionId:
-          operation === "publish"
+          publicationState === "published"
             ? "96000000-0000-4000-8000-000000000021"
             : "96000000-0000-4000-8000-000000000022",
         publicationState:
-          operation === "publish" ? "published" : "unpublished",
+          publicationState === "published" ? "published" : "unpublished",
       }),
     );
   },
@@ -148,9 +148,9 @@ export const PublicationUsesLatestReceipt: Story = {
     await expect(firstBody).toBeInstanceOf(FormData);
     await expect(secondBody).toBeInstanceOf(FormData);
     if (!(firstBody instanceof FormData) || !(secondBody instanceof FormData)) return;
-    await expect(firstBody.get("operation")).toBe("publish");
+    await expect(firstBody.get("publicationState")).toBe("published");
     await expect(firstBody.get("expectedContentVersion")).toBe("4");
-    await expect(secondBody.get("operation")).toBe("unpublish");
+    await expect(secondBody.get("publicationState")).toBe("unpublished");
     await expect(secondBody.get("expectedContentVersion")).toBe("5");
     await expect(secondBody.get("submissionId")).toBe(
       "96000000-0000-4000-8000-000000000021",

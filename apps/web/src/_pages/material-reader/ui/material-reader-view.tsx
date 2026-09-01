@@ -8,7 +8,7 @@ import type {
   ReaderMark,
   ReaderText,
 } from "@/_pages/material-reader/model/material-reader-view";
-import type { LibraryDiscoveryResult } from "@/features/library-discovery";
+import type { RelatedMaterialsResult } from "@/features/library-discovery";
 import { RelatedMaterialsSection } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
@@ -17,7 +17,7 @@ import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-place
 export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
-  readonly related?: LibraryDiscoveryResult;
+  readonly related?: RelatedMaterialsResult;
 }
 
 interface OutlineItem {

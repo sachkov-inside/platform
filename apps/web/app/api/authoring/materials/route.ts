@@ -2,7 +2,10 @@ import {
   handleCreateMaterialRequest,
   handleSaveMaterialRequest,
 } from "@/_pages/material-authoring.server";
-import { handleMaterialLifecycleRequest } from "@/features/material-lifecycle.server";
+import {
+  handleDeleteMaterialDraftRequest,
+  handleTransitionMaterialPublicationRequest,
+} from "@/features/material-lifecycle.server";
 
 export function POST(request: Request): Promise<Response> {
   return handleCreateMaterialRequest(request);
@@ -13,9 +16,9 @@ export function PUT(request: Request): Promise<Response> {
 }
 
 export function PATCH(request: Request): Promise<Response> {
-  return handleMaterialLifecycleRequest(request);
+  return handleTransitionMaterialPublicationRequest(request);
 }
 
 export function DELETE(request: Request): Promise<Response> {
-  return handleMaterialLifecycleRequest(request);
+  return handleDeleteMaterialDraftRequest(request);
 }

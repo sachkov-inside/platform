@@ -48,7 +48,7 @@ export async function MaterialAuthoringPage({ returnHref }: { readonly returnHre
           : "unauthorized",
     },
     blocking: { kind: "none" },
-    deletion: { pending: false, state: { kind: "idle" } },
+    deletion: { pending: false, result: null },
     draft: {
       access: "free",
       canDelete: false,

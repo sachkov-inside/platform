@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
-import { loadLibraryDiscovery } from "@/features/library-discovery.server";
-import { LibraryDiscoveryPage } from "@/_pages/library-discovery.server";
+import { loadPublishedSeries } from "@/features/library-discovery.server";
+import { PublishedSeriesPage } from "@/_pages/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
 interface SeriesPageProps {
@@ -12,8 +12,7 @@ export async function generateMetadata({
   params,
 }: SeriesPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await loadLibraryDiscovery(
-    "series",
+  const result = await loadPublishedSeries(
     slug,
     await getOptionalPlatformAccessToken(),
   );
@@ -32,9 +31,8 @@ export default async function SeriesRoute({ params }: SeriesPageProps) {
   const { slug } = await params;
   const accessToken = await getOptionalPlatformAccessToken();
   return (
-    <LibraryDiscoveryPage
+    <PublishedSeriesPage
       {...(accessToken === undefined ? {} : { accessToken })}
-      kind="series"
       slug={slug}
     />
   );

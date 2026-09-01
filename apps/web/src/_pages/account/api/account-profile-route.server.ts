@@ -8,7 +8,8 @@ import {
 } from "@/shared/auth/index.server";
 
 import { getPrivateMemberProfile } from "./get-private-member-profile";
-import { executeSaveMemberProfile } from "./mutate-member-profile";
+import { executeCreateMemberProfile } from "./create-member-profile";
+import { executeUpdateMemberProfile } from "./update-member-profile";
 
 export async function handleAccountProfileRequest(): Promise<Response> {
   let accessToken: string;
@@ -37,8 +38,12 @@ export async function handleAccountProfileRequest(): Promise<Response> {
   return Response.json(result.state, { headers: privateHeaders() });
 }
 
-export function handleSaveMemberProfileRequest(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, executeSaveMemberProfile);
+export function handleCreateMemberProfileRequest(request: Request): Promise<Response> {
+  return handleAuthenticatedMutation(request, executeCreateMemberProfile);
+}
+
+export function handleUpdateMemberProfileRequest(request: Request): Promise<Response> {
+  return handleAuthenticatedMutation(request, executeUpdateMemberProfile);
 }
 
 function privateHeaders(): Record<string, string> {

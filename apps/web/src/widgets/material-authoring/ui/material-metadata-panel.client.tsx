@@ -138,7 +138,7 @@ export function MaterialMetadataPanel({
               materialId={presentation.draft.materialId}
               onDelete={actions.onDelete}
               pending={presentation.deletion.pending}
-              state={presentation.deletion.state}
+              result={presentation.deletion.result}
               submissionId={presentation.submissionId}
               title={presentation.draft.title || null}
             />

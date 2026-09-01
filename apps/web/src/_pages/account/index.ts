@@ -4,11 +4,4 @@ export {
   AccountSignInRequired,
   AccountUnavailable,
 } from "./ui/account-page";
-export type {
-  ProfileMutationState,
-} from "./model/member-profile";
-export {
-  initialProfileMutationState,
-} from "./model/member-profile";
 export { accountProfileQueryKey } from "./model/account-profile-query";
-export { saveMemberProfile } from "./api/member-profile.browser";

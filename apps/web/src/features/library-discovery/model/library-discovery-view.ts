@@ -7,18 +7,24 @@ export interface LibraryDiscoveryReference {
   readonly slug: string;
 }
 
-export type LibraryDiscoveryResult =
+export type LibraryDiscoveryResult<
+  DiscoveryKind extends LibraryDiscoveryKind = LibraryDiscoveryKind,
+> =
   | {
-      readonly discoveryKind: LibraryDiscoveryKind;
+      readonly discoveryKind: DiscoveryKind;
       readonly hasNext: boolean;
       readonly items: readonly MaterialPreview[];
       readonly kind: "ready";
       readonly reference: LibraryDiscoveryReference;
     }
   | {
-      readonly discoveryKind: LibraryDiscoveryKind;
+      readonly discoveryKind: DiscoveryKind;
       readonly kind: "empty";
       readonly reference: LibraryDiscoveryReference;
     }
   | { readonly kind: "not-found" }
   | { readonly kind: "unavailable" };
+
+export type PublishedTopicResult = LibraryDiscoveryResult<"topic">;
+export type PublishedSeriesResult = LibraryDiscoveryResult<"series">;
+export type RelatedMaterialsResult = LibraryDiscoveryResult<"related">;

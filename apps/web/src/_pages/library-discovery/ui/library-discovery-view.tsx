@@ -11,13 +11,14 @@ import Link from "next/link";
 
 import type {
   LibraryDiscoveryKind,
-  LibraryDiscoveryResult,
+  PublishedSeriesResult,
+  PublishedTopicResult,
 } from "@/features/library-discovery";
 import { MaterialCard, type MaterialPreview } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 
 type ResolvedDiscoveryResult = Exclude<
-  LibraryDiscoveryResult,
+  PublishedSeriesResult | PublishedTopicResult,
   { readonly kind: "not-found" | "unavailable" }
 >;
 

@@ -9,12 +9,10 @@ import { Button } from "@/shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
 import type {
-  SeriesOrderActionState,
+  ReorderSeriesResult,
   SeriesOrderPresentation,
 } from "../model/presentation";
 import { reorderSeries } from "../api/series-order.browser";
-
-const initialState = { kind: "idle" } as const satisfies SeriesOrderActionState;
 
 export function SeriesOrderManager({
   onBack,
@@ -28,12 +26,12 @@ export function SeriesOrderManager({
   readonly presentation: SeriesOrderPresentation;
 }) {
   const mutation = useMutation({ mutationFn: reorderSeries });
-  const state = mutation.data ?? initialState;
+  const result = mutation.data ?? null;
   const pending = mutation.isPending;
   const [items, setItems] = useState(presentation.items);
   const [submittedOrder, setSubmittedOrder] = useState<readonly string[] | null>(null);
   const baselineIds =
-    state.kind === "saved" && submittedOrder !== null
+    result?.kind === "saved" && submittedOrder !== null
       ? submittedOrder
       : presentation.items.map(({ materialId }) => materialId);
   const dirty = items.some(
@@ -41,7 +39,7 @@ export function SeriesOrderManager({
       materialId !== baselineIds[index],
   );
   const expectedOrderVersion =
-    state.kind === "saved" ? state.orderVersion : presentation.orderVersion;
+    result?.kind === "saved" ? result.orderVersion : presentation.orderVersion;
 
   const move = (index: number, offset: -1 | 1) => {
     const destination = index + offset;
@@ -86,15 +84,15 @@ export function SeriesOrderManager({
             id="series-order-form"
             onSubmit={(event) => {
               event.preventDefault();
-              setSubmittedOrder(items.map(({ materialId }) => materialId));
-              const formData = new FormData(event.currentTarget);
-              formData.set("orderedMaterialIds", JSON.stringify(items.map(({ materialId }) => materialId)));
-              mutation.mutate(formData);
+              const orderedMaterialIds = items.map(({ materialId }) => materialId);
+              setSubmittedOrder(orderedMaterialIds);
+              mutation.mutate({
+                expectedOrderVersion,
+                orderedMaterialIds,
+                seriesId: presentation.seriesId,
+              });
             }}
           >
-            <input name="expectedOrderVersion" type="hidden" value={expectedOrderVersion} />
-            <input name="seriesId" type="hidden" value={presentation.seriesId} />
-
             {items.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border bg-card px-5 py-14 text-center">
                 <h2 className="text-lg font-semibold">Плейлист пока пуст</h2>
@@ -123,11 +121,11 @@ export function SeriesOrderManager({
 
           <div className="sticky bottom-4 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-3 shadow-card backdrop-blur-sm">
             <p aria-live="polite" className="text-sm text-muted-foreground">
-              {actionMessage(state, dirty)}
+              {actionMessage(result, dirty)}
             </p>
-            {state.kind === "conflict" ? (
+            {result?.kind === "conflict" ? (
               <Button onClick={onRefresh} type="button" variant="outline">Обновить список</Button>
-            ) : state.kind === "unauthorized" ? (
+            ) : result?.kind === "unauthorized" ? (
               <form action="/auth/sign-in" method="post">
                 <input
                   name="returnTo"
@@ -136,7 +134,7 @@ export function SeriesOrderManager({
                 />
                 <Button type="submit">Войти</Button>
               </form>
-            ) : state.kind === "error" ? (
+            ) : result?.kind === "error" ? (
               <Button form="series-order-form" type="submit" variant="outline">
                 Повторить сохранение
               </Button>
@@ -153,16 +151,16 @@ export function SeriesOrderManager({
   );
 }
 
-function actionMessage(state: SeriesOrderActionState, dirty: boolean): string {
-  if (state.kind === "saved") return "Порядок сохранён.";
-  if (state.kind === "conflict") {
+function actionMessage(result: ReorderSeriesResult | null, dirty: boolean): string {
+  if (result?.kind === "saved") return "Порядок сохранён.";
+  if (result?.kind === "conflict") {
     return "Состав или порядок изменился в другой вкладке.";
   }
-  if (state.kind === "unauthorized") {
+  if (result?.kind === "unauthorized") {
     return "Сессия завершилась. Войдите снова, чтобы продолжить.";
   }
-  if (state.kind === "error") {
-    return `Не удалось сохранить. Код обращения: ${state.reference}`;
+  if (result?.kind === "error") {
+    return `Не удалось сохранить. Код обращения: ${result.reference}`;
   }
   return dirty ? "Есть несохранённые изменения." : "Порядок не изменён.";
 }
