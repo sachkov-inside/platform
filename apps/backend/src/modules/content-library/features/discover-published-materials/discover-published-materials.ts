@@ -10,7 +10,7 @@ import type {
 
 const querySchema = z
   .object({
-    first: z.number().int().min(1).max(10_000),
+    first: z.number().int().min(0).max(10_000).nullable(),
     kind: z.enum(["related", "series", "topic"]),
     slug: z.string().min(1).max(120),
     subject: z.discriminatedUnion("kind", [
@@ -18,7 +18,15 @@ const querySchema = z
       z.object({ kind: z.literal("account"), accountId: z.uuid() }).strict(),
     ]),
   })
-  .strict();
+  .strict()
+  .refine(({ first, kind }) => first !== null || kind === "series", {
+    path: ["first"],
+    message: "Only complete Series discovery may omit a page size",
+  })
+  .refine(({ first, kind }) => kind !== "related" || (first !== null && first > 0), {
+    path: ["first"],
+    message: "Related Material discovery requires a positive page size",
+  });
 
 export async function discoverPublishedMaterials(
   publishedMaterialReader: Pick<

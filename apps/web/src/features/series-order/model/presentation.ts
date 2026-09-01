@@ -5,6 +5,7 @@ export interface SeriesOrderItemPresentation {
 }
 
 export interface SeriesOrderPresentation {
+  readonly archived: boolean;
   readonly availableMaterials: readonly SeriesOrderItemPresentation[];
   readonly items: readonly SeriesOrderItemPresentation[];
   readonly name: string;

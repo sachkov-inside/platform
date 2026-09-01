@@ -2,15 +2,15 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { LibraryCatalogPage } from "@/_pages/library/model/library-view";
+import {
+  hasActiveLibrarySearch,
+  type LibraryCatalogPage,
+  type LibrarySearchQuery,
+} from "@/features/library-catalog";
 import {
   publishedMaterialProjectionSchema,
   toMaterialPreview,
 } from "@/entities/material";
-import {
-  hasActiveLibrarySearch,
-  type LibrarySearchQuery,
-} from "@/_pages/library/model/library-search-query";
 import {
   BackendConnectionError,
   requestPublishedMaterialCatalog,

@@ -8,7 +8,7 @@ import type { Result } from "../../result.js";
 import type {
   ContentCollectionDto,
   ContentCollectionKind,
-} from "../list-content-collections/list-content-collections.contract.js";
+} from "../../facets/material-authoring/content-collection.contract.js";
 
 export interface CreateContentCollectionCommand {
   readonly actor: string;

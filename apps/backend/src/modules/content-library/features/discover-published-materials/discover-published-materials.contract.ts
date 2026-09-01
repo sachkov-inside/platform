@@ -2,7 +2,7 @@ import type { Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../list-published-materials/list-published-materials.contract.js";
 
 export interface DiscoverPublishedMaterialsQuery {
-  readonly first: number;
+  readonly first: number | null;
   readonly kind: "related" | "series" | "topic";
   readonly slug: string;
   readonly subject: Subject;

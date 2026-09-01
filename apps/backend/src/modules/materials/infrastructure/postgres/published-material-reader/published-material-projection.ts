@@ -502,12 +502,14 @@ export async function selectPublishedMaterialProjectionsByTopic(
       where: { slug },
       select: { id: true, name: true, slug: true, summary: true },
     }),
-    prisma.$queryRaw(
-      projectionQuery({
-        where: Prisma.sql`where topic.slug = ${slug}`,
-        limit: Prisma.sql`limit ${first + 1}`,
-      }),
-    ),
+    first === 0
+      ? Promise.resolve([])
+      : prisma.$queryRaw(
+          projectionQuery({
+            where: Prisma.sql`where topic.slug = ${slug}`,
+            limit: Prisma.sql`limit ${first + 1}`,
+          }),
+        ),
     prisma.$queryRaw(Prisma.sql`
       select
         series.id,
@@ -555,7 +557,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
 export async function selectPublishedMaterialProjectionsBySeries(
   prisma: MaterialsPrisma,
   slug: string,
-  first: number,
+  first: number | null,
 ): Promise<PublishedMaterialDiscoveryPage | undefined> {
   const [reference, rawRows, rawTopics] = await Promise.all([
     prisma.series.findUnique({
@@ -574,7 +576,10 @@ export async function selectPublishedMaterialProjectionsBySeries(
         order: Prisma.sql`
           order by selected_membership.ordinal, publication.material_id
         `,
-        limit: Prisma.sql`limit ${first + 1}`,
+        limit:
+          first === null
+            ? Prisma.empty
+            : Prisma.sql`limit ${first + 1}`,
       }),
     ),
     prisma.$queryRaw(Prisma.sql`
@@ -597,8 +602,8 @@ export async function selectPublishedMaterialProjectionsBySeries(
     reference,
     relatedSeries: [],
     topics: discoveryTopicRowSchema.array().parse(rawTopics),
-    items: rows.slice(0, first).map(toProjection),
-    hasNext: rows.length > first,
+    items: (first === null ? rows : rows.slice(0, first)).map(toProjection),
+    hasNext: first !== null && rows.length > first,
   };
 }
 

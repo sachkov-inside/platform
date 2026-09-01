@@ -19,6 +19,7 @@ export interface AvailableSeriesMaterialDto {
 }
 
 export interface SeriesOrderDto {
+  readonly archived: boolean;
   readonly availableMaterials: readonly AvailableSeriesMaterialDto[];
   readonly items: readonly SeriesOrderMaterialDto[];
   readonly name: string;

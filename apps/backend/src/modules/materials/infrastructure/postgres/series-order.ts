@@ -11,6 +11,7 @@ import { refreshPublishedMaterialSearchProjections } from "./published-material-
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
 export interface SeriesOrderSnapshot {
+  readonly archived: boolean;
   readonly availableMaterials: readonly {
     readonly materialId: string;
     readonly publicationState: "draft" | "published" | "unpublished";
@@ -33,7 +34,7 @@ export async function loadSeriesOrderSnapshot(
   const [series, memberships, availableMaterials] = await Promise.all([
     prisma.series.findUnique({
       where: { id: seriesId },
-      select: { id: true, name: true },
+      select: { archivedAt: true, id: true, name: true },
     }),
     prisma.seriesMembership.findMany({
       where: { seriesId },
@@ -43,7 +44,6 @@ export async function loadSeriesOrderSnapshot(
     prisma.material.findMany({
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
       select: { id: true, publicationState: true, title: true },
-      take: 10_000,
     }),
   ]);
   if (series === null) {
@@ -58,6 +58,7 @@ export async function loadSeriesOrderSnapshot(
         });
   const materialById = new Map(materials.map((material) => [material.id, material]));
   return {
+    archived: series.archivedAt !== null,
     availableMaterials: availableMaterials.map((material) => ({
       materialId: material.id,
       publicationState: publicationStateSchema.parse(material.publicationState),

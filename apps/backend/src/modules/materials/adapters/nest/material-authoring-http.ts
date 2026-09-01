@@ -83,6 +83,7 @@ export const deleteDraftBodySchema = z
 export const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
 export const seriesOrderSchema = z
   .object({
+    archived: z.boolean(),
     availableMaterials: z.array(
       z
         .object({
@@ -110,7 +111,7 @@ export const seriesOrderSchema = z
 export const reorderSeriesBodySchema = z
   .object({
     expectedOrderVersion: seriesOrderVersionSchema,
-    orderedMaterialIds: z.array(materialIdSchema).max(10_000),
+    orderedMaterialIds: z.array(materialIdSchema),
   })
   .strict()
   .refine(

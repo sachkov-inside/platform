@@ -3,20 +3,20 @@
 import { RefreshCw } from "lucide-react";
 import { useEffect, useRef } from "react";
 
+import { MaterialCard } from "@/entities/material";
+import { Button } from "@/shared/ui/button";
 import {
   formatFoundMaterialCount,
   formatLoadedMaterialCount,
 } from "../model/format-material-count";
 import type { LibraryCatalogPage } from "../model/library-view";
-import { Button } from "@/shared/ui/button";
-import { LibraryMaterialGrid } from "./library-page";
 
 type ReadyLibraryCatalogPage = Extract<
   LibraryCatalogPage,
   { readonly kind: "ready" }
 >;
 
-export function InfiniteLibraryCatalog({
+export function InfiniteMaterialCatalog({
   hasNextPage,
   isFetchNextPageError,
   isFetchingNextPage,
@@ -32,10 +32,7 @@ export function InfiniteLibraryCatalog({
   readonly totalCount: number;
 }) {
   const loadSentinelRef = useRef<HTMLDivElement>(null);
-  const materialCount = pages.reduce(
-    (count, page) => count + page.items.length,
-    0,
-  );
+  const materialCount = pages.reduce((count, page) => count + page.items.length, 0);
 
   useEffect(() => {
     const sentinel = loadSentinelRef.current;
@@ -47,12 +44,9 @@ export function InfiniteLibraryCatalog({
     ) {
       return;
     }
-
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          onLoadNextPage();
-        }
+        if (entries.some((entry) => entry.isIntersecting)) onLoadNextPage();
       },
       { rootMargin: "800px 0px" },
     );
@@ -60,41 +54,26 @@ export function InfiniteLibraryCatalog({
     return () => {
       observer.disconnect();
     };
-  }, [
-    hasNextPage,
-    isFetchNextPageError,
-    isFetchingNextPage,
-    onLoadNextPage,
-  ]);
+  }, [hasNextPage, isFetchNextPageError, isFetchingNextPage, onLoadNextPage]);
 
   return (
-    <section
-      aria-labelledby="materials-heading"
-      className="mt-8 sm:mt-10"
-      data-library-state="ready"
-    >
+    <section aria-labelledby="materials-heading" className="mt-8 sm:mt-10" data-library-state="ready">
       <div>
-        <h2
-          className="text-lg font-semibold tracking-[-0.025em] @min-[30rem]/library:text-xl"
-          id="materials-heading"
-        >
+        <h2 className="text-lg font-semibold tracking-[-0.025em] @min-[30rem]/library:text-xl" id="materials-heading">
           Материалы
         </h2>
         <p className="mt-1 font-mono text-xs text-muted-foreground">
-          {formatFoundMaterialCount(totalCount)} ·{" "}
-          {formatLoadedMaterialCount(materialCount)}
+          {formatFoundMaterialCount(totalCount)} · {formatLoadedMaterialCount(materialCount)}
         </p>
       </div>
-
       {pages.map((page, pageIndex) => (
-        <LibraryMaterialGrid
+        <MaterialCatalogGrid
           className="mt-4"
           items={page.items}
           key={page.items[0]?.slug ?? `catalog-page-${String(pageIndex + 1)}`}
           label={`Материалы, страница ${String(pageIndex + 1)}`}
         />
       ))}
-
       <div aria-hidden="true" className="h-px" ref={loadSentinelRef} />
       <div aria-live="polite" className="mt-6 flex min-h-11 justify-center">
         {isFetchingNextPage ? (
@@ -102,9 +81,7 @@ export function InfiniteLibraryCatalog({
         ) : null}
         {isFetchNextPageError ? (
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <p className="text-sm text-muted-foreground">
-              Не удалось загрузить продолжение каталога.
-            </p>
+            <p className="text-sm text-muted-foreground">Не удалось загрузить продолжение каталога.</p>
             <Button onClick={onLoadNextPage} size="sm" variant="outline">
               <RefreshCw aria-hidden="true" />
               Повторить
@@ -121,5 +98,30 @@ export function InfiniteLibraryCatalog({
         ) : null}
       </div>
     </section>
+  );
+}
+
+export function MaterialCatalogGrid({
+  className = "",
+  items,
+  label,
+}: {
+  readonly className?: string;
+  readonly items: ReadyLibraryCatalogPage["items"];
+  readonly label?: string;
+}) {
+  return (
+    <ul
+      {...(label === undefined ? {} : { "aria-label": label })}
+      className={`${className} grid grid-cols-1 items-stretch justify-items-center gap-4 @min-[40rem]/library:grid-cols-2 @min-[68rem]/library:grid-cols-3`}
+      data-material-grid
+      role="list"
+    >
+      {items.map((material) => (
+        <li className="h-full w-full max-w-[28rem]" key={material.slug}>
+          <MaterialCard headingLevel="h3" material={material} />
+        </li>
+      ))}
+    </ul>
   );
 }

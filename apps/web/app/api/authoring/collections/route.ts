@@ -1,5 +1,5 @@
-import { handleContentCollectionMutation } from "@/_pages/content-collections.server";
+import { handleCreateContentCollection } from "@/_pages/content-collections.server";
 
-export function PUT(request: Request): Promise<Response> {
-  return handleContentCollectionMutation(request);
+export function POST(request: Request): Promise<Response> {
+  return handleCreateContentCollection(request);
 }

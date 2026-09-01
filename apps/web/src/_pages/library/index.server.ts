@@ -6,4 +6,4 @@ export { handleLibraryCatalogRequest } from "./api/library-catalog-route.server"
 export type {
   LibraryCatalogPage,
   LibraryMaterialPreview,
-} from "./model/library-view";
+} from "@/features/library-catalog";

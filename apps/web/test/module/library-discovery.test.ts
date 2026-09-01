@@ -147,6 +147,35 @@ describe("Library discovery server adapter", () => {
     });
   });
 
+  it("keeps an existing Topic ready while its browser catalog loads independently", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          hasNext: false,
+          items: [],
+          kind: "topic",
+          reference: {
+            id: "72000000-0000-4000-8000-000000000002",
+            name: "Platform",
+            slug: "platform",
+            summary: "Материалы о Platform.",
+          },
+          relatedSeries: [],
+          topics: [],
+        }),
+      ),
+    );
+
+    await expect(getPublishedTopic("platform")).resolves.toMatchObject({
+      discoveryKind: "topic",
+      items: [],
+      kind: "ready",
+      reference: { slug: "platform" },
+    });
+  });
+
   it("distinguishes missing references and dependency outages", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     const fetchMock = vi

@@ -17,29 +17,27 @@ export const contentCollectionSchema = z
 
 export type ContentCollection = z.infer<typeof contentCollectionSchema>;
 
-export type ContentCollectionMutationInput =
-  | {
-      readonly action: "create";
-      readonly kind: ContentCollectionKind;
-      readonly name: string;
-      readonly slug: string;
-      readonly summary: string;
-    }
-  | {
-      readonly action: "update";
-      readonly collectionId: string;
-      readonly expectedVersion: number;
-      readonly kind: ContentCollectionKind;
-      readonly name: string;
-      readonly summary: string;
-    }
-  | {
-      readonly action: "archive";
-      readonly archived: boolean;
-      readonly collectionId: string;
-      readonly expectedVersion: number;
-      readonly kind: ContentCollectionKind;
-    };
+export interface CreateContentCollectionInput {
+  readonly kind: ContentCollectionKind;
+  readonly name: string;
+  readonly slug: string;
+  readonly summary: string;
+}
+
+export interface UpdateContentCollectionInput {
+  readonly collectionId: string;
+  readonly expectedVersion: number;
+  readonly kind: ContentCollectionKind;
+  readonly name: string;
+  readonly summary: string;
+}
+
+export interface SetContentCollectionArchiveInput {
+  readonly archived: boolean;
+  readonly collectionId: string;
+  readonly expectedVersion: number;
+  readonly kind: ContentCollectionKind;
+}
 
 export const contentCollectionMutationResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("saved"), collection: contentCollectionSchema }).strict(),
@@ -53,3 +51,7 @@ export const contentCollectionMutationResultSchema = z.discriminatedUnion("kind"
 export type ContentCollectionMutationResult = z.infer<
   typeof contentCollectionMutationResultSchema
 >;
+
+export type CreateContentCollectionResult = ContentCollectionMutationResult;
+export type UpdateContentCollectionResult = ContentCollectionMutationResult;
+export type SetContentCollectionArchiveResult = ContentCollectionMutationResult;

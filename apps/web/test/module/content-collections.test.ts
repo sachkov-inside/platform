@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { executeCreateContentCollection } from "@/_pages/content-collections/api/create-content-collection";
 import { getContentCollections } from "@/_pages/content-collections/api/get-content-collections";
-import {
-  executeContentCollectionMutation,
-  type ContentCollectionMutationDependencies,
-} from "@/_pages/content-collections/api/mutate-content-collection";
+import { executeSetContentCollectionArchive } from "@/_pages/content-collections/api/set-content-collection-archive";
+import { executeUpdateContentCollection } from "@/_pages/content-collections/api/update-content-collection";
 
 const collectionId = "96500000-0000-4000-8000-000000000001";
 const collection = {
@@ -32,20 +31,35 @@ describe("Content collection web adapters", () => {
     expect(request).toHaveBeenCalledWith("topic", "token");
   });
 
-  it("submits immutable-slug metadata edits and maps optimistic conflicts", async () => {
-    const dependencies = successfulDependencies();
+  it("creates a collection through the focused creation operation", async () => {
+    const request = successfulRequest();
     const formData = new FormData();
-    formData.set("action", "update");
-    formData.set("collectionId", collectionId);
-    formData.set("expectedVersion", "2");
     formData.set("kind", "topic");
-    formData.set("name", "Platform engineering");
-    formData.set("summary", "Updated summary.");
+    formData.set("name", "Platform");
+    formData.set("slug", "platform");
+    formData.set("summary", "Architecture and delivery.");
 
     await expect(
-      executeContentCollectionMutation(formData, "token", dependencies),
+      executeCreateContentCollection(formData, "token", request),
     ).resolves.toEqual({ kind: "saved", collection });
-    expect(dependencies.update).toHaveBeenCalledWith(
+    expect(request).toHaveBeenCalledWith(
+      {
+        kind: "topic",
+        name: "Platform",
+        slug: "platform",
+        summary: "Architecture and delivery.",
+      },
+      "token",
+    );
+  });
+
+  it("updates immutable-slug metadata and maps optimistic conflicts", async () => {
+    const request = successfulRequest();
+    const formData = metadataForm();
+    await expect(
+      executeUpdateContentCollection(formData, "token", request),
+    ).resolves.toEqual({ kind: "saved", collection });
+    expect(request).toHaveBeenCalledWith(
       {
         collectionId,
         expectedVersion: 2,
@@ -56,34 +70,53 @@ describe("Content collection web adapters", () => {
       "token",
     );
 
-    const conflictDependencies = {
-      ...dependencies,
-      update: vi.fn().mockResolvedValue({
-        ok: false,
-        problem: { code: "stale_content_collection_version" },
-        response: Response.json({}, { status: 409 }),
-      }),
-    };
+    const conflict = vi.fn().mockResolvedValue({
+      ok: false,
+      problem: { code: "stale_content_collection_version" },
+      response: Response.json({}, { status: 409 }),
+    });
     await expect(
-      executeContentCollectionMutation(formData, "token", conflictDependencies),
+      executeUpdateContentCollection(metadataForm(), "token", conflict),
     ).resolves.toEqual({ kind: "conflict" });
+  });
+
+  it("archives a collection through the focused archive operation", async () => {
+    const request = successfulRequest();
+    const formData = new FormData();
+    formData.set("archived", "true");
+    formData.set("collectionId", collectionId);
+    formData.set("expectedVersion", "2");
+    formData.set("kind", "topic");
+
+    await expect(
+      executeSetContentCollectionArchive(formData, "token", request),
+    ).resolves.toEqual({ kind: "saved", collection });
+    expect(request).toHaveBeenCalledWith(
+      {
+        archived: true,
+        collectionId,
+        expectedVersion: 2,
+        kind: "topic",
+      },
+      "token",
+    );
   });
 });
 
-function successfulDependencies(): {
-  archive: ReturnType<typeof vi.fn>;
-  create: ReturnType<typeof vi.fn>;
-  update: ReturnType<typeof vi.fn>;
-} & ContentCollectionMutationDependencies {
-  const success = () =>
-    Promise.resolve({
-      body: collection,
-      ok: true as const,
-      response: Response.json({}),
-    });
-  return {
-    archive: vi.fn(success),
-    create: vi.fn(success),
-    update: vi.fn(success),
-  };
+function metadataForm(): FormData {
+  const formData = new FormData();
+  formData.set("collectionId", collectionId);
+  formData.set("expectedVersion", "2");
+  formData.set("kind", "topic");
+  formData.set("name", "Platform engineering");
+  formData.set("summary", "Updated summary.");
+  return formData;
+}
+
+function successfulRequest() {
+  return vi.fn().mockResolvedValue({
+    body: collection,
+    ok: true,
+    response: Response.json({}),
+  });
 }

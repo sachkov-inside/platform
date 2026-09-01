@@ -5,9 +5,7 @@ interface AuthenticationFeedbackProps {
 export function AuthenticationFeedback({
   authenticationError,
 }: AuthenticationFeedbackProps) {
-  if (authenticationError === undefined) {
-    return null;
-  }
+  if (authenticationError === undefined) return null;
 
   const message =
     authenticationError === "logout-incomplete"

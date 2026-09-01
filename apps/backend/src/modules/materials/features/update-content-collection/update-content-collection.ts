@@ -6,7 +6,7 @@ import { authorizeManager } from "../../ports/author-policy.js";
 import { executeAuthoringTransaction, failure } from "../../shared/application-result.js";
 import { accountId, entityId, parseCommand } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
-import { loadContentCollectionDto } from "../../shared/project-content-collection.js";
+import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
 import type {
   UpdateContentCollectionError,
   UpdateContentCollectionOperation,
@@ -39,38 +39,15 @@ export function assembleUpdateContentCollection(
     return executeAuthoringTransaction(
       dependencies.prisma,
       async (transaction, rollback) => {
-        const updated =
-          command.kind === "topic"
-            ? await transaction.topic.updateMany({
-                where: {
-                  id: command.collectionId,
-                  version: command.expectedVersion,
-                },
-                data: {
-                  name: command.name,
-                  summary: command.summary,
-                  updatedAt: new Date(),
-                  version: { increment: 1 },
-                },
-              })
-            : await transaction.series.updateMany({
-                where: {
-                  id: command.collectionId,
-                  version: command.expectedVersion,
-                },
-                data: {
-                  name: command.name,
-                  summary: command.summary,
-                  updatedAt: new Date(),
-                  version: { increment: 1 },
-                },
-              });
-        if (updated.count === 0) {
-          const current = await loadContentCollectionDto(
-            transaction,
-            command.kind,
-            command.collectionId,
-          );
+        const persistence = contentCollectionPersistence(transaction, command.kind);
+        const updated = await persistence.updateMetadata({
+          expectedVersion: command.expectedVersion,
+          id: command.collectionId,
+          name: command.name,
+          summary: command.summary,
+        });
+        if (updated === 0) {
+          const current = await persistence.load(command.collectionId);
           return current === undefined
             ? rollback({ code: "content_collection_not_found" })
             : rollback({
@@ -84,11 +61,7 @@ export function assembleUpdateContentCollection(
             ? { kind: "topic", topicId: command.collectionId }
             : { kind: "series", seriesId: command.collectionId },
         );
-        const collection = await loadContentCollectionDto(
-          transaction,
-          command.kind,
-          command.collectionId,
-        );
+        const collection = await persistence.load(command.collectionId);
         return collection ?? rollback({ code: "content_collection_not_found" });
       },
       (error): UpdateContentCollectionError => mapPostgresReadError(error),

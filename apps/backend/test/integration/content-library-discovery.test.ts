@@ -164,7 +164,7 @@ describe("Content Library discovery", () => {
       {
         kind: "series",
         slug: "platform-inside",
-        first: 24,
+        first: null,
         subject: anonymousSubject,
       },
     );

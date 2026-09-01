@@ -3,16 +3,18 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
-import { createLibraryCatalogQueryOptions } from "@/_pages/library/model/library-catalog-query";
-import type { LibraryCatalogPage } from "@/_pages/library/model/library-view";
-import type { LibrarySearchQuery } from "@/_pages/library/model/library-search-query";
+import {
+  createLibraryCatalogQueryOptions,
+  InfiniteMaterialCatalog,
+  type LibraryCatalogPage,
+  type LibrarySearchQuery,
+} from "@/features/library-catalog";
 import {
   LibraryLoading,
   LibraryPage,
   LibraryUnexpectedError,
 } from "@/_pages/library/ui/library-page";
 import { LibraryCatalogQueryView } from "@/_pages/library/ui/library-page-query.client";
-import { InfiniteLibraryCatalog } from "@/_pages/library/ui/infinite-library-catalog.client";
 import type { MaterialPreview } from "@/entities/material";
 import {
   ApplicationShell,
@@ -148,7 +150,7 @@ function AutoLoadCatalogHarness() {
   const [pageCount, setPageCount] = useState(1);
 
   return (
-    <InfiniteLibraryCatalog
+    <InfiniteMaterialCatalog
       hasNextPage={pageCount < 2}
       isFetchNextPageError={false}
       isFetchingNextPage={false}
@@ -167,7 +169,7 @@ function RetryCatalogHarness() {
   return (
     <>
       <output aria-label="Попыток повторной загрузки">{attempts}</output>
-      <InfiniteLibraryCatalog
+      <InfiniteMaterialCatalog
         hasNextPage
         isFetchNextPageError
         isFetchingNextPage={false}
@@ -474,7 +476,7 @@ export const RendersLoadedPages: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Infinite catalog · loaded pages",
   render: () => (
-    <InfiniteLibraryCatalog
+    <InfiniteMaterialCatalog
       hasNextPage={false}
       isFetchNextPageError={false}
       isFetchingNextPage={false}

@@ -7,11 +7,11 @@ import { libraryCatalogQueryKey } from "@/_pages/library";
 import {
   libraryCatalogQueryOptions,
   requestLibraryCatalogPage,
-} from "../../src/_pages/library/api/library-catalog.browser";
+} from "../../src/features/library-catalog/api/library-catalog.browser";
 import {
   parseLibrarySearchParams,
   serializeLibrarySearchQuery,
-} from "../../src/_pages/library/model/library-search-query";
+} from "../../src/features/library-catalog/model/library-search-query";
 
 const readyCatalog = {
   facets: { formats: [], series: [], topics: [] },
@@ -132,6 +132,44 @@ describe("Library TanStack Query interface", () => {
     expect(
       queryClient.getQueryData(libraryCatalogQueryKey(defaultQuery)),
     ).toEqual(data);
+  });
+
+  it("keeps the Topic scope while loading results beyond the first page", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ ...readyCatalog, nextCursor: "topic_next_cursor" }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ...readyCatalog,
+          items: [
+            {
+              ...readyCatalog.items[0],
+              slug: "topic-second-page",
+              title: "Материал со второй страницы темы",
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const topicQuery = { ...defaultQuery, topicSlugs: ["platform"] };
+    const data = await new QueryClient().infiniteQuery({
+      ...libraryCatalogQueryOptions(topicQuery),
+      pages: 2,
+    });
+
+    const secondPage = data.pages[1];
+    expect(secondPage).toMatchObject({
+      kind: "ready",
+      items: [expect.objectContaining({ slug: "topic-second-page" })],
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "/api/library/materials?topic=platform",
+    );
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      "/api/library/materials?topic=platform&after=topic_next_cursor",
+    );
   });
 
   it("loads and validates the browser presentation contract", async () => {

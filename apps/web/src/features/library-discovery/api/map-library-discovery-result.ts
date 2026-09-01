@@ -90,7 +90,7 @@ export function mapLibraryDiscoveryResult<
     slug: parsed.data.reference.slug,
     summary: parsed.data.reference.summary,
   };
-  if (parsed.data.items.length === 0) {
+  if (parsed.data.items.length === 0 && discoveryKind !== "topic") {
     return {
       discoveryKind,
       kind: "empty",

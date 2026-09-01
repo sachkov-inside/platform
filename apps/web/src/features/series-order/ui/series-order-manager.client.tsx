@@ -103,38 +103,48 @@ export function SeriesOrderManager({
               });
             }}
           >
-            <section aria-labelledby="add-material-heading" className="mb-7 rounded-2xl bg-card p-5 shadow-card">
-              <h2 className="text-lg font-semibold" id="add-material-heading">Добавить материал</h2>
-              <label className="relative mt-3 block">
-                <span className="sr-only">Найти материал</span>
-                <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  className="min-h-11 w-full rounded-xl border border-input bg-background pl-10 pr-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
-                  onChange={(event) => { setSearch(event.currentTarget.value); }}
-                  placeholder="Поиск по названию"
-                  type="search"
-                  value={search}
-                />
-              </label>
-              {candidates.length === 0 ? (
-                <p className="mt-3 text-sm text-muted-foreground">Подходящих материалов нет.</p>
-              ) : (
-                <ul className="mt-3 grid max-h-64 gap-2 overflow-y-auto" role="list">
-                  {candidates.map((material) => (
-                    <li className="flex items-center gap-3 rounded-xl border border-border p-3" key={material.materialId}>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{material.title}</span>
-                        <span className="mt-1 block font-mono text-[0.6875rem] text-muted-foreground">{stateLabel(material.publicationState)}</span>
-                      </span>
-                      <Button aria-label={`Добавить «${material.title}»`} disabled={pending} onClick={() => { setItems((current) => [...current, material]); }} size="sm" type="button" variant="outline">
-                        <Plus aria-hidden="true" />
-                        Добавить
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            {presentation.archived ? (
+              <div className="mb-7 rounded-2xl bg-muted p-5 text-sm leading-6">
+                <p className="font-semibold">Плейлист находится в архиве</p>
+                <p className="mt-1 text-muted-foreground">
+                  Можно изменить порядок или удалить существующие материалы. Новые назначения
+                  станут доступны после восстановления плейлиста.
+                </p>
+              </div>
+            ) : (
+              <section aria-labelledby="add-material-heading" className="mb-7 rounded-2xl bg-card p-5 shadow-card">
+                <h2 className="text-lg font-semibold" id="add-material-heading">Добавить материал</h2>
+                <label className="relative mt-3 block">
+                  <span className="sr-only">Найти материал</span>
+                  <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    className="min-h-11 w-full rounded-xl border border-input bg-background pl-10 pr-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+                    onChange={(event) => { setSearch(event.currentTarget.value); }}
+                    placeholder="Поиск по названию"
+                    type="search"
+                    value={search}
+                  />
+                </label>
+                {candidates.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted-foreground">Подходящих материалов нет.</p>
+                ) : (
+                  <ul className="mt-3 grid max-h-64 gap-2 overflow-y-auto" role="list">
+                    {candidates.map((material) => (
+                      <li className="flex items-center gap-3 rounded-xl border border-border p-3" key={material.materialId}>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium">{material.title}</span>
+                          <span className="mt-1 block font-mono text-[0.6875rem] text-muted-foreground">{stateLabel(material.publicationState)}</span>
+                        </span>
+                        <Button aria-label={`Добавить «${material.title}»`} disabled={pending} onClick={() => { setItems((current) => [...current, material]); }} size="sm" type="button" variant="outline">
+                          <Plus aria-hidden="true" />
+                          Добавить
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
 
             {items.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border bg-card px-5 py-14 text-center">

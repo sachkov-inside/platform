@@ -4,7 +4,7 @@ import {
   getLibraryCatalogPage,
   LibraryQueryRejectedError,
 } from "./get-library-catalog";
-import { parseLibrarySearchParams } from "../model/library-search-query";
+import { parseLibrarySearchParams } from "@/features/library-catalog";
 
 const PUBLIC_CATALOG_HEADERS = {
   "Cache-Control": "public, max-age=30, stale-while-revalidate=60",

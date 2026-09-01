@@ -19,6 +19,7 @@ const meta = {
     onRefresh: fn(),
     onSelectPlaylist: fn(),
     presentation: {
+      archived: false,
       availableMaterials: [
         {
           materialId: "95000000-0000-4000-8000-000000000004",
@@ -78,6 +79,12 @@ export const Reordering: Story = {
 export const Empty: Story = {
   args: {
     presentation: { ...meta.args.presentation, items: [] },
+  },
+};
+
+export const Archived: Story = {
+  args: {
+    presentation: { ...meta.args.presentation, archived: true },
   },
 };
 

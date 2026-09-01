@@ -9,6 +9,7 @@ import {
   isPostgresUniqueViolation,
   mapPostgresReadError,
 } from "../../shared/postgres-error-mapping.js";
+import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
 import type { CreateContentCollectionOperation } from "./create-content-collection.contract.js";
 
 export const contentCollectionInputSchema = z
@@ -45,26 +46,16 @@ export function assembleCreateContentCollection(
         slug: command.slug,
         summary: command.summary,
       };
-      const collection =
-        command.kind === "topic"
-          ? await dependencies.prisma.topic.create({ data })
-          : await dependencies.prisma.series.create({ data });
-      return {
-        ok: true,
-        value: {
-          archived: false,
-          id: collection.id,
-          kind: command.kind,
-          materialCount: 0,
-          name: collection.name,
-          slug: collection.slug,
-          summary: collection.summary,
-          version: collection.version,
-        },
-      };
+      const persistence = contentCollectionPersistence(
+        dependencies.prisma,
+        command.kind,
+      );
+      return { ok: true, value: await persistence.create(data) };
     } catch (error) {
-      const constraint =
-        command.kind === "topic" ? "topics_slug_unique" : "series_slug_unique";
+      const constraint = contentCollectionPersistence(
+        dependencies.prisma,
+        command.kind,
+      ).slugConstraint;
       return failure(
         isPostgresUniqueViolation(error, constraint)
           ? { code: "content_collection_slug_conflict" }

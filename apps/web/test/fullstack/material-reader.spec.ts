@@ -432,8 +432,8 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   const topicDocument = await request.get("/topics/platform");
   const topicHtml = await topicDocument.text();
   expect(topicDocument.status()).toBe(200);
-  expect(topicHtml).toContain("Как устроен Inside Platform");
-  expect(topicHtml).toContain("Developer Pipeline без потери контекста");
+  expect(topicHtml).toContain("Создание Platform Inside");
+  expect(topicHtml).toContain("Загружаем материалы темы");
   expect(topicHtml).not.toContain("Закрытое содержимое для участников");
 
   await page.goto("/library");

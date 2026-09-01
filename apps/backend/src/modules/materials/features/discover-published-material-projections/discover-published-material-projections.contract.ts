@@ -4,7 +4,7 @@ import type { Result } from "../../result.js";
 export type PublishedMaterialDiscoveryKind = "related" | "series" | "topic";
 
 export interface DiscoverPublishedMaterialProjectionsQuery {
-  readonly first: number;
+  readonly first: number | null;
   readonly kind: PublishedMaterialDiscoveryKind;
   readonly slug: string;
 }

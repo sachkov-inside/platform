@@ -5,7 +5,7 @@ import { authorizeManager } from "../../ports/author-policy.js";
 import { executeAuthoringTransaction, failure } from "../../shared/application-result.js";
 import { accountId, entityId, parseCommand } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
-import { loadContentCollectionDto } from "../../shared/project-content-collection.js";
+import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
 import type {
   SetContentCollectionArchiveError,
   SetContentCollectionArchiveOperation,
@@ -37,33 +37,14 @@ export function assembleSetContentCollectionArchive(
     return executeAuthoringTransaction(
       dependencies.prisma,
       async (transaction, rollback) => {
-        const data = {
-          archivedAt: command.archived ? new Date() : null,
-          updatedAt: new Date(),
-          version: { increment: 1 },
-        };
-        const updated =
-          command.kind === "topic"
-            ? await transaction.topic.updateMany({
-                where: {
-                  id: command.collectionId,
-                  version: command.expectedVersion,
-                },
-                data,
-              })
-            : await transaction.series.updateMany({
-                where: {
-                  id: command.collectionId,
-                  version: command.expectedVersion,
-                },
-                data,
-              });
-        if (updated.count === 0) {
-          const current = await loadContentCollectionDto(
-            transaction,
-            command.kind,
-            command.collectionId,
-          );
+        const persistence = contentCollectionPersistence(transaction, command.kind);
+        const updated = await persistence.setArchive({
+          archived: command.archived,
+          expectedVersion: command.expectedVersion,
+          id: command.collectionId,
+        });
+        if (updated === 0) {
+          const current = await persistence.load(command.collectionId);
           return current === undefined
             ? rollback({ code: "content_collection_not_found" })
             : rollback({
@@ -71,11 +52,7 @@ export function assembleSetContentCollectionArchive(
                 currentVersion: current.version,
               });
         }
-        const collection = await loadContentCollectionDto(
-          transaction,
-          command.kind,
-          command.collectionId,
-        );
+        const collection = await persistence.load(command.collectionId);
         return collection ?? rollback({ code: "content_collection_not_found" });
       },
       (error): SetContentCollectionArchiveError => mapPostgresReadError(error),

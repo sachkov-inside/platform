@@ -14,14 +14,22 @@ import type {
 
 const querySchema = z
   .object({
-    first: z.number().int().min(1).max(10_000),
+    first: z.number().int().min(0).max(10_000).nullable(),
     kind: z.enum(["related", "series", "topic"]),
     slug: z
       .string()
       .max(120)
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u),
   })
-  .strict();
+  .strict()
+  .refine(({ first, kind }) => first !== null || kind === "series", {
+    path: ["first"],
+    message: "Only complete Series discovery may omit a page size",
+  })
+  .refine(({ first, kind }) => kind !== "related" || (first !== null && first > 0), {
+    path: ["first"],
+    message: "Related Material discovery requires a positive page size",
+  });
 
 export async function discoverPublishedMaterialProjections(
   prisma: MaterialsPrisma,
@@ -51,6 +59,9 @@ function selectDiscovery(
 ) {
   switch (query.kind) {
     case "topic":
+      if (query.first === null) {
+        throw new TypeError("Topic discovery requires a page size");
+      }
       return selectPublishedMaterialProjectionsByTopic(
         prisma,
         query.slug,
@@ -63,6 +74,9 @@ function selectDiscovery(
         query.first,
       );
     case "related":
+      if (query.first === null) {
+        throw new TypeError("Related Material discovery requires a page size");
+      }
       return selectRelatedPublishedMaterialProjections(
         prisma,
         query.slug,

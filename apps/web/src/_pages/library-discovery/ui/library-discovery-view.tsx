@@ -109,8 +109,7 @@ function TopicMaterials({
         )}
       </section>
       <TopicMaterialCatalog
-        hasNext={result.hasNext}
-        items={result.items}
+        key={result.reference.slug}
         topicSlug={result.reference.slug}
       />
     </>

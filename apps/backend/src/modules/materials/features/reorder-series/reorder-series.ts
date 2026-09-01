@@ -24,7 +24,7 @@ const commandSchema = z
   .object({
     actor: accountId,
     expectedOrderVersion: z.string().regex(/^[a-f0-9]{64}$/u),
-    orderedMaterialIds: z.array(entityId).max(10_000),
+    orderedMaterialIds: z.array(entityId),
     seriesId: entityId,
   })
   .strict()
@@ -72,6 +72,23 @@ export function assembleReorderSeries(
         }
         if (currentOrderVersion !== command.expectedOrderVersion) {
           return rollback({ code: "stale_series_order", currentOrderVersion });
+        }
+        if (snapshot.archived) {
+          const currentSet = new Set(currentIds);
+          const addedIndex = command.orderedMaterialIds.findIndex(
+            (materialId) => !currentSet.has(materialId),
+          );
+          if (addedIndex >= 0) {
+            return rollback({
+              code: "invalid_reference",
+              issues: [
+                {
+                  code: "series_archived",
+                  path: `/orderedMaterialIds/${String(addedIndex)}`,
+                },
+              ],
+            });
+          }
         }
         const foundMaterials =
           command.orderedMaterialIds.length === 0

@@ -27,7 +27,15 @@ export async function ContentCollectionsPage({ kind }: { readonly kind: ContentC
       </main>
     );
   }
-  return <ContentCollectionsPageClient initialCollections={state.collections} kind={kind} />;
+  return (
+    <ContentCollectionsPageClient
+      initialCollections={state.collections}
+      key={state.collections
+        .map(({ id, version }) => `${id}:${String(version)}`)
+        .join("|")}
+      kind={kind}
+    />
+  );
 }
 
 async function sessionToken(): Promise<string | undefined> {

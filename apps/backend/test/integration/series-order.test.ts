@@ -259,6 +259,65 @@ describe("Series order", () => {
     });
   });
 
+  test("keeps archived composition editable but rejects new assignments", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const unassigned = await authoring.createDraft({
+      actor,
+      idempotencyKey: "series-order-archived-unassigned",
+      metadata: { ...metadata("Unassigned"), seriesIds: [] },
+      body: representativeDocument("Unassigned body."),
+    });
+    if (!unassigned.ok) throw new Error(unassigned.error.code);
+    await testDatabase.prisma.series.update({
+      where: { id: seriesId },
+      data: { archivedAt: new Date() },
+    });
+    try {
+      const loaded = await authoring.loadSeriesOrder({ actor, seriesId });
+      if (!loaded.ok) throw new Error(loaded.error.code);
+      expect(loaded.value.archived).toBe(true);
+      const currentIds = loaded.value.items.map(({ materialId }) => materialId);
+      const reordered = await authoring.reorderSeries({
+        actor,
+        seriesId,
+        expectedOrderVersion: loaded.value.orderVersion,
+        orderedMaterialIds: rotateLeft(currentIds),
+      });
+      if (!reordered.ok) throw new Error(reordered.error.code);
+
+      await expect(
+        authoring.reorderSeries({
+          actor,
+          seriesId,
+          expectedOrderVersion: reordered.value.orderVersion,
+          orderedMaterialIds: [
+            ...rotateLeft(currentIds),
+            unassigned.value.materialId,
+          ],
+        }),
+      ).resolves.toEqual({
+        ok: false,
+        error: {
+          code: "invalid_reference",
+          issues: [
+            {
+              code: "series_archived",
+              path: `/orderedMaterialIds/${String(currentIds.length)}`,
+            },
+          ],
+        },
+      });
+    } finally {
+      await testDatabase.prisma.series.update({
+        where: { id: seriesId },
+        data: { archivedAt: null },
+      });
+    }
+  });
+
   test("uses one lock order for concurrent save, delete, and playlist reorder", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,

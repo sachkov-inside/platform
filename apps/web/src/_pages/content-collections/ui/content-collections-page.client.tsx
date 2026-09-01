@@ -9,12 +9,17 @@ import { useState } from "react";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 
-import { mutateContentCollection } from "../api/content-collections.browser";
+import {
+  createContentCollection,
+  setContentCollectionArchive,
+  updateContentCollection,
+} from "../api/content-collections.browser";
 import type {
   ContentCollection,
   ContentCollectionKind,
-  ContentCollectionMutationInput,
   ContentCollectionMutationResult,
+  SetContentCollectionArchiveInput,
+  UpdateContentCollectionInput,
 } from "../model/content-collections";
 
 export function ContentCollectionsPageClient({
@@ -29,26 +34,46 @@ export function ContentCollectionsPageClient({
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [summary, setSummary] = useState("");
-  const mutation = useMutation({
-    mutationFn: mutateContentCollection,
-    onSuccess: (result, input) => {
-      if (result.kind !== "saved") return;
-      setCollections((current) => {
-        const existing = current.some(({ id }) => id === result.collection.id);
-        const next = existing
-          ? current.map((collection) =>
-              collection.id === result.collection.id ? result.collection : collection,
-            )
-          : [...current, result.collection];
-        return [...next].sort((left, right) => left.name.localeCompare(right.name));
-      });
-      if (input.action === "create") {
+  const applySavedCollection = (result: ContentCollectionMutationResult) => {
+    if (result.kind !== "saved") return;
+    setCollections((current) => {
+      const existing = current.some(({ id }) => id === result.collection.id);
+      const next = existing
+        ? current.map((collection) =>
+            collection.id === result.collection.id ? result.collection : collection,
+          )
+        : [...current, result.collection];
+      return [...next].sort((left, right) => left.name.localeCompare(right.name));
+    });
+  };
+  const createMutation = useMutation({
+    mutationFn: createContentCollection,
+    onSuccess: (result) => {
+      applySavedCollection(result);
+      if (result.kind === "saved") {
         setName("");
         setSlug("");
         setSummary("");
       }
     },
   });
+  const updateMutation = useMutation({
+    mutationFn: updateContentCollection,
+    onSuccess: applySavedCollection,
+  });
+  const archiveMutation = useMutation({
+    mutationFn: setContentCollectionArchive,
+    onSuccess: applySavedCollection,
+  });
+  const pending =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    archiveMutation.isPending;
+  const refreshCollections = () => {
+    updateMutation.reset();
+    archiveMutation.reset();
+    router.refresh();
+  };
   const noun = kind === "topic" ? "тему" : "плейлист";
   const plural = kind === "topic" ? "Темы" : "Плейлисты";
 
@@ -71,7 +96,7 @@ export function ContentCollectionsPageClient({
             className="mt-5 grid gap-4 sm:grid-cols-2"
             onSubmit={(event) => {
               event.preventDefault();
-              mutation.mutate({ action: "create", kind, name, slug, summary });
+              createMutation.mutate({ kind, name, slug, summary });
             }}
           >
             <Field label="Название">
@@ -84,13 +109,13 @@ export function ContentCollectionsPageClient({
               <textarea className={`${fieldClassName} min-h-24 py-3`} maxLength={500} onChange={(event) => { setSummary(event.currentTarget.value); }} value={summary} />
             </Field>
             <div className="sm:col-span-2">
-              <Button disabled={mutation.isPending} type="submit">
-                {mutation.isPending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : <Plus aria-hidden="true" />}
+              <Button disabled={pending} type="submit">
+                {createMutation.isPending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : <Plus aria-hidden="true" />}
                 Создать
               </Button>
             </div>
           </form>
-          <MutationNotice onRefresh={() => { router.refresh(); }} result={mutation.data ?? null} />
+          <MutationNotice onRefresh={refreshCollections} result={createMutation.data ?? null} />
         </section>
 
         <section aria-labelledby="collection-list" className="mt-9">
@@ -108,13 +133,16 @@ export function ContentCollectionsPageClient({
               {collections.map((collection) => (
                 <CollectionEditor
                   collection={collection}
-                  disabled={mutation.isPending}
+                  disabled={pending}
                   key={`${collection.id}-${String(collection.version)}`}
-                  onMutate={(input) => { mutation.mutate(input); }}
+                  onArchive={(input) => { archiveMutation.mutate(input); }}
+                  onUpdate={(input) => { updateMutation.mutate(input); }}
                 />
               ))}
             </div>
           )}
+          <MutationNotice onRefresh={refreshCollections} result={updateMutation.data ?? null} />
+          <MutationNotice onRefresh={refreshCollections} result={archiveMutation.data ?? null} />
         </section>
       </div>
     </main>
@@ -124,11 +152,13 @@ export function ContentCollectionsPageClient({
 function CollectionEditor({
   collection,
   disabled,
-  onMutate,
+  onArchive,
+  onUpdate,
 }: {
   readonly collection: ContentCollection;
   readonly disabled: boolean;
-  readonly onMutate: (input: ContentCollectionMutationInput) => void;
+  readonly onArchive: (input: SetContentCollectionArchiveInput) => void;
+  readonly onUpdate: (input: UpdateContentCollectionInput) => void;
 }) {
   const [name, setName] = useState(collection.name);
   const [summary, setSummary] = useState(collection.summary);
@@ -156,8 +186,7 @@ function CollectionEditor({
         className="mt-5 grid gap-4"
         onSubmit={(event) => {
           event.preventDefault();
-          onMutate({
-            action: "update",
+          onUpdate({
             collectionId: collection.id,
             expectedVersion: collection.version,
             kind: collection.kind,
@@ -180,8 +209,7 @@ function CollectionEditor({
           <Button
             disabled={disabled}
             onClick={() => {
-              onMutate({
-                action: "archive",
+              onArchive({
                 archived: !collection.archived,
                 collectionId: collection.id,
                 expectedVersion: collection.version,

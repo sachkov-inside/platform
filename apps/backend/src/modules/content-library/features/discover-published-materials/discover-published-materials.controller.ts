@@ -42,8 +42,7 @@ import {
 } from "../../shared/published-catalog-http.js";
 import { discoverPublishedMaterials } from "./discover-published-materials.js";
 
-const COLLECTION_SIZE = 24;
-const COMPLETE_SERIES_SIZE = 10_000;
+const TOPIC_METADATA_SIZE = 0;
 const RELATED_SIZE = 6;
 const discoverySlugSchema = toOpenApiSchema(
   z.string().max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u),
@@ -82,7 +81,7 @@ export class DiscoverPublishedMaterialsController {
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("slug") slug: string,
   ) {
-    return this.read("topic", slug, COLLECTION_SIZE, account);
+    return this.read("topic", slug, TOPIC_METADATA_SIZE, account);
   }
 
   @Get("series/:slug")
@@ -100,7 +99,7 @@ export class DiscoverPublishedMaterialsController {
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("slug") slug: string,
   ) {
-    return this.read("series", slug, COMPLETE_SERIES_SIZE, account);
+    return this.read("series", slug, null, account);
   }
 
   @Get("materials/:slug/related")
@@ -124,7 +123,7 @@ export class DiscoverPublishedMaterialsController {
   private async read(
     kind: "related" | "series" | "topic",
     slug: string,
-    first: number,
+    first: number | null,
     account: AuthenticatedAccount | undefined,
   ) {
     const result = await discoverPublishedMaterials(

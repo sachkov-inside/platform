@@ -551,6 +551,7 @@ export class MaterialAuthoringService {
   }: {
     seriesId: string,
   }): CancelablePromise<{
+    archived: boolean;
     availableMaterials: Array<{
       materialId: string;
       publicationState: 'draft' | 'published' | 'unpublished';

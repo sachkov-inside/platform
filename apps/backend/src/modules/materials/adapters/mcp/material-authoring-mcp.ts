@@ -318,7 +318,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       inputSchema: z
         .object({
           expectedOrderVersion: seriesOrderVersionSchema,
-          orderedMaterialIds: z.array(materialIdWireSchema).max(10_000),
+          orderedMaterialIds: z.array(materialIdWireSchema),
           seriesId: collectionIdSchema,
         })
         .strict(),

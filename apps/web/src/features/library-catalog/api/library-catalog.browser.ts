@@ -46,7 +46,6 @@ export class LibraryCatalogQueryError extends Error {
   }
 }
 
-/** Owns the browser-side catalog query, including cursor continuation through the same-origin BFF. */
 export function libraryCatalogQueryOptions(query: LibrarySearchQuery) {
   return createLibraryCatalogQueryOptions(
     ({ after, signal }) => requestLibraryCatalogPage(query, after, signal),
@@ -59,26 +58,18 @@ export async function requestLibraryCatalogPage(
   after: string | undefined,
   signal: AbortSignal,
 ): Promise<LibraryCatalogPage> {
-  const search = serializeLibrarySearchQuery({
-    ...query,
-    after: after ?? null,
-  });
+  const search = serializeLibrarySearchQuery({ ...query, after: after ?? null });
   const response = await fetch(
     search.length === 0
       ? "/api/library/materials"
       : `/api/library/materials?${search}`,
-    {
-      headers: { Accept: "application/json" },
-      signal,
-    },
+    { headers: { Accept: "application/json" }, signal },
   );
-
   if (!response.ok) {
     throw new LibraryCatalogQueryError(
       `Library query returned ${String(response.status)}`,
     );
   }
-
   let payload: unknown;
   try {
     payload = await response.json();
@@ -88,7 +79,6 @@ export async function requestLibraryCatalogPage(
       { cause },
     );
   }
-
   const parsed = libraryCatalogPageSchema.safeParse(payload);
   if (!parsed.success) {
     throw new LibraryCatalogQueryError(
@@ -96,6 +86,5 @@ export async function requestLibraryCatalogPage(
       { cause: parsed.error },
     );
   }
-
   return parsed.data;
 }

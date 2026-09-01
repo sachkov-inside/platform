@@ -17,6 +17,10 @@ export type {
   SeriesMembershipInput,
 } from "./facets/material-authoring/material-authoring.contract.js";
 export type {
+  ContentCollectionDto,
+  ContentCollectionKind,
+} from "./facets/material-authoring/content-collection.contract.js";
+export type {
   CreateDraftCommand,
   CreateDraftError,
   CreateDraftResult,
@@ -68,8 +72,6 @@ export type {
   CreateContentCollectionResult,
 } from "./features/create-content-collection/create-content-collection.contract.js";
 export type {
-  ContentCollectionDto,
-  ContentCollectionKind,
   ListContentCollectionsQuery,
   ListContentCollectionsResult,
 } from "./features/list-content-collections/list-content-collections.contract.js";

@@ -9,15 +9,15 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { libraryCatalogQueryOptions } from "../api/library-catalog.browser";
-import type { LibraryCatalogQueryOptions } from "../model/library-catalog-query";
-import type { LibraryCatalogPage } from "../model/library-view";
 import {
+  InfiniteMaterialCatalog,
+  libraryCatalogQueryOptions,
   parseLibrarySearchParams,
   serializeLibrarySearchQuery,
+  type LibraryCatalogPage,
+  type LibraryCatalogQueryOptions,
   type LibrarySearchQuery,
-} from "../model/library-search-query";
-import { InfiniteLibraryCatalog } from "./infinite-library-catalog.client";
+} from "@/features/library-catalog";
 import {
   LibraryLoading,
   LibraryPage,
@@ -150,7 +150,7 @@ export function LibraryCatalogQueryView({
   return (
     <LibraryPage
       catalog={
-        <InfiniteLibraryCatalog
+        <InfiniteMaterialCatalog
           hasNextPage={query.hasNextPage}
           isFetchNextPageError={query.isFetchNextPageError}
           isFetchingNextPage={query.isFetchingNextPage}
