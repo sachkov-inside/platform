@@ -75,7 +75,7 @@ export class UploadMaterialAssetController {
   @ApiResponse({ status: 404, content: problemDetailsContent(uploadProblemSchema(404, ["material_not_found"])) })
   @ApiResponse({ status: 409, content: problemDetailsContent(uploadProblemSchema(409, ["idempotency_key_reused", "upload_in_progress"])) })
   @ApiResponse({ status: 413, content: problemDetailsContent(uploadProblemSchema(413, ["image_too_large", "size_mismatch", "upload_too_large"])) })
-  @ApiResponse({ status: 422, content: problemDetailsContent(uploadProblemSchema(422, ["checksum_mismatch", "executable_content", "image_decode_failed", "invalid_upload", "mime_mismatch", "unsupported_image_type"])) })
+  @ApiResponse({ status: 422, content: problemDetailsContent(uploadProblemSchema(422, ["checksum_mismatch", "executable_content", "image_decode_failed", "invalid_upload", "mime_mismatch", "unsupported_file_type", "unsupported_image_type"])) })
   @ApiResponse({ status: 500, content: problemDetailsContent(uploadProblemSchema(500, ["internal_error"])) })
   @ApiResponse({ status: 503, content: problemDetailsContent(uploadProblemSchema(503, ["dependency_unavailable"])) })
   async upload(
@@ -154,6 +154,7 @@ function throwAssetUploadError(error: Extract<UploadMaterialAssetForAuthoringRes
     case "image_decode_failed":
     case "invalid_upload":
     case "mime_mismatch":
+    case "unsupported_file_type":
     case "unsupported_image_type": throw uploadProblem(422, error.code, "Uploaded bytes are not an accepted Material asset");
   }
 }

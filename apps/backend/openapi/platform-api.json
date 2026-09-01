@@ -7076,6 +7076,7 @@
                         "image_decode_failed",
                         "invalid_upload",
                         "mime_mismatch",
+                        "unsupported_file_type",
                         "unsupported_image_type"
                       ],
                       "type": "string"

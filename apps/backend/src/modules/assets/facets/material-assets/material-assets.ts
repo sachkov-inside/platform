@@ -25,6 +25,7 @@ export type UploadMaterialAssetError =
         | "image_too_large"
         | "mime_mismatch"
         | "size_mismatch"
+        | "unsupported_file_type"
         | "unsupported_image_type";
     }
   | { readonly code: "idempotency_key_reused" }

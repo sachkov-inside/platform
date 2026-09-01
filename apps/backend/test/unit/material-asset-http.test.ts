@@ -61,6 +61,18 @@ describe("Material asset HTTP controllers", () => {
       503,
       "dependency_unavailable",
     );
+
+    const unsupportedFileController = new UploadMaterialAssetController({
+      upload: vi.fn<MaterialAssetAuthoring["upload"]>().mockResolvedValue({
+        error: { code: "unsupported_file_type" },
+        ok: false,
+      }),
+    });
+    await expectHttpProblem(
+      unsupportedFileController.upload(account, materialId, "request-3", multipartRequest()),
+      422,
+      "unsupported_file_type",
+    );
   });
 
   test("requires an exact current content version and preview boolean before delivery", async () => {

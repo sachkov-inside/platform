@@ -720,6 +720,7 @@ function processingFailureCode(code: string): Extract<UploadMaterialAssetResult,
     case "image_too_large":
     case "mime_mismatch":
     case "size_mismatch":
+    case "unsupported_file_type":
     case "unsupported_image_type": return code;
     case "storage_failure": return "dependency_unavailable";
     default: return "invalid_upload";

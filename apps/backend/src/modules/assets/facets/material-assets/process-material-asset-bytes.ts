@@ -19,41 +19,95 @@ const IMAGE_CONTENT_TYPES = new Set([
 const EXECUTABLE_EXTENSIONS = new Set([
   ".apk",
   ".app",
+  ".bash",
   ".bat",
   ".cjs",
   ".cmd",
   ".com",
+  ".command",
   ".dll",
   ".exe",
+  ".fish",
   ".htm",
   ".html",
+  ".hta",
   ".jar",
   ".js",
+  ".lua",
   ".mjs",
   ".msi",
+  ".php",
+  ".php3",
+  ".php4",
+  ".php5",
+  ".phtml",
+  ".pl",
+  ".pm",
   ".ps1",
+  ".py",
+  ".pyw",
+  ".r",
+  ".rb",
   ".sh",
   ".svg",
+  ".vbe",
+  ".vbs",
   ".wasm",
+  ".wsf",
+  ".wsh",
   ".xhtml",
   ".xml",
   ".xsl",
+  ".zsh",
 ]);
 const EXECUTABLE_CONTENT_TYPES = new Set([
   "application/java-archive",
   "application/javascript",
+  "application/vbscript",
   "application/vnd.microsoft.portable-executable",
   "application/wasm",
+  "application/x-csh",
   "application/x-dosexec",
   "application/x-executable",
+  "application/x-httpd-php",
   "application/x-msdownload",
+  "application/x-perl",
+  "application/x-php",
+  "application/x-python-code",
+  "application/x-ruby",
   "application/x-sh",
+  "application/x-shellscript",
   "application/xhtml+xml",
   "application/xml",
   "image/svg+xml",
   "text/html",
   "text/javascript",
+  "text/vbscript",
   "text/xml",
+  "text/x-lua",
+  "text/x-perl",
+  "text/x-php",
+  "text/x-python",
+  "text/x-ruby",
+  "text/x-script.python",
+]);
+const VIDEO_EXTENSIONS = new Set([
+  ".3g2",
+  ".3gp",
+  ".avi",
+  ".flv",
+  ".m2ts",
+  ".m4v",
+  ".mkv",
+  ".mov",
+  ".mp4",
+  ".mpeg",
+  ".mpg",
+  ".mts",
+  ".ogv",
+  ".ts",
+  ".webm",
+  ".wmv",
 ]);
 const RESPONSIVE_WIDTHS = [480, 960, 1600] as const;
 
@@ -65,6 +119,7 @@ export type MaterialAssetProcessingError = Readonly<{
     | "image_too_large"
     | "mime_mismatch"
     | "size_mismatch"
+    | "unsupported_file_type"
     | "unsupported_image_type";
 }>;
 
@@ -144,6 +199,12 @@ export async function processMaterialAssetBytes(input: {
     declaredContentType !== detected.mime
   ) {
     return failure("mime_mismatch");
+  }
+  if (
+    actualContentType.startsWith("video/") ||
+    VIDEO_EXTENSIONS.has(extname(input.filename).toLowerCase())
+  ) {
+    return failure("unsupported_file_type");
   }
   if (
     isExecutableContent(input.filename, actualContentType, input.body)

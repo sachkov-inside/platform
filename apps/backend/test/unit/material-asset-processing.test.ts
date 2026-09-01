@@ -76,5 +76,39 @@ describe("MaterialAsset byte processing", () => {
         kind: "file",
       }),
     ).resolves.toEqual({ error: { code: "executable_content" }, ok: false });
+
+    const python = new TextEncoder().encode("print('unsafe')\n");
+    await expect(
+      processMaterialAssetBytes({
+        body: python,
+        declaredContentType: "text/x-python",
+        declaredSize: python.byteLength,
+        expectedChecksumSha256: checksum(python),
+        filename: "task.py",
+        kind: "file",
+      }),
+    ).resolves.toEqual({ error: { code: "executable_content" }, ok: false });
+  });
+
+  test("rejects video bytes disguised as a downloadable file", async () => {
+    const video = Uint8Array.from([
+      0x00, 0x00, 0x00, 0x18,
+      0x66, 0x74, 0x79, 0x70,
+      0x69, 0x73, 0x6f, 0x6d,
+      0x00, 0x00, 0x00, 0x00,
+      0x69, 0x73, 0x6f, 0x6d,
+      0x6d, 0x70, 0x34, 0x32,
+    ]);
+
+    await expect(
+      processMaterialAssetBytes({
+        body: video,
+        declaredContentType: "video/mp4",
+        declaredSize: video.byteLength,
+        expectedChecksumSha256: checksum(video),
+        filename: "lesson.mp4",
+        kind: "file",
+      }),
+    ).resolves.toEqual({ error: { code: "unsupported_file_type" }, ok: false });
   });
 });

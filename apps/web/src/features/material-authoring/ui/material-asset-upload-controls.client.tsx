@@ -69,6 +69,7 @@ const uploadResponseSchema = z.object({
   state: z.literal("ready"),
 });
 const uploadProblemSchema = z.object({ code: z.string() });
+const NON_VIDEO_FILE_ACCEPT = "application/*,audio/*,font/*,message/*,model/*,text/*";
 
 export function useMaterialAssetUploads(
   editor: Editor | null,
@@ -229,7 +230,7 @@ export function MaterialAssetUploadButtons({
         <FileText aria-hidden="true" />
       </Button>
       <input accept="image/avif,image/jpeg,image/png,image/webp" aria-label="Выбрать изображения" className="sr-only" disabled={disabled} multiple onChange={selected("image")} ref={imageInput} type="file" />
-      <input aria-label="Выбрать файлы" className="sr-only" disabled={disabled} multiple onChange={selected("file")} ref={fileInput} type="file" />
+      <input accept={NON_VIDEO_FILE_ACCEPT} aria-label="Выбрать файлы" className="sr-only" disabled={disabled} multiple onChange={selected("file")} ref={fileInput} type="file" />
     </>
   );
 }
@@ -360,6 +361,7 @@ function uploadErrorMessage(error: unknown): string {
     case "image_too_large": return "Изображение превышает допустимый размер";
     case "mime_mismatch":
     case "unsupported_image_type": return "Формат файла не совпадает с его содержимым";
+    case "unsupported_file_type": return "Видео загружается через отдельный видеосценарий";
     case "checksum_mismatch": return "Файл повредился при передаче — повторите загрузку";
     default: return "Не удалось загрузить. Локальный текст сохранён";
   }

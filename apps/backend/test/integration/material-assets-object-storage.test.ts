@@ -4,6 +4,7 @@ import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import { MinioContainer, type StartedMinioContainer } from "@testcontainers/minio";
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import { createS3ObjectStorage, type ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
@@ -24,6 +25,12 @@ const credentials = {
   accessKeyId: "inside-test-access-key",
   secretAccessKey: "inside-test-secret-key",
 } as const;
+const materialAssetLockRowsSchema = z
+  .array(z.object({ id: z.uuid() }).strict())
+  .length(1);
+const materialAssetLockWaiterRowsSchema = z
+  .array(z.object({ waiting: z.number().int().nonnegative() }).strict())
+  .length(1);
 
 let minio: StartedMinioContainer;
 let storage: ObjectStorage;
@@ -233,12 +240,14 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     const lockReady = deferredSignal();
     const releaseLock = deferredSignal();
     const lockTransaction = database.prisma.$transaction(async (transaction) => {
-      await transaction.$queryRaw(Prisma.sql`
-        select id
-        from assets.material_assets
-        where id = ${failed.id}::uuid
-        for update
-      `);
+      materialAssetLockRowsSchema.parse(
+        await transaction.$queryRaw(Prisma.sql`
+          select id
+          from assets.material_assets
+          where id = ${failed.id}::uuid
+          for update
+        `),
+      );
       lockReady.resolve();
       await releaseLock.promise;
     }, { timeout: 10_000 });
@@ -510,13 +519,15 @@ function deferredSignal() {
 async function waitForMaterialAssetLockWaiters(minimum: number): Promise<void> {
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
-    const rows = await database.prisma.$queryRaw<readonly { readonly waiting: number }[]>(Prisma.sql`
-      select count(*)::integer as waiting
-      from pg_stat_activity
-      where datname = current_database()
-        and cardinality(pg_blocking_pids(pid)) > 0
-        and query ilike '%material_assets%'
-    `);
+    const rows = materialAssetLockWaiterRowsSchema.parse(
+      await database.prisma.$queryRaw(Prisma.sql`
+        select count(*)::integer as waiting
+        from pg_stat_activity
+        where datname = current_database()
+          and cardinality(pg_blocking_pids(pid)) > 0
+          and query ilike '%material_assets%'
+      `),
+    );
     if ((rows[0]?.waiting ?? 0) >= minimum) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
