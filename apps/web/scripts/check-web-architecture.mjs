@@ -126,7 +126,7 @@ function moduleLayer(file) {
   return {
     layer,
     rank: layerRanks.get(layer),
-    slice: rawSlice.replace(/\.(?:server|client)?\.[cm]?[jt]sx?$/u, ""),
+    slice: rawSlice.split(".")[0] ?? rawSlice,
   };
 }
 

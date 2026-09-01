@@ -6,7 +6,7 @@ import { accountProfileQueryKey } from "@/_pages/account/model/account-profile-q
 import {
   executeCreateMemberProfile,
   executeUpdateMemberProfile,
-} from "@/_pages/account/operations.server";
+} from "@/_pages/account.operations.server";
 import { getMemberProfile } from "@/_pages/member-profile/api/get-member-profile";
 import {
   profileInitials,

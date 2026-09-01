@@ -8,7 +8,7 @@ import { parseAuthoringMaterialsQuery } from "@/_pages/authoring-materials/model
 import {
   executeDeleteMaterialDraft,
   executeTransitionMaterialPublication,
-} from "@/features/material-lifecycle/operations.server";
+} from "@/features/material-lifecycle.operations.server";
 import {
   parseAuthoringReturnHref,
   withAuthoringReturnHref,
