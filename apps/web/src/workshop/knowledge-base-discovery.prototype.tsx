@@ -3,8 +3,6 @@
 import {
   ArrowUpRight,
   ListFilter,
-  ListVideo,
-  Search,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -16,11 +14,16 @@ import {
   type ApplicationNavigationItem,
 } from "@/widgets/application-shell";
 import {
+  applyMaterialCatalogState,
+  MaterialCatalogControls,
+  type MaterialSortOrder,
+} from "@/workshop/material-catalog-controls.prototype";
+import {
   MaterialCard,
   materialFixtures,
   type MaterialPreviewFixture,
 } from "@/workshop/material-preview.prototype";
-import { LibraryFilters } from "@/workshop/library-filters.prototype";
+import { PlaylistCard as SharedPlaylistCard } from "@/workshop/playlist-card.prototype";
 
 /**
  * PROTOTYPE #197. Three compositions answer one question: how should large Topic and Playlist
@@ -140,7 +143,7 @@ function KnowledgeBaseHeader() {
         База знаний
       </h1>
       <p className="mt-3 max-w-[58ch] text-pretty text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
-        Начните с темы или плейлиста — либо откройте полный каталог материалов.
+        Темы, плейлисты и материалы Sachkov Inside.
       </p>
     </header>
   );
@@ -155,7 +158,6 @@ function FeaturedTopicsVariant({
     <>
       <DiscoverySectionHeader
         className="mt-8 sm:mt-10"
-        description="Карточки открывают отдельные страницы тем."
         title="Темы"
       />
       {availableTopics.length > 0 ? (
@@ -170,13 +172,20 @@ function FeaturedTopicsVariant({
 
       <DiscoverySectionHeader
         className="mt-10 sm:mt-12"
-        description="Материалы в порядке, который задал автор."
         title="Плейлисты"
       />
       {availablePlaylists.length > 0 ? (
-        <div className="mt-4 grid gap-4 @min-[48rem]/knowledge:grid-cols-2">
+        <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/knowledge:grid-cols-2">
           {availablePlaylists.map((playlist) => (
-            <PlaylistCard key={playlist.slug} playlist={playlist} />
+            <SharedPlaylistCard
+              key={playlist.slug}
+              playlist={{
+                countLabel: formatMaterialCount(playlist.count),
+                name: playlist.title,
+                slug: playlist.slug,
+                summary: playlist.description,
+              }}
+            />
           ))}
         </div>
       ) : (
@@ -205,7 +214,6 @@ function EqualTopicsVariant({
     <>
       <DiscoverySectionHeader
         className="mt-8 sm:mt-10"
-        description="Все направления равноправны; выбор сразу уточняет каталог."
         title="Темы"
       />
       {availableTopics.length > 0 ? (
@@ -227,14 +235,21 @@ function EqualTopicsVariant({
 
       <DiscoverySectionHeader
         className="mt-10 sm:mt-12"
-        description="Материалы в порядке, который задал автор."
         title="Плейлисты"
       />
       {availablePlaylists.length > 0 ? (
         <section aria-label="Плейлисты">
-          <div className="mt-4 grid gap-4 @min-[48rem]/knowledge:grid-cols-2">
+          <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/knowledge:grid-cols-2">
             {availablePlaylists.map((playlist) => (
-              <PlaylistCard key={playlist.slug} playlist={playlist} />
+              <SharedPlaylistCard
+                key={playlist.slug}
+                playlist={{
+                  countLabel: formatMaterialCount(playlist.count),
+                  name: playlist.title,
+                  slug: playlist.slug,
+                  summary: playlist.description,
+                }}
+              />
             ))}
           </div>
         </section>
@@ -262,13 +277,20 @@ function PlaylistFirstVariant({
     <>
       <DiscoverySectionHeader
         className="mt-8 sm:mt-10"
-        description="Готовый маршрут получает первый приоритет на странице."
         title="Плейлисты"
       />
       {availablePlaylists.length > 0 ? (
-        <div className="mt-4">
+        <div className="@container/playlist-surface mt-4 grid max-w-[68rem] gap-4 @min-[48rem]/knowledge:grid-cols-2">
           {availablePlaylists.map((playlist) => (
-            <FeaturedPlaylistCard key={playlist.slug} playlist={playlist} />
+            <SharedPlaylistCard
+              key={playlist.slug}
+              playlist={{
+                countLabel: formatMaterialCount(playlist.count),
+                name: playlist.title,
+                slug: playlist.slug,
+                summary: playlist.description,
+              }}
+            />
           ))}
         </div>
       ) : (
@@ -277,7 +299,6 @@ function PlaylistFirstVariant({
 
       <DiscoverySectionHeader
         className="mt-10 sm:mt-12"
-        description="Самостоятельные направления для свободного изучения."
         title="Темы"
       />
       {availableTopics.length > 0 ? (
@@ -297,17 +318,14 @@ function PlaylistFirstVariant({
 
 function DiscoverySectionHeader({
   className,
-  description,
   title,
 }: {
   readonly className?: string;
-  readonly description: string;
   readonly title: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap items-end justify-between gap-x-6 gap-y-2", className)}>
+    <div className={className}>
       <h2 className="text-xl font-semibold tracking-[-0.025em] sm:text-2xl">{title}</h2>
-      <p className="max-w-[52ch] text-sm leading-6 text-muted-foreground">{description}</p>
     </div>
   );
 }
@@ -470,99 +488,6 @@ function TopicArtwork({
   );
 }
 
-function PlaylistCard({ playlist }: { readonly playlist: PlaylistFixture }) {
-  return (
-    <a
-      className="group/playlist grid min-h-32 overflow-clip rounded-2xl bg-secondary text-foreground no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none @min-[34rem]/knowledge:grid-cols-[9rem_minmax(0,1fr)]"
-      href={`/series/${playlist.slug}`}
-    >
-      <PlaylistArtwork />
-      <span className="flex min-w-0 items-center justify-between gap-4 p-5">
-        <span className="min-w-0">
-          <span className="block text-lg font-semibold leading-6 tracking-[-0.025em]">
-            {playlist.title}
-          </span>
-          <span className="mt-2 block text-sm leading-5 text-muted-foreground">
-            {playlist.description}
-          </span>
-          <span className="mt-3 block font-mono text-[0.6875rem] text-muted-foreground">
-            {formatMaterialCount(playlist.count)}
-          </span>
-        </span>
-        <ArrowUpRight
-          aria-hidden="true"
-          className="size-5 shrink-0 text-accent transition-transform group-hover/playlist:-translate-y-0.5 group-hover/playlist:translate-x-0.5 motion-reduce:transform-none"
-        />
-      </span>
-    </a>
-  );
-}
-
-function FeaturedPlaylistCard({ playlist }: { readonly playlist: PlaylistFixture }) {
-  return (
-    <a
-      className="group/playlist grid min-h-72 overflow-clip rounded-2xl bg-sidebar text-sidebar-foreground no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-sidebar-ring motion-reduce:transform-none motion-reduce:transition-none @min-[46rem]/knowledge:grid-cols-[minmax(18rem,0.85fr)_minmax(0,1.15fr)]"
-      href={`/series/${playlist.slug}`}
-    >
-      <PlaylistArtwork featured />
-      <span className="flex min-w-0 flex-col justify-end p-6 sm:p-8">
-        <span className="flex items-start justify-between gap-5">
-          <span className="block max-w-[20ch] text-2xl font-semibold leading-[1.12] tracking-[-0.03em] sm:text-3xl">
-            {playlist.title}
-          </span>
-          <ArrowUpRight
-            aria-hidden="true"
-            className="size-6 shrink-0 text-sidebar-primary transition-transform group-hover/playlist:-translate-y-0.5 group-hover/playlist:translate-x-0.5 motion-reduce:transform-none"
-          />
-        </span>
-        <span className="mt-4 block max-w-[48ch] text-sm leading-6 text-sidebar-foreground/70">
-          {playlist.description}
-        </span>
-        <span className="mt-6 block font-mono text-[0.6875rem] text-sidebar-foreground/58">
-          {formatMaterialCount(playlist.count)} · авторский порядок
-        </span>
-      </span>
-    </a>
-  );
-}
-
-function PlaylistArtwork({ featured = false }: { readonly featured?: boolean }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "relative grid min-h-32 place-items-center overflow-clip bg-sidebar text-sidebar-foreground",
-        featured && "min-h-56 border-b border-sidebar-border @min-[46rem]/knowledge:border-b-0 @min-[46rem]/knowledge:border-r",
-      )}
-    >
-      <span className="absolute inset-x-5 top-5 h-px bg-sidebar-border" />
-      <span className="absolute bottom-5 left-5 top-5 w-px bg-sidebar-border" />
-      <span
-        className={cn(
-          "grid grid-cols-[repeat(3,2.75rem)] items-center gap-2",
-          featured && "grid-cols-[repeat(3,4rem)] gap-3",
-        )}
-      >
-        {["1", "2", "3"].map((step) => (
-          <span
-            className={cn(
-              "relative grid size-11 place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent font-mono text-xs text-sidebar-accent-foreground",
-              featured && "size-16 text-sm",
-            )}
-            key={step}
-          >
-            {step}
-            {step !== "3" ? (
-              <span className="absolute left-full top-1/2 h-px w-2 bg-sidebar-primary" />
-            ) : null}
-          </span>
-        ))}
-      </span>
-      <ListVideo className="absolute bottom-5 right-5 size-5 text-sidebar-primary" />
-    </span>
-  );
-}
-
 function CatalogSection({
   activeContext = null,
   materials: availableMaterials,
@@ -572,30 +497,17 @@ function CatalogSection({
   readonly materials: readonly MaterialPreviewFixture[];
   readonly onResetContext?: (() => void) | undefined;
 }) {
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedFormats, setSelectedFormats] = useState<readonly string[]>([]);
   const [selectedPlaylists, setSelectedPlaylists] = useState<readonly string[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<readonly string[]>([]);
-  const normalizedQuery = query.trim().toLocaleLowerCase("ru");
-  const visibleMaterials = availableMaterials.filter((material) => {
-    const searchableText = [
-      material.title,
-      material.summary,
-      material.topic,
-      ...material.tags,
-      ...material.series.map((series) => series.title),
-    ]
-      .join(" ")
-      .toLocaleLowerCase("ru");
-
-    return (
-      (normalizedQuery.length === 0 || searchableText.includes(normalizedQuery)) &&
-      (selectedTopics.length === 0 || selectedTopics.includes(material.topic)) &&
-      (selectedFormats.length === 0 || selectedFormats.includes(material.format)) &&
-      (selectedPlaylists.length === 0 ||
-        material.series.some((series) => selectedPlaylists.includes(series.id)))
-    );
+  const [sortOrder, setSortOrder] = useState<MaterialSortOrder>("default");
+  const visibleMaterials = applyMaterialCatalogState(availableMaterials, {
+    query,
+    selectedFormats,
+    selectedSeriesIds: selectedPlaylists,
+    selectedTopics,
+    sortOrder,
   });
 
   return (
@@ -625,63 +537,28 @@ function CatalogSection({
         ) : null}
       </div>
 
-      <div className="mt-5 grid gap-2 @min-[40rem]/knowledge:grid-cols-[minmax(0,1fr)_auto]">
-        <label className="relative block">
-          <span className="sr-only">Поиск по базе знаний</span>
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <input
-            className="min-h-11 w-full rounded-xl border border-input bg-card pl-10 pr-3 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
-            onChange={(event) => {
-              setQuery(event.target.value);
-            }}
-            placeholder="Название, тема или тег"
-            type="search"
-            value={query}
-          />
-        </label>
-        <Button
-          aria-controls="prototype-catalog-filters"
-          aria-expanded={filtersExpanded}
-          className="min-h-11 justify-center bg-card px-4"
-          onClick={() => {
-            setFiltersExpanded((current) => !current);
-          }}
-          variant="outline"
-        >
-          <ListFilter aria-hidden="true" className="size-4" />
-          Фильтры
-        </Button>
-      </div>
-
-      {filtersExpanded ? (
-        <div
-          className="mt-2 rounded-xl bg-muted p-3"
-          id="prototype-catalog-filters"
-        >
-          <LibraryFilters
-            density="compact"
-            formatOptions={["Гайд", "Видео"]}
-            selectedFormats={selectedFormats}
-            selectedSeriesIds={selectedPlaylists}
-            selectedTopics={selectedTopics}
-            seriesLabel="Плейлист"
-            seriesOptions={playlists.map((playlist) => ({
-              label: playlist.title,
-              value: `series-${playlist.slug}`,
-            }))}
-            setSelectedFormats={setSelectedFormats}
-            setSelectedSeriesIds={setSelectedPlaylists}
-            setSelectedTopics={setSelectedTopics}
-            topicOptions={topics.map((topic) => topic.title)}
-          />
-        </div>
-      ) : null}
+      <MaterialCatalogControls
+        formatOptions={["Гайд", "Видео"]}
+        idPrefix="knowledge-materials"
+        query={query}
+        selectedFormats={selectedFormats}
+        selectedSeriesIds={selectedPlaylists}
+        selectedTopics={selectedTopics}
+        seriesOptions={playlists.map((playlist) => ({
+          label: playlist.title,
+          value: `series-${playlist.slug}`,
+        }))}
+        setQuery={setQuery}
+        setSelectedFormats={setSelectedFormats}
+        setSelectedSeriesIds={setSelectedPlaylists}
+        setSelectedTopics={setSelectedTopics}
+        setSortOrder={setSortOrder}
+        sortOrder={sortOrder}
+        topicOptions={topics.map((topic) => topic.title)}
+      />
 
       {visibleMaterials.length > 0 ? (
-        <div className="mt-5 grid items-start justify-items-center gap-4 @min-[42rem]/knowledge:grid-cols-2 @min-[68rem]/knowledge:grid-cols-3">
+        <div className="mt-5 grid items-stretch justify-items-center gap-4 @min-[42rem]/knowledge:grid-cols-2 @min-[68rem]/knowledge:grid-cols-3">
           {visibleMaterials.map((material) => (
             <MaterialCard headingLevel="h3" key={material.id} material={material} />
           ))}
@@ -691,11 +568,11 @@ function CatalogSection({
           <h3 className="text-lg font-semibold">
             {availableMaterials.length === 0 ? "Материалов пока нет" : "Ничего не найдено"}
           </h3>
-          <p className="mx-auto mt-2 max-w-[48ch] text-sm leading-6 text-muted-foreground">
-            {availableMaterials.length === 0
-              ? "Опубликованные материалы появятся здесь автоматически."
-              : "Измените поисковый запрос или выбранные фильтры."}
-          </p>
+          {availableMaterials.length === 0 ? null : (
+            <p className="mx-auto mt-2 max-w-[48ch] text-sm leading-6 text-muted-foreground">
+              Измените поисковый запрос или выбранные фильтры.
+            </p>
+          )}
         </div>
       )}
     </section>
@@ -707,11 +584,6 @@ function DiscoveryEmpty({ kind }: { readonly kind: "playlists" | "topics" }) {
     <div className="mt-4 rounded-2xl bg-muted px-5 py-7 sm:px-8">
       <p className="text-base font-semibold">
         {kind === "topics" ? "Тем пока нет" : "Плейлистов пока нет"}
-      </p>
-      <p className="mt-2 max-w-[48ch] text-sm leading-6 text-muted-foreground">
-        {kind === "topics"
-          ? "Темы появятся вместе с опубликованными материалами."
-          : "Авторские последовательности появятся здесь после публикации."}
       </p>
     </div>
   );

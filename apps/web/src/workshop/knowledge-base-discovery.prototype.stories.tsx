@@ -50,13 +50,15 @@ export const FeaturedTopic: Story = {
     await expect(canvas.getByRole("heading", { level: 2, name: "Все материалы" })).toBeVisible();
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
     await expect(prototype).toHaveAttribute("data-prototype-variant", "featured");
+    await expect(canvas.queryByText(/Карточки открывают/u)).not.toBeInTheDocument();
+    await expect(canvas.queryByText(/порядке, который задал автор/u)).not.toBeInTheDocument();
     for (const topicCard of canvasElement.querySelectorAll<HTMLElement>(
       '[data-topic-card="link"]',
     )) {
       await expect(topicCard.getBoundingClientRect().width).toBeLessThanOrEqual(400);
     }
 
-    const search = canvas.getByRole("searchbox", { name: "Поиск по базе знаний" });
+    const search = canvas.getByRole("searchbox", { name: "Поиск по материалам" });
     await userEvent.type(search, "резюме");
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
     await userEvent.clear(search);
@@ -68,6 +70,7 @@ export const FeaturedTopic: Story = {
     await userEvent.click(aiTopicFilter);
     await userEvent.click(filterButton);
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
+    await expect(canvas.getByRole("combobox", { name: "Сортировка" })).toBeVisible();
   },
 };
 
