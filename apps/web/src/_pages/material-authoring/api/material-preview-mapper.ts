@@ -161,6 +161,7 @@ export function mapCurrentMaterialPreview(
         accessLabel:
           current.metadata.access === "membership" ? "Для участников" : "Бесплатный",
         blocks: current.body.blocks,
+        contentVersion: current.contentVersion,
         format: referenceLabel(
           current.metadata.formatId,
           references?.formats,

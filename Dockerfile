@@ -47,7 +47,7 @@ FROM development AS backend-production-build
 
 RUN pnpm --filter @inside/backend build:production \
     && pnpm --config.inject-workspace-packages=true \
-      --filter @inside/backend deploy --prod --no-optional --ignore-scripts /workspace/.production/backend
+      --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend
 
 FROM development AS web-production-build
 

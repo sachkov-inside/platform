@@ -44,14 +44,18 @@ export function MaterialPreview({ preview }: MaterialPreviewProps) {
       </header>
       <div className="mt-12 space-y-6 text-pretty text-[1rem] leading-[1.75] sm:text-[1.0625rem]">
         {preview.blocks.map((block, index) => (
-          <PreviewBlock block={block} key={`${block.kind}-${String(index)}`} materialId={preview.materialId} />
+          <PreviewBlock block={block} contentVersion={preview.contentVersion} key={`${block.kind}-${String(index)}`} materialId={preview.materialId} />
         ))}
       </div>
     </article>
   );
 }
 
-function PreviewBlock({ block, materialId }: { readonly block: MaterialPreviewBlock; readonly materialId: string }) {
+function PreviewBlock({ block, contentVersion, materialId }: {
+  readonly block: MaterialPreviewBlock;
+  readonly contentVersion: number;
+  readonly materialId: string;
+}) {
   switch (block.kind) {
     case "paragraph":
       return <p>{renderInline(block.content)}</p>;
@@ -73,7 +77,7 @@ function PreviewBlock({ block, materialId }: { readonly block: MaterialPreviewBl
           {block.items.map((item, index) => (
             <li key={index}>
               {item.map((child, childIndex) => (
-                <PreviewBlock block={child} key={`${child.kind}-${String(childIndex)}`} materialId={materialId} />
+                <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(childIndex)}`} materialId={materialId} />
               ))}
             </li>
           ))}
@@ -84,7 +88,7 @@ function PreviewBlock({ block, materialId }: { readonly block: MaterialPreviewBl
       return (
         <blockquote className="border-l border-border pl-5 text-muted-foreground">
           {block.content.map((child, index) => (
-            <PreviewBlock block={child} key={`${child.kind}-${String(index)}`} materialId={materialId} />
+            <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(index)}`} materialId={materialId} />
           ))}
         </blockquote>
       );
@@ -97,7 +101,7 @@ function PreviewBlock({ block, materialId }: { readonly block: MaterialPreviewBl
     case "horizontal_rule":
       return <hr className="my-10 border-border" />;
     case "table":
-      return <PreviewTable block={block} materialId={materialId} />;
+      return <PreviewTable block={block} contentVersion={contentVersion} materialId={materialId} />;
     case "callout":
       return (
         <aside className="rounded-xl bg-secondary px-5 py-5 text-secondary-foreground">
@@ -106,7 +110,7 @@ function PreviewBlock({ block, materialId }: { readonly block: MaterialPreviewBl
           </div>
           <div className="mt-2 space-y-3">
             {block.content.map((child, index) => (
-              <PreviewBlock block={child} key={`${child.kind}-${String(index)}`} materialId={materialId} />
+              <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(index)}`} materialId={materialId} />
             ))}
           </div>
         </aside>
@@ -117,6 +121,7 @@ function PreviewBlock({ block, materialId }: { readonly block: MaterialPreviewBl
           alt={block.alt}
           assetId={block.assetId}
           caption={block.caption}
+          contentVersion={contentVersion}
           height={block.height}
           materialId={materialId}
           preview
@@ -125,7 +130,7 @@ function PreviewBlock({ block, materialId }: { readonly block: MaterialPreviewBl
         />
       );
     case "file":
-      return <MaterialAssetFile assetId={block.assetId} contentType={block.contentType} filename={block.filename} label={block.label} materialId={materialId} preview size={block.size} />;
+      return <MaterialAssetFile assetId={block.assetId} contentType={block.contentType} contentVersion={contentVersion} filename={block.filename} label={block.label} materialId={materialId} preview size={block.size} />;
     case "video":
       return (
         <MaterialResourcePlaceholder caption={block.caption} kind="video" />
@@ -135,9 +140,11 @@ function PreviewBlock({ block, materialId }: { readonly block: MaterialPreviewBl
 
 function PreviewTable({
   block,
+  contentVersion,
   materialId,
 }: {
   readonly block: Extract<MaterialPreviewBlock, { readonly kind: "table" }>;
+  readonly contentVersion: number;
   readonly materialId: string;
 }) {
   return (
@@ -162,7 +169,7 @@ function PreviewTable({
                   >
                     <div className="space-y-3">
                       {cell.content.map((child, childIndex) => (
-                        <PreviewBlock block={child} key={`${child.kind}-${String(childIndex)}`} materialId={materialId} />
+                        <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(childIndex)}`} materialId={materialId} />
                       ))}
                     </div>
                   </Cell>

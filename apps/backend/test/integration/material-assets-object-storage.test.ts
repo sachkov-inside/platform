@@ -7,6 +7,8 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { createS3ObjectStorage, type ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
+import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterialAssetMaintenance } from "../../src/modules/materials/features/cleanup-material-assets/cleanup-material-assets.js";
 import { objectStorageConformance } from "../support/object-storage-conformance.js";
 import {
   createMigratedTestDatabase,
@@ -114,10 +116,40 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     await expect(storage.read("public", publicKey)).resolves.toBeNull();
   });
 
-  test("replaces an image with a new Asset and retains only the current reference", async () => {
+  test("replaces an image through Material application facets and cleans only the old Asset", async () => {
     const assets = assembleMaterialAssets({ objectStorage: storage, prisma: database.prisma });
-    const materialId = randomUUID();
     const actor = randomUUID();
+    const materials = assembleMaterials({
+      authorPolicy: { canManage: (accountId) => accountId === actor },
+      prisma: database.prisma,
+    });
+    const metadata = {
+      access: "free" as const,
+      formatId: null,
+      seriesIds: [],
+      summary: null,
+      tagIds: [],
+      title: null,
+      topicId: null,
+    };
+    const created = await materials.authoring.createDraft({
+      actor,
+      body: {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [{
+            type: "paragraph",
+            attrs: { nodeId: randomUUID() },
+            content: [{ type: "text", text: "Initial body" }],
+          }],
+        },
+      },
+      idempotencyKey: "integration-asset-draft",
+      metadata,
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    const materialId = created.value.materialId;
     const image = await sharp({
       create: {
         background: { alpha: 1, b: 80, g: 70, r: 60 },
@@ -145,6 +177,31 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     expect(replacement.value.assetId).not.toBe(original.value.assetId);
     expect(replacement.value.variants?.map(({ width }) => width)).toEqual([480, 640]);
 
+    const saved = await materials.authoring.saveMaterial({
+      actor,
+      body: {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [{
+            type: "assetImage",
+            attrs: {
+              alt: "Current architecture",
+              assetId: replacement.value.assetId,
+              caption: null,
+              nodeId: randomUUID(),
+            },
+          }],
+        },
+      },
+      expectedContentVersion: created.value.contentVersion,
+      idempotencyKey: "integration-asset-replacement-save",
+      materialId,
+      metadata,
+      publicationState: "draft",
+    });
+    expect(saved).toMatchObject({ ok: true, value: { contentVersion: 2 } });
+
     await expect(assets.loadDelivery({
       assetId: replacement.value.assetId,
       materialId,
@@ -169,11 +226,16 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     if (publicBytes === null) throw new Error("missing public image bytes");
     expect((await sharp(publicBytes.body).metadata()).exif).toBeUndefined();
 
-    await expect(assets.cleanupOrphans({
-      graceMs: 60 * 60 * 1_000,
-      isReferenced: ({ assetId }) => Promise.resolve(assetId === replacement.value.assetId),
-      now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
-    })).resolves.toEqual({ ok: true, value: { cleaned: 1, retained: 1 } });
+    const maintenance = assembleMaterialAssetMaintenance({
+      assets,
+      config: { objectStorage: { orphanGraceMs: 0 } },
+      materials: materials.materialContent,
+    });
+    await expect(maintenance.cleanup()).resolves.toEqual({
+      cleaned: 1,
+      ok: true,
+      retained: 1,
+    });
     await expect(assets.loadDelivery({
       assetId: original.value.assetId,
       materialId,

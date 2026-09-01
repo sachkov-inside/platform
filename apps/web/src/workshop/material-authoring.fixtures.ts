@@ -103,6 +103,7 @@ export const materialAuthoringPresentation = {
   noticeRevision: 0,
   preview: {
     accessLabel: "Для участников",
+    contentVersion: 7,
     materialId: "94000000-0000-4000-8000-000000000101",
     blocks: [
       paragraph(

@@ -190,6 +190,7 @@ function toMaterialMetadata(
 ): MaterialReaderMetadata {
   return {
     materialId: projection.materialId,
+    contentVersion: projection.contentVersion,
     slug: projection.slug,
     title: projection.title,
     summary: projection.summary,

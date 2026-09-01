@@ -55,6 +55,7 @@ export class DeliverMaterialAssetController {
   @ApiOperation({ operationId: "downloadMaterialAsset", summary: "Download a file through current Material access" })
   @ApiParam({ name: "materialId", schema: { type: "string", format: "uuid" } })
   @ApiParam({ name: "assetId", schema: { type: "string", format: "uuid" } })
+  @ApiQuery({ name: "contentVersion", required: true, schema: { type: "integer", minimum: 1 } })
   @ApiQuery({ name: "preview", required: false, schema: { type: "boolean" } })
   @ApiProduces("application/octet-stream")
   @ApiOkResponse({ description: "Public immutable file bytes", schema: { type: "string", format: "binary" } })
@@ -66,9 +67,10 @@ export class DeliverMaterialAssetController {
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("materialId") materialId: string,
     @Param("assetId") assetId: string,
+    @Query("contentVersion") contentVersion: string | undefined,
     @Query("preview") preview: string | undefined,
   ) {
-    return this.send({ account, assetId, materialId, preview });
+    return this.send({ account, assetId, contentVersion, materialId, preview });
   }
 
   @Get(":materialId/assets/:assetId/images/:width")
@@ -76,6 +78,7 @@ export class DeliverMaterialAssetController {
   @ApiParam({ name: "materialId", schema: { type: "string", format: "uuid" } })
   @ApiParam({ name: "assetId", schema: { type: "string", format: "uuid" } })
   @ApiParam({ name: "width", schema: { type: "integer", minimum: 1 } })
+  @ApiQuery({ name: "contentVersion", required: true, schema: { type: "integer", minimum: 1 } })
   @ApiQuery({ name: "preview", required: false, schema: { type: "boolean" } })
   @ApiProduces("image/webp")
   @ApiOkResponse({ description: "Public immutable image bytes", schema: { type: "string", format: "binary" } })
@@ -88,26 +91,40 @@ export class DeliverMaterialAssetController {
     @Param("materialId") materialId: string,
     @Param("assetId") assetId: string,
     @Param("width") width: string,
+    @Query("contentVersion") contentVersion: string | undefined,
     @Query("preview") preview: string | undefined,
   ) {
     const variantWidth = Number(width);
-    return this.send({ account, assetId, materialId, preview, variantWidth });
+    return this.send({
+      account,
+      assetId,
+      contentVersion,
+      materialId,
+      preview,
+      variantWidth,
+    });
   }
 
   private async send(input: {
     readonly account: AuthenticatedAccount | undefined;
     readonly assetId: string;
+    readonly contentVersion: string | undefined;
     readonly materialId: string;
     readonly preview: string | undefined;
     readonly variantWidth?: number;
   }) {
+    const contentVersion = Number(input.contentVersion);
     if (
       !uuid.safeParse(input.materialId).success ||
       !uuid.safeParse(input.assetId).success ||
+      !Number.isInteger(contentVersion) ||
+      contentVersion < 1 ||
+      (input.preview !== undefined && input.preview !== "false" && input.preview !== "true") ||
       (input.variantWidth !== undefined && (!Number.isInteger(input.variantWidth) || input.variantWidth < 1))
     ) throw notFound();
     const result = await this.delivery.deliver({
       assetId: input.assetId,
+      contentVersion,
       materialId: input.materialId,
       preview: input.preview === "true",
       subject: input.account === undefined

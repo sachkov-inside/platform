@@ -4,6 +4,7 @@ import type { ObjectStorage } from "../../../../infrastructure/object-storage/in
 import type { Subject, ContentAccess } from "../../../content-access/index.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import { materialId as checkedMaterialId } from "../../domain/material-identifiers.js";
+import type { MaterialContent } from "../../facets/material-content/material-content.js";
 
 export const MATERIAL_ASSET_DELIVERY = Symbol("MATERIAL_ASSET_DELIVERY");
 
@@ -34,6 +35,7 @@ export type DeliverMaterialAssetResult =
 export interface MaterialAssetDelivery {
   deliver(input: {
     readonly assetId: string;
+    readonly contentVersion: number;
     readonly materialId: string;
     readonly preview: boolean;
     readonly subject: Subject;
@@ -44,6 +46,7 @@ export interface MaterialAssetDelivery {
 export function assembleMaterialAssetDelivery(dependencies: {
   readonly assets: Pick<MaterialAssets, "loadDelivery">;
   readonly contentAccess: ContentAccess;
+  readonly materialContent: Pick<MaterialContent, "containsAssetReference">;
   readonly objectStorage: ObjectStorage;
   readonly signedGetTtlSeconds: number;
 }): MaterialAssetDelivery {
@@ -61,6 +64,16 @@ export function assembleMaterialAssetDelivery(dependencies: {
           ? dependencyUnavailable()
           : notFound();
       }
+      if (access.checkedContentVersion !== input.contentVersion) {
+        return notFound();
+      }
+      const reference = await dependencies.materialContent.containsAssetReference({
+        assetId: input.assetId,
+        checkedContentVersion: access.checkedContentVersion,
+        materialId: input.materialId,
+      });
+      if (!reference.ok) return dependencyUnavailable();
+      if (!reference.value) return notFound();
       let loaded: Awaited<ReturnType<MaterialAssets["loadDelivery"]>>;
       try {
         loaded = await dependencies.assets.loadDelivery(input);

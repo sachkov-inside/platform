@@ -40,7 +40,7 @@ export function MaterialReaderView({ body, material, related }: MaterialReaderVi
           className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[0.96875rem] leading-[1.7] sm:mt-12 sm:text-[1.0625rem]"
           data-reader-body
         >
-          <ReaderBlocks blocks={body} materialId={material.materialId} path={[]} />
+          <ReaderBlocks blocks={body} contentVersion={material.contentVersion} materialId={material.materialId} path={[]} />
         </article>
       </div>
       {related === undefined ? null : (
@@ -180,25 +180,29 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
 
 function ReaderBlocks({
   blocks,
+  contentVersion,
   materialId,
   path,
 }: {
   readonly blocks: readonly ReaderBlock[];
+  readonly contentVersion: number;
   readonly materialId: string;
   readonly path: readonly number[];
 }) {
   return blocks.map((block, index) => {
     const blockPath = [...path, index];
-    return <ReaderBlockView block={block} key={blockPath.join("-")} materialId={materialId} path={blockPath} />;
+    return <ReaderBlockView block={block} contentVersion={contentVersion} key={blockPath.join("-")} materialId={materialId} path={blockPath} />;
   });
 }
 
 function ReaderBlockView({
   block,
+  contentVersion,
   materialId,
   path,
 }: {
   readonly block: ReaderBlock;
+  readonly contentVersion: number;
   readonly materialId: string;
   readonly path: readonly number[];
 }) {
@@ -227,7 +231,7 @@ function ReaderBlockView({
         <List className="mt-5 space-y-2 pl-6 marker:text-accent">
           {block.items.map((item, index) => (
             <li key={index}>
-              <ReaderBlocks blocks={item} materialId={materialId} path={[...path, index]} />
+              <ReaderBlocks blocks={item} contentVersion={contentVersion} materialId={materialId} path={[...path, index]} />
             </li>
           ))}
         </List>
@@ -236,7 +240,7 @@ function ReaderBlockView({
     case "blockquote":
       return (
         <blockquote className="mt-6 border-l-4 border-accent pl-5 text-muted-foreground">
-          <ReaderBlocks blocks={block.content} materialId={materialId} path={path} />
+          <ReaderBlocks blocks={block.content} contentVersion={contentVersion} materialId={materialId} path={path} />
         </blockquote>
       );
     case "code_block":
@@ -251,7 +255,7 @@ function ReaderBlockView({
     case "horizontal_rule":
       return <hr className="my-10 border-border" />;
     case "table":
-      return <ReaderTable block={block} materialId={materialId} path={path} />;
+      return <ReaderTable block={block} contentVersion={contentVersion} materialId={materialId} path={path} />;
     case "callout":
       return (
         <aside
@@ -259,7 +263,7 @@ function ReaderBlockView({
           className="mt-6 rounded-xl bg-secondary px-5 py-5 text-[0.9375rem] leading-7 text-secondary-foreground sm:px-6"
         >
           <p className="font-semibold">{calloutLabel(block.tone)}</p>
-          <ReaderBlocks blocks={block.content} materialId={materialId} path={path} />
+          <ReaderBlocks blocks={block.content} contentVersion={contentVersion} materialId={materialId} path={path} />
         </aside>
       );
     case "image":
@@ -268,6 +272,7 @@ function ReaderBlockView({
           alt={block.alt}
           assetId={block.assetId}
           caption={block.caption}
+          contentVersion={contentVersion}
           height={block.height}
           materialId={materialId}
           variants={block.variants}
@@ -279,6 +284,7 @@ function ReaderBlockView({
         <MaterialAssetFile
           assetId={block.assetId}
           contentType={block.contentType}
+          contentVersion={contentVersion}
           filename={block.filename}
           label={block.label}
           materialId={materialId}
@@ -335,10 +341,12 @@ function applyMarks(text: string, marks: readonly ReaderMark[], key: number): Re
 
 function ReaderTable({
   block,
+  contentVersion,
   materialId,
   path,
 }: {
   readonly block: Extract<ReaderBlock, { readonly kind: "table" }>;
+  readonly contentVersion: number;
   readonly materialId: string;
   readonly path: readonly number[];
 }) {
@@ -364,6 +372,7 @@ function ReaderTable({
                   >
                     <ReaderBlocks
                       blocks={cell.content}
+                      contentVersion={contentVersion}
                       materialId={materialId}
                       path={[...path, rowIndex, cellIndex]}
                     />

@@ -61,6 +61,7 @@ export type ReaderBlock =
 
 export interface MaterialReaderMetadata {
   readonly access: "free" | "membership";
+  readonly contentVersion: number;
   readonly materialId: string;
   readonly format: { readonly name: string; readonly slug: string };
   readonly publishedAt: string;

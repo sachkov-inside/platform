@@ -9,7 +9,7 @@ describe("Material Asset maintenance", () => {
       await expect(isReferenced({ assetId: "asset", materialId: "material" })).resolves.toBe(true);
       return { ok: true, value: { cleaned: 2, retained: 1 } };
     });
-    const containsAssetReference = vi.fn().mockResolvedValue(true);
+    const containsAssetReference = vi.fn().mockResolvedValue({ ok: true, value: true });
     const maintenance = assembleMaterialAssetMaintenance({
       assets: { cleanupOrphans },
       config: { objectStorage: { orphanGraceMs: 86_400_000 } },

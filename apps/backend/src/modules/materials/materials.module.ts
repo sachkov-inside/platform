@@ -97,15 +97,23 @@ import {
     },
     {
       provide: MATERIAL_ASSET_DELIVERY,
-      inject: [MATERIAL_ASSETS, CONTENT_ACCESS, OBJECT_STORAGE, PLATFORM_CONFIG],
+      inject: [
+        MATERIAL_ASSETS,
+        CONTENT_ACCESS,
+        MATERIAL_CONTENT,
+        OBJECT_STORAGE,
+        PLATFORM_CONFIG,
+      ],
       useFactory: (
         assets: MaterialAssets,
         contentAccess: ContentAccess,
+        materialContent: MaterialContent,
         objectStorage: ObjectStorage,
         config: PlatformConfig,
       ): MaterialAssetDelivery => assembleMaterialAssetDelivery({
         assets,
         contentAccess,
+        materialContent,
         objectStorage,
         signedGetTtlSeconds: config.objectStorage.signedGetTtlSeconds,
       }),

@@ -191,10 +191,10 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(databaseRoles, /all tables in schema public/u);
   });
 
-  it("excludes optional build-only packages from the production API image", () => {
+  it("keeps production native dependencies and excludes development scripts", () => {
     assert.match(
       read("Dockerfile"),
-      /deploy --prod --no-optional --ignore-scripts \/workspace\/\.production\/backend/u,
+      /deploy --prod --ignore-scripts \/workspace\/\.production\/backend/u,
     );
   });
 

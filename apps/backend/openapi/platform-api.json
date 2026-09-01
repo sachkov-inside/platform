@@ -6692,7 +6692,7 @@
             "name": "idempotency-key",
             "required": true,
             "schema": {
-              "maxLength": 200,
+              "maxLength": 128,
               "minLength": 1,
               "type": "string"
             }
@@ -6844,31 +6844,15 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "account_not_found",
-                        "authentication_required",
-                        "checksum_mismatch",
-                        "dependency_unavailable",
-                        "executable_content",
-                        "forbidden",
-                        "idempotency_key_reused",
-                        "image_decode_failed",
-                        "image_too_large",
-                        "internal_error",
-                        "invalid_proof",
-                        "invalid_upload",
-                        "material_not_found",
-                        "mime_mismatch",
-                        "size_mismatch",
-                        "unsupported_image_type",
-                        "upload_in_progress",
-                        "upload_too_large"
+                        "invalid_upload"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "maximum": 599,
-                      "minimum": 400,
-                      "type": "integer"
+                      "enum": [
+                        400
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
@@ -6899,29 +6883,15 @@
                       "enum": [
                         "account_not_found",
                         "authentication_required",
-                        "checksum_mismatch",
-                        "dependency_unavailable",
-                        "executable_content",
-                        "forbidden",
-                        "idempotency_key_reused",
-                        "image_decode_failed",
-                        "image_too_large",
-                        "internal_error",
-                        "invalid_proof",
-                        "invalid_upload",
-                        "material_not_found",
-                        "mime_mismatch",
-                        "size_mismatch",
-                        "unsupported_image_type",
-                        "upload_in_progress",
-                        "upload_too_large"
+                        "invalid_proof"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "maximum": 599,
-                      "minimum": 400,
-                      "type": "integer"
+                      "enum": [
+                        401
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
@@ -6950,31 +6920,15 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "account_not_found",
-                        "authentication_required",
-                        "checksum_mismatch",
-                        "dependency_unavailable",
-                        "executable_content",
-                        "forbidden",
-                        "idempotency_key_reused",
-                        "image_decode_failed",
-                        "image_too_large",
-                        "internal_error",
-                        "invalid_proof",
-                        "invalid_upload",
-                        "material_not_found",
-                        "mime_mismatch",
-                        "size_mismatch",
-                        "unsupported_image_type",
-                        "upload_in_progress",
-                        "upload_too_large"
+                        "forbidden"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "maximum": 599,
-                      "minimum": 400,
-                      "type": "integer"
+                      "enum": [
+                        403
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
@@ -7003,31 +6957,15 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "account_not_found",
-                        "authentication_required",
-                        "checksum_mismatch",
-                        "dependency_unavailable",
-                        "executable_content",
-                        "forbidden",
-                        "idempotency_key_reused",
-                        "image_decode_failed",
-                        "image_too_large",
-                        "internal_error",
-                        "invalid_proof",
-                        "invalid_upload",
-                        "material_not_found",
-                        "mime_mismatch",
-                        "size_mismatch",
-                        "unsupported_image_type",
-                        "upload_in_progress",
-                        "upload_too_large"
+                        "material_not_found"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "maximum": 599,
-                      "minimum": 400,
-                      "type": "integer"
+                      "enum": [
+                        404
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
@@ -7056,31 +6994,16 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "account_not_found",
-                        "authentication_required",
-                        "checksum_mismatch",
-                        "dependency_unavailable",
-                        "executable_content",
-                        "forbidden",
                         "idempotency_key_reused",
-                        "image_decode_failed",
-                        "image_too_large",
-                        "internal_error",
-                        "invalid_proof",
-                        "invalid_upload",
-                        "material_not_found",
-                        "mime_mismatch",
-                        "size_mismatch",
-                        "unsupported_image_type",
-                        "upload_in_progress",
-                        "upload_too_large"
+                        "upload_in_progress"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "maximum": 599,
-                      "minimum": 400,
-                      "type": "integer"
+                      "enum": [
+                        409
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
@@ -7109,31 +7032,17 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "account_not_found",
-                        "authentication_required",
-                        "checksum_mismatch",
-                        "dependency_unavailable",
-                        "executable_content",
-                        "forbidden",
-                        "idempotency_key_reused",
-                        "image_decode_failed",
                         "image_too_large",
-                        "internal_error",
-                        "invalid_proof",
-                        "invalid_upload",
-                        "material_not_found",
-                        "mime_mismatch",
                         "size_mismatch",
-                        "unsupported_image_type",
-                        "upload_in_progress",
                         "upload_too_large"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "maximum": 599,
-                      "minimum": 400,
-                      "type": "integer"
+                      "enum": [
+                        413
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
@@ -7162,31 +7071,20 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "account_not_found",
-                        "authentication_required",
                         "checksum_mismatch",
-                        "dependency_unavailable",
                         "executable_content",
-                        "forbidden",
-                        "idempotency_key_reused",
                         "image_decode_failed",
-                        "image_too_large",
-                        "internal_error",
-                        "invalid_proof",
                         "invalid_upload",
-                        "material_not_found",
                         "mime_mismatch",
-                        "size_mismatch",
-                        "unsupported_image_type",
-                        "upload_in_progress",
-                        "upload_too_large"
+                        "unsupported_image_type"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "maximum": 599,
-                      "minimum": 400,
-                      "type": "integer"
+                      "enum": [
+                        422
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
@@ -7215,31 +7113,15 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "account_not_found",
-                        "authentication_required",
-                        "checksum_mismatch",
-                        "dependency_unavailable",
-                        "executable_content",
-                        "forbidden",
-                        "idempotency_key_reused",
-                        "image_decode_failed",
-                        "image_too_large",
-                        "internal_error",
-                        "invalid_proof",
-                        "invalid_upload",
-                        "material_not_found",
-                        "mime_mismatch",
-                        "size_mismatch",
-                        "unsupported_image_type",
-                        "upload_in_progress",
-                        "upload_too_large"
+                        "internal_error"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "maximum": 599,
-                      "minimum": 400,
-                      "type": "integer"
+                      "enum": [
+                        500
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
@@ -7268,31 +7150,15 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "account_not_found",
-                        "authentication_required",
-                        "checksum_mismatch",
-                        "dependency_unavailable",
-                        "executable_content",
-                        "forbidden",
-                        "idempotency_key_reused",
-                        "image_decode_failed",
-                        "image_too_large",
-                        "internal_error",
-                        "invalid_proof",
-                        "invalid_upload",
-                        "material_not_found",
-                        "mime_mismatch",
-                        "size_mismatch",
-                        "unsupported_image_type",
-                        "upload_in_progress",
-                        "upload_too_large"
+                        "dependency_unavailable"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "maximum": 599,
-                      "minimum": 400,
-                      "type": "integer"
+                      "enum": [
+                        503
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
@@ -13601,6 +13467,15 @@
             }
           },
           {
+            "in": "query",
+            "name": "contentVersion",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
             "in": "path",
             "name": "assetId",
             "required": true,
@@ -13841,6 +13716,15 @@
             "required": false,
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "contentVersion",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
             }
           },
           {

@@ -26,6 +26,7 @@ const navigationItems = [
 
 const material = {
   materialId: "02000000-0000-4000-8000-000000000010",
+  contentVersion: 7,
   access: "free",
   format: { name: "Гайд", slug: "guide" },
   publishedAt: "2026-08-25T05:00:00.000Z",

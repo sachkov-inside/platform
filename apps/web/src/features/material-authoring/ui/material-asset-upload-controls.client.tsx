@@ -116,9 +116,11 @@ export function useMaterialAssetUploads(
     } catch (error) {
       requests.current.delete(upload.id);
       if (error instanceof DOMException && error.name === "AbortError") return;
+      const errorCode = uploadErrorCode(error);
       setUploads((current) => patchUpload(current, upload.id, {
         message: uploadErrorMessage(error),
-        retryWithNewIdempotencyKey: uploadErrorCode(error) !== "network",
+        retryWithNewIdempotencyKey:
+          errorCode !== "network" && errorCode !== "upload_in_progress",
         status: "error",
       }));
     }

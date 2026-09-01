@@ -26,61 +26,13 @@ export function assembleMaterialAssets(dependencies: {
   const { objectStorage, prisma } = dependencies;
   const assets: MaterialAssets = {
     async upload(input): Promise<UploadMaterialAssetResult> {
-      const validated = validateUpload(input);
-      if (validated === null) {
-        return { error: { code: "invalid_upload" }, ok: false };
-      }
-      const fingerprint = fingerprintUpload(validated);
-      const existing = await prisma.materialAsset.findUnique({
-        where: {
-          materialId_uploadedBy_idempotencyKey: {
-            idempotencyKey: validated.idempotencyKey,
-            materialId: validated.materialId,
-            uploadedBy: validated.actor,
-          },
-        },
-        include: { materialAssetVariants: true },
-      });
-      if (existing !== null) {
-        if (existing.requestFingerprint !== fingerprint) {
-          return { error: { code: "idempotency_key_reused" }, ok: false };
+      return materialAssetUpload(async () => {
+        const validated = validateUpload(input);
+        if (validated === null) {
+          return { error: { code: "invalid_upload" }, ok: false };
         }
-        if (existing.state === "ready") {
-          return { ok: true, value: toDto(existing) };
-        }
-        if (existing.state === "failed" && existing.failureCode !== null) {
-          return {
-            error: { code: processingFailureCode(existing.failureCode) },
-            ok: false,
-          };
-        }
-        return { error: { code: "upload_in_progress" }, ok: false };
-      }
-
-      const assetId = randomUUID();
-      const objectNonce = randomUUID();
-      const prefix = `materials/${validated.materialId}/assets/${assetId}/${objectNonce}`;
-      const quarantineObjectKey = `${prefix}/quarantine`;
-      try {
-        await prisma.materialAsset.create({
-          data: {
-            declaredContentType: validated.declaredContentType,
-            declaredSize: validated.declaredSize,
-            expectedChecksum: validated.expectedChecksumSha256,
-            id: assetId,
-            idempotencyKey: validated.idempotencyKey,
-            kind: validated.kind,
-            materialId: validated.materialId,
-            objectNonce,
-            originalFilename: validated.filename,
-            quarantineObjectKey,
-            requestFingerprint: fingerprint,
-            state: "pending",
-            uploadedBy: validated.actor,
-          },
-        });
-      } catch (error) {
-        const raced = await prisma.materialAsset.findUnique({
+        const fingerprint = fingerprintUpload(validated);
+        const existing = await prisma.materialAsset.findUnique({
           where: {
             materialId_uploadedBy_idempotencyKey: {
               idempotencyKey: validated.idempotencyKey,
@@ -90,171 +42,221 @@ export function assembleMaterialAssets(dependencies: {
           },
           include: { materialAssetVariants: true },
         });
-        if (raced === null) {
-          throw error;
+        if (existing !== null) {
+          if (existing.requestFingerprint !== fingerprint) {
+            return { error: { code: "idempotency_key_reused" }, ok: false };
+          }
+          if (existing.state === "ready") {
+            return { ok: true, value: toDto(existing) };
+          }
+          if (existing.state === "failed" && existing.failureCode !== null) {
+            return {
+              error: { code: processingFailureCode(existing.failureCode) },
+              ok: false,
+            };
+          }
+          return { error: { code: "upload_in_progress" }, ok: false };
         }
-        if (raced.requestFingerprint !== fingerprint) {
-          return { error: { code: "idempotency_key_reused" }, ok: false };
-        }
-        return { error: { code: "upload_in_progress" }, ok: false };
-      }
 
-      const claimed = await prisma.materialAsset.updateMany({
-        data: { state: "processing", updatedAt: new Date() },
-        where: { id: assetId, state: "pending" },
-      });
-      if (claimed.count !== 1) {
-        return { error: { code: "upload_in_progress" }, ok: false };
-      }
-
-      try {
-        await putOrThrow(objectStorage, {
-          body: validated.body,
-          checksumSha256: validated.expectedChecksumSha256,
-          contentType: validated.declaredContentType,
-          key: quarantineObjectKey,
-          namespace: "quarantine",
-        });
-        const processed = await processMaterialAssetBytes(validated);
-        if (!processed.ok) {
-          await prisma.materialAsset.update({
+        const assetId = randomUUID();
+        const objectNonce = randomUUID();
+        const prefix = `materials/${validated.materialId}/assets/${assetId}/${objectNonce}`;
+        const quarantineObjectKey = `${prefix}/quarantine`;
+        try {
+          await prisma.materialAsset.create({
             data: {
-              failureCode: processed.error.code,
-              state: "failed",
-              updatedAt: new Date(),
+              declaredContentType: validated.declaredContentType,
+              declaredSize: validated.declaredSize,
+              expectedChecksum: validated.expectedChecksumSha256,
+              id: assetId,
+              idempotencyKey: validated.idempotencyKey,
+              kind: validated.kind,
+              materialId: validated.materialId,
+              objectNonce,
+              originalFilename: validated.filename,
+              quarantineObjectKey,
+              requestFingerprint: fingerprint,
+              state: "pending",
+              uploadedBy: validated.actor,
             },
-            where: { id: assetId },
           });
-          return processed;
-        }
-
-        if (processed.value.kind === "file") {
-          const protectedObjectKey = `${prefix}/file`;
-          const publicObjectKey = `${prefix}/public-file`;
-          await prisma.materialAsset.update({
-            data: { protectedObjectKey, publicObjectKey, updatedAt: new Date() },
-            where: { id: assetId },
-          });
-          const object = {
-            body: processed.value.body,
-            checksumSha256: processed.value.checksumSha256,
-            contentType: processed.value.contentType,
-          };
-          await Promise.all([
-            putOrThrow(objectStorage, {
-              ...object,
-              key: protectedObjectKey,
-              namespace: "protected",
-            }),
-            putOrThrow(objectStorage, {
-              ...object,
-              key: publicObjectKey,
-              namespace: "public",
-            }),
-          ]);
-          const ready = await prisma.materialAsset.update({
-            data: {
-              actualChecksum: processed.value.checksumSha256,
-              actualContentType: processed.value.contentType,
-              actualSize: processed.value.size,
-              protectedObjectKey,
-              publicObjectKey,
-              readyAt: new Date(),
-              state: "ready",
-              updatedAt: new Date(),
+        } catch (error) {
+          const raced = await prisma.materialAsset.findUnique({
+            where: {
+              materialId_uploadedBy_idempotencyKey: {
+                idempotencyKey: validated.idempotencyKey,
+                materialId: validated.materialId,
+                uploadedBy: validated.actor,
+              },
             },
-            where: { id: assetId },
             include: { materialAssetVariants: true },
           });
-          await deleteQuarantineBestEffort(objectStorage, quarantineObjectKey);
-          return { ok: true, value: toDto(ready) };
+          if (raced === null) {
+            throw error;
+          }
+          if (raced.requestFingerprint !== fingerprint) {
+            return { error: { code: "idempotency_key_reused" }, ok: false };
+          }
+          return { error: { code: "upload_in_progress" }, ok: false };
         }
 
-        const image = processed.value;
-        const protectedObjectKey = `${prefix}/original.webp`;
-        const variants = image.variants.map((variant) => {
-          const checksumSha256 = sha256(variant.body);
-          return {
-            body: variant.body,
-            row: {
-              assetId,
-              byteSize: variant.body.byteLength,
-              checksumSha256,
-              contentType: variant.contentType,
-              height: variant.height,
-              protectedObjectKey: `${prefix}/image-${variant.width}.webp`,
-              publicObjectKey: `${prefix}/public-image-${variant.width}.webp`,
-              width: variant.width,
-            },
-          };
+        const claimed = await prisma.materialAsset.updateMany({
+          data: { state: "processing", updatedAt: new Date() },
+          where: { id: assetId, state: "pending" },
         });
-        await prisma.$transaction(async (transaction) => {
-          await transaction.materialAsset.update({
-            data: { protectedObjectKey, updatedAt: new Date() },
-            where: { id: assetId },
+        if (claimed.count !== 1) {
+          return { error: { code: "upload_in_progress" }, ok: false };
+        }
+
+        try {
+          await putOrThrow(objectStorage, {
+            body: validated.body,
+            checksumSha256: validated.expectedChecksumSha256,
+            contentType: validated.declaredContentType,
+            key: quarantineObjectKey,
+            namespace: "quarantine",
           });
-          await transaction.materialAssetVariant.createMany({
-            data: variants.map(({ row }) => row),
-          });
-        });
-        await putOrThrow(objectStorage, {
-          body: image.original.body,
-          checksumSha256: sha256(image.original.body),
-          contentType: image.original.contentType,
-          key: protectedObjectKey,
-          namespace: "protected",
-        });
-        await Promise.all(
-          variants.map(async ({ body, row }) => {
+          const processed = await processMaterialAssetBytes(validated);
+          if (!processed.ok) {
+            await prisma.materialAsset.update({
+              data: {
+                failureCode: processed.error.code,
+                state: "failed",
+                updatedAt: new Date(),
+              },
+              where: { id: assetId },
+            });
+            return processed;
+          }
+
+          if (processed.value.kind === "file") {
+            const protectedObjectKey = `${prefix}/file`;
+            const publicObjectKey = `${prefix}/public-file`;
+            await prisma.materialAsset.update({
+              data: { protectedObjectKey, publicObjectKey, updatedAt: new Date() },
+              where: { id: assetId },
+            });
+            const object = {
+              body: processed.value.body,
+              checksumSha256: processed.value.checksumSha256,
+              contentType: processed.value.contentType,
+            };
             await Promise.all([
               putOrThrow(objectStorage, {
-                body,
-                checksumSha256: row.checksumSha256,
-                contentType: row.contentType,
-                key: row.protectedObjectKey,
+                ...object,
+                key: protectedObjectKey,
                 namespace: "protected",
               }),
               putOrThrow(objectStorage, {
-                body,
-                checksumSha256: row.checksumSha256,
-                contentType: row.contentType,
-                key: row.publicObjectKey,
+                ...object,
+                key: publicObjectKey,
                 namespace: "public",
               }),
             ]);
-          }),
-        );
-        const ready = await prisma.$transaction(async (transaction) => {
-          return transaction.materialAsset.update({
-            data: {
-              actualChecksum: image.checksumSha256,
-              actualContentType: image.contentType,
-              actualSize: image.size,
-              height: image.height,
-              protectedObjectKey,
-              readyAt: new Date(),
-              state: "ready",
-              updatedAt: new Date(),
-              width: image.width,
-            },
-            where: { id: assetId },
-            include: { materialAssetVariants: true },
+            const ready = await prisma.materialAsset.update({
+              data: {
+                actualChecksum: processed.value.checksumSha256,
+                actualContentType: processed.value.contentType,
+                actualSize: processed.value.size,
+                protectedObjectKey,
+                publicObjectKey,
+                readyAt: new Date(),
+                state: "ready",
+                updatedAt: new Date(),
+              },
+              where: { id: assetId },
+              include: { materialAssetVariants: true },
+            });
+            await deleteQuarantineBestEffort(objectStorage, quarantineObjectKey);
+            return { ok: true, value: toDto(ready) };
+          }
+
+          const image = processed.value;
+          const protectedObjectKey = `${prefix}/original.webp`;
+          const variants = image.variants.map((variant) => {
+            const checksumSha256 = sha256(variant.body);
+            return {
+              body: variant.body,
+              row: {
+                assetId,
+                byteSize: variant.body.byteLength,
+                checksumSha256,
+                contentType: variant.contentType,
+                height: variant.height,
+                protectedObjectKey: `${prefix}/image-${variant.width}.webp`,
+                publicObjectKey: `${prefix}/public-image-${variant.width}.webp`,
+                width: variant.width,
+              },
+            };
           });
-        });
-        await deleteQuarantineBestEffort(objectStorage, quarantineObjectKey);
-        return { ok: true, value: toDto(ready) };
-      } catch {
-        try {
-          await prisma.materialAsset.updateMany({
-            data: { failureCode: "storage_failure", state: "failed", updatedAt: new Date() },
-            where: { id: assetId, state: "processing" },
+          await prisma.$transaction(async (transaction) => {
+            await transaction.materialAsset.update({
+              data: { protectedObjectKey, updatedAt: new Date() },
+              where: { id: assetId },
+            });
+            await transaction.materialAssetVariant.createMany({
+              data: variants.map(({ row }) => row),
+            });
           });
+          await putOrThrow(objectStorage, {
+            body: image.original.body,
+            checksumSha256: sha256(image.original.body),
+            contentType: image.original.contentType,
+            key: protectedObjectKey,
+            namespace: "protected",
+          });
+          await Promise.all(
+            variants.map(async ({ body, row }) => {
+              await Promise.all([
+                putOrThrow(objectStorage, {
+                  body,
+                  checksumSha256: row.checksumSha256,
+                  contentType: row.contentType,
+                  key: row.protectedObjectKey,
+                  namespace: "protected",
+                }),
+                putOrThrow(objectStorage, {
+                  body,
+                  checksumSha256: row.checksumSha256,
+                  contentType: row.contentType,
+                  key: row.publicObjectKey,
+                  namespace: "public",
+                }),
+              ]);
+            }),
+          );
+          const ready = await prisma.$transaction(async (transaction) => {
+            return transaction.materialAsset.update({
+              data: {
+                actualChecksum: image.checksumSha256,
+                actualContentType: image.contentType,
+                actualSize: image.size,
+                height: image.height,
+                protectedObjectKey,
+                readyAt: new Date(),
+                state: "ready",
+                updatedAt: new Date(),
+                width: image.width,
+              },
+              where: { id: assetId },
+              include: { materialAssetVariants: true },
+            });
+          });
+          await deleteQuarantineBestEffort(objectStorage, quarantineObjectKey);
+          return { ok: true, value: toDto(ready) };
         } catch {
-          // The transport-neutral failure below remains authoritative even if
-          // the best-effort lifecycle marker cannot be persisted.
+          try {
+            await prisma.materialAsset.updateMany({
+              data: { failureCode: "storage_failure", state: "failed", updatedAt: new Date() },
+              where: { id: assetId, state: "processing" },
+            });
+          } catch {
+            // The transport-neutral failure below remains authoritative even if
+            // the best-effort lifecycle marker cannot be persisted.
+          }
+          return { error: { code: "dependency_unavailable" }, ok: false };
         }
-        return { error: { code: "dependency_unavailable" }, ok: false };
-      }
+      });
     },
 
     async inspectReferences(materialId, references) {
@@ -512,6 +514,16 @@ async function materialAssetQuery<Value>(
       error: { code: "dependency_unavailable", retryable: true },
       ok: false,
     };
+  }
+}
+
+async function materialAssetUpload(
+  operation: () => Promise<UploadMaterialAssetResult>,
+): Promise<UploadMaterialAssetResult> {
+  try {
+    return await operation();
+  } catch {
+    return { error: { code: "dependency_unavailable" }, ok: false };
   }
 }
 

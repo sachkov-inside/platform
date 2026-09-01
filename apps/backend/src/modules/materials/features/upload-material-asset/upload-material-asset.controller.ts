@@ -24,7 +24,7 @@ import { problemDetailsContent, toOpenApiSchema } from "../../../../infrastructu
 import { CurrentAccount, type AuthenticatedAccount } from "../../../accounts/index.js";
 import { MATERIAL_ASSET_LIMITS } from "../../../assets/index.js";
 import { MaterialAuthoringEndpoint } from "../../adapters/nest/material-authoring-endpoint.js";
-import { idempotencyKeySchema, materialIdSchema } from "../../adapters/nest/material-authoring-http.js";
+import { materialIdSchema } from "../../adapters/nest/material-authoring-http.js";
 import {
   MATERIAL_ASSET_AUTHORING,
   type MaterialAssetAuthoring,
@@ -32,6 +32,7 @@ import {
 } from "./upload-material-asset.js";
 
 const checksumSchema = z.hash("sha256");
+const assetIdempotencyKeySchema = z.string().trim().min(1).max(128);
 const uploadResponseSchema = z.object({
   assetId: z.uuid(),
   contentType: z.string(),
@@ -43,31 +44,6 @@ const uploadResponseSchema = z.object({
   variants: z.array(z.object({ height: z.number().int().positive(), width: z.number().int().positive() })).optional(),
   width: z.number().int().positive().optional(),
 });
-const assetUploadProblemSchema = z.object({
-  code: z.enum([
-    "account_not_found",
-    "authentication_required",
-    "checksum_mismatch",
-    "dependency_unavailable",
-    "executable_content",
-    "forbidden",
-    "idempotency_key_reused",
-    "image_decode_failed",
-    "image_too_large",
-    "internal_error",
-    "invalid_proof",
-    "invalid_upload",
-    "material_not_found",
-    "mime_mismatch",
-    "size_mismatch",
-    "unsupported_image_type",
-    "upload_in_progress",
-    "upload_too_large",
-  ]),
-  status: z.number().int().min(400).max(599),
-  title: z.string(),
-  type: z.string(),
-}).loose();
 
 @MaterialAuthoringEndpoint()
 @Controller("authoring/materials")
@@ -80,7 +56,7 @@ export class UploadMaterialAssetController {
   @Post(":materialId/assets")
   @ApiOperation({ operationId: "uploadMaterialAsset", summary: "Upload and finalize an immutable Material asset" })
   @ApiParam({ name: "materialId", schema: toOpenApiSchema(materialIdSchema) })
-  @ApiHeader({ name: "idempotency-key", required: true, schema: toOpenApiSchema(idempotencyKeySchema) })
+  @ApiHeader({ name: "idempotency-key", required: true, schema: toOpenApiSchema(assetIdempotencyKeySchema) })
   @ApiConsumes("multipart/form-data")
   @ApiBody({ schema: {
     type: "object",
@@ -93,15 +69,15 @@ export class UploadMaterialAssetController {
     },
   } })
   @ApiCreatedResponse({ schema: toOpenApiSchema(uploadResponseSchema) })
-  @ApiResponse({ status: 400, content: problemDetailsContent(assetUploadProblemSchema) })
-  @ApiResponse({ status: 401, content: problemDetailsContent(assetUploadProblemSchema) })
-  @ApiResponse({ status: 403, content: problemDetailsContent(assetUploadProblemSchema) })
-  @ApiResponse({ status: 404, content: problemDetailsContent(assetUploadProblemSchema) })
-  @ApiResponse({ status: 409, content: problemDetailsContent(assetUploadProblemSchema) })
-  @ApiResponse({ status: 413, content: problemDetailsContent(assetUploadProblemSchema) })
-  @ApiResponse({ status: 422, content: problemDetailsContent(assetUploadProblemSchema) })
-  @ApiResponse({ status: 500, content: problemDetailsContent(assetUploadProblemSchema) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(assetUploadProblemSchema) })
+  @ApiResponse({ status: 400, content: problemDetailsContent(uploadProblemSchema(400, ["invalid_upload"])) })
+  @ApiResponse({ status: 401, content: problemDetailsContent(uploadProblemSchema(401, ["account_not_found", "authentication_required", "invalid_proof"])) })
+  @ApiResponse({ status: 403, content: problemDetailsContent(uploadProblemSchema(403, ["forbidden"])) })
+  @ApiResponse({ status: 404, content: problemDetailsContent(uploadProblemSchema(404, ["material_not_found"])) })
+  @ApiResponse({ status: 409, content: problemDetailsContent(uploadProblemSchema(409, ["idempotency_key_reused", "upload_in_progress"])) })
+  @ApiResponse({ status: 413, content: problemDetailsContent(uploadProblemSchema(413, ["image_too_large", "size_mismatch", "upload_too_large"])) })
+  @ApiResponse({ status: 422, content: problemDetailsContent(uploadProblemSchema(422, ["checksum_mismatch", "executable_content", "image_decode_failed", "invalid_upload", "mime_mismatch", "unsupported_image_type"])) })
+  @ApiResponse({ status: 500, content: problemDetailsContent(uploadProblemSchema(500, ["internal_error"])) })
+  @ApiResponse({ status: 503, content: problemDetailsContent(uploadProblemSchema(503, ["dependency_unavailable"])) })
   async upload(
     @CurrentAccount() account: AuthenticatedAccount,
     @Param("materialId") materialId: string,
@@ -131,7 +107,7 @@ export class UploadMaterialAssetController {
     const declaredSize = Number(field(file, "declaredSize"));
     const checksum = field(file, "checksumSha256");
     const parsedChecksum = checksumSchema.safeParse(checksum);
-    const parsedIdempotencyKey = idempotencyKeySchema.safeParse(idempotencyKey);
+    const parsedIdempotencyKey = assetIdempotencyKeySchema.safeParse(idempotencyKey);
     if (
       (kind !== "file" && kind !== "image") ||
       !parsedChecksum.success ||
@@ -184,4 +160,16 @@ function throwAssetUploadError(error: Extract<UploadMaterialAssetForAuthoringRes
 
 function uploadProblem(status: number, code: string, title: string): HttpException {
   return new HttpException({ type: `urn:inside:problem:${code}`, title, status, code }, status);
+}
+
+function uploadProblemSchema(
+  status: number,
+  codes: readonly [string, ...string[]],
+) {
+  return z.object({
+    code: z.enum(codes),
+    status: z.literal(status),
+    title: z.string(),
+    type: z.string(),
+  }).loose();
 }

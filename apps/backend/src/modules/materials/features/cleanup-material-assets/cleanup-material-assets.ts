@@ -27,8 +27,11 @@ export function assembleMaterialAssetMaintenance(dependencies: {
       try {
         const result = await dependencies.assets.cleanupOrphans({
           graceMs: dependencies.config.objectStorage.orphanGraceMs,
-          isReferenced: (input) =>
-            dependencies.materials.containsAssetReference(input),
+          async isReferenced(input) {
+            const reference = await dependencies.materials.containsAssetReference(input);
+            if (!reference.ok) throw new Error(reference.error.code);
+            return reference.value;
+          },
         });
         return result.ok
           ? { ok: true, ...result.value }

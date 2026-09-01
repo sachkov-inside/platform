@@ -36,15 +36,19 @@ export async function proxyMaterialAssetUpload(
   if (request.body === null || contentType?.toLowerCase().startsWith("multipart/form-data;") !== true) {
     return problem(400, "invalid_upload", "Upload form is malformed");
   }
-  const response = await requestMaterialAssetUpload({
-    accessToken,
-    body: request.body,
-    contentType,
-    idempotencyKey,
-    materialId,
-    signal: request.signal,
-  });
-  return copyBackendResponse(response);
+  try {
+    const response = await requestMaterialAssetUpload({
+      accessToken,
+      body: request.body,
+      contentType,
+      idempotencyKey,
+      materialId,
+      signal: request.signal,
+    });
+    return copyBackendResponse(response);
+  } catch {
+    return problem(503, "dependency_unavailable", "Asset upload is unavailable");
+  }
 }
 
 export async function proxyMaterialAssetDelivery(
@@ -55,17 +59,31 @@ export async function proxyMaterialAssetDelivery(
     readonly variantWidth?: string;
   },
 ): Promise<Response> {
-  const accessToken = await getOptionalPlatformAccessToken(request);
   const incomingUrl = new URL(request.url);
-  const response = await requestMaterialAssetDelivery({
-    ...(accessToken === undefined ? {} : { accessToken }),
-    assetId: input.assetId,
-    materialId: input.materialId,
-    preview: incomingUrl.searchParams.get("preview") === "true",
-    signal: request.signal,
-    ...(input.variantWidth === undefined ? {} : { variantWidth: input.variantWidth }),
-  });
-  return copyBackendResponse(response);
+  const preview = incomingUrl.searchParams.get("preview");
+  const contentVersion = Number(incomingUrl.searchParams.get("contentVersion"));
+  if (
+    !Number.isInteger(contentVersion) ||
+    contentVersion < 1 ||
+    (preview !== null && preview !== "false" && preview !== "true")
+  ) {
+    return problem(404, "asset_not_found", "Asset not found");
+  }
+  try {
+    const accessToken = await getOptionalPlatformAccessToken(request);
+    const response = await requestMaterialAssetDelivery({
+      ...(accessToken === undefined ? {} : { accessToken }),
+      assetId: input.assetId,
+      contentVersion,
+      materialId: input.materialId,
+      preview: preview === "true",
+      signal: request.signal,
+      ...(input.variantWidth === undefined ? {} : { variantWidth: input.variantWidth }),
+    });
+    return copyBackendResponse(response);
+  } catch {
+    return problem(503, "dependency_unavailable", "Asset delivery is unavailable");
+  }
 }
 
 function copyBackendResponse(response: Response): Response {

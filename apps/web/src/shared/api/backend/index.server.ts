@@ -540,6 +540,7 @@ export function requestMaterialAssetUpload(input: {
 export function requestMaterialAssetDelivery(input: {
   readonly accessToken?: string;
   readonly assetId: string;
+  readonly contentVersion: number;
   readonly materialId: string;
   readonly preview: boolean;
   readonly signal: AbortSignal;
@@ -549,6 +550,7 @@ export function requestMaterialAssetDelivery(input: {
     ? `/materials/${encodeURIComponent(input.materialId)}/assets/${encodeURIComponent(input.assetId)}`
     : `/materials/${encodeURIComponent(input.materialId)}/assets/${encodeURIComponent(input.assetId)}/images/${encodeURIComponent(input.variantWidth)}`;
   const url = new URL(`${readBackendBaseUrl()}${path}`);
+  url.searchParams.set("contentVersion", String(input.contentVersion));
   if (input.preview) url.searchParams.set("preview", "true");
   return fetch(url, {
     cache: "no-store",

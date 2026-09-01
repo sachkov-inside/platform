@@ -12,10 +12,12 @@ export class MaterialAssetsService {
    * @throws ApiError
    */
   public downloadMaterialAsset({
+    contentVersion,
     assetId,
     materialId,
     preview,
   }: {
+    contentVersion: number,
     assetId: string,
     materialId: string,
     preview?: boolean,
@@ -29,6 +31,7 @@ export class MaterialAssetsService {
       },
       query: {
         'preview': preview,
+        'contentVersion': contentVersion,
       },
       errors: {
         302: `Short-lived protected redirect`,
@@ -45,11 +48,13 @@ export class MaterialAssetsService {
    * @throws ApiError
    */
   public readMaterialAssetImage({
+    contentVersion,
     width,
     assetId,
     materialId,
     preview,
   }: {
+    contentVersion: number,
     width: number,
     assetId: string,
     materialId: string,
@@ -65,6 +70,7 @@ export class MaterialAssetsService {
       },
       query: {
         'preview': preview,
+        'contentVersion': contentVersion,
       },
       errors: {
         302: `Short-lived protected redirect`,

@@ -4,6 +4,7 @@ export function MaterialAssetImage({
   alt,
   assetId,
   caption,
+  contentVersion,
   height,
   materialId,
   preview = false,
@@ -13,6 +14,7 @@ export function MaterialAssetImage({
   readonly alt: string;
   readonly assetId: string;
   readonly caption?: string | undefined;
+  readonly contentVersion: number;
   readonly height?: number | undefined;
   readonly materialId: string;
   readonly preview?: boolean;
@@ -24,9 +26,10 @@ export function MaterialAssetImage({
   if (available === undefined || width === undefined || height === undefined) {
     return <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">Изображение временно недоступно.</p>;
   }
-  const query = preview ? "?preview=true" : "";
+  const query = new URLSearchParams({ contentVersion: String(contentVersion) });
+  if (preview) query.set("preview", "true");
   const url = (variantWidth: number) =>
-    `/api/materials/${encodeURIComponent(materialId)}/assets/${encodeURIComponent(assetId)}/images/${String(variantWidth)}${query}`;
+    `/api/materials/${encodeURIComponent(materialId)}/assets/${encodeURIComponent(assetId)}/images/${String(variantWidth)}?${query.toString()}`;
   return (
     <figure className="overflow-hidden rounded-xl border border-border bg-card">
       {/* The stable same-origin route re-authorizes protected images; Next Image must not proxy it. */}
@@ -52,6 +55,7 @@ export function MaterialAssetImage({
 export function MaterialAssetFile({
   assetId,
   contentType,
+  contentVersion,
   filename,
   label,
   materialId,
@@ -60,17 +64,19 @@ export function MaterialAssetFile({
 }: {
   readonly assetId: string;
   readonly contentType?: string | undefined;
+  readonly contentVersion: number;
   readonly filename?: string | undefined;
   readonly label: string;
   readonly materialId: string;
   readonly preview?: boolean;
   readonly size?: number | undefined;
 }) {
-  const query = preview ? "?preview=true" : "";
+  const query = new URLSearchParams({ contentVersion: String(contentVersion) });
+  if (preview) query.set("preview", "true");
   return (
     <a
       className="flex min-h-16 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 no-underline transition-colors hover:bg-muted focus-visible:outline-ring motion-reduce:transition-none"
-      href={`/api/materials/${encodeURIComponent(materialId)}/assets/${encodeURIComponent(assetId)}${query}`}
+      href={`/api/materials/${encodeURIComponent(materialId)}/assets/${encodeURIComponent(assetId)}?${query.toString()}`}
     >
       <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-accent"><FileText aria-hidden="true" className="size-5" /></span>
       <span className="min-w-0">

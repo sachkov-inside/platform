@@ -89,6 +89,19 @@ trap cleanup EXIT
 "${compose[@]}" build api web
 "${compose[@]}" up --detach --wait
 
+worker_container_id="$("${compose[@]}" ps --quiet material-assets-worker)"
+worker_state="$(docker container inspect "$worker_container_id" --format '{{.State.Status}}:{{.RestartCount}}')"
+if [[ "$worker_state" != "running:0" ]]; then
+  echo "Material Asset worker did not stay running without restarts: $worker_state" >&2
+  "${compose[@]}" logs material-assets-worker >&2
+  exit 1
+fi
+if ! "${compose[@]}" logs material-assets-worker | rg --quiet '"process":"material-assets-worker","status":"ready"'; then
+  echo "Material Asset worker did not report readiness" >&2
+  "${compose[@]}" logs material-assets-worker >&2
+  exit 1
+fi
+
 api_health="$(
   "${compose[@]}" exec -T api node -e \
     "fetch('http://127.0.0.1:3001/health').then(async r=>{process.stdout.write(await r.text());if(!r.ok)process.exit(1)}).catch(error=>{console.error(error);process.exit(1)})"
@@ -207,8 +220,8 @@ for image in "$PLATFORM_API_BUILD_IMAGE" "$PLATFORM_WEB_BUILD_IMAGE"; do
 done
 
 if ! docker run --rm --entrypoint sh "$PLATFORM_API_BUILD_IMAGE" -c \
-  "test ! -e /app/dist/development && test ! -e /app/dist/entrypoints/mcp.js"; then
-  echo "API image contains a development or unrelated process entrypoint" >&2
+  "test ! -e /app/dist/development && test ! -e /app/dist/entrypoints/mcp.js && test -e /app/dist/entrypoints/material-assets-worker.js"; then
+  echo "API image contains an unrelated entrypoint or misses the Material Asset worker" >&2
   exit 1
 fi
 

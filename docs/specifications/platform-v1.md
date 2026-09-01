@@ -395,9 +395,12 @@ Published body читается только для current `published` state; d
    Asset; body reference остаётся stable opaque `assetId`, а referenced Asset сохраняется.
 5. Asset `read | download | preview` сначала передаёт exact opaque Asset resource в
    `ContentAccess`; safe owner/kind facts разрешаются до authorize, private locator читается только
-   после allow. Public delivery возвращает immutable bytes через stable Platform route; protected
-   delivery получает private/no-store redirect, а TTL не длиннее adapter cap и remaining
-   Membership validity.
+   после allow. Platform route несёт `contentVersion`, сверяет его с `checkedContentVersion` и
+   подтверждает current body reference conditional query до чтения locator; stale URL или replaced
+   Asset возвращает masked 404. Public delivery возвращает immutable bytes через stable
+   version-bound Platform route; protected delivery получает private/no-store redirect, а TTL не
+   длиннее adapter cap и remaining Membership validity. Save, replacement и access transition
+   меняют `contentVersion`, поэтому новый Reader не переиспользует старый public cache key.
 6. `material-assets-worker` через durable `pg-boss` schedule после grace period удаляет
    unreferenced pending/failed/ready objects. Cleanup и concurrent Save сериализуются Material
    advisory lock; повтор job безопасен, referenced resources retain-ятся.
