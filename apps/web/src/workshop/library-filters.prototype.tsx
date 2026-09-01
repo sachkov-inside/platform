@@ -10,12 +10,14 @@ export interface LibraryFilterOption {
 }
 
 export interface LibraryFiltersProps {
+  readonly ariaLabel?: string;
   readonly className?: string;
   readonly density?: "comfortable" | "compact";
   readonly formatOptions: readonly string[];
   readonly selectedFormats: readonly string[];
   readonly selectedSeriesIds: readonly string[];
   readonly selectedTopics: readonly string[];
+  readonly seriesLabel?: string;
   readonly seriesOptions: readonly LibraryFilterOption[];
   readonly setSelectedFormats: (values: readonly string[]) => void;
   readonly setSelectedSeriesIds: (values: readonly string[]) => void;
@@ -25,12 +27,14 @@ export interface LibraryFiltersProps {
 
 /** Canonical Library facets: Topic, Format and Series. */
 export function LibraryFilters({
+  ariaLabel = "Фильтры библиотеки",
   className,
   density = "comfortable",
   formatOptions,
   selectedFormats,
   selectedSeriesIds,
   selectedTopics,
+  seriesLabel = "Серия",
   seriesOptions,
   setSelectedFormats,
   setSelectedSeriesIds,
@@ -42,35 +46,42 @@ export function LibraryFilters({
   return (
     <div className="@container/library-filters">
       <div
-        aria-label="Фильтры библиотеки"
+        aria-label={ariaLabel}
         className={cn(
           "grid gap-5",
-          compact && "@min-[44rem]/library-filters:grid-cols-3 @min-[44rem]/library-filters:gap-4",
+          compact &&
+            "@min-[44rem]/library-filters:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] @min-[44rem]/library-filters:gap-4",
           className,
         )}
         role="region"
       >
-        <FilterGroup
-          compact={compact}
-          legend="Тема"
-          options={topicOptions.map(toFilterOption)}
-          selected={selectedTopics}
-          setSelected={setSelectedTopics}
-        />
-        <FilterGroup
-          compact={compact}
-          legend="Формат"
-          options={formatOptions.map(toFilterOption)}
-          selected={selectedFormats}
-          setSelected={setSelectedFormats}
-        />
-        <FilterGroup
-          compact={compact}
-          legend="Серия"
-          options={seriesOptions}
-          selected={selectedSeriesIds}
-          setSelected={setSelectedSeriesIds}
-        />
+        {topicOptions.length > 0 ? (
+          <FilterGroup
+            compact={compact}
+            legend="Тема"
+            options={topicOptions.map(toFilterOption)}
+            selected={selectedTopics}
+            setSelected={setSelectedTopics}
+          />
+        ) : null}
+        {formatOptions.length > 0 ? (
+          <FilterGroup
+            compact={compact}
+            legend="Формат"
+            options={formatOptions.map(toFilterOption)}
+            selected={selectedFormats}
+            setSelected={setSelectedFormats}
+          />
+        ) : null}
+        {seriesOptions.length > 0 ? (
+          <FilterGroup
+            compact={compact}
+            legend={seriesLabel}
+            options={seriesOptions}
+            selected={selectedSeriesIds}
+            setSelected={setSelectedSeriesIds}
+          />
+        ) : null}
       </div>
     </div>
   );

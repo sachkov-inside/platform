@@ -435,12 +435,12 @@ export function LibraryMaterialGrid({
   return (
     <ul
       {...(label === undefined ? {} : { "aria-label": label })}
-      className={`${className} grid grid-cols-1 items-start justify-items-center gap-4 @min-[40rem]/library:grid-cols-2 @min-[68rem]/library:grid-cols-3`}
+      className={`${className} grid grid-cols-1 items-stretch justify-items-center gap-4 @min-[40rem]/library:grid-cols-2 @min-[68rem]/library:grid-cols-3`}
       data-material-grid
       role="list"
     >
       {items.map((material) => (
-        <li className="w-full max-w-[28rem]" key={material.slug}>
+        <li className="h-full w-full max-w-[28rem]" key={material.slug}>
           <MaterialCard headingLevel="h3" material={material} />
         </li>
       ))}
@@ -456,7 +456,6 @@ function LibraryEmpty() {
           <Link href="/map">Открыть Карту</Link>
         </Button>
       }
-      message="После публикации материалы появятся здесь автоматически."
       state="empty"
       title="Опубликованных материалов пока нет"
     />
@@ -495,7 +494,7 @@ function LibraryStatus({
   title,
 }: {
   readonly action: React.ReactNode;
-  readonly message: string;
+  readonly message?: string;
   readonly state: string;
   readonly title: string;
 }) {
@@ -512,9 +511,11 @@ function LibraryStatus({
         <h2 className="relative mt-5 max-w-[20ch] text-balance text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
           {title}
         </h2>
-        <p className="relative mt-4 max-w-[60ch] text-pretty leading-7 text-muted-foreground">
-          {message}
-        </p>
+        {message === undefined ? null : (
+          <p className="relative mt-4 max-w-[60ch] text-pretty leading-7 text-muted-foreground">
+            {message}
+          </p>
+        )}
         <div className="relative mt-7">{action}</div>
       </div>
     </section>

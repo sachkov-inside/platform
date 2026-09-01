@@ -325,7 +325,7 @@ export const ReadyDesktop: Story = {
     ).toHaveAttribute("href", "/topics/product-engineering");
     await expect(
       within(firstCard).getByRole("link", {
-        name: "Создание Platform Inside · выпуск 5",
+        name: "Создание Platform Inside № 5",
       }),
     ).toHaveAttribute("href", "/series/platform-inside");
     await expect(canvas.getByText("Бесплатно")).toBeInTheDocument();

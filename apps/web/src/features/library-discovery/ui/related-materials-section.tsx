@@ -62,18 +62,13 @@ export function RelatedMaterialsSection({
         <span className="grid size-9 place-items-center rounded-lg bg-accent/10 text-accent">
           <Sparkles aria-hidden="true" className="size-4" />
         </span>
-        <div>
-          <h2 className="text-xl font-semibold tracking-[-0.03em] sm:text-2xl" id="related-materials">
-            Похожие материалы
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            По теме, плейлисту и метаданным
-          </p>
-        </div>
+        <h2 className="text-xl font-semibold tracking-[-0.03em] sm:text-2xl" id="related-materials">
+          Похожие материалы
+        </h2>
       </div>
-      <ul className="mt-5 grid grid-cols-1 items-start gap-4 @min-[42rem]/material-reader:grid-cols-2 @min-[66rem]/material-reader:grid-cols-3" role="list">
+      <ul className="mt-5 grid grid-cols-1 items-stretch gap-4 @min-[42rem]/material-reader:grid-cols-2 @min-[66rem]/material-reader:grid-cols-3" role="list">
         {result.items.map((material) => (
-          <li className="w-full max-w-[28rem]" key={material.slug}>
+          <li className="h-full w-full max-w-[28rem]" key={material.slug}>
             <MaterialCard headingLevel="h3" material={material} />
           </li>
         ))}
