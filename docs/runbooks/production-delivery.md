@@ -24,6 +24,9 @@ runtime command.
 
 ## Runtime configuration
 
+The [runtime configuration contract](runtime-configuration.md) defines application ownership,
+validation, env-file precedence, and how Compose passes values without baking them into images.
+
 The server has two environment files with different lifecycles:
 
 - `shared/runtime.env` contains database, Logto, cookie, identity and Telegram secrets plus stable

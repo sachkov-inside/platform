@@ -2,6 +2,8 @@ import "server-only";
 
 import { z } from "zod";
 
+import { readWebRuntimeConfig } from "@/shared/config/index.server";
+
 import {
   AccountsService,
   ApiError,
@@ -17,7 +19,6 @@ import {
 import type { ApiRequestOptions } from "./generated/platform-api/core/ApiRequestOptions";
 import type { ApiResult } from "./generated/platform-api/core/ApiResult";
 
-const LOCAL_BACKEND_BASE_URL = "http://127.0.0.1:3001";
 const BACKEND_REQUEST_TIMEOUT_MS = 3_000;
 
 export type BackendConnectionErrorCode =
@@ -91,36 +92,15 @@ export type AuthenticatedAccount = Readonly<
 >;
 
 export function readBackendBaseUrl(): string {
-  const configuredUrl = nonEmpty(process.env.BACKEND_BASE_URL?.trim());
-
-  if (!configuredUrl && process.env.NODE_ENV === "production") {
-    throw new BackendConnectionError(
-      "configuration",
-      "BACKEND_BASE_URL is required in production",
-    );
-  }
-
-  const rawUrl = configuredUrl ?? LOCAL_BACKEND_BASE_URL;
-  let url: URL;
-
   try {
-    url = new URL(rawUrl);
+    return readWebRuntimeConfig().backendBaseUrl;
   } catch (cause) {
     throw new BackendConnectionError(
       "configuration",
-      "BACKEND_BASE_URL must be an absolute URL",
+      cause instanceof Error ? cause.message : "Web runtime configuration is invalid",
       { cause },
     );
   }
-
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new BackendConnectionError(
-      "configuration",
-      "BACKEND_BASE_URL must use HTTP or HTTPS",
-    );
-  }
-
-  return url.toString().replace(/\/$/u, "");
 }
 
 export function requestPublishedMaterialCatalog(
@@ -774,12 +754,4 @@ function accountProblemSchema<
       correlationId: z.string().optional(),
     })
     .strict();
-}
-
-function nonEmpty(value: string | undefined): string | undefined {
-  if (value === undefined || value.length === 0) {
-    return undefined;
-  }
-
-  return value;
 }

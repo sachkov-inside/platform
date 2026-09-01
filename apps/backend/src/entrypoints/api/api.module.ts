@@ -54,7 +54,7 @@ import { HealthController } from "./health.controller.js";
   ],
 })
 export class ApiModule {
-  static forRoot(config: PlatformConfig): DynamicModule {
+  static forRoot(config?: PlatformConfig): DynamicModule {
     return {
       module: ApiModule,
       imports: [

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PLATFORM_CONFIG,
   parsePlatformConfig,
+  type PlatformConfig,
 } from "../src/config/platform-config.js";
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
@@ -33,6 +34,20 @@ describe("backend process composition", () => {
 
   afterEach(async () => {
     await application?.close();
+    vi.unstubAllEnvs();
+  });
+
+  it("loads and validates the process environment through Nest composition", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://inside:inside@127.0.0.1:1/inside",
+    );
+
+    const api = await createApiApplication(undefined, { logger: false });
+    application = api;
+
+    expect(api.get<PlatformConfig>(PLATFORM_CONFIG)).toEqual(config);
   });
 
   it("binds one immutable config and one Prisma lifecycle in the API", async () => {

@@ -69,9 +69,12 @@ the containers without a host `node_modules`. A package manifest, workspace mani
 change performs a controlled image rebuild.
 
 The checked-in local credentials are defaults. A root `.env` copied from `.env.example` is optional
-for overrides and for the host fallback; already exported variables take precedence. Inside the
-Compose network, applications use `postgres` and `api` service DNS. Browser-facing URLs remain on
-`127.0.0.1`.
+for Compose overrides and the NestJS host fallback; already exported variables take precedence.
+Next.js host fallback uses the same checked-in defaults or variables exported by its launcher
+shell. Inside the Compose network, applications use `postgres` and `api` service DNS.
+Browser-facing URLs remain on `127.0.0.1`. See the
+[runtime configuration contract](runtime-configuration.md) for ownership, precedence, validation,
+and the production env-file boundary.
 
 For a detached stack suitable for smoke commands:
 
@@ -135,9 +138,10 @@ metadata at `/.well-known/oauth-protected-resource/mcp` and send the delegated t
 `Authorization: Bearer` header. Production provider setup and public routing remain outside this
 repository task.
 
-Every backend process loads the optional repository `.env` once and parses one immutable
-`PlatformConfig`. `NODE_ENV=development` enables checked-in local defaults; absent `NODE_ENV` is
-production, where database and API listen values are required.
+NestJS loads the optional repository `.env` through `@nestjs/config`, validates it with Zod, and
+injects one immutable `PlatformConfig`. Next.js validates one server-only `WebRuntimeConfig` during
+Node.js server startup. `NODE_ENV=development` enables checked-in local defaults; absent
+`NODE_ENV` is production, where all runtime values are required.
 
 Inspect the running host fallback or Compose stack:
 
