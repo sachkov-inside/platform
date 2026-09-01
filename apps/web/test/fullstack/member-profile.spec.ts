@@ -1,52 +1,56 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type BrowserContext } from "@playwright/test";
 
-test("onboards the Account owner and preserves the complete Profile lifecycle", async ({
+test("creates or edits the Account Profile and preserves the member projection", async ({
   context,
   page,
 }, testInfo) => {
   await addFullStackSession(context);
 
-  await page.goto("/account");
-  const existingDelete = page.getByRole("button", { name: "Удалить профиль" });
-  if (await existingDelete.isVisible()) {
-    await existingDelete.focus();
-    await page.keyboard.press("Enter");
-    const existingDeletion = page.getByRole("dialog", { name: "Удалить профиль?" });
-    await existingDeletion
-      .getByRole("button", { name: "Удалить безвозвратно" })
-      .click();
-    await expect(existingDeletion).toBeHidden();
+  const profileStateResponse = await page.request.get("/account/profile-state");
+  expect(profileStateResponse.status()).toBe(200);
+  const profileState = (await profileStateResponse.json()) as { readonly kind?: string };
+  if (profileState.kind === "missing") {
+    const home = await page.goto("/");
+    expect(home?.status()).toBe(200);
+    const onboarding = page.getByRole("dialog", { name: "Как к вам обращаться?" });
+    await expect(onboarding).toBeVisible();
+    await expect(page.locator("[data-profile-gated=true]")).toHaveAttribute(
+      "inert",
+      "",
+    );
+    await expect(onboarding.getByLabel("Имя")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(onboarding).toBeVisible();
+
+    await onboarding.getByLabel("Имя").fill("Кирилл Сачков");
+    await onboarding.getByRole("button", { name: "Продолжить" }).click();
+    await expect(onboarding).toBeHidden();
+    await expect(page.locator("[data-profile-gated=true]")).toHaveCount(0);
+    await page.getByRole("link", { name: /Открыть аккаунт/u }).click();
+    await expect(page).toHaveURL(/\/account$/u);
+  } else {
+    expect(profileState.kind).toBe("profile");
+    const account = await page.goto("/account");
+    expect(account?.status()).toBe(200);
   }
-
-  const home = await page.goto("/");
-  expect(home?.status()).toBe(200);
-  const onboarding = page.getByRole("dialog", { name: "Как к вам обращаться?" });
-  await expect(onboarding).toBeVisible();
-  await expect(page.locator("[data-profile-gated=true]")).toHaveAttribute(
-    "inert",
-    "",
-  );
-  await expect(onboarding.getByLabel("Имя")).toBeFocused();
-  await page.keyboard.press("Escape");
-  await expect(onboarding).toBeVisible();
-
-  await onboarding.getByLabel("Имя").fill("Кирилл Сачков");
-  await onboarding.getByRole("button", { name: "Продолжить" }).click();
-  await expect(onboarding).toBeHidden();
-  await expect(page.locator("[data-profile-gated=true]")).toHaveCount(0);
-  await page.getByRole("link", { name: /Открыть аккаунт/u }).click();
-  await expect(page).toHaveURL(/\/account$/u);
   await expect(page.getByRole("heading", { name: "Ваш профиль" })).toBeVisible();
 
-  const bio = "Развиваю инженерные команды и изучаю agent-first delivery.";
+  const bio =
+    testInfo.project.name === "mobile-chromium"
+      ? "Развиваю инженерные команды и проверяю agent-first delivery на практике."
+      : "Развиваю инженерные команды и изучаю agent-first delivery.";
   await page.getByLabel("О себе · необязательно").fill(bio);
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByText("Профиль сохранён.")).toBeVisible();
   await expect(page.getByRole("article").getByText(bio)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Профиль участника" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Удалить профиль/u })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Скачать JSON/u })).toHaveCount(0);
+  await expect(page.getByText("Граница", { exact: true })).toHaveCount(0);
 
   const publicPathCode = page.locator("code").filter({ hasText: "/members/" });
   const publicPath = await publicPathCode.textContent();
@@ -67,7 +71,7 @@ test("onboards the Account owner and preserves the complete Profile lifecycle", 
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
   const reviewDirectory = resolve(process.cwd(), "../../.impeccable/review");
-  const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-51");
+  const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-189");
   await mkdir(reviewDirectory, { recursive: true });
   await mkdir(evidenceDirectory, { recursive: true });
   const screenshotName =
@@ -83,16 +87,8 @@ test("onboards the Account owner and preserves the complete Profile lifecycle", 
     });
   }
 
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Скачать JSON" }).click();
-  const download = await downloadPromise;
-  const downloadPath = await download.path();
-  expect(download.suggestedFilename()).toBe("member-profile.json");
-  if (downloadPath === null) throw new Error("Profile export has no local path");
-  expect(JSON.parse(await readFile(downloadPath, "utf8"))).toEqual({
-    profile: { bio, displayName: "Кирилл Сачков" },
-    schemaVersion: "member-profile-export.v1",
-  });
+  const removedExportRoute = await page.request.get("/account/export-profile");
+  expect(removedExportRoute.status()).toBe(404);
 
   if (publicPath === null) throw new Error("Profile projection path is missing");
   const memberPage = await page.goto(publicPath);
@@ -103,16 +99,6 @@ test("onboards the Account owner and preserves the complete Profile lifecycle", 
     /noindex/u,
   );
 
-  await page.goto("/account");
-  await page.getByRole("button", { name: "Удалить профиль" }).focus();
-  await page.keyboard.press("Enter");
-  const deletion = page.getByRole("dialog", { name: "Удалить профиль?" });
-  await expect(deletion).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(deletion).toBeVisible();
-  await deletion.getByRole("button", { name: "Удалить безвозвратно" }).click();
-  await expect(deletion).toBeHidden();
-  await expect(page.getByRole("button", { name: "Создать" })).toBeVisible();
 });
 
 async function addFullStackSession(context: BrowserContext) {

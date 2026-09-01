@@ -58,12 +58,6 @@ export async function moderateMemberProfile(
           updatedAt: new Date(),
         },
       });
-      if (action === "disable") {
-        await transaction.memberProfileReport.updateMany({
-          where: { publicProfileId, status: "open" },
-          data: { status: "resolved", updatedAt: new Date() },
-        });
-      }
       await appendMemberProfileAuditEvent(
         transaction,
         action === "disable" ? "profile_disabled" : "profile_restored",

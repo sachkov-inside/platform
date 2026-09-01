@@ -4,7 +4,6 @@ import { accountId, type AccountId } from "../../src/modules/accounts/index.js";
 import type { MembershipAccessState } from "../../src/modules/membership-entitlements/index.js";
 import {
   assembleMemberProfiles,
-  listOpenProfileReports,
   moderateMemberProfile,
   type MemberProfiles,
 } from "../../src/modules/member-profiles/index.js";
@@ -37,7 +36,6 @@ describe("MemberProfiles", () => {
 
   beforeEach(async () => {
     membership.clear();
-    await database.prisma.memberProfileReport.deleteMany();
     await database.prisma.memberProfile.deleteMany();
     await database.prisma.memberProfileAuditEvent.deleteMany();
     await database.prisma.account.deleteMany();
@@ -85,7 +83,7 @@ describe("MemberProfiles", () => {
     ]);
   });
 
-  test("protects updates and deletes with optimistic concurrency", async () => {
+  test("protects updates with optimistic concurrency", async () => {
     const created = await createOwnerProfile(profiles);
     const updated = await profiles.updateProfile({
       accountId: ownerAccountId,
@@ -103,15 +101,6 @@ describe("MemberProfiles", () => {
         expectedVersion: created.version,
         displayName: "Проигравшая запись",
         bio: null,
-      }),
-    ).resolves.toEqual({
-      ok: false,
-      error: { code: "conflict", currentVersion: 2 },
-    });
-    await expect(
-      profiles.deleteProfile({
-        accountId: ownerAccountId,
-        expectedVersion: created.version,
       }),
     ).resolves.toEqual({
       ok: false,
@@ -164,42 +153,12 @@ describe("MemberProfiles", () => {
     }
   });
 
-  test("bounds reports, supports manual disable/restore and hides disabled Profile", async () => {
+  test("supports manual disable/restore and hides disabled Profile", async () => {
     const created = await createOwnerProfile(profiles);
     membership.set(viewerAccountId, {
       kind: "active",
       validUntil: "2030-01-01T01:00:00.000Z",
     });
-
-    await expect(
-      profiles.reportProfile(
-        viewerAccountId,
-        created.publicProfileId,
-        "unsafe_content",
-      ),
-    ).resolves.toEqual({ ok: true, outcome: "recorded" });
-    await expect(
-      profiles.reportProfile(
-        viewerAccountId,
-        created.publicProfileId,
-        "impersonation",
-      ),
-    ).resolves.toEqual({ ok: true, outcome: "already_recorded" });
-    await expect(
-      profiles.reportProfile(
-        ownerAccountId,
-        created.publicProfileId,
-        "other",
-      ),
-    ).resolves.toEqual({ ok: false, error: { code: "not_found" } });
-    await expect(database.prisma.memberProfileReport.count()).resolves.toBe(1);
-    const openReports = await listOpenProfileReports(database.prisma);
-    expect(openReports.ok).toBe(true);
-    if (!openReports.ok) throw new Error("Open Profile reports could not be listed");
-    expect(openReports.value).toHaveLength(1);
-    expect(openReports.value[0]?.publicProfileId).toBe(created.publicProfileId);
-    expect(openReports.value[0]?.reason).toBe("unsafe_content");
-    expect(typeof openReports.value[0]?.createdAt).toBe("string");
 
     await expect(
       moderateMemberProfile(
@@ -215,10 +174,6 @@ describe("MemberProfiles", () => {
       ok: true,
       value: { kind: "profile", profile: { status: "disabled", version: 2 } },
     });
-    await expect(listOpenProfileReports(database.prisma)).resolves.toEqual({
-      ok: true,
-      value: [],
-    });
     await expect(
       moderateMemberProfile(
         database.prisma,
@@ -228,32 +183,6 @@ describe("MemberProfiles", () => {
     ).resolves.toMatchObject({ ok: true, changed: true, status: "active" });
   });
 
-  test("hard-deletes authored fields and never resurrects the stale public URL", async () => {
-    const created = await createOwnerProfile(profiles);
-    membership.set(viewerAccountId, {
-      kind: "active",
-      validUntil: "2030-01-01T01:00:00.000Z",
-    });
-
-    await expect(
-      profiles.deleteProfile({
-        accountId: ownerAccountId,
-        expectedVersion: created.version,
-      }),
-    ).resolves.toEqual({ ok: true, value: { deleted: true } });
-    await expect(profiles.readPrivateProfile(ownerAccountId)).resolves.toEqual({
-      ok: true,
-      value: { kind: "missing" },
-    });
-    await expect(
-      profiles.viewProfile(viewerAccountId, created.publicProfileId),
-    ).resolves.toEqual({ ok: false, error: { code: "not_found" } });
-    expect(JSON.stringify(await database.prisma.memberProfileAuditEvent.findMany()))
-      .not.toContain("Инженер и автор");
-
-    const recreated = await createOwnerProfile(profiles);
-    expect(recreated.publicProfileId).not.toBe(created.publicProfileId);
-  });
 });
 
 async function insertAccount(

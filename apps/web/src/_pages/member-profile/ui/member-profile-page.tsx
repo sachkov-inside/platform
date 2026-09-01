@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 
 import { getMemberProfile } from "../api/get-member-profile";
-import { reportMemberProfileAction } from "../api/report-member-profile.action";
 import { MemberProfileReady } from "./member-profile-ready";
 
 export async function MemberProfilePage({
@@ -36,10 +35,5 @@ export async function MemberProfilePage({
     );
   }
 
-  return (
-    <MemberProfileReady
-      profile={result.profile}
-      reportAction={reportMemberProfileAction}
-    />
-  );
+  return <MemberProfileReady profile={result.profile} />;
 }

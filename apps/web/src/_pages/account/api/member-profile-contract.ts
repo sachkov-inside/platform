@@ -6,9 +6,7 @@ import type {
   ProfileField,
 } from "../model/member-profile";
 
-const fieldsSchema = z
-  .object({ bio: z.string().nullable(), displayName: z.string() })
-  .strict();
+const fieldsSchema = z.object({ bio: z.string().nullable(), displayName: z.string() }).strict();
 
 const privateProfileSchema = fieldsSchema
   .extend({
@@ -29,26 +27,12 @@ const privateProfileResponseSchema = z
   .object({ profile: privateProfileSchema })
   .strict();
 
-const exportResponseSchema = z
-  .object({
-    profile: fieldsSchema,
-    schemaVersion: z.literal("member-profile-export.v1"),
-  })
-  .strict();
-
 export function parsePrivateProfileState(value: unknown): PrivateMemberProfileState {
   return parse(privateStateSchema, value, "Private Profile state");
 }
 
 export function parsePrivateProfile(value: unknown): PrivateMemberProfile {
   return parse(privateProfileResponseSchema, value, "Profile response").profile;
-}
-
-export function parseProfileExport(value: unknown): Readonly<{
-  profile: { readonly bio: string | null; readonly displayName: string };
-  schemaVersion: "member-profile-export.v1";
-}> {
-  return parse(exportResponseSchema, value, "Profile export response");
 }
 
 export function profileIssueMessage(field: ProfileField, code: string): string {

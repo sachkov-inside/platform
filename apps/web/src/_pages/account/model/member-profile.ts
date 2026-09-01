@@ -40,15 +40,7 @@ export type ProfileMutationState =
       readonly kind: "saved";
       readonly profile: PrivateMemberProfile;
     }
-  | { readonly kind: "deleted" }
   | { readonly kind: "unauthorized" }
   | { readonly kind: "unavailable"; readonly reference: string };
 
 export const initialProfileMutationState: ProfileMutationState = { kind: "idle" };
-
-export type ProfileReportState =
-  | { readonly kind: "idle" }
-  | { readonly kind: "reported"; readonly duplicate: boolean }
-  | { readonly kind: "unavailable" };
-
-export const initialProfileReportState: ProfileReportState = { kind: "idle" };
