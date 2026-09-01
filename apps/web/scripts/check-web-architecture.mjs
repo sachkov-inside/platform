@@ -98,24 +98,16 @@ function hasUseClientDirective(program) {
 }
 
 function readsBackendEndpointEnvironment(program) {
-  let found = false;
-  new Visitor({
-    MemberExpression(node) {
-      if (
-        node.object.type === "MemberExpression" &&
-        node.object.object.type === "Identifier" &&
-        node.object.object.name === "process" &&
-        memberPropertyName(node.object) === "env" &&
-        isBackendEndpointName(memberPropertyName(node))
-      ) {
-        found = true;
-      }
-    },
-  }).visit(program);
-  return found;
+  return readsProcessEnvironment(program, isBackendEndpointName);
 }
 
 function readsRuntimeConfigurationEnvironment(program) {
+  return readsProcessEnvironment(program, (name) =>
+    runtimeConfigurationNames.has(name),
+  );
+}
+
+function readsProcessEnvironment(program, matchesName) {
   let found = false;
   new Visitor({
     MemberExpression(node) {
@@ -124,7 +116,7 @@ function readsRuntimeConfigurationEnvironment(program) {
         node.object.object.type === "Identifier" &&
         node.object.object.name === "process" &&
         memberPropertyName(node.object) === "env" &&
-        runtimeConfigurationNames.has(memberPropertyName(node))
+        matchesName(memberPropertyName(node))
       ) {
         found = true;
       }
