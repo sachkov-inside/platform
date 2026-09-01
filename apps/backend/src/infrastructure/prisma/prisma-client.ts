@@ -42,7 +42,11 @@ export type AccountsPrismaClient = AccountsPrisma & TransactionClient<AccountsPr
 
 export type MemberProfilesPrisma = Pick<
   PlatformPrisma,
-  "memberProfile" | "memberProfileAuditEvent"
+  | "$executeRaw"
+  | "memberProfile"
+  | "memberProfileAuditEvent"
+  | "profileAvatar"
+  | "profileAvatarRendition"
 >;
 export type MemberProfilesPrismaClient = MemberProfilesPrisma &
   TransactionClient<MemberProfilesPrisma>;

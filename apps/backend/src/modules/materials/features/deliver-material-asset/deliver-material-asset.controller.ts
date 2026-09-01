@@ -20,7 +20,7 @@ import {
 } from "@nestjs/swagger";
 import { z } from "zod";
 
-import { MaterialAssetDeliveryCache } from "../../../../infrastructure/http/http-cache-policy.js";
+import { AssetDeliveryCache } from "../../../../infrastructure/http/http-cache-policy.js";
 import { problemDetailsContent } from "../../../../infrastructure/http/zod-openapi.js";
 import {
   accountId as checkedAccountId,
@@ -68,7 +68,7 @@ export class DeliverMaterialAssetController {
   @ApiFoundResponse({ description: "Short-lived protected redirect", headers: { Location: { schema: { type: "string", format: "uri" } } } })
   @ApiNotFoundResponse({ description: "Asset is absent or not currently accessible", content: problemDetailsContent(assetNotFoundProblemSchema) })
   @ApiServiceUnavailableResponse({ description: "Access or storage dependency is unavailable", content: problemDetailsContent(assetDependencyProblemSchema) })
-  @MaterialAssetDeliveryCache()
+  @AssetDeliveryCache()
   download(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("materialId") materialId: string,
@@ -91,7 +91,7 @@ export class DeliverMaterialAssetController {
   @ApiFoundResponse({ description: "Short-lived protected redirect", headers: { Location: { schema: { type: "string", format: "uri" } } } })
   @ApiNotFoundResponse({ description: "Asset is absent or not currently accessible", content: problemDetailsContent(assetNotFoundProblemSchema) })
   @ApiServiceUnavailableResponse({ description: "Access or storage dependency is unavailable", content: problemDetailsContent(assetDependencyProblemSchema) })
-  @MaterialAssetDeliveryCache()
+  @AssetDeliveryCache()
   image(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("materialId") materialId: string,

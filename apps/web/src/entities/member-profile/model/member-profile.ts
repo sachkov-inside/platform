@@ -3,7 +3,12 @@ export interface MemberProfileFields {
   readonly displayName: string;
 }
 
+export interface MemberProfileAvatar {
+  readonly avatarId: string;
+}
+
 export interface PrivateMemberProfile extends MemberProfileFields {
+  readonly avatar: MemberProfileAvatar | null;
   readonly createdAt: string;
   readonly publicProfileId: string;
   readonly status: "active" | "disabled";
@@ -12,6 +17,7 @@ export interface PrivateMemberProfile extends MemberProfileFields {
 }
 
 export interface MemberProfileProjectionData extends MemberProfileFields {
+  readonly avatar: MemberProfileAvatar | null;
   readonly publicProfileId: string;
 }
 

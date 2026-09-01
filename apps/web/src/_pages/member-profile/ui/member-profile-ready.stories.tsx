@@ -4,6 +4,7 @@ import { expect, within } from "storybook/test";
 import { MemberProfileReady } from "./member-profile-ready";
 
 const profile = {
+  avatar: null,
   bio: "Развиваю инженерные команды и изучаю agent-first delivery.",
   displayName: "Кирилл Сачков",
   publicProfileId: "5d34da22-548e-4b02-b6e8-9c918ad536ef",

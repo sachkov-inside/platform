@@ -8,9 +8,14 @@ import {
   type ProfileMutationDependencies,
 } from "@/_pages/account/api/mutate-member-profile";
 import { getMemberProfile } from "@/_pages/member-profile/api/get-member-profile";
+import {
+  profileInitials,
+  shouldUseAvatarImage,
+} from "@/entities/member-profile";
 
 const publicProfileId = "d3acb421-85e2-4c79-9dfa-4b2c925e56e8";
 const profile = {
+  avatar: null,
   bio: "Строю платформу.",
   createdAt: "2026-08-30T10:00:00.000Z",
   displayName: "Кирилл",
@@ -21,6 +26,20 @@ const profile = {
 } as const;
 
 describe("Member Profile web workflow", () => {
+  it("derives deterministic Unicode initials for the avatar fallback", () => {
+    expect(profileInitials("  Кирилл   Сачков ")).toBe("КС");
+    expect(profileInitials("Prince")).toBe("P");
+    expect(profileInitials("🙂 Emoji")).toBe("🙂E");
+    expect(profileInitials("  ")).toBe("SI");
+  });
+
+  it("retries image delivery when a failed avatar is replaced", () => {
+    const oldUrl = "/avatar/old/320";
+    const newUrl = "/avatar/new/320";
+    expect(shouldUseAvatarImage(oldUrl, null)).toBe(true);
+    expect(shouldUseAvatarImage(oldUrl, oldUrl)).toBe(false);
+    expect(shouldUseAvatarImage(newUrl, oldUrl)).toBe(true);
+  });
   it("creates an accepted Profile and keeps an empty bio nullable", async () => {
     const dependencies = successfulDependencies();
     const formData = new FormData();
@@ -171,6 +190,7 @@ describe("Member Profile web workflow", () => {
         vi.fn().mockResolvedValue({
           body: {
             profile: {
+              avatar: null,
               bio: profile.bio,
               displayName: profile.displayName,
               publicProfileId,

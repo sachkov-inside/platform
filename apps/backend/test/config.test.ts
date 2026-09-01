@@ -52,6 +52,7 @@ describe("process configuration", () => {
         endpoint: "http://127.0.0.1:9000",
         forcePathStyle: true,
         orphanGraceMs: 86_400_000,
+        profileAvatarOrphanGraceMs: 86_400_000,
         region: "ru-central1",
         secretAccessKey: "inside-local-secret-key",
         signedGetTtlSeconds: 60,
@@ -102,6 +103,7 @@ describe("process configuration", () => {
         endpoint: "http://127.0.0.1:9000",
         forcePathStyle: true,
         orphanGraceMs: 86_400_000,
+        profileAvatarOrphanGraceMs: 86_400_000,
         region: "ru-central1",
         secretAccessKey: "inside-local-secret-key",
         signedGetTtlSeconds: 60,
@@ -195,6 +197,14 @@ describe("process configuration", () => {
       }),
     ).toThrow(
       "OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS must be an integer between 1 and 300",
+    );
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        PROFILE_AVATAR_ORPHAN_GRACE_SECONDS: "3599",
+      }),
+    ).toThrow(
+      "PROFILE_AVATAR_ORPHAN_GRACE_SECONDS must be an integer between 3600 and 2592000",
     );
     expect(() =>
       parsePlatformConfig({

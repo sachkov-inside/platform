@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as BackendModule from "@/shared/api/backend/index.server";
 
 const fakes = vi.hoisted(() => {
   class SessionUnavailableError extends Error {}
@@ -11,10 +12,14 @@ const fakes = vi.hoisted(() => {
   };
 });
 
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestMaterialAssetDelivery: fakes.requestDelivery,
-  requestMaterialAssetUpload: fakes.requestUpload,
-}));
+vi.mock("@/shared/api/backend/index.server", async (importOriginal) => {
+  const original = await importOriginal<typeof BackendModule>();
+  return {
+    ...original,
+    requestMaterialAssetDelivery: fakes.requestDelivery,
+    requestMaterialAssetUpload: fakes.requestUpload,
+  };
+});
 
 vi.mock("@/shared/auth/index.server", () => ({
   getOptionalPlatformAccessToken: fakes.getOptionalAccessToken,

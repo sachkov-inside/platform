@@ -3,6 +3,7 @@ export {
   type MemberProfileProblem,
 } from "./model/member-profile-problem";
 export type {
+  MemberProfileAvatar,
   MemberProfileFields,
   MemberProfileProjectionData,
   PrivateMemberProfile,
@@ -16,3 +17,8 @@ export {
   memberProfileTextLength,
 } from "./model/profile-fields";
 export { MemberProfileProjection } from "./ui/member-profile-projection";
+export {
+  ProfileAvatar,
+  profileInitials,
+  shouldUseAvatarImage,
+} from "./ui/profile-avatar.client";

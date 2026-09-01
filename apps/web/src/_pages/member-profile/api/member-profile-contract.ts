@@ -6,6 +6,7 @@ const projectionResponseSchema = z
   .object({
     profile: z
       .object({
+        avatar: z.object({ avatarId: z.uuid() }).strict().nullable(),
         bio: z.string().nullable(),
         displayName: z.string(),
         publicProfileId: z.uuid(),

@@ -3,12 +3,14 @@ import type {
   MemberProfileStatus,
   PrivateMemberProfile,
 } from "../facets/member-profiles/member-profiles.interface.js";
+import { parseProfileAvatarId } from "../domain/profile-avatar-id.js";
 import { parsePublicProfileId } from "../domain/public-profile-id.js";
 
 interface StoredMemberProfile {
   readonly publicProfileId: string;
   readonly displayName: string;
   readonly bio: string | null;
+  readonly avatarId: string | null;
   readonly status: string;
   readonly version: number;
   readonly createdAt: Date;
@@ -20,10 +22,13 @@ export function privateProfileProjection(
 ): PrivateMemberProfile | null {
   const status = profileStatus(profile.status);
   const publicProfileId = parsePublicProfileId(profile.publicProfileId);
-  return status === null || publicProfileId === undefined
+  const avatarId =
+    profile.avatarId === null ? null : parseProfileAvatarId(profile.avatarId);
+  return status === null || publicProfileId === undefined || avatarId === undefined
     ? null
     : {
         publicProfileId,
+        avatar: avatarId === null ? null : { avatarId },
         displayName: profile.displayName,
         bio: profile.bio,
         status,
@@ -36,17 +41,20 @@ export function privateProfileProjection(
 export function memberProfileProjection(
   profile: Pick<
     StoredMemberProfile,
-    "publicProfileId" | "displayName" | "bio"
+    "publicProfileId" | "displayName" | "bio" | "avatarId"
   >,
 ): MemberProfileProjection | null {
   const publicProfileId = parsePublicProfileId(profile.publicProfileId);
-  return publicProfileId === undefined
+  const avatarId =
+    profile.avatarId === null ? null : parseProfileAvatarId(profile.avatarId);
+  return publicProfileId === undefined || avatarId === undefined
     ? null
     : {
-    publicProfileId,
-    displayName: profile.displayName,
-    bio: profile.bio,
-  };
+        publicProfileId,
+        displayName: profile.displayName,
+        bio: profile.bio,
+        avatar: avatarId === null ? null : { avatarId },
+      };
 }
 
 function profileStatus(value: string): MemberProfileStatus | null {

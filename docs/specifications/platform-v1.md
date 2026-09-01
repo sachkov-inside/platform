@@ -90,7 +90,7 @@ throwaway prototype:
 |---|---|
 | Runtime/tooling | Node.js 24 LTS, strict TypeScript, pnpm и exact lockfile |
 | Web | Next.js App Router + React |
-| Backend | один NestJS + Fastify codebase с thin demand-driven process entrypoints; сейчас `api`, `mcp` и capability-specific `material-assets-worker` |
+| Backend | один NestJS + Fastify codebase с thin demand-driven process entrypoints; сейчас `api`, `mcp`, capability-specific `material-assets-worker` и `profile-avatars-worker` |
 | Application contract | REST + OpenAPI; transports не владеют application rules |
 | Transactional store | PostgreSQL 18 |
 | Data access | Prisma 7 + `@prisma/adapter-pg` — единственный application ORM для всех persistent capabilities; capability-scoped clients ограничивают delegates; checked-in append-only SQL migrations с checksum остаются authority |
@@ -233,7 +233,7 @@ Entry points вызывают одни application use cases и не созда�
 | Module | Малый interface | Owned facts |
 |---|---|---|
 | `Accounts` | establish/resolve trusted Logto identity в local Account и проверить exact permission | Account mapping, email fingerprint, permissions и redacted audit |
-| `MemberProfiles` | управлять owner-only Profile state и вернуть active-member projection | display name/bio, opaque public Profile identity, visibility, optimistic version и redacted audit |
+| `MemberProfiles` | управлять owner-only Profile state/avatar и вернуть active-member projection | display name/bio, opaque public Profile/avatar identity, rendition lifecycle, visibility, optimistic version и redacted audit |
 | `Materials` | `MaterialAuthoring` создаёт и full-state-save-ит current Material; reader возвращает published current state | content/metadata, publication/access state, content version, author policy, internal body schemas, safe public/search projections |
 | `ContentLibrary` | читать projections, search и навигацию, находить related Materials | published projections, ranking и explicit related pins |
 | [`ContentAccess`](content-access-authorization-v1.md) | batch `checkAvailabilityMany` для presentation и single `authorize` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
@@ -260,7 +260,8 @@ entities и invariants v1:
 | Entity | Cardinality / invariant |
 |---|---|
 | `Account` | одна local human identity; unique Logto issuer + subject; 0..1 Telegram link; permissions принадлежат Platform |
-| `MemberProfile` | 0..1 projection на Account; required mutable non-unique display name, optional bio, opaque public ID, `active | disabled`, optimistic version; active members only и никогда не authorization input |
+| `MemberProfile` | 0..1 projection на Account; required mutable non-unique display name, optional bio, opaque public ID, optional current ProfileAvatar, `active | disabled`, optimistic version; active members only и никогда не authorization input |
+| `ProfileAvatar` | принадлежит одному MemberProfile; immutable normalized square WebP renditions 160/320/640, current или orphan после replace/remove; никогда не identity, Membership или authorization input |
 | `Material` | stable identity; one mutable body/metadata/access; `draft | published | unpublished`; monotonically increasing content version |
 | `Topic` | Material имеет ровно один Topic; dictionary одноуровневый |
 | `Format` | Material имеет ровно один Format; это primary consumption mode, не Asset kind |
@@ -347,19 +348,27 @@ Published body читается только для current `published` state; d
 5. Profile не является глобальным gate после первого sign-in: Account без Profile может пользоваться
    доступными ему surfaces и явно создаёт Profile в private Account. Форма принимает mutable
    non-unique display name длиной 2–80 symbols и optional bio до 500 symbols; там же владелец позже
-   редактирует оба поля. Avatar/file/image отсутствуют и добавляются отдельно через S3-backed
-   [#153](https://github.com/sachkov-inside/platform/issues/153).
-6. `MemberProfiles` хранит Profile в отдельной `member_profiles` schema. Owner read/create/edit
-   принимает trusted Account, update требует `expectedVersion`. Self-service export/delete и
+   редактирует оба поля и может upload/crop/replace/remove ProfileAvatar;
+   server хранит только normalized square renditions, а UI детерминированно показывает initials без avatar.
+6. `MemberProfiles` хранит Profile и ProfileAvatar lifecycle в отдельной `member_profiles` schema.
+   Owner read/create/edit/avatar change принимает trusted Account, mutation требует
+   `expectedVersion`. Self-service export/delete и
    participant reporting не являются частью Profile interface.
 7. Member route `/members/<publicProfileId>` не образует directory/search и получает только
-   `publicProfileId + displayName + bio` после current active Membership check. Anonymous,
+   `publicProfileId + displayName + bio + opaque current avatarId` после current active Membership
+   check. Avatar rendition endpoint повторяет ту же Membership/Profile/current-avatar проверку и
+   только затем выдаёт краткоживущий protected presigned GET. Replace/remove немедленно делает
+   старый Platform endpoint недоступным; уже выданный storage credential живёт только до своего
+   bounded TTL и намеренно не получает отдельный revocation path. Anonymous,
    non-member, expired member, crawler, missing/disabled Profile получают одинаковый `404`
    и `noindex`; email, AccountId, Logto/Telegram identifiers, permissions, evidence и security/audit
    state не входят в projection.
 8. Manual owner release operation disable/restore скрывает projection и пишет redacted audit без
    participant report queue или публичной admin surface. Telegram linking, Membership state и
    recovery presentation остаются в #122 и не смешиваются с этим Profile interface.
+9. `profile-avatars-worker` через собственную durable `pg-boss` queue после настраиваемого
+   ProfileAvatar storage grace удаляет только tracked unreferenced renditions. Cleanup и concurrent avatar change
+   сериализуются Account advisory lock; current или cross-Account resource сохраняется.
 
 ### Membership linking и projection
 

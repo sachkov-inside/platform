@@ -1,6 +1,8 @@
 import "server-only";
 
 import {
+  backendProxyProblem,
+  copyBackendResponse,
   requestMaterialAssetDelivery,
   requestMaterialAssetUpload,
 } from "@/shared/api/backend/index.server";
@@ -18,23 +20,31 @@ export async function proxyMaterialAssetUpload(
 ): Promise<Response> {
   const logtoConfig = readLogtoBffConfig();
   if (!isSameOriginMutation(request, logtoConfig.baseUrl)) {
-    return problem(403, "cross_origin_request", "Cross-origin upload is forbidden");
+    return backendProxyProblem(
+      403,
+      "cross_origin_request",
+      "Cross-origin upload is forbidden",
+    );
   }
   let accessToken: string;
   try {
     accessToken = await getPlatformAccessToken(logtoConfig);
   } catch (error) {
     return error instanceof LogtoSessionUnavailableError
-      ? problem(401, "authentication_required", "Authentication required")
-      : problem(503, "identity_unavailable", "Identity session is unavailable");
+      ? backendProxyProblem(401, "authentication_required", "Authentication required")
+      : backendProxyProblem(
+          503,
+          "identity_unavailable",
+          "Identity session is unavailable",
+        );
   }
   const idempotencyKey = request.headers.get("idempotency-key");
   if (idempotencyKey === null) {
-    return problem(400, "invalid_upload", "Idempotency key is required");
+    return backendProxyProblem(400, "invalid_upload", "Idempotency key is required");
   }
   const contentType = request.headers.get("content-type");
   if (request.body === null || contentType?.toLowerCase().startsWith("multipart/form-data;") !== true) {
-    return problem(400, "invalid_upload", "Upload form is malformed");
+    return backendProxyProblem(400, "invalid_upload", "Upload form is malformed");
   }
   try {
     const response = await requestMaterialAssetUpload({
@@ -47,7 +57,11 @@ export async function proxyMaterialAssetUpload(
     });
     return copyBackendResponse(response);
   } catch {
-    return problem(503, "dependency_unavailable", "Asset upload is unavailable");
+    return backendProxyProblem(
+      503,
+      "dependency_unavailable",
+      "Asset upload is unavailable",
+    );
   }
 }
 
@@ -67,7 +81,7 @@ export async function proxyMaterialAssetDelivery(
     contentVersion < 1 ||
     (preview !== null && preview !== "false" && preview !== "true")
   ) {
-    return problem(404, "asset_not_found", "Asset not found");
+    return backendProxyProblem(404, "asset_not_found", "Asset not found");
   }
   try {
     const accessToken = await getOptionalPlatformAccessToken(request);
@@ -82,29 +96,10 @@ export async function proxyMaterialAssetDelivery(
     });
     return copyBackendResponse(response);
   } catch {
-    return problem(503, "dependency_unavailable", "Asset delivery is unavailable");
+    return backendProxyProblem(
+      503,
+      "dependency_unavailable",
+      "Asset delivery is unavailable",
+    );
   }
-}
-
-function copyBackendResponse(response: Response): Response {
-  const headers = new Headers();
-  for (const name of [
-    "cache-control",
-    "content-disposition",
-    "content-length",
-    "content-type",
-    "location",
-    "x-content-type-options",
-  ]) {
-    const value = response.headers.get(name);
-    if (value !== null) headers.set(name, value);
-  }
-  return new Response(response.body, { headers, status: response.status });
-}
-
-function problem(status: number, code: string, title: string): Response {
-  return Response.json(
-    { type: `urn:inside:problem:${code}`, title, status, code },
-    { status, headers: { "Cache-Control": "private, no-store" } },
-  );
 }

@@ -15,13 +15,13 @@ const CACHE_POLICY_METADATA = Symbol("http-cache-policy");
 
 type HttpCachePolicy =
   | "private-no-store"
-  | "material-asset-delivery"
+  | "asset-delivery"
   | "public-catalog"
   | "viewer-aware-catalog"
   | "published-material-response";
 
 const cacheControlByPolicy = {
-  "material-asset-delivery": "private, no-store",
+  "asset-delivery": "private, no-store",
   "private-no-store": "private, no-store",
   "public-catalog": "public, max-age=30, stale-while-revalidate=60",
 } as const;
@@ -44,10 +44,10 @@ export const PublishedMaterialCache = () =>
     "published-material-response" satisfies HttpCachePolicy,
   );
 
-export const MaterialAssetDeliveryCache = () =>
+export const AssetDeliveryCache = () =>
   SetMetadata(
     CACHE_POLICY_METADATA,
-    "material-asset-delivery" satisfies HttpCachePolicy,
+    "asset-delivery" satisfies HttpCachePolicy,
   );
 
 @Injectable()
@@ -64,9 +64,9 @@ export class HttpCachePolicyInterceptor implements NestInterceptor {
     }
 
     const response = context.switchToHttp().getResponse<FastifyReply>();
-    if (policy === "material-asset-delivery") {
+    if (policy === "asset-delivery") {
       return next.handle().pipe(
-        map((body: unknown) => sendMaterialAssetDelivery(response, body)),
+        map((body: unknown) => sendAssetDelivery(response, body)),
       );
     }
     return next.handle().pipe(
@@ -80,12 +80,12 @@ export class HttpCachePolicyInterceptor implements NestInterceptor {
   }
 }
 
-function sendMaterialAssetDelivery(
+function sendAssetDelivery(
   response: FastifyReply,
   body: unknown,
 ): Buffer | undefined {
-  if (!isMaterialAssetDelivery(body)) {
-    throw new TypeError("Material asset controller returned an invalid response");
+  if (!isAssetDelivery(body)) {
+    throw new TypeError("Asset delivery controller returned an invalid response");
   }
   response.header(
     "Cache-Control",
@@ -107,7 +107,7 @@ function sendMaterialAssetDelivery(
   return Buffer.from(body.body);
 }
 
-function isMaterialAssetDelivery(value: unknown): value is
+function isAssetDelivery(value: unknown): value is
   | Readonly<{
       body: Uint8Array;
       cacheScope: "public-immutable";
