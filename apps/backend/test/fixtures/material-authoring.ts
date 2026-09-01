@@ -18,6 +18,7 @@ export function stubMaterialAuthoring(
     previewMaterial: () => Promise.resolve(forbiddenAuthoringResult),
     reorderSeries: () => Promise.resolve(forbiddenAuthoringResult),
     saveMaterial: () => Promise.resolve(forbiddenAuthoringResult),
+    transitionPublication: () => Promise.resolve(forbiddenAuthoringResult),
     validateMaterial: () => Promise.resolve(forbiddenAuthoringResult),
     ...overrides,
   };

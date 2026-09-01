@@ -22,6 +22,9 @@ const config: StorybookConfig = {
           "next/link": fileURLToPath(
             new URL("./mocks/next-link.tsx", import.meta.url),
           ),
+          "next/navigation": fileURLToPath(
+            new URL("./mocks/next-navigation.ts", import.meta.url),
+          ),
         },
       },
     }),

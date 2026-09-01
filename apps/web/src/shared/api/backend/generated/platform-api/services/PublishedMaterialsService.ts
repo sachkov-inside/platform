@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { RecursiveSchema0schema0 } from '../models/RecursiveSchema0schema0';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class PublishedMaterialsService {
@@ -17,7 +18,7 @@ export class PublishedMaterialsService {
     slug: string,
   }): CancelablePromise<({
     body: {
-      blocks: Array<any>;
+      blocks: Array<RecursiveSchema0schema0>;
       schemaVersion: 1;
     };
     cacheScope: 'public' | 'private-no-store';

@@ -316,7 +316,8 @@ rendered visual/component GO остаётся отдельным от PR и merg
   появляется только при реальном membership текущего Material в Series;
 - Library фильтрует по каноническим facets `Тема / Формат / Серия`: выбранные значения работают
   как OR внутри facet и AND между facets; Tags остаются видимыми searchable links и search text,
-  но не образуют отдельную filter group;
+  но не образуют отдельную filter group; filters применяются без page navigation, text search
+  debounce-ится, а обычный infinite scroll сохраняет видимую кнопку ручной догрузки;
 - Material Card показывает title и ordinal Series только при реальном membership; карточка без
   Series не резервирует под него место;
 - video Material cards образуют компактную media-grid с одинаковым `16:9` preview и стабильной

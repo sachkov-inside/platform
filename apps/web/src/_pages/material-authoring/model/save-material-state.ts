@@ -1,7 +1,4 @@
-import type {
-  MaterialValidationIssue,
-  MaterialValidationState,
-} from "@/features/material-authoring";
+import type { MaterialValidationIssue } from "@/widgets/material-authoring/model";
 
 export type SaveMaterialActionState =
   | { readonly kind: "idle" }
@@ -24,10 +21,6 @@ export type SaveMaterialActionState =
       readonly kind: "saved";
       readonly nextSubmissionId: string;
       readonly publicationState: "draft" | "published" | "unpublished";
-      readonly validation: Exclude<
-        MaterialValidationState,
-        { readonly kind: "checking" | "idle" }
-      >;
     };
 
 export const initialSaveMaterialState = {

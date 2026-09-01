@@ -2,7 +2,7 @@ export type {
   LibraryDiscoveryKind,
   LibraryDiscoveryReference,
   LibraryDiscoveryResult,
-} from "./model/library-discovery-view";
+} from "@/features/library-discovery";
 export {
   LibraryDiscoveryLoading,
   LibraryDiscoveryNotFound,
@@ -10,4 +10,3 @@ export {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./ui/library-discovery-view";
-export { RelatedMaterialsSection } from "./ui/related-materials-section";

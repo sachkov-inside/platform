@@ -6,7 +6,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   optimizeDeps: {
-    include: ["@tanstack/react-query", "@tanstack/react-virtual", "zod"],
+    include: ["@tanstack/react-query", "zod"],
   },
   resolve: {
     alias: {

@@ -4,18 +4,15 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import {
-  materialDocumentSchema,
-  type MaterialValidationIssue,
-} from "@/features/material-authoring";
+import type { MaterialValidationIssue } from "@/widgets/material-authoring/model";
 import {
   BackendConnectionError,
   requestMaterialSave,
-  requestMaterialValidation,
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 
 import type { SaveMaterialActionState } from "../model/save-material-state";
+import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
   document: z.string().min(1).max(1_048_576),
@@ -38,20 +35,6 @@ const receiptSchema = z
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
   })
   .strict();
-const validationSchema = z
-  .object({
-    contentVersion: z.number().int().positive(),
-    extraction: z
-      .object({
-        headings: z.array(z.object({ level: z.number(), text: z.string() })),
-        plainText: z.string(),
-        resources: z.array(z.unknown()),
-      })
-      .strict(),
-    materialId: z.uuid(),
-    projectionDigest: z.string().min(1),
-  })
-  .strict();
 const problemSchema = z
   .object({
     code: z.string(),
@@ -66,12 +49,10 @@ const problemSchema = z
 
 export interface SaveMaterialDependencies {
   readonly save: typeof requestMaterialSave;
-  readonly validate: typeof requestMaterialValidation;
 }
 
 const productionDependencies: SaveMaterialDependencies = {
   save: requestMaterialSave,
-  validate: requestMaterialValidation,
 };
 
 export async function executeSaveMaterial(
@@ -101,30 +82,11 @@ export async function executeSaveMaterial(
     throw new TypeError("Save receipt does not match the edited Material");
   }
 
-  let validation: BackendTransportResult;
-  try {
-    validation = await dependencies.validate(
-      receipt.data.materialId,
-      receipt.data.contentVersion,
-      accessToken,
-    );
-  } catch (error) {
-    if (error instanceof BackendConnectionError && error.code === "unavailable") {
-      return { kind: "infrastructure_error", reference: error.code };
-    }
-    throw error;
-  }
-  const mappedValidation = mapValidation(validation);
-  if (mappedValidation.kind === "infrastructure_error") {
-    return mappedValidation;
-  }
-
   return {
     contentVersion: receipt.data.contentVersion,
     kind: "saved",
     nextSubmissionId: randomUUID(),
     publicationState: receipt.data.publicationState,
-    validation: mappedValidation.validation,
   };
 }
 
@@ -160,37 +122,20 @@ function parseForm(
     };
   }
 
-  let document: unknown;
-  let seriesIds: unknown;
-  try {
-    document = JSON.parse(parsed.data.document) as unknown;
-    seriesIds = JSON.parse(parsed.data.seriesIds) as unknown;
-  } catch {
-    return {
-      issues: [{ message: "Данные редактора повреждены. Обновите страницу.", path: "/document" }],
-      ok: false,
-    };
-  }
-  const parsedDocument = materialDocumentSchema.safeParse(document);
-  const parsedSeries = z.array(z.uuid()).max(100).safeParse(seriesIds);
-  if (!parsedDocument.success || !parsedSeries.success) {
-    return {
-      issues: [{ message: "Данные редактора имеют неверную структуру.", path: "/document" }],
-      ok: false,
-    };
-  }
+  const documentFields = parseMaterialDocumentFields(parsed.data);
+  if (!documentFields.ok) return documentFields;
 
   return {
     ok: true,
     value: {
       access: parsed.data.access,
-      document: parsedDocument.data,
+      document: documentFields.document,
       expectedContentVersion: parsed.data.expectedContentVersion,
       formatId: parsed.data.formatId === "unassigned" ? null : parsed.data.formatId,
       idempotencyKey: `web-save-${parsed.data.submissionId}`,
       materialId: parsed.data.materialId,
       publicationState: parsed.data.publicationState,
-      seriesIds: parsedSeries.data,
+      seriesIds: documentFields.seriesIds,
       summary: emptyToNull(parsed.data.summary),
       tagIds: parsed.data.tagIds,
       title: emptyToNull(parsed.data.title),
@@ -246,58 +191,6 @@ function mapSaveProblem(
     };
   }
   throw new TypeError(`Unexpected Material Save problem: ${problem.data.code}`);
-}
-
-function mapValidation(
-  result: BackendTransportResult,
-):
-  | {
-      readonly kind: "ready";
-      readonly validation: Extract<
-        SaveMaterialActionState,
-        { readonly kind: "saved" }
-      >["validation"];
-    }
-  | Extract<SaveMaterialActionState, { readonly kind: "infrastructure_error" }> {
-  if (result.ok) {
-    const parsed = validationSchema.safeParse(result.body);
-    if (!parsed.success) {
-      throw new TypeError("Malformed Material validation response");
-    }
-    return {
-      kind: "ready",
-      validation: {
-        headingCount: parsed.data.extraction.headings.length,
-        kind: "valid",
-        plainTextLength: parsed.data.extraction.plainText.length,
-      },
-    };
-  }
-  const problem = problemSchema.safeParse(result.problem);
-  if (!problem.success) {
-    throw new TypeError("Malformed Material validation problem response");
-  }
-  if (
-    result.response.status === 422 &&
-    problem.data.code === "invalid_content" &&
-    problem.data.issues !== undefined
-  ) {
-    return {
-      kind: "ready",
-      validation: {
-        issues: problem.data.issues.map(mapBackendIssue),
-        kind: "invalid",
-        scope: "publication",
-      },
-    };
-  }
-  if (result.response.status === 503) {
-    return {
-      kind: "infrastructure_error",
-      reference: problem.data.correlationId ?? problem.data.code,
-    };
-  }
-  throw new TypeError(`Unexpected Material validation problem: ${problem.data.code}`);
 }
 
 function mapBackendIssue(issue: { readonly code: string; readonly path: string }) {

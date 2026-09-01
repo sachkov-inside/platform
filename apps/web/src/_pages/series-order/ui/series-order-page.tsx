@@ -3,16 +3,15 @@ import { redirect } from "next/navigation";
 import {
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
-} from "@/features/material-authoring";
+} from "@/widgets/material-authoring/route-states";
 import { SeriesOrderRouteState } from "@/features/series-order";
 import {
   getOptionalPlatformAccessToken,
   LogtoSessionUnavailableError,
 } from "@/shared/auth/index.server";
 
-import { getMaterialAuthoringReferences } from "../../material-authoring/api/get-material-authoring-references";
+import { getMaterialAuthoringReferences } from "@/features/material-authoring-references.server";
 import { getSeriesOrder } from "../api/get-series-order";
-import { reorderSeriesAction } from "../api/reorder-series.action";
 import { SeriesOrderPageClient } from "./series-order-page.client";
 
 export async function SeriesOrderIndexPage() {
@@ -63,7 +62,6 @@ export async function SeriesOrderPage({ seriesId }: { readonly seriesId: string 
   }
   return (
     <SeriesOrderPageClient
-      action={reorderSeriesAction}
       key={state.order.orderVersion}
       presentation={{
         ...state.order,

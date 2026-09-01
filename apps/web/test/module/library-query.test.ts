@@ -1,14 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dehydrate, hydrate, QueryClient } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
 
 import { GET } from "../../app/api/library/materials/route";
 import { handleLibraryCatalogRequest } from "@/_pages/library.server";
 import { libraryCatalogQueryKey } from "@/_pages/library";
-import { getQueryClient } from "@/shared/api/query-client";
-import { requestLibraryCatalogPage } from "../../src/_pages/library/api/request-library-catalog";
-import { libraryCatalogBrowserQueryOptions } from "../../src/_pages/library/api/library-catalog-query.browser";
-import { pushLibraryContinuationHistory } from "../../src/_pages/library/ui/library-page-history.client";
-import { createLibraryCatalogQueryOptions } from "../../src/_pages/library/model/library-catalog-query";
+import {
+  libraryCatalogQueryOptions,
+  requestLibraryCatalogPage,
+} from "../../src/_pages/library/api/library-catalog.browser";
 import {
   parseLibrarySearchParams,
   serializeLibrarySearchQuery,
@@ -34,7 +33,6 @@ const readyCatalog = {
   nextCursor: null,
   totalCount: 1,
 } as const;
-const viewerScope = "viewer-request-1";
 const defaultQuery = {
   after: null,
   formatSlugs: [],
@@ -85,25 +83,6 @@ describe("Library TanStack Query interface", () => {
     expect(parsed.wasNormalized).toBe(false);
   });
 
-  it("publishes the successfully loaded cursor as canonical browser history", () => {
-    const pushState = vi.fn();
-    vi.stubGlobal("window", {
-      history: { pushState },
-      location: { pathname: "/library", search: "" },
-    });
-
-    pushLibraryContinuationHistory(
-      { ...defaultQuery, q: "career roadmap" },
-      "next_cursor",
-    );
-
-    expect(pushState).toHaveBeenCalledWith(
-      null,
-      "",
-      "/library?q=career+roadmap&after=next_cursor",
-    );
-  });
-
   it("truncates long Unicode queries without sending a broken surrogate to NestJS", () => {
     const parsed = parseLibrarySearchParams({
       q: `${"a".repeat(119)}💡ignored`,
@@ -115,19 +94,16 @@ describe("Library TanStack Query interface", () => {
   });
 
   it("uses one deterministic query key for every cursor page", () => {
-    expect(libraryCatalogQueryKey(viewerScope, defaultQuery)).toEqual([
+    expect(libraryCatalogQueryKey(defaultQuery)).toEqual([
       "library",
       "catalog",
-      viewerScope,
       "",
     ]);
-    expect(libraryCatalogQueryKey("viewer-request-2", defaultQuery)).not.toEqual(
-      libraryCatalogQueryKey(viewerScope, defaultQuery),
+    expect(
+      libraryCatalogQueryKey({ ...defaultQuery, after: "next_cursor" }),
+    ).toEqual(
+      libraryCatalogQueryKey(defaultQuery),
     );
-  });
-
-  it("isolates QueryClient caches between server requests", () => {
-    expect(getQueryClient()).not.toBe(getQueryClient());
   });
 
   it("stores cursor continuations as pages of one infinite query", async () => {
@@ -141,7 +117,7 @@ describe("Library TanStack Query interface", () => {
     const queryClient = new QueryClient();
 
     const data = await queryClient.infiniteQuery({
-      ...libraryCatalogBrowserQueryOptions(viewerScope, defaultQuery),
+      ...libraryCatalogQueryOptions(defaultQuery),
       pages: 2,
     });
 
@@ -154,34 +130,8 @@ describe("Library TanStack Query interface", () => {
     );
     expect(fetchMock.mock.calls[1]?.[1]?.signal).toBeInstanceOf(AbortSignal);
     expect(
-      queryClient.getQueryData(libraryCatalogQueryKey(viewerScope, defaultQuery)),
+      queryClient.getQueryData(libraryCatalogQueryKey(defaultQuery)),
     ).toEqual(data);
-  });
-
-  it("reuses the fresh server-hydrated first page without an initial browser request", async () => {
-    const queryClientOptions = {
-      defaultOptions: { queries: { staleTime: 30_000 } },
-    } as const;
-    const serverClient = new QueryClient(queryClientOptions);
-    await serverClient.infiniteQuery(
-      createLibraryCatalogQueryOptions(
-        () => Promise.resolve(readyCatalog),
-        viewerScope,
-        defaultQuery,
-      ),
-    );
-
-    const browserClient = new QueryClient(queryClientOptions);
-    hydrate(browserClient, dehydrate(serverClient));
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(
-      browserClient.infiniteQuery(
-        libraryCatalogBrowserQueryOptions(viewerScope, defaultQuery),
-      ),
-    ).resolves.toMatchObject({ pages: [readyCatalog] });
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("loads and validates the browser presentation contract", async () => {

@@ -6,7 +6,7 @@ import {
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 
-import type { PrivateMemberProfileResult } from "../model/member-profile";
+import type { PrivateMemberProfileResult } from "@/entities/member-profile";
 import { parseMemberProfileProblem } from "@/entities/member-profile";
 import {
   parsePrivateProfileState,

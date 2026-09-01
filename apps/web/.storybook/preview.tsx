@@ -1,6 +1,8 @@
 import type { Decorator, Preview } from "@storybook/react-vite";
 import { Agentation } from "agentation";
 
+import { QueryProvider } from "@/_app/ui/query-provider.client";
+
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@fontsource-variable/manrope/wght.css";
 
@@ -11,16 +13,18 @@ const withWorkshop: Decorator = (Story, context) => {
   const isTestRun = import.meta.env.MODE === "test";
 
   return (
-    <div className={theme} data-workshop-theme={theme}>
-      <div className="contents" data-workshop-story>
-        <Story />
-      </div>
-      {!isTestRun ? (
-        <div data-agentation-root>
-          <Agentation className="platform-agentation" />
+    <QueryProvider>
+      <div className={theme} data-workshop-theme={theme}>
+        <div className="contents" data-workshop-story>
+          <Story />
         </div>
-      ) : null}
-    </div>
+        {!isTestRun ? (
+          <div data-agentation-root>
+            <Agentation className="platform-agentation" />
+          </div>
+        ) : null}
+      </div>
+    </QueryProvider>
   );
 };
 

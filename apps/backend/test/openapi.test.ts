@@ -31,6 +31,11 @@ describe("OpenAPI contract", () => {
       ["/authoring/materials", "get", "listAuthoringMaterials"],
       ["/authoring/materials/{materialId}", "get", "loadCurrentMaterial"],
       ["/authoring/materials/{materialId}", "put", "saveCurrentMaterial"],
+      [
+        "/authoring/materials/{materialId}/publication",
+        "patch",
+        "transitionMaterialPublication",
+      ],
       ["/authoring/materials/{materialId}", "delete", "deleteMaterialDraft"],
       ["/authoring/materials/{materialId}/validation", "get", "validateCurrentMaterial"],
       ["/authoring/materials/{materialId}/preview", "get", "previewCurrentMaterial"],
@@ -152,6 +157,23 @@ describe("OpenAPI contract", () => {
       expect(hasMaterialAndAccountProblemSchemas(reader, status)).toBe(true);
     }
     expect(reader.security).toEqual([{}, { logto: [] }]);
+
+    const preview = operation(
+      document,
+      "/authoring/materials/{materialId}/preview",
+      "get",
+    );
+    const previewContract = JSON.stringify(preview);
+    expect(previewContract).toContain("#/components/schemas/RecursiveSchema");
+    expect(previewContract).not.toContain('"definitions"');
+    expect(
+      Object.entries(document.components?.schemas ?? {}).some(
+        ([name, schema]) =>
+          name.startsWith("RecursiveSchema") &&
+          isRecord(schema) &&
+          Array.isArray(schema.oneOf),
+      ),
+    ).toBe(true);
 
     for (const [path, method, operationId] of [
       ["/accounts", "post", "establishAccount"],

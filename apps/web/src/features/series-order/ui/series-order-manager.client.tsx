@@ -1,38 +1,35 @@
 "use client";
 
 import { ArrowDown, ArrowLeft, ArrowUp, Check, LoaderCircle } from "lucide-react";
-import { startTransition, useActionState, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useState } from "react";
 
-import {
-  MaterialAuthoringShell,
-  MaterialAuthoringSignInActions,
-} from "@/features/material-authoring";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
 import type {
   SeriesOrderActionState,
-  SeriesOrderMutation,
   SeriesOrderPresentation,
 } from "../model/presentation";
+import { reorderSeries } from "../api/series-order.browser";
 
 const initialState = { kind: "idle" } as const satisfies SeriesOrderActionState;
 
 export function SeriesOrderManager({
-  action,
   onBack,
   onRefresh,
   onSelectPlaylist,
   presentation,
 }: {
-  readonly action: SeriesOrderMutation;
   readonly onBack: () => void;
   readonly onRefresh: () => void;
   readonly onSelectPlaylist: (seriesId: string) => void;
   readonly presentation: SeriesOrderPresentation;
 }) {
-  const [state, dispatch, pending] = useActionState(action, initialState);
+  const mutation = useMutation({ mutationFn: reorderSeries });
+  const state = mutation.data ?? initialState;
+  const pending = mutation.isPending;
   const [items, setItems] = useState(presentation.items);
   const [submittedOrder, setSubmittedOrder] = useState<readonly string[] | null>(null);
   const baselineIds =
@@ -57,7 +54,7 @@ export function SeriesOrderManager({
   };
 
   return (
-    <MaterialAuthoringShell current="playlists">
+    <>
       <main className="h-full min-h-svh overflow-y-auto bg-background px-4 pb-20 pt-5 text-foreground sm:px-6 md:min-h-0" id="authoring-content" tabIndex={-1}>
         <div className="mx-auto w-full max-w-4xl">
           <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
@@ -91,13 +88,11 @@ export function SeriesOrderManager({
               event.preventDefault();
               setSubmittedOrder(items.map(({ materialId }) => materialId));
               const formData = new FormData(event.currentTarget);
-              startTransition(() => {
-                dispatch(formData);
-              });
+              formData.set("orderedMaterialIds", JSON.stringify(items.map(({ materialId }) => materialId)));
+              mutation.mutate(formData);
             }}
           >
             <input name="expectedOrderVersion" type="hidden" value={expectedOrderVersion} />
-            <input name="orderedMaterialIds" type="hidden" value={JSON.stringify(items.map(({ materialId }) => materialId))} />
             <input name="seriesId" type="hidden" value={presentation.seriesId} />
 
             {items.length === 0 ? (
@@ -133,9 +128,14 @@ export function SeriesOrderManager({
             {state.kind === "conflict" ? (
               <Button onClick={onRefresh} type="button" variant="outline">Обновить список</Button>
             ) : state.kind === "unauthorized" ? (
-              <MaterialAuthoringSignInActions
-                returnHref={`/authoring/playlists/${presentation.seriesId}`}
-              />
+              <form action="/auth/sign-in" method="post">
+                <input
+                  name="returnTo"
+                  type="hidden"
+                  value={`/authoring/playlists/${presentation.seriesId}`}
+                />
+                <Button type="submit">Войти</Button>
+              </form>
             ) : state.kind === "error" ? (
               <Button form="series-order-form" type="submit" variant="outline">
                 Повторить сохранение
@@ -149,7 +149,7 @@ export function SeriesOrderManager({
           </div>
         </div>
       </main>
-    </MaterialAuthoringShell>
+    </>
   );
 }
 

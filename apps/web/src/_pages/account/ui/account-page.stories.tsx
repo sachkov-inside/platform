@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 
-import type { PrivateMemberProfile, ProfileMutationState } from "../model/member-profile";
+import type { PrivateMemberProfile } from "@/entities/member-profile";
+import { withMutationFetch } from "@/workshop/mutation-mock";
+
 import { AccountPageClient } from "./account-page.client";
 
 const activeProfile = {
@@ -14,20 +16,9 @@ const activeProfile = {
   version: 3,
 } as const satisfies PrivateMemberProfile;
 
-function preserveState(
-  state: ProfileMutationState,
-): Promise<ProfileMutationState> {
-  return Promise.resolve(state);
-}
-
-function conflictState(): Promise<ProfileMutationState> {
-  return Promise.resolve({ currentVersion: 4, kind: "conflict" });
-}
-
 const meta = {
   args: {
     initialProfile: activeProfile,
-    saveAction: preserveState,
   },
   component: AccountPageClient,
   parameters: {
@@ -99,7 +90,13 @@ export const Missing: Story = {
 };
 
 export const Conflict: Story = {
-  args: { saveAction: conflictState },
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(
+        Response.json({ currentVersion: 4, kind: "conflict" }),
+      ),
+    ),
+  ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText("О себе · необязательно"), " Дополнение.");

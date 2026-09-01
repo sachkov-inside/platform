@@ -1,4 +1,7 @@
-import { infiniteQueryOptions } from "@tanstack/react-query";
+import {
+  infiniteQueryOptions,
+  type InfiniteData,
+} from "@tanstack/react-query";
 
 import type { LibraryCatalogPage } from "./library-view";
 import {
@@ -7,16 +10,17 @@ import {
 } from "./library-search-query";
 
 export function libraryCatalogQueryKey(
-  viewerScope: string,
   query: LibrarySearchQuery,
 ) {
   return [
     "library",
     "catalog",
-    viewerScope,
-    librarySearchQueryIdentity(query),
+    librarySearchQueryIdentity({ ...query, after: null }),
   ] as const;
 }
+
+type LibraryCatalogQueryKey = ReturnType<typeof libraryCatalogQueryKey>;
+type LibraryCatalogPageParam = string | undefined;
 
 export type LoadLibraryCatalogPage = (input: {
     readonly after: string | undefined;
@@ -30,14 +34,19 @@ export type LibraryCatalogQueryOptions = ReturnType<
 /** Owns the one cache identity and cursor protocol for the whole catalog. */
 export function createLibraryCatalogQueryOptions(
   loadPage: LoadLibraryCatalogPage,
-  viewerScope: string,
   query: LibrarySearchQuery,
 ) {
-  return infiniteQueryOptions({
-    queryKey: libraryCatalogQueryKey(viewerScope, query),
+  return infiniteQueryOptions<
+    LibraryCatalogPage,
+    Error,
+    InfiniteData<LibraryCatalogPage, LibraryCatalogPageParam>,
+    LibraryCatalogQueryKey,
+    LibraryCatalogPageParam
+  >({
+    queryKey: libraryCatalogQueryKey(query),
     queryFn: ({ pageParam, signal }) =>
       loadPage({ after: pageParam, signal }),
-    initialPageParam: query.after ?? undefined,
+    initialPageParam: undefined as LibraryCatalogPageParam,
     getNextPageParam: (lastPage) =>
       lastPage.kind === "ready"
         ? lastPage.nextCursor ?? undefined
