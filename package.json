@@ -42,7 +42,7 @@
     "production:host:bootstrap": "bash scripts/bootstrap-production-host.sh",
     "production:host:validate": "bash scripts/validate-production-host.sh",
     "conformance:telegram-membership": "pnpm --filter @inside/backend conformance:telegram-membership",
-    "infra:up": "docker compose up -d --wait postgres",
+    "infra:up": "docker compose up -d --wait postgres object-storage",
     "infra:down": "docker compose down",
     "smoke:health": "pnpm --filter @inside/backend smoke:health",
     "smoke:fullstack": "node scripts/full-stack-smoke.mjs",

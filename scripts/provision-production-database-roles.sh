@@ -110,6 +110,15 @@ where nspname !~ '^pg_'
   and nspname not in ('information_schema', 'public') \gexec
 
 select format(
+  'grant execute on all functions in schema %I to %I',
+  nspname,
+  :'application_user'
+)
+from pg_namespace
+where nspname !~ '^pg_'
+  and nspname not in ('information_schema', 'public') \gexec
+
+select format(
   'alter default privileges for role %I in schema %I grant select, insert, update, delete on tables to %I',
   :'migration_user',
   nspname,
@@ -121,6 +130,16 @@ where nspname !~ '^pg_'
 
 select format(
   'alter default privileges for role %I in schema %I grant usage, select, update on sequences to %I',
+  :'migration_user',
+  nspname,
+  :'application_user'
+)
+from pg_namespace
+where nspname !~ '^pg_'
+  and nspname not in ('information_schema', 'public') \gexec
+
+select format(
+  'alter default privileges for role %I in schema %I grant execute on functions to %I',
   :'migration_user',
   nspname,
   :'application_user'

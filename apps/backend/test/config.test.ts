@@ -42,6 +42,20 @@ describe("process configuration", () => {
       contentAccess: {
         membershipAcquisitionUrl: "https://t.me/tribute/example",
       },
+      objectStorage: {
+        accessKeyId: "inside-local-access-key",
+        buckets: {
+          protected: "inside-local-protected",
+          public: "inside-local-public",
+          quarantine: "inside-local-quarantine",
+        },
+        endpoint: "http://127.0.0.1:9000",
+        forcePathStyle: true,
+        orphanGraceMs: 86_400_000,
+        region: "ru-central1",
+        secretAccessKey: "inside-local-secret-key",
+        signedGetTtlSeconds: 60,
+      },
       telegramMembership: {
         botStartUrl: "https://t.me/inside_test_bot",
         evidenceIngressSecret: "test-telegram-evidence-ingress-secret",
@@ -56,6 +70,8 @@ describe("process configuration", () => {
     expect(Object.isFrozen(config.api)).toBe(true);
     expect(Object.isFrozen(config.identity)).toBe(true);
     expect(Object.isFrozen(config.contentAccess)).toBe(true);
+    expect(Object.isFrozen(config.objectStorage)).toBe(true);
+    expect(Object.isFrozen(config.objectStorage.buckets)).toBe(true);
     expect(Object.isFrozen(config.telegramMembership)).toBe(true);
     expect(process.env).toEqual(processEnvironmentBefore);
   });
@@ -75,6 +91,20 @@ describe("process configuration", () => {
       },
       contentAccess: {
         membershipAcquisitionUrl: "https://t.me/tribute",
+      },
+      objectStorage: {
+        accessKeyId: "inside-local-access-key",
+        buckets: {
+          protected: "inside-local-protected",
+          public: "inside-local-public",
+          quarantine: "inside-local-quarantine",
+        },
+        endpoint: "http://127.0.0.1:9000",
+        forcePathStyle: true,
+        orphanGraceMs: 86_400_000,
+        region: "ru-central1",
+        secretAccessKey: "inside-local-secret-key",
+        signedGetTtlSeconds: 60,
       },
       telegramMembership: {
         botStartUrl: "https://t.me/inside_local_bot",
@@ -158,6 +188,12 @@ describe("process configuration", () => {
     ).toThrow(
       "TELEGRAM_LINK_LIFETIME_SECONDS must be an integer between 60 and 600",
     );
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS: "301",
+      }),
+    ).toThrow("OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS must be an integer between 1 and 300");
   });
 });
 

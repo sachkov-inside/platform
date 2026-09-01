@@ -8,10 +8,14 @@ not host Node.js or a host `node_modules` directory.
 The default stack contains:
 
 - PostgreSQL 18.4 with a persistent named volume;
+- MinIO with separate public-delivery, protected and quarantine buckets; its S3-compatible API is
+  on <http://127.0.0.1:9000> and console is on <http://127.0.0.1:9001>;
 - one `bootstrap` job that applies migrations and the deterministic development seed;
 - Nest API on <http://127.0.0.1:3001> with health and OpenAPI endpoints;
 - the long-running MCP process at <http://127.0.0.1:3002/mcp> over the same application and database
   lifecycle;
+- `material-assets-worker`, which consumes the durable `pg-boss` cleanup queue and has no HTTP
+  listener;
 - Next.js web on <http://127.0.0.1:3000>.
 
 The optional Logto email-code proof is a separate, disposable Compose project with isolated ports
@@ -27,10 +31,10 @@ It owns different Compose project names and ports, proves the pinned Logto recip
 and dependency recovery behavior, verifies one local `Account` and no Platform session table, then
 removes only its disposable volumes.
 
-API and web expose real healthchecks. API and MCP wait for healthy PostgreSQL and a successful
-bootstrap; web waits for healthy API. Storybook is an optional profile on
-<http://127.0.0.1:6006>. Integration tests continue to use their own temporary PostgreSQL through
-Testcontainers and never share the Compose database.
+API and web expose real healthchecks. API, MCP and the Material Asset worker wait for healthy
+PostgreSQL and a successful bootstrap; web waits for healthy API. Storybook is an optional profile on
+<http://127.0.0.1:6006>. Integration tests continue to use their own temporary PostgreSQL and
+MinIO through Testcontainers and never share the Compose data services.
 
 The production API exposes health, OpenAPI, the published catalog and the Material Reader endpoint.
 The local MCP adapter exposes delegated Material authoring over production application interfaces;
@@ -72,6 +76,10 @@ The checked-in local credentials are defaults. A root `.env` copied from `.env.e
 for overrides and for the host fallback; already exported variables take precedence. Inside the
 Compose network, applications use `postgres` and `api` service DNS. Browser-facing URLs remain on
 `127.0.0.1`.
+
+The API creates only the three named local buckets in development mode. Objects use random,
+immutable keys and are never written over. The persistent `object-storage-data` volume follows the
+same ownership and non-destructive restart rules as PostgreSQL.
 
 For a detached stack suitable for smoke commands:
 
@@ -143,6 +151,8 @@ Inspect the running host fallback or Compose stack:
 
 - health: <http://127.0.0.1:3001/health>
 - OpenAPI UI: <http://127.0.0.1:3001/openapi>
+- local S3-compatible endpoint: <http://127.0.0.1:9000>
+- local Object Storage console: <http://127.0.0.1:9001>
 - MCP Streamable HTTP endpoint: <http://127.0.0.1:3002/mcp>
 - MCP protected-resource metadata: <http://127.0.0.1:3002/.well-known/oauth-protected-resource/mcp>
 - published Material API: <http://127.0.0.1:3001/materials/kak-ustroen-inside-platform>
@@ -244,7 +254,7 @@ The same generation runs during install, build, and typecheck:
 pnpm --filter @inside/backend prisma:generate
 ```
 
-The Prisma schema maps the product-owned `materials`, `accounts`, `member_profiles`,
+The Prisma schema maps the product-owned `materials`, `assets`, `accounts`, `member_profiles`,
 `membership_entitlements` and `telegram_membership` schemas. Checked-in,
 append-only SQL migrations remain the database authority. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;

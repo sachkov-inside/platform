@@ -124,10 +124,11 @@ export const validatedMaterialSchema = z
           z.discriminatedUnion("kind", [
             z.object({
               kind: z.literal("image"),
+              assetId: z.uuid(),
               alt: z.string(),
               caption: z.string().optional(),
             }),
-            z.object({ kind: z.literal("file"), label: z.string() }),
+            z.object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() }),
             z.object({
               kind: z.literal("video"),
               caption: z.string().optional(),

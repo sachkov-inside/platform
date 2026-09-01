@@ -615,11 +615,16 @@ describe("ContentAccess authorization", () => {
     });
   });
 
-  test("rejects a body-linked action for Material before private subject reads", async () => {
+  test("re-runs protected Material policy for a body-linked download", async () => {
     const facts = membershipMaterial(6);
+    const assetId = "83000000-0000-4000-8000-000000000006";
     let permissionReads = 0;
     let membershipReads = 0;
     const contentAccess = assembleContentAccess({
+      assetResourceFacts: {
+        findMany: () => Promise.resolve([{ assetId, kind: "file", materialId: facts.materialId }]),
+        findOne: () => Promise.resolve({ assetId, kind: "file", materialId: facts.materialId }),
+      },
       materialResourceFacts: {
         findMany: () => Promise.resolve([facts]),
         findOne: () => Promise.resolve(facts),
@@ -643,7 +648,7 @@ describe("ContentAccess authorization", () => {
     await expect(
       contentAccess.authorize({
         subject: { kind: "account", accountId },
-        resource: { kind: "material", materialId: facts.materialId },
+        resource: { kind: "asset", assetId },
         action: "download",
         enforcementPoint: "download_delivery",
         correlationId: "invalid-action-correlation-id",
@@ -652,8 +657,9 @@ describe("ContentAccess authorization", () => {
       decisionId: "invalid-action-decision-id",
       policyVersion: "content-access-v1",
       decidedAt,
-      effect: "deny",
-      reason: "resource_action_invalid",
+      effect: "allow",
+      reason: "materials_manager",
+      checkedContentVersion: facts.contentVersion,
     });
     await expect(
       contentAccess.checkAvailabilityMany({
@@ -661,7 +667,7 @@ describe("ContentAccess authorization", () => {
         operations: [
           {
             itemId: "invalid-action-item",
-            resource: { kind: "material", materialId: facts.materialId },
+            resource: { kind: "asset", assetId },
             action: "download",
           },
         ],
@@ -671,11 +677,11 @@ describe("ContentAccess authorization", () => {
     ).resolves.toEqual({
       ok: true,
       items: [
-        { itemId: "invalid-action-item", availability: "unavailable" },
+        { itemId: "invalid-action-item", availability: "available" },
       ],
     });
     expect({ permissionReads, membershipReads }).toEqual({
-      permissionReads: 0,
+      permissionReads: 2,
       membershipReads: 0,
     });
   });

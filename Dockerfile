@@ -34,6 +34,9 @@ CMD ["pnpm", "--filter", "@inside/backend", "dev:api"]
 FROM development AS mcp
 CMD ["pnpm", "--filter", "@inside/backend", "dev:mcp"]
 
+FROM development AS material-assets-worker
+CMD ["pnpm", "--filter", "@inside/backend", "dev:material-assets-worker"]
+
 FROM development AS web
 CMD ["pnpm", "--filter", "@inside/web", "dev", "--hostname", "0.0.0.0", "--port", "3000"]
 
@@ -44,7 +47,7 @@ FROM development AS backend-production-build
 
 RUN pnpm --filter @inside/backend build:production \
     && pnpm --config.inject-workspace-packages=true \
-      --filter @inside/backend deploy --prod --no-optional --ignore-scripts /workspace/.production/backend
+      --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend
 
 FROM development AS web-production-build
 

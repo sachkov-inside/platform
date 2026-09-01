@@ -36,6 +36,11 @@ export interface MaterialContent {
     readonly materialId: MaterialId;
     readonly checkedContentVersion: number;
   }): Promise<Result<MaterialBodySnapshot | null, MaterialContentError>>;
+  containsAssetReference(input: {
+    readonly assetId: string;
+    readonly checkedContentVersion?: number;
+    readonly materialId: string;
+  }): Promise<Result<boolean, MaterialContentError>>;
 }
 
 export const MATERIAL_CONTENT = Symbol("MATERIAL_CONTENT");
@@ -53,6 +58,13 @@ const loadBodyQuerySchema = z
   })
   .strict();
 const materialIdsSchema = z.array(normalizedUuidSchema).min(1).max(100);
+const assetReferenceQuerySchema = z
+  .object({
+    assetId: z.uuid(),
+    checkedContentVersion: z.number().int().positive().optional(),
+    materialId: z.uuid(),
+  })
+  .strict();
 
 export function assembleMaterialContent(dependencies: {
   readonly prisma: MaterialsPrismaClient;
@@ -146,6 +158,59 @@ export function assembleMaterialContent(dependencies: {
         return { ok: true, value: body ?? null };
       } catch (error) {
         return { ok: false, error: mapPostgresReadError(error) };
+      }
+    },
+
+    async containsAssetReference(input: {
+      readonly assetId: string;
+      readonly checkedContentVersion?: number;
+      readonly materialId: string;
+    }): Promise<Result<boolean, MaterialContentError>> {
+      const parsed = assetReferenceQuerySchema.safeParse(input);
+      if (!parsed.success) {
+        return { error: { code: "invalid_request_shape" }, ok: false };
+      }
+      try {
+        const row = await dependencies.prisma.material.findUnique({
+          where: { id: parsed.data.materialId },
+          select: { body: true, contentVersion: true, schemaVersion: true },
+        });
+        if (
+          row === null ||
+          (parsed.data.checkedContentVersion !== undefined &&
+            row.contentVersion !== BigInt(parsed.data.checkedContentVersion))
+        ) {
+          return { ok: true, value: false };
+        }
+        const body = dependencies.materialBodyOperations.accept({
+          doc: row.body,
+          schemaVersion: row.schemaVersion,
+        });
+        if (!body.ok) {
+          return {
+            error: mapPostgresReadError(new TypeError("Stored Material body is invalid")),
+            ok: false,
+          };
+        }
+        const extraction = dependencies.materialBodyOperations.extract(body.value);
+        if (!extraction.ok) {
+          return {
+            error: mapPostgresReadError(
+              new TypeError("Stored Material body cannot be inspected"),
+            ),
+            ok: false,
+          };
+        }
+        return {
+          ok: true,
+          value: extraction.value.resources.some(
+            (resource) =>
+              resource.kind !== "video" &&
+              resource.assetId === parsed.data.assetId,
+          ),
+        };
+      } catch (error) {
+        return { error: mapPostgresReadError(error), ok: false };
       }
     },
   });

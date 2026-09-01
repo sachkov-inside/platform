@@ -105,7 +105,14 @@ function validateUrl(value: string, name: string, requireHttps: boolean): void {
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error(`${name} must use HTTP or HTTPS`);
   }
-  if (requireHttps && url.protocol !== "https:") {
+  if (requireHttps && url.protocol !== "https:" && !isLoopback(url)) {
     throw new Error(`${name} must use HTTPS`);
   }
+}
+
+function isLoopback(url: URL): boolean {
+  return (
+    url.protocol === "http:" &&
+    (url.hostname === "127.0.0.1" || url.hostname === "[::1]" || url.hostname === "localhost")
+  );
 }

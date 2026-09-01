@@ -135,7 +135,13 @@ describe("supported toolchain contract", () => {
         );
       assert.ok(imageLines.length > 0, `${path} must declare at least one image`);
       assert.ok(
-        imageLines.every((line) => /:\d[^\s]*@sha256:[a-f0-9]{64}$/u.test(line.trim())),
+        imageLines.every((line) => {
+          const image = line.trim();
+          return (
+            /:[A-Za-z0-9][^\s]*@sha256:[a-f0-9]{64}$/u.test(image) &&
+            !/:latest@/u.test(image)
+          );
+        }),
         `${path} contains an unpinned image`,
       );
     }
@@ -185,10 +191,10 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(databaseRoles, /all tables in schema public/u);
   });
 
-  it("excludes optional build-only packages from the production API image", () => {
+  it("keeps production native dependencies and excludes development scripts", () => {
     assert.match(
       read("Dockerfile"),
-      /deploy --prod --no-optional --ignore-scripts \/workspace\/\.production\/backend/u,
+      /deploy --prod --ignore-scripts \/workspace\/\.production\/backend/u,
     );
   });
 
@@ -203,6 +209,16 @@ describe("supported toolchain contract", () => {
     assert.match(smoke, /down --volumes --remove-orphans/u);
     assert.match(smoke, /local test_status=\$\?/u);
     assert.doesNotMatch(smoke, /down --volumes --remove-orphans \|\| true/u);
+  });
+
+  it("keeps production smoke log checks on the GitHub runner baseline", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
+
+    assert.doesNotMatch(smoke, /\|\s*rg(?:\s|$)/u);
+    assert.match(
+      smoke,
+      /\[\[ "\$worker_logs" != \*'"process":"material-assets-worker","status":"ready"'\* \]\]/u,
+    );
   });
 
   it("derives the production migration expectation from the registered source files", () => {
@@ -223,6 +239,20 @@ describe("supported toolchain contract", () => {
     const job = match[1];
     assert.match(job, /run: bash scripts\/production-compose-smoke\.sh/u);
     assert.doesNotMatch(job, /secrets\./u);
+  });
+
+  it("provides Object Storage to the full-stack verification job", () => {
+    const workflow = read(".github/workflows/application-ci.yml");
+    const match = workflow.match(
+      /\n {2}verify:\n([\s\S]*?)(?=\n {2}[a-z0-9-]+:\n|$)/u,
+    );
+
+    assert.ok(match, "Application CI must declare verify");
+    const job = match[1];
+    assert.match(job, /\n {6}object-storage:\n/u);
+    assert.match(job, /command: server \/data/u);
+    assert.match(job, /--health-cmd "mc ready local"/u);
+    assert.match(job, /\n {10}- 9000:9000/u);
   });
 
   it("publishes exact main production images to GHCR without mutable tags", () => {

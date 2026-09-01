@@ -10,6 +10,7 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 
 export { AccountsService } from './services/AccountsService';
 export { ContentLibraryService } from './services/ContentLibraryService';
+export { MaterialAssetsService } from './services/MaterialAssetsService';
 export { MaterialAuthoringService } from './services/MaterialAuthoringService';
 export { MemberProfilesService } from './services/MemberProfilesService';
 export { OperationsService } from './services/OperationsService';

@@ -14,6 +14,15 @@ const DEFAULT_TELEGRAM_LINKING_SECRET = "inside-local-telegram-link-secret";
 const DEFAULT_TELEGRAM_EVIDENCE_INGRESS_SECRET =
   "inside-local-telegram-evidence-secret";
 const DEFAULT_TELEGRAM_LINK_LIFETIME_SECONDS = "300";
+const DEFAULT_OBJECT_STORAGE_ENDPOINT = "http://127.0.0.1:9000";
+const DEFAULT_OBJECT_STORAGE_REGION = "ru-central1";
+const DEFAULT_OBJECT_STORAGE_ACCESS_KEY_ID = "inside-local-access-key";
+const DEFAULT_OBJECT_STORAGE_SECRET_ACCESS_KEY = "inside-local-secret-key";
+const DEFAULT_OBJECT_STORAGE_PUBLIC_BUCKET = "inside-local-public";
+const DEFAULT_OBJECT_STORAGE_PROTECTED_BUCKET = "inside-local-protected";
+const DEFAULT_OBJECT_STORAGE_QUARANTINE_BUCKET = "inside-local-quarantine";
+const DEFAULT_OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS = "60";
+const DEFAULT_MATERIAL_ASSET_ORPHAN_GRACE_SECONDS = "86400";
 
 export const PLATFORM_CONFIG = Symbol("PLATFORM_CONFIG");
 
@@ -36,6 +45,20 @@ export interface PlatformConfig {
   }>;
   readonly contentAccess: Readonly<{
     membershipAcquisitionUrl: string;
+  }>;
+  readonly objectStorage: Readonly<{
+    accessKeyId: string;
+    buckets: Readonly<{
+      protected: string;
+      public: string;
+      quarantine: string;
+    }>;
+    endpoint: string;
+    forcePathStyle: boolean;
+    orphanGraceMs: number;
+    region: string;
+    secretAccessKey: string;
+    signedGetTtlSeconds: number;
   }>;
   readonly telegramMembership: Readonly<{
     botStartUrl: string;
@@ -68,6 +91,15 @@ function readRuntimeValue(
     | "LOGTO_ISSUER"
     | "LOGTO_JWKS_URL"
     | "MEMBERSHIP_ACQUISITION_URL"
+    | "MATERIAL_ASSET_ORPHAN_GRACE_SECONDS"
+    | "OBJECT_STORAGE_ACCESS_KEY_ID"
+    | "OBJECT_STORAGE_ENDPOINT"
+    | "OBJECT_STORAGE_PROTECTED_BUCKET"
+    | "OBJECT_STORAGE_PUBLIC_BUCKET"
+    | "OBJECT_STORAGE_QUARANTINE_BUCKET"
+    | "OBJECT_STORAGE_REGION"
+    | "OBJECT_STORAGE_SECRET_ACCESS_KEY"
+    | "OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS"
     | "TELEGRAM_BOT_START_URL"
     | "TELEGRAM_EVIDENCE_INGRESS_SECRET"
     | "TELEGRAM_LINKING_ENDPOINT"
@@ -111,6 +143,72 @@ function parseApiPort(value: string): number {
   }
 
   return port;
+}
+
+function parseBoundedSeconds(
+  value: string,
+  name: string,
+  minimum: number,
+  maximum: number,
+): number {
+  const seconds = Number(value);
+  if (!Number.isInteger(seconds) || seconds < minimum || seconds > maximum) {
+    throw new Error(`${name} must be an integer between ${minimum} and ${maximum}`);
+  }
+  return seconds;
+}
+
+function parseObjectStorageConfig(
+  environment: NodeJS.ProcessEnv,
+  mode: PlatformMode,
+): PlatformConfig["objectStorage"] {
+  const endpoint = validateHttpUrl(
+    readRuntimeValue(
+      environment,
+      "OBJECT_STORAGE_ENDPOINT",
+      mode,
+      DEFAULT_OBJECT_STORAGE_ENDPOINT,
+    ),
+    "OBJECT_STORAGE_ENDPOINT",
+  );
+  if (mode === "production" && new URL(endpoint).protocol !== "https:") {
+    throw new Error("OBJECT_STORAGE_ENDPOINT must use HTTPS in production mode");
+  }
+  const bucket = (name: "OBJECT_STORAGE_PROTECTED_BUCKET" | "OBJECT_STORAGE_PUBLIC_BUCKET" | "OBJECT_STORAGE_QUARANTINE_BUCKET", fallback: string) => {
+    const value = readRuntimeValue(environment, name, mode, fallback);
+    if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/u.test(value)) {
+      throw new Error(`${name} must be a valid S3 bucket name`);
+    }
+    return value;
+  };
+  const buckets = Object.freeze({
+    protected: bucket("OBJECT_STORAGE_PROTECTED_BUCKET", DEFAULT_OBJECT_STORAGE_PROTECTED_BUCKET),
+    public: bucket("OBJECT_STORAGE_PUBLIC_BUCKET", DEFAULT_OBJECT_STORAGE_PUBLIC_BUCKET),
+    quarantine: bucket("OBJECT_STORAGE_QUARANTINE_BUCKET", DEFAULT_OBJECT_STORAGE_QUARANTINE_BUCKET),
+  });
+  if (new Set(Object.values(buckets)).size !== 3) {
+    throw new Error("Object Storage buckets must be distinct");
+  }
+  return Object.freeze({
+    accessKeyId: readRuntimeValue(environment, "OBJECT_STORAGE_ACCESS_KEY_ID", mode, DEFAULT_OBJECT_STORAGE_ACCESS_KEY_ID),
+    buckets,
+    endpoint,
+    forcePathStyle: environment.OBJECT_STORAGE_FORCE_PATH_STYLE?.trim() === "true" || mode !== "production",
+    orphanGraceMs: parseBoundedSeconds(
+      readRuntimeValue(environment, "MATERIAL_ASSET_ORPHAN_GRACE_SECONDS", mode, DEFAULT_MATERIAL_ASSET_ORPHAN_GRACE_SECONDS),
+      "MATERIAL_ASSET_ORPHAN_GRACE_SECONDS",
+      3600,
+      2_592_000,
+    ) * 1_000,
+    region: readRuntimeValue(environment, "OBJECT_STORAGE_REGION", mode, DEFAULT_OBJECT_STORAGE_REGION),
+    secretAccessKey: readRuntimeValue(environment, "OBJECT_STORAGE_SECRET_ACCESS_KEY", mode, DEFAULT_OBJECT_STORAGE_SECRET_ACCESS_KEY),
+    signedGetTtlSeconds: parseBoundedSeconds(
+      readRuntimeValue(environment, "OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS", mode, DEFAULT_OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS),
+      "OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS",
+      1,
+      300,
+    ),
+  });
 }
 
 function parseTelegramLinkLifetime(value: string): number {
@@ -282,6 +380,7 @@ export function parsePlatformConfig(
     ),
   });
   const telegramMembership = parseTelegramMembershipConfig(environment, mode);
+  const objectStorage = parseObjectStorageConfig(environment, mode);
 
   return Object.freeze({
     mode,
@@ -289,6 +388,7 @@ export function parsePlatformConfig(
     api,
     identity,
     contentAccess,
+    objectStorage,
     telegramMembership,
   });
 }

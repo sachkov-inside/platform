@@ -46,6 +46,15 @@ export TELEGRAM_LINKING_ENDPOINT=https://telegram.production-smoke.invalid/integ
 export TELEGRAM_LINKING_SECRET=inside-production-smoke-linking-secret
 export TELEGRAM_EVIDENCE_INGRESS_SECRET=inside-production-smoke-evidence-secret
 export TELEGRAM_LINK_LIFETIME_SECONDS=300
+export OBJECT_STORAGE_ENDPOINT=https://storage.production-smoke.invalid
+export OBJECT_STORAGE_REGION=ru-central1
+export OBJECT_STORAGE_ACCESS_KEY_ID=inside-production-smoke-storage-access-key
+export OBJECT_STORAGE_SECRET_ACCESS_KEY=inside-production-smoke-storage-secret-key
+export OBJECT_STORAGE_PUBLIC_BUCKET=inside-production-smoke-public
+export OBJECT_STORAGE_PROTECTED_BUCKET=inside-production-smoke-protected
+export OBJECT_STORAGE_QUARANTINE_BUCKET=inside-production-smoke-quarantine
+export OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS=60
+export MATERIAL_ASSET_ORPHAN_GRACE_SECONDS=86400
 export WEB_BASE_URL="https://localhost:${https_port}"
 
 compose=(
@@ -79,6 +88,20 @@ trap cleanup EXIT
 "${compose[@]}" config --quiet
 "${compose[@]}" build api web
 "${compose[@]}" up --detach --wait
+
+worker_container_id="$("${compose[@]}" ps --quiet material-assets-worker)"
+worker_state="$(docker container inspect "$worker_container_id" --format '{{.State.Status}}:{{.RestartCount}}')"
+if [[ "$worker_state" != "running:0" ]]; then
+  echo "Material Asset worker did not stay running without restarts: $worker_state" >&2
+  "${compose[@]}" logs material-assets-worker >&2
+  exit 1
+fi
+worker_logs="$("${compose[@]}" logs material-assets-worker)"
+if [[ "$worker_logs" != *'"process":"material-assets-worker","status":"ready"'* ]]; then
+  echo "Material Asset worker did not report readiness" >&2
+  printf '%s\n' "$worker_logs" >&2
+  exit 1
+fi
 
 api_health="$(
   "${compose[@]}" exec -T api node -e \
@@ -198,8 +221,8 @@ for image in "$PLATFORM_API_BUILD_IMAGE" "$PLATFORM_WEB_BUILD_IMAGE"; do
 done
 
 if ! docker run --rm --entrypoint sh "$PLATFORM_API_BUILD_IMAGE" -c \
-  "test ! -e /app/dist/development && test ! -e /app/dist/entrypoints/mcp.js"; then
-  echo "API image contains a development or unrelated process entrypoint" >&2
+  "test ! -e /app/dist/development && test ! -e /app/dist/entrypoints/mcp.js && test -e /app/dist/entrypoints/material-assets-worker.js"; then
+  echo "API image contains an unrelated entrypoint or misses the Material Asset worker" >&2
   exit 1
 fi
 
