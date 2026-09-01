@@ -27,14 +27,14 @@ export interface LibraryFiltersProps {
 
 /** Canonical Library facets: Topic, Format and Series. */
 export function LibraryFilters({
-  ariaLabel = "Фильтры библиотеки",
+  ariaLabel = "Фильтры базы знаний",
   className,
   density = "comfortable",
   formatOptions,
   selectedFormats,
   selectedSeriesIds,
   selectedTopics,
-  seriesLabel = "Серия",
+  seriesLabel = "Плейлисты",
   seriesOptions,
   setSelectedFormats,
   setSelectedSeriesIds,

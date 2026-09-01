@@ -211,7 +211,7 @@ function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
         {kind === "series" ? "В плейлисте пока нет выпусков" : "В теме пока нет материалов"}
       </h2>
       <Button asChild className="mt-6" size="lg" variant="outline">
-        <Link href="/library">Открыть Библиотеку</Link>
+        <Link href="/library">Открыть Базу знаний</Link>
       </Button>
     </section>
   );
@@ -232,7 +232,7 @@ function DiscoveryBreadcrumb({
             className="inline-flex min-h-10 items-center rounded-lg px-2 no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
             href="/library"
           >
-            Библиотека
+            База знаний
           </Link>
         </li>
         <li aria-hidden="true">/</li>
@@ -301,12 +301,12 @@ export function LibraryDiscoveryNotFound() {
         <Button asChild size="lg">
           <Link href="/library">
             <ArrowLeft aria-hidden="true" />
-            В Библиотеку
+            В Базу знаний
           </Link>
         </Button>
       }
       icon={<SearchX aria-hidden="true" />}
-      message="Проверьте адрес или выберите другую тему или плейлист в Библиотеке."
+      message="Проверьте адрес или выберите другую тему или плейлист в Базе знаний."
       state="not-found"
       title="Подборка не найдена"
     />

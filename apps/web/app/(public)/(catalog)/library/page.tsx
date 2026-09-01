@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { LibraryPageQuery } from "@/_pages/library";
 
 export const metadata: Metadata = {
-  title: "Библиотека",
+  title: "База знаний",
 };
 
 export default function LibraryRoute() {

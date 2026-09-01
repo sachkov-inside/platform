@@ -49,7 +49,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
                 <span>Предпросмотр черновика</span>
               </div>
             ) : null}
-            <AuthoringLink href="/library" icon={<LibraryBig aria-hidden="true" />} label="Публичная библиотека" />
+            <AuthoringLink href="/library" icon={<LibraryBig aria-hidden="true" />} label="База знаний" />
           </nav>
           <div className="mt-auto border-t border-sidebar-border pt-3">
             <AuthoringLink href="/" icon={<Globe2 aria-hidden="true" />} label="На публичный сайт" />
@@ -61,7 +61,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
         <div className="grid grid-cols-4 px-2 pt-1">
           <MobileLink current={current === "materials"} href={materialsHref} label="Материалы"><Files aria-hidden="true" /></MobileLink>
           <MobileLink current={current === "playlists"} href="/authoring/playlists" label="Плейлисты"><ListOrdered aria-hidden="true" /></MobileLink>
-          <MobileLink href="/library" label="Библиотека"><LibraryBig aria-hidden="true" /></MobileLink>
+          <MobileLink href="/library" label="База знаний"><LibraryBig aria-hidden="true" /></MobileLink>
           <MobileLink href="/" label="Сайт"><Globe2 aria-hidden="true" /></MobileLink>
         </div>
       </nav>

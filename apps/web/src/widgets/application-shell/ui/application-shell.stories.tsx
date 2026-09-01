@@ -9,7 +9,7 @@ import {
 
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "Библиотека" },
+  { href: "/library", icon: "library", label: "База знаний" },
   { href: "/map", icon: "map", label: "Карта" },
 ] satisfies readonly ApplicationNavigationItem[];
 
@@ -196,7 +196,7 @@ function HomeShellFixture() {
           Главная
         </h1>
         <p className="mt-4 max-w-[66ch] text-pretty text-base leading-7 text-muted-foreground sm:text-lg">
-          Рабочая точка входа в материалы, темы и активные серии Inside.
+          Рабочая точка входа в материалы, темы и активные плейлисты Inside.
         </p>
       </header>
 
@@ -221,7 +221,7 @@ function HomeShellFixture() {
               Новые материалы
             </h2>
             <Link className="text-sm text-muted-foreground underline underline-offset-4" href="/library">
-              Вся библиотека
+              Вся база знаний
             </Link>
           </div>
           <div className="mt-5 divide-y divide-border border-y border-border">

@@ -150,8 +150,8 @@ library_response="$(
     --show-error \
     "https://localhost:${https_port}/library"
 )"
-if [[ "$library_response" != *"Библиотека"* ]]; then
-  echo "Caddy did not serve the expected Platform Library response" >&2
+if [[ "$library_response" != *"База знаний"* ]]; then
+  echo "Caddy did not serve the expected Platform Knowledge Base response" >&2
   exit 1
 fi
 

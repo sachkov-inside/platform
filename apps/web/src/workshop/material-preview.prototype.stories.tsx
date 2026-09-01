@@ -12,7 +12,7 @@ import { MaterialCard, materialFixtures } from "@/workshop/material-preview.prot
 
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "Библиотека" },
+  { href: "/library", icon: "library", label: "База знаний" },
   { href: "/map", icon: "map", label: "Карта" },
 ] satisfies readonly ApplicationNavigationItem[];
 

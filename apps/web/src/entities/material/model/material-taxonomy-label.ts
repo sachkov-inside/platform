@@ -1,5 +1,5 @@
 const russianMaterialTaxonomyLabels: Readonly<Record<string, string>> = {
-  Guide: "Руководство",
+  Guide: "Гайд",
   Platform: "Платформа",
 };
 

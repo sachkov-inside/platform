@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowUpRight, LockKeyhole, SearchX, ShieldAlert } from "luci
 import Link from "next/link";
 
 import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/material-reader-view";
+import { materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 
 export function MaterialReaderLoading() {
@@ -34,12 +35,12 @@ export function MaterialReaderNotFound() {
         <Button asChild size="lg">
           <Link href="/library">
             <ArrowLeft aria-hidden="true" />
-            В Библиотеку
+            В Базу знаний
           </Link>
         </Button>
       }
       icon={<SearchX aria-hidden="true" />}
-      message="Проверьте адрес или выберите другой материал в Библиотеке."
+      message="Проверьте адрес или выберите другой материал в Базе знаний."
       state="not-found"
       title="Материал не найден"
     />
@@ -65,13 +66,15 @@ export function MaterialReaderAccess({
         <Button asChild size="lg" variant="outline">
           <Link href="/library">
             <ArrowLeft aria-hidden="true" />
-            В Библиотеку
+            В Базу знаний
           </Link>
         </Button>
       </div>
       <header className="mt-7 max-w-[48rem] sm:mt-8">
         <div className="flex flex-wrap gap-2 text-xs font-semibold text-muted-foreground">
-          <span className="rounded-full bg-muted px-3 py-1.5">{material.format.name}</span>
+          <span className="rounded-full bg-muted px-3 py-1.5">
+            {materialTaxonomyLabel(material.format.name)}
+          </span>
           <Link
             className="rounded-full bg-muted px-3 py-1.5 no-underline hover:bg-secondary focus-visible:outline-ring"
             href={`/topics/${material.topic.slug}`}
@@ -127,7 +130,7 @@ export function MaterialReaderUnavailable({ slug }: { readonly slug: string }) {
             <Link href={`/materials/${slug}`}>Повторить</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <Link href="/library">Открыть Библиотеку</Link>
+            <Link href="/library">Открыть Базу знаний</Link>
           </Button>
         </div>
       }
@@ -146,7 +149,7 @@ export function MaterialReaderUnexpectedError({ onRetry }: { readonly onRetry: (
         <div className="flex flex-wrap gap-3">
           <Button onClick={onRetry} size="lg">Повторить</Button>
           <Button asChild size="lg" variant="outline">
-            <Link href="/library">Открыть Библиотеку</Link>
+            <Link href="/library">Открыть Базу знаний</Link>
           </Button>
         </div>
       }

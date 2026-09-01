@@ -21,7 +21,7 @@ import {
 
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "Библиотека" },
+  { href: "/library", icon: "library", label: "База знаний" },
   { href: "/map", icon: "map", label: "Карта" },
 ] satisfies readonly ApplicationNavigationItem[];
 
@@ -240,7 +240,7 @@ function CachedCatalogNavigationHarness() {
             }}
             type="button"
           >
-            Вернуться в библиотеку
+            Вернуться в базу знаний
           </button>
         ) : null}
       </div>
@@ -356,7 +356,7 @@ export const ReadyMobile: Story = {
     const canvas = within(canvasElement);
     const grid = canvasElement.querySelector<HTMLElement>("[data-material-grid]");
 
-    await expect(canvas.getByRole("heading", { name: "Библиотека" })).toBeInTheDocument();
+    await expect(canvas.getByRole("heading", { name: "База знаний" })).toBeInTheDocument();
     if (grid === null) {
       throw new Error("Material grid is missing");
     }
@@ -397,7 +397,7 @@ export const SearchResultsDesktop: Story = {
   name: "Search results · desktop",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByLabelText("Поиск по библиотеке")).toHaveValue(
+    await expect(canvas.getByLabelText("Поиск по базе знаний")).toHaveValue(
       "developer pipeline",
     );
     await expect(
@@ -527,7 +527,7 @@ export const ReusesCachedCatalog: Story = {
     ).toHaveTextContent("2");
     await userEvent.click(canvas.getByRole("button", { name: "Открыть материал" }));
     await userEvent.click(
-      canvas.getByRole("button", { name: "Вернуться в библиотеку" }),
+      canvas.getByRole("button", { name: "Вернуться в базу знаний" }),
     );
     await waitFor(() =>
       expect(canvas.getByText("Материал 2.12")).toBeInTheDocument(),
@@ -558,7 +558,7 @@ export const UnexpectedError: Story = {
   render: () => <LibraryUnexpectedError onRetry={() => undefined} />,
   play: async ({ canvasElement }) => {
     await expect(
-      within(canvasElement).getByRole("heading", { level: 1, name: "Библиотека" }),
+      within(canvasElement).getByRole("heading", { level: 1, name: "База знаний" }),
     ).toBeInTheDocument();
   },
 };

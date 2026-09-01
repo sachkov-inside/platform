@@ -14,7 +14,7 @@ import {
   type LibrarySearchQuery,
 } from "@/_pages/library/model/library-search-query";
 import { formatFoundMaterialCount } from "@/_pages/library/model/format-material-count";
-import { MaterialCard } from "@/entities/material";
+import { MaterialCard, materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import {
   Select,
@@ -85,7 +85,7 @@ export function LibraryLoading() {
   return (
     <div
       aria-busy="true"
-      aria-label="Библиотека загружается"
+      aria-label="База знаний загружается"
       className="@container/library -mx-5 -mb-7 overflow-hidden bg-background sm:-mx-8 sm:-mb-10 md:m-0 md:overflow-visible md:bg-transparent"
       data-library-state="loading"
     >
@@ -136,7 +136,7 @@ export function LibraryUnexpectedError({
           }
           message="Не удалось загрузить каталог. Попробуйте ещё раз."
           state="unexpected-error"
-          title="Библиотека сейчас недоступна"
+          title="База знаний сейчас недоступна"
         />
       </div>
     </div>
@@ -147,7 +147,7 @@ function LibraryHeader() {
   return (
     <header className="rounded-b-2xl bg-card px-5 pb-5 pt-4 sm:px-8 sm:pb-8 sm:pt-10 md:rounded-none md:bg-transparent md:p-0">
       <h1 className="text-balance text-2xl font-semibold leading-7 tracking-[-0.03em] @min-[30rem]/library:text-3xl @min-[30rem]/library:leading-9 @min-[52rem]/library:text-5xl @min-[52rem]/library:leading-[1.1]">
-        Библиотека
+        База знаний
       </h1>
     </header>
   );
@@ -207,7 +207,7 @@ function LibrarySearchForm({
       <div className="grid gap-3 @min-[52rem]/library:grid-cols-[minmax(0,1fr)_12rem] @min-[52rem]/library:items-end">
         <div>
           <label className="mb-2 block text-sm font-semibold" htmlFor="library-search">
-            Поиск по библиотеке
+            Поиск по базе знаний
           </label>
           <div className="relative">
             <Search
@@ -292,7 +292,7 @@ function LibrarySearchForm({
               selected={query.formatSlugs}
             />
             <LibraryFilterFieldset
-              legend="Серия"
+              legend="Плейлисты"
               name="series"
               onQueryChange={onQueryChange}
               options={facets.series}
@@ -362,7 +362,7 @@ function LibraryFilterFieldset({
               value={option.slug}
             />
             <span className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:border-muted-foreground/45 hover:bg-muted/80 peer-checked:border-accent/55 peer-checked:bg-accent/12 peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
-              {option.name}
+              {name === "format" ? materialTaxonomyLabel(option.name) : option.name}
               <span className="font-mono text-[0.6875rem] text-muted-foreground">
                 {option.count}
               </span>
@@ -482,7 +482,7 @@ function LibraryUnavailable({ onRetry }: { readonly onRetry?: () => void }) {
       }
       message="Каталог не отвечает. Попробуйте ещё раз через несколько минут."
       state="unavailable"
-      title="Библиотека временно недоступна"
+      title="База знаний временно недоступна"
     />
   );
 }

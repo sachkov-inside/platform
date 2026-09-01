@@ -105,7 +105,7 @@ export const Populated: Story = {
     await expect(canvas.getByRole("heading", { name: "Материалы", level: 1 })).toBeVisible();
     await expect(canvas.getByText("35 материалов")).toBeVisible();
     await expect(canvas.getAllByText("Платформа").length).toBeGreaterThan(0);
-    await expect(canvas.getAllByText("Руководство").length).toBeGreaterThan(0);
+    await expect(canvas.getAllByText("Гайд").length).toBeGreaterThan(0);
     await expect(canvas.queryByText(/^v\d+$/u)).not.toBeInTheDocument();
     await expect(canvas.queryByText("Topic", { exact: true })).not.toBeInTheDocument();
     await expect(canvas.queryByText("Format", { exact: true })).not.toBeInTheDocument();

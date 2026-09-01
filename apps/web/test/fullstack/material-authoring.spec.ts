@@ -175,7 +175,7 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   await page.getByRole("combobox", { name: "Тема" }).click();
   await page.getByRole("option", { name: "Платформа" }).click();
   await page.getByRole("combobox", { name: "Формат" }).click();
-  await page.getByRole("option", { name: "Руководство" }).click();
+  await page.getByRole("option", { name: "Гайд" }).click();
   await page.getByText("Full stack", { exact: true }).click();
   await page.getByText("Создание Platform Inside", { exact: true }).click();
   await page
@@ -205,7 +205,7 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
     page.getByRole("heading", { name: "Current Preview без fake data", level: 1 }),
   ).toBeVisible();
   await expect(page.getByText("Текущее сохранённое содержимое из PostgreSQL.")).toBeVisible();
-  await expect(page.getByText("Руководство")).toBeVisible();
+  await expect(page.getByText("Гайд")).toBeVisible();
   await expect(page.getByText("Платформа")).toBeVisible();
   await expect(page.getByText("Full stack")).toBeVisible();
   await expect(page.getByText("Сохранённый черновик. Материал ещё не опубликован.")).toBeVisible();
@@ -228,7 +228,7 @@ test("trusted author finds every Material and returns from Editor to the same li
   await expect(page.getByText("Topic", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Format", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Платформа", { exact: true })).toBeVisible();
-  await expect(page.getByText("Руководство", { exact: true })).toBeVisible();
+  await expect(page.getByText("Гайд", { exact: true })).toBeVisible();
   await expect(page.getByText(/Все текущие Materials/u)).toHaveCount(0);
   await expect(
     page.getByRole("combobox", { name: "Состояние публикации" }),
@@ -540,7 +540,7 @@ async function fillPublishableDraft(page: Page, title: string) {
   await page.getByRole("combobox", { name: "Тема" }).click();
   await page.getByRole("option", { name: "Платформа" }).click();
   await page.getByRole("combobox", { name: "Формат" }).click();
-  await page.getByRole("option", { name: "Руководство" }).click();
+  await page.getByRole("option", { name: "Гайд" }).click();
   await page
     .getByRole("textbox", { name: "Содержимое материала" })
     .fill("Текущее сохранённое содержимое из PostgreSQL.");

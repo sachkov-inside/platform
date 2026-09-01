@@ -20,7 +20,7 @@ import { MaterialReaderView } from "./material-reader-view";
 
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "Библиотека" },
+  { href: "/library", icon: "library", label: "База знаний" },
   { href: "/map", icon: "map", label: "Карта" },
 ] satisfies readonly ApplicationNavigationItem[];
 
@@ -281,7 +281,7 @@ export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("navigation", { name: "В этом материале" })).toBeInTheDocument();
-    await expect(canvas.getAllByRole("link", { name: "В Библиотеку" })).toHaveLength(2);
+    await expect(canvas.getAllByRole("link", { name: "В Базу знаний" })).toHaveLength(2);
     await expect(canvas.getByRole("region", { name: "Таблица в материале" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" })).toBeInTheDocument();
   },
@@ -302,7 +302,7 @@ export const NotFound: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Материал не найден" })).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "В Библиотеку" })).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "В Базу знаний" })).toBeInTheDocument();
   },
 };
 

@@ -10,6 +10,7 @@ import type {
 } from "@/_pages/material-reader/model/material-reader-view";
 import type { RelatedMaterialsResult } from "@/features/library-discovery";
 import { RelatedMaterialsSection } from "@/features/library-discovery";
+import { materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
 import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
@@ -64,7 +65,7 @@ function MaterialHeader({ material }: { readonly material: MaterialReaderMetadat
       <div className="flex flex-wrap items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
         <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-secondary px-2.5 font-semibold text-secondary-foreground">
           <BookOpenText aria-hidden="true" className="size-3.5 text-accent" />
-          {material.format.name}
+          {materialTaxonomyLabel(material.format.name)}
         </span>
         <Link
           className="inline-flex min-h-7 items-center rounded-md px-2 no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
@@ -105,7 +106,7 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
         </ul>
       ) : null}
       {material.seriesMemberships.length > 0 ? (
-        <ul aria-label="Серии материала" className="flex flex-wrap gap-x-4 gap-y-2" role="list">
+        <ul aria-label="Плейлисты материала" className="flex flex-wrap gap-x-4 gap-y-2" role="list">
           {material.seriesMemberships.map(({ ordinal, series }) => (
             <li key={series.slug}>
               <Link
@@ -129,7 +130,7 @@ function ReaderBackAction({ className = "" }: { readonly className?: string }) {
       <Button asChild className="bg-background" size="lg" variant="outline">
         <Link href="/library">
           <ArrowLeft aria-hidden="true" />
-          В Библиотеку
+          В Базу знаний
         </Link>
       </Button>
     </div>

@@ -33,7 +33,7 @@ const meta = {
         {
           materialId: "95000000-0000-4000-8000-000000000003",
           publicationState: "unpublished",
-          title: "Как устроена библиотека материалов",
+          title: "Как устроена база знаний",
         },
       ],
       name: "Создание Platform Inside",
