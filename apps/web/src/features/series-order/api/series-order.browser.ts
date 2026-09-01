@@ -1,18 +1,10 @@
-import { z } from "zod";
-
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 
-import type {
-  ReorderSeriesInput,
-  ReorderSeriesResult,
+import {
+  reorderSeriesResultSchema,
+  type ReorderSeriesInput,
+  type ReorderSeriesResult,
 } from "../model/presentation";
-
-const stateSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("saved"), orderVersion: z.string().regex(/^[a-f0-9]{64}$/u) }).strict(),
-  z.object({ kind: z.literal("conflict") }).strict(),
-  z.object({ kind: z.literal("unauthorized") }).strict(),
-  z.object({ kind: z.literal("error"), reference: z.string() }).strict(),
-]);
 
 export async function reorderSeries(
   input: ReorderSeriesInput,
@@ -31,7 +23,7 @@ export async function reorderSeries(
       ? { kind: "unauthorized" }
       : { kind: "error", reference: `series-order-bff-${String(result.status)}` };
   }
-  const parsed = stateSchema.safeParse(result.body);
+  const parsed = reorderSeriesResultSchema.safeParse(result.body);
   return parsed.success
     ? parsed.data
     : { kind: "error", reference: "series-order-bff-contract" };

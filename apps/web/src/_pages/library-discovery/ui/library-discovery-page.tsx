@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 
 import type {
-  LibraryDiscoveryKind,
-  LibraryDiscoveryResult,
+  PublishedSeriesResult,
+  PublishedTopicResult,
 } from "@/features/library-discovery";
 import {
   loadPublishedSeries,
@@ -20,9 +20,8 @@ export async function PublishedTopicPage({
   readonly accessToken?: string;
   readonly slug: string;
 }) {
-  return renderDiscoveryResult(
+  return renderPublishedTopicResult(
     await loadPublishedTopic(slug, accessToken),
-    "topic",
     slug,
   );
 }
@@ -34,23 +33,34 @@ export async function PublishedSeriesPage({
   readonly accessToken?: string;
   readonly slug: string;
 }) {
-  return renderDiscoveryResult(
+  return renderPublishedSeriesResult(
     await loadPublishedSeries(slug, accessToken),
-    "series",
     slug,
   );
 }
 
-function renderDiscoveryResult(
-  result: LibraryDiscoveryResult,
-  kind: Exclude<LibraryDiscoveryKind, "related">,
+function renderPublishedTopicResult(
+  result: PublishedTopicResult,
   slug: string,
 ) {
   if (result.kind === "not-found") {
     notFound();
   }
   if (result.kind === "unavailable") {
-    return <LibraryDiscoveryUnavailable kind={kind} slug={slug} />;
+    return <LibraryDiscoveryUnavailable kind="topic" slug={slug} />;
+  }
+  return <LibraryDiscoveryView result={result} />;
+}
+
+function renderPublishedSeriesResult(
+  result: PublishedSeriesResult,
+  slug: string,
+) {
+  if (result.kind === "not-found") {
+    notFound();
+  }
+  if (result.kind === "unavailable") {
+    return <LibraryDiscoveryUnavailable kind="series" slug={slug} />;
   }
   return <LibraryDiscoveryView result={result} />;
 }
