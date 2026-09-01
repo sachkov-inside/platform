@@ -1,4 +1,5 @@
 import type { INestApplicationContext } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +10,7 @@ import {
 } from "../src/config/platform-config.js";
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
+import { MaterialAssetsWorkerModule } from "../src/entrypoints/material-assets-worker/material-assets-worker.module.js";
 import { OperationalReadiness } from "../src/infrastructure/operational-readiness.js";
 import {
   PrismaClientProvider,
@@ -87,6 +89,21 @@ describe("backend process composition", () => {
     application = undefined;
 
     expect(disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("loads and validates worker config through Nest composition", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://inside:inside@127.0.0.1:1/inside",
+    );
+
+    application = await NestFactory.createApplicationContext(
+      MaterialAssetsWorkerModule.forRoot(),
+      { logger: false },
+    );
+
+    expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toEqual(config);
   });
 
   it("keeps the API running while health reports an unreachable database", async () => {

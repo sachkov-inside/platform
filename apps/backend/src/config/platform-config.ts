@@ -82,7 +82,12 @@ const objectStorageSchema = z
       })
       .readonly(),
     endpoint: httpUrlSchema("OBJECT_STORAGE_ENDPOINT"),
-    forcePathStyle: z.boolean(),
+    forcePathStyle: z
+      .string()
+      .regex(/^(?:true|false)$/u, {
+        message: "OBJECT_STORAGE_FORCE_PATH_STYLE must be true or false",
+      })
+      .transform((value) => value === "true"),
     orphanGraceMs: integerStringSchema(
       "MATERIAL_ASSET_ORPHAN_GRACE_SECONDS must be an integer between 3600 and 2592000",
       3_600,
@@ -252,8 +257,8 @@ export function parsePlatformConfig(
         DEFAULT_OBJECT_STORAGE_ENDPOINT,
       ),
       forcePathStyle:
-        environment.OBJECT_STORAGE_FORCE_PATH_STYLE?.trim() === "true" ||
-        mode !== "production",
+        environment.OBJECT_STORAGE_FORCE_PATH_STYLE?.trim() ||
+        (mode === "production" ? "false" : "true"),
       orphanGraceMs: readRuntimeValue(
         environment,
         "MATERIAL_ASSET_ORPHAN_GRACE_SECONDS",
