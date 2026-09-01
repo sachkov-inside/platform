@@ -24,26 +24,8 @@ function conflictState(): Promise<ProfileMutationState> {
   return Promise.resolve({ currentVersion: 4, kind: "conflict" });
 }
 
-function deletedState(): Promise<ProfileMutationState> {
-  return Promise.resolve({ kind: "deleted" });
-}
-
-function recreatedState(): Promise<ProfileMutationState> {
-  return Promise.resolve({
-    kind: "saved",
-    profile: {
-      ...activeProfile,
-      bio: null,
-      displayName: "Новый профиль",
-      publicProfileId: "92299055-8c7d-4388-9071-6719af177869",
-      version: 1,
-    },
-  });
-}
-
 const meta = {
   args: {
-    deleteAction: preserveState,
     initialProfile: activeProfile,
     saveAction: preserveState,
   },
@@ -72,7 +54,12 @@ export const ActiveDesktop: Story = {
     await expect(canvas.getByLabelText("Имя")).toHaveValue("Кирилл Сачков");
     await expect(canvas.getAllByText("Кирилл Сачков")).toHaveLength(1);
     await expect(canvas.getByText("Видят участники")).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "Профиль участника" }),
+    ).toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: "Сохранить" })).toBeDisabled();
+    await expect(canvas.queryByText(/жалоб|скачать|удалить профиль/iu)).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Граница")).not.toBeInTheDocument();
     await expect(canvas.queryByText(/аватар/iu)).not.toBeInTheDocument();
   },
 };
@@ -83,7 +70,7 @@ export const ActiveMobile: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const editor = canvas.getByRole("heading", { name: "Редактирование" });
-    const preview = canvas.getByRole("heading", { name: "Точная проекция" });
+    const preview = canvas.getByRole("heading", { name: "Профиль участника" });
     await expect(editor.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await expect(canvasElement.ownerDocument.documentElement.scrollWidth).toBeLessThanOrEqual(
       canvasElement.ownerDocument.documentElement.clientWidth,
@@ -106,25 +93,7 @@ export const Missing: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("button", { name: "Создать" })).toBeInTheDocument();
     await expect(
-      canvas.getByText(/получит новый непредсказуемый публичный адрес/iu),
-    ).toBeInTheDocument();
-  },
-};
-
-export const DeleteAndRecreate: Story = {
-  args: { deleteAction: deletedState, saveAction: recreatedState },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Удалить профиль" }));
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Удалить безвозвратно" }),
-    );
-    await expect(canvas.getByRole("button", { name: "Создать" })).toBeInTheDocument();
-    await expect(canvas.queryByText(activeProfile.publicProfileId, { exact: false })).not.toBeInTheDocument();
-    await userEvent.type(canvas.getByLabelText("Имя"), "Новый профиль");
-    await userEvent.click(canvas.getByRole("button", { name: "Создать" }));
-    await expect(
-      canvas.getByText("92299055-8c7d-4388-9071-6719af177869", { exact: false }),
+      canvas.getByText(/получит постоянную ссылку для участников/iu),
     ).toBeInTheDocument();
   },
 };

@@ -1,13 +1,7 @@
 "use client";
 
-import { Check, Copy, Download, RotateCcw, Trash2 } from "lucide-react";
-import {
-  useActionState,
-  useCallback,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import { Check, Copy, RotateCcw } from "lucide-react";
+import { useActionState, useCallback, useId, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 
@@ -29,14 +23,12 @@ type ProfileMutationAction = (
 ) => Promise<ProfileMutationState>;
 
 interface AccountPageClientProps {
-  readonly deleteAction: ProfileMutationAction;
   readonly initialProfile: PrivateMemberProfile | null;
-  readonly onProfileChange?: (profile: PrivateMemberProfile | null) => void;
+  readonly onProfileChange?: (profile: PrivateMemberProfile) => void;
   readonly saveAction: ProfileMutationAction;
 }
 
 export function AccountPageClient({
-  deleteAction,
   initialProfile,
   onProfileChange,
   saveAction,
@@ -47,7 +39,6 @@ export function AccountPageClient({
   const [nameTouched, setNameTouched] = useState(false);
   const [bioTouched, setBioTouched] = useState(false);
   const [copied, setCopied] = useState(false);
-  const deleteDialog = useRef<HTMLDialogElement>(null);
   const nameHelpId = useId();
   const nameErrorId = useId();
   const bioHelpId = useId();
@@ -67,26 +58,8 @@ export function AccountPageClient({
     },
     [onProfileChange, saveAction],
   );
-  const acceptDelete = useCallback(
-    async (state: ProfileMutationState, formData: FormData) => {
-      const result = await deleteAction(state, formData);
-      if (result.kind === "deleted") {
-        deleteDialog.current?.close();
-        setDisplayName("");
-        setBio("");
-        setProfile(null);
-        onProfileChange?.(null);
-      }
-      return result;
-    },
-    [deleteAction, onProfileChange],
-  );
   const [saveState, saveFormAction, savePending] = useActionState(
     acceptSave,
-    initialProfileMutationState,
-  );
-  const [deleteState, deleteFormAction, deletePending] = useActionState(
-    acceptDelete,
     initialProfileMutationState,
   );
   const nameLength = memberProfileTextLength(displayName.trim());
@@ -112,15 +85,9 @@ export function AccountPageClient({
   return (
     <div className="mx-auto max-w-6xl">
       <header className="mb-8 flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-balance text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-            Ваш профиль
-          </h1>
-          <p className="mt-3 max-w-2xl text-pretty text-muted-foreground">
-            Здесь вы управляете тем, что видят другие участники. Имя — обычное
-            отображаемое имя, его можно менять.
-          </p>
-        </div>
+        <h1 className="text-balance text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
+          Ваш профиль
+        </h1>
         <form action="/auth/sign-out" method="post">
           <Button className="min-h-11 px-4" type="submit" variant="outline">
             Выйти из аккаунта
@@ -128,8 +95,8 @@ export function AccountPageClient({
         </form>
       </header>
 
-      <form action={saveFormAction} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_3.5rem_minmax(0,1fr)] lg:gap-0">
-        <section aria-labelledby="profile-editor-heading" className="min-w-0 lg:pr-8">
+      <form action={saveFormAction} className="grid gap-8 lg:grid-cols-2 lg:gap-12">
+        <section aria-labelledby="profile-editor-heading" className="min-w-0">
           <div className="mb-7 flex items-start justify-between gap-4">
             <div>
               <h2
@@ -224,21 +191,14 @@ export function AccountPageClient({
           <MutationNotice state={saveState} />
         </section>
 
-        <div aria-hidden="true" className="relative hidden lg:block">
-          <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
-          <span className="absolute left-1/2 top-7 -translate-x-1/2 rounded-full border border-accent/35 bg-card px-2 py-3 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.15em] text-foreground [writing-mode:vertical-rl]">
-            Граница
-          </span>
-        </div>
-
-        <section aria-labelledby="profile-preview-heading" className="min-w-0 border-t border-border pt-7 lg:border-t-0 lg:pl-8 lg:pt-0">
+        <section aria-labelledby="profile-preview-heading" className="min-w-0 border-t border-border pt-7 lg:border-t-0 lg:pt-0">
           <div className="mb-7">
             <h2
-              aria-label="Точная проекция"
+              aria-label="Профиль участника"
               className="text-2xl font-bold tracking-[-0.035em]"
               id="profile-preview-heading"
             >
-              Точная проекция
+              Профиль участника
             </h2>
             <p className="mt-1 text-sm font-medium text-muted-foreground">
               {profile === null ? "Появится после создания" : "Видят участники"}
@@ -262,7 +222,7 @@ export function AccountPageClient({
           />
           {profile === null ? (
             <p className="mt-4 text-sm text-muted-foreground">
-              После создания профиль получит новый непредсказуемый публичный адрес.
+              После создания профиль получит постоянную ссылку для участников.
             </p>
           ) : (
             <ProfileLink
@@ -281,79 +241,6 @@ export function AccountPageClient({
           )}
         </section>
       </form>
-
-      {profile === null ? null : (
-        <section aria-labelledby="profile-lifecycle-heading" className="mt-10 border-t border-border pt-8">
-          <h2 className="text-2xl font-bold tracking-[-0.035em]" id="profile-lifecycle-heading">
-            Данные профиля
-          </h2>
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Button asChild className="min-h-11 px-4" variant="outline">
-              <a download href="/account/export-profile">
-                <Download aria-hidden="true" />
-                Скачать JSON
-              </a>
-            </Button>
-            <Button
-              className="min-h-11 px-4"
-              onClick={() => {
-                deleteDialog.current?.showModal();
-              }}
-              type="button"
-              variant="destructive"
-            >
-              <Trash2 aria-hidden="true" />
-              Удалить профиль
-            </Button>
-          </div>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Удаление безвозвратно стирает имя и описание. При повторном создании
-            профиль получит другой публичный адрес.
-          </p>
-        </section>
-      )}
-
-      <dialog
-        aria-labelledby="delete-profile-heading"
-        className="m-auto w-[min(32rem,calc(100%-2rem))] rounded-2xl border border-border bg-card p-0 text-foreground shadow-card backdrop:bg-foreground/40"
-        onCancel={(event) => {
-          event.preventDefault();
-        }}
-        ref={deleteDialog}
-      >
-        <form action={deleteFormAction} className="p-6 sm:p-8">
-          <input name="expectedVersion" type="hidden" value={profile?.version ?? 0} />
-          <h2 className="text-2xl font-bold tracking-[-0.035em]" id="delete-profile-heading">
-            Удалить профиль?
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Имя, описание и текущий публичный адрес будут удалены. Восстановить их
-            автоматически нельзя.
-          </p>
-          <MutationNotice state={deleteState} />
-          <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <Button
-              className="min-h-11 px-4"
-              disabled={deletePending}
-              onClick={() => {
-                deleteDialog.current?.close();
-              }}
-              type="button"
-              variant="outline"
-            >
-              Оставить профиль
-            </Button>
-            <Button
-              className="min-h-11 px-4"
-              disabled={deletePending}
-              type="submit"
-              variant="destructive"
-            >
-              {deletePending ? "Удаляем…" : "Удалить безвозвратно"}
-            </Button>
-          </div>
-        </form>
-      </dialog>
     </div>
   );
 }
@@ -372,7 +259,7 @@ function ProfileLink({
       <code className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
         /members/{publicProfileId}
       </code>
-      <Button aria-label="Скопировать публичную ссылку" className="size-11" onClick={onCopy} size="icon" type="button" variant="ghost">
+      <Button aria-label="Скопировать ссылку на профиль" className="size-11" onClick={onCopy} size="icon" type="button" variant="ghost">
         {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
       </Button>
       <span aria-live="polite" className="sr-only">
@@ -392,7 +279,6 @@ function MutationNotice({ state }: { readonly state: ProfileMutationState }) {
       </p>
     );
   }
-  if (state.kind === "deleted") return null;
   if (state.kind === "conflict") {
     return (
       <div className="mt-5 rounded-xl border border-accent/35 bg-accent/6 p-4 text-sm" role="alert">

@@ -1,7 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
-
-import type { ProfileReportState } from "@/_pages/account";
+import { expect, within } from "storybook/test";
 
 import { MemberProfileReady } from "./member-profile-ready";
 
@@ -11,18 +9,14 @@ const profile = {
   publicProfileId: "5d34da22-548e-4b02-b6e8-9c918ad536ef",
 } as const;
 
-function reportAccepted(): Promise<ProfileReportState> {
-  return Promise.resolve({ duplicate: false, kind: "reported" });
-}
-
 const meta = {
-  args: { profile, reportAction: reportAccepted },
+  args: { profile },
   component: MemberProfileReady,
   parameters: {
     docs: {
       description: {
         component:
-          "Active-member projection contains only the accepted Profile fields and a bounded text-report control.",
+          "Active-member projection contains only the accepted Profile fields.",
       },
     },
   },
@@ -42,14 +36,7 @@ export const ActiveDesktop: Story = {
     ).toBeInTheDocument();
     await expect(canvas.getByText(profile.bio)).toBeInTheDocument();
     await expect(canvas.queryByText(/email|telegram/iu)).not.toBeInTheDocument();
-    await userEvent.click(
-      canvas.getByText("Сообщить о тексте профиля", { selector: "summary" }),
-    );
-    await expect(canvas.getByText("Причина")).toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Отправить жалобу" }));
-    await expect(
-      canvas.getByText("Жалоба принята для ручной проверки."),
-    ).toBeInTheDocument();
+    await expect(canvas.queryByText(/жалоб|сообщить о тексте/iu)).not.toBeInTheDocument();
   },
 };
 
@@ -61,7 +48,7 @@ export const ActiveMobile: Story = {
     await expect(
       canvas.getByRole("heading", { name: profile.displayName }),
     ).toBeInTheDocument();
-    await expect(canvas.getByText("Сообщить о тексте профиля")).toBeInTheDocument();
+    await expect(canvas.queryByText(/жалоб|сообщить о тексте/iu)).not.toBeInTheDocument();
     await expect(canvasElement.ownerDocument.documentElement.scrollWidth).toBeLessThanOrEqual(
       canvasElement.ownerDocument.documentElement.clientWidth,
     );

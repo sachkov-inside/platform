@@ -57,15 +57,16 @@ Account является приватной surface владельца: в не�
 Telegram linking, Membership state и recovery actions. Member Profile — отдельная проекция для
 других действующих участников. Anonymous visitor, non-member и search crawler её не получают;
 profile не индексируется и никогда не содержит email, Platform или Telegram internal identifiers,
-Telegram username, linking/evidence, security или audit data. Exact поля, avatar, discoverability,
-moderation и delete/disable policy утверждены владельцем в Platform #51: Profile содержит
+Telegram username, linking/evidence, security или audit data. Exact поля, avatar, discoverability
+и visibility policy утверждены владельцем в Platform #51 и уточнены в Platform #189: Profile содержит
 обязательное изменяемое non-unique display name и optional bio, создаётся через обязательный
 name-only onboarding после первого sign-in и открывается active members по opaque URL без directory
-или search. Owner редактирует, экспортирует и удаляет Profile в private Account; optimistic version
-защищает edit/delete, deletion очищает поля и не оживляет старый URL, а disabled state остаётся
-виден только owner. Text reporting ограничен одним open report на viewer/Profile и обслуживается
-ручной owner moderation. Avatar, любые image/file операции и S3 delivery вынесены в Platform #153 и
-не блокируют text Profile vertical; это не расширяет brief до публичной социальной сети.
+или search. Owner создаёт и редактирует Profile в private Account; self-service export/delete и
+participant reporting отсутствуют, optimistic version защищает edit, а disabled state остаётся
+виден только owner. Owner-only release operation может скрыть или восстановить точный Profile по
+opaque identity без публичной admin surface. Avatar, любые image/file операции и S3 delivery
+вынесены в Platform #153 и не блокируют text Profile vertical; это не расширяет brief до публичной
+социальной сети.
 
 Платформа не принимает оплату и не управляет подпиской. Один outbound CTA ведёт на
 Platform-configured Tribute URL: Platform не читает Tribute API/webhooks и не делает access decision

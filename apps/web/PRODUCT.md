@@ -69,8 +69,8 @@ reading и authoring так, чтобы current Material, опубликован
 - Storybook contains accepted shell, Library and Material reader proofs plus representative
   sanitized content fixtures. No testimonials, customer logos, commercial benchmarks or other
   marketing proof may be invented.
-- Production evidence для Account и Member Profile: `docs/evidence/issue-51/README.md` с desktop и
-  390 × 844 mobile captures из full-stack smoke.
+- Accepted production evidence для Account и Member Profile: `docs/evidence/issue-189/README.md` с
+  desktop и 390 × 844 mobile captures из Storybook и full-stack smoke.
 
 ## Product Principles
 
