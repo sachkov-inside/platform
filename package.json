@@ -36,7 +36,6 @@
     "build:storybook": "pnpm --filter @inside/web build-storybook",
     "check": "pnpm docs:check && pnpm api:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test && pnpm test:e2e && pnpm build && pnpm --filter @inside/web test:standalone-config && pnpm build:storybook",
     "compose:up": "docker compose up -d --build --wait",
-    "compose:dev": "docker compose up --build --watch",
     "compose:smoke": "bash scripts/compose-stack-smoke.sh",
     "compose:production:smoke": "bash scripts/production-compose-smoke.sh",
     "conformance:telegram-membership": "pnpm --filter @inside/backend conformance:telegram-membership",

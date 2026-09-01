@@ -64,13 +64,13 @@ explicit port such as `PLAYWRIGHT_PORT=3200 pnpm check`; never stop another work
 From the repository root:
 
 ```bash
-docker compose up --build --watch
+docker compose up --build
 ```
 
 This one command builds exact Node/pnpm development images, starts PostgreSQL, migrates and seeds
-it once, then starts API, MCP and web. Compose Watch synchronizes backend and frontend source into
-the containers without a host `node_modules`. A package manifest, workspace manifest or lockfile
-change performs a controlled image rebuild.
+it once, then starts API, MCP and web. Rebuild the affected service after a source, package
+manifest, workspace manifest or lockfile change. For a faster edit loop, use the optional host
+Node.js commands below.
 
 The checked-in local credentials are defaults. A root `.env` copied from `.env.example` is optional
 for Compose overrides and the NestJS host fallback; already exported variables take precedence.
@@ -109,10 +109,10 @@ After shutdown, `docker compose ps --all` should list no application containers.
 Start the default stack plus Storybook:
 
 ```bash
-docker compose --profile storybook up --build --watch
+docker compose --profile storybook up --build
 ```
 
-The profile uses the same frozen container dependencies and Compose Watch source synchronization.
+The profile uses the same frozen container dependencies as the default stack.
 
 ## Optional host Node.js fallback
 

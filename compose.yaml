@@ -1,38 +1,5 @@
 name: inside-platform
 
-x-backend-develop: &backend-develop
-  watch:
-    - action: sync
-      path: ./apps/backend/src
-      target: /workspace/apps/backend/src
-    - action: rebuild
-      path: ./apps/backend/package.json
-    - action: rebuild
-      path: ./package.json
-    - action: rebuild
-      path: ./pnpm-lock.yaml
-    - action: rebuild
-      path: ./pnpm-workspace.yaml
-
-x-web-develop: &web-develop
-  watch:
-    - action: sync
-      path: ./apps/web
-      target: /workspace/apps/web
-      ignore:
-        - .next/
-        - node_modules/
-        - package.json
-        - storybook-static/
-    - action: rebuild
-      path: ./apps/web/package.json
-    - action: rebuild
-      path: ./package.json
-    - action: rebuild
-      path: ./pnpm-lock.yaml
-    - action: rebuild
-      path: ./pnpm-workspace.yaml
-
 services:
   object-storage:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
@@ -119,7 +86,6 @@ services:
       retries: 30
     init: true
     stop_grace_period: 10s
-    develop: *backend-develop
 
   mcp:
     build:
@@ -157,7 +123,6 @@ services:
       retries: 30
     init: true
     stop_grace_period: 10s
-    develop: *backend-develop
 
   material-assets-worker:
     build:
@@ -179,7 +144,6 @@ services:
         condition: service_healthy
     init: true
     stop_grace_period: 10s
-    develop: *backend-develop
 
   web:
     build:
@@ -207,7 +171,6 @@ services:
       retries: 45
     init: true
     stop_grace_period: 10s
-    develop: *web-develop
 
   storybook:
     profiles: [storybook]
@@ -232,7 +195,6 @@ services:
       retries: 45
     init: true
     stop_grace_period: 10s
-    develop: *web-develop
 
 volumes:
   object-storage-data:

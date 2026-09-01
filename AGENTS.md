@@ -27,7 +27,7 @@ The primary development stack requires Docker with Compose; host Node.js and pnp
 fallback and use the versions pinned in `.node-version` and `packageManager`.
 
 ```bash
-docker compose up --build --watch
+docker compose up --build
 bash scripts/compose-stack-smoke.sh
 docker compose down
 ```

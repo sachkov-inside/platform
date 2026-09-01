@@ -220,20 +220,14 @@ describe("supported toolchain contract", () => {
     );
   });
 
-  it("keeps Compose Watch source files aligned with the current application routes", () => {
-    const smoke = read("scripts/compose-watch-smoke.sh");
-    const sourcePaths = [
-      ...smoke.matchAll(/^(?:backend|web)_source="([^"]+)"$/gmu),
-    ].map(([, path]) => path);
+  it("keeps local Compose free of Watch automation", () => {
+    const compose = read("compose.yaml");
 
-    assert.equal(sourcePaths.length, 2);
-    for (const path of sourcePaths) {
-      assert.doesNotThrow(
-        () => read(path),
-        `Compose Watch source does not exist: ${path}`,
-      );
-    }
+    assert.doesNotMatch(compose, /^x-.*-develop:/mu);
+    assert.doesNotMatch(compose, /^\s+(?:develop|watch):/mu);
+    assert.doesNotMatch(read("package.json"), /compose:dev|--watch/u);
   });
+
 });
 
 function escapeRegExp(value) {

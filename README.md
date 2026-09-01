@@ -31,14 +31,14 @@ compatibility evidence is recorded in
 A fresh clone needs Docker with Compose; host Node.js is not required for the primary path.
 
 ```bash
-docker compose up --build --watch
+docker compose up --build
 ```
 
 This starts PostgreSQL, a one-shot migration/seed bootstrap, Nest API, MCP and Next web. Open web at
 <http://127.0.0.1:3000>, API health/OpenAPI at <http://127.0.0.1:3001/health> and
-<http://127.0.0.1:3001/openapi>, and MCP at <http://127.0.0.1:3002/mcp>. Source changes synchronize
-through Compose Watch without host `node_modules`; manifest and lockfile changes rebuild the
-affected images.
+<http://127.0.0.1:3001/openapi>, and MCP at <http://127.0.0.1:3002/mcp>. Rebuild the affected
+service after a source or dependency change, or use the host `pnpm dev*` commands for a faster
+development loop.
 
 ## Commands
 
