@@ -1,6 +1,8 @@
 export {
   libraryCatalogQueryOptions,
   requestLibraryCatalogPage,
+  requestTopicLibraryCatalogPage,
+  topicLibraryCatalogQueryOptions,
 } from "./api/library-catalog.browser";
 export {
   createLibraryCatalogQueryOptions,
@@ -17,8 +19,10 @@ export {
   hasActiveLibrarySearch,
   parseLibrarySearchParams,
   serializeLibrarySearchQuery,
+  withoutLibraryCursor,
   type LibrarySearchQuery,
 } from "./model/library-search-query";
+export { useLibraryCatalogQuery } from "./model/use-library-catalog-query.client";
 export { formatFoundMaterialCount } from "./model/format-material-count";
 export { CatalogControls } from "./ui/catalog-controls.client";
 export {

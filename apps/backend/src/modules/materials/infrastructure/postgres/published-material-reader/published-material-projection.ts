@@ -13,6 +13,7 @@ import type {
 
 interface PublishedMaterialProjectionSearchValues {
   readonly after?: PublishedMaterialProjectionCursor;
+  readonly canonicalTopicSlug?: string;
   readonly first: number;
   readonly formatSlugs: readonly string[];
   readonly q?: string;
@@ -239,7 +240,9 @@ function projectionFiltersSql(
       Prisma.sql`publication.search_vector @@ ${textSearchQuerySql(values.q)}`,
     );
   }
-  if (values.topicSlugs.length > 0) {
+  if (values.canonicalTopicSlug !== undefined) {
+    conditions.push(Prisma.sql`topic.slug = ${values.canonicalTopicSlug}`);
+  } else if (values.topicSlugs.length > 0) {
     conditions.push(
       Prisma.sql`topic.archived_at is null and topic.slug in (${Prisma.join(values.topicSlugs)})`,
     );

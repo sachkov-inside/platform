@@ -56,7 +56,7 @@ export function LibraryDiscoveryView({
         <p className="relative mt-5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {isSeries ? "Плейлист" : "Тема"}
         </p>
-        <h1 className="relative mt-2 max-w-[24ch] text-balance text-3xl font-semibold leading-[1.08] tracking-[-0.035em] sm:text-4xl @min-[64rem]/discovery:text-5xl">
+        <h1 className="relative mt-2 max-w-[24ch] break-words text-balance text-3xl font-semibold leading-[1.08] tracking-[-0.035em] sm:text-4xl @min-[64rem]/discovery:text-5xl">
           {result.reference.name}
         </h1>
         {result.reference.summary ? (

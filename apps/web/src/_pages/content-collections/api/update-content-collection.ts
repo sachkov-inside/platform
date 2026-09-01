@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { requestContentCollectionUpdate } from "@/shared/api/backend/index.server";
 import type { UpdateContentCollectionResult } from "../model/content-collections";
-import { mapContentCollectionMutationResult } from "./content-collection-mutation-result";
+import { mapUpdateContentCollectionResult } from "./content-collection-mutation-result";
 
 const formSchema = z.object({
   collectionId: z.uuid(),
@@ -28,7 +28,7 @@ export async function executeUpdateContentCollection(
   });
   if (!input.success) return { kind: "invalid" };
   try {
-    return mapContentCollectionMutationResult(
+    return mapUpdateContentCollectionResult(
       await request(input.data, accessToken),
     );
   } catch {

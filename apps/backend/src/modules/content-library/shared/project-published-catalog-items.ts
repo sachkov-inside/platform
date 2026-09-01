@@ -11,6 +11,8 @@ import {
 } from "../../materials/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../features/list-published-materials/list-published-materials.contract.js";
 
+const CONTENT_ACCESS_BATCH_SIZE = 100;
+
 export type PublishedCatalogItemsResult =
   | { readonly ok: true; readonly items: readonly PublishedMaterialCatalogItemDto[] }
   | {
@@ -26,24 +28,29 @@ export async function projectPublishedCatalogItems(
   if (projections.length === 0) {
     return { ok: true, items: [] };
   }
-  const availability = await contentAccess.checkAvailabilityMany({
-    subject,
-    operations: projections.map(({ materialId }) => ({
-      itemId: materialId,
-      resource: {
-        kind: "material" as const,
-        materialId: checkedMaterialId(materialId),
-      },
-      action: "read" as const,
-    })),
-    enforcementPoint: "published_material_read",
-    correlationId: randomUUID(),
-  });
-  if (!availability.ok) {
-    return internalError();
+  const availabilityItems: AccessAvailability[] = [];
+  for (let start = 0; start < projections.length; start += CONTENT_ACCESS_BATCH_SIZE) {
+    const batch = projections.slice(start, start + CONTENT_ACCESS_BATCH_SIZE);
+    const availability = await contentAccess.checkAvailabilityMany({
+      subject,
+      operations: batch.map(({ materialId }) => ({
+        itemId: materialId,
+        resource: {
+          kind: "material" as const,
+          materialId: checkedMaterialId(materialId),
+        },
+        action: "read" as const,
+      })),
+      enforcementPoint: "published_material_read",
+      correlationId: randomUUID(),
+    });
+    if (!availability.ok) {
+      return internalError();
+    }
+    availabilityItems.push(...availability.items);
   }
   const availabilityById = new Map(
-    availability.items.map((item) => [item.itemId, item]),
+    availabilityItems.map((item) => [item.itemId, item]),
   );
   const items = projections.map((projection) => {
     const itemAvailability = availabilityById.get(projection.materialId);

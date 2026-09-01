@@ -1,25 +1,46 @@
 import "server-only";
 
-import { z } from "zod";
-
 import type { BackendTransportResult } from "@/shared/api/backend/index.server";
 import {
   contentCollectionSchema,
+  type CreateContentCollectionResult,
   type ContentCollectionMutationResult,
+  type SetContentCollectionArchiveResult,
+  type UpdateContentCollectionResult,
 } from "../model/content-collections";
 
-export function mapContentCollectionMutationResult(
+export function mapCreateContentCollectionResult(
   result: BackendTransportResult,
-): ContentCollectionMutationResult {
+): CreateContentCollectionResult {
+  return mapContentCollectionMutationResult(result, "slug_conflict");
+}
+
+export function mapUpdateContentCollectionResult(
+  result: BackendTransportResult,
+): UpdateContentCollectionResult {
+  return mapContentCollectionMutationResult(result, "conflict");
+}
+
+export function mapSetContentCollectionArchiveResult(
+  result: BackendTransportResult,
+): SetContentCollectionArchiveResult {
+  return mapContentCollectionMutationResult(result, "conflict");
+}
+
+function mapContentCollectionMutationResult<
+  ConflictKind extends "conflict" | "slug_conflict",
+>(
+  result: BackendTransportResult,
+  conflictKind: ConflictKind,
+):
+  | Exclude<ContentCollectionMutationResult, { readonly kind: "conflict" | "slug_conflict" }>
+  | { readonly kind: ConflictKind } {
   if (!result.ok) {
     if (result.response.status === 401 || result.response.status === 403) {
       return { kind: "unauthorized" };
     }
     if (result.response.status === 409) {
-      const code = z.looseObject({ code: z.string() }).safeParse(result.problem);
-      return code.success && code.data.code === "content_collection_slug_conflict"
-        ? { kind: "slug_conflict" }
-        : { kind: "conflict" };
+      return { kind: conflictKind };
     }
     if (result.response.status === 422) return { kind: "invalid" };
     return { kind: "error", reference: "collections-save" };

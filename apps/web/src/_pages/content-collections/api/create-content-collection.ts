@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { requestContentCollectionCreation } from "@/shared/api/backend/index.server";
 import type { CreateContentCollectionResult } from "../model/content-collections";
-import { mapContentCollectionMutationResult } from "./content-collection-mutation-result";
+import { mapCreateContentCollectionResult } from "./content-collection-mutation-result";
 
 const formSchema = z.object({
   kind: z.enum(["series", "topic"]),
@@ -26,7 +26,7 @@ export async function executeCreateContentCollection(
   });
   if (!input.success) return { kind: "invalid" };
   try {
-    return mapContentCollectionMutationResult(
+    return mapCreateContentCollectionResult(
       await request(input.data, accessToken),
     );
   } catch {

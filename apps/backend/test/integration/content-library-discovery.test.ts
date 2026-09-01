@@ -1,7 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
-import { discoverPublishedMaterials } from "../../src/modules/content-library/index.js";
+import {
+  discoverPublishedMaterials,
+  listPublishedMaterials,
+} from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import { assembleMaterials } from "../../src/modules/materials/index.js";
 import {
@@ -372,6 +375,36 @@ describe("Content Library discovery", () => {
         ok: true,
         value: { reference: { slug: "platform-inside" }, topics: [] },
       });
+
+      const discoveryFilter = await listPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        {
+          first: 24,
+          subject: anonymousSubject,
+          topicSlugs: ["platform"],
+        },
+      );
+      expect(discoveryFilter).toMatchObject({
+        ok: true,
+        value: { items: [], totalCount: 0 },
+      });
+
+      const canonicalTopic = await listPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        {
+          canonicalTopicSlug: "platform",
+          first: 24,
+          subject: anonymousSubject,
+        },
+      );
+      expect(canonicalTopic.ok).toBe(true);
+      if (!canonicalTopic.ok) throw new Error(canonicalTopic.error.code);
+      expect(canonicalTopic.value.items.length).toBeGreaterThan(0);
+      expect(
+        canonicalTopic.value.items.every(({ topic }) => topic.slug === "platform"),
+      ).toBe(true);
     } finally {
       await Promise.all([
         testDatabase.prisma.topic.update({

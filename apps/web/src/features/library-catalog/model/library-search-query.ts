@@ -72,6 +72,12 @@ export function hasActiveLibrarySearch(query: LibrarySearchQuery): boolean {
   );
 }
 
+export function withoutLibraryCursor(
+  query: LibrarySearchQuery,
+): LibrarySearchQuery {
+  return { ...query, after: null };
+}
+
 export function changeLibraryQuery(
   query: LibrarySearchQuery,
   patch: Partial<LibrarySearchQuery>,

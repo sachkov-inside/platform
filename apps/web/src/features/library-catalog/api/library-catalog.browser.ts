@@ -53,18 +53,63 @@ export function libraryCatalogQueryOptions(query: LibrarySearchQuery) {
   );
 }
 
+export function topicLibraryCatalogQueryOptions(
+  topicSlug: string,
+  query: LibrarySearchQuery,
+) {
+  return createLibraryCatalogQueryOptions(
+    ({ after, signal }) =>
+      requestTopicLibraryCatalogPage(topicSlug, query, after, signal),
+    query,
+  );
+}
+
 export async function requestLibraryCatalogPage(
   query: LibrarySearchQuery,
   after: string | undefined,
   signal: AbortSignal,
 ): Promise<LibraryCatalogPage> {
   const search = serializeLibrarySearchQuery({ ...query, after: after ?? null });
-  const response = await fetch(
+  return requestCatalogPage(
     search.length === 0
       ? "/api/library/materials"
       : `/api/library/materials?${search}`,
-    { headers: { Accept: "application/json" }, signal },
+    signal,
   );
+}
+
+export async function requestTopicLibraryCatalogPage(
+  topicSlug: string,
+  query: LibrarySearchQuery,
+  after: string | undefined,
+  signal: AbortSignal,
+): Promise<LibraryCatalogPage> {
+  const search = serializeLibrarySearchQuery({
+    ...query,
+    after: after ?? null,
+    topicSlugs: [],
+  });
+  const path = `/api/library/topics/${encodeURIComponent(topicSlug)}/materials`;
+  return requestCatalogPage(
+    search.length === 0 ? path : `${path}?${search}`,
+    signal,
+  );
+}
+
+async function requestCatalogPage(
+  path: string,
+  signal: AbortSignal,
+): Promise<LibraryCatalogPage> {
+  const response = await fetch(path, {
+    headers: { Accept: "application/json" },
+    signal,
+  });
+  return parseCatalogResponse(response);
+}
+
+async function parseCatalogResponse(
+  response: Response,
+): Promise<LibraryCatalogPage> {
   if (!response.ok) {
     throw new LibraryCatalogQueryError(
       `Library query returned ${String(response.status)}`,

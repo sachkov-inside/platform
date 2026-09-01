@@ -1,58 +1,73 @@
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 
 import {
-  contentCollectionMutationResultSchema,
+  createContentCollectionResultSchema,
+  setContentCollectionArchiveResultSchema,
+  updateContentCollectionResultSchema,
   type CreateContentCollectionInput,
   type CreateContentCollectionResult,
   type SetContentCollectionArchiveInput,
   type SetContentCollectionArchiveResult,
   type UpdateContentCollectionInput,
   type UpdateContentCollectionResult,
-  type ContentCollectionMutationResult,
 } from "../model/content-collections";
 
 export async function createContentCollection(
   input: CreateContentCollectionInput,
 ): Promise<CreateContentCollectionResult> {
-  return mapResult(await requestSameOriginMutation(
+  const response = await requestSameOriginMutation(
     "/api/authoring/collections",
     "POST",
     toFormData(input),
-  ));
+  );
+  if (!response.ok) return mapFailedResult(response);
+  const parsed = createContentCollectionResultSchema.safeParse(response.body);
+  return parsed.success
+    ? parsed.data
+    : { kind: "error", reference: "collections-bff-contract" };
 }
 
 export async function updateContentCollection(
   input: UpdateContentCollectionInput,
 ): Promise<UpdateContentCollectionResult> {
-  return mapResult(await requestSameOriginMutation(
+  const response = await requestSameOriginMutation(
     "/api/authoring/collections/metadata",
     "PUT",
     toFormData(input),
-  ));
+  );
+  if (!response.ok) return mapFailedResult(response);
+  const parsed = updateContentCollectionResultSchema.safeParse(response.body);
+  return parsed.success
+    ? parsed.data
+    : { kind: "error", reference: "collections-bff-contract" };
 }
 
 export async function setContentCollectionArchive(
   input: SetContentCollectionArchiveInput,
 ): Promise<SetContentCollectionArchiveResult> {
-  return mapResult(await requestSameOriginMutation(
+  const response = await requestSameOriginMutation(
     "/api/authoring/collections/archive",
     "PUT",
     toFormData(input),
-  ));
-}
-
-function mapResult(
-  response: Awaited<ReturnType<typeof requestSameOriginMutation>>,
-): ContentCollectionMutationResult {
-  if (!response.ok) {
-    return response.status === 401 || response.status === 403
-      ? { kind: "unauthorized" }
-      : { kind: "error", reference: `collections-bff-${String(response.status)}` };
-  }
-  const parsed = contentCollectionMutationResultSchema.safeParse(response.body);
+  );
+  if (!response.ok) return mapFailedResult(response);
+  const parsed = setContentCollectionArchiveResultSchema.safeParse(response.body);
   return parsed.success
     ? parsed.data
     : { kind: "error", reference: "collections-bff-contract" };
+}
+
+function mapFailedResult(
+  response: Extract<
+    Awaited<ReturnType<typeof requestSameOriginMutation>>,
+    { readonly ok: false }
+  >,
+):
+  | { readonly kind: "unauthorized" }
+  | { readonly kind: "error"; readonly reference: string } {
+  return response.status === 401 || response.status === 403
+    ? { kind: "unauthorized" }
+    : { kind: "error", reference: `collections-bff-${String(response.status)}` };
 }
 
 function toFormData(input: object): FormData {

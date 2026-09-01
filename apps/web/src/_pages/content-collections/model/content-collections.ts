@@ -39,19 +39,61 @@ export interface SetContentCollectionArchiveInput {
   readonly kind: ContentCollectionKind;
 }
 
-export const contentCollectionMutationResultSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("saved"), collection: contentCollectionSchema }).strict(),
-  z.object({ kind: z.literal("conflict") }).strict(),
-  z.object({ kind: z.literal("slug_conflict") }).strict(),
-  z.object({ kind: z.literal("invalid") }).strict(),
-  z.object({ kind: z.literal("unauthorized") }).strict(),
-  z.object({ kind: z.literal("error"), reference: z.string() }).strict(),
+const savedContentCollectionResultSchema = z
+  .object({ kind: z.literal("saved"), collection: contentCollectionSchema })
+  .strict();
+const conflictContentCollectionResultSchema = z
+  .object({ kind: z.literal("conflict") })
+  .strict();
+const slugConflictContentCollectionResultSchema = z
+  .object({ kind: z.literal("slug_conflict") })
+  .strict();
+const invalidContentCollectionResultSchema = z
+  .object({ kind: z.literal("invalid") })
+  .strict();
+const unauthorizedContentCollectionResultSchema = z
+  .object({ kind: z.literal("unauthorized") })
+  .strict();
+const contentCollectionMutationErrorSchema = z
+  .object({ kind: z.literal("error"), reference: z.string() })
+  .strict();
+
+export const createContentCollectionResultSchema = z.discriminatedUnion("kind", [
+  savedContentCollectionResultSchema,
+  slugConflictContentCollectionResultSchema,
+  invalidContentCollectionResultSchema,
+  unauthorizedContentCollectionResultSchema,
+  contentCollectionMutationErrorSchema,
 ]);
 
-export type ContentCollectionMutationResult = z.infer<
-  typeof contentCollectionMutationResultSchema
->;
+export const updateContentCollectionResultSchema = z.discriminatedUnion("kind", [
+  savedContentCollectionResultSchema,
+  conflictContentCollectionResultSchema,
+  invalidContentCollectionResultSchema,
+  unauthorizedContentCollectionResultSchema,
+  contentCollectionMutationErrorSchema,
+]);
 
-export type CreateContentCollectionResult = ContentCollectionMutationResult;
-export type UpdateContentCollectionResult = ContentCollectionMutationResult;
-export type SetContentCollectionArchiveResult = ContentCollectionMutationResult;
+export const setContentCollectionArchiveResultSchema = z.discriminatedUnion(
+  "kind",
+  [
+    savedContentCollectionResultSchema,
+    conflictContentCollectionResultSchema,
+    invalidContentCollectionResultSchema,
+    unauthorizedContentCollectionResultSchema,
+    contentCollectionMutationErrorSchema,
+  ],
+);
+
+export type CreateContentCollectionResult = z.infer<
+  typeof createContentCollectionResultSchema
+>;
+export type UpdateContentCollectionResult = z.infer<
+  typeof updateContentCollectionResultSchema
+>;
+export type SetContentCollectionArchiveResult = z.infer<
+  typeof setContentCollectionArchiveResultSchema
+>;
+export type ContentCollectionMutationResult =
+  | CreateContentCollectionResult
+  | UpdateContentCollectionResult;

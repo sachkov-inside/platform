@@ -17,6 +17,7 @@ export class ContentLibraryService {
     format,
     topic,
     q,
+    canonicalTopic,
     after,
   }: {
     sort?: 'newest' | 'relevance' | 'series' | 'title',
@@ -24,6 +25,7 @@ export class ContentLibraryService {
     format?: Array<string>,
     topic?: Array<string>,
     q?: string,
+    canonicalTopic?: string,
     after?: string,
   }): CancelablePromise<{
     facets: {
@@ -93,6 +95,7 @@ export class ContentLibraryService {
         'format': format,
         'topic': topic,
         'q': q,
+        'canonicalTopic': canonicalTopic,
         'after': after,
       },
       errors: {

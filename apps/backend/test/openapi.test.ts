@@ -123,6 +123,16 @@ describe("OpenAPI contract", () => {
       },
       {
         in: "query",
+        name: "canonicalTopic",
+        required: false,
+        schema: {
+          maxLength: 120,
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          type: "string",
+        },
+      },
+      {
+        in: "query",
         name: "after",
         required: false,
         schema: { maxLength: 512, minLength: 1, type: "string" },

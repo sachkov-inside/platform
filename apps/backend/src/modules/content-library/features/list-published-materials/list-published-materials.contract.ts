@@ -64,6 +64,7 @@ export type PublishedMaterialCatalogResult =
 export interface ListPublishedMaterialsQuery {
   readonly subject: Subject;
   readonly after?: string;
+  readonly canonicalTopicSlug?: string;
   readonly formatSlugs?: readonly string[];
   readonly first: number;
   readonly q?: string;

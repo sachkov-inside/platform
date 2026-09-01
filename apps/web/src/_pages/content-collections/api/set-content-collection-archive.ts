@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { requestContentCollectionArchive } from "@/shared/api/backend/index.server";
 import type { SetContentCollectionArchiveResult } from "../model/content-collections";
-import { mapContentCollectionMutationResult } from "./content-collection-mutation-result";
+import { mapSetContentCollectionArchiveResult } from "./content-collection-mutation-result";
 
 const formSchema = z.object({
   archived: z.enum(["true", "false"]).transform((value) => value === "true"),
@@ -26,7 +26,7 @@ export async function executeSetContentCollectionArchive(
   });
   if (!input.success) return { kind: "invalid" };
   try {
-    return mapContentCollectionMutationResult(
+    return mapSetContentCollectionArchiveResult(
       await request(input.data, accessToken),
     );
   } catch {

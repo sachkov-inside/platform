@@ -132,6 +132,20 @@ export const TopicMobile: Story = {
   name: "Topic · mobile",
 };
 
+export const TopicLongTitle: Story = {
+  args: {
+    result: {
+      ...topicResult,
+      reference: { ...topicResult.reference, name: "Т".repeat(120) },
+    },
+  },
+  globals: { viewport: { isRotated: false, value: "mobile360" } },
+  name: "Topic · long title",
+  play: async ({ canvasElement }) => {
+    await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+
 export const SeriesDesktop: Story = {
   args: { result: seriesResult },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
@@ -144,6 +158,20 @@ export const SeriesDesktop: Story = {
       "2",
     ]);
     await expect(canvas.getByText("Для участников")).toBeVisible();
+  },
+};
+
+export const SeriesLongTitle: Story = {
+  args: {
+    result: {
+      ...seriesResult,
+      reference: { ...seriesResult.reference, name: "П".repeat(120) },
+    },
+  },
+  globals: { viewport: { isRotated: false, value: "mobile360" } },
+  name: "Series · long title",
+  play: async ({ canvasElement }) => {
+    await expectNoHorizontalOverflow(canvasElement);
   },
 };
 
@@ -230,3 +258,11 @@ export const RelatedUnavailable: Story = {
   ),
   name: "Related · unavailable",
 };
+
+async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
+  const storyWindow = canvasElement.ownerDocument.defaultView;
+  if (storyWindow === null) throw new Error("Story window is unavailable");
+  await expect(
+    canvasElement.ownerDocument.documentElement.scrollWidth,
+  ).toBeLessThanOrEqual(storyWindow.innerWidth + 1);
+}

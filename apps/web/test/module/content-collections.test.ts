@@ -4,6 +4,11 @@ import { executeCreateContentCollection } from "@/_pages/content-collections/api
 import { getContentCollections } from "@/_pages/content-collections/api/get-content-collections";
 import { executeSetContentCollectionArchive } from "@/_pages/content-collections/api/set-content-collection-archive";
 import { executeUpdateContentCollection } from "@/_pages/content-collections/api/update-content-collection";
+import {
+  createContentCollectionResultSchema,
+  setContentCollectionArchiveResultSchema,
+  updateContentCollectionResultSchema,
+} from "@/_pages/content-collections/model/content-collections";
 
 const collectionId = "96500000-0000-4000-8000-000000000001";
 const collection = {
@@ -18,6 +23,21 @@ const collection = {
 } as const;
 
 describe("Content collection web adapters", () => {
+  it("keeps mutation result contracts operation-specific", () => {
+    expect(
+      createContentCollectionResultSchema.safeParse({ kind: "conflict" }).success,
+    ).toBe(false);
+    expect(
+      updateContentCollectionResultSchema.safeParse({ kind: "slug_conflict" })
+        .success,
+    ).toBe(false);
+    expect(
+      setContentCollectionArchiveResultSchema.safeParse({
+        kind: "slug_conflict",
+      }).success,
+    ).toBe(false);
+  });
+
   it("loads active and archived collections through the protected backend", async () => {
     const request = vi.fn().mockResolvedValue({
       body: [collection, { ...collection, archived: true, id: "96500000-0000-4000-8000-000000000002", slug: "archive" }],

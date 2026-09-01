@@ -52,6 +52,7 @@ const cursorSchema = z.discriminatedUnion("kind", [
 const querySchema = z
   .object({
     after: cursorSchema.optional(),
+    canonicalTopicSlug: facetSlugSchema.optional(),
     formatSlugs: facetSlugsSchema.optional(),
     first: z.number().int().min(1).max(24),
     q: z
@@ -66,6 +67,16 @@ const querySchema = z
   })
   .strict()
   .superRefine((query, context) => {
+    if (
+      query.canonicalTopicSlug !== undefined &&
+      (query.topicSlugs?.length ?? 0) > 0
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Canonical Topic scope cannot be combined with Topic filters",
+        path: ["topicSlugs"],
+      });
+    }
     if (query.sort === "series" && query.seriesSlugs?.length !== 1) {
       context.addIssue({
         code: "custom",
@@ -90,6 +101,9 @@ export async function listPublishedMaterialProjections(
 
   try {
     const page = await selectPublishedMaterialProjectionPage(prisma, {
+      ...(parsed.data.canonicalTopicSlug === undefined
+        ? {}
+        : { canonicalTopicSlug: parsed.data.canonicalTopicSlug }),
       formatSlugs: parsed.data.formatSlugs ?? [],
       first: parsed.data.first,
       seriesSlugs: parsed.data.seriesSlugs ?? [],

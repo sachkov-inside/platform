@@ -1,20 +1,18 @@
 "use client";
 
-import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
 import {
   CatalogControls,
   InfiniteMaterialCatalog,
-  libraryCatalogQueryOptions,
   parseLibrarySearchParams,
-  type LibraryCatalogPage,
+  topicLibraryCatalogQueryOptions,
   type LibrarySearchQuery,
+  useLibraryCatalogQuery,
+  withoutLibraryCursor,
 } from "@/features/library-catalog";
 import { Button } from "@/shared/ui/button";
-
-const SEARCH_DEBOUNCE_MS = 250;
 
 export function TopicMaterialCatalog({
   topicSlug,
@@ -22,61 +20,59 @@ export function TopicMaterialCatalog({
   readonly topicSlug: string;
 }) {
   const fixedQuery = useMemo(() => topicQuery(topicSlug), [topicSlug]);
-  const [searchQuery, setSearchQuery] = useState(fixedQuery);
-  const debouncedSearch = useDebouncedValue(searchQuery.q, SEARCH_DEBOUNCE_MS);
-  const requestQuery = useMemo(
-    () => ({ ...searchQuery, after: null, q: debouncedSearch }),
-    [debouncedSearch, searchQuery],
+  const createQueryOptions = useCallback(
+    (query: LibrarySearchQuery) =>
+      topicLibraryCatalogQueryOptions(topicSlug, query),
+    [topicSlug],
   );
-  const query = useInfiniteQuery({
-    ...libraryCatalogQueryOptions(requestQuery),
-    enabled: typeof window !== "undefined",
-    placeholderData: keepPreviousData,
+  const catalog = useLibraryCatalogQuery({
+    createQueryOptions,
+    initialQuery: fixedQuery,
   });
-  const { fetchNextPage, hasNextPage, isFetchingNextPage } = query;
-  const loadNextPage = useCallback(() => {
-    if (!hasNextPage || isFetchingNextPage) return;
-    void fetchNextPage();
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const firstPage = query.data?.pages[0];
+  const firstPage = catalog.firstPage;
   const facets =
     firstPage?.kind === "ready"
       ? firstPage.facets
       : { formats: [], series: [], topics: [] };
-  const readyPages = query.data?.pages.filter(isReadyPage) ?? [];
 
   return (
     <div className="@container/library mt-10">
       <CatalogControls
         facets={facets}
         hiddenFacets={["topic"]}
-        isRefreshing={query.isFetching && !query.isFetchingNextPage}
+        isRefreshing={
+          catalog.query.isFetching && !catalog.query.isFetchingNextPage
+        }
         onQueryChange={(next) => {
-          setSearchQuery({ ...next, after: null, topicSlugs: [topicSlug] });
+          catalog.setSearchQuery(
+            withoutLibraryCursor({ ...next, topicSlugs: [topicSlug] }),
+          );
         }}
-        query={searchQuery}
+        query={catalog.searchQuery}
         resetQuery={fixedQuery}
       />
-      {query.isPending ? (
+      {catalog.query.isPending ? (
         <CatalogStatus message="Загружаем материалы темы…" />
-      ) : query.isError && query.data === undefined ? (
-        <CatalogError onRetry={() => void query.refetch()} />
+      ) : catalog.query.isError && catalog.query.data === undefined ? (
+        <CatalogError onRetry={() => void catalog.query.refetch()} />
       ) : firstPage === undefined || firstPage.kind === "unavailable" ? (
-        <CatalogError onRetry={() => void query.refetch()} />
-      ) : firstPage.kind === "empty" || firstPage.totalCount === 0 ? (
+        <CatalogError onRetry={() => void catalog.query.refetch()} />
+      ) : firstPage.kind === "empty" ? (
+        <CatalogEmpty />
+      ) : firstPage.totalCount === 0 ? (
         <CatalogNoResults
           onReset={() => {
-            setSearchQuery(fixedQuery);
+            catalog.setSearchQuery(fixedQuery);
           }}
         />
       ) : (
         <InfiniteMaterialCatalog
-          hasNextPage={query.hasNextPage}
-          isFetchNextPageError={query.isFetchNextPageError}
-          isFetchingNextPage={query.isFetchingNextPage}
-          onLoadNextPage={loadNextPage}
-          pages={readyPages}
+          hasNextPage={catalog.query.hasNextPage}
+          isFetchNextPageError={catalog.query.isFetchNextPageError}
+          isFetchingNextPage={catalog.query.isFetchingNextPage}
+          onLoadNextPage={catalog.loadNextPage}
+          pages={catalog.readyPages}
           totalCount={firstPage.totalCount}
         />
       )}
@@ -90,17 +86,25 @@ function topicQuery(topicSlug: string): LibrarySearchQuery {
   return parseLibrarySearchParams(search).query;
 }
 
-function isReadyPage(
-  page: LibraryCatalogPage,
-): page is Extract<LibraryCatalogPage, { readonly kind: "ready" }> {
-  return page.kind === "ready";
-}
-
 function CatalogStatus({ message }: { readonly message: string }) {
   return (
     <p aria-live="polite" className="mt-8 rounded-2xl bg-muted px-5 py-8 text-sm text-muted-foreground">
       {message}
     </p>
+  );
+}
+
+function CatalogEmpty() {
+  return (
+    <section
+      className="mt-8 rounded-2xl bg-muted px-5 py-8 text-center"
+      data-library-state="empty"
+    >
+      <h2 className="text-lg font-semibold">В теме пока нет материалов</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Опубликованные материалы появятся здесь после назначения темы.
+      </p>
+    </section>
   );
 }
 
@@ -128,17 +132,4 @@ function CatalogNoResults({ onReset }: { readonly onReset: () => void }) {
       </Button>
     </section>
   );
-}
-
-function useDebouncedValue<Value>(value: Value, delay: number): Value {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setDebounced(value);
-    }, delay);
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [delay, value]);
-  return debounced;
 }
