@@ -241,6 +241,20 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(job, /secrets\./u);
   });
 
+  it("provides Object Storage to the full-stack verification job", () => {
+    const workflow = read(".github/workflows/application-ci.yml");
+    const match = workflow.match(
+      /\n {2}verify:\n([\s\S]*?)(?=\n {2}[a-z0-9-]+:\n|$)/u,
+    );
+
+    assert.ok(match, "Application CI must declare verify");
+    const job = match[1];
+    assert.match(job, /\n {6}object-storage:\n/u);
+    assert.match(job, /command: server \/data/u);
+    assert.match(job, /--health-cmd "mc ready local"/u);
+    assert.match(job, /\n {10}- 9000:9000/u);
+  });
+
   it("publishes exact main production images to GHCR without mutable tags", () => {
     const workflow = read(".github/workflows/production-images.yml");
 
