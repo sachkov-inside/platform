@@ -17,7 +17,7 @@ import { getQueryClient } from "@/shared/api/query-client";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
 export const metadata: Metadata = {
-  title: "Библиотека",
+  title: "База знаний",
 };
 
 export default async function Page({

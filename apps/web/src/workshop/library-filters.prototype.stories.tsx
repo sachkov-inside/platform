@@ -118,7 +118,7 @@ export const InlinePanel: Story = {
   render: () => <InlineFiltersFixture />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const filters = canvas.getByRole("region", { name: "Фильтры библиотеки" });
+    const filters = canvas.getByRole("region", { name: "Фильтры базы знаний" });
 
     await expect(filters.querySelectorAll('label > span[aria-hidden="true"]')).toHaveLength(0);
 
@@ -140,7 +140,7 @@ export const InlineDisclosure: Story = {
 
     await userEvent.click(trigger);
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
-    await expect(canvas.getByRole("region", { name: "Фильтры библиотеки" })).toBeInTheDocument();
+    await expect(canvas.getByRole("region", { name: "Фильтры базы знаний" })).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("checkbox", { name: "Гайд" }));
     await expect(canvas.getByRole("button", { name: "Фильтры · 1" })).toBeInTheDocument();
   },

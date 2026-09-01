@@ -29,13 +29,13 @@ test("server-renders the safe PostgreSQL catalog through Nest", async ({
   );
   const browserResponse = await page.goto("/library");
   expect(browserResponse?.status()).toBe(200);
-  await expect(page.getByRole("heading", { name: "Библиотека", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "База знаний", level: 1 })).toBeVisible();
   await expect(page.getByText("Для участников")).toBeVisible();
   await expect(page.getByText("Бесплатно").first()).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Developer Pipeline без потери контекста" }),
   ).toHaveAttribute("href", "/materials/developer-pipeline-bez-poteri-konteksta");
-  await expect(page).toHaveTitle("Библиотека · Inside");
+  await expect(page).toHaveTitle("База знаний · Inside");
 
   await page.getByRole("main").evaluate((element) => {
     element.scrollTo({ top: element.scrollHeight });
@@ -110,7 +110,7 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   expect(englishHtml).not.toContain("Закрытое содержимое для участников");
 
   await page.goto(englishUrl);
-  await expect(page.getByLabel("Поиск по библиотеке")).toHaveValue(
+  await expect(page.getByLabel("Поиск по базе знаний")).toHaveValue(
     "developer pipeline",
   );
   await expect(
@@ -140,7 +140,7 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
     page.getByRole("link", { name: "Архитектурная заметка 07" }),
   ).toBeVisible();
 
-  await page.getByLabel("Поиск по библиотеке").fill("nothing can match 404404");
+  await page.getByLabel("Поиск по базе знаний").fill("nothing can match 404404");
   await page.getByRole("button", { name: "Найти" }).click();
   await expect(page.getByRole("heading", { name: "Ничего не найдено" })).toBeVisible();
   await expect(
@@ -237,7 +237,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     page.getByRole("heading", { name: "Первый вертикальный срез", level: 2 }),
   ).toBeVisible();
   await expect(page).toHaveTitle("Как устроен Inside Platform · Inside");
-  await expect(page.getByRole("link", { name: "В Библиотеку" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "В Базу знаний" }).first()).toBeVisible();
   await expect(page.getByRole("main")).toContainText("PostgreSQL хранит current Material");
   await expect(page.locator("[data-reader-body]")).toHaveCount(1);
 
@@ -395,7 +395,7 @@ test("returns the production not-found state for an unpublished slug", async ({ 
     /noindex/,
   );
   await expect(page.getByRole("heading", { name: "Материал не найден" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "В Библиотеку" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "В Базу знаний" })).toBeVisible();
 });
 
 test("navigates Library → Topic → ordered Series and exposes canonical Reader context", async ({
@@ -468,7 +468,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     page.getByRole("link", { name: "Platform", exact: true }),
   ).toHaveAttribute("href", "/topics/platform");
   const readerSeriesLink = page
-    .getByRole("list", { name: "Серии материала" })
+    .getByRole("list", { name: "Плейлисты материала" })
     .getByRole("link");
   await expect(readerSeriesLink).toHaveAttribute("href", "/series/platform-inside");
   await expect(readerSeriesLink).toHaveText(
@@ -539,7 +539,7 @@ test("renders missing Topic and Series as controlled noindex states", async ({ p
       /noindex/u,
     );
     await expect(page.getByRole("heading", { name: "Подборка не найдена" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "В Библиотеку" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "В Базу знаний" })).toBeVisible();
   }
 });
 

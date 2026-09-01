@@ -72,7 +72,7 @@ export function MaterialAuthoringShell({
             <AuthoringLink
               href="/library"
               icon={<LibraryBig aria-hidden="true" />}
-              label="Публичная библиотека"
+              label="База знаний"
             />
           </nav>
 
@@ -101,7 +101,7 @@ export function MaterialAuthoringShell({
           <MobileLink current={current === "playlists"} href="/authoring/playlists" label="Плейлисты">
             <ListOrdered aria-hidden="true" />
           </MobileLink>
-          <MobileLink href="/library" label="Библиотека">
+          <MobileLink href="/library" label="База знаний">
             <LibraryBig aria-hidden="true" />
           </MobileLink>
           <MobileLink href="/" label="Сайт">

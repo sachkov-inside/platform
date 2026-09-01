@@ -3,7 +3,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const destinations = [
   { path: "/", label: "Главная", heading: "Главная" },
-  { path: "/library", label: "Библиотека", heading: "Библиотека" },
+  { path: "/library", label: "База знаний", heading: "База знаний" },
   { path: "/map", label: "Карта", heading: "Карта Inside" },
 ] as const;
 
@@ -113,12 +113,12 @@ test("navigation works with pointer input", async ({ page }, testInfo) => {
   await page.goto("/");
 
   await getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
-    name: "Библиотека",
+    name: "База знаний",
     exact: true,
   }).click();
 
   await expect(page).toHaveURL(/\/library$/u);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Библиотека");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("База знаний");
 });
 
 test("desktop sidebar has no supplemental tooltip badges", async ({ page }, testInfo) => {
@@ -145,7 +145,7 @@ test("desktop sidebar closes after pointer navigation", async ({ page }, testInf
   const sidebar = page.getByRole("complementary", { name: "Боковая панель" });
   const libraryLink = page
     .getByRole("navigation", { name: "Основная" })
-    .getByRole("link", { name: "Библиотека", exact: true });
+    .getByRole("link", { name: "База знаний", exact: true });
 
   await hoverUntilSidebarOpens(page, sidebar, libraryLink);
   await libraryLink.click();
@@ -184,7 +184,7 @@ test("focused navigation has a visible indicator", async ({ page }, testInfo) =>
   await page.goto("/");
 
   const libraryLink = getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
-    name: "Библиотека",
+    name: "База знаний",
     exact: true,
   });
   const tabsBeforeLibrary = navigationMode(testInfo.project.name) === "desktop" ? 5 : 3;
@@ -261,7 +261,7 @@ test("current destination is visually distinct from the other links", async ({ p
     .getByRole("link", { name: "Главная", exact: true })
     .evaluate((element) => getComputedStyle(element).color);
   const inactiveColor = await navigation
-    .getByRole("link", { name: "Библиотека", exact: true })
+    .getByRole("link", { name: "База знаний", exact: true })
     .evaluate((element) => getComputedStyle(element).color);
 
   expect(currentColor).not.toBe(inactiveColor);

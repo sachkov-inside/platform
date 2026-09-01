@@ -36,7 +36,7 @@ type SortOrder = "relevance" | "title";
 
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "Библиотека" },
+  { href: "/library", icon: "library", label: "База знаний" },
   { href: "/map", icon: "map", label: "Карта" },
 ] satisfies readonly ApplicationNavigationItem[];
 
@@ -144,7 +144,7 @@ function LibraryBoard() {
       >
         <header className="rounded-b-2xl bg-card px-5 pb-5 pt-4 sm:px-8 sm:pb-8 sm:pt-10 md:rounded-none md:bg-transparent md:p-0 @min-[52rem]/library:grid @min-[52rem]/library:grid-cols-[minmax(0,1fr)_minmax(22rem,32rem)] @min-[52rem]/library:items-center @min-[52rem]/library:gap-4">
           <h1 className="text-2xl font-semibold leading-7 tracking-[-0.03em] @min-[30rem]/library:text-3xl @min-[30rem]/library:leading-9 @min-[52rem]/library:text-5xl @min-[52rem]/library:leading-[1.1]">
-            Библиотека
+            База знаний
           </h1>
           <div className="hidden @min-[52rem]/library:block">
             <SearchControl
@@ -298,7 +298,7 @@ function SearchControl({
   return (
     <div>
       <label className="sr-only" htmlFor={inputId}>
-        Поиск по библиотеке
+        Поиск по базе знаний
       </label>
       <div className="relative">
         <Search
@@ -633,7 +633,7 @@ export const Mobile: Story = {
       canvasElement.querySelectorAll<HTMLButtonElement>("[data-topic-navigation] button"),
     );
 
-    await expect(canvas.getByRole("heading", { name: "Библиотека" })).toBeInTheDocument();
+    await expect(canvas.getByRole("heading", { name: "База знаний" })).toBeInTheDocument();
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
     await expect(canvas.getByRole("button", { name: "Все темы" })).toHaveAttribute(
       "aria-pressed",
@@ -673,7 +673,7 @@ export const Mobile: Story = {
     );
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
 
-    const searchInput = canvas.getByRole("searchbox", { name: "Поиск по библиотеке" });
+    const searchInput = canvas.getByRole("searchbox", { name: "Поиск по базе знаний" });
     await userEvent.type(searchInput, "несуществующий материал");
     await expect(canvas.getByRole("heading", { name: "Ничего не найдено" })).toBeInTheDocument();
     await userEvent.clear(searchInput);
@@ -681,7 +681,7 @@ export const Mobile: Story = {
     const filterTrigger = canvas.getByRole("button", { name: "Фильтры" });
     await userEvent.click(filterTrigger);
     await expect(filterTrigger).toHaveAttribute("aria-expanded", "true");
-    const inlineFilters = canvas.getByRole("region", { name: "Фильтры библиотеки" });
+    const inlineFilters = canvas.getByRole("region", { name: "Фильтры базы знаний" });
     await userEvent.click(within(inlineFilters).getByRole("checkbox", { name: "Видео" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(2);
 
@@ -693,9 +693,9 @@ export const Mobile: Story = {
     await userEvent.click(within(inlineFilters).getByRole("checkbox", { name: "Видео" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
     await userEvent.click(canvas.getByRole("button", { name: "Фильтры" }));
-    await expect(canvas.queryByRole("region", { name: "Фильтры библиотеки" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("region", { name: "Фильтры базы знаний" })).not.toBeInTheDocument();
     await waitFor(async () => {
-      await expect(canvas.getByRole("heading", { name: "Библиотека" })).toBeInTheDocument();
+      await expect(canvas.getByRole("heading", { name: "База знаний" })).toBeInTheDocument();
     });
     (canvasElement.ownerDocument.activeElement as HTMLElement | null)?.blur();
     canvasElement.ownerDocument.defaultView?.scrollTo({ left: 0, top: 0 });
@@ -712,8 +712,8 @@ export const NarrowDesktop: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const heading = canvas.getByRole("heading", { name: "Библиотека" });
-    const searchInput = canvas.getByRole("searchbox", { name: "Поиск по библиотеке" });
+    const heading = canvas.getByRole("heading", { name: "База знаний" });
+    const searchInput = canvas.getByRole("searchbox", { name: "Поиск по базе знаний" });
     const filterTrigger = canvas.getByRole("button", { name: "Фильтры" });
 
     await expect(searchInput.getBoundingClientRect().top).toBeGreaterThanOrEqual(
@@ -725,13 +725,13 @@ export const NarrowDesktop: Story = {
 
     await userEvent.click(filterTrigger);
     await expect(filterTrigger).toHaveAttribute("aria-expanded", "true");
-    const filters = canvas.getByRole("region", { name: "Фильтры библиотеки" });
+    const filters = canvas.getByRole("region", { name: "Фильтры базы знаний" });
 
     await expect(filters).toBeInTheDocument();
     await expect(canvas.queryByRole("dialog", { name: "Фильтры" })).not.toBeInTheDocument();
     await expect(within(filters).getByRole("group", { name: "Тема" })).toBeInTheDocument();
     await expect(within(filters).getByRole("group", { name: "Формат" })).toBeInTheDocument();
-    await expect(within(filters).getByRole("group", { name: "Серия" })).toBeInTheDocument();
+    await expect(within(filters).getByRole("group", { name: "Плейлисты" })).toBeInTheDocument();
     await expect(within(filters).queryByRole("group", { name: "Теги" })).not.toBeInTheDocument();
   },
 };

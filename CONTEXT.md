@@ -49,7 +49,8 @@ _Avoid_: Topic, Playlist as a domain term
 
 **NavigationPage**:
 An editorial page that introduces and connects other Platform destinations. Roadmap is a
-NavigationPage; Library is instead a generated view of Materials.
+NavigationPage; Library is instead a generated view of Materials and is labelled «База знаний» in
+the Russian product interface.
 _Avoid_: Material, generated index
 
 ## Access and activity

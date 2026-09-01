@@ -42,7 +42,7 @@ export function LibraryFilters({
   return (
     <div className="@container/library-filters">
       <div
-        aria-label="Фильтры библиотеки"
+        aria-label="Фильтры базы знаний"
         className={cn(
           "grid gap-5",
           compact && "@min-[44rem]/library-filters:grid-cols-3 @min-[44rem]/library-filters:gap-4",
@@ -66,7 +66,7 @@ export function LibraryFilters({
         />
         <FilterGroup
           compact={compact}
-          legend="Серия"
+          legend="Плейлисты"
           options={seriesOptions}
           selected={selectedSeriesIds}
           setSelected={setSelectedSeriesIds}

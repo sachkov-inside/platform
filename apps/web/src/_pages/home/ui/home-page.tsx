@@ -19,7 +19,7 @@ export function HomePage({ authenticationError }: HomePageProps) {
           Главная
         </h1>
         <p className="mt-4 max-w-[66ch] text-pretty text-base leading-7 text-muted-foreground sm:text-lg">
-          Точка входа в материалы Inside: новые публикации, темы и активные серии.
+          Точка входа в материалы Inside: новые публикации, темы и активные плейлисты.
         </p>
       </header>
       {authenticationError === undefined ? null : (

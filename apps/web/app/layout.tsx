@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     default: "Главная · Inside",
     template: "%s · Inside",
   },
-  description: "Материалы, темы и серии Sachkov Inside",
+  description: "Материалы, темы и плейлисты Sachkov Inside",
 };
 
 export default async function RootLayout({

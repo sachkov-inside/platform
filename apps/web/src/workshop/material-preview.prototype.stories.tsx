@@ -12,7 +12,7 @@ import { MaterialCard, materialFixtures } from "@/workshop/material-preview.prot
 
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "Библиотека" },
+  { href: "/library", icon: "library", label: "База знаний" },
   { href: "/map", icon: "map", label: "Карта" },
 ] satisfies readonly ApplicationNavigationItem[];
 
@@ -22,7 +22,7 @@ function HybridCatalogBoard() {
       <div data-prototype="material-card-candidate">
         <header className="max-w-3xl">
           <h1 className="break-words text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
-            Библиотека
+            База знаний
           </h1>
           <p className="mt-4 max-w-[66ch] text-pretty text-base leading-7 text-muted-foreground">
             Видео с превью и текстовые материалы без искусственных заглушек.
