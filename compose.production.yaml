@@ -3,15 +3,13 @@ name: ${PLATFORM_COMPOSE_PROJECT:-inside-platform-production}
 services:
   postgres:
     image: postgres:18.4-alpine3.23
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/postgres.env
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:?Set POSTGRES_USER} -d ${POSTGRES_DB:?Set POSTGRES_DB}",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
         ]
       interval: 5s
       timeout: 5s
@@ -26,9 +24,8 @@ services:
       dockerfile: Dockerfile
       target: api-production
     command: ["node", "dist/migrations/migrate.js"]
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/migrations.env
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,30 +36,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: api-production
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
-      API_HOST: 0.0.0.0
-      API_PORT: "3001"
-      LOGTO_ISSUER: ${LOGTO_ISSUER:?Set LOGTO_ISSUER}
-      LOGTO_AUDIENCE: ${LOGTO_AUDIENCE:?Set LOGTO_AUDIENCE}
-      LOGTO_JWKS_URL: ${LOGTO_JWKS_URL:?Set LOGTO_JWKS_URL}
-      IDENTITY_EMAIL_FINGERPRINT_KEY: ${IDENTITY_EMAIL_FINGERPRINT_KEY:?Set IDENTITY_EMAIL_FINGERPRINT_KEY}
-      MEMBERSHIP_ACQUISITION_URL: ${MEMBERSHIP_ACQUISITION_URL:?Set MEMBERSHIP_ACQUISITION_URL}
-      TELEGRAM_BOT_START_URL: ${TELEGRAM_BOT_START_URL:?Set TELEGRAM_BOT_START_URL}
-      TELEGRAM_LINKING_ENDPOINT: ${TELEGRAM_LINKING_ENDPOINT:?Set TELEGRAM_LINKING_ENDPOINT}
-      TELEGRAM_LINKING_SECRET: ${TELEGRAM_LINKING_SECRET:?Set TELEGRAM_LINKING_SECRET}
-      TELEGRAM_EVIDENCE_INGRESS_SECRET: ${TELEGRAM_EVIDENCE_INGRESS_SECRET:?Set TELEGRAM_EVIDENCE_INGRESS_SECRET}
-      TELEGRAM_LINK_LIFETIME_SECONDS: ${TELEGRAM_LINK_LIFETIME_SECONDS:-300}
-      OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:?Set OBJECT_STORAGE_ENDPOINT}
-      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:?Set OBJECT_STORAGE_REGION}
-      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:?Set OBJECT_STORAGE_ACCESS_KEY_ID}
-      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:?Set OBJECT_STORAGE_SECRET_ACCESS_KEY}
-      OBJECT_STORAGE_PUBLIC_BUCKET: ${OBJECT_STORAGE_PUBLIC_BUCKET:?Set OBJECT_STORAGE_PUBLIC_BUCKET}
-      OBJECT_STORAGE_PROTECTED_BUCKET: ${OBJECT_STORAGE_PROTECTED_BUCKET:?Set OBJECT_STORAGE_PROTECTED_BUCKET}
-      OBJECT_STORAGE_QUARANTINE_BUCKET: ${OBJECT_STORAGE_QUARANTINE_BUCKET:?Set OBJECT_STORAGE_QUARANTINE_BUCKET}
-      OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS: ${OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS:-60}
-      MATERIAL_ASSET_ORPHAN_GRACE_SECONDS: ${MATERIAL_ASSET_ORPHAN_GRACE_SECONDS:-86400}
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/api.env
     depends_on:
       migrations:
         condition: service_completed_successfully
@@ -86,15 +61,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: web-production
-    environment:
-      NODE_ENV: production
-      BACKEND_BASE_URL: http://api:3001
-      LOGTO_ENDPOINT: ${LOGTO_ENDPOINT:?Set LOGTO_ENDPOINT}
-      LOGTO_AUDIENCE: ${LOGTO_AUDIENCE:?Set LOGTO_AUDIENCE}
-      LOGTO_APP_ID: ${LOGTO_APP_ID:?Set LOGTO_APP_ID}
-      LOGTO_APP_SECRET: ${LOGTO_APP_SECRET:?Set LOGTO_APP_SECRET}
-      LOGTO_COOKIE_SECRET: ${LOGTO_COOKIE_SECRET:?Set LOGTO_COOKIE_SECRET}
-      WEB_BASE_URL: ${WEB_BASE_URL:?Set WEB_BASE_URL}
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/web.env
     depends_on:
       api:
         condition: service_healthy
@@ -115,8 +83,8 @@ services:
 
   caddy:
     image: caddy:2.11.4-alpine
-    environment:
-      PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:?Set PLATFORM_DOMAIN}
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/caddy.env
     depends_on:
       web:
         condition: service_healthy

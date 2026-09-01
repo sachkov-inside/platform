@@ -4,9 +4,8 @@ services:
   object-storage:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     command: ["server", "--console-address", ":9001", "/data"]
-    environment:
-      MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY_ID:-inside-local-access-key}
-      MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-inside-local-secret-key}
+    env_file:
+      - ./config/compose/local/object-storage.env
     ports:
       - "127.0.0.1:${OBJECT_STORAGE_HOST_PORT:-9000}:9000"
       - "127.0.0.1:${OBJECT_STORAGE_CONSOLE_HOST_PORT:-9001}:9001"
@@ -20,17 +19,15 @@ services:
 
   postgres:
     image: postgres:18.4-alpine3.23
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-inside}
-      POSTGRES_USER: ${POSTGRES_USER:-inside}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-inside}
+    env_file:
+      - ./config/compose/local/postgres.env
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-inside} -d ${POSTGRES_DB:-inside}",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
         ]
       interval: 2s
       timeout: 3s
@@ -38,17 +35,28 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql
 
-  bootstrap:
+  migrations:
     build:
       context: .
       dockerfile: Dockerfile
-      target: bootstrap
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://${POSTGRES_USER:-inside}:${POSTGRES_PASSWORD:-inside}@postgres:5432/${POSTGRES_DB:-inside}
+      target: migrations
+    env_file:
+      - ./config/compose/local/migrations.env
     depends_on:
       postgres:
         condition: service_healthy
+    restart: "no"
+
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: seed
+    env_file:
+      - ./config/compose/local/seed.env
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
     restart: "no"
 
   api:
@@ -56,18 +64,12 @@ services:
       context: .
       dockerfile: Dockerfile
       target: api
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://${POSTGRES_USER:-inside}:${POSTGRES_PASSWORD:-inside}@postgres:5432/${POSTGRES_DB:-inside}
-      API_HOST: 0.0.0.0
-      API_PORT: "3001"
-      OBJECT_STORAGE_ENDPOINT: http://object-storage:9000
-      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:-inside-local-access-key}
-      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-inside-local-secret-key}
+    env_file:
+      - ./config/compose/local/api.env
     depends_on:
       postgres:
         condition: service_healthy
-      bootstrap:
+      seed:
         condition: service_completed_successfully
       object-storage:
         condition: service_healthy
@@ -92,19 +94,12 @@ services:
       context: .
       dockerfile: Dockerfile
       target: mcp
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://${POSTGRES_USER:-inside}:${POSTGRES_PASSWORD:-inside}@postgres:5432/${POSTGRES_DB:-inside}
-      MCP_HOST: 0.0.0.0
-      MCP_PORT: "3002"
-      MCP_SERVER_URL: http://127.0.0.1:${MCP_HOST_PORT:-3002}/mcp
-      OBJECT_STORAGE_ENDPOINT: http://object-storage:9000
-      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:-inside-local-access-key}
-      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-inside-local-secret-key}
+    env_file:
+      - ./config/compose/local/mcp.env
     depends_on:
       postgres:
         condition: service_healthy
-      bootstrap:
+      seed:
         condition: service_completed_successfully
       object-storage:
         condition: service_healthy
@@ -129,16 +124,12 @@ services:
       context: .
       dockerfile: Dockerfile
       target: material-assets-worker
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://${POSTGRES_USER:-inside}:${POSTGRES_PASSWORD:-inside}@postgres:5432/${POSTGRES_DB:-inside}
-      OBJECT_STORAGE_ENDPOINT: http://object-storage:9000
-      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:-inside-local-access-key}
-      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-inside-local-secret-key}
+    env_file:
+      - ./config/compose/local/material-assets-worker.env
     depends_on:
       postgres:
         condition: service_healthy
-      bootstrap:
+      seed:
         condition: service_completed_successfully
       object-storage:
         condition: service_healthy
@@ -150,9 +141,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: web
-    environment:
-      NODE_ENV: development
-      BACKEND_BASE_URL: http://api:3001
+    env_file:
+      - ./config/compose/local/web.env
     depends_on:
       api:
         condition: service_healthy
@@ -178,8 +168,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: storybook
-    environment:
-      NODE_ENV: development
+    env_file:
+      - ./config/compose/local/storybook.env
     ports:
       - "127.0.0.1:${STORYBOOK_HOST_PORT:-6006}:6006"
     healthcheck:

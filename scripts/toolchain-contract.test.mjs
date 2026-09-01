@@ -157,7 +157,36 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(productionCompose, /^ {2}database-access:/mu);
     assert.doesNotMatch(productionCompose, /^ {2}material-assets-worker:/mu);
     assert.doesNotMatch(productionCompose, /^networks:/mu);
-    assert.match(productionCompose, /DATABASE_URL: \$\{DATABASE_URL:\?Set DATABASE_URL\}/u);
+  });
+
+  it("keeps runtime configuration in service-owned env files", () => {
+    const localCompose = read("compose.yaml");
+    const productionCompose = read("compose.production.yaml");
+
+    assert.doesNotMatch(`${localCompose}\n${productionCompose}`, /^\s+environment:/mu);
+    assert.doesNotMatch(localCompose, /^ {2}bootstrap:/mu);
+    assert.match(localCompose, /^ {2}migrations:/mu);
+    assert.match(localCompose, /^ {2}seed:/mu);
+
+    for (const path of [
+      "config/compose/local/object-storage.env",
+      "config/compose/local/postgres.env",
+      "config/compose/local/migrations.env",
+      "config/compose/local/seed.env",
+      "config/compose/local/api.env",
+      "config/compose/local/mcp.env",
+      "config/compose/local/material-assets-worker.env",
+      "config/compose/local/web.env",
+      "config/compose/local/storybook.env",
+      "config/compose/production/compose.env.example",
+      "config/compose/production/postgres.env.example",
+      "config/compose/production/migrations.env.example",
+      "config/compose/production/api.env.example",
+      "config/compose/production/web.env.example",
+      "config/compose/production/caddy.env.example",
+    ]) {
+      assert.ok(read(path).trim().length > 0, `${path} must not be empty`);
+    }
   });
 
   it("keeps production native dependencies and excludes development scripts", () => {
@@ -227,7 +256,6 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(compose, /^\s+(?:develop|watch):/mu);
     assert.doesNotMatch(read("package.json"), /compose:dev|--watch/u);
   });
-
 });
 
 function escapeRegExp(value) {

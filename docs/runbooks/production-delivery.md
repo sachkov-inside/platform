@@ -25,19 +25,22 @@ not run here until the worker is added back during production hardening.
 
 ## Runtime configuration
 
-Copy `.env.production.example` to an ignored server-owned file and replace every placeholder. The
-file contains stable runtime configuration and secrets. It must never be committed.
+Create the ignored server-owned env files from the tracked templates and replace every placeholder.
+Each service receives only its own runtime configuration and secrets.
 
 ```bash
-cp .env.production.example .env.production
-chmod 600 .env.production
+for template in config/compose/production/*.env.example; do
+  install -m 600 "$template" "${template%.example}"
+done
 ```
 
-Validate interpolation without printing the expanded configuration:
+`compose.env` controls Compose itself: project name and published ports. The other files are passed
+to their named containers through `env_file`. Validate the result without printing the expanded
+configuration:
 
 ```bash
 docker compose \
-  --env-file .env.production \
+  --env-file config/compose/production/compose.env \
   --file compose.production.yaml \
   config --quiet
 ```
@@ -46,7 +49,7 @@ Start the stack and build the application images from the current checkout:
 
 ```bash
 docker compose \
-  --env-file .env.production \
+  --env-file config/compose/production/compose.env \
   --file compose.production.yaml \
   up --detach --build --wait
 ```

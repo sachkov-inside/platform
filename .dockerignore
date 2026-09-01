@@ -3,6 +3,7 @@
 .env
 .env.*
 !.env.example
+config/compose/production/*.env
 .impeccable
 .inside-harness
 **/.next

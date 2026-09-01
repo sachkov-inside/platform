@@ -10,7 +10,8 @@ The default stack contains:
 - PostgreSQL 18.4 with a persistent named volume;
 - MinIO with separate public-delivery, protected and quarantine buckets; its S3-compatible API is
   on <http://127.0.0.1:9000> and console is on <http://127.0.0.1:9001>;
-- one `bootstrap` job that applies migrations and the deterministic development seed;
+- one `migrations` job that applies the schema and one `seed` job that adds deterministic
+  development data;
 - Nest API on <http://127.0.0.1:3001> with health and OpenAPI endpoints;
 - the long-running MCP process at <http://127.0.0.1:3002/mcp> over the same application and database
   lifecycle;
@@ -32,7 +33,7 @@ and dependency recovery behavior, verifies one local `Account` and no Platform s
 removes only its disposable volumes.
 
 API and web expose real healthchecks. API, MCP and the Material Asset worker wait for healthy
-PostgreSQL and a successful bootstrap; web waits for healthy API. Storybook is an optional profile on
+PostgreSQL and a successful seed; web waits for healthy API. Storybook is an optional profile on
 <http://127.0.0.1:6006>. Integration tests continue to use their own temporary PostgreSQL and
 MinIO through Testcontainers and never share the Compose data services.
 
@@ -72,10 +73,11 @@ it once, then starts API, MCP and web. Rebuild the affected service after a sour
 manifest, workspace manifest or lockfile change. For a faster edit loop, use the optional host
 Node.js commands below.
 
-The checked-in local credentials are defaults. A root `.env` copied from `.env.example` is optional
-for Compose overrides and the NestJS host fallback; already exported variables take precedence.
-Next.js host fallback uses the same checked-in defaults or variables exported by its launcher
-shell. Inside the Compose network, applications use `postgres` and `api` service DNS.
+The checked-in `config/compose/local/*.env` files contain safe container-only development values.
+A root `.env` copied from `.env.example` is optional for host-process overrides and Compose host
+ports; already exported variables take precedence. Next.js host fallback uses the same checked-in
+defaults or variables exported by its launcher shell. Inside the Compose network, applications use
+`postgres` and `api` service DNS.
 Browser-facing URLs remain on `127.0.0.1`. See the
 [runtime configuration contract](runtime-configuration.md) for ownership, precedence, validation,
 and the production env-file boundary.
@@ -94,7 +96,7 @@ bash scripts/compose-stack-smoke.sh
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
 database-backed readiness, one stable free `kak-ustroen-inside-platform` Material with current
 stored content and one safe closed catalog Material. Repeating `docker compose down` and the
-detached startup preserves the database volume and proves the bootstrap seed remains stable.
+detached startup preserves the database volume and proves the development seed remains stable.
 
 Stop without deleting data:
 
@@ -227,10 +229,11 @@ from materials.materials
 order by created_at;
 ```
 
-The seed is safe to repeat manually:
+The migration and seed jobs are safe to repeat manually:
 
 ```bash
-docker compose run --rm bootstrap
+docker compose run --rm migrations
+docker compose run --rm seed
 ```
 
 The seed refuses non-development mode, uses stable idempotency keys, and creates twelve free
@@ -305,7 +308,7 @@ Inspect service state and logs with:
 
 ```bash
 docker compose ps
-docker compose logs postgres bootstrap api mcp web
+docker compose logs postgres migrations seed api mcp web
 ```
 
 If a required port is occupied, inspect its owner and wait for the owning worktree's handoff. Do

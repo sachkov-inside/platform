@@ -25,8 +25,11 @@ FROM dependencies AS development
 
 COPY --chown=node:node . .
 
-FROM development AS bootstrap
-CMD ["sh", "-c", "pnpm --filter @inside/backend db:migrate && pnpm --filter @inside/backend db:seed"]
+FROM development AS migrations
+CMD ["pnpm", "--filter", "@inside/backend", "db:migrate"]
+
+FROM development AS seed
+CMD ["pnpm", "--filter", "@inside/backend", "db:seed"]
 
 FROM development AS api
 CMD ["pnpm", "--filter", "@inside/backend", "dev:api"]

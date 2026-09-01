@@ -24,13 +24,15 @@ defaults apply only when `NODE_ENV` is `development` or `test`. Missing `NODE_EN
 | Source | Tracked | Contains | Consumer |
 | --- | --- | --- | --- |
 | `.env.example` | yes | safe local values and override names | local development reference |
-| `.env` | no | developer-specific local overrides | local Compose and host processes |
-| `.env.production.example` | yes | production variable names and placeholders | server setup reference |
-| `.env.production` | no, server only | production values and secrets | production Compose interpolation |
+| `.env` | no | developer-specific local overrides | host processes and Compose host ports |
+| `config/compose/local/*.env` | yes | safe container-only development values | local Compose services |
+| `config/compose/production/*.env.example` | yes | production names and placeholders by owner | server setup reference |
+| `config/compose/production/*.env` | no, server only | production values and secrets by owner | production Compose services |
 
-The baseline intentionally uses one server-owned production env file. It is copied manually before
-the first start, kept outside Git and restricted to its owner. CI/CD lessons will later separate
-stable runtime secrets from public per-release image metadata and automate only the safe part.
+The production files are copied manually before the first start, kept outside Git and restricted
+to their owner. `compose.env` configures the Compose project and published ports. `postgres.env`,
+`migrations.env`, `api.env`, `web.env` and `caddy.env` are passed only to their owning services.
+CI/CD lessons will later automate their secure delivery without adding secrets to Git or images.
 
 Do not add `.env.development` or `.env.test`. Local defaults and explicit test fixtures keep those
 modes deterministic. Do not bake application runtime secrets into a Docker image or pass them as
@@ -38,22 +40,23 @@ Docker build arguments.
 
 ## Docker Compose flow
 
-Development uses `compose.yaml`. Docker Compose loads the root `.env` for `${VARIABLE}`
-interpolation, applies checked-in local fallback values and passes an explicit `environment` map to
-each service. Values that are not listed for a service are not copied into its container.
+Development uses `compose.yaml`. Docker Compose loads the optional root `.env` for host-level
+`${VARIABLE}` interpolation and loads each container's checked-in values from
+`config/compose/local/*.env` through `env_file`.
 
-Production uses the server-owned file explicitly:
+Production uses the server-owned Compose file explicitly while service-level `env_file` entries
+load the remaining files:
 
 ```bash
 docker compose \
-  --env-file .env.production \
+  --env-file config/compose/production/compose.env \
   --file compose.production.yaml \
   config --quiet
 ```
 
-Compose resolves required `${VARIABLE:?message}` expressions before containers start. NestJS and
-Next.js then validate the values they own, including URL protocols, secret lengths, port ranges and
-production-only HTTPS requirements.
+Compose resolves project and host-port interpolation before containers start. NestJS and Next.js
+then validate the values loaded from their env files, including URL protocols, secret lengths,
+port ranges and production-only HTTPS requirements.
 
 The Dockerfile accepts no application runtime values as build arguments. Next.js has no
 `NEXT_PUBLIC_*` runtime configuration because those values would be frozen into browser assets
@@ -65,7 +68,7 @@ during the image build. The web process reads server-only values when its contai
 | --- | --- | --- |
 | Backend application | `DATABASE_URL`, Logto verifier, Telegram and Object Storage values | `PlatformConfig` |
 | Web server/BFF | `BACKEND_BASE_URL`, Logto app and cookie values, `WEB_BASE_URL` | `WebRuntimeConfig` |
-| Database bootstrap | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | production Compose |
+| Database container | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | `postgres.env` |
 | Deployment transport | future SSH host, user, key and known hosts | future protected CI/CD environment |
 
 When introducing a variable, add it to the owning Zod schema, typed config object, focused parser

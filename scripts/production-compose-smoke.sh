@@ -7,39 +7,66 @@ cd "$repository_root"
 http_port="${PRODUCTION_SMOKE_HTTP_PORT:-38080}"
 https_port="${PRODUCTION_SMOKE_HTTPS_PORT:-38443}"
 project_name="inside-platform-production-smoke-$$"
+runtime_config_dir="$(mktemp -d "${TMPDIR:-/tmp}/inside-platform-production-smoke-env.XXXXXX")"
+postgres_db=inside
+postgres_user=inside
 
 export PLATFORM_COMPOSE_PROJECT="$project_name"
-export PLATFORM_DOMAIN=localhost
 export PLATFORM_HTTP_PORT="$http_port"
 export PLATFORM_HTTPS_PORT="$https_port"
-export POSTGRES_DB=inside
-export POSTGRES_USER=inside
-export POSTGRES_PASSWORD=inside-production-smoke-password
-export DATABASE_URL=postgresql://inside:inside-production-smoke-password@postgres:5432/inside
-export LOGTO_ISSUER=https://identity.production-smoke.invalid/oidc
-export LOGTO_ENDPOINT=https://identity.production-smoke.invalid
-export LOGTO_AUDIENCE=https://api.production-smoke.invalid
-export LOGTO_JWKS_URL=https://identity.production-smoke.invalid/oidc/jwks
-export LOGTO_APP_ID=inside-production-smoke
-export LOGTO_APP_SECRET=inside-production-smoke-app-secret
-export LOGTO_COOKIE_SECRET=inside-production-smoke-cookie-secret-key
-export IDENTITY_EMAIL_FINGERPRINT_KEY=inside-production-smoke-email-fingerprint-key
-export MEMBERSHIP_ACQUISITION_URL=https://membership.production-smoke.invalid
-export TELEGRAM_BOT_START_URL=https://t.me/inside_production_smoke_bot
-export TELEGRAM_LINKING_ENDPOINT=https://telegram.production-smoke.invalid/integrations/platform/v1/identity-links
-export TELEGRAM_LINKING_SECRET=inside-production-smoke-linking-secret
-export TELEGRAM_EVIDENCE_INGRESS_SECRET=inside-production-smoke-evidence-secret
-export TELEGRAM_LINK_LIFETIME_SECONDS=300
-export OBJECT_STORAGE_ENDPOINT=https://storage.production-smoke.invalid
-export OBJECT_STORAGE_REGION=ru-central1
-export OBJECT_STORAGE_ACCESS_KEY_ID=inside-production-smoke-storage-access-key
-export OBJECT_STORAGE_SECRET_ACCESS_KEY=inside-production-smoke-storage-secret-key
-export OBJECT_STORAGE_PUBLIC_BUCKET=inside-production-smoke-public
-export OBJECT_STORAGE_PROTECTED_BUCKET=inside-production-smoke-protected
-export OBJECT_STORAGE_QUARANTINE_BUCKET=inside-production-smoke-quarantine
-export OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS=60
-export MATERIAL_ASSET_ORPHAN_GRACE_SECONDS=86400
-export WEB_BASE_URL="https://localhost:${https_port}"
+export PLATFORM_CONFIG_DIR="$runtime_config_dir"
+
+cat >"$runtime_config_dir/postgres.env" <<EOF
+POSTGRES_DB=$postgres_db
+POSTGRES_USER=$postgres_user
+POSTGRES_PASSWORD=inside-production-smoke-password
+EOF
+
+cat >"$runtime_config_dir/migrations.env" <<EOF
+NODE_ENV=production
+DATABASE_URL=postgresql://inside:inside-production-smoke-password@postgres:5432/inside
+EOF
+
+cat >"$runtime_config_dir/api.env" <<EOF
+NODE_ENV=production
+DATABASE_URL=postgresql://inside:inside-production-smoke-password@postgres:5432/inside
+API_HOST=0.0.0.0
+API_PORT=3001
+LOGTO_ISSUER=https://identity.production-smoke.invalid/oidc
+LOGTO_AUDIENCE=https://api.production-smoke.invalid
+LOGTO_JWKS_URL=https://identity.production-smoke.invalid/oidc/jwks
+IDENTITY_EMAIL_FINGERPRINT_KEY=inside-production-smoke-email-fingerprint-key
+MEMBERSHIP_ACQUISITION_URL=https://membership.production-smoke.invalid
+TELEGRAM_BOT_START_URL=https://t.me/inside_production_smoke_bot
+TELEGRAM_LINKING_ENDPOINT=https://telegram.production-smoke.invalid/integrations/platform/v1/identity-links
+TELEGRAM_LINKING_SECRET=inside-production-smoke-linking-secret
+TELEGRAM_EVIDENCE_INGRESS_SECRET=inside-production-smoke-evidence-secret
+TELEGRAM_LINK_LIFETIME_SECONDS=300
+OBJECT_STORAGE_ENDPOINT=https://storage.production-smoke.invalid
+OBJECT_STORAGE_REGION=ru-central1
+OBJECT_STORAGE_ACCESS_KEY_ID=inside-production-smoke-storage-access-key
+OBJECT_STORAGE_SECRET_ACCESS_KEY=inside-production-smoke-storage-secret-key
+OBJECT_STORAGE_PUBLIC_BUCKET=inside-production-smoke-public
+OBJECT_STORAGE_PROTECTED_BUCKET=inside-production-smoke-protected
+OBJECT_STORAGE_QUARANTINE_BUCKET=inside-production-smoke-quarantine
+OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS=60
+MATERIAL_ASSET_ORPHAN_GRACE_SECONDS=86400
+EOF
+
+cat >"$runtime_config_dir/web.env" <<EOF
+NODE_ENV=production
+BACKEND_BASE_URL=http://api:3001
+LOGTO_ENDPOINT=https://identity.production-smoke.invalid
+LOGTO_AUDIENCE=https://api.production-smoke.invalid
+LOGTO_APP_ID=inside-production-smoke
+LOGTO_APP_SECRET=inside-production-smoke-app-secret
+LOGTO_COOKIE_SECRET=inside-production-smoke-cookie-secret-key
+WEB_BASE_URL=https://localhost:${https_port}
+EOF
+
+cat >"$runtime_config_dir/caddy.env" <<EOF
+PLATFORM_DOMAIN=localhost
+EOF
 
 compose=(
   docker compose
@@ -56,6 +83,7 @@ cleanup() {
     echo "Failed to remove production smoke containers, local images or persistent data" >&2
     cleanup_status=1
   fi
+  rm -r "$runtime_config_dir"
 
   if ((test_status != 0)); then
     exit "$test_status"
@@ -117,8 +145,8 @@ expected_migration_count="$(
 )"
 migration_count="$(
   "${compose[@]}" exec -T postgres psql \
-    --username "$POSTGRES_USER" \
-    --dbname "$POSTGRES_DB" \
+    --username "$postgres_user" \
+    --dbname "$postgres_db" \
     --tuples-only \
     --no-align \
     --command "select count(*) from public.platform_migrations;"

@@ -34,7 +34,7 @@ A fresh clone needs Docker with Compose; host Node.js is not required for the pr
 docker compose up --build
 ```
 
-This starts PostgreSQL, a one-shot migration/seed bootstrap, Nest API, MCP and Next web. Open web at
+This starts PostgreSQL, one-shot migration and development seed jobs, Nest API, MCP and Next web. Open web at
 <http://127.0.0.1:3000>, API health/OpenAPI at <http://127.0.0.1:3001/health> and
 <http://127.0.0.1:3001/openapi>, and MCP at <http://127.0.0.1:3002/mcp>. Rebuild the affected
 service after a source or dependency change, or use the host `pnpm dev*` commands for a faster
@@ -71,8 +71,8 @@ It does not require host Node, pnpm or `.env`; `pnpm platform:doctor` is only a 
 an installed host toolchain.
 
 See the [runtime configuration contract](docs/runbooks/runtime-configuration.md) for the typed
-NestJS and Next.js configuration model, local `.env`, the server-owned production environment file
-and Docker Compose precedence.
+NestJS and Next.js configuration model, local `.env`, server-owned production env files and Docker
+Compose precedence.
 
 The API listens on `127.0.0.1:3001`, exposes `GET /health`, and serves OpenAPI
 UI at `/openapi`.
