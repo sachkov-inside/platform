@@ -10,18 +10,28 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, URLSearchParams } from "node:url";
 import { z } from "zod";
 
+import {
+  readIdentityProofEndpoints,
+  readIdentityProofPort,
+} from "./identity-proof-environment.mjs";
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const composeFile = resolve(root, "infra/identity/logto/compose.yaml");
-const endpoint = `https://identity.inside.localhost:${readPort("IDENTITY_PROOF_LOGTO_PORT", 3301)}`;
-const adminEndpoint = `https://identity.inside.localhost:${readPort("IDENTITY_PROOF_LOGTO_ADMIN_PORT", 3302)}`;
+const composeEnvironment = resolve(root, "infra/identity/logto/compose.env");
+const { backendBaseUrl: platformResource, webBaseUrl } =
+  readIdentityProofEndpoints(process.env);
+const endpoint = `https://identity.inside.localhost:${readIdentityProofPort(process.env, "IDENTITY_PROOF_LOGTO_PORT", 3301)}`;
+const adminEndpoint = `https://identity.inside.localhost:${readIdentityProofPort(process.env, "IDENTITY_PROOF_LOGTO_ADMIN_PORT", 3302)}`;
 const managementResource = "https://default.logto.app/api";
-const platformResource = `http://127.0.0.1:${readPort("IDENTITY_PROOF_API_PORT", 3001)}`;
-const webBaseUrl = `http://127.0.0.1:${readPort("IDENTITY_PROOF_WEB_PORT", 3000)}`;
 const applicationName = "Inside Web";
 const smtpConnectorId = "simple-mail-transfer-protocol";
 const platformAccessTokenTtlSeconds = readAccessTokenTtl();
-const mailpitPort = readPort("IDENTITY_PROOF_MAILPIT_PORT", 8026);
-const platformPostgresPort = readPort("IDENTITY_PROOF_POSTGRES_PORT", 5432);
+const mailpitPort = readIdentityProofPort(process.env, "IDENTITY_PROOF_MAILPIT_PORT", 8026);
+const platformPostgresPort = readIdentityProofPort(
+  process.env,
+  "IDENTITY_PROOF_POSTGRES_PORT",
+  5432,
+);
 const bootstrapMaxAttempts = 20;
 const bootstrapRetryDelayMilliseconds = 500;
 
@@ -98,6 +108,8 @@ function readSeededManagementSecret() {
     "docker",
     [
       "compose",
+      "--env-file",
+      composeEnvironment,
       "-f",
       composeFile,
       "exec",
@@ -402,16 +414,6 @@ async function retry(operation) {
 
 function minutesInSeconds(minutes) {
   return minutes * 60;
-}
-
-function readPort(name, fallback) {
-  const value = process.env[name];
-  if (value === undefined) return fallback;
-  const port = Number(value);
-  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-    throw new Error(`${name} must be a valid TCP port`);
-  }
-  return port;
 }
 
 function readAccessTokenTtl() {

@@ -19,11 +19,19 @@ to ignored `.identity-proof/platform.env`, and starts the web/backend developmen
 refuses to reuse a Compose environment owned by another session. No Console setup,
 real email, deployment or production credential is involved.
 
+The launcher loads the generated environment before Platform migrations and application startup.
+It does not require a root `.env`. To move the application listeners and the registered Logto
+resource/callback URLs together, set the supported port overrides on the start command:
+
+```bash
+IDENTITY_PROOF_WEB_PORT=3500 IDENTITY_PROOF_API_PORT=3501 pnpm identity:proof:start
+```
+
 The bootstrap registers `/callback` as the only application redirect URI. Authentication session
 state remains owned by the official Logto BFF integration.
 
 After startup, use any disposable email address in the application. Read its verification code in
-Mailpit. The public endpoints are:
+Mailpit. Without overrides, the public endpoints are:
 
 - Logto: `https://identity.inside.localhost:3301`
 - Logto Console: `https://identity.inside.localhost:3302`

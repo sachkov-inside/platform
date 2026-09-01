@@ -1,13 +1,20 @@
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
+import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 
 import lockfile from "proper-lockfile";
 
+import { isolateIdentityProofEnvironment } from "./identity-proof-environment.mjs";
+import { runIdentityProofSession } from "./identity-proof-session.mjs";
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const proofCompose = resolve(root, "infra/identity/logto/compose.yaml");
+const platformCompose = resolve(root, "compose.yaml");
+const composeEnvironment = resolve(root, "infra/identity/logto/compose.env");
 const pnpmPath = process.env.npm_execpath;
 if (pnpmPath === undefined) {
   throw new Error("Run the identity proof through the pinned pnpm CLI");
@@ -15,42 +22,35 @@ if (pnpmPath === undefined) {
 
 const releaseLock = await acquireOwnershipLock();
 const activeProcesses = new Set();
-let ownsIdentity = false;
-let ownsPlatform = false;
 let interruptedSignal;
-let shutdownPromise;
 
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.once(signal, () => {
     interruptedSignal ??= signal;
-    void shutdown();
+    void stopActiveProcesses();
   });
 }
 
 try {
-  if (await composeServiceRunning([], "postgres")) {
-    throw new Error(
-      "Platform Compose PostgreSQL is already running and belongs to another session. Stop it through its owner's handoff before starting the identity proof.",
-    );
-  }
-  if (await composeHasRunningServices(["-f", proofCompose])) {
-    throw new Error(
-      "The disposable Logto proof is already running and belongs to another session. Stop it through its owner's handoff before starting a new proof.",
-    );
-  }
-
-  ownsIdentity = true;
-  await runPnpm(["identity:proof:up"]);
-  ownsPlatform = true;
-  await runPnpm(["infra:up"]);
-  await runPnpm(["--filter", "@inside/backend", "db:migrate"]);
-  await runPnpm(["identity:proof:dev"]);
+  const environment = isolateIdentityProofEnvironment(process.env, [
+    await readFile(resolve(root, ".env.example"), "utf8"),
+    await readFile(resolve(root, ".env"), "utf8").catch(() => ""),
+  ]);
+  await runIdentityProofSession({
+    environment,
+    readGeneratedEnvironment: async () => parseEnv(
+      await readFile(resolve(root, ".identity-proof/platform.env"), "utf8"),
+    ),
+    runCompose,
+    runPnpm: (arguments_, runtimeEnvironment) =>
+      runPnpm(arguments_, false, runtimeEnvironment),
+    shouldStop: () => interruptedSignal !== undefined,
+  });
 } catch (error) {
   if (interruptedSignal === undefined) {
     throw error;
   }
 } finally {
-  await shutdown();
   await releaseLock();
 }
 
@@ -58,44 +58,29 @@ if (interruptedSignal !== undefined) {
   process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;
 }
 
-async function composeServiceRunning(composeArguments, service) {
+async function runCompose(project, arguments_, environment, capture = false) {
+  const compose = project === "identity" ? proofCompose : platformCompose;
   const result = await runPnpm(
     [
       "exec",
       "docker",
       "compose",
-      ...composeArguments,
-      "ps",
-      "--services",
-      "--status",
-      "running",
+      "--env-file",
+      composeEnvironment,
+      "-f",
+      compose,
+      ...arguments_,
     ],
-    true,
+    capture,
+    environment,
   );
-  return result.output.split(/\s+/u).includes(service);
+  return result.output;
 }
 
-async function composeHasRunningServices(composeArguments) {
-  const result = await runPnpm(
-    [
-      "exec",
-      "docker",
-      "compose",
-      ...composeArguments,
-      "ps",
-      "--services",
-      "--status",
-      "running",
-    ],
-    true,
-  );
-  return result.output.trim().length > 0;
-}
-
-async function runPnpm(arguments_, capture = false) {
+async function runPnpm(arguments_, capture = false, environment = process.env) {
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: root,
-    env: process.env,
+    env: environment,
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
   });
   activeProcesses.add(child);
@@ -138,33 +123,8 @@ async function acquireOwnershipLock() {
   }
 }
 
-function shutdown() {
-  shutdownPromise ??= (async () => {
-    await Promise.all([...activeProcesses].map((child) => stopProcess(child)));
-    if (ownsPlatform) {
-      ownsPlatform = false;
-      await runCleanupPnpm(["infra:down"]).catch(() => undefined);
-    }
-    if (ownsIdentity) {
-      ownsIdentity = false;
-      await runCleanupPnpm(["identity:proof:down"]).catch(() => undefined);
-    }
-  })();
-  return shutdownPromise;
-}
-
-async function runCleanupPnpm(arguments_) {
-  const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
-    cwd: root,
-    env: process.env,
-    stdio: "inherit",
-  });
-  const exitCode = await new Promise((resolveExit) => {
-    child.once("exit", (code) => resolveExit(code));
-  });
-  if (exitCode !== 0) {
-    throw new Error(`pnpm ${arguments_.join(" ")} failed during cleanup`);
-  }
+async function stopActiveProcesses() {
+  await Promise.all([...activeProcesses].map((child) => stopProcess(child)));
 }
 
 async function stopProcess(child) {

@@ -12,6 +12,7 @@ import lockfile from "proper-lockfile";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const identityCompose = resolve(root, "infra/identity/logto/compose.yaml");
 const platformCompose = resolve(root, "compose.yaml");
+const composeEnvironment = resolve(root, "infra/identity/logto/compose.env");
 const pnpmPath = process.env.npm_execpath;
 if (pnpmPath === undefined) {
   throw new Error("Run the identity hardening proof through the pinned pnpm CLI");
@@ -51,7 +52,11 @@ try {
   await runPnpm(["identity:proof:bootstrap"], identityEnvironment);
 
   ownsPlatform = true;
-  await runCompose(platformCompose, ["up", "-d", "--wait", "postgres"], platformEnvironment);
+  await runCompose(
+    platformCompose,
+    ["up", "-d", "--wait", "postgres", "object-storage"],
+    platformEnvironment,
+  );
   const generatedEnvironment = parseEnv(
     await readFile(resolve(root, ".identity-proof/platform.env"), "utf8"),
   );
@@ -279,7 +284,12 @@ async function cleanup() {
 }
 
 function runCompose(compose, arguments_, environment, capture = false) {
-  return run("docker", ["compose", "-f", compose, ...arguments_], environment, capture);
+  return run(
+    "docker",
+    ["compose", "--env-file", composeEnvironment, "-f", compose, ...arguments_],
+    environment,
+    capture,
+  );
 }
 
 function runPnpm(arguments_, environment) {
