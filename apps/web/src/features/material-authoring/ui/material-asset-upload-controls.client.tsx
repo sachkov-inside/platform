@@ -234,10 +234,6 @@ export function MaterialAssetUploadButtons({
   );
 }
 
-/**
- * Temporary semantic UI for #180.
- * Replace through #190 after Storybook acceptance.
- */
 export function MaterialAssetUploadQueue({
   controller,
 }: {
