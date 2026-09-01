@@ -6,9 +6,9 @@ import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { createS3ObjectStorage, type ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleMaterials } from "../../src/modules/materials/index.js";
-import { assembleMaterialAssetMaintenance } from "../../src/modules/materials/features/cleanup-material-assets/cleanup-material-assets.js";
 import { objectStorageConformance } from "../support/object-storage-conformance.js";
 import {
   createMigratedTestDatabase,
@@ -185,6 +185,94 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     })).resolves.toMatchObject({ ok: true, value: { cleaned: 1 } });
   });
 
+  test("cleanup cannot claim a storage failure after its retry wins the row race", async () => {
+    let storageUnavailable = true;
+    const recoveringStorage: ObjectStorage = {
+      delete: storage.delete.bind(storage),
+      read: storage.read.bind(storage),
+      signGet: storage.signGet.bind(storage),
+      async putImmutable(input) {
+        if (storageUnavailable && input.namespace === "protected") {
+          throw new Error("storage unavailable");
+        }
+        return storage.putImmutable(input);
+      },
+    };
+    const assets = assembleMaterialAssets({
+      objectStorage: recoveringStorage,
+      prisma: database.prisma,
+    });
+    const body = new TextEncoder().encode("Concurrent retry attachment\n");
+    const input = {
+      actor: randomUUID(),
+      body,
+      declaredContentType: "text/plain",
+      declaredSize: body.byteLength,
+      expectedChecksumSha256: createHash("sha256").update(body).digest("hex"),
+      filename: "concurrent-retry.txt",
+      idempotencyKey: "integration-storage-retry-cleanup-race",
+      kind: "file" as const,
+      materialId: randomUUID(),
+    };
+
+    await expect(assets.upload(input)).resolves.toEqual({
+      error: { code: "dependency_unavailable" },
+      ok: false,
+    });
+    const failed = await database.prisma.materialAsset.findUnique({
+      where: {
+        materialId_uploadedBy_idempotencyKey: {
+          idempotencyKey: input.idempotencyKey,
+          materialId: input.materialId,
+          uploadedBy: input.actor,
+        },
+      },
+    });
+    if (failed === null) throw new Error("failed upload was not persisted");
+
+    const lockReady = deferredSignal();
+    const releaseLock = deferredSignal();
+    const lockTransaction = database.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw(Prisma.sql`
+        select id
+        from assets.material_assets
+        where id = ${failed.id}::uuid
+        for update
+      `);
+      lockReady.resolve();
+      await releaseLock.promise;
+    }, { timeout: 10_000 });
+    void lockTransaction.catch(lockReady.reject);
+    await lockReady.promise;
+
+    storageUnavailable = false;
+    const retriedPromise = assets.upload(input);
+    await waitForMaterialAssetLockWaiters(1);
+    const cleanupPromise = assets.cleanupOrphans({
+      graceMs: 0,
+      isReferenced: () => Promise.resolve(false),
+      now: new Date(Date.now() + 60 * 60 * 1_000),
+    });
+    await waitForMaterialAssetLockWaiters(2);
+    releaseLock.resolve();
+    await lockTransaction;
+
+    const [retried, cleanup] = await Promise.all([retriedPromise, cleanupPromise]);
+    expect(retried).toMatchObject({
+      ok: true,
+      value: { assetId: failed.id, state: "ready" },
+    });
+    expect(cleanup).toEqual({ ok: true, value: { cleaned: 0, retained: 0 } });
+    await expect(database.prisma.materialAsset.findUnique({
+      where: { id: failed.id },
+    })).resolves.toMatchObject({ failureCode: null, state: "ready" });
+    await expect(assets.cleanupOrphans({
+      graceMs: 0,
+      isReferenced: () => Promise.resolve(false),
+      now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
+    })).resolves.toMatchObject({ ok: true, value: { cleaned: 1 } });
+  }, 20_000);
+
   test("replaces an image through Material application facets and cleans only the old Asset", async () => {
     const assets = assembleMaterialAssets({ objectStorage: storage, prisma: database.prisma });
     const actor = randomUUID();
@@ -277,15 +365,41 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     });
     expect(savedReplacement).toMatchObject({ ok: true, value: { contentVersion: 3 } });
     if (!savedReplacement.ok) throw new Error(savedReplacement.error.code);
+    const removedBoundary = await database.prisma.materialAsset.findUnique({
+      select: { currentlyReferenced: true, orphanedAt: true },
+      where: { id: original.value.assetId },
+    });
+    expect(removedBoundary).toMatchObject({ currentlyReferenced: false });
+    if (removedBoundary === null) throw new Error("removed image Asset was not persisted");
+    await expect(database.prisma.materialAsset.findUnique({
+      select: { currentlyReferenced: true },
+      where: { id: replacement.value.assetId },
+    })).resolves.toEqual({ currentlyReferenced: true });
+
+    const repeatedSave = await materials.authoring.saveMaterial({
+      actor,
+      body: imageBody(replacement.value.assetId, "Current architecture"),
+      expectedContentVersion: savedReplacement.value.contentVersion,
+      idempotencyKey: "integration-asset-replacement-repeat-save",
+      materialId,
+      metadata,
+      publicationState: "draft",
+    });
+    expect(repeatedSave).toMatchObject({ ok: true, value: { contentVersion: 4 } });
+    if (!repeatedSave.ok) throw new Error(repeatedSave.error.code);
+    await expect(database.prisma.materialAsset.findUnique({
+      select: { currentlyReferenced: true, orphanedAt: true },
+      where: { id: original.value.assetId },
+    })).resolves.toEqual(removedBoundary);
     await expect(Promise.all([
       materials.materialContent.containsAssetReference({
         assetId: original.value.assetId,
-        checkedContentVersion: savedReplacement.value.contentVersion,
+        checkedContentVersion: repeatedSave.value.contentVersion,
         materialId,
       }),
       materials.materialContent.containsAssetReference({
         assetId: replacement.value.assetId,
-        checkedContentVersion: savedReplacement.value.contentVersion,
+        checkedContentVersion: repeatedSave.value.contentVersion,
         materialId,
       }),
     ])).resolves.toEqual([
@@ -317,13 +431,23 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     if (publicBytes === null) throw new Error("missing public image bytes");
     expect((await sharp(publicBytes.body).metadata()).exif).toBeUndefined();
 
-    const maintenance = assembleMaterialAssetMaintenance({
-      assets,
-      config: { objectStorage: { orphanGraceMs: 100 } },
-      materials: materials.materialContent,
+    const orphanGraceMs = 250;
+    const cleanupAt = async (now: Date) => assets.cleanupOrphans({
+      graceMs: orphanGraceMs,
+      async isReferenced(input) {
+        const referenced = await materials.materialContent.containsAssetReference(input);
+        if (!referenced.ok) throw new Error(referenced.error.code);
+        return referenced.value;
+      },
+      now,
     });
-    const beforeGrace = await maintenance.cleanup();
-    expect(beforeGrace).toMatchObject({ cleaned: 0, ok: true });
+    const beforeGrace = new Date(
+      removedBoundary.orphanedAt.getTime() + orphanGraceMs - 1,
+    );
+    await expect(cleanupAt(beforeGrace)).resolves.toMatchObject({
+      ok: true,
+      value: { cleaned: 0 },
+    });
     await expect(assets.loadDelivery({
       assetId: original.value.assetId,
       materialId,
@@ -332,11 +456,12 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       ok: true,
       value: { assetId: original.value.assetId },
     });
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    await expect(maintenance.cleanup()).resolves.toEqual({
-      cleaned: 1,
+    const afterGrace = new Date(
+      beforeGrace.getTime() + orphanGraceMs + 1,
+    );
+    await expect(cleanupAt(afterGrace)).resolves.toEqual({
       ok: true,
-      retained: 1,
+      value: { cleaned: 1, retained: 1 },
     });
     await expect(assets.loadDelivery({
       assetId: original.value.assetId,
@@ -370,4 +495,30 @@ function imageBody(assetId: string, alt: string) {
       }],
     },
   };
+}
+
+function deferredSignal() {
+  let resolve!: () => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
+async function waitForMaterialAssetLockWaiters(minimum: number): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const rows = await database.prisma.$queryRaw<readonly { readonly waiting: number }[]>(Prisma.sql`
+      select count(*)::integer as waiting
+      from pg_stat_activity
+      where datname = current_database()
+        and cardinality(pg_blocking_pids(pid)) > 0
+        and query ilike '%material_assets%'
+    `);
+    if ((rows[0]?.waiting ?? 0) >= minimum) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`Timed out waiting for ${minimum} MaterialAsset row-lock waiter(s)`);
 }

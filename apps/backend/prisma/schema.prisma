@@ -326,6 +326,7 @@ model MaterialAsset {
   protectedObjectKey   String?   @map("protected_object_key") @db.VarChar(512)
   publicObjectKey      String?   @map("public_object_key") @db.VarChar(512)
   failureCode          String?   @map("failure_code") @db.VarChar(64)
+  currentlyReferenced  Boolean   @default(false) @map("currently_referenced")
   orphanedAt           DateTime  @default(now()) @map("orphaned_at") @db.Timestamptz
   cleanupClaimedAt     DateTime? @map("cleanup_claimed_at") @db.Timestamptz
   readyAt              DateTime? @map("ready_at") @db.Timestamptz

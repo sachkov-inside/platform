@@ -348,18 +348,33 @@ export function assembleMaterialAssets(dependencies: {
         ) {
           throw new TypeError("Invalid MaterialAsset reference boundary");
         }
-        await prisma.materialAsset.updateMany({
-          data: {
-            orphanedAt: input.orphanedAt,
-            updatedAt: input.orphanedAt,
-          },
-          where: {
-            materialId: input.materialId,
-            state: "ready",
-            ...(referencedAssetIds.length === 0
-              ? {}
-              : { id: { notIn: referencedAssetIds } }),
-          },
+        await prisma.$transaction(async (transaction) => {
+          await transaction.materialAsset.updateMany({
+            data: {
+              currentlyReferenced: false,
+              orphanedAt: input.orphanedAt,
+              updatedAt: input.orphanedAt,
+            },
+            where: {
+              currentlyReferenced: true,
+              materialId: input.materialId,
+              state: "ready",
+              ...(referencedAssetIds.length === 0
+                ? {}
+                : { id: { notIn: referencedAssetIds } }),
+            },
+          });
+          if (referencedAssetIds.length > 0) {
+            await transaction.materialAsset.updateMany({
+              data: { currentlyReferenced: true },
+              where: {
+                currentlyReferenced: false,
+                id: { in: referencedAssetIds },
+                materialId: input.materialId,
+                state: "ready",
+              },
+            });
+          }
         });
       });
     },
@@ -512,7 +527,11 @@ export function assembleMaterialAssets(dependencies: {
               })
             ) {
               await transaction.materialAsset.update({
-                data: { orphanedAt: now, updatedAt: now },
+                data: {
+                  currentlyReferenced: true,
+                  orphanedAt: now,
+                  updatedAt: now,
+                },
                 where: { id: asset.id },
               });
               return { kind: "retained" as const };
@@ -522,15 +541,23 @@ export function assembleMaterialAssets(dependencies: {
               include: { materialAssetVariants: true },
             });
             if (latest === null || latest.updatedAt > cutoff) return null;
-            await transaction.materialAsset.update({
+            const cleanupClaim = await transaction.materialAsset.updateMany({
               data: {
+                currentlyReferenced: false,
                 cleanupClaimedAt: now,
                 failureCode: "cleanup_claimed",
                 state: "failed",
                 updatedAt: now,
               },
-              where: { id: latest.id },
+              where: {
+                failureCode: latest.failureCode,
+                id: latest.id,
+                objectNonce: latest.objectNonce,
+                state: latest.state,
+                updatedAt: { lte: cutoff },
+              },
             });
+            if (cleanupClaim.count !== 1) return null;
             return { kind: "claimed" as const, asset: latest };
           });
           if (claimed?.kind === "retained") {
@@ -538,28 +565,7 @@ export function assembleMaterialAssets(dependencies: {
             continue;
           }
           if (claimed?.kind !== "claimed") continue;
-          const objects = [
-            {
-              namespace: "quarantine" as const,
-              key: claimed.asset.quarantineObjectKey,
-            },
-            ...(claimed.asset.protectedObjectKey === null
-              ? []
-              : [{
-                  namespace: "protected" as const,
-                  key: claimed.asset.protectedObjectKey,
-                }]),
-            ...(claimed.asset.publicObjectKey === null
-              ? []
-              : [{
-                  namespace: "public" as const,
-                  key: claimed.asset.publicObjectKey,
-                }]),
-            ...claimed.asset.materialAssetVariants.flatMap((variant) => [
-              { namespace: "protected" as const, key: variant.protectedObjectKey },
-              { namespace: "public" as const, key: variant.publicObjectKey },
-            ]),
-          ];
+          const objects = trackedObjects(claimed.asset);
           try {
             for (const object of objects) {
               await objectStorage.delete(object.namespace, object.key);
@@ -663,7 +669,21 @@ async function deleteUploadAttempt(
     quarantineObjectKey: string;
   }>,
 ): Promise<void> {
-  const objects = [
+  await settleAllOrThrow(
+    trackedObjects(asset).map((object) => storage.delete(object.namespace, object.key)),
+  );
+}
+
+function trackedObjects(asset: Readonly<{
+  materialAssetVariants: readonly Readonly<{
+    protectedObjectKey: string;
+    publicObjectKey: string;
+  }>[];
+  protectedObjectKey: string | null;
+  publicObjectKey: string | null;
+  quarantineObjectKey: string;
+}>) {
+  return [
     { key: asset.quarantineObjectKey, namespace: "quarantine" as const },
     ...(asset.protectedObjectKey === null
       ? []
@@ -676,9 +696,6 @@ async function deleteUploadAttempt(
       { key: variant.publicObjectKey, namespace: "public" as const },
     ]),
   ];
-  await settleAllOrThrow(
-    objects.map((object) => storage.delete(object.namespace, object.key)),
-  );
 }
 
 async function deleteQuarantineBestEffort(storage: ObjectStorage, key: string): Promise<void> {

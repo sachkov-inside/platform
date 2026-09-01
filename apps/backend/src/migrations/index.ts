@@ -50,6 +50,10 @@ import {
   name as materialAssetsMigrationName,
   statement as materialAssetsMigrationStatement,
 } from "../modules/assets/infrastructure/postgres/migrations/0012-material-assets.js";
+import {
+  name as materialAssetReferenceStateMigrationName,
+  statement as materialAssetReferenceStateMigrationStatement,
+} from "../modules/assets/infrastructure/postgres/migrations/0013-material-asset-reference-state.js";
 
 const migrations = [
   {
@@ -99,6 +103,10 @@ const migrations = [
   {
     name: materialAssetsMigrationName,
     statement: materialAssetsMigrationStatement,
+  },
+  {
+    name: materialAssetReferenceStateMigrationName,
+    statement: materialAssetReferenceStateMigrationStatement,
   },
 ] as const;
 

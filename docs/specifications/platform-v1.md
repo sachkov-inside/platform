@@ -395,8 +395,9 @@ Published body читается только для current `published` state; d
    variants до 480/960/1600 px. File bytes сохраняются immutable в public и protected namespace.
 4. Publish допускает только ready MaterialAssets exact owning Material. Replacement создаёт новый
    Asset; body reference остаётся stable opaque `assetId`, а referenced Asset сохраняется. Save под
-   Material advisory lock помечает removed ready Assets новым orphan boundary, от которого полностью
-   отсчитывается cleanup grace.
+   Material advisory lock переводит только newly removed ready Assets из persisted referenced state
+   на новый orphan boundary, от которого полностью отсчитывается cleanup grace; повторный Save с тем
+   же reference set эту границу не сдвигает.
 5. Asset `read | download | preview` сначала передаёт exact opaque Asset resource в
    `ContentAccess`; safe owner/kind facts разрешаются до authorize, private locator читается только
    после allow. Platform route несёт `contentVersion`, сверяет его с `checkedContentVersion` и
