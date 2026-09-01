@@ -422,9 +422,11 @@ Published body читается только для current `published` state; d
    Bounded migration останавливается до изменения schema, если находит legacy inline Video, поэтому
    rollout не может тихо потерять содержимое.
 8. `Videos` хранит local identity, exact owning Material/access/project, opaque Kinescope API ID,
-   returned embed locator, authoritative status и sync/error facts. Upload init идемпотентен;
-   browser выполняет resumable Tus transfer без API token. Attach-existing всегда делает server
-   lookup в фиксированном public или membership project.
+   returned embed locator, authoritative status и sync/error facts. Upload attempt фиксируется до
+   provider I/O; один unresolved attempt на Material+actor блокирует новый key после ambiguous
+   timeout, поэтому browser retry не создаёт второй provider object. Browser выполняет resumable
+   Tus transfer без API token. Attach-existing всегда делает server lookup в фиксированном public
+   или membership project.
 9. Webhook — durable hint: duplicate и out-of-order deliveries попадают в inbox, после чего Platform
    повторно читает provider state. Только `done` с безопасным returned embed locator становится
    `ready`; unknown status становится видимым failed state, а provider outage оставляет event для
@@ -437,6 +439,8 @@ Published body читается только для current `published` state; d
     script/request, locator или token. Playback session повторно вызывает exact `ContentAccess`
     `play`; membership Video получает short-lived JWT, а strict provider authorization callback ещё
     раз проверяет token, Video mapping и current access. Mismatch, tampering, expiry и outage deny.
+    Platform-owned responsive frame оставляет playback controls Kinescope; если выпуск не заявляет
+    captions, Reader сообщает это явно, а subtitles/transcripts остаются вне V1.
 12. Account resume хранится coarse server-side по `(accountId, videoId)` и работает между
     устройствами. Anonymous public resume хранится versioned по local Video ID в `localStorage`;
     replacement не наследует позицию. Ни один resume path не меняет manual `ReadingState` и не

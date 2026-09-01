@@ -12,9 +12,10 @@ import {
 
 const currentMaterialEditorUrl = /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
 
-test("attaches one primary Video and keeps the provider behind an authorized click", async ({
+test("uploads, resumes and replaces one primary Video while keeping provider bytes behind authorization", async ({
   context,
   page,
+  request,
 }, testInfo) => {
   const suffix = String(Date.now());
   const title = `Video flow ${suffix}`;
@@ -31,9 +32,13 @@ test("attaches one primary Video and keeps the provider behind an authorized cli
   await fillPublishableDraft(page, title);
   await page.getByRole("button", { name: "Создать черновик" }).click();
   await expect(page).toHaveURL(currentMaterialEditorUrl);
+  const editorUrl = page.url();
 
-  await page.getByLabel(/ID существующего видео/u).fill(`test-provider-${suffix}`);
-  await page.getByRole("button", { name: "Привязать" }).click();
+  await page.getByLabel("Видео для загрузки").setInputFiles({
+    buffer: Buffer.from("Full-stack test Video\n"),
+    mimeType: "video/mp4",
+    name: `test-video-${suffix}.mp4`,
+  });
   await expect(page.getByText("Готово к Save")).toBeVisible();
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
@@ -44,7 +49,7 @@ test("attaches one primary Video and keeps the provider behind an authorized cli
   expect(readerResponse?.headers()["content-security-policy"]).toContain("frame-src https://kinescope.io");
   expect(readerResponse?.headers()["content-security-policy"]).toContain("script-src 'self' 'unsafe-inline' https://player.kinescope.io");
   await expect(page.getByRole("heading", { name: "Видео", level: 2 })).toBeVisible();
-  await expect(page.getByText("Test video")).toBeVisible();
+  await expect(page.getByText(`test-video-${suffix}`)).toBeVisible();
   await expect(page.getByRole("button", { name: "Загрузить player" })).toBeVisible();
   await expect(page.locator("iframe")).toHaveCount(0);
   expect(providerRequests).toEqual([]);
@@ -58,7 +63,7 @@ test("attaches one primary Video and keeps the provider behind an authorized cli
   if (typeof materialId !== "string" || typeof videoId !== "string") {
     throw new Error("Video identity evidence is missing");
   }
-  const session = await page.request.post("/api/material-video-playback", {
+  const session = await page.request.post("/api/material-video-playback-sessions", {
     headers: { origin: new URL(page.url()).origin },
     multipart: { materialId, videoId },
   });
@@ -68,7 +73,114 @@ test("attaches one primary Video and keeps the provider behind an authorized cli
     progressScope: "account",
     videoId,
   });
+  const anonymousSession = await request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(anonymousSession.status()).toBe(200);
+  await expect(anonymousSession.json()).resolves.toMatchObject({
+    drmAuthToken: null,
+    progressScope: "anonymous",
+    resumeSeconds: null,
+    videoId,
+  });
+
+  const progress = await page.request.put("/api/material-video-progress", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { durationSeconds: "120", materialId, positionSeconds: "37", videoId },
+  });
+  expect(progress.status()).toBe(204);
+  const resumedSession = await page.request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(resumedSession.status()).toBe(200);
+  await expect(resumedSession.json()).resolves.toMatchObject({
+    progressScope: "account",
+    resumeSeconds: 37,
+    videoId,
+  });
   await captureVideoEvidence(page, testInfo, "reader-privacy-facade");
+
+  await page.goto(editorUrl);
+  await page.getByLabel(/ID существующего видео/u).fill(`replacement-provider-${suffix}`);
+  await page.getByRole("button", { name: "Привязать" }).click();
+  await expect(page.getByText("Готово к Save")).toBeVisible();
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+  await page.goto(`/materials/${slug}`);
+  const replacementVideoId = await page.getByRole("button", { name: "Загрузить player" }).evaluate((button) =>
+    button.closest("section")?.getAttribute("data-video-id"),
+  );
+  if (typeof replacementVideoId !== "string") {
+    throw new Error("Replacement Video identity is missing");
+  }
+  expect(replacementVideoId).not.toBe(videoId);
+  const staleSession = await page.request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(staleSession.status()).toBe(403);
+  const replacementSession = await page.request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId: replacementVideoId },
+  });
+  expect(replacementSession.status()).toBe(200);
+  await expect(replacementSession.json()).resolves.toMatchObject({ videoId: replacementVideoId });
+
+  await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
+  const row = page.getByRole("listitem").filter({ hasText: title });
+  await row.getByRole("button", { name: "Снять с публикации" }).click();
+  await expect(row.getByText("Снят с публикации", { exact: true })).toBeVisible({ timeout: 15_000 });
+});
+
+test("member primary Video denies anonymous playback and issues a DRM proof to an authorized Account", async ({
+  context,
+  page,
+  request,
+}) => {
+  const suffix = String(Date.now());
+  const title = `Member Video ${suffix}`;
+  const slug = `member-video-${suffix}`;
+  await addFullStackSession(context);
+  await page.goto("/authoring/materials/new");
+  await completeProfileOnboardingIfPresent(page);
+  await fillPublishableDraft(page, title);
+  await page.getByRole("combobox", { name: "Доступ" }).click();
+  await page.getByRole("option", { name: "Для участников" }).click();
+  await page.getByRole("button", { name: "Создать черновик" }).click();
+  await expect(page).toHaveURL(currentMaterialEditorUrl);
+
+  await page.getByLabel(/ID существующего видео/u).fill(`member-provider-${suffix}`);
+  await page.getByRole("button", { name: "Привязать" }).click();
+  await expect(page.getByText("Готово к Save")).toBeVisible();
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Опубликовать" }).click();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+
+  await page.goto(`/materials/${slug}`);
+  const videoSection = page.locator("section[data-video-id]");
+  const materialId = await page.locator("[data-material-id]").getAttribute("data-material-id");
+  const videoId = await videoSection.getAttribute("data-video-id");
+  if (materialId === null || videoId === null) throw new Error("Member Video identity is missing");
+  const anonymousSession = await request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(anonymousSession.status()).toBe(403);
+  const memberSession = await page.request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(memberSession.status()).toBe(200);
+  const memberBody = await memberSession.json() as {
+    readonly drmAuthToken?: unknown;
+    readonly progressScope?: unknown;
+    readonly videoId?: unknown;
+  };
+  expect(memberBody).toMatchObject({ progressScope: "account", videoId });
+  expect(memberBody.drmAuthToken).toEqual(expect.any(String));
 
   await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
   const row = page.getByRole("listitem").filter({ hasText: title });

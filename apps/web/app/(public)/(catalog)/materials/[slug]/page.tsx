@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { QueryProvider } from "@/_app";
 import { loadMaterialReader, MaterialReaderPage } from "@/_pages/material-reader.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
@@ -31,9 +32,11 @@ export default async function MaterialRoute({ params }: MaterialPageProps) {
   const { slug } = await params;
   const accessToken = await getOptionalPlatformAccessToken();
   return (
-    <MaterialReaderPage
-      {...(accessToken === undefined ? {} : { accessToken })}
-      slug={slug}
-    />
+    <QueryProvider>
+      <MaterialReaderPage
+        {...(accessToken === undefined ? {} : { accessToken })}
+        slug={slug}
+      />
+    </QueryProvider>
   );
 }

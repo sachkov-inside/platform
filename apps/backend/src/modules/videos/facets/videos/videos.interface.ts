@@ -37,6 +37,7 @@ export type VideoError =
   | { readonly code: "idempotency_key_reused" }
   | { readonly code: "invalid_request" }
   | { readonly code: "provider_mismatch" }
+  | { readonly code: "upload_outcome_unknown" }
   | { readonly code: "video_not_found" }
   | { readonly code: "video_not_ready" };
 

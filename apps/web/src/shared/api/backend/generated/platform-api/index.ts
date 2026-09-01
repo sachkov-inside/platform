@@ -16,6 +16,7 @@ export { ContentLibraryService } from './services/ContentLibraryService';
 export { KinescopeIntegrationService } from './services/KinescopeIntegrationService';
 export { MaterialAssetsService } from './services/MaterialAssetsService';
 export { MaterialAuthoringService } from './services/MaterialAuthoringService';
+export { MaterialVideoAuthoringService } from './services/MaterialVideoAuthoringService';
 export { MemberProfilesService } from './services/MemberProfilesService';
 export { OperationsService } from './services/OperationsService';
 export { PublishedMaterialsService } from './services/PublishedMaterialsService';

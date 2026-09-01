@@ -30,12 +30,15 @@ import {
   ValidateMaterialController,
   UploadMaterialAssetController,
   DeliverMaterialAssetController,
-  KinescopeIntegrationController,
-  VideoAuthoringController,
+  KinescopeVideoAuthorizationController,
   VideoPlaybackController,
   VideoProgressController,
 } from "../../modules/materials/index.js";
-import { VideosModule } from "../../modules/videos/index.js";
+import {
+  KinescopeWebhookController,
+  VideoAuthoringController,
+  VideosModule,
+} from "../../modules/videos/index.js";
 import { HealthController } from "./health.controller.js";
 
 @Module({
@@ -60,7 +63,8 @@ import { HealthController } from "./health.controller.js";
     VideoAuthoringController,
     VideoPlaybackController,
     VideoProgressController,
-    KinescopeIntegrationController,
+    KinescopeWebhookController,
+    KinescopeVideoAuthorizationController,
   ],
   providers: [
     OperationalReadiness,

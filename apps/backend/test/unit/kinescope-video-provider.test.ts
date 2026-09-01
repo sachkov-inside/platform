@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { createKinescopeVideoProvider } from "../../src/modules/videos/adapters/kinescope/kinescope-video-provider.js";
 
@@ -8,8 +8,12 @@ const config = {
   uploaderBaseUrl: "https://uploader.kinescope.io",
 } as const;
 
+afterEach(() => { vi.restoreAllMocks(); });
+
 describe("Kinescope VideoProvider adapter", () => {
   test("initializes a resumable upload with the server credential and provider project", async () => {
+    const requestTimeout = new AbortController().signal;
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(requestTimeout);
     let observedInit: RequestInit | undefined;
     let observedUrl: string | undefined;
     const request = vi.fn<typeof globalThis.fetch>((input, init) => {
@@ -41,6 +45,8 @@ describe("Kinescope VideoProvider adapter", () => {
     expect(request).toHaveBeenCalledOnce();
     expect(observedUrl).toBe("https://uploader.kinescope.io/v2/init");
     expect(observedInit?.method).toBe("POST");
+    expect(timeout).toHaveBeenCalledWith(8_000);
+    expect(observedInit?.signal).toBe(requestTimeout);
     expect(new Headers(observedInit?.headers).get("authorization")).toBe(
       "Bearer provider-secret-token",
     );

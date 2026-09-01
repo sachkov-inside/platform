@@ -410,15 +410,21 @@ model Video {
 }
 
 model VideoUploadAttempt {
-  id              String   @id @db.Uuid
-  videoId         String   @map("video_id") @db.Uuid
-  materialId      String   @map("material_id") @db.Uuid
-  createdBy       String   @map("created_by") @db.Uuid
-  idempotencyKey  String   @map("idempotency_key") @db.VarChar(128)
-  uploadEndpoint  String   @map("upload_endpoint") @db.VarChar(2048)
-  filename        String   @db.VarChar(255)
-  byteSize        BigInt   @map("byte_size") @db.BigInt
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id              String    @id @db.Uuid
+  videoId         String?   @map("video_id") @db.Uuid
+  materialId      String    @map("material_id") @db.Uuid
+  createdBy       String    @map("created_by") @db.Uuid
+  idempotencyKey  String    @map("idempotency_key") @db.VarChar(128)
+  access          String
+  projectId       String    @map("project_id") @db.VarChar(128)
+  title           String    @db.VarChar(255)
+  status          String
+  uploadEndpoint  String?   @map("upload_endpoint") @db.VarChar(2048)
+  failureCode     String?   @map("failure_code") @db.VarChar(64)
+  filename        String    @db.VarChar(255)
+  byteSize        BigInt    @map("byte_size") @db.BigInt
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
   @@unique([materialId, createdBy, idempotencyKey], map: "video_upload_attempts_idempotency_unique")
   @@map("upload_attempts")

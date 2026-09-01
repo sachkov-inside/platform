@@ -1,19 +1,16 @@
 "use client";
 
 import { LoaderCircle, Play, RotateCcw, VideoOff } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { type Ref, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
-import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import { Button } from "@/shared/ui/button";
 
-const sessionSchema = z.object({
-  drmAuthToken: z.string().nullable(),
-  embedLocator: z.url(),
-  progressScope: z.enum(["account", "anonymous"]),
-  resumeSeconds: z.number().int().nonnegative().nullable(),
-  videoId: z.uuid(),
-}).strict();
+import {
+  createMaterialVideoPlaybackSession,
+  saveMaterialVideoProgress,
+} from "../api/video-playback.browser";
 
 interface MaterialPrimaryVideoProps {
   readonly materialId: string;
@@ -25,12 +22,14 @@ interface MaterialPrimaryVideoProps {
   };
 }
 
-type PlayerPhase = "idle" | "loading" | "playing" | "error";
+export type PlayerPhase = "idle" | "loading" | "playing" | "error";
 
 export function MaterialPrimaryVideo({ materialId, video }: MaterialPrimaryVideoProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
   const playerRef = useRef<{ destroy(): Promise<void> } | null>(null);
   const [phase, setPhase] = useState<PlayerPhase>("idle");
+  const { mutateAsync: createPlaybackSession } = useMutation({ mutationFn: createMaterialVideoPlaybackSession });
+  const { mutate: persistAccountProgress } = useMutation({ mutationFn: saveMaterialVideoProgress });
 
   useEffect(() => () => {
     void playerRef.current?.destroy();
@@ -44,28 +43,20 @@ export function MaterialPrimaryVideo({ materialId, video }: MaterialPrimaryVideo
     if (phase === "loading" || phase === "playing") return;
     setPhase("loading");
     try {
-      const formData = new FormData();
-      formData.set("materialId", materialId);
-      formData.set("videoId", video.videoId);
-      const response = await requestSameOriginMutation(
-        "/api/material-video-playback",
-        "POST",
-        formData,
-      );
-      const session = response.ok ? sessionSchema.safeParse(response.body) : null;
-      if (session === null || !session.success || session.data.videoId !== video.videoId) {
+      const session = await createPlaybackSession({ materialId, videoId: video.videoId });
+      if (session === null || session.videoId !== video.videoId) {
         throw new Error("Playback session is unavailable");
       }
-      const mount = containerRef.current;
+      const mount = sectionRef.current?.querySelector<HTMLElement>("[data-video-player-mount]") ?? null;
       if (mount === null) throw new Error("Player mount is unavailable");
-      const source = new URL(session.data.embedLocator);
+      const source = new URL(session.embedLocator);
       source.searchParams.set("dnt", "1");
-      if (session.data.drmAuthToken !== null) {
-        source.searchParams.set("drmauthtoken", session.data.drmAuthToken);
+      if (session.drmAuthToken !== null) {
+        source.searchParams.set("drmauthtoken", session.drmAuthToken);
       }
-      const resumeSeconds = session.data.progressScope === "anonymous"
-        ? readAnonymousProgress(video.videoId) ?? session.data.resumeSeconds
-        : session.data.resumeSeconds;
+      const resumeSeconds = session.progressScope === "anonymous"
+        ? readAnonymousProgress(video.videoId) ?? session.resumeSeconds
+        : session.resumeSeconds;
       const iframeApi = await import("@kinescope/player-iframe-api-loader");
       const factory = await iframeApi.load();
       const player = await factory.create(mount, {
@@ -94,11 +85,16 @@ export function MaterialPrimaryVideo({ materialId, video }: MaterialPrimaryVideo
       const persist = (position: number) => {
         const rounded = Math.max(0, Math.min(duration, Math.round(position)));
         lastPersisted = rounded;
-        if (session.data.progressScope === "anonymous") {
+        if (session.progressScope === "anonymous") {
           writeAnonymousProgress(video.videoId, rounded, duration);
           return;
         }
-        void writeAccountProgress(materialId, video.videoId, rounded, duration);
+        persistAccountProgress({
+          durationSeconds: duration,
+          materialId,
+          positionSeconds: rounded,
+          videoId: video.videoId,
+        });
       };
       player.on(player.Events.TimeUpdate, ({ data: { currentTime: nextTime } }) => {
         currentTime = nextTime;
@@ -112,24 +108,49 @@ export function MaterialPrimaryVideo({ materialId, video }: MaterialPrimaryVideo
     }
   };
 
+  return <MaterialVideoPlayerView
+    onLoad={() => { void loadPlayer(); }}
+    phase={phase}
+    sectionRef={sectionRef}
+    title={video.title}
+    videoId={video.videoId}
+  />;
+}
+
+export interface MaterialVideoPlayerViewProps {
+  readonly onLoad: () => void;
+  readonly phase: PlayerPhase;
+  readonly sectionRef?: Ref<HTMLElement>;
+  readonly title: string;
+  readonly videoId: string;
+}
+
+/** Production player shell shared with Storybook state fixtures. */
+export function MaterialVideoPlayerView({
+  onLoad,
+  phase,
+  sectionRef,
+  title,
+  videoId,
+}: MaterialVideoPlayerViewProps) {
   return (
-    <section aria-labelledby="primary-video-heading" className="mt-8 max-w-[56rem] sm:mt-10" data-video-id={video.videoId}>
+    <section aria-labelledby="primary-video-heading" className="mt-8 max-w-[56rem] sm:mt-10" data-video-id={videoId} ref={sectionRef}>
       <div className="mb-3 flex items-baseline justify-between gap-4">
         <h2 className="text-lg font-semibold tracking-[-0.02em]" id="primary-video-heading">
           Видео
         </h2>
         <span className="font-mono text-[0.6875rem] text-muted-foreground">Kinescope · DNT</span>
       </div>
-      <p className="mb-3 text-sm font-semibold leading-5 sm:hidden">{video.title}</p>
+      <p className="mb-3 text-sm font-semibold leading-5 sm:hidden">{title}</p>
       <div className="relative aspect-video overflow-hidden rounded-2xl bg-sidebar text-sidebar-foreground shadow-card ring-1 ring-sidebar-border">
-        <div className="absolute inset-0" ref={containerRef} />
+        <div className="absolute inset-0" data-video-player-mount />
         {phase === "playing" ? null : (
           <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(circle_at_70%_20%,color-mix(in_oklch,var(--accent)_18%,transparent),transparent_42%),linear-gradient(145deg,var(--sidebar),color-mix(in_oklch,var(--sidebar)_84%,black))] p-3 text-center sm:p-6">
             <div className="max-w-md">
               <span className="mx-auto grid size-11 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm sm:size-14 sm:rounded-2xl">
                 {phase === "loading" ? <LoaderCircle aria-hidden="true" className="size-6 animate-spin motion-reduce:animate-none" /> : <Play aria-hidden="true" className="size-6 fill-current" />}
               </span>
-              <p className="mt-5 hidden text-balance text-lg font-semibold sm:block">{video.title}</p>
+              <p className="mt-5 hidden text-balance text-lg font-semibold sm:block">{title}</p>
               <p aria-live="polite" className="mt-2 hidden text-sm leading-6 text-sidebar-foreground/70 sm:block">
                 {phase === "loading"
                   ? "Проверяем доступ и загружаем player…"
@@ -140,7 +161,7 @@ export function MaterialPrimaryVideo({ materialId, video }: MaterialPrimaryVideo
               <Button
                 className="mt-3 sm:mt-5"
                 disabled={phase === "loading"}
-                onClick={() => void loadPlayer()}
+                onClick={onLoad}
                 type="button"
               >
                 {phase === "error" ? <RotateCcw aria-hidden="true" /> : <Play aria-hidden="true" />}
@@ -200,22 +221,4 @@ function writeAnonymousProgress(videoId: string, positionSeconds: number, durati
   } catch {
     // Resume is best-effort when storage is unavailable.
   }
-}
-
-async function writeAccountProgress(
-  materialId: string,
-  videoId: string,
-  positionSeconds: number,
-  durationSeconds: number,
-): Promise<void> {
-  const formData = new FormData();
-  formData.set("durationSeconds", String(durationSeconds));
-  formData.set("materialId", materialId);
-  formData.set("positionSeconds", String(positionSeconds));
-  formData.set("videoId", videoId);
-  await requestSameOriginMutation(
-    "/api/material-video-playback",
-    "PUT",
-    formData,
-  );
 }

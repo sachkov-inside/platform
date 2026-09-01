@@ -33,16 +33,31 @@ export const statement = `
 
   create table videos.upload_attempts (
     id uuid primary key,
-    video_id uuid not null references videos.videos(id) on delete cascade,
+    video_id uuid references videos.videos(id) on delete cascade,
     material_id uuid not null,
     created_by uuid not null,
     idempotency_key varchar(128) not null,
-    upload_endpoint varchar(2048) not null,
+    access text not null,
+    project_id varchar(128) not null,
+    title varchar(255) not null,
+    status text not null,
+    upload_endpoint varchar(2048),
+    failure_code varchar(64),
     filename varchar(255) not null,
     byte_size bigint not null check (byte_size > 0),
     created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    constraint video_upload_attempts_access_check check (access in ('free', 'membership')),
+    constraint video_upload_attempts_status_check check (status in ('initializing', 'ready', 'unknown')),
+    constraint video_upload_attempts_ready_shape_check check (
+      status <> 'ready' or (video_id is not null and upload_endpoint is not null)
+    ),
     constraint video_upload_attempts_idempotency_unique unique (material_id, created_by, idempotency_key)
   );
+
+  create unique index video_upload_attempts_one_unresolved_idx
+    on videos.upload_attempts (material_id, created_by)
+    where status in ('initializing', 'unknown');
 
   create table videos.webhook_inbox (
     id uuid primary key,

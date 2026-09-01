@@ -1,8 +1,20 @@
-import { randomUUID } from "node:crypto";
-
 import { z } from "zod";
 
 import type { VideosPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import {
+  newVideoId,
+  newVideoUploadAttemptId,
+  newVideoWebhookInboxId,
+  providerVideoIdSchema,
+  videoAccountIdSchema,
+  videoIdempotencyKeySchema,
+  videoIdSchema,
+  videoMaterialIdSchema,
+  type ProviderVideoId,
+  type VideoAccountId,
+  type VideoId,
+  type VideoUploadAttemptId,
+} from "../../domain/video-identifiers.js";
 import type { VideoProvider, ProviderVideo } from "../../ports/video-provider.js";
 import type {
   VideoDto,
@@ -11,27 +23,48 @@ import type {
   VideoState,
 } from "./videos.interface.js";
 
-const uuid = z.uuid();
 const access = z.enum(["free", "membership"]);
 const initInput = z.object({
   access,
-  actor: uuid,
+  actor: videoAccountIdSchema,
   byteSize: z.number().int().positive().max(20 * 1024 * 1024 * 1024),
   filename: z.string().trim().min(1).max(255),
-  idempotencyKey: z.string().trim().min(1).max(128),
-  materialId: uuid,
+  idempotencyKey: videoIdempotencyKeySchema,
+  materialId: videoMaterialIdSchema,
   title: z.string().trim().min(1).max(255),
 }).strict();
 const attachInput = z.object({
   access,
-  actor: uuid,
-  materialId: uuid,
-  providerVideoId: z.string().trim().min(1).max(256),
+  actor: videoAccountIdSchema,
+  materialId: videoMaterialIdSchema,
+  providerVideoId: providerVideoIdSchema,
 }).strict();
-const reconcileInput = z.object({ actor: uuid, videoId: uuid }).strict();
+const reconcileInput = z.object({ actor: videoAccountIdSchema, videoId: videoIdSchema }).strict();
+const webhookInput = z.object({
+  event: z.string().trim().min(1).max(128),
+  providerStatus: z.string().trim().min(1).max(64).optional(),
+  providerVideoId: providerVideoIdSchema,
+}).strict();
+const primaryReferenceInput = z.object({
+  access,
+  materialId: videoMaterialIdSchema,
+  videoId: videoIdSchema,
+}).strict();
+const presentationInput = z.object({
+  materialId: videoMaterialIdSchema,
+  videoId: videoIdSchema,
+}).strict();
+const progressIdentityInput = z.object({
+  accountId: videoAccountIdSchema,
+  videoId: videoIdSchema,
+}).strict();
+const saveProgressInput = progressIdentityInput.extend({
+  durationSeconds: z.number().int().positive(),
+  positionSeconds: z.number().int().nonnegative(),
+}).refine((value) => value.positionSeconds <= value.durationSeconds);
 
 export function assembleVideos(dependencies: {
-  readonly canManage: (accountId: string) => Promise<boolean>;
+  readonly canManage: (accountId: VideoAccountId) => Promise<boolean>;
   readonly prisma: VideosPrismaClient;
   readonly provider: VideoProvider;
   readonly projects: Readonly<Record<"free" | "membership", string>>;
@@ -44,34 +77,83 @@ export function assembleVideos(dependencies: {
       const parsed = initInput.safeParse(input);
       if (!parsed.success) return invalidRequest();
       if (!(await managerAllowed(parsed.data.actor))) return forbidden();
-      const existing = await dependencies.prisma.videoUploadAttempt.findFirst({
-        where: {
-          createdBy: parsed.data.actor,
-          idempotencyKey: parsed.data.idempotencyKey,
-          materialId: parsed.data.materialId,
-        },
-      });
-      if (existing !== null) {
-        const video = await dependencies.prisma.video.findUnique({ where: { id: existing.videoId } });
-        if (
-          video === null ||
-          video.access !== parsed.data.access ||
-          video.originalFilename !== parsed.data.filename ||
-          video.title !== parsed.data.title ||
-          Number(existing.byteSize) !== parsed.data.byteSize
-        ) {
-          return { ok: false, error: { code: "idempotency_key_reused" } };
-        }
-        return { ok: true, value: { uploadEndpoint: existing.uploadEndpoint, video: toDto(video) } };
-      }
       const projectId = dependencies.projects[parsed.data.access];
+      const attempts = await Promise.all([
+        dependencies.prisma.videoUploadAttempt.findFirst({
+          where: {
+            createdBy: parsed.data.actor,
+            idempotencyKey: parsed.data.idempotencyKey,
+            materialId: parsed.data.materialId,
+          },
+        }),
+        dependencies.prisma.videoUploadAttempt.findFirst({
+          where: {
+            createdBy: parsed.data.actor,
+            materialId: parsed.data.materialId,
+            status: { in: ["initializing", "unknown"] },
+          },
+        }),
+      ]).catch(() => null);
+      if (attempts === null) return dependencyUnavailable();
+      const [existing, unresolved] = attempts;
+      if (existing !== null) {
+        return replayUploadAttempt(existing, parsed.data, projectId);
+      }
+      if (unresolved !== null) return uploadOutcomeUnknown();
+      const attemptId = newVideoUploadAttemptId();
+      const createdAt = now();
       try {
-        const initialized = await dependencies.provider.initUpload({
+        await dependencies.prisma.videoUploadAttempt.create({
+          data: {
+            access: parsed.data.access,
+            byteSize: BigInt(parsed.data.byteSize),
+            createdAt,
+            createdBy: parsed.data.actor,
+            filename: parsed.data.filename,
+            id: attemptId,
+            idempotencyKey: parsed.data.idempotencyKey,
+            materialId: parsed.data.materialId,
+            projectId,
+            status: "initializing",
+            title: parsed.data.title,
+            updatedAt: createdAt,
+          },
+        });
+      } catch {
+        const concurrent = await dependencies.prisma.videoUploadAttempt.findFirst({
+          where: {
+            createdBy: parsed.data.actor,
+            idempotencyKey: parsed.data.idempotencyKey,
+            materialId: parsed.data.materialId,
+          },
+        }).catch(() => null);
+        if (concurrent !== null) return replayUploadAttempt(concurrent, parsed.data, projectId);
+        const concurrentUnresolved = await dependencies.prisma.videoUploadAttempt.findFirst({
+          where: {
+            createdBy: parsed.data.actor,
+            materialId: parsed.data.materialId,
+            status: { in: ["initializing", "unknown"] },
+          },
+        }).catch(() => null);
+        return concurrentUnresolved === null ? dependencyUnavailable() : uploadOutcomeUnknown();
+      }
+      let initialized: Awaited<ReturnType<VideoProvider["initUpload"]>>;
+      try {
+        initialized = await dependencies.provider.initUpload({
           ...parsed.data,
           projectId,
         });
-        const videoId = randomUUID();
-        const createdAt = now();
+      } catch {
+        await markUploadOutcomeUnknown(attemptId);
+        return dependencyUnavailable();
+      }
+      const initializedProviderVideoId = providerVideoIdSchema.safeParse(initialized.id);
+      if (!initializedProviderVideoId.success) {
+        await markUploadOutcomeUnknown(attemptId);
+        return dependencyUnavailable();
+      }
+      try {
+        const videoId = newVideoId();
         const video = await dependencies.prisma.$transaction(async (transaction) => {
           const saved = await transaction.video.create({
             data: {
@@ -83,29 +165,27 @@ export function assembleVideos(dependencies: {
               originalFilename: parsed.data.filename,
               projectId,
               providerStatus: "uploading",
-              providerVideoId: initialized.id,
+              providerVideoId: initializedProviderVideoId.data,
               state: "uploading",
               title: parsed.data.title,
               updatedAt: createdAt,
             },
           });
-          await transaction.videoUploadAttempt.create({
+          await transaction.videoUploadAttempt.update({
+            where: { id: attemptId },
             data: {
-              id: randomUUID(),
-              byteSize: BigInt(parsed.data.byteSize),
-              createdAt,
-              createdBy: parsed.data.actor,
-              filename: parsed.data.filename,
-              idempotencyKey: parsed.data.idempotencyKey,
-              materialId: parsed.data.materialId,
+              status: "ready",
               uploadEndpoint: initialized.uploadEndpoint,
+              updatedAt: now(),
               videoId,
             },
           });
           return saved;
         });
+        await reconcilePendingWebhooks(initializedProviderVideoId.data, videoIdSchema.parse(video.id));
         return { ok: true, value: { uploadEndpoint: initialized.uploadEndpoint, video: toDto(video) } };
       } catch {
+        await markUploadOutcomeUnknown(attemptId);
         return dependencyUnavailable();
       }
     },
@@ -134,7 +214,7 @@ export function assembleVideos(dependencies: {
         const savedAt = now();
         const saved = await dependencies.prisma.video.create({
           data: {
-            id: randomUUID(),
+            id: newVideoId(),
             access: parsed.data.access,
             createdAt: savedAt,
             createdBy: parsed.data.actor,
@@ -145,7 +225,7 @@ export function assembleVideos(dependencies: {
             providerEmbedLocator: lifecycle.embedLocator,
             providerMessage: remote.message ?? null,
             providerStatus: remote.status,
-            providerVideoId: remote.id,
+            providerVideoId: parsed.data.providerVideoId,
             readyAt: lifecycle.state === "ready" ? savedAt : null,
             state: lifecycle.state,
             title: remote.title,
@@ -166,24 +246,25 @@ export function assembleVideos(dependencies: {
     },
 
     async acceptWebhook(input) {
+      const parsed = webhookInput.safeParse(input);
+      if (!parsed.success) return invalidRequest();
       try {
         const receivedAt = now();
         const inbox = await dependencies.prisma.videoWebhookInbox.create({
           data: {
-            id: randomUUID(),
-            event: input.event.slice(0, 128),
-            providerStatus: input.providerStatus?.slice(0, 64) ?? null,
-            providerVideoId: input.providerVideoId.slice(0, 256),
+            id: newVideoWebhookInboxId(),
+            event: parsed.data.event,
+            providerStatus: parsed.data.providerStatus ?? null,
+            providerVideoId: parsed.data.providerVideoId,
             receivedAt,
           },
         });
         const local = await dependencies.prisma.video.findFirst({
-          where: { providerVideoId: input.providerVideoId },
+          where: { providerVideoId: parsed.data.providerVideoId },
         });
-        if (local !== null) {
-          const reconciled = await reconcileById(local.id);
-          if (!reconciled.ok) return reconciled;
-        }
+        if (local === null) return { ok: true, value: undefined };
+        const reconciled = await reconcileById(videoIdSchema.parse(local.id));
+        if (!reconciled.ok) return reconciled;
         await dependencies.prisma.videoWebhookInbox.update({
           where: { id: inbox.id },
           data: { reconciledAt: now() },
@@ -195,13 +276,12 @@ export function assembleVideos(dependencies: {
     },
 
     async inspectPrimaryReference(input) {
-      if (!uuid.safeParse(input.videoId).success || !uuid.safeParse(input.materialId).success || !access.safeParse(input.access).success) {
-        return invalidRequest();
-      }
+      const parsed = primaryReferenceInput.safeParse(input);
+      if (!parsed.success) return invalidRequest();
       try {
-        const video = await dependencies.prisma.video.findUnique({ where: { id: input.videoId } });
+        const video = await dependencies.prisma.video.findUnique({ where: { id: parsed.data.videoId } });
         if (video === null) return videoNotFound();
-        if (video.materialId !== input.materialId || video.access !== input.access || video.projectId !== dependencies.projects[input.access]) {
+        if (videoMaterialIdSchema.parse(video.materialId) !== parsed.data.materialId || video.access !== parsed.data.access || video.projectId !== dependencies.projects[parsed.data.access]) {
           return providerMismatch();
         }
         return video.state === "ready" ? { ok: true, value: undefined } : videoNotReady();
@@ -211,18 +291,20 @@ export function assembleVideos(dependencies: {
     },
 
     async loadPresentation(input) {
+      const parsed = presentationInput.safeParse(input);
+      if (!parsed.success) return invalidRequest();
       try {
         const video = await dependencies.prisma.video.findFirst({
-          where: { id: input.videoId, materialId: input.materialId },
+          where: { id: parsed.data.videoId, materialId: parsed.data.materialId },
         });
         return {
           ok: true,
           value: video === null
             ? null
             : {
-                videoId: video.id,
+                videoId: videoIdSchema.parse(video.id),
                 title: video.title,
-                state: state(video.state),
+                state: parseVideoState(video.state),
                 ...(video.failureCode === null ? {} : { failureCode: video.failureCode }),
               },
         };
@@ -232,12 +314,14 @@ export function assembleVideos(dependencies: {
     },
 
     async loadAccessFacts(videoIds) {
+      const parsed = z.array(videoIdSchema).safeParse(videoIds);
+      if (!parsed.success) return invalidRequest();
       try {
-        const videos = await dependencies.prisma.video.findMany({ where: { id: { in: [...videoIds] } } });
+        const videos = await dependencies.prisma.video.findMany({ where: { id: { in: parsed.data } } });
         return { ok: true, value: videos.map((video) => ({
           access: access.parse(video.access),
-          materialId: video.materialId,
-          videoId: video.id,
+          materialId: videoMaterialIdSchema.parse(video.materialId),
+          videoId: videoIdSchema.parse(video.id),
         })) };
       } catch {
         return dependencyUnavailable();
@@ -245,16 +329,18 @@ export function assembleVideos(dependencies: {
     },
 
     async loadPlayback(videoId) {
+      const parsed = videoIdSchema.safeParse(videoId);
+      if (!parsed.success) return invalidRequest();
       try {
-        const video = await dependencies.prisma.video.findUnique({ where: { id: videoId } });
+        const video = await dependencies.prisma.video.findUnique({ where: { id: parsed.data } });
         if (video === null) return { ok: true, value: null };
         if (video.state !== "ready" || video.providerEmbedLocator === null) return videoNotReady();
         return { ok: true, value: {
           access: access.parse(video.access),
           embedLocator: video.providerEmbedLocator,
-          materialId: video.materialId,
-          providerVideoId: video.providerVideoId,
-          videoId: video.id,
+          materialId: videoMaterialIdSchema.parse(video.materialId),
+          providerVideoId: providerVideoIdSchema.parse(video.providerVideoId),
+          videoId: videoIdSchema.parse(video.id),
         } };
       } catch {
         return dependencyUnavailable();
@@ -262,9 +348,11 @@ export function assembleVideos(dependencies: {
     },
 
     async loadProgress(input) {
+      const parsed = progressIdentityInput.safeParse(input);
+      if (!parsed.success) return invalidRequest();
       try {
         const progress = await dependencies.prisma.videoPlaybackProgress.findUnique({
-          where: { accountId_videoId: { accountId: input.accountId, videoId: input.videoId } },
+          where: { accountId_videoId: parsed.data },
         });
         return { ok: true, value: progress === null ? null : { positionSeconds: progress.positionSeconds } };
       } catch {
@@ -273,14 +361,13 @@ export function assembleVideos(dependencies: {
     },
 
     async saveProgress(input) {
-      if (!uuid.safeParse(input.accountId).success || !uuid.safeParse(input.videoId).success || !Number.isInteger(input.durationSeconds) || !Number.isInteger(input.positionSeconds) || input.durationSeconds <= 0 || input.positionSeconds < 0 || input.positionSeconds > input.durationSeconds) {
-        return invalidRequest();
-      }
+      const parsed = saveProgressInput.safeParse(input);
+      if (!parsed.success) return invalidRequest();
       try {
         await dependencies.prisma.videoPlaybackProgress.upsert({
-          where: { accountId_videoId: { accountId: input.accountId, videoId: input.videoId } },
-          create: { ...input, updatedAt: now() },
-          update: { durationSeconds: input.durationSeconds, positionSeconds: input.positionSeconds, updatedAt: now() },
+          where: { accountId_videoId: { accountId: parsed.data.accountId, videoId: parsed.data.videoId } },
+          create: { ...parsed.data, updatedAt: now() },
+          update: { durationSeconds: parsed.data.durationSeconds, positionSeconds: parsed.data.positionSeconds, updatedAt: now() },
         });
         return { ok: true, value: undefined };
       } catch {
@@ -290,7 +377,7 @@ export function assembleVideos(dependencies: {
   };
   return Object.freeze(videos);
 
-  async function managerAllowed(actor: string): Promise<boolean> {
+  async function managerAllowed(actor: VideoAccountId): Promise<boolean> {
     try {
       return await dependencies.canManage(actor);
     } catch {
@@ -298,11 +385,77 @@ export function assembleVideos(dependencies: {
     }
   }
 
-  async function reconcileById(videoId: string): Promise<VideoResult<VideoDto>> {
+  async function replayUploadAttempt(
+    attempt: {
+      readonly access: string;
+      readonly byteSize: bigint;
+      readonly filename: string;
+      readonly projectId: string;
+      readonly status: string;
+      readonly title: string;
+      readonly uploadEndpoint: string | null;
+      readonly videoId: string | null;
+    },
+    input: z.output<typeof initInput>,
+    projectId: string,
+  ): Promise<VideoResult<{ readonly uploadEndpoint: string; readonly video: VideoDto }>> {
+    if (
+      attempt.access !== input.access ||
+      attempt.filename !== input.filename ||
+      attempt.projectId !== projectId ||
+      attempt.title !== input.title ||
+      Number(attempt.byteSize) !== input.byteSize
+    ) return { ok: false, error: { code: "idempotency_key_reused" } };
+    if (attempt.status !== "ready" || attempt.videoId === null || attempt.uploadEndpoint === null) {
+      return uploadOutcomeUnknown();
+    }
+    try {
+      const video = await dependencies.prisma.video.findUnique({
+        where: { id: videoIdSchema.parse(attempt.videoId) },
+      });
+      return video === null
+        ? uploadOutcomeUnknown()
+        : { ok: true, value: { uploadEndpoint: attempt.uploadEndpoint, video: toDto(video) } };
+    } catch {
+      return dependencyUnavailable();
+    }
+  }
+
+  async function markUploadOutcomeUnknown(attemptId: VideoUploadAttemptId): Promise<void> {
+    await dependencies.prisma.videoUploadAttempt.update({
+      where: { id: attemptId },
+      data: {
+        failureCode: "provider_outcome_unknown",
+        status: "unknown",
+        updatedAt: now(),
+      },
+    }).catch(() => undefined);
+  }
+
+  async function reconcilePendingWebhooks(providerVideoId: ProviderVideoId, videoId: VideoId): Promise<void> {
+    const cutoff = now();
+    try {
+      const pending = await dependencies.prisma.videoWebhookInbox.findFirst({
+        where: { providerVideoId, reconciledAt: null, receivedAt: { lte: cutoff } },
+      });
+      if (pending === null) return;
+      const reconciled = await reconcileById(videoId);
+      if (!reconciled.ok) return;
+      await dependencies.prisma.videoWebhookInbox.updateMany({
+        where: { providerVideoId, reconciledAt: null, receivedAt: { lte: cutoff } },
+        data: { reconciledAt: now() },
+      });
+    } catch {
+      // The durable inbox stays pending for the next browser poll or provider retry.
+    }
+  }
+
+  async function reconcileById(videoId: VideoId): Promise<VideoResult<VideoDto>> {
     try {
       const local = await dependencies.prisma.video.findUnique({ where: { id: videoId } });
       if (local === null) return videoNotFound();
-      const remote = await dependencies.provider.find({ id: local.providerVideoId, projectId: local.projectId });
+      const localProviderVideoId = providerVideoIdSchema.parse(local.providerVideoId);
+      const remote = await dependencies.provider.find({ id: localProviderVideoId, projectId: local.projectId });
       if (
         remote === null ||
         remote.id !== local.providerVideoId ||
@@ -356,15 +509,15 @@ function providerLifecycle(remote: ProviderVideo): {
 function toDto(video: { id: string; access: string; materialId: string; state: string; title: string; failureCode: string | null }): VideoDto {
   return {
     access: access.parse(video.access),
-    materialId: video.materialId,
-    state: state(video.state),
+    materialId: videoMaterialIdSchema.parse(video.materialId),
+    state: parseVideoState(video.state),
     title: video.title,
-    videoId: video.id,
+    videoId: videoIdSchema.parse(video.id),
     ...(video.failureCode === null ? {} : { failureCode: video.failureCode }),
   };
 }
 
-function state(value: string): VideoState {
+function parseVideoState(value: string): VideoState {
   return z.enum(["uploading", "processing", "ready", "failed"]).parse(value);
 }
 
@@ -372,5 +525,6 @@ const invalidRequest = <Value>(): VideoResult<Value> => ({ ok: false, error: { c
 const forbidden = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "forbidden" } });
 const dependencyUnavailable = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "dependency_unavailable", retryable: true } });
 const providerMismatch = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "provider_mismatch" } });
+const uploadOutcomeUnknown = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "upload_outcome_unknown" } });
 const videoNotFound = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "video_not_found" } });
 const videoNotReady = <Value>(): VideoResult<Value> => ({ ok: false, error: { code: "video_not_ready" } });

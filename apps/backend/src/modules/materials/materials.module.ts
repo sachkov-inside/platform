@@ -59,8 +59,8 @@ import {
 import {
   assembleVideoPlayback,
   VIDEO_PLAYBACK,
-  type VideoPlaybackService,
-} from "./features/video-playback/video-playback.js";
+  type VideoPlayback,
+} from "./facets/video-playback/video-playback.js";
 
 @Module({
   imports: [PrismaModule, AccountsModule, AssetsModule, MembershipEntitlementsModule, VideosModule],
@@ -181,7 +181,7 @@ import {
         contentAccess: ContentAccess,
         videos: Videos,
         config: PlatformConfig,
-      ): VideoPlaybackService => assembleVideoPlayback({
+      ): VideoPlayback => assembleVideoPlayback({
         contentAccess,
         jwtSecret: config.kinescope.playbackJwtSecret,
         jwtTtlSeconds: config.kinescope.playbackJwtTtlSeconds,

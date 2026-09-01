@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { accountId } from "../../src/modules/accounts/index.js";
 import type { ContentAccess } from "../../src/modules/content-access/index.js";
-import { assembleVideoPlayback } from "../../src/modules/materials/features/video-playback/video-playback.js";
+import { assembleVideoPlayback } from "../../src/modules/materials/facets/video-playback/video-playback.js";
 import type { Videos } from "../../src/modules/videos/index.js";
 
 const account = accountId("81000000-0000-4000-8000-000000000001");
@@ -48,6 +48,17 @@ describe("Video playback authorization", () => {
     await expect(playback.authorizeProvider({
       providerVideoId: "provider-video",
       token: `${session.value.drmAuthToken}tampered`,
+    })).resolves.toBe(false);
+    const expiredPlayback = assembleVideoPlayback({
+      clock: () => new Date(now.getTime() + 61_000),
+      contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
+      jwtSecret: "test-playback-secret-with-at-least-32-characters",
+      jwtTtlSeconds: 60,
+      videos,
+    });
+    await expect(expiredPlayback.authorizeProvider({
+      providerVideoId: "provider-video",
+      token: session.value.drmAuthToken,
     })).resolves.toBe(false);
     expect(authorize).toHaveBeenNthCalledWith(1, expect.objectContaining({
       action: "play",

@@ -34,15 +34,15 @@ export class VideoPlaybackService {
       errors: {
         401: `Optional Account proof is invalid`,
         500: `Account resolution failed`,
-        503: `Account proof dependency is unavailable`,
       },
     });
   }
   /**
+   * Save coarse Account progress for one Video
    * @returns void
    * @throws ApiError
    */
-  public videoProgressControllerSave({
+  public saveVideoPlaybackProgress({
     videoId,
     materialId,
     requestBody,

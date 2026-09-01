@@ -1,9 +1,9 @@
 import { describe, expect, test, vi } from "vitest";
 
 import type { PlatformConfig } from "../../src/config/platform-config.js";
-import { KinescopeIntegrationController } from "../../src/modules/materials/index.js";
-import type { VideoPlaybackService } from "../../src/modules/materials/features/video-playback/video-playback.js";
-import type { Videos } from "../../src/modules/videos/index.js";
+import { KinescopeVideoAuthorizationController } from "../../src/modules/materials/index.js";
+import type { VideoPlayback } from "../../src/modules/materials/facets/video-playback/video-playback.js";
+import { KinescopeWebhookController, type Videos } from "../../src/modules/videos/index.js";
 
 const config = {
   kinescope: {
@@ -25,10 +25,8 @@ const config = {
 describe("Kinescope integration HTTP boundary", () => {
   test("accepts provider-supported webhook Basic auth and keeps the hint authoritative", async () => {
     const acceptWebhook = vi.fn().mockResolvedValue({ ok: true, value: undefined });
-    const authorizeProvider = vi.fn().mockResolvedValue(true);
-    const controller = new KinescopeIntegrationController(
+    const controller = new KinescopeWebhookController(
       { acceptWebhook } satisfies Pick<Videos, "acceptWebhook">,
-      { authorizeProvider } satisfies Pick<VideoPlaybackService, "authorizeProvider">,
       config,
     );
 
@@ -58,9 +56,12 @@ describe("Kinescope integration HTTP boundary", () => {
       ok: false,
     });
     const authorizeProvider = vi.fn().mockResolvedValue(false);
-    const controller = new KinescopeIntegrationController(
+    const controller = new KinescopeWebhookController(
       { acceptWebhook } satisfies Pick<Videos, "acceptWebhook">,
-      { authorizeProvider } satisfies Pick<VideoPlaybackService, "authorizeProvider">,
+      config,
+    );
+    const authorizationController = new KinescopeVideoAuthorizationController(
+      { authorizeProvider } satisfies Pick<VideoPlayback, "authorizeProvider">,
       config,
     );
 
@@ -68,7 +69,7 @@ describe("Kinescope integration HTTP boundary", () => {
       basic("webhook-user", "webhook-password"),
       { data: { id: "provider-video", status: "done" }, event: "media.update.status" },
     )).rejects.toMatchObject({ response: { code: "dependency_unavailable", retryable: true }, status: 503 });
-    await expect(controller.authorize(
+    await expect(authorizationController.authorize(
       basic("callback-user", "callback-password"),
       { id: "provider-video", token: "tampered-token", type: "video" },
     )).rejects.toMatchObject({ status: 403 });

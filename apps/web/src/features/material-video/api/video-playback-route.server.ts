@@ -4,10 +4,8 @@ import { z } from "zod";
 
 import { requestVideoPlayback, requestVideoProgress } from "@/shared/api/backend/index.server";
 import {
-  getOptionalPlatformAccessToken,
   handleAuthenticatedMutation,
-  isSameOriginMutation,
-  readLogtoBffConfig,
+  handleOptionalAuthenticatedMutation,
 } from "@/shared/auth/index.server";
 
 const idSchema = z.uuid();
@@ -25,42 +23,28 @@ const progressSchema = z.object({
   videoId: z.uuid(),
 }).strict();
 
-export async function handleVideoPlaybackRequest(
+export function handleVideoPlaybackSessionRequest(
   request: Request,
 ): Promise<Response> {
-  if (!isSameOriginMutation(request, readLogtoBffConfig().baseUrl)) {
-    return Response.json(
-      { code: "cross_origin_request" },
-      { headers: { "Cache-Control": "private, no-store", Vary: "cookie" }, status: 403 },
-    );
-  }
-  let formData: FormData;
-  try {
-    formData = await request.formData();
-  } catch {
-    return Response.json({ code: "invalid_input" }, { status: 400 });
-  }
-  const materialId = formData.get("materialId");
-  const videoId = formData.get("videoId");
-  if (typeof materialId !== "string" || typeof videoId !== "string" ||
-    !idSchema.safeParse(materialId).success || !idSchema.safeParse(videoId).success) {
-    return Response.json({ code: "not_found" }, { status: 404 });
-  }
-  const result = await requestVideoPlayback(
-    materialId,
-    videoId,
-    await getOptionalPlatformAccessToken(request),
-  );
-  if (!result.ok) {
-    return Response.json({ code: "playback_unavailable" }, { status: result.response.status });
-  }
-  const parsed = sessionSchema.safeParse(result.body);
-  return parsed.success
-    ? Response.json(parsed.data, { headers: { "Cache-Control": "private, no-store" } })
-    : Response.json({ code: "invalid_response" }, { status: 502 });
+  return handleOptionalAuthenticatedMutation(request, async (formData, accessToken) => {
+    const materialId = formData.get("materialId");
+    const videoId = formData.get("videoId");
+    if (typeof materialId !== "string" || typeof videoId !== "string" ||
+      !idSchema.safeParse(materialId).success || !idSchema.safeParse(videoId).success) {
+      return Response.json({ code: "not_found" }, { status: 404 });
+    }
+    const result = await requestVideoPlayback(materialId, videoId, accessToken);
+    if (!result.ok) {
+      return Response.json({ code: "playback_unavailable" }, { status: result.response.status });
+    }
+    const parsed = sessionSchema.safeParse(result.body);
+    return parsed.success
+      ? Response.json(parsed.data)
+      : Response.json({ code: "invalid_response" }, { status: 502 });
+  });
 }
 
-export function handleVideoProgressRequest(
+export function handleVideoProgressSaveRequest(
   request: Request,
 ): Promise<Response> {
   return handleAuthenticatedMutation(request, async (formData, accessToken) => {

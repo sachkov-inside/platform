@@ -1013,6 +1013,16 @@
       }
     },
     "securitySchemes": {
+      "kinescope-callback": {
+        "description": "Kinescope DRM authorization callback credentials.",
+        "scheme": "basic",
+        "type": "http"
+      },
+      "kinescope-webhook": {
+        "description": "Kinescope webhook credentials configured for the Platform endpoint.",
+        "scheme": "basic",
+        "type": "http"
+      },
       "logto": {
         "bearerFormat": "JWT",
         "description": "Logto access token for the exact Platform API audience.",
@@ -10949,6 +10959,221 @@
               }
             },
             "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
           }
         },
         "security": [
@@ -10958,7 +11183,7 @@
         ],
         "summary": "Attach an existing Video from the configured project",
         "tags": [
-          "Material authoring"
+          "Material video authoring"
         ]
       }
     },
@@ -10981,6 +11206,8 @@
             "name": "idempotency-key",
             "required": true,
             "schema": {
+              "maxLength": 128,
+              "minLength": 1,
               "type": "string"
             }
           }
@@ -11000,7 +11227,7 @@
                   },
                   "byteSize": {
                     "exclusiveMinimum": true,
-                    "maximum": 9007199254740991,
+                    "maximum": 21474836480,
                     "minimum": 0,
                     "type": "integer"
                   },
@@ -11093,6 +11320,221 @@
               }
             },
             "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
           }
         },
         "security": [
@@ -11102,7 +11544,7 @@
         ],
         "summary": "Initialize a resumable primary Video upload",
         "tags": [
-          "Material authoring"
+          "Material video authoring"
         ]
       }
     },
@@ -12987,6 +13429,221 @@
               }
             },
             "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable",
+                        "forbidden",
+                        "idempotency_key_reused",
+                        "invalid_request",
+                        "provider_mismatch",
+                        "upload_outcome_unknown",
+                        "video_not_found",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
           }
         },
         "security": [
@@ -12996,7 +13653,7 @@
         ],
         "summary": "Reconcile Video lifecycle from Kinescope",
         "tags": [
-          "Material authoring"
+          "Material video authoring"
         ]
       }
     },
@@ -13093,13 +13750,173 @@
     },
     "/integrations/kinescope/v1/authorize": {
       "post": {
-        "operationId": "KinescopeIntegrationController_authorize",
+        "operationId": "authorizeKinescopeVideoPlayback",
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {},
+                "properties": {
+                  "id": {
+                    "maxLength": 256,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "ip": {
+                    "type": "string"
+                  },
+                  "token": {
+                    "maxLength": 4096,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "user_agent": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "token"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "authorized": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "authorized"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
             "description": ""
           }
         },
+        "security": [
+          {
+            "kinescope-callback": []
+          }
+        ],
+        "summary": "Repeat the member access decision for a Kinescope DRM request",
         "tags": [
           "Kinescope integration"
         ]
@@ -13107,13 +13924,184 @@
     },
     "/integrations/kinescope/v1/webhook": {
       "post": {
-        "operationId": "KinescopeIntegrationController_webhook",
+        "operationId": "acceptKinescopeVideoWebhook",
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {},
+                "properties": {
+                  "data": {
+                    "additionalProperties": {},
+                    "properties": {
+                      "id": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "message": {
+                        "maxLength": 500,
+                        "type": "string"
+                      },
+                      "status": {
+                        "maxLength": 64,
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "status"
+                    ],
+                    "type": "object"
+                  },
+                  "event": {
+                    "enum": [
+                      "media.update.status"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "event",
+                  "data"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "accepted": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "accepted"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
             "description": ""
           }
         },
+        "security": [
+          {
+            "kinescope-webhook": []
+          }
+        ],
+        "summary": "Accept and durably reconcile a Kinescope Video status event",
         "tags": [
           "Kinescope integration"
         ]
@@ -16443,6 +17431,86 @@
             },
             "description": "Optional Account proof is invalid"
           },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "access_denied",
+                        "dependency_unavailable",
+                        "invalid_request",
+                        "video_mismatch",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "access_denied",
+                        "dependency_unavailable",
+                        "invalid_request",
+                        "video_mismatch",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
           "500": {
             "content": {
               "application/problem+json": {
@@ -16487,15 +17555,16 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": false,
+                  "additionalProperties": {},
                   "properties": {
                     "code": {
-                      "type": "string"
-                    },
-                    "correlationId": {
-                      "type": "string"
-                    },
-                    "detail": {
+                      "enum": [
+                        "access_denied",
+                        "dependency_unavailable",
+                        "invalid_request",
+                        "video_mismatch",
+                        "video_not_ready"
+                      ],
                       "type": "string"
                     },
                     "status": {
@@ -16511,17 +17580,16 @@
                     }
                   },
                   "required": [
-                    "type",
-                    "title",
+                    "code",
                     "status",
-                    "detail",
-                    "code"
+                    "title",
+                    "type"
                   ],
                   "type": "object"
                 }
               }
             },
-            "description": "Account proof dependency is unavailable"
+            "description": ""
           }
         },
         "security": [
@@ -16538,7 +17606,7 @@
     },
     "/materials/{materialId}/videos/{videoId}/progress": {
       "put": {
-        "operationId": "VideoProgressController_save",
+        "operationId": "saveVideoPlaybackProgress",
         "parameters": [
           {
             "in": "path",
@@ -16592,6 +17660,86 @@
         "responses": {
           "204": {
             "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "access_denied",
+                        "dependency_unavailable",
+                        "invalid_request",
+                        "video_mismatch",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "access_denied",
+                        "dependency_unavailable",
+                        "invalid_request",
+                        "video_mismatch",
+                        "video_not_ready"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
           }
         },
         "security": [
@@ -16599,6 +17747,7 @@
             "logto": []
           }
         ],
+        "summary": "Save coarse Account progress for one Video",
         "tags": [
           "Video playback"
         ]

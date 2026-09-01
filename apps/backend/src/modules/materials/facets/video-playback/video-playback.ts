@@ -24,7 +24,7 @@ export type PlaybackSessionResult =
       error: { readonly code: "access_denied" | "dependency_unavailable" | "video_mismatch" | "video_not_ready" };
     }>;
 
-export interface VideoPlaybackService {
+export interface VideoPlayback {
   createSession(input: {
     readonly correlationId: string;
     readonly materialId: string;
@@ -50,13 +50,13 @@ export function assembleVideoPlayback(dependencies: {
   readonly jwtTtlSeconds: number;
   readonly videos: Pick<Videos, "loadPlayback" | "loadProgress" | "saveProgress">;
   readonly clock?: () => Date;
-}): VideoPlaybackService {
+}): VideoPlayback {
   const secret = new TextEncoder().encode(dependencies.jwtSecret);
   const clock = dependencies.clock ?? (() => new Date());
   const issuer = "inside-platform";
   const audience = "kinescope-drm-callback";
 
-  const service: VideoPlaybackService = {
+  const playback: VideoPlayback = {
     async createSession(input) {
       const decision = await dependencies.contentAccess.authorize({
         action: "play",
@@ -158,5 +158,5 @@ export function assembleVideoPlayback(dependencies: {
       return saved.ok;
     },
   };
-  return Object.freeze(service);
+  return Object.freeze(playback);
 }

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { MaterialAuthoringService, VideoPlaybackService } from "./generated/platform-api";
+import { MaterialVideoAuthoringService, VideoPlaybackService } from "./generated/platform-api";
 import { executeGeneratedRequest, type BackendTransportResult } from "./transport-core.server";
 
 export function requestVideoPlayback(
@@ -25,7 +25,7 @@ export function requestVideoProgress(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new VideoPlaybackService(request).videoProgressControllerSave({
+    (request) => new VideoPlaybackService(request).saveVideoPlaybackProgress({
       materialId: input.materialId,
       videoId: input.videoId,
       requestBody: {
@@ -50,7 +50,7 @@ export function requestVideoUploadInit(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new MaterialAuthoringService(request).initMaterialVideoUpload({
+    (request) => new MaterialVideoAuthoringService(request).initMaterialVideoUpload({
       idempotencyKey: input.idempotencyKey,
       materialId: input.materialId,
       requestBody: {
@@ -74,7 +74,7 @@ export function requestVideoAttach(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new MaterialAuthoringService(request).attachMaterialVideo({
+    (request) => new MaterialVideoAuthoringService(request).attachMaterialVideo({
       materialId: input.materialId,
       requestBody: { access: input.access, providerVideoId: input.providerVideoId },
     }),
@@ -88,7 +88,7 @@ export function requestVideoReconcile(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new MaterialAuthoringService(request).reconcileMaterialVideo({ videoId }),
+    (request) => new MaterialVideoAuthoringService(request).reconcileMaterialVideo({ videoId }),
     200,
     { accessToken },
   );

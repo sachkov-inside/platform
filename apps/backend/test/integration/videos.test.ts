@@ -161,6 +161,111 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     });
   });
 
+  test("records an ambiguous upload init before provider I/O and never repeats it", async () => {
+    let initCalls = 0;
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: database.prisma,
+      provider: {
+        initUpload: () => {
+          initCalls += 1;
+          return Promise.reject(new Error("timeout after an unknown provider outcome"));
+        },
+        find: () => Promise.reject(new Error("unused")),
+      },
+      projects: { free: "public-project", membership: "member-project" },
+    });
+    const input = {
+      access: "free" as const,
+      actor: randomUUID(),
+      byteSize: 4_096,
+      filename: "ambiguous.mp4",
+      idempotencyKey: "ambiguous-upload",
+      materialId: randomUUID(),
+      title: "Ambiguous upload",
+    };
+
+    await expect(videos.initUpload(input)).resolves.toEqual({
+      error: { code: "dependency_unavailable", retryable: true },
+      ok: false,
+    });
+    await expect(videos.initUpload(input)).resolves.toEqual({
+      error: { code: "upload_outcome_unknown" },
+      ok: false,
+    });
+    await expect(videos.initUpload({
+      ...input,
+      idempotencyKey: "ambiguous-upload-new-browser-submission",
+    })).resolves.toEqual({
+      error: { code: "upload_outcome_unknown" },
+      ok: false,
+    });
+    expect(initCalls).toBe(1);
+    await expect(database.prisma.videoUploadAttempt.findFirstOrThrow({
+      where: {
+        createdBy: input.actor,
+        idempotencyKey: input.idempotencyKey,
+        materialId: input.materialId,
+      },
+    })).resolves.toMatchObject({
+      failureCode: "provider_outcome_unknown",
+      status: "unknown",
+      uploadEndpoint: null,
+      videoId: null,
+    });
+  });
+
+  test("keeps an early webhook pending and reconciles it after the local Video exists", async () => {
+    const providerVideoId = `early-${randomUUID()}`;
+    const provider: VideoProvider = {
+      initUpload: () => Promise.resolve({
+        id: providerVideoId,
+        uploadEndpoint: `https://uploads.example.test/${providerVideoId}`,
+      }),
+      find: (input) => Promise.resolve({
+        embedLocator: `https://kinescope.io/embed/${providerVideoId}`,
+        id: providerVideoId,
+        projectId: input.projectId,
+        status: "done",
+        title: "Early webhook",
+      }),
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: database.prisma,
+      provider,
+      projects: { free: "public-project", membership: "member-project" },
+    });
+
+    await expect(videos.acceptWebhook({
+      event: "media.update.status",
+      providerStatus: "done",
+      providerVideoId,
+    })).resolves.toEqual({ ok: true, value: undefined });
+    await expect(database.prisma.videoWebhookInbox.count({
+      where: { providerVideoId, reconciledAt: null },
+    })).resolves.toBe(1);
+
+    const initialized = await videos.initUpload({
+      access: "free",
+      actor: randomUUID(),
+      byteSize: 8_192,
+      filename: "early.mp4",
+      idempotencyKey: "early-webhook-upload",
+      materialId: randomUUID(),
+      title: "Early webhook",
+    });
+    expect(initialized.ok).toBe(true);
+    if (!initialized.ok) throw new Error(initialized.error.code);
+    await expect(videos.loadPlayback(initialized.value.video.videoId)).resolves.toMatchObject({
+      ok: true,
+      value: { providerVideoId },
+    });
+    await expect(database.prisma.videoWebhookInbox.count({
+      where: { providerVideoId, reconciledAt: null },
+    })).resolves.toBe(0);
+  });
+
   test("rejects a provider response whose identity does not match the lookup", async () => {
     const provider: VideoProvider = {
       initUpload: () => Promise.reject(new Error("unused")),

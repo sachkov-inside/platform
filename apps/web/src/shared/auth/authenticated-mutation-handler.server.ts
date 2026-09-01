@@ -5,6 +5,7 @@ import {
   getPlatformAccessToken,
   LogtoSessionUnavailableError,
 } from "./platform-access-token.server";
+import { getOptionalPlatformAccessToken } from "./optional-platform-access-token.server";
 import { readLogtoBffConfig } from "./logto-bff-config.server";
 import { isSameOriginMutation } from "./same-origin-mutation.server";
 
@@ -16,6 +17,11 @@ type ExecuteMutation = (
 type ExecuteStreamingMutation = (
   body: ReadableStream<Uint8Array> | null,
   accessToken: string,
+) => Promise<Response>;
+
+type ExecuteOptionalAuthenticatedMutation = (
+  formData: FormData,
+  accessToken: string | undefined,
 ) => Promise<Response>;
 
 export type AuthenticatedMutationFailure =
@@ -118,6 +124,37 @@ export async function handleAuthenticatedMutation(
     await (execute as ExecuteMutation)(formData, accessToken),
     200,
   );
+}
+
+/** Applies the shared browser-mutation boundary while allowing an anonymous caller. */
+export async function handleOptionalAuthenticatedMutation(
+  request: Request,
+  execute: ExecuteOptionalAuthenticatedMutation,
+): Promise<Response> {
+  const config = readLogtoBffConfig();
+  if (!isSameOriginMutation(request, config.baseUrl)) {
+    return mutationResponse(null, 403);
+  }
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_BROWSER_MUTATION_BYTES) {
+    return mutationResponse(null, 413);
+  }
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return mutationResponse(null, 400);
+  }
+  if (formDataByteLength(formData) > MAX_BROWSER_MUTATION_BYTES) {
+    return mutationResponse(null, 413);
+  }
+  try {
+    return privateMutationResponse(
+      await execute(formData, await getOptionalPlatformAccessToken(request)),
+    );
+  } catch {
+    return mutationResponse(null, 503);
+  }
 }
 
 function limitBodyStream(
