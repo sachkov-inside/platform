@@ -32,6 +32,16 @@ const backendOperationPathPatterns = [...backendOperationPaths].map(
       "u",
     ),
 );
+const runtimeConfigurationNames = new Set([
+  "BACKEND_BASE_URL",
+  "LOGTO_ENDPOINT",
+  "LOGTO_AUDIENCE",
+  "LOGTO_APP_ID",
+  "LOGTO_APP_SECRET",
+  "LOGTO_COOKIE_SECRET",
+  "NODE_ENV",
+  "WEB_BASE_URL",
+]);
 
 function sourceFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -97,6 +107,24 @@ function readsBackendEndpointEnvironment(program) {
         node.object.object.name === "process" &&
         memberPropertyName(node.object) === "env" &&
         isBackendEndpointName(memberPropertyName(node))
+      ) {
+        found = true;
+      }
+    },
+  }).visit(program);
+  return found;
+}
+
+function readsRuntimeConfigurationEnvironment(program) {
+  let found = false;
+  new Visitor({
+    MemberExpression(node) {
+      if (
+        node.object.type === "MemberExpression" &&
+        node.object.object.type === "Identifier" &&
+        node.object.object.name === "process" &&
+        memberPropertyName(node.object) === "env" &&
+        runtimeConfigurationNames.has(memberPropertyName(node))
       ) {
         found = true;
       }
@@ -254,6 +282,8 @@ while (pendingBrowserFiles.length > 0) {
 const findings = [...parsedFiles].flatMap(([file, program]) => {
   const sourcePath = scannedPath(file);
   const insideBackendTransport = sourcePath.startsWith("src/shared/api/backend/");
+  const insideRuntimeConfiguration =
+    sourcePath === "src/shared/config/runtime-config.server.ts";
   const isBrowserCode = browserFiles.has(file);
   const specifiers = moduleSpecifiers(program);
   const findingsForFile = specifiers.flatMap((specifier) => {
@@ -291,6 +321,14 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
   if (isBrowserCode && callsNestOperationByAbsoluteUrl(program)) {
     findingsForFile.push(
       `${sourcePath}: browser code cannot call a Nest operation by absolute URL; use a same-origin BFF route`,
+    );
+  }
+  if (
+    !insideRuntimeConfiguration &&
+    readsRuntimeConfigurationEnvironment(program)
+  ) {
+    findingsForFile.push(
+      `${sourcePath}: application runtime environment belongs to the server-only config module`,
     );
   }
   return findingsForFile;

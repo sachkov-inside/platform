@@ -213,6 +213,12 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(smoke, /migration_count" != "\d+"/u);
   });
 
+  it("retries transient TLS failures in the production smoke", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
+
+    assert.equal(smoke.match(/--retry-all-errors/gu)?.length, 2);
+  });
+
   it("runs the isolated production Compose smoke as its own CI job", () => {
     const workflow = read(".github/workflows/application-ci.yml");
     const match = workflow.match(

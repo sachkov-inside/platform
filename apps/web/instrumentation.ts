@@ -3,8 +3,8 @@ export async function register(): Promise<void> {
     return;
   }
 
-  const { readWebRuntimeConfig } = await import(
+  const { validateWebRuntimeConfigOrExit } = await import(
     "./src/shared/config/index.server"
   );
-  readWebRuntimeConfig();
+  validateWebRuntimeConfigOrExit();
 }

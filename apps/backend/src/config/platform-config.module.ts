@@ -1,5 +1,5 @@
 import { type DynamicModule, Global, Module } from "@nestjs/common";
-import { ConfigModule, registerAs } from "@nestjs/config";
+import { ConfigModule } from "@nestjs/config";
 
 import { repositoryEnvPath } from "./load-repository-environment.js";
 import {
@@ -7,10 +7,6 @@ import {
   parsePlatformConfig,
   type PlatformConfig,
 } from "./platform-config.js";
-
-const nestPlatformConfig = registerAs("platform", () =>
-  parsePlatformConfig(process.env),
-);
 
 @Global()
 @Module({})
@@ -23,14 +19,12 @@ export class PlatformConfigModule {
           ConfigModule.forRoot({
             cache: true,
             envFilePath: repositoryEnvPath,
-            load: [nestPlatformConfig],
           }),
         ],
         providers: [
           {
             provide: PLATFORM_CONFIG,
-            inject: [nestPlatformConfig.KEY],
-            useFactory: (resolvedConfig: PlatformConfig) => resolvedConfig,
+            useFactory: () => parsePlatformConfig(process.env),
           },
         ],
         exports: [PLATFORM_CONFIG],

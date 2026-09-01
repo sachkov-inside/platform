@@ -17,6 +17,12 @@ const fixtures = [
     diagnostics: ["browser code cannot address Nest directly"],
   },
   {
+    root: "test/guardrails/fixtures/architecture/runtime-configuration",
+    diagnostics: [
+      "application runtime environment belongs to the server-only config module",
+    ],
+  },
+  {
     root: "test/guardrails/fixtures/architecture/absolute-fetch",
     diagnostics: ["browser code cannot call a Nest operation by absolute URL"],
   },

@@ -6,6 +6,7 @@ import { register } from "../../instrumentation";
 describe("Web runtime configuration", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it("uses complete local defaults only outside production", () => {
@@ -58,10 +59,16 @@ describe("Web runtime configuration", () => {
     vi.stubEnv("NEXT_RUNTIME", "nodejs");
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("BACKEND_BASE_URL", "");
+    const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    const exit = vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`process.exit(${String(code)})`);
+    });
 
-    await expect(register()).rejects.toThrow(
-      "BACKEND_BASE_URL is required in production mode",
+    await expect(register()).rejects.toThrow("process.exit(1)");
+    expect(stderr).toHaveBeenCalledWith(
+      "Web startup failed: BACKEND_BASE_URL is required in production mode\n",
     );
+    expect(exit).toHaveBeenCalledWith(1);
   });
 });
 

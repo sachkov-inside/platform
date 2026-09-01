@@ -94,6 +94,7 @@ home_response="$(
     --fail \
     --insecure \
     --retry 10 \
+    --retry-all-errors \
     --retry-connrefused \
     --silent \
     --show-error \
@@ -109,6 +110,7 @@ library_response="$(
     --fail \
     --insecure \
     --retry 10 \
+    --retry-all-errors \
     --retry-connrefused \
     --silent \
     --show-error \

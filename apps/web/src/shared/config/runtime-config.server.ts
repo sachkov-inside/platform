@@ -81,6 +81,19 @@ export function readWebRuntimeConfig(): WebRuntimeConfig {
   return parseWebRuntimeConfig(process.env);
 }
 
+export function validateWebRuntimeConfigOrExit(): void {
+  try {
+    readWebRuntimeConfig();
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Web runtime configuration is invalid";
+    process.stderr.write(`Web startup failed: ${message}\n`);
+    process.exit(1);
+  }
+}
+
 function parseMode(value: string | undefined): WebRuntimeMode {
   const mode = runtimeModeSchema.safeParse(value ?? "production");
   if (!mode.success) {
