@@ -35,7 +35,7 @@ export const FeaturedTopic: Story = {
       value: "desktop1440",
     },
   },
-  name: "A · Featured topic",
+  name: "A · Open topic pages",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const prototype = canvasElement.querySelector<HTMLElement>("[data-prototype-variant]");
@@ -50,6 +50,11 @@ export const FeaturedTopic: Story = {
     await expect(canvas.getByRole("heading", { level: 2, name: "Все материалы" })).toBeVisible();
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(3);
     await expect(prototype).toHaveAttribute("data-prototype-variant", "featured");
+    for (const topicCard of canvasElement.querySelectorAll<HTMLElement>(
+      '[data-topic-card="link"]',
+    )) {
+      await expect(topicCard.getBoundingClientRect().width).toBeLessThanOrEqual(400);
+    }
 
     const search = canvas.getByRole("searchbox", { name: "Поиск по базе знаний" });
     await userEvent.type(search, "резюме");

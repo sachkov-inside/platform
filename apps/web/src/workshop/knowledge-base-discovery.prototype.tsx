@@ -102,7 +102,7 @@ const materials = [
 ] as const satisfies readonly MaterialPreviewFixture[];
 
 const variants = [
-  { key: "featured", label: "A · Главная тема" },
+  { key: "featured", label: "A · Открыть тему" },
   { key: "equal", label: "B · Равные карточки" },
   { key: "playlist-first", label: "C · Сначала плейлист" },
 ] as const satisfies readonly {
@@ -196,13 +196,13 @@ function FeaturedTopicsVariant({
     <>
       <DiscoverySectionHeader
         className="mt-8 sm:mt-10"
-        description="Крупная тема задаёт вход, остальные остаются рядом."
+        description="Карточки открывают отдельные страницы тем."
         title="Темы"
       />
       {availableTopics.length > 0 ? (
-        <div className="mt-4 grid gap-4 @min-[46rem]/knowledge:grid-cols-2">
-          {availableTopics.map((topic, index) => (
-            <TopicLinkCard featured={index === 0} key={topic.slug} topic={topic} />
+        <div className="mt-4 grid gap-4 @min-[42rem]/knowledge:grid-cols-2 @min-[60rem]/knowledge:grid-cols-3">
+          {availableTopics.map((topic) => (
+            <TopicLinkCard key={topic.slug} topic={topic} />
           ))}
         </div>
       ) : (
@@ -353,31 +353,18 @@ function DiscoverySectionHeader({
   );
 }
 
-function TopicLinkCard({
-  featured,
-  topic,
-}: {
-  readonly featured: boolean;
-  readonly topic: TopicFixture;
-}) {
+function TopicLinkCard({ topic }: { readonly topic: TopicFixture }) {
   return (
     <a
-      className={cn(
-        "group/topic relative isolate min-h-64 overflow-clip rounded-2xl bg-sidebar text-sidebar-foreground no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-sidebar-ring motion-reduce:transform-none motion-reduce:transition-none",
-        featured && "@min-[46rem]/knowledge:col-span-2 @min-[46rem]/knowledge:min-h-80",
-      )}
+      className="group/topic relative isolate min-h-64 overflow-clip rounded-2xl bg-sidebar text-sidebar-foreground no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-sidebar-ring motion-reduce:transform-none motion-reduce:transition-none"
+      data-topic-card="link"
       href={`/topics/${topic.slug}`}
     >
-      <TopicArtwork featured={featured} topic={topic} />
+      <TopicArtwork topic={topic} />
       <span className="absolute inset-x-0 bottom-0 z-10 bg-sidebar/95 p-5 sm:p-6">
         <span className="flex items-start justify-between gap-4">
           <span>
-            <span
-              className={cn(
-                "block max-w-[24ch] text-xl font-semibold leading-[1.18] tracking-[-0.03em]",
-                featured && "sm:text-3xl",
-              )}
-            >
+            <span className="block max-w-[24ch] text-xl font-semibold leading-[1.18] tracking-[-0.03em]">
               {topic.title}
             </span>
             <span className="mt-2 block max-w-[50ch] text-sm leading-5 text-sidebar-foreground/70">
@@ -471,11 +458,9 @@ function HorizontalTopicCard({ topic }: { readonly topic: TopicFixture }) {
 
 function TopicArtwork({
   compact = false,
-  featured = false,
   topic,
 }: {
   readonly compact?: boolean;
-  readonly featured?: boolean;
   readonly topic: TopicFixture;
 }) {
   return (
@@ -499,7 +484,6 @@ function TopicArtwork({
       <span
         className={cn(
           "absolute left-6 right-6 top-16 grid grid-cols-3 items-center gap-2 sm:left-8 sm:right-8",
-          featured && "@min-[46rem]/knowledge:left-12 @min-[46rem]/knowledge:right-12 @min-[46rem]/knowledge:top-20",
           compact && "left-4 right-4 top-12",
         )}
       >
@@ -786,7 +770,7 @@ function PrototypeSwitcher({
   return (
     <nav
       aria-label="Варианты прототипа"
-      className="sticky top-2 z-50 mx-auto mt-3 flex w-fit items-center gap-1 rounded-xl bg-foreground p-1 text-background shadow-card md:fixed md:bottom-5 md:left-1/2 md:top-auto md:m-0 md:-translate-x-1/2"
+      className="sticky top-2 z-50 mx-auto mt-3 flex w-fit items-center gap-1 rounded-xl bg-foreground p-1 text-background shadow-card md:ml-auto md:mr-0"
     >
       <button
         aria-label="Предыдущий вариант"
