@@ -170,37 +170,58 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       materialId,
     });
     const original = await upload("integration-image-original");
-    const replacement = await upload("integration-image-replacement");
     expect(original).toMatchObject({ ok: true, value: { kind: "image", state: "ready" } });
+    if (!original.ok) throw new Error("original image upload failed");
+
+    const savedOriginal = await materials.authoring.saveMaterial({
+      actor,
+      body: imageBody(original.value.assetId, "Original architecture"),
+      expectedContentVersion: created.value.contentVersion,
+      idempotencyKey: "integration-asset-original-save",
+      materialId,
+      metadata,
+      publicationState: "draft",
+    });
+    expect(savedOriginal).toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    if (!savedOriginal.ok) throw new Error(savedOriginal.error.code);
+    await expect(materials.materialContent.containsAssetReference({
+      assetId: original.value.assetId,
+      checkedContentVersion: savedOriginal.value.contentVersion,
+      materialId,
+    })).resolves.toEqual({ ok: true, value: true });
+
+    const replacement = await upload("integration-image-replacement");
     expect(replacement).toMatchObject({ ok: true, value: { kind: "image", state: "ready" } });
-    if (!original.ok || !replacement.ok) throw new Error("image upload failed");
+    if (!replacement.ok) throw new Error("replacement image upload failed");
     expect(replacement.value.assetId).not.toBe(original.value.assetId);
     expect(replacement.value.variants?.map(({ width }) => width)).toEqual([480, 640]);
 
-    const saved = await materials.authoring.saveMaterial({
+    const savedReplacement = await materials.authoring.saveMaterial({
       actor,
-      body: {
-        schemaVersion: 1,
-        doc: {
-          type: "doc",
-          content: [{
-            type: "assetImage",
-            attrs: {
-              alt: "Current architecture",
-              assetId: replacement.value.assetId,
-              caption: null,
-              nodeId: randomUUID(),
-            },
-          }],
-        },
-      },
-      expectedContentVersion: created.value.contentVersion,
+      body: imageBody(replacement.value.assetId, "Current architecture"),
+      expectedContentVersion: savedOriginal.value.contentVersion,
       idempotencyKey: "integration-asset-replacement-save",
       materialId,
       metadata,
       publicationState: "draft",
     });
-    expect(saved).toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    expect(savedReplacement).toMatchObject({ ok: true, value: { contentVersion: 3 } });
+    if (!savedReplacement.ok) throw new Error(savedReplacement.error.code);
+    await expect(Promise.all([
+      materials.materialContent.containsAssetReference({
+        assetId: original.value.assetId,
+        checkedContentVersion: savedReplacement.value.contentVersion,
+        materialId,
+      }),
+      materials.materialContent.containsAssetReference({
+        assetId: replacement.value.assetId,
+        checkedContentVersion: savedReplacement.value.contentVersion,
+        materialId,
+      }),
+    ])).resolves.toEqual([
+      { ok: true, value: false },
+      { ok: true, value: true },
+    ]);
 
     await expect(assets.loadDelivery({
       assetId: replacement.value.assetId,
@@ -228,9 +249,10 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
 
     const maintenance = assembleMaterialAssetMaintenance({
       assets,
-      config: { objectStorage: { orphanGraceMs: 0 } },
+      config: { objectStorage: { orphanGraceMs: 100 } },
       materials: materials.materialContent,
     });
+    await new Promise((resolve) => setTimeout(resolve, 200));
     await expect(maintenance.cleanup()).resolves.toEqual({
       cleaned: 1,
       ok: true,
@@ -251,3 +273,21 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     });
   });
 });
+
+function imageBody(assetId: string, alt: string) {
+  return {
+    schemaVersion: 1,
+    doc: {
+      type: "doc",
+      content: [{
+        type: "assetImage",
+        attrs: {
+          alt,
+          assetId,
+          caption: null,
+          nodeId: randomUUID(),
+        },
+      }],
+    },
+  };
+}

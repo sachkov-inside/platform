@@ -120,7 +120,9 @@ export function useMaterialAssetUploads(
       setUploads((current) => patchUpload(current, upload.id, {
         message: uploadErrorMessage(error),
         retryWithNewIdempotencyKey:
-          errorCode !== "network" && errorCode !== "upload_in_progress",
+          errorCode !== "network" &&
+          errorCode !== "dependency_unavailable" &&
+          errorCode !== "upload_in_progress",
         status: "error",
       }));
     }

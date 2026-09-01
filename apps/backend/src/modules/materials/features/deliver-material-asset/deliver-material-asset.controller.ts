@@ -35,9 +35,15 @@ import {
 } from "./deliver-material-asset.js";
 
 const uuid = z.uuid();
-const assetDeliveryProblemSchema = z.object({
-  code: z.enum(["asset_not_found", "dependency_unavailable"]),
-  status: z.union([z.literal(404), z.literal(503)]),
+const assetNotFoundProblemSchema = z.object({
+  code: z.literal("asset_not_found"),
+  status: z.literal(404),
+  title: z.string(),
+  type: z.string(),
+}).strict();
+const assetDependencyProblemSchema = z.object({
+  code: z.literal("dependency_unavailable"),
+  status: z.literal(503),
   title: z.string(),
   type: z.string(),
 }).strict();
@@ -60,8 +66,8 @@ export class DeliverMaterialAssetController {
   @ApiProduces("application/octet-stream")
   @ApiOkResponse({ description: "Public immutable file bytes", schema: { type: "string", format: "binary" } })
   @ApiFoundResponse({ description: "Short-lived protected redirect", headers: { Location: { schema: { type: "string", format: "uri" } } } })
-  @ApiNotFoundResponse({ description: "Asset is absent or not currently accessible", content: problemDetailsContent(assetDeliveryProblemSchema) })
-  @ApiServiceUnavailableResponse({ description: "Access or storage dependency is unavailable", content: problemDetailsContent(assetDeliveryProblemSchema) })
+  @ApiNotFoundResponse({ description: "Asset is absent or not currently accessible", content: problemDetailsContent(assetNotFoundProblemSchema) })
+  @ApiServiceUnavailableResponse({ description: "Access or storage dependency is unavailable", content: problemDetailsContent(assetDependencyProblemSchema) })
   @MaterialAssetDeliveryCache()
   download(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
@@ -83,8 +89,8 @@ export class DeliverMaterialAssetController {
   @ApiProduces("image/webp")
   @ApiOkResponse({ description: "Public immutable image bytes", schema: { type: "string", format: "binary" } })
   @ApiFoundResponse({ description: "Short-lived protected redirect", headers: { Location: { schema: { type: "string", format: "uri" } } } })
-  @ApiNotFoundResponse({ description: "Asset is absent or not currently accessible", content: problemDetailsContent(assetDeliveryProblemSchema) })
-  @ApiServiceUnavailableResponse({ description: "Access or storage dependency is unavailable", content: problemDetailsContent(assetDeliveryProblemSchema) })
+  @ApiNotFoundResponse({ description: "Asset is absent or not currently accessible", content: problemDetailsContent(assetNotFoundProblemSchema) })
+  @ApiServiceUnavailableResponse({ description: "Access or storage dependency is unavailable", content: problemDetailsContent(assetDependencyProblemSchema) })
   @MaterialAssetDeliveryCache()
   image(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,

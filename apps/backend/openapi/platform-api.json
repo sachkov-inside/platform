@@ -13565,26 +13565,15 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "asset_not_found",
-                        "dependency_unavailable"
+                        "asset_not_found"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "anyOf": [
-                        {
-                          "enum": [
-                            404
-                          ],
-                          "type": "number"
-                        },
-                        {
-                          "enum": [
-                            503
-                          ],
-                          "type": "number"
-                        }
-                      ]
+                      "enum": [
+                        404
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
@@ -13653,26 +13642,15 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "asset_not_found",
                         "dependency_unavailable"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "anyOf": [
-                        {
-                          "enum": [
-                            404
-                          ],
-                          "type": "number"
-                        },
-                        {
-                          "enum": [
-                            503
-                          ],
-                          "type": "number"
-                        }
-                      ]
+                      "enum": [
+                        503
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
@@ -13826,26 +13804,15 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "asset_not_found",
-                        "dependency_unavailable"
+                        "asset_not_found"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "anyOf": [
-                        {
-                          "enum": [
-                            404
-                          ],
-                          "type": "number"
-                        },
-                        {
-                          "enum": [
-                            503
-                          ],
-                          "type": "number"
-                        }
-                      ]
+                      "enum": [
+                        404
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
@@ -13914,26 +13881,15 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "asset_not_found",
                         "dependency_unavailable"
                       ],
                       "type": "string"
                     },
                     "status": {
-                      "anyOf": [
-                        {
-                          "enum": [
-                            404
-                          ],
-                          "type": "number"
-                        },
-                        {
-                          "enum": [
-                            503
-                          ],
-                          "type": "number"
-                        }
-                      ]
+                      "enum": [
+                        503
+                      ],
+                      "type": "number"
                     },
                     "title": {
                       "type": "string"
