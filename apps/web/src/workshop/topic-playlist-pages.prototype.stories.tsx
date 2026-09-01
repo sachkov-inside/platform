@@ -30,6 +30,7 @@ export const TopicDesktop: Story = {
   name: "Topic · desktop",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const storyBody = within(canvasElement.ownerDocument.body);
     await expect(
       canvas.getByRole("heading", { level: 1, name: "Продуктовая разработка" }),
     ).toBeVisible();
@@ -48,6 +49,21 @@ export const TopicDesktop: Story = {
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
     await userEvent.click(canvas.getByRole("button", { name: "Очистить поиск" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(5);
+
+    const filterButton = canvas.getByRole("button", { name: "Фильтры" });
+    await userEvent.click(filterButton);
+    const videoFilter = canvas.getByRole("checkbox", { name: "Видео" });
+    await userEvent.click(videoFilter);
+    await expect(canvasElement.querySelectorAll("article")).toHaveLength(2);
+    await userEvent.click(videoFilter);
+    await userEvent.click(filterButton);
+
+    const sortControl = canvas.getByRole("combobox", { name: "Сортировка" });
+    await userEvent.click(sortControl);
+    await userEvent.click(storyBody.getByRole("option", { name: "Сначала видео" }));
+    await expect(
+      canvasElement.querySelector<HTMLElement>("[data-material-id]"),
+    ).toHaveAttribute("data-material-id", "material-delivery-pipeline");
 
     const guide = canvasElement.querySelector<HTMLElement>(
       '[data-material-id="material-product-boundary"]',
