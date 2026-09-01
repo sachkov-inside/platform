@@ -55,10 +55,6 @@ RUN pnpm --filter @inside/web build
 
 FROM node:24.19.0-alpine3.23 AS api-production
 
-ARG SOURCE_REVISION=unknown
-LABEL org.opencontainers.image.source="https://github.com/sachkov-inside/platform" \
-      org.opencontainers.image.revision="${SOURCE_REVISION}"
-
 ENV NODE_ENV=production \
     API_HOST=0.0.0.0 \
     API_PORT=3001
@@ -73,10 +69,6 @@ USER node
 CMD ["node", "dist/entrypoints/api.js"]
 
 FROM node:24.19.0-alpine3.23 AS web-production
-
-ARG SOURCE_REVISION=unknown
-LABEL org.opencontainers.image.source="https://github.com/sachkov-inside/platform" \
-      org.opencontainers.image.revision="${SOURCE_REVISION}"
 
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \

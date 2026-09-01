@@ -1,18 +1,18 @@
 # Runtime configuration contract
 
-Platform has two deployment environments: local development and production. `NODE_ENV=test` is a
-process mode used by automated tests, not a deployed environment. CI validates and builds the same
-artifacts; it is not a third runtime environment.
+Platform has two deployed environments: local development and production. `NODE_ENV=test` is a
+process mode used by automated tests, not a deployed environment. CI will validate and build the
+same application; it does not become another application environment.
 
 Both applications expose one typed, immutable configuration object to application code:
 
 - NestJS loads the optional repository `.env` through `@nestjs/config`, validates the complete
   process environment with Zod, and provides one `PlatformConfig` through dependency injection.
-- Next.js reads only server-side runtime variables, validates one `WebRuntimeConfig` during Node.js
-  server startup, and derives the backend transport and Logto BFF configuration from it.
+- Next.js reads server-side runtime variables, validates one `WebRuntimeConfig` during Node.js
+  server startup, and derives backend transport and Logto BFF configuration from it.
 
 Application modules do not read variable names through `ConfigService` or `process.env`. Pure
-parsers remain available for tests, migrations, seeds, and other command-line entrypoints. Invalid
+parsers remain available for tests, migrations, seeds and command-line entrypoints. Invalid
 production configuration stops a process before it can report ready.
 
 ## Sources and precedence
@@ -21,59 +21,54 @@ An already exported process or container variable wins over a value from an env 
 defaults apply only when `NODE_ENV` is `development` or `test`. Missing `NODE_ENV` is treated as
 `production`, so a production process cannot silently start with local credentials or endpoints.
 
-| Source | Tracked | Contains | Consumer and lifecycle |
+| Source | Tracked | Contains | Consumer |
 | --- | --- | --- | --- |
-| `.env.example` | yes | safe local values and override names | Reference for local development. Copy to ignored `.env` only when overriding defaults. |
-| `.env` | no | developer-specific local overrides | Docker Compose interpolation and NestJS host fallback. Next.js host fallback uses its local defaults or variables exported by the launcher shell. |
-| `.env.production.example` | yes | placeholders for stable production runtime values and secrets | Bootstrap template for server-owned `shared/runtime.env`; it is never an application input directly. |
-| `shared/runtime.env` | no, server only | database credentials, identity and Telegram secrets, stable origins and domain | Persists across releases, mode `0600`, edited only in an owner-controlled server session. |
-| `.env.release.example` | yes | public release metadata placeholders | Contract for generated per-release metadata. |
-| `releases/<sha>/release.env` | no, generated | source SHA, image repositories, immutable image digests | Created for one release and safe to regenerate from build outputs. |
+| `.env.example` | yes | safe local values and override names | local development reference |
+| `.env` | no | developer-specific local overrides | local Compose and host processes |
+| `.env.production.example` | yes | production variable names and placeholders | server setup reference |
+| `.env.production` | no, server only | production values and secrets | production Compose interpolation |
+
+The baseline intentionally uses one server-owned production env file. It is copied manually before
+the first start, kept outside Git and restricted to its owner. CI/CD lessons will later separate
+stable runtime secrets from public per-release image metadata and automate only the safe part.
 
 Do not add `.env.development` or `.env.test`. Local defaults and explicit test fixtures keep those
-modes deterministic. Do not put application runtime secrets in GitHub Actions: deployment
-transport credentials and the server runtime configuration are different security boundaries.
+modes deterministic. Do not bake application runtime secrets into a Docker image or pass them as
+Docker build arguments.
 
 ## Docker Compose flow
 
 Development uses `compose.yaml`. Docker Compose loads the root `.env` for `${VARIABLE}`
-interpolation, applies the checked-in local fallback values, and passes an explicit `environment`
-map to each service. For example, web receives `BACKEND_BASE_URL=http://api:3001` because `api` is
-the service DNS name inside the Compose network; a browser still opens
-`http://127.0.0.1:3000`. Values that are not listed for a service are not copied into its
-container.
+interpolation, applies checked-in local fallback values and passes an explicit `environment` map to
+each service. Values that are not listed for a service are not copied into its container.
 
-Production uses `compose.production.yaml` with both server files:
+Production uses the server-owned file explicitly:
 
 ```bash
 docker compose \
-  --env-file /opt/sachkov-inside/platform/shared/runtime.env \
-  --env-file /opt/sachkov-inside/platform/releases/<sha>/release.env \
-  -f compose.production.yaml config --quiet
+  --env-file .env.production \
+  --file compose.production.yaml \
+  config --quiet
 ```
 
-Compose resolves required `${VARIABLE:?message}` expressions before containers start and passes
-only each service's explicit configuration. NestJS and Next.js then perform application-level
-validation, including URL protocols, secret lengths, port ranges, and production-only HTTPS
-requirements.
+Compose resolves required `${VARIABLE:?message}` expressions before containers start. NestJS and
+Next.js then validate the values they own, including URL protocols, secret lengths, port ranges and
+production-only HTTPS requirements.
 
-The Dockerfile does not accept application runtime values as build arguments. Next.js has no
-`NEXT_PUBLIC_*` runtime configuration: those variables would be frozen into browser assets during
-the image build. The web image instead reads server-only values when the container starts. One API
-image and one web image can therefore be promoted unchanged; only the runtime and release env files
-select their production configuration and exact digests.
+The Dockerfile accepts no application runtime values as build arguments. Next.js has no
+`NEXT_PUBLIC_*` runtime configuration because those values would be frozen into browser assets
+during the image build. The web process reads server-only values when its container starts.
 
 ## Configuration ownership
 
 | Group | Examples | Owner |
 | --- | --- | --- |
-| Backend application | `DATABASE_URL`, `API_HOST`, Logto verifier, content access, Telegram membership | `PlatformConfig` |
+| Backend application | `DATABASE_URL`, Logto verifier, Telegram and Object Storage values | `PlatformConfig` |
 | Web server/BFF | `BACKEND_BASE_URL`, Logto app and cookie values, `WEB_BASE_URL` | `WebRuntimeConfig` |
-| Database bootstrap | `POSTGRES_*`, migration/application role credentials | production Compose provisioning services |
-| Release identity | `SOURCE_REVISION`, `PLATFORM_*_IMAGE_*` | generated `release.env` |
-| Deployment transport | SSH host, user, key, known hosts; server GHCR login | protected delivery infrastructure, not application config |
+| Database bootstrap | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | production Compose |
+| Deployment transport | future SSH host, user, key and known hosts | future protected CI/CD environment |
 
-When introducing a new variable, add it to the owning Zod schema, its typed config object, focused
-parser tests, the relevant Compose service, and the appropriate tracked example. A production
-secret belongs only in `shared/runtime.env`; public immutable build or release identity belongs in
-`release.env`.
+When introducing a variable, add it to the owning Zod schema, typed config object, focused parser
+tests, relevant Compose service and tracked example. Put its real production value only in the
+server-owned environment file until a later lesson introduces a secret manager or encrypted
+configuration flow.

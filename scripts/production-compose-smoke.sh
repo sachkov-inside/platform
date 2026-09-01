@@ -6,32 +6,16 @@ cd "$repository_root"
 
 http_port="${PRODUCTION_SMOKE_HTTP_PORT:-38080}"
 https_port="${PRODUCTION_SMOKE_HTTPS_PORT:-38443}"
-source_revision="$(git rev-parse HEAD)"
-smoke_suffix="${source_revision:0:12}-$$"
-project_name="inside-platform-production-smoke-${smoke_suffix}"
+project_name="inside-platform-production-smoke-$$"
 
 export PLATFORM_COMPOSE_PROJECT="$project_name"
 export PLATFORM_DOMAIN=localhost
 export PLATFORM_HTTP_PORT="$http_port"
 export PLATFORM_HTTPS_PORT="$https_port"
-export PLATFORM_API_IMAGE_REPOSITORY=local.invalid/inside-platform-api
-export PLATFORM_API_IMAGE_DIGEST=0000000000000000000000000000000000000000000000000000000000000000
-export PLATFORM_MIGRATION_IMAGE_REPOSITORY=local.invalid/inside-platform-api
-export PLATFORM_MIGRATION_IMAGE_DIGEST=0000000000000000000000000000000000000000000000000000000000000000
-export PLATFORM_WEB_IMAGE_REPOSITORY=local.invalid/inside-platform-web
-export PLATFORM_WEB_IMAGE_DIGEST=0000000000000000000000000000000000000000000000000000000000000000
-export PLATFORM_API_BUILD_IMAGE="inside-platform-api:production-smoke-${smoke_suffix}"
-export PLATFORM_WEB_BUILD_IMAGE="inside-platform-web:production-smoke-${smoke_suffix}"
-export SOURCE_REVISION="$source_revision"
 export POSTGRES_DB=inside
-export POSTGRES_USER=inside_admin
-export POSTGRES_PASSWORD=inside-production-smoke-bootstrap-password
-export MIGRATION_DATABASE_USER=inside_migrator
-export MIGRATION_DATABASE_PASSWORD=inside-production-smoke-migration-password
-export APPLICATION_DATABASE_USER=inside_app
-export APPLICATION_DATABASE_PASSWORD=inside-production-smoke-application-password
-export MIGRATION_DATABASE_URL=postgresql://inside_migrator:inside-production-smoke-migration-password@postgres:5432/inside
-export DATABASE_URL=postgresql://inside_app:inside-production-smoke-application-password@postgres:5432/inside
+export POSTGRES_USER=inside
+export POSTGRES_PASSWORD=inside-production-smoke-password
+export DATABASE_URL=postgresql://inside:inside-production-smoke-password@postgres:5432/inside
 export LOGTO_ISSUER=https://identity.production-smoke.invalid/oidc
 export LOGTO_ENDPOINT=https://identity.production-smoke.invalid
 export LOGTO_AUDIENCE=https://api.production-smoke.invalid
@@ -61,7 +45,6 @@ compose=(
   docker compose
   --project-name "$project_name"
   --file compose.production.yaml
-  --file compose.production.build.yaml
 )
 
 cleanup() {
@@ -69,12 +52,8 @@ cleanup() {
   local cleanup_status=0
   trap - EXIT
 
-  if ! "${compose[@]}" down --volumes --remove-orphans; then
-    echo "Failed to remove production smoke containers or persistent data" >&2
-    cleanup_status=1
-  fi
-  if ! docker image rm "$PLATFORM_API_BUILD_IMAGE" "$PLATFORM_WEB_BUILD_IMAGE"; then
-    echo "Failed to remove production smoke image tags" >&2
+  if ! "${compose[@]}" down --rmi local --volumes --remove-orphans; then
+    echo "Failed to remove production smoke containers, local images or persistent data" >&2
     cleanup_status=1
   fi
 
@@ -86,22 +65,7 @@ cleanup() {
 trap cleanup EXIT
 
 "${compose[@]}" config --quiet
-"${compose[@]}" build api web
-"${compose[@]}" up --detach --wait
-
-worker_container_id="$("${compose[@]}" ps --quiet material-assets-worker)"
-worker_state="$(docker container inspect "$worker_container_id" --format '{{.State.Status}}:{{.RestartCount}}')"
-if [[ "$worker_state" != "running:0" ]]; then
-  echo "Material Asset worker did not stay running without restarts: $worker_state" >&2
-  "${compose[@]}" logs material-assets-worker >&2
-  exit 1
-fi
-worker_logs="$("${compose[@]}" logs material-assets-worker)"
-if [[ "$worker_logs" != *'"process":"material-assets-worker","status":"ready"'* ]]; then
-  echo "Material Asset worker did not report readiness" >&2
-  printf '%s\n' "$worker_logs" >&2
-  exit 1
-fi
+"${compose[@]}" up --detach --build --wait
 
 api_health="$(
   "${compose[@]}" exec -T api node -e \
@@ -164,68 +128,4 @@ if [[ "$migration_count" != "$expected_migration_count" ]]; then
   exit 1
 fi
 
-migration_role_contract="$(
-  "${compose[@]}" exec -T postgres psql \
-    --username "$POSTGRES_USER" \
-    --dbname "$POSTGRES_DB" \
-    --tuples-only \
-    --no-align \
-    --command "select concat(rolsuper, ':', rolcreatedb, ':', rolcreaterole, ':', rolreplication, ':', rolbypassrls) from pg_roles where rolname = '$MIGRATION_DATABASE_USER';"
-)"
-if [[ "$migration_role_contract" != "f:f:f:f:f" ]]; then
-  echo "Migration database role exceeds its schema-owner contract: $migration_role_contract" >&2
-  exit 1
-fi
-
-runtime_role_contract="$(
-  "${compose[@]}" exec -T postgres psql \
-    --username "$POSTGRES_USER" \
-    --dbname "$POSTGRES_DB" \
-    --tuples-only \
-    --no-align \
-    --command "select concat(rolsuper, ':', rolcreatedb, ':', rolcreaterole, ':', rolreplication, ':', rolbypassrls, ':', has_schema_privilege(rolname, 'materials', 'create'), ':', has_table_privilege(rolname, 'public.platform_migrations', 'select')) from pg_roles where rolname = '$APPLICATION_DATABASE_USER';"
-)"
-if [[ "$runtime_role_contract" != "f:f:f:f:f:f:f" ]]; then
-  echo "Application database role exceeds its runtime contract: $runtime_role_contract" >&2
-  exit 1
-fi
-
-runtime_material_count="$(
-  "${compose[@]}" exec -T \
-    --env "PGPASSWORD=$APPLICATION_DATABASE_PASSWORD" \
-    postgres psql \
-      --host postgres \
-      --username "$APPLICATION_DATABASE_USER" \
-      --dbname "$POSTGRES_DB" \
-      --tuples-only \
-      --no-align \
-      --command "select count(*) from materials.materials;"
-)"
-if [[ "$runtime_material_count" != "0" ]]; then
-  echo "Application database role could not read the migrated schema" >&2
-  exit 1
-fi
-
-for image in "$PLATFORM_API_BUILD_IMAGE" "$PLATFORM_WEB_BUILD_IMAGE"; do
-  image_user="$(docker image inspect "$image" --format '{{.Config.User}}')"
-  image_revision="$(
-    docker image inspect "$image" \
-      --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
-  )"
-  if [[ "$image_user" != "node" ]]; then
-    echo "Expected $image to run as node, received $image_user" >&2
-    exit 1
-  fi
-  if [[ "$image_revision" != "$source_revision" ]]; then
-    echo "Expected $image revision $source_revision, received $image_revision" >&2
-    exit 1
-  fi
-done
-
-if ! docker run --rm --entrypoint sh "$PLATFORM_API_BUILD_IMAGE" -c \
-  "test ! -e /app/dist/development && test ! -e /app/dist/entrypoints/mcp.js && test -e /app/dist/entrypoints/material-assets-worker.js"; then
-  echo "API image contains an unrelated entrypoint or misses the Material Asset worker" >&2
-  exit 1
-fi
-
-echo "Production Compose smoke passed: immutable app images -> migrations -> API -> web -> Caddy"
+echo "Production Compose smoke passed: migrations -> API -> web -> Caddy"

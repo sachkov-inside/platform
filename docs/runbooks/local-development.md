@@ -195,10 +195,9 @@ pnpm check:full
 
 This adds isolated Testcontainers integration tests and the host full-stack smoke. Stop the full
 Compose stack and start only `pnpm infra:up` first, because the host smoke owns ports 3000, 3001 and
-3002.
-CI runs that gate and a separate Docker-only contract that builds all image targets, starts a clean
-volume, restarts against the preserved volume, exercises Compose Watch and rejects orphan
-containers.
+3002. The current CI/CD teaching baseline runs these commands manually. The course will add the
+application workflow that runs the full gate and the separate Docker-only contract on a clean
+runner.
 
 Run only the real-PostgreSQL backend suite with:
 

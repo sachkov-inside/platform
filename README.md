@@ -71,8 +71,8 @@ It does not require host Node, pnpm or `.env`; `pnpm platform:doctor` is only a 
 an installed host toolchain.
 
 See the [runtime configuration contract](docs/runbooks/runtime-configuration.md) for the typed
-NestJS and Next.js configuration model, local `.env`, production `runtime.env`/`release.env`, and
-Docker Compose precedence.
+NestJS and Next.js configuration model, local `.env`, the server-owned production environment file
+and Docker Compose precedence.
 
 The API listens on `127.0.0.1:3001`, exposes `GET /health`, and serves OpenAPI
 UI at `/openapi`.
@@ -103,9 +103,11 @@ is an explicit destructive reset.
 
 ## Production delivery baseline
 
-The production runtime uses prebuilt digest-addressed API and web images, a one-shot migration
-service, a restricted runtime database role, least-privilege networks and Caddy as the only public
-entry point. It is intentionally separate from the source-mounted development stack.
+The current production Compose file is the deliberately small starting point for the CI/CD course.
+It builds API and web from the checked-out source, runs migrations once, uses one database account
+and lets Compose create its default network. Caddy is the public entry point. Registry images,
+digests, separate database roles, explicit networks and automated deployment are intentionally not
+implemented yet.
 
 ```bash
 pnpm compose:production:smoke
