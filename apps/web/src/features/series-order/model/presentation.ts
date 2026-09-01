@@ -5,9 +5,10 @@ export interface SeriesOrderItemPresentation {
 }
 
 export interface SeriesOrderPresentation {
+  readonly availableMaterials: readonly SeriesOrderItemPresentation[];
   readonly items: readonly SeriesOrderItemPresentation[];
   readonly name: string;
-  readonly options: readonly { readonly label: string; readonly value: string }[];
+  readonly options: readonly { readonly archived?: boolean; readonly label: string; readonly value: string }[];
   readonly orderVersion: string;
   readonly seriesId: string;
 }

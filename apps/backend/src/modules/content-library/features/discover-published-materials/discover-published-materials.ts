@@ -10,7 +10,7 @@ import type {
 
 const querySchema = z
   .object({
-    first: z.number().int().min(1).max(100),
+    first: z.number().int().min(1).max(10_000),
     kind: z.enum(["related", "series", "topic"]),
     slug: z.string().min(1).max(120),
     subject: z.discriminatedUnion("kind", [
@@ -53,6 +53,8 @@ export async function discoverPublishedMaterials(
           items: projected.items,
           kind: page.value.kind,
           reference: page.value.reference,
+          relatedSeries: page.value.relatedSeries,
+          topics: page.value.topics,
         },
       }
     : projected;

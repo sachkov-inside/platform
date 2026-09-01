@@ -18,6 +18,10 @@ describe("Series order web adapters", () => {
   it("maps the backend Series contract to the Russian playlist presentation", async () => {
     const request = vi.fn().mockResolvedValue({
       body: {
+        availableMaterials: [
+          { materialId: firstId, publicationState: "published", title: "Первый" },
+          { materialId: secondId, publicationState: "draft", title: null },
+        ],
         items: [
           { materialId: firstId, ordinal: 1, publicationState: "published", title: "Первый" },
           { materialId: secondId, ordinal: 2, publicationState: "draft", title: null },
@@ -33,6 +37,10 @@ describe("Series order web adapters", () => {
     await expect(getSeriesOrder(seriesId, "access-token", request)).resolves.toEqual({
       kind: "ready",
       order: {
+        availableMaterials: [
+          { materialId: firstId, publicationState: "published", title: "Первый" },
+          { materialId: secondId, publicationState: "draft", title: "Без названия" },
+        ],
         items: [
           { materialId: firstId, publicationState: "published", title: "Первый" },
           { materialId: secondId, publicationState: "draft", title: "Без названия" },

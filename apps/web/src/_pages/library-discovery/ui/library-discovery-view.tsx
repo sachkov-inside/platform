@@ -1,11 +1,14 @@
 import {
   ArrowLeft,
+  BookOpenText,
   LibraryBig,
   ListVideo,
+  LockKeyhole,
   RefreshCw,
   SearchX,
   ShieldAlert,
   Tags,
+  Unlock,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -14,8 +17,10 @@ import type {
   PublishedSeriesResult,
   PublishedTopicResult,
 } from "@/features/library-discovery";
-import { MaterialCard, type MaterialPreview } from "@/entities/material";
+import type { MaterialPreview } from "@/entities/material";
+import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
+import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
 type ResolvedDiscoveryResult = Exclude<
   PublishedSeriesResult | PublishedTopicResult,
@@ -54,6 +59,11 @@ export function LibraryDiscoveryView({
         <h1 className="relative mt-2 max-w-[24ch] text-balance text-3xl font-semibold leading-[1.08] tracking-[-0.035em] sm:text-4xl @min-[64rem]/discovery:text-5xl">
           {result.reference.name}
         </h1>
+        {result.reference.summary ? (
+          <p className="relative mt-4 max-w-[64ch] text-pretty text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+            {result.reference.summary}
+          </p>
+        ) : null}
       </header>
 
       {result.kind === "empty" ? (
@@ -72,36 +82,37 @@ function TopicMaterials({
 }: {
   readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
 }) {
-  const series = uniqueSeries(result.items);
-
   return (
     <>
-      {series.length > 0 ? (
-        <nav aria-label="Плейлисты темы" className="mt-8 sm:mt-10">
-          <p className="text-sm font-semibold">Плейлисты в теме</p>
-          <ul className="mt-3 flex flex-wrap gap-2" role="list">
-            {series.map((item) => (
-              <li key={item.slug}>
-                <Link
-                  className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm font-semibold no-underline hover:bg-secondary focus-visible:outline-ring"
-                  href={`/series/${item.slug}`}
-                  prefetch={false}
-                >
-                  <ListVideo aria-hidden="true" className="size-4 text-accent" />
-                  {item.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      ) : null}
-      <section aria-labelledby="topic-materials" className="mt-8 sm:mt-10">
-        <h2 className="text-xl font-semibold tracking-[-0.025em]" id="topic-materials">
-          Материалы
+      <section aria-labelledby="topic-playlists" className="mt-8 sm:mt-10">
+        <h2 className="text-xl font-semibold tracking-[-0.025em]" id="topic-playlists">
+          Плейлисты
         </h2>
-        <MaterialGrid items={result.items} />
-        <DiscoveryContinuation result={result} />
+        {result.relatedSeries.length > 0 ? (
+          <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/discovery:grid-cols-2">
+            {result.relatedSeries.map((playlist) => (
+              <PlaylistCard
+                key={playlist.slug}
+                playlist={{
+                  countLabel: `${formatMaterialCount(playlist.matchingMaterialCount)} в теме · ${formatMaterialCount(playlist.totalMaterialCount)} всего`,
+                  name: playlist.name,
+                  slug: playlist.slug,
+                  summary: playlist.summary,
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-2xl bg-muted px-5 py-7 font-semibold sm:px-8">
+            Связанных плейлистов пока нет
+          </p>
+        )}
       </section>
+      <TopicMaterialCatalog
+        hasNext={result.hasNext}
+        items={result.items}
+        topicSlug={result.reference.slug}
+      />
     </>
   );
 }
@@ -111,7 +122,7 @@ function SeriesMaterials({
 }: {
   readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
 }) {
-  const topics = uniqueTopics(result.items);
+  const topics = result.topics;
 
   return (
     <section aria-labelledby="series-materials" className="mt-8 sm:mt-10">
@@ -160,7 +171,7 @@ function SeriesMaterials({
                 </span>
                 Выпуск
               </div>
-              <MaterialCard headingLevel="h3" material={material} />
+              <SeriesMaterialRow material={material} />
             </li>
           );
         })}
@@ -170,18 +181,42 @@ function SeriesMaterials({
   );
 }
 
-function MaterialGrid({ items }: { readonly items: readonly MaterialPreview[] }) {
+function SeriesMaterialRow({ material }: { readonly material: MaterialPreview }) {
+  const available = material.availability === "available";
+  const AccessIcon = available ? Unlock : LockKeyhole;
+  const accessLabel =
+    material.availability === "locked"
+      ? "Для участников"
+      : material.availability === "unavailable"
+        ? "Недоступно"
+        : "Доступно";
   return (
-    <ul
-      className="mt-5 grid grid-cols-1 items-stretch justify-items-center gap-4 @min-[40rem]/discovery:grid-cols-2 @min-[68rem]/discovery:grid-cols-3"
-      role="list"
-    >
-      {items.map((material) => (
-        <li className="h-full w-full max-w-[28rem]" key={material.slug}>
-          <MaterialCard headingLevel="h3" material={material} />
-        </li>
-      ))}
-    </ul>
+    <article className="group/row relative grid min-h-32 gap-4 rounded-2xl bg-card p-5 shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+      <span className="grid size-11 place-items-center rounded-xl bg-secondary text-accent">
+        <BookOpenText aria-hidden="true" className="size-5" />
+      </span>
+      <span className="min-w-0">
+        <span className="flex flex-wrap items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
+          <span>{material.format}</span>
+          <span aria-hidden="true">·</span>
+          <Link className="relative z-10 no-underline hover:text-foreground" href={`/topics/${material.topicSlug}`}>
+            {material.topic}
+          </Link>
+        </span>
+        <h3 className="mt-2 text-lg font-semibold leading-6 tracking-[-0.025em]">
+          <Link className="no-underline after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/row:underline group-hover/row:decoration-accent group-hover/row:underline-offset-4" href={`/materials/${material.slug}`} prefetch={false}>
+            {material.title}
+          </Link>
+        </h3>
+        <p className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground">
+          {material.summary}
+        </p>
+      </span>
+      <span className="inline-flex min-h-8 w-fit shrink-0 items-center gap-1.5 rounded-full bg-secondary px-3 text-xs font-semibold sm:self-start">
+        <AccessIcon aria-hidden="true" className="size-3.5" />
+        {accessLabel}
+      </span>
+    </article>
   );
 }
 
@@ -367,37 +402,4 @@ function DiscoveryStatus({
       </div>
     </section>
   );
-}
-
-function uniqueSeries(items: readonly MaterialPreview[]) {
-  return uniqueBySlug(
-    items.flatMap((material) => material.seriesMemberships),
-  );
-}
-
-function uniqueTopics(items: readonly MaterialPreview[]) {
-  return uniqueBySlug(
-    items.map((material) => ({ name: material.topic, slug: material.topicSlug })),
-  );
-}
-
-function uniqueBySlug<T extends { readonly name: string; readonly slug: string }>(
-  items: readonly T[],
-): readonly T[] {
-  return [...new Map(items.map((item) => [item.slug, item])).values()];
-}
-
-function formatMaterialCount(count: number) {
-  const mod100 = count % 100;
-  const mod10 = count % 10;
-  const noun =
-    mod100 >= 11 && mod100 <= 14
-      ? "материалов"
-      : mod10 === 1
-        ? "материал"
-        : mod10 >= 2 && mod10 <= 4
-          ? "материала"
-          : "материалов";
-
-  return `${String(count)} ${noun}`;
 }

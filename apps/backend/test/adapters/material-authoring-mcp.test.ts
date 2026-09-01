@@ -25,7 +25,7 @@ describe("Material authoring MCP adapter", () => {
     await server?.close();
   });
 
-  test("exposes only create, load, full-state Save, and current Preview", async () => {
+  test("exposes material and collection authoring operations", async () => {
     ({ client, server } = await connect(stubMaterialAuthoring()));
 
     const { tools } = await client.listTools();
@@ -35,6 +35,12 @@ describe("Material authoring MCP adapter", () => {
       "material_load",
       "material_save",
       "material_preview",
+      "content_collection_list",
+      "content_collection_create",
+      "content_collection_update",
+      "content_collection_set_archive",
+      "playlist_load_composition",
+      "playlist_save_composition",
     ]);
     expect(tools.find(({ name }) => name === "material_save")?.annotations)
       .toMatchObject({ destructiveHint: true, idempotentHint: true });

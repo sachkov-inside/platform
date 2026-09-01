@@ -17,7 +17,21 @@ export interface PublishedMaterialDiscoveryPageDto {
     readonly id: string;
     readonly name: string;
     readonly slug: string;
+    readonly summary: string;
   };
+  readonly relatedSeries: readonly {
+    readonly id: string;
+    readonly matchingMaterialCount: number;
+    readonly name: string;
+    readonly slug: string;
+    readonly summary: string;
+    readonly totalMaterialCount: number;
+  }[];
+  readonly topics: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly slug: string;
+  }[];
 }
 
 export type PublishedMaterialDiscoveryError =

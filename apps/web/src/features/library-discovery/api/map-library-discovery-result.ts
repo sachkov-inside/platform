@@ -18,6 +18,19 @@ import type {
 } from "../model/library-discovery-view";
 
 const discoveryReferenceSchema = z
+  .object({ id: z.string(), name: z.string(), slug: z.string(), summary: z.string() })
+  .strict();
+const relatedPlaylistSchema = z
+  .object({
+    id: z.string(),
+    matchingMaterialCount: z.number().int().nonnegative(),
+    name: z.string(),
+    slug: z.string(),
+    summary: z.string(),
+    totalMaterialCount: z.number().int().nonnegative(),
+  })
+  .strict();
+const discoveryTopicSchema = z
   .object({ id: z.string(), name: z.string(), slug: z.string() })
   .strict();
 const discoveryNotFoundSchema = z
@@ -60,6 +73,8 @@ export function mapLibraryDiscoveryResult<
       items: z.array(publishedMaterialProjectionSchema),
       kind: z.literal(discoveryKind),
       reference: discoveryReferenceSchema,
+      relatedSeries: z.array(relatedPlaylistSchema),
+      topics: z.array(discoveryTopicSchema),
     })
     .strict();
   const parsed = responseSchema.safeParse(result.body);
@@ -73,9 +88,16 @@ export function mapLibraryDiscoveryResult<
   const reference = {
     name: parsed.data.reference.name,
     slug: parsed.data.reference.slug,
+    summary: parsed.data.reference.summary,
   };
   if (parsed.data.items.length === 0) {
-    return { discoveryKind, kind: "empty", reference };
+    return {
+      discoveryKind,
+      kind: "empty",
+      reference,
+      relatedSeries: parsed.data.relatedSeries,
+      topics: parsed.data.topics,
+    };
   }
   return {
     discoveryKind,
@@ -83,6 +105,8 @@ export function mapLibraryDiscoveryResult<
     items: parsed.data.items.map(toMaterialPreview),
     kind: "ready",
     reference,
+    relatedSeries: parsed.data.relatedSeries,
+    topics: parsed.data.topics,
   };
 }
 

@@ -12,7 +12,14 @@ export interface SeriesOrderMaterialDto {
   readonly title: string | null;
 }
 
+export interface AvailableSeriesMaterialDto {
+  readonly materialId: string;
+  readonly publicationState: PublicationState;
+  readonly title: string | null;
+}
+
 export interface SeriesOrderDto {
+  readonly availableMaterials: readonly AvailableSeriesMaterialDto[];
   readonly items: readonly SeriesOrderMaterialDto[];
   readonly name: string;
   readonly orderVersion: string;

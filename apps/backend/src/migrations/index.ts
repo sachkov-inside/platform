@@ -62,6 +62,10 @@ import {
   name as materialAssetReferenceStateMigrationName,
   statement as materialAssetReferenceStateMigrationStatement,
 } from "../modules/assets/infrastructure/postgres/migrations/0014-material-asset-reference-state.js";
+import {
+  name as contentCollectionsMigrationName,
+  statement as contentCollectionsMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0016-content-collections.js";
 
 const migrations = [
   {
@@ -123,6 +127,10 @@ const migrations = [
   {
     name: profileAvatarsMigrationName,
     statement: profileAvatarsMigrationStatement,
+  },
+  {
+    name: contentCollectionsMigrationName,
+    statement: contentCollectionsMigrationStatement,
   },
 ] as const;
 

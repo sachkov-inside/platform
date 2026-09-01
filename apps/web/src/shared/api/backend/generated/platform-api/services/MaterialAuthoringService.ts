@@ -8,6 +8,135 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class MaterialAuthoringService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
+   * List Topics or Series for authoring
+   * @returns any
+   * @throws ApiError
+   */
+  public listAuthoringContentCollections({
+    kind,
+  }: {
+    kind: 'series' | 'topic',
+  }): CancelablePromise<Array<{
+    archived: boolean;
+    id: string;
+    kind: 'series' | 'topic';
+    materialCount: number;
+    name: string;
+    slug: string;
+    summary: string;
+    version: number;
+  }>> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/collections',
+      query: {
+        'kind': kind,
+      },
+    });
+  }
+  /**
+   * Create a Topic or Series with an immutable slug
+   * @returns any
+   * @throws ApiError
+   */
+  public createAuthoringContentCollection({
+    requestBody,
+  }: {
+    requestBody: {
+      kind: 'series' | 'topic';
+      name: string;
+      slug: string;
+      summary: string;
+    },
+  }): CancelablePromise<{
+    archived: boolean;
+    id: string;
+    kind: 'series' | 'topic';
+    materialCount: number;
+    name: string;
+    slug: string;
+    summary: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/collections',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Update Topic or Series metadata without changing its slug
+   * @returns any
+   * @throws ApiError
+   */
+  public updateAuthoringContentCollection({
+    collectionId,
+    requestBody,
+  }: {
+    collectionId: string,
+    requestBody: {
+      expectedVersion: number;
+      kind: 'series' | 'topic';
+      name: string;
+      summary: string;
+    },
+  }): CancelablePromise<{
+    archived: boolean;
+    id: string;
+    kind: 'series' | 'topic';
+    materialCount: number;
+    name: string;
+    slug: string;
+    summary: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/collections/{collectionId}',
+      path: {
+        'collectionId': collectionId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Archive or restore a Topic or Series
+   * @returns any
+   * @throws ApiError
+   */
+  public setAuthoringContentCollectionArchive({
+    collectionId,
+    requestBody,
+  }: {
+    collectionId: string,
+    requestBody: {
+      archived: boolean;
+      expectedVersion: number;
+      kind: 'series' | 'topic';
+    },
+  }): CancelablePromise<{
+    archived: boolean;
+    id: string;
+    kind: 'series' | 'topic';
+    materialCount: number;
+    name: string;
+    slug: string;
+    summary: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/collections/{collectionId}/archive',
+      path: {
+        'collectionId': collectionId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * List the complete Material authoring corpus
    * @returns any
    * @throws ApiError
@@ -387,18 +516,22 @@ export class MaterialAuthoringService {
    */
   public listMaterialAuthoringReferences(): CancelablePromise<{
     formats: Array<{
+      archived: boolean;
       id: string;
       name: string;
     }>;
     series: Array<{
+      archived: boolean;
       id: string;
       name: string;
     }>;
     tags: Array<{
+      archived: boolean;
       id: string;
       name: string;
     }>;
     topics: Array<{
+      archived: boolean;
       id: string;
       name: string;
     }>;
@@ -418,6 +551,11 @@ export class MaterialAuthoringService {
   }: {
     seriesId: string,
   }): CancelablePromise<{
+    availableMaterials: Array<{
+      materialId: string;
+      publicationState: 'draft' | 'published' | 'unpublished';
+      title: string | null;
+    }>;
     items: Array<{
       materialId: string;
       ordinal: number;

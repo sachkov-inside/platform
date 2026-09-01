@@ -13,6 +13,7 @@ export type MaterialSaveState =
   | { readonly kind: "saved"; readonly savedAtLabel: string };
 
 export interface MaterialSelectOption {
+  readonly archived?: boolean;
   readonly label: string;
   readonly value: string;
 }

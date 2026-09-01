@@ -110,6 +110,17 @@ export function mapPostgresValidationError(
       };
 }
 
+export function isPostgresUniqueViolation(
+  error: unknown,
+  constraint: string,
+): boolean {
+  const signals = errorSignals(error);
+  return (
+    (signals.codes.includes("23505") || signals.codes.includes("P2002")) &&
+    hasConstraint(signals, constraint)
+  );
+}
+
 function errorSignals(error: unknown): PostgreSqlErrorSignals {
   const codes: string[] = [];
   const constraints: string[] = [];

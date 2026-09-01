@@ -133,6 +133,7 @@ describe("Platform migrations", () => {
         "0013_material_assets",
         "0014_material_asset_reference_state",
         "0015_profile_avatars",
+        "0016_content_collections",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -468,6 +469,7 @@ describe("Platform migrations", () => {
           "0013_material_assets",
           "0014_material_asset_reference_state",
           "0015_profile_avatars",
+          "0016_content_collections",
         ],
       });
 
@@ -617,11 +619,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 16, repeat('0', 64))
+        values ('9999_unknown', 17, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 16",
+        "Migration ledger is not an exact registry prefix at position 17",
       );
     } finally {
       await database.dispose();

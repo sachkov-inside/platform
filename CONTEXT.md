@@ -29,7 +29,9 @@ body and body-linked resources stay protected.
 _Avoid_: Teaser revision, public body, access decision
 
 **Topic**:
-The single subject area to which a Material belongs. Topics are one level deep in v1.
+The single subject area to which a Material belongs. Topics are one level deep in v1 and have an
+immutable slug plus mutable name and summary. Archiving removes a Topic from new assignments and
+public discovery while preserving existing Material relations and its canonical reader.
 _Avoid_: Category, section
 
 **Format**:
@@ -44,7 +46,10 @@ _Avoid_: Free-form keyword, hashtag
 
 **Series**:
 An ordered collection of Materials with its own meaning and reading sequence. A Material may belong
-to any number of Series, including none. In the Russian product interface: «Плейлист».
+to any number of Series, including none. Its Topic relation is derived from published Materials,
+never authored directly. A Series has an immutable slug plus mutable name and summary; archiving
+preserves its composition and canonical reader but removes it from new assignments and discovery.
+In the Russian product interface: «Плейлист».
 _Avoid_: Topic, Playlist as a domain term
 
 **NavigationPage**:

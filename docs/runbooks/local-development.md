@@ -40,7 +40,8 @@ an optional profile on <http://127.0.0.1:6006>. Integration tests continue to us
 temporary PostgreSQL and MinIO through Testcontainers and never share the Compose data services.
 
 The production API exposes health, OpenAPI, the published catalog and the Material Reader endpoint.
-The local MCP adapter exposes delegated Material authoring over production application interfaces;
+The local MCP adapter exposes delegated Material, Topic, Playlist and ordered-composition authoring
+over production application interfaces;
 production Logto client setup and public routing remain separate deployment work.
 
 ## Parallel worktrees and singleton ownership
@@ -142,10 +143,13 @@ issuer/subject to an existing Account and checks the Account's current `material
 permission inside each production authoring operation. Provider roles and scopes do not grant
 access, and the adapter has no service identity or provider secret.
 
-The exposed tools are `material_create_draft`, `material_load`, `material_save` and
-`material_preview`. Save replaces content, metadata, current relations, access and publication
-state atomically using `expectedContentVersion`; it can affect live content and has no server-side
-Undo/history. Preview uses canonical ContentAccess. MCP clients can discover the protected resource
+The exposed tools are `material_create_draft`, `material_load`, `material_save`,
+`material_preview`, `content_collection_list`, `content_collection_create`,
+`content_collection_update`, `content_collection_set_archive`, `playlist_load_composition` and
+`playlist_save_composition`. Material Save replaces content, metadata, current relations, access
+and publication state atomically using `expectedContentVersion`; playlist composition Save replaces
+the full ordered composition using its optimistic version. Both can affect live content and have no
+server-side Undo/history. Preview uses canonical ContentAccess. MCP clients can discover the protected resource
 metadata at `/.well-known/oauth-protected-resource/mcp` and send the delegated token in the
 `Authorization: Bearer` header. Production provider setup and public routing remain outside this
 repository task.

@@ -1,14 +1,22 @@
-import { HomePage } from "@/_pages/home";
+import { redirect } from "next/navigation";
 
-export default async function HomeRoute({
-  searchParams,
-}: {
-  readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const authentication = (await searchParams).authentication;
-  return (
-    <HomePage
-      authenticationError={typeof authentication === "string" ? authentication : undefined}
-    />
-  );
+interface HomeRouteProps {
+  readonly searchParams: Promise<Record<string, string | readonly string[] | undefined>>;
+}
+
+export default async function HomeRoute({ searchParams }: HomeRouteProps) {
+  const query = new URLSearchParams();
+  for (const [name, rawValue] of Object.entries(await searchParams)) {
+    if (typeof rawValue === "string") {
+      query.append(name, rawValue);
+      continue;
+    }
+    if (rawValue !== undefined) {
+      for (const value of rawValue) {
+        query.append(name, value);
+      }
+    }
+  }
+
+  redirect(query.size === 0 ? "/library" : `/library?${query.toString()}`);
 }

@@ -14,9 +14,7 @@ interface AppShellProps {
 }
 
 const navigationItems = [
-  { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
-  { href: "/map", icon: "map", label: "Карта" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 /** Connects the accepted application shell to App Router route state. */

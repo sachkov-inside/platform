@@ -16,6 +16,7 @@ const publishedCatalogFacetHttpSchema = z
       .string()
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
       .max(120),
+    summary: z.string().nullable(),
   })
   .strict();
 
@@ -35,7 +36,27 @@ export const publishedCatalogPageHttpSchema = z
   .strict();
 
 const discoveryReferenceHttpSchema = z
-  .object({ id: z.string(), name: z.string(), slug: z.string() })
+  .object({
+    id: z.uuid(),
+    name: z.string(),
+    slug: z.string(),
+    summary: z.string(),
+  })
+  .strict();
+
+const relatedSeriesHttpSchema = z
+  .object({
+    id: z.uuid(),
+    matchingMaterialCount: z.number().int().nonnegative(),
+    name: z.string(),
+    slug: z.string(),
+    summary: z.string(),
+    totalMaterialCount: z.number().int().nonnegative(),
+  })
+  .strict();
+
+const discoveryTopicHttpSchema = z
+  .object({ id: z.uuid(), name: z.string(), slug: z.string() })
   .strict();
 
 export const publishedDiscoveryPageHttpSchema = z
@@ -44,6 +65,8 @@ export const publishedDiscoveryPageHttpSchema = z
     items: z.array(publishedCatalogItemHttpSchema),
     kind: z.enum(["related", "series", "topic"]),
     reference: discoveryReferenceHttpSchema,
+    relatedSeries: z.array(relatedSeriesHttpSchema),
+    topics: z.array(discoveryTopicHttpSchema),
   })
   .strict();
 

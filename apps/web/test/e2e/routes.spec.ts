@@ -2,9 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const destinations = [
-  { path: "/", label: "Главная", heading: "Главная" },
   { path: "/library", label: "База знаний", heading: "База знаний" },
-  { path: "/map", label: "Карта", heading: "Карта Inside" },
 ] as const;
 
 for (const destination of destinations) {
@@ -16,7 +14,7 @@ for (const destination of destinations) {
     await expect(page).toHaveTitle(new RegExp(`^${destination.label} · Inside$`, "u"));
 
     const navigation = getPrimaryNavigation(page, testInfo.project.name);
-    await expect(navigation.getByRole("link")).toHaveCount(3);
+    await expect(navigation.getByRole("link")).toHaveCount(1);
     await expect(
       navigation.getByRole("link", { name: destination.label, exact: true }),
     ).toHaveAttribute("aria-current", "page");
@@ -36,10 +34,29 @@ for (const destination of destinations) {
   });
 }
 
+test("root redirects to the canonical library route", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page).toHaveURL(/\/library$/u);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("База знаний");
+});
+
+test("map remains available by direct URL without a primary navigation item", async ({
+  page,
+}, testInfo) => {
+  const response = await page.goto("/map");
+
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Карта Inside");
+  const navigation = getPrimaryNavigation(page, testInfo.project.name);
+  await expect(navigation.getByRole("link")).toHaveCount(1);
+  await expect(navigation.getByRole("link", { name: "Карта" })).toHaveCount(0);
+});
+
 test("guest shell exposes a server-owned sign-in mutation on desktop and mobile", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/library");
 
   const signIn = page.locator("button:visible", { hasText: "Войти" });
   await expect(signIn).toHaveCount(1);
@@ -87,7 +104,7 @@ test("auth control hydrates without a server-client mismatch", async ({ page }) 
     }
   });
 
-  await page.goto("/");
+  await page.goto("/library");
   await expect(page.locator("button:visible", { hasText: "Войти" })).toBeEnabled();
 
   expect(hydrationErrors).toEqual([]);
@@ -110,12 +127,23 @@ test("incomplete global logout is reported without claiming success", async ({ p
 });
 
 test("navigation works with pointer input", async ({ page }, testInfo) => {
-  await page.goto("/");
+  await page.goto("/map");
 
-  await getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
+  const libraryLink = getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
     name: "База знаний",
     exact: true,
-  }).click();
+  });
+  if (navigationMode(testInfo.project.name) === "mobile") {
+    // The Next.js development indicator overlaps the center of the first bottom-nav item.
+    const box = await libraryLink.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.click(
+      (box?.x ?? 0) + (box?.width ?? 0) / 2,
+      (box?.y ?? 0) + (box?.height ?? 0) - 4,
+    );
+  } else {
+    await libraryLink.click();
+  }
 
   await expect(page).toHaveURL(/\/library$/u);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("База знаний");
@@ -123,7 +151,7 @@ test("navigation works with pointer input", async ({ page }, testInfo) => {
 
 test("desktop sidebar has no supplemental tooltip badges", async ({ page }, testInfo) => {
   test.skip(navigationMode(testInfo.project.name) !== "desktop");
-  await page.goto("/");
+  await page.goto("/library");
 
   const sidebar = page.getByRole("complementary", { name: "Боковая панель" });
   const transition = await sidebar.evaluate((element) => {
@@ -140,7 +168,7 @@ test("desktop sidebar has no supplemental tooltip badges", async ({ page }, test
 
 test("desktop sidebar closes after pointer navigation", async ({ page }, testInfo) => {
   test.skip(navigationMode(testInfo.project.name) !== "desktop");
-  await page.goto("/");
+  await page.goto("/map");
 
   const sidebar = page.getByRole("complementary", { name: "Боковая панель" });
   const libraryLink = page
@@ -156,7 +184,7 @@ test("desktop sidebar closes after pointer navigation", async ({ page }, testInf
 });
 
 test("keyboard order starts with the skip link and visible navigation", async ({ page }, testInfo) => {
-  await page.goto("/");
+  await page.goto("/library");
 
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Перейти к содержанию" })).toBeFocused();
@@ -181,13 +209,13 @@ test("keyboard order starts with the skip link and visible navigation", async ({
 });
 
 test("focused navigation has a visible indicator", async ({ page }, testInfo) => {
-  await page.goto("/");
+  await page.goto("/library");
 
   const libraryLink = getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
     name: "База знаний",
     exact: true,
   });
-  const tabsBeforeLibrary = navigationMode(testInfo.project.name) === "desktop" ? 5 : 3;
+  const tabsBeforeLibrary = navigationMode(testInfo.project.name) === "desktop" ? 4 : 2;
 
   for (let tabIndex = 0; tabIndex < tabsBeforeLibrary; tabIndex += 1) {
     await page.keyboard.press("Tab");
@@ -215,13 +243,13 @@ test("shell exposes essential landmarks to assistive technology", async ({ page 
   } else {
     expect(accessibilityTree).toContain('- navigation "Мобильная навигация":');
   }
-  expect(accessibilityTree).toContain('- link "Главная":');
+  expect(accessibilityTree).toContain('- link "База знаний":');
   expect(accessibilityTree).toContain("- main:");
-  expect(accessibilityTree).toContain('- heading "Главная" [level=1]');
+  expect(accessibilityTree).toContain('- heading "База знаний" [level=1]');
 });
 
 test("content reflows without horizontal page overflow at 200% text size", async ({ page }, testInfo) => {
-  await page.goto("/");
+  await page.goto("/library");
   await page.locator("html").evaluate((element) => {
     element.style.fontSize = "200%";
   });
@@ -237,10 +265,10 @@ test("content reflows without horizontal page overflow at 200% text size", async
 
 test("reduced motion removes navigation transitions", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
+  await page.goto("/library");
 
   const transitionProperty = await getPrimaryNavigation(page, testInfo.project.name)
-    .getByRole("link", { name: "Главная", exact: true })
+    .getByRole("link", { name: "База знаний", exact: true })
     .evaluate((element) => getComputedStyle(element).transitionProperty);
 
   expect(transitionProperty).toBe("none");
@@ -253,18 +281,12 @@ test("reduced motion removes navigation transitions", async ({ page }, testInfo)
   }
 });
 
-test("current destination is visually distinct from the other links", async ({ page }, testInfo) => {
-  await page.goto("/");
+test("current destination exposes its semantic selected state", async ({ page }, testInfo) => {
+  await page.goto("/library");
 
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
-  const currentColor = await navigation
-    .getByRole("link", { name: "Главная", exact: true })
-    .evaluate((element) => getComputedStyle(element).color);
-  const inactiveColor = await navigation
-    .getByRole("link", { name: "База знаний", exact: true })
-    .evaluate((element) => getComputedStyle(element).color);
-
-  expect(currentColor).not.toBe(inactiveColor);
+  const current = navigation.getByRole("link", { name: "База знаний", exact: true });
+  await expect(current).toHaveAttribute("aria-current", "page");
 });
 
 function primaryNavigationName(projectName: string): "Мобильная навигация" | "Основная" {

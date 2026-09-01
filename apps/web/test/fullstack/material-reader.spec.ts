@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 test("loads the safe PostgreSQL catalog through the client-owned Library query", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const browserErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") {
@@ -33,10 +33,17 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   await expect(page.getByRole("heading", { name: "База знаний", level: 1 })).toBeVisible();
   await expect(page.getByText("Для участников")).toBeVisible();
   await expect(page.getByText("Бесплатно").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Темы", level: 2 })).toBeVisible();
+  await expect(page.locator("[data-topic-card]")).toContainText("Platform");
+  await expect(page.getByRole("heading", { name: "Плейлисты", level: 2 })).toBeVisible();
+  await expect(page.locator("[data-playlist-card]")).toContainText(
+    "Создание Platform Inside",
+  );
   await expect(
     page.getByRole("link", { name: "Developer Pipeline без потери контекста" }),
   ).toHaveAttribute("href", "/materials/developer-pipeline-bez-poteri-konteksta");
   await expect(page).toHaveTitle("База знаний · Inside");
+  await captureIssue195Evidence(page, testInfo, "library");
 
   await page.getByRole("main").evaluate((element) => {
     element.scrollTo({ top: element.scrollHeight });
@@ -342,7 +349,7 @@ test("renders a locked teaser with the configured CTA and fails closed on invali
 test("carries the authenticated owner through Web to ContentAccess", async ({
   context,
   page,
-}) => {
+}, testInfo) => {
   const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
   const session = process.env.FULLSTACK_LOGTO_SESSION;
   if (cookieName === undefined || session === undefined) {
@@ -389,6 +396,22 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
       }),
     ]),
   });
+
+  await page.goto("/account");
+  await expect(
+    page.getByRole("heading", { name: "Редактор Базы знаний" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Открыть редактор" }).click();
+  await expect(page).toHaveURL(/\/authoring\/materials$/u);
+  await page.getByRole("link", { name: "Темы", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Темы", level: 1 })).toBeVisible();
+  await expect(page.locator('input[value="Platform"]')).toBeVisible();
+  await captureIssue195Evidence(page, testInfo, "admin-topics");
+
+  await page.getByRole("link", { name: "Плейлисты", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Плейлисты", level: 1 })).toBeVisible();
+  await expect(page.locator('input[value="Создание Platform Inside"]')).toBeVisible();
+  await captureIssue195Evidence(page, testInfo, "admin-playlists");
 });
 
 test("returns the production not-found state for an unpublished slug", async ({ page }) => {
@@ -431,13 +454,11 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue93Evidence(page, testInfo, "topic");
+  await captureIssue195Evidence(page, testInfo, "topic");
 
-  const seriesNavigation = page.getByRole("navigation", {
-    name: "Плейлисты темы",
-  });
-  const seriesLink = seriesNavigation.getByRole("link", {
-    name: "Создание Platform Inside",
-  });
+  const seriesLink = page.locator(
+    '[data-playlist-card][href="/series/platform-inside"]',
+  );
   await seriesLink.focus();
   await expect(seriesLink).toBeFocused();
   await seriesLink.press("Enter");
@@ -463,6 +484,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue93Evidence(page, testInfo, "series");
+  await captureIssue195Evidence(page, testInfo, "playlist");
 
   await page
     .getByRole("link", { name: "Как устроен Inside Platform", exact: true })
@@ -473,7 +495,9 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   ).toHaveAttribute("href", "/topics/platform");
   const readerSeriesLink = page
     .getByRole("list", { name: "Плейлисты материала" })
-    .getByRole("link");
+    .getByRole("link", {
+      name: /^Создание Platform Inside · выпуск \d+$/u,
+    });
   await expect(readerSeriesLink).toHaveAttribute("href", "/series/platform-inside");
   await expect(readerSeriesLink).toHaveText(
     `Создание Platform Inside · выпуск ${representativeOrdinal ?? ""}`,
@@ -524,6 +548,26 @@ async function captureIssue93Evidence(
   const evidenceDirectory = resolve(
     process.cwd(),
     "../../docs/evidence/issue-93",
+  );
+  await mkdir(evidenceDirectory, { recursive: true });
+  const viewport =
+    testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
+  await page.screenshot({
+    animations: "disabled",
+    fullPage: false,
+    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+  });
+}
+
+async function captureIssue195Evidence(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+) {
+  if (process.env.CAPTURE_ISSUE_195_EVIDENCE !== "1") return;
+  const evidenceDirectory = resolve(
+    process.cwd(),
+    "../../docs/evidence/issue-195",
   );
   await mkdir(evidenceDirectory, { recursive: true });
   const viewport =

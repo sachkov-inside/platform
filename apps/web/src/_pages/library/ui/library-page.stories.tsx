@@ -20,9 +20,7 @@ import {
 } from "@/widgets/application-shell";
 
 const navigationItems = [
-  { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
-  { href: "/map", icon: "map", label: "Карта" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const catalogItems = [
@@ -85,8 +83,8 @@ const defaultQuery = {
 
 const catalogFacets = {
   formats: [
-    { count: 2, id: "format-guide", name: "Гайд", slug: "guide" },
-    { count: 1, id: "format-video", name: "Видео", slug: "video" },
+    { count: 2, id: "format-guide", name: "Гайд", slug: "guide", summary: null },
+    { count: 1, id: "format-video", name: "Видео", slug: "video", summary: null },
   ],
   series: [
     {
@@ -94,6 +92,7 @@ const catalogFacets = {
       id: "series-platform-inside",
       name: "Создание Platform Inside",
       slug: "platform-inside",
+      summary: "Путь от продуктовой идеи до работающей платформы.",
     },
   ],
   topics: [
@@ -102,18 +101,21 @@ const catalogFacets = {
       id: "topic-ai-first",
       name: "AI-first engineering",
       slug: "ai-first-engineering",
+      summary: "Инженерные системы и процессы для работы с агентами.",
     },
     {
       count: 1,
       id: "topic-career",
       name: "Карьера",
       slug: "career",
+      summary: "Практика профессионального развития и поиска работы.",
     },
     {
       count: 1,
       id: "topic-product-engineering",
       name: "Product engineering",
       slug: "product-engineering",
+      summary: "Продуктовые решения, архитектура и поставка.",
     },
   ],
 } as const;
@@ -369,7 +371,7 @@ export const ReadyMobile: Story = {
     });
     for (
       let tabIndex = 0;
-      tabIndex < 12 && canvasElement.ownerDocument.activeElement !== firstCardLink;
+      tabIndex < 40 && canvasElement.ownerDocument.activeElement !== firstCardLink;
       tabIndex += 1
     ) {
       await userEvent.tab();

@@ -25,14 +25,17 @@ export function AccountPageQuery() {
   if (query.data.kind === "unavailable") {
     return <AccountUnavailable reference={query.data.reference} />;
   }
+  const canManageMaterials = query.data.canManageMaterials;
 
   return (
     <AccountPageClient
+      canManageMaterials={canManageMaterials}
       initialProfile={
         query.data.state.kind === "profile" ? query.data.state.profile : null
       }
       onProfileChange={(profile) => {
         queryClient.setQueryData(accountProfileQueryKey(), {
+          canManageMaterials,
           kind: "ready",
           state: { kind: "profile", profile },
         });

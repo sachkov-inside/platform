@@ -30,6 +30,10 @@ import {
   ValidateMaterialController,
   UploadMaterialAssetController,
   DeliverMaterialAssetController,
+  CreateContentCollectionController,
+  ListContentCollectionsController,
+  SetContentCollectionArchiveController,
+  UpdateContentCollectionController,
 } from "../../modules/materials/index.js";
 import { HealthController } from "./health.controller.js";
 
@@ -52,6 +56,10 @@ import { HealthController } from "./health.controller.js";
     ReorderSeriesController,
     UploadMaterialAssetController,
     DeliverMaterialAssetController,
+    ListContentCollectionsController,
+    CreateContentCollectionController,
+    UpdateContentCollectionController,
+    SetContentCollectionArchiveController,
   ],
   providers: [
     OperationalReadiness,

@@ -81,3 +81,13 @@ export type InvalidPublicationTransitionError = {
 export type DraftDeletionForbiddenError = {
   readonly code: "draft_deletion_forbidden";
 };
+export type ContentCollectionNotFoundError = {
+  readonly code: "content_collection_not_found";
+};
+export type ContentCollectionSlugConflictError = {
+  readonly code: "content_collection_slug_conflict";
+};
+export type StaleContentCollectionVersionError = {
+  readonly code: "stale_content_collection_version";
+  readonly currentVersion: number;
+};

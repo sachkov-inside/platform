@@ -6,10 +6,16 @@ import {
 import { z } from "zod";
 import type { SeriesMembership } from "../../domain/material-metadata.js";
 import type { MaterialId } from "../../domain/material-identifiers.js";
+import { refreshPublishedMaterialSearchProjections } from "./published-material-search.js";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
 export interface SeriesOrderSnapshot {
+  readonly availableMaterials: readonly {
+    readonly materialId: string;
+    readonly publicationState: "draft" | "published" | "unpublished";
+    readonly title: string | null;
+  }[];
   readonly items: readonly {
     readonly materialId: string;
     readonly ordinal: number;
@@ -24,7 +30,7 @@ export async function loadSeriesOrderSnapshot(
   prisma: MaterialsPrisma,
   seriesId: string,
 ): Promise<SeriesOrderSnapshot | undefined> {
-  const [series, memberships] = await Promise.all([
+  const [series, memberships, availableMaterials] = await Promise.all([
     prisma.series.findUnique({
       where: { id: seriesId },
       select: { id: true, name: true },
@@ -33,6 +39,11 @@ export async function loadSeriesOrderSnapshot(
       where: { seriesId },
       orderBy: [{ ordinal: "asc" }, { materialId: "asc" }],
       select: { materialId: true, ordinal: true },
+    }),
+    prisma.material.findMany({
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      select: { id: true, publicationState: true, title: true },
+      take: 10_000,
     }),
   ]);
   if (series === null) {
@@ -47,6 +58,11 @@ export async function loadSeriesOrderSnapshot(
         });
   const materialById = new Map(materials.map((material) => [material.id, material]));
   return {
+    availableMaterials: availableMaterials.map((material) => ({
+      materialId: material.id,
+      publicationState: publicationStateSchema.parse(material.publicationState),
+      title: material.title,
+    })),
     items: memberships.map(({ materialId, ordinal }) => {
       const material = materialById.get(materialId);
       if (material === undefined) {
@@ -154,6 +170,10 @@ export async function replaceSeriesOrder(
   seriesId: string,
   orderedMaterialIds: readonly string[],
 ): Promise<void> {
+  const previousMemberships = await transaction.seriesMembership.findMany({
+    where: { seriesId },
+    select: { materialId: true },
+  });
   await transaction.seriesMembership.deleteMany({ where: { seriesId } });
   if (orderedMaterialIds.length > 0) {
     await transaction.seriesMembership.createMany({
@@ -168,16 +188,16 @@ export async function replaceSeriesOrder(
   await transaction.publishedMaterialSeriesMembership.deleteMany({
     where: { seriesId },
   });
-  if (orderedMaterialIds.length === 0) {
-    return;
-  }
-  const published = await transaction.material.findMany({
-    where: {
-      id: { in: [...orderedMaterialIds] },
-      publicationState: "published",
-    },
-    select: { id: true },
-  });
+  const published =
+    orderedMaterialIds.length === 0
+      ? []
+      : await transaction.material.findMany({
+          where: {
+            id: { in: [...orderedMaterialIds] },
+            publicationState: "published",
+          },
+          select: { id: true },
+        });
   const publishedIds = new Set(published.map(({ id }) => id));
   const publishedMemberships = orderedMaterialIds.flatMap((materialId, index) =>
     publishedIds.has(materialId)
@@ -189,4 +209,13 @@ export async function replaceSeriesOrder(
       data: publishedMemberships,
     });
   }
+  await refreshPublishedMaterialSearchProjections(transaction, {
+    kind: "materials",
+    materialIds: [
+      ...new Set([
+        ...previousMemberships.map(({ materialId }) => materialId),
+        ...orderedMaterialIds,
+      ]),
+    ],
+  });
 }

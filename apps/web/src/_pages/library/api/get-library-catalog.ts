@@ -23,6 +23,7 @@ const catalogFacetSchema = z
     id: z.string(),
     name: z.string(),
     slug: z.string(),
+    summary: z.string().nullable(),
   })
   .strict();
 

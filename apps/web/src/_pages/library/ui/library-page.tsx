@@ -15,6 +15,11 @@ import {
 } from "@/_pages/library/model/library-search-query";
 import { formatFoundMaterialCount } from "@/_pages/library/model/format-material-count";
 import { MaterialCard, materialTaxonomyLabel } from "@/entities/material";
+import {
+  PlaylistCard,
+  TopicCard,
+  formatMaterialCount,
+} from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import {
   Select,
@@ -50,6 +55,9 @@ export function LibraryPage({
     >
       <LibraryHeader />
       <div className="px-5 pb-7 sm:px-8 sm:pb-10 md:px-0 md:pb-0">
+        {result.kind === "ready" ? (
+          <LibraryCollections facets={result.facets} />
+        ) : null}
         <LibrarySearchForm
           facets={facets}
           isRefreshing={isRefreshing}
@@ -149,7 +157,74 @@ function LibraryHeader() {
       <h1 className="text-balance text-2xl font-semibold leading-7 tracking-[-0.03em] @min-[30rem]/library:text-3xl @min-[30rem]/library:leading-9 @min-[52rem]/library:text-5xl @min-[52rem]/library:leading-[1.1]">
         База знаний
       </h1>
+      <p className="mt-3 max-w-[58ch] text-pretty text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+        Темы, плейлисты и материалы Sachkov Inside.
+      </p>
     </header>
+  );
+}
+
+function LibraryCollections({
+  facets,
+}: {
+  readonly facets: Extract<LibraryCatalogPage, { readonly kind: "ready" }>["facets"];
+}) {
+  return (
+    <>
+      <section aria-labelledby="topics-heading" className="mt-8 sm:mt-10">
+        <h2 className="text-xl font-semibold tracking-[-0.025em] sm:text-2xl" id="topics-heading">
+          Темы
+        </h2>
+        {facets.topics.length === 0 ? (
+          <CollectionEmpty label="Тем пока нет" />
+        ) : (
+          <div className="mt-4 grid gap-4 @min-[42rem]/library:grid-cols-2 @min-[64rem]/library:grid-cols-3">
+            {facets.topics.map((topic) => (
+              <TopicCard
+                key={topic.slug}
+                topic={{
+                  count: topic.count,
+                  name: topic.name,
+                  slug: topic.slug,
+                  summary: topic.summary ?? "",
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section aria-labelledby="playlists-heading" className="mt-10 sm:mt-12">
+        <h2 className="text-xl font-semibold tracking-[-0.025em] sm:text-2xl" id="playlists-heading">
+          Плейлисты
+        </h2>
+        {facets.series.length === 0 ? (
+          <CollectionEmpty label="Плейлистов пока нет" />
+        ) : (
+          <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/library:grid-cols-2">
+            {facets.series.map((playlist) => (
+              <PlaylistCard
+                key={playlist.slug}
+                playlist={{
+                  countLabel: formatMaterialCount(playlist.count),
+                  name: playlist.name,
+                  slug: playlist.slug,
+                  summary: playlist.summary ?? "",
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function CollectionEmpty({ label }: { readonly label: string }) {
+  return (
+    <div className="mt-4 rounded-2xl bg-muted px-5 py-7 sm:px-8">
+      <p className="font-semibold">{label}</p>
+    </div>
   );
 }
 
@@ -199,7 +274,7 @@ function LibrarySearchForm({
 
   return (
     <form
-      className="pt-4 sm:pt-6"
+      className="mt-12 border-t border-border pt-8 sm:mt-16 sm:pt-10"
       onSubmit={(event) => {
         event.preventDefault();
       }}

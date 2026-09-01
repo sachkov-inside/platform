@@ -5,6 +5,7 @@ import type {
 import type { Result } from "../../result.js";
 
 export interface AuthoringReferenceDto {
+  readonly archived: boolean;
   readonly id: string;
   readonly name: string;
 }

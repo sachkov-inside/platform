@@ -32,18 +32,21 @@ export class ContentLibraryService {
         id: string;
         name: string;
         slug: string;
+        summary: string | null;
       }>;
       series: Array<{
         count: number;
         id: string;
         name: string;
         slug: string;
+        summary: string | null;
       }>;
       topics: Array<{
         count: number;
         id: string;
         name: string;
         slug: string;
+        summary: string | null;
       }>;
     };
     items: Array<{
@@ -148,7 +151,21 @@ export class ContentLibraryService {
       id: string;
       name: string;
       slug: string;
+      summary: string;
     };
+    relatedSeries: Array<{
+      id: string;
+      matchingMaterialCount: number;
+      name: string;
+      slug: string;
+      summary: string;
+      totalMaterialCount: number;
+    }>;
+    topics: Array<{
+      id: string;
+      name: string;
+      slug: string;
+    }>;
   }> {
     return this.httpRequest.request({
       method: 'GET',
@@ -213,7 +230,21 @@ export class ContentLibraryService {
       id: string;
       name: string;
       slug: string;
+      summary: string;
     };
+    relatedSeries: Array<{
+      id: string;
+      matchingMaterialCount: number;
+      name: string;
+      slug: string;
+      summary: string;
+      totalMaterialCount: number;
+    }>;
+    topics: Array<{
+      id: string;
+      name: string;
+      slug: string;
+    }>;
   }> {
     return this.httpRequest.request({
       method: 'GET',
@@ -278,7 +309,21 @@ export class ContentLibraryService {
       id: string;
       name: string;
       slug: string;
+      summary: string;
     };
+    relatedSeries: Array<{
+      id: string;
+      matchingMaterialCount: number;
+      name: string;
+      slug: string;
+      summary: string;
+      totalMaterialCount: number;
+    }>;
+    topics: Array<{
+      id: string;
+      name: string;
+      slug: string;
+    }>;
   }> {
     return this.httpRequest.request({
       method: 'GET',

@@ -26,10 +26,39 @@ export interface PublishedMaterialDiscoveryPage {
     readonly id: string;
     readonly name: string;
     readonly slug: string;
+    readonly summary: string;
   };
+  readonly relatedSeries: readonly {
+    readonly id: string;
+    readonly matchingMaterialCount: number;
+    readonly name: string;
+    readonly slug: string;
+    readonly summary: string;
+    readonly totalMaterialCount: number;
+  }[];
+  readonly topics: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly slug: string;
+  }[];
   readonly items: readonly PublishedMaterialProjectionDto[];
   readonly hasNext: boolean;
 }
+
+const relatedSeriesRowSchema = z
+  .object({
+    id: z.uuid(),
+    matching_material_count: z.coerce.number().int().nonnegative(),
+    name: z.string(),
+    slug: z.string(),
+    summary: z.string(),
+    total_material_count: z.coerce.number().int().nonnegative(),
+  })
+  .strict();
+
+const discoveryTopicRowSchema = z
+  .object({ id: z.uuid(), name: z.string(), slug: z.string() })
+  .strict();
 
 const publishedMaterialProjectionRowSchema = z.object({
   material_id: z.uuid(),
@@ -69,6 +98,7 @@ const facetOptionSchema = z
     id: z.uuid(),
     name: z.string(),
     slug: z.string(),
+    summary: z.string().nullable(),
   })
   .strict();
 
@@ -211,7 +241,7 @@ function projectionFiltersSql(
   }
   if (values.topicSlugs.length > 0) {
     conditions.push(
-      Prisma.sql`topic.slug in (${Prisma.join(values.topicSlugs)})`,
+      Prisma.sql`topic.archived_at is null and topic.slug in (${Prisma.join(values.topicSlugs)})`,
     );
   }
   if (values.formatSlugs.length > 0) {
@@ -227,6 +257,7 @@ function projectionFiltersSql(
         join materials.series as selected_series
           on selected_series.id = selected_membership.series_id
         where selected_membership.material_id = publication.material_id
+          and selected_series.archived_at is null
           and selected_series.slug in (${Prisma.join(values.seriesSlugs)})
       )
     `);
@@ -321,15 +352,18 @@ async function selectProjectionMetadata(
                 'id', option.id,
                 'name', option.name,
                 'slug', option.slug,
+                'summary', option.summary,
                 'count', option.count
               )
               order by option.name, option.id
             )
             from (
-              select topic.id, topic.name, topic.slug, count(*)::integer as count
+              select topic.id, topic.name, topic.slug, topic.summary,
+                count(*)::integer as count
               from materials.published_materials as publication
               join materials.topics as topic on topic.id = publication.topic_id
-              group by topic.id, topic.name, topic.slug
+              where topic.archived_at is null
+              group by topic.id, topic.name, topic.slug, topic.summary
             ) as option
           ),
           '[]'::jsonb
@@ -341,6 +375,7 @@ async function selectProjectionMetadata(
                 'id', option.id,
                 'name', option.name,
                 'slug', option.slug,
+                'summary', null,
                 'count', option.count
               )
               order by option.name, option.id
@@ -361,15 +396,18 @@ async function selectProjectionMetadata(
                 'id', option.id,
                 'name', option.name,
                 'slug', option.slug,
+                'summary', option.summary,
                 'count', option.count
               )
               order by option.name, option.id
             )
             from (
-              select series.id, series.name, series.slug, count(*)::integer as count
+              select series.id, series.name, series.slug, series.summary,
+                count(*)::integer as count
               from materials.published_material_series_memberships as membership
               join materials.series as series on series.id = membership.series_id
-              group by series.id, series.name, series.slug
+              where series.archived_at is null
+              group by series.id, series.name, series.slug, series.summary
             ) as option
           ),
           '[]'::jsonb
@@ -413,6 +451,7 @@ function seriesSortJoinsSql(
       on selected_membership.material_id = publication.material_id
     join materials.series as selected_series
       on selected_series.id = selected_membership.series_id
+     and selected_series.archived_at is null
      and selected_series.slug = ${slug}
   `;
 }
@@ -458,23 +497,56 @@ export async function selectPublishedMaterialProjectionsByTopic(
   slug: string,
   first: number,
 ): Promise<PublishedMaterialDiscoveryPage | undefined> {
-  const reference = await prisma.topic.findUnique({
-    where: { slug },
-    select: { id: true, name: true, slug: true },
-  });
-  if (reference === null) {
-    return undefined;
-  }
-  const rows = publishedMaterialProjectionRowSchema.array().parse(
-    await prisma.$queryRaw(
+  const [reference, rawRows, rawRelatedSeries] = await Promise.all([
+    prisma.topic.findUnique({
+      where: { slug },
+      select: { id: true, name: true, slug: true, summary: true },
+    }),
+    prisma.$queryRaw(
       projectionQuery({
         where: Prisma.sql`where topic.slug = ${slug}`,
         limit: Prisma.sql`limit ${first + 1}`,
       }),
     ),
-  );
+    prisma.$queryRaw(Prisma.sql`
+      select
+        series.id,
+        series.name,
+        series.slug,
+        series.summary,
+        count(*)::integer as matching_material_count,
+        (
+          select count(*)::integer
+          from materials.published_material_series_memberships as total_membership
+          where total_membership.series_id = series.id
+        ) as total_material_count
+      from materials.published_material_series_memberships as membership
+      join materials.published_materials as publication
+        on publication.material_id = membership.material_id
+      join materials.topics as topic on topic.id = publication.topic_id
+      join materials.series as series on series.id = membership.series_id
+      where topic.slug = ${slug}
+        and series.archived_at is null
+      group by series.id, series.name, series.slug, series.summary
+      order by series.name, series.id
+    `),
+  ]);
+  if (reference === null) {
+    return undefined;
+  }
+  const rows = publishedMaterialProjectionRowSchema.array().parse(rawRows);
+  const relatedSeries = relatedSeriesRowSchema.array().parse(rawRelatedSeries);
   return {
     reference,
+    relatedSeries: relatedSeries.map((series) => ({
+      id: series.id,
+      matchingMaterialCount: series.matching_material_count,
+      name: series.name,
+      slug: series.slug,
+      summary: series.summary,
+      totalMaterialCount: series.total_material_count,
+    })),
+    topics: [],
     items: rows.slice(0, first).map(toProjection),
     hasNext: rows.length > first,
   };
@@ -485,15 +557,12 @@ export async function selectPublishedMaterialProjectionsBySeries(
   slug: string,
   first: number,
 ): Promise<PublishedMaterialDiscoveryPage | undefined> {
-  const reference = await prisma.series.findUnique({
-    where: { slug },
-    select: { id: true, name: true, slug: true },
-  });
-  if (reference === null) {
-    return undefined;
-  }
-  const rows = publishedMaterialProjectionRowSchema.array().parse(
-    await prisma.$queryRaw(
+  const [reference, rawRows, rawTopics] = await Promise.all([
+    prisma.series.findUnique({
+      where: { slug },
+      select: { id: true, name: true, slug: true, summary: true },
+    }),
+    prisma.$queryRaw(
       projectionQuery({
         joins: Prisma.sql`
           join materials.published_material_series_memberships as selected_membership
@@ -508,9 +577,26 @@ export async function selectPublishedMaterialProjectionsBySeries(
         limit: Prisma.sql`limit ${first + 1}`,
       }),
     ),
-  );
+    prisma.$queryRaw(Prisma.sql`
+      select distinct topic.id, topic.name, topic.slug
+      from materials.published_material_series_memberships as membership
+      join materials.series as series on series.id = membership.series_id
+      join materials.published_materials as publication
+        on publication.material_id = membership.material_id
+      join materials.topics as topic on topic.id = publication.topic_id
+      where series.slug = ${slug}
+        and topic.archived_at is null
+      order by topic.name, topic.id
+    `),
+  ]);
+  if (reference === null) {
+    return undefined;
+  }
+  const rows = publishedMaterialProjectionRowSchema.array().parse(rawRows);
   return {
     reference,
+    relatedSeries: [],
+    topics: discoveryTopicRowSchema.array().parse(rawTopics),
     items: rows.slice(0, first).map(toProjection),
     hasNext: rows.length > first,
   };
@@ -593,7 +679,10 @@ export async function selectRelatedPublishedMaterialProjections(
       id: source.materialId,
       name: source.title,
       slug: source.slug,
+      summary: source.summary,
     },
+    relatedSeries: [],
+    topics: [],
     items: rows.slice(0, first).map(toProjection),
     hasNext: rows.length > first,
   };

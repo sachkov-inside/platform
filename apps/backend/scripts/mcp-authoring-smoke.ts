@@ -53,10 +53,16 @@ try {
   assertEqual(
     toolNames,
     [
+      "content_collection_create",
+      "content_collection_list",
+      "content_collection_set_archive",
+      "content_collection_update",
       "material_create_draft",
       "material_load",
       "material_preview",
       "material_save",
+      "playlist_load_composition",
+      "playlist_save_composition",
     ],
     "MCP tool surface",
   );

@@ -1,7 +1,8 @@
 "use client";
 
-import { Check, Copy, RotateCcw } from "lucide-react";
+import { Check, Copy, PenLine, RotateCcw } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
+import Link from "next/link";
 import { useId, useState } from "react";
 
 import {
@@ -12,6 +13,7 @@ import {
   type PrivateMemberProfile,
 } from "@/entities/member-profile";
 import { Button } from "@/shared/ui/button";
+import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 
 import { createMemberProfile } from "../api/create-member-profile.browser";
 import { updateMemberProfile } from "../api/update-member-profile.browser";
@@ -20,11 +22,13 @@ import type { UpdateMemberProfileResult } from "../model/update-member-profile";
 import { ProfileAvatarEditor } from "./profile-avatar-editor.client";
 
 interface AccountPageClientProps {
+  readonly canManageMaterials?: boolean;
   readonly initialProfile: PrivateMemberProfile | null;
   readonly onProfileChange?: (profile: PrivateMemberProfile) => void;
 }
 
 export function AccountPageClient({
+  canManageMaterials = false,
   initialProfile,
   onProfileChange,
 }: AccountPageClientProps) {
@@ -98,6 +102,22 @@ export function AccountPageClient({
           </Button>
         </form>
       </header>
+
+      {canManageMaterials ? (
+        <section className="mb-8 flex flex-col gap-4 rounded-2xl bg-sidebar p-5 text-sidebar-foreground shadow-card sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.12em] text-sidebar-foreground/60">materials:manage</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-[-0.025em]">Редактор Базы знаний</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-sidebar-foreground/70">Материалы, темы, плейлисты и их публичный порядок.</p>
+          </div>
+          <Button asChild className="shrink-0">
+            <Link href={authoringMaterialsRootHref}>
+              <PenLine aria-hidden="true" />
+              Открыть редактор
+            </Link>
+          </Button>
+        </section>
+      ) : null}
 
       <form
         className="grid gap-8 lg:grid-cols-2 lg:gap-12"

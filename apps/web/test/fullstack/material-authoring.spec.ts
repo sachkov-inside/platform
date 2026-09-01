@@ -6,6 +6,7 @@ import {
   expect,
   test,
   type BrowserContext,
+  type Locator,
   type Page,
   type TestInfo,
 } from "@playwright/test";
@@ -56,10 +57,10 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
     ({ impact }) => impact === "serious" || impact === "critical",
   )).toEqual([]);
   await captureAssetEvidence(page, testInfo, "editor-ready");
-  await chooser.getByRole("button", { name: "Вставить" }).click();
+  await insertReadyAsset(chooser);
   await diagram.getByLabel("Описание изображения").fill("Схема asset flow");
-  await diagram.getByRole("button", { name: "Вставить" }).click();
-  await dropped.getByRole("button", { name: "Вставить" }).click();
+  await insertReadyAsset(diagram);
+  await insertReadyAsset(dropped);
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
 
@@ -451,6 +452,7 @@ test("trusted author reorders a PostgreSQL playlist with keyboard controls", asy
 
   const response = await page.goto("/authoring/playlists");
   expect(response?.status()).toBe(200);
+  await page.getByRole("link", { name: "Состав" }).click();
   await expect(page).toHaveURL(/\/authoring\/playlists\/[0-9a-f-]+$/u);
   await expect(
     page.getByRole("heading", { name: "Создание Platform Inside", level: 1 }),
@@ -562,6 +564,12 @@ async function dispatchFileEvent(
       : new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer });
     element.dispatchEvent(event);
   }, { eventType, file });
+}
+
+async function insertReadyAsset(upload: Locator) {
+  const insert = upload.getByRole("button", { name: "Вставить" });
+  await expect(insert).toBeEnabled();
+  await insert.dispatchEvent("click");
 }
 
 async function captureLifecycleEvidence(

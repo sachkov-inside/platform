@@ -145,10 +145,10 @@ author. ([ContentAccess matrix][access-matrix]) Email login, явное Telegram
 | Термин | Подтверждённое правило v1 | UX-следствие |
 |---|---|---|
 | `Material` | Stable mutable library/search/read identity с current body, metadata, access, publication state и `contentVersion` | Save атомарно заменяет текущее состояние; отдельных revisions и restore/history нет |
-| `Topic` / «Тема» | Ровно одна на Material; managed, одноуровневый dictionary | Topic page — generated view; owner утвердил UI label «Тема» |
+| `Topic` / «Тема» | Ровно одна на Material; managed, одноуровневый dictionary; metadata `name/slug/summary`, slug immutable, archive сохраняет связи | Topic page — generated view с полным derived-списком Series и paginated Materials; archived Topic исчезает из discovery, но canonical reader сохраняется |
 | `Format` | Ровно один на Material; primary consumption mode, независимо от Topic и Asset kind | `video`, `guide` и будущие подтверждённые values не смешиваются с file/image/link |
 | `Tag` | 0..N на Material; managed dictionary с rename/merge без duplicate synonyms | Tags видимы, searchable и ведут к похожему content; отдельной tag filter panel в v1 нет |
-| `Series` | 0..N ordered memberships; ordinal принадлежит membership, Material может быть в нескольких Series | Series page показывает description и ordered episodes без копирования Material data |
+| `Series` | 0..N ordered memberships; ordinal принадлежит membership, Material может быть в нескольких Series; metadata `name/slug/summary`, slug immutable | Series page показывает полный ordered состав и derived Topics без копирования Material data; archive сохраняет reader и связи |
 | `Asset` | Platform-owned image/downloadable file; Material ссылается по local ID | Body resource наследует access Material и имеет loading/processing/error/ready delivery states; cover публичен |
 | `Video` | Local identity с Kinescope mapping; Material ссылается по local ID | Provider status не заменяет publication/access state |
 | `ExternalLink` | Typed label + normalized URL, 0..N на Material | Link — часть Material, не отдельный Format и не entity by URL |
@@ -176,9 +176,8 @@ local IDs и исключает raw HTML/MDX, iframe markup, provider tokens и 
 
 | Surface | Audience | Job | Content authority / relation |
 |---|---|---|---|
-| Global navigation | Все browser actors | Перейти к основным public destinations и account context | Top-level: Главная, Библиотека, Карта; Темы/Серии contextual; Account/Author — actor utilities |
-| Home | Все; после login добавляется personal layer | Увидеть новое, Темы, active Series и Карту; после login — последний просмотренный и короткую history | Order для signed-in: conditional Продолжить → новое → Темы → active Series → Карта |
-| Library / search | Все | Найти published Material через full-text search и filters Тема/Формат/Серия | Multiple values: OR внутри facet, AND между facets; Tags visible/searchable without filter panel; closed body отсутствует в public results |
+| Global navigation | Все browser actors | Открыть основную public destination и account context | Только База знаний; `/` redirect на `/library`, Карта доступна по прямому URL; Account/Author — actor utilities |
+| Library / search | Все | Выбрать Topic/Series или найти published Material через full-text search и filters Тема/Формат/Серия | Отдельные real-data секции Topics, Playlists и Materials; multiple values: OR внутри facet, AND между facets; closed body отсутствует в public results |
 | Topic | Все | Понять направление и перейти к связанным Series/Materials | Generated view по exactly-one Topic |
 | Series | Все | Понять series и пройти ordered episodes; public visitor видит карточки и порядок даже closed Series | Ordered `SeriesMembership`; Material data не копируется |
 | Roadmap | Все | Понять направления продукта и перейти к Topics/Series/Materials | Editorial `NavigationPage` с curated/query links |
@@ -188,9 +187,10 @@ local IDs и исключает raw HTML/MDX, iframe markup, provider tokens и 
 | Telegram link callback/result | Authenticated human | Завершить OIDC link, увидеть linked-member / linked-not-member / denied / conflict / unavailable outcome | Linking не является login и само по себе не даёт access |
 | Recent history / reading state | Authenticated human | Вернуться к недавно просмотренному, вручную mark read/unread | Последний/короткий список на Home, полная bounded history в Account; auto-mark отсутствует |
 | Author material list | Author/admin | Найти draft/published/unpublished Materials, создать Material, открыть editor | Private, noindex; list не становится second content authority |
+| Author Topic/Series | Author/admin | Создать, переименовать, описать, архивировать и восстановить Topic/Series; управлять полным составом Series | Slug immutable; composition сохраняется атомарно с optimistic conflict protection; archived references сохраняются, но не назначаются заново |
 | Author editor | Author/admin | Атомарно сохранить document/metadata/access/publication state; видеть validation, upload и conflict states | Один full-state Save contract с MCP; published Save становится live сразу |
 | Author preview | Author/admin | Проверить текущее сохранённое состояние тем же renderer до publish | Private/no-store/noindex; preview не меняет publication state |
-| MCP | Owner agent, не browser actor | Выполнить тот же create/full-state Save/preview contract | UI surface не требуется; browser admin должен показывать тот же canonical outcome |
+| MCP | Owner agent, не browser actor | Выполнить те же Material, Topic, Series и composition operations | UI surface не требуется; browser admin и MCP используют одни application rules |
 
 Public surfaces, account/admin boundaries и SEO rules закреплены в local specification.
 ([Platform application boundaries][platform-spec-boundaries], [Platform NFR][platform-spec-nfr]) Home/Library/Topic/Series
@@ -200,7 +200,7 @@ roles и personal layer подтверждены Platform brief.
 
 ### Navigation relationships
 
-- Home даёт editorial/query entry points в Library, Topic, Series, Roadmap и Material.
+- `/` перенаправляет на Library; Topic и Series открываются из real-data discovery sections.
 - Library, Topic и Series являются разными generated views одной content model: они ведут к одному
   Material identity и не хранят собственные копии title/description/access state.
 - Roadmap является editorial `NavigationPage`: её body объясняет направления, а links ведут в
@@ -332,8 +332,7 @@ CTA.
 
 | Surface | Actor | Observable state | Разрешённые действия | Запрещённое следствие |
 |---|---|---|---|---|
-| Home | Public visitor | Public composition: ready / loading / partial / empty | Открыть Library, Roadmap, Topic, Series или Material | Не показывать fake personal progress |
-| Home | Any authenticated human Account | Public composition + empty/populated recent/read layer | Открыть доступный Material, вручную mark read/unread, открыть Account; author area только при permission | History/permission не grant-ят closed access и не создают общий course percentage |
+| Root | Любой browser actor | Redirect на `/library` | Продолжить в Базу знаний | Не поддерживать вторую public content composition |
 | Library/search | Все | Client loading / searching / results / no results / controlled failure; published membership cards locked без доступа и unlocked для active member/manager | Мгновенно применить/сбросить real-data filters без page navigation, ввести debounced query, автоматически догрузить cursor continuation, открыть card | Не искать client-side по закрытому body, не выдумывать facets и не публиковать cursor в URL |
 | Topic | Все | Ready / empty / partial | Открыть Series или Material, перейти в Library с Topic context | Не хранить отдельную копию Material metadata |
 | Series | Все | Ready / empty / partial / long ordered list | Открыть episode; authenticated actor видит read/unread | Не скрывать порядок closed Series и не вычислять percent complete |
@@ -353,6 +352,7 @@ CTA.
 | Account | Authenticated unlinked Account | `telegram_not_linked` | Start Telegram link, sign out | Не предлагать заменить уже связанную identity без recovery policy |
 | Account | Linked non-member / expired | Linked identity + inactive/expired/unavailable coarse state | Обновить только local state, открыть approved recovery destination | Не запускать provider check и не показывать raw Telegram status/evidence timestamps как authority |
 | Account | Active member | Linked + active coarse state | Open Library/history | Не давать Platform subscription management |
+| Account | Account с `materials:manage` | Явный authoring entry | Открыть существующую админку | Не показывать authoring entry без permission |
 | Telegram callback/result | Authenticated human | Pending / linked-active / linked-inactive / denied / expired / replay / conflict / unavailable | Finish, retry safe step, return to Account; conflict — support/owner recovery | Не auto-merge two Accounts или silently replace link |
 | Recent history | Authenticated human | Empty / populated / referenced Material unpublished | Open still-visible Material, mark read/unread, return to Library | Не grant closed access from historical presence |
 | Author material list | Author | Loading / empty / populated / controlled failure | Create Material, open draft/published/unpublished item | Не показывать author actions обычному member |
@@ -361,7 +361,7 @@ CTA.
 | Author editor | Author/admin | Uploading / processing / failed / ready | Pause/retry where supported, edit metadata, attach only when ready | Не сохранять blob/provider URL в canonical document |
 | Author editor | Author/admin | `409 conflict` | Preserve local input, inspect current version, manually reapply or reload | Не last-write-wins и не overwrite молча |
 | Author preview | Author/admin | Loading / current saved state / resource unavailable / validation blocked | Inspect responsive reading and return to editor | Не mutate Material или publication state |
-| MCP | Owner agent | Same validation/conflict/lifecycle outcomes, structured | Create, full-state Save and Preview, including publish/unpublish/access changes | Не borrow human session/Membership и не access SQL directly |
+| MCP | Owner agent | Same validation/conflict/lifecycle/collection outcomes, structured | Управлять Material, Topic, Series и ordered composition | Не borrow human session/Membership и не access SQL directly |
 
 ### Обязательный state inventory
 
@@ -535,6 +535,11 @@ search/access tests и production surfaces.
 | Sanitation | Fictional local IDs; no emails, Telegram handles, tokens, secrets, private URLs, provider IDs, personal documents or real participant data |
 
 ## 9. Low-fidelity responsive wireframes
+
+Owner decision #195 supersedes Home/global-navigation fragments in the older wireframes below:
+production starts at `/library`, global navigation contains only «База знаний», and the accepted
+Library/Topic/Series compositions are the real-data implementations from #203 and #216. The older
+Home frames remain only as historical rationale for hierarchy, not as a current surface contract.
 
 Wireframes encode hierarchy and reading/keyboard order only. Brackets mean a semantic region or
 control, not a component, border, color, spacing token or visual style. Owner-approved compact IA:

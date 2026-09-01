@@ -9,17 +9,25 @@ import type { ReorderSeriesOperation } from "../../features/reorder-series/reord
 import type { SaveMaterialOperation } from "../../features/save-material/save-material.contract.js";
 import type { ValidateMaterialOperation } from "../../features/validate-material/validate-material.contract.js";
 import type { TransitionMaterialPublicationOperation } from "../../features/transition-material-publication/transition-material-publication.contract.js";
+import type { CreateContentCollectionOperation } from "../../features/create-content-collection/create-content-collection.contract.js";
+import type { ListContentCollectionsOperation } from "../../features/list-content-collections/list-content-collections.contract.js";
+import type { SetContentCollectionArchiveOperation } from "../../features/set-content-collection-archive/set-content-collection-archive.contract.js";
+import type { UpdateContentCollectionOperation } from "../../features/update-content-collection/update-content-collection.contract.js";
 
 export interface MaterialAuthoring {
+  readonly createContentCollection: CreateContentCollectionOperation;
   readonly createDraft: CreateDraftOperation;
   readonly deleteDraft: DeleteDraftOperation;
   readonly loadMaterial: LoadMaterialOperation;
   readonly loadSeriesOrder: LoadSeriesOrderOperation;
   readonly listReferences: ListAuthoringReferencesOperation;
   readonly listMaterials: ListMaterialsOperation;
+  readonly listContentCollections: ListContentCollectionsOperation;
   readonly previewMaterial: PreviewMaterialOperation;
   readonly reorderSeries: ReorderSeriesOperation;
   readonly saveMaterial: SaveMaterialOperation;
+  readonly setContentCollectionArchive: SetContentCollectionArchiveOperation;
   readonly transitionPublication: TransitionMaterialPublicationOperation;
   readonly validateMaterial: ValidateMaterialOperation;
+  readonly updateContentCollection: UpdateContentCollectionOperation;
 }

@@ -43,6 +43,7 @@ import {
 import { discoverPublishedMaterials } from "./discover-published-materials.js";
 
 const COLLECTION_SIZE = 24;
+const COMPLETE_SERIES_SIZE = 10_000;
 const RELATED_SIZE = 6;
 const discoverySlugSchema = toOpenApiSchema(
   z.string().max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u),
@@ -99,7 +100,7 @@ export class DiscoverPublishedMaterialsController {
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("slug") slug: string,
   ) {
-    return this.read("series", slug, COLLECTION_SIZE, account);
+    return this.read("series", slug, COMPLETE_SERIES_SIZE, account);
   }
 
   @Get("materials/:slug/related")

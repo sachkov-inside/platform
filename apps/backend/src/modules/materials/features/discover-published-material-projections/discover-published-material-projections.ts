@@ -14,7 +14,7 @@ import type {
 
 const querySchema = z
   .object({
-    first: z.number().int().min(1).max(100),
+    first: z.number().int().min(1).max(10_000),
     kind: z.enum(["related", "series", "topic"]),
     slug: z
       .string()

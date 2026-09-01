@@ -19,9 +19,7 @@ import {
 } from "./library-discovery-view";
 
 const navigationItems = [
-  { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
-  { href: "/map", icon: "map", label: "Карта" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const materials = [
@@ -60,7 +58,18 @@ const topicResult = {
   hasNext: false,
   items: materials,
   kind: "ready",
-  reference: { name: "Platform", slug: "platform" },
+  reference: { name: "Platform", slug: "platform", summary: "Архитектура, продукт и поставка Platform." },
+  relatedSeries: [
+    {
+      id: "series-platform-inside",
+      matchingMaterialCount: 2,
+      name: "Создание Platform Inside",
+      slug: "platform-inside",
+      summary: "Последовательный путь создания Platform.",
+      totalMaterialCount: 2,
+    },
+  ],
+  topics: [],
 } as const satisfies LibraryDiscoveryResult;
 
 const seriesResult = {
@@ -68,7 +77,9 @@ const seriesResult = {
   hasNext: false,
   items: materials,
   kind: "ready",
-  reference: { name: "Создание Platform Inside", slug: "platform-inside" },
+  reference: { name: "Создание Platform Inside", slug: "platform-inside", summary: "Последовательный путь создания Platform." },
+  relatedSeries: [],
+  topics: [{ id: "topic-platform", name: "Platform", slug: "platform" }],
 } as const satisfies LibraryDiscoveryResult;
 
 function ProductionShell({ children }: { readonly children: React.ReactNode }) {
@@ -109,9 +120,8 @@ export const TopicDesktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "Создание Platform Inside" })).toHaveAttribute(
-      "href",
-      "/series/platform-inside",
+    await expect(canvasElement.querySelector("[data-playlist-card]")).toHaveAttribute(
+      "href", "/series/platform-inside",
     );
   },
 };
@@ -142,7 +152,9 @@ export const EmptySeries: Story = {
     result: {
       discoveryKind: "series",
       kind: "empty",
-      reference: { name: "Новый плейлист", slug: "new-series" },
+      reference: { name: "Новый плейлист", slug: "new-series", summary: "" },
+      relatedSeries: [],
+      topics: [],
     },
   },
   name: "Series · empty",
@@ -181,7 +193,9 @@ export const RelatedReady: Story = {
         hasNext: false,
         items: materials,
         kind: "ready",
-        reference: { name: "Как устроен Inside Platform", slug: "inside-platform-overview" },
+        reference: { name: "Как устроен Inside Platform", slug: "inside-platform-overview", summary: "" },
+        relatedSeries: [],
+        topics: [],
       }}
       sourceSlug="inside-platform-overview"
     />
@@ -196,7 +210,9 @@ export const RelatedEmpty: Story = {
       result={{
         discoveryKind: "related",
         kind: "empty",
-        reference: { name: "Как устроен Inside Platform", slug: "inside-platform-overview" },
+        reference: { name: "Как устроен Inside Platform", slug: "inside-platform-overview", summary: "" },
+        relatedSeries: [],
+        topics: [],
       }}
       sourceSlug="inside-platform-overview"
     />

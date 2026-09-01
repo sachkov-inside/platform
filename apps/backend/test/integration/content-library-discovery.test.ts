@@ -15,6 +15,14 @@ describe("Content Library discovery", () => {
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
     await seedLocalDevelopment(testDatabase.prisma);
+    await testDatabase.prisma.topic.update({
+      where: { slug: "platform" },
+      data: { summary: "Platform boundaries, delivery and operations." },
+    });
+    await testDatabase.prisma.series.update({
+      where: { slug: "platform-inside" },
+      data: { summary: "Build the platform in a deliberate order." },
+    });
   });
 
   afterAll(async () => {
@@ -44,8 +52,21 @@ describe("Content Library discovery", () => {
     }
     expect(result.value).toMatchObject({
       kind: "topic",
-      reference: { name: "Platform", slug: "platform" },
+      reference: {
+        name: "Platform",
+        slug: "platform",
+        summary: "Platform boundaries, delivery and operations.",
+      },
       hasNext: false,
+      relatedSeries: [
+        expect.objectContaining({
+          matchingMaterialCount: 2,
+          name: "Создание Platform Inside",
+          slug: "platform-inside",
+          summary: "Build the platform in a deliberate order.",
+          totalMaterialCount: 2,
+        }),
+      ],
     });
     expect(
       result.value.items.find(
@@ -61,6 +82,74 @@ describe("Content Library discovery", () => {
       "Закрытое содержимое для участников",
     );
     expect(JSON.stringify(result)).not.toContain("schemaVersion");
+  });
+
+  test("derives every related Playlist beyond the current Topic material page", async () => {
+    const topic = await testDatabase.prisma.topic.findUniqueOrThrow({
+      where: { slug: "platform" },
+      select: { id: true },
+    });
+    const published = await testDatabase.prisma.publishedMaterial.findMany({
+      where: { topicId: topic.id },
+      orderBy: [{ publishedAt: "desc" }, { materialId: "desc" }],
+      select: { materialId: true },
+    });
+    const target = published.at(-1);
+    if (target === undefined || published.length < 2) {
+      throw new Error("Expected a second published Topic Material");
+    }
+    const beyondPageSeriesId = "75000000-0000-4000-8000-000000000010";
+    await testDatabase.prisma.series.create({
+      data: {
+        id: beyondPageSeriesId,
+        name: "Beyond first page",
+        slug: "beyond-first-page",
+        summary: "A derived Playlist outside the current material page.",
+      },
+    });
+    await Promise.all([
+      testDatabase.prisma.seriesMembership.create({
+        data: {
+          materialId: target.materialId,
+          ordinal: 1,
+          seriesId: beyondPageSeriesId,
+        },
+      }),
+      testDatabase.prisma.publishedMaterialSeriesMembership.create({
+        data: {
+          materialId: target.materialId,
+          ordinal: 1,
+          seriesId: beyondPageSeriesId,
+        },
+      }),
+    ]);
+
+    const { contentAccess, publishedMaterialReader } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+    });
+    const result = await discoverPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      {
+        kind: "topic",
+        slug: "platform",
+        first: 1,
+        subject: anonymousSubject,
+      },
+    );
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.value.hasNext).toBe(true);
+    expect(result.value.items.map(({ materialId }) => materialId)).not.toContain(
+      target.materialId,
+    );
+    expect(result.value.relatedSeries).toContainEqual(
+      expect.objectContaining({
+        matchingMaterialCount: 1,
+        slug: "beyond-first-page",
+        totalMaterialCount: 1,
+      }),
+    );
   });
 
   test("keeps Series in author-defined ordinal order for free and closed teasers", async () => {
@@ -87,7 +176,9 @@ describe("Content Library discovery", () => {
         reference: {
           name: "Создание Platform Inside",
           slug: "platform-inside",
+          summary: "Build the platform in a deliberate order.",
         },
+        topics: [expect.objectContaining({ name: "Platform", slug: "platform" })],
         items: [
           expect.objectContaining({
             slug: "kak-ustroen-inside-platform",
@@ -222,5 +313,76 @@ describe("Content Library discovery", () => {
       ok: false,
       error: { code: "invalid_request_shape" },
     });
+  });
+
+  test("hides archived collections from discovery while canonical readers remain valid", async () => {
+    const { contentAccess, publishedMaterialReader } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+    });
+    await Promise.all([
+      testDatabase.prisma.topic.update({
+        where: { slug: "platform" },
+        data: { archivedAt: new Date() },
+      }),
+      testDatabase.prisma.series.update({
+        where: { slug: "platform-inside" },
+        data: { archivedAt: new Date() },
+      }),
+    ]);
+    try {
+      const catalog = await publishedMaterialReader.listProjections({ first: 24 });
+      if (!catalog.ok) throw new Error(catalog.error.code);
+      expect(catalog.value.facets.topics.map(({ slug }) => slug)).not.toContain(
+        "platform",
+      );
+      expect(catalog.value.facets.series.map(({ slug }) => slug)).not.toContain(
+        "platform-inside",
+      );
+
+      const topic = await discoverPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        {
+          kind: "topic",
+          slug: "platform",
+          first: 24,
+          subject: anonymousSubject,
+        },
+      );
+      const series = await discoverPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        {
+          kind: "series",
+          slug: "platform-inside",
+          first: 24,
+          subject: anonymousSubject,
+        },
+      );
+      expect(topic).toMatchObject({
+        ok: true,
+        value: { reference: { slug: "platform" } },
+      });
+      if (!topic.ok) throw new Error(topic.error.code);
+      expect(topic.value.relatedSeries.map(({ slug }) => slug)).not.toContain(
+        "platform-inside",
+      );
+      expect(series).toMatchObject({
+        ok: true,
+        value: { reference: { slug: "platform-inside" }, topics: [] },
+      });
+    } finally {
+      await Promise.all([
+        testDatabase.prisma.topic.update({
+          where: { slug: "platform" },
+          data: { archivedAt: null },
+        }),
+        testDatabase.prisma.series.update({
+          where: { slug: "platform-inside" },
+          data: { archivedAt: null },
+        }),
+      ]);
+    }
   });
 });

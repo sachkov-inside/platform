@@ -8,7 +8,7 @@ import {
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 
-const referenceSchema = z.object({ id: z.uuid(), name: z.string().min(1) }).strict();
+const referenceSchema = z.object({ archived: z.boolean(), id: z.uuid(), name: z.string().min(1) }).strict();
 const referencesSchema = z
   .object({
     formats: z.array(referenceSchema),
@@ -26,6 +26,7 @@ export interface MaterialAuthoringReferences {
 }
 
 export interface MaterialAuthoringReference {
+  readonly archived: boolean;
   readonly label: string;
   readonly value: string;
 }
@@ -72,6 +73,6 @@ export async function getMaterialAuthoringReferences(
   };
 }
 
-function toOption(reference: { readonly id: string; readonly name: string }) {
-  return { label: reference.name, value: reference.id };
+function toOption(reference: { readonly archived: boolean; readonly id: string; readonly name: string }) {
+  return { archived: reference.archived, label: reference.name, value: reference.id };
 }

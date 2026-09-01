@@ -4142,6 +4142,2896 @@
         ]
       }
     },
+    "/authoring/collections": {
+      "get": {
+        "operationId": "listAuthoringContentCollections",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "series",
+                "topic"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "archived": {
+                        "type": "boolean"
+                      },
+                      "id": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "series",
+                          "topic"
+                        ],
+                        "type": "string"
+                      },
+                      "materialCount": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "name": {
+                        "maxLength": 120,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "slug": {
+                        "maxLength": 120,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "summary": {
+                        "maxLength": 500,
+                        "type": "string"
+                      },
+                      "version": {
+                        "exclusiveMinimum": true,
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "archived",
+                      "id",
+                      "kind",
+                      "materialCount",
+                      "name",
+                      "slug",
+                      "summary",
+                      "version"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "List Topics or Series for authoring",
+        "tags": [
+          "Material authoring"
+        ]
+      },
+      "post": {
+        "operationId": "createAuthoringContentCollection",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "series",
+                      "topic"
+                    ],
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name",
+                  "slug",
+                  "summary"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "archived": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "series",
+                        "topic"
+                      ],
+                      "type": "string"
+                    },
+                    "materialCount": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "name": {
+                      "maxLength": 120,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "slug": {
+                      "maxLength": 120,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "summary": {
+                      "maxLength": 500,
+                      "type": "string"
+                    },
+                    "version": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "archived",
+                    "id",
+                    "kind",
+                    "materialCount",
+                    "name",
+                    "slug",
+                    "summary",
+                    "version"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Create a Topic or Series with an immutable slug",
+        "tags": [
+          "Material authoring"
+        ]
+      }
+    },
+    "/authoring/collections/{collectionId}": {
+      "put": {
+        "operationId": "updateAuthoringContentCollection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collectionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "expectedVersion": {
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "enum": [
+                      "series",
+                      "topic"
+                    ],
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "expectedVersion",
+                  "kind",
+                  "name",
+                  "summary"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "archived": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "series",
+                        "topic"
+                      ],
+                      "type": "string"
+                    },
+                    "materialCount": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "name": {
+                      "maxLength": 120,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "slug": {
+                      "maxLength": 120,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "summary": {
+                      "maxLength": 500,
+                      "type": "string"
+                    },
+                    "version": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "archived",
+                    "id",
+                    "kind",
+                    "materialCount",
+                    "name",
+                    "slug",
+                    "summary",
+                    "version"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Update Topic or Series metadata without changing its slug",
+        "tags": [
+          "Material authoring"
+        ]
+      }
+    },
+    "/authoring/collections/{collectionId}/archive": {
+      "put": {
+        "operationId": "setAuthoringContentCollectionArchive",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collectionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "archived": {
+                    "type": "boolean"
+                  },
+                  "expectedVersion": {
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "enum": [
+                      "series",
+                      "topic"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "archived",
+                  "expectedVersion",
+                  "kind"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "archived": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "series",
+                        "topic"
+                      ],
+                      "type": "string"
+                    },
+                    "materialCount": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "name": {
+                      "maxLength": 120,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "slug": {
+                      "maxLength": 120,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "summary": {
+                      "maxLength": 500,
+                      "type": "string"
+                    },
+                    "version": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "archived",
+                    "id",
+                    "kind",
+                    "materialCount",
+                    "name",
+                    "slug",
+                    "summary",
+                    "version"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "currentContentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "currentOrderVersion": {
+                      "pattern": "^[a-f0-9]{64}$",
+                      "type": "string"
+                    },
+                    "currentState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "issues": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "path"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "targetState": {
+                      "enum": [
+                        "draft",
+                        "published",
+                        "unpublished"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Archive or restore a Topic or Series",
+        "tags": [
+          "Material authoring"
+        ]
+      }
+    },
     "/authoring/materials": {
       "get": {
         "operationId": "listAuthoringMaterials",
@@ -4343,6 +7233,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -4426,6 +7322,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -4511,6 +7413,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -4595,6 +7503,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -4678,6 +7592,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -4934,6 +7854,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -5017,6 +7943,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -5102,6 +8034,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -5185,6 +8123,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -5270,6 +8214,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -5354,6 +8304,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -5437,6 +8393,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -5603,6 +8565,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -5686,6 +8654,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -5771,6 +8745,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -5854,6 +8834,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -5939,6 +8925,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -6022,6 +9014,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -6107,6 +9105,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -6190,6 +9194,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -6461,6 +9471,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -6544,6 +9560,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -6629,6 +9651,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -6712,6 +9740,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -6797,6 +9831,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -6881,6 +9921,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -6964,6 +10010,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -7246,6 +10298,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -7329,6 +10387,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -7414,6 +10478,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -7497,6 +10567,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -7582,6 +10658,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -7665,6 +10747,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -7750,6 +10838,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -7833,6 +10927,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -8610,6 +11710,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -8693,6 +11799,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -8778,6 +11890,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -8861,6 +11979,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -8946,6 +12070,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -9030,6 +12160,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -9113,6 +12249,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -9310,6 +12452,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -9393,6 +12541,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -9478,6 +12632,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -9561,6 +12721,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -9646,6 +12812,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -9729,6 +12901,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -9814,6 +12992,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -9897,6 +13081,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -10184,6 +13374,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -10268,6 +13464,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -10351,6 +13553,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -10436,6 +13644,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -10519,6 +13733,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -10604,6 +13824,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -10687,6 +13913,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -10772,6 +14004,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -10853,6 +14091,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "archived": {
+                            "type": "boolean"
+                          },
                           "id": {
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -10864,6 +14105,7 @@
                           }
                         },
                         "required": [
+                          "archived",
                           "id",
                           "name"
                         ],
@@ -10875,6 +14117,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "archived": {
+                            "type": "boolean"
+                          },
                           "id": {
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -10886,6 +14131,7 @@
                           }
                         },
                         "required": [
+                          "archived",
                           "id",
                           "name"
                         ],
@@ -10897,6 +14143,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "archived": {
+                            "type": "boolean"
+                          },
                           "id": {
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -10908,6 +14157,7 @@
                           }
                         },
                         "required": [
+                          "archived",
                           "id",
                           "name"
                         ],
@@ -10919,6 +14169,9 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "archived": {
+                            "type": "boolean"
+                          },
                           "id": {
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -10930,6 +14183,7 @@
                           }
                         },
                         "required": [
+                          "archived",
                           "id",
                           "name"
                         ],
@@ -10979,6 +14233,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -11064,6 +14324,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -11148,6 +14414,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -11231,6 +14503,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -11319,6 +14597,37 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "availableMaterials": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "materialId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "publicationState": {
+                            "enum": [
+                              "draft",
+                              "published",
+                              "unpublished"
+                            ],
+                            "type": "string"
+                          },
+                          "title": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "materialId",
+                          "publicationState",
+                          "title"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "items": {
                       "items": {
                         "additionalProperties": false,
@@ -11372,6 +14681,7 @@
                     }
                   },
                   "required": [
+                    "availableMaterials",
                     "items",
                     "name",
                     "orderVersion",
@@ -11412,6 +14722,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -11497,6 +14813,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -11580,6 +14902,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -11665,6 +14993,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -11749,6 +15083,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -11832,6 +15172,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -11998,6 +15344,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -12081,6 +15433,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -12166,6 +15524,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -12249,6 +15613,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -12334,6 +15704,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -12417,6 +15793,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -12502,6 +15884,12 @@
                       ],
                       "type": "string"
                     },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -12585,6 +15973,12 @@
                         "unpublished"
                       ],
                       "type": "string"
+                    },
+                    "currentVersion": {
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
                     },
                     "issues": {
                       "items": {
@@ -13427,13 +16821,18 @@
                                 "maxLength": 120,
                                 "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
                                 "type": "string"
+                              },
+                              "summary": {
+                                "nullable": true,
+                                "type": "string"
                               }
                             },
                             "required": [
                               "count",
                               "id",
                               "name",
-                              "slug"
+                              "slug",
+                              "summary"
                             ],
                             "type": "object"
                           },
@@ -13460,13 +16859,18 @@
                                 "maxLength": 120,
                                 "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
                                 "type": "string"
+                              },
+                              "summary": {
+                                "nullable": true,
+                                "type": "string"
                               }
                             },
                             "required": [
                               "count",
                               "id",
                               "name",
-                              "slug"
+                              "slug",
+                              "summary"
                             ],
                             "type": "object"
                           },
@@ -13493,13 +16897,18 @@
                                 "maxLength": 120,
                                 "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
                                 "type": "string"
+                              },
+                              "summary": {
+                                "nullable": true,
+                                "type": "string"
                               }
                             },
                             "required": [
                               "count",
                               "id",
                               "name",
-                              "slug"
+                              "slug",
+                              "summary"
                             ],
                             "type": "object"
                           },
@@ -14134,6 +17543,8 @@
                       "additionalProperties": false,
                       "properties": {
                         "id": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
                         "name": {
@@ -14141,21 +17552,93 @@
                         },
                         "slug": {
                           "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "id",
                         "name",
-                        "slug"
+                        "slug",
+                        "summary"
                       ],
                       "type": "object"
+                    },
+                    "relatedSeries": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "matchingMaterialCount": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "totalMaterialCount": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "matchingMaterialCount",
+                          "name",
+                          "slug",
+                          "summary",
+                          "totalMaterialCount"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "topics": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "slug"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
                     "hasNext",
                     "items",
                     "kind",
-                    "reference"
+                    "reference",
+                    "relatedSeries",
+                    "topics"
                   ],
                   "type": "object"
                 }
@@ -14640,6 +18123,8 @@
                       "additionalProperties": false,
                       "properties": {
                         "id": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
                         "name": {
@@ -14647,21 +18132,93 @@
                         },
                         "slug": {
                           "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "id",
                         "name",
-                        "slug"
+                        "slug",
+                        "summary"
                       ],
                       "type": "object"
+                    },
+                    "relatedSeries": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "matchingMaterialCount": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "totalMaterialCount": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "matchingMaterialCount",
+                          "name",
+                          "slug",
+                          "summary",
+                          "totalMaterialCount"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "topics": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "slug"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
                     "hasNext",
                     "items",
                     "kind",
-                    "reference"
+                    "reference",
+                    "relatedSeries",
+                    "topics"
                   ],
                   "type": "object"
                 }
@@ -15146,6 +18703,8 @@
                       "additionalProperties": false,
                       "properties": {
                         "id": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
                         "name": {
@@ -15153,21 +18712,93 @@
                         },
                         "slug": {
                           "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "id",
                         "name",
-                        "slug"
+                        "slug",
+                        "summary"
                       ],
                       "type": "object"
+                    },
+                    "relatedSeries": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "matchingMaterialCount": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "totalMaterialCount": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "matchingMaterialCount",
+                          "name",
+                          "slug",
+                          "summary",
+                          "totalMaterialCount"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "topics": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "slug"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
                     "hasNext",
                     "items",
                     "kind",
-                    "reference"
+                    "reference",
+                    "relatedSeries",
+                    "topics"
                   ],
                   "type": "object"
                 }

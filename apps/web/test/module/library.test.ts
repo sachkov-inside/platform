@@ -17,6 +17,7 @@ const facets = {
       id: "72000000-0000-4000-8000-000000000003",
       name: "Гайд",
       slug: "guide",
+      summary: null,
     },
   ],
   series: [
@@ -25,6 +26,7 @@ const facets = {
       id: "72000000-0000-4000-8000-000000000005",
       name: "Создание Platform Inside",
       slug: "platform-inside",
+      summary: "Путь создания Platform.",
     },
   ],
   topics: [
@@ -33,6 +35,7 @@ const facets = {
       id: "72000000-0000-4000-8000-000000000002",
       name: "Platform",
       slug: "platform",
+      summary: "Материалы о Platform.",
     },
   ],
 } as const;

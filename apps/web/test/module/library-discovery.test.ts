@@ -67,7 +67,10 @@ describe("Library discovery server adapter", () => {
               id: "72000000-0000-4000-8000-000000000002",
               name: "Platform",
               slug: "platform",
+              summary: "Материалы о Platform.",
             },
+            relatedSeries: [],
+            topics: [],
           }),
         ),
       );
@@ -96,7 +99,9 @@ describe("Library discovery server adapter", () => {
           },
         ],
         kind: "ready",
-        reference: { name: "Platform", slug: "platform" },
+        reference: { name: "Platform", slug: "platform", summary: "Материалы о Platform." },
+        relatedSeries: [],
+        topics: [],
       });
       const request = vi.mocked(fetch).mock.calls[0]?.[0];
       expect(request).toBeInstanceOf(Request);
@@ -119,7 +124,10 @@ describe("Library discovery server adapter", () => {
             id: "72000000-0000-4000-8000-000000000020",
             name: "Как устроен Inside Platform",
             slug: "inside-platform-overview",
+            summary: "Один реальный published Material.",
           },
+          relatedSeries: [],
+          topics: [],
         }),
       ),
     );
@@ -132,7 +140,10 @@ describe("Library discovery server adapter", () => {
       reference: {
         name: "Как устроен Inside Platform",
         slug: "inside-platform-overview",
+        summary: "Один реальный published Material.",
       },
+      relatedSeries: [],
+      topics: [],
     });
   });
 
