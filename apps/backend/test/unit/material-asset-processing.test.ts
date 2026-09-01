@@ -65,6 +65,31 @@ describe("MaterialAsset byte processing", () => {
       }),
     ).resolves.toEqual({ error: { code: "checksum_mismatch" }, ok: false });
 
+    const fakePdf = new TextEncoder().encode("definitely not a PDF");
+    await expect(
+      processMaterialAssetBytes({
+        body: fakePdf,
+        declaredContentType: "application/pdf",
+        declaredSize: fakePdf.byteLength,
+        expectedChecksumSha256: checksum(fakePdf),
+        filename: "guide.pdf",
+        kind: "file",
+      }),
+    ).resolves.toEqual({ error: { code: "mime_mismatch" }, ok: false });
+    await expect(
+      processMaterialAssetBytes({
+        body: fakePdf,
+        declaredContentType: "application/octet-stream",
+        declaredSize: fakePdf.byteLength,
+        expectedChecksumSha256: checksum(fakePdf),
+        filename: "download.bin",
+        kind: "file",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: { contentType: "application/octet-stream", kind: "file" },
+    });
+
     const script = new TextEncoder().encode("#!/usr/bin/env node\nconsole.log('unsafe')");
     await expect(
       processMaterialAssetBytes({

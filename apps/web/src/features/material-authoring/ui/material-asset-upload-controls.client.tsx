@@ -69,7 +69,6 @@ const uploadResponseSchema = z.object({
   state: z.literal("ready"),
 });
 const uploadProblemSchema = z.object({ code: z.string() });
-const NON_VIDEO_FILE_ACCEPT = "application/*,audio/*,font/*,message/*,model/*,text/*";
 
 export function useMaterialAssetUploads(
   editor: Editor | null,
@@ -230,7 +229,7 @@ export function MaterialAssetUploadButtons({
         <FileText aria-hidden="true" />
       </Button>
       <input accept="image/avif,image/jpeg,image/png,image/webp" aria-label="Выбрать изображения" className="sr-only" disabled={disabled} multiple onChange={selected("image")} ref={imageInput} type="file" />
-      <input accept={NON_VIDEO_FILE_ACCEPT} aria-label="Выбрать файлы" className="sr-only" disabled={disabled} multiple onChange={selected("file")} ref={fileInput} type="file" />
+      <input aria-label="Выбрать файлы" className="sr-only" disabled={disabled} multiple onChange={selected("file")} ref={fileInput} type="file" />
     </>
   );
 }

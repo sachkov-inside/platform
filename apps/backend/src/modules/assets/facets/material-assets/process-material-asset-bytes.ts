@@ -192,11 +192,13 @@ export async function processMaterialAssetBytes(input: {
     return processImage(input.body, checksumSha256, detected.mime);
   }
 
-  const actualContentType = detected?.mime ?? declaredContentType;
+  const actualContentType = detected?.mime ?? inferTextContentType(
+    declaredContentType,
+    input.body,
+  );
   if (
-    detected !== undefined &&
     declaredContentType !== "application/octet-stream" &&
-    declaredContentType !== detected.mime
+    declaredContentType !== actualContentType
   ) {
     return failure("mime_mismatch");
   }
@@ -221,6 +223,33 @@ export async function processMaterialAssetBytes(input: {
       size: input.body.byteLength,
     },
   };
+}
+
+function inferTextContentType(
+  declaredContentType: string,
+  body: Uint8Array,
+): string {
+  const mayBeText =
+    declaredContentType.startsWith("text/") ||
+    declaredContentType === "application/graphql" ||
+    declaredContentType === "application/json" ||
+    declaredContentType === "application/sql" ||
+    declaredContentType === "application/toml" ||
+    declaredContentType === "application/xml" ||
+    declaredContentType === "application/x-yaml" ||
+    declaredContentType === "application/yaml" ||
+    declaredContentType.endsWith("+json") ||
+    declaredContentType.endsWith("+xml") ||
+    EXECUTABLE_CONTENT_TYPES.has(declaredContentType);
+  if (!mayBeText) return "application/octet-stream";
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(body);
+    return text.includes("\u0000")
+      ? "application/octet-stream"
+      : declaredContentType;
+  } catch {
+    return "application/octet-stream";
+  }
 }
 
 async function processImage(
