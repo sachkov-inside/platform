@@ -383,7 +383,9 @@ Published body читается только для current `published` state; d
 
 1. `Assets` принимает non-video bytes через quarantine, проверяет ownership, actual size,
    signature/MIME и SHA-256, блокирует executable/script content и создаёт случайные immutable
-   object keys с overwrite protection. Antivirus и URL import в v1 отсутствуют.
+   object keys с overwrite protection. Retry после ambiguous transport/storage failure сохраняет
+   idempotency key и Asset identity, удаляет tracked partial objects и начинает attempt с новым
+   object nonce. Antivirus и URL import в v1 отсутствуют.
 2. Один narrow S3-compatible port обслуживает Yandex Object Storage production adapter и тот же
    conformance contract для MinIO integration. Public, protected и quarantine — разные private
    buckets/namespaces; provider SDK types, storage keys и signed URLs не входят в MaterialBody или
@@ -392,7 +394,9 @@ Published body читается только для current `published` state; d
    удаляет EXIF, хранит normalized original только protected и создаёт public/protected WebP
    variants до 480/960/1600 px. File bytes сохраняются immutable в public и protected namespace.
 4. Publish допускает только ready MaterialAssets exact owning Material. Replacement создаёт новый
-   Asset; body reference остаётся stable opaque `assetId`, а referenced Asset сохраняется.
+   Asset; body reference остаётся stable opaque `assetId`, а referenced Asset сохраняется. Save под
+   Material advisory lock помечает removed ready Assets новым orphan boundary, от которого полностью
+   отсчитывается cleanup grace.
 5. Asset `read | download | preview` сначала передаёт exact opaque Asset resource в
    `ContentAccess`; safe owner/kind facts разрешаются до authorize, private locator читается только
    после allow. Platform route несёт `contentVersion`, сверяет его с `checkedContentVersion` и

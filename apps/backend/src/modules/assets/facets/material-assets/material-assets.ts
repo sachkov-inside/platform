@@ -108,6 +108,11 @@ export interface MaterialAssets {
     materialId: string,
     references: readonly MaterialAssetReference[],
   ): Promise<MaterialAssetQueryResult<readonly MaterialAssetReferenceIssue[]>>;
+  markUnreferenced(input: {
+    readonly materialId: string;
+    readonly orphanedAt: Date;
+    readonly referencedAssetIds: readonly string[];
+  }): Promise<MaterialAssetQueryResult<void>>;
   loadAccessFacts(
     assetIds: readonly string[],
   ): Promise<MaterialAssetQueryResult<readonly MaterialAssetAccessFacts[]>>;

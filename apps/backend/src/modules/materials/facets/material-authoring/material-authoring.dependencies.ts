@@ -9,5 +9,8 @@ export interface MaterialAuthoringDependencies {
   readonly materialBodyOperations: MaterialBodyOperations;
   readonly authorPolicy: AuthorPolicy;
   readonly contentAccess: ContentAccess;
-  readonly materialAssets?: Pick<MaterialAssets, "inspectReferences" | "loadPresentations">;
+  readonly materialAssets?: Pick<
+    MaterialAssets,
+    "inspectReferences" | "loadPresentations" | "markUnreferenced"
+  >;
 }

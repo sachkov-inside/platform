@@ -79,6 +79,11 @@ export function assembleSaveMaterial(
     if (!extraction.ok) {
       return failure(extraction.error);
     }
+    const assetReferences = extraction.value.resources.flatMap((resource) =>
+      resource.kind === "video"
+        ? []
+        : [{ assetId: resource.assetId, kind: resource.kind }],
+    );
     const authorization = await authorizeManager(
       dependencies.authorPolicy,
       command.actor,
@@ -131,11 +136,12 @@ export function assembleSaveMaterial(
               (command.publicationState === "published" && selectedValues.title !== null
                 ? await allocateMaterialSlug(transaction, selectedValues.title)
                 : null);
+            const savedAt = new Date();
             const next = locked.lifecycle.save({
               expectedContentVersion: command.expectedContentVersion,
               publicationState: command.publicationState,
               slug,
-              now: new Date(),
+              now: savedAt,
             });
             if (!next.ok) {
               return rollback(next.error);
@@ -163,11 +169,7 @@ export function assembleSaveMaterial(
               await lockMaterialAssetReferenceSet(transaction, command.materialId);
               const assetIssues = await dependencies.materialAssets.inspectReferences(
                 command.materialId,
-                extraction.value.resources.flatMap((resource) =>
-                  resource.kind === "video"
-                    ? []
-                    : [{ assetId: resource.assetId, kind: resource.kind }],
-                ),
+                assetReferences,
               );
               if (!assetIssues.ok) return rollback(assetIssues.error);
               if (assetIssues.value.length > 0) {
@@ -203,7 +205,7 @@ export function assembleSaveMaterial(
                 firstPublishedAt: next.value.firstPublishedAt,
                 publishedAt: next.value.publishedAt,
                 publishedBy,
-                updatedAt: new Date(),
+                updatedAt: savedAt,
               },
             });
             await replaceCurrentRelations(
@@ -233,6 +235,14 @@ export function assembleSaveMaterial(
               await transaction.materialSearchDocument.deleteMany({
                 where: { materialId: command.materialId },
               });
+            }
+            if (dependencies.materialAssets !== undefined) {
+              const marked = await dependencies.materialAssets.markUnreferenced({
+                materialId: command.materialId,
+                orphanedAt: savedAt,
+                referencedAssetIds: assetReferences.map(({ assetId }) => assetId),
+              });
+              if (!marked.ok) return rollback(marked.error);
             }
             return {
               kind: "material",
