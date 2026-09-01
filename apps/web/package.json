@@ -9,7 +9,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "guardrails": "node scripts/check-web-architecture.mjs && node scripts/check-negative-guardrails.mjs",
     "test": "vitest run --config vitest.config.mts",
-    "test:standalone-config": "node scripts/check-standalone-runtime-config.mjs",
+    "test:standalone-config": "node --test scripts/check-standalone-runtime-config.test.mjs",
     "test:storybook": "vitest run --config vitest.config.mts --project=storybook",
     "test:e2e": "playwright test",
     "test:fullstack": "playwright test --config playwright.fullstack.config.ts",
