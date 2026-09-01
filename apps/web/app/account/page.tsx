@@ -10,7 +10,6 @@ import {
 } from "@/_pages/account";
 import {
   accountProfileServerQueryOptions,
-  deleteMemberProfileAction,
   saveMemberProfileAction,
 } from "@/_pages/account.server";
 import { getQueryClient } from "@/shared/api/query-client";
@@ -42,7 +41,6 @@ export default async function Page() {
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <AccountPageQuery
-        deleteAction={deleteMemberProfileAction}
         saveAction={saveMemberProfileAction}
         viewerScope={viewerScope}
       />

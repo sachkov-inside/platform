@@ -2,7 +2,6 @@ import { loadRepositoryEnvironment } from "../config/load-repository-environment
 import { parsePlatformConfig } from "../config/platform-config.js";
 import { createPrismaClient } from "../infrastructure/prisma/index.js";
 import {
-  listOpenProfileReports,
   moderateMemberProfile,
   type ProfileModerationAction,
 } from "../modules/member-profiles/index.js";
@@ -13,15 +12,9 @@ async function main(): Promise<void> {
   const prisma = createPrismaClient(config.database.url);
   try {
     const action = process.env.PROFILE_MODERATION_ACTION;
-    if (action === "list") {
-      const result = await listOpenProfileReports(prisma);
-      process.stdout.write(`${JSON.stringify(result)}\n`);
-      if (!result.ok) process.exitCode = 1;
-      return;
-    }
     if (action !== "disable" && action !== "restore") {
       throw new Error(
-        "PROFILE_MODERATION_ACTION must be list, disable or restore",
+        "PROFILE_MODERATION_ACTION must be disable or restore",
       );
     }
     const publicProfileId = requiredValue("PROFILE_PUBLIC_ID");

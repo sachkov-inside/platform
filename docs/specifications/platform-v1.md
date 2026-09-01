@@ -234,7 +234,7 @@ Entry points вызывают одни application use cases и не созда�
 | Module | Малый interface | Owned facts |
 |---|---|---|
 | `Accounts` | establish/resolve trusted Logto identity в local Account и проверить exact permission | Account mapping, email fingerprint, permissions и redacted audit |
-| `MemberProfiles` | управлять owner-only Profile state и вернуть active-member projection | display name/bio, opaque public Profile identity, visibility, optimistic version, reports и redacted audit |
+| `MemberProfiles` | управлять owner-only Profile state и вернуть active-member projection | display name/bio, opaque public Profile identity, visibility, optimistic version и redacted audit |
 | `Materials` | `MaterialAuthoring` создаёт и full-state-save-ит current Material; reader возвращает published current state | content/metadata, publication/access state, content version, author policy, internal body schemas, safe public/search projections |
 | `ContentLibrary` | читать projections, search и навигацию, находить related Materials | published projections, ranking и explicit related pins |
 | [`ContentAccess`](content-access-authorization-v1.md) | batch `checkAvailabilityMany` для presentation и single `authorize` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
@@ -349,18 +349,17 @@ Published body читается только для current `published` state; d
    Profile с mutable non-unique display name длиной 2–80 symbols; optional bio до 500 symbols
    редактируется позже в private Account. Avatar/file/image отсутствуют и добавляются отдельно
    через S3-backed [#153](https://github.com/sachkov-inside/platform/issues/153).
-6. `MemberProfiles` хранит Profile в отдельной `member_profiles` schema. Owner read/edit/export/delete
-   принимает trusted Account, update/delete требуют `expectedVersion`, deletion hard-delete-ит
-   authored fields и recreate выдаёт новый opaque `publicProfileId`.
+6. `MemberProfiles` хранит Profile в отдельной `member_profiles` schema. Owner read/create/edit
+   принимает trusted Account, update требует `expectedVersion`. Self-service export/delete и
+   participant reporting не являются частью Profile interface.
 7. Member route `/members/<publicProfileId>` не образует directory/search и получает только
    `publicProfileId + displayName + bio` после current active Membership check. Anonymous,
-   non-member, expired member, crawler, missing/deleted/disabled Profile получают одинаковый `404`
+   non-member, expired member, crawler, missing/disabled Profile получают одинаковый `404`
    и `noindex`; email, AccountId, Logto/Telegram identifiers, permissions, evidence и security/audit
    state не входят в projection.
-8. Report хранит bounded reason без копии Profile fields; duplicate open report не умножается.
-   Manual owner release operation disable/restore скрывает projection и пишет redacted audit.
-   Telegram linking, Membership state и recovery presentation остаются в #122 и не смешиваются с
-   этим Profile interface.
+8. Manual owner release operation disable/restore скрывает projection и пишет redacted audit без
+   participant report queue или публичной admin surface. Telegram linking, Membership state и
+   recovery presentation остаются в #122 и не смешиваются с этим Profile interface.
 
 ### Membership linking и projection
 

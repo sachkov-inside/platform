@@ -1,17 +1,13 @@
 import {
-  Body,
   Controller,
   Get,
   Header,
   Inject,
   Param,
-  Post,
   UseGuards,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
-  ApiBody,
-  ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
@@ -27,13 +23,8 @@ import {
 } from "../../../accounts/index.js";
 import type { MemberProfiles } from "../../facets/member-profiles/member-profiles.interface.js";
 import { MEMBER_PROFILES } from "../../member-profiles.token.js";
+import { memberProfileProjectionResponseSchema } from "./member-profile-http.contract.js";
 import {
-  memberProfileProjectionResponseSchema,
-  profileReportResponseSchema,
-  reportMemberProfileBodySchema,
-} from "./member-profile-http.contract.js";
-import {
-  parseProfileBody,
   throwMemberProfileNotFound,
   throwProfileHttpError,
 } from "./member-profile-http.js";
@@ -83,35 +74,4 @@ export class MemberProfileController {
     return { profile: result.profile };
   }
 
-  @Post(":publicProfileId/reports")
-  @Header("X-Robots-Tag", "noindex, nofollow")
-  @ApiOperation({
-    operationId: "reportMemberProfile",
-    summary: "Report member-visible Profile text as an active member",
-  })
-  @ApiParam({
-    name: "publicProfileId",
-    schema: toOpenApiSchema(publicProfileIdSchema),
-  })
-  @ApiBody({ schema: toOpenApiSchema(reportMemberProfileBodySchema) })
-  @ApiCreatedResponse({ schema: toOpenApiSchema(profileReportResponseSchema) })
-  @ApiMemberProfileErrors(401, 404, 422, 500, 503)
-  async report(
-    @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
-    @Param("publicProfileId") publicProfileId: string,
-    @Body() input: unknown,
-  ) {
-    if (account === undefined) throwMemberProfileNotFound();
-    const body = parseProfileBody(reportMemberProfileBodySchema, input);
-    const result = await this.profiles.reportProfile(
-      accountId(account.accountId),
-      publicProfileId,
-      body.reason,
-    );
-    if (!result.ok) {
-      if (result.error.code === "not_found") throwMemberProfileNotFound();
-      throwProfileHttpError(result.error);
-    }
-    return { outcome: result.outcome };
-  }
 }

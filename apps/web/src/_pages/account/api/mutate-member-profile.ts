@@ -5,7 +5,6 @@ import { z } from "zod";
 import {
   BackendConnectionError,
   requestMemberProfileCreation,
-  requestMemberProfileDeletion,
   requestMemberProfileUpdate,
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
@@ -35,19 +34,13 @@ const profileFormSchema = z.discriminatedUnion("mode", [
   }),
 ]);
 
-const deleteFormSchema = z.object({
-  expectedVersion: z.coerce.number().int().positive(),
-});
-
 export interface ProfileMutationDependencies {
   readonly create: typeof requestMemberProfileCreation;
-  readonly delete: typeof requestMemberProfileDeletion;
   readonly update: typeof requestMemberProfileUpdate;
 }
 
 const productionDependencies: ProfileMutationDependencies = {
   create: requestMemberProfileCreation,
-  delete: requestMemberProfileDeletion,
   update: requestMemberProfileUpdate,
 };
 
@@ -100,27 +93,6 @@ export async function executeSaveMemberProfile(
       return unavailable(error);
     }
   }
-  return mapProblem(result);
-}
-
-export async function executeDeleteMemberProfile(
-  formData: FormData,
-  accessToken: string,
-  dependencies: ProfileMutationDependencies = productionDependencies,
-): Promise<ProfileMutationState> {
-  const parsed = deleteFormSchema.safeParse({
-    expectedVersion: formData.get("expectedVersion"),
-  });
-  if (!parsed.success) {
-    return { kind: "conflict" };
-  }
-  let result: BackendTransportResult;
-  try {
-    result = await dependencies.delete(parsed.data.expectedVersion, accessToken);
-  } catch (error) {
-    return unavailable(error);
-  }
-  if (result.ok) return { kind: "deleted" };
   return mapProblem(result);
 }
 

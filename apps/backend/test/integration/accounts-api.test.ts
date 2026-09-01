@@ -530,14 +530,13 @@ describe("Accounts API", () => {
       /accountId|email|logto|telegram|permission|evidence|audit/iu,
     );
 
-    const reported = await app.getHttpAdapter().getInstance().inject({
+    const removedReportRoute = await app.getHttpAdapter().getInstance().inject({
       method: "POST",
       url: `/member-profiles/${privateProfile.publicProfileId}/reports`,
       headers: { authorization: `Bearer ${viewerToken}` },
       payload: { reason: "unsafe_content" },
     });
-    expect(reported.statusCode).toBe(201);
-    expect(reported.json()).toEqual({ outcome: "recorded" });
+    expect(removedReportRoute.statusCode).toBe(404);
 
     const updated = await app.getHttpAdapter().getInstance().inject({
       method: "PUT",
@@ -572,34 +571,30 @@ describe("Accounts API", () => {
       currentVersion: 2,
     });
 
-    const exported = await inject("GET", "/account/profile/export", ownerToken);
-    expect(exported.statusCode).toBe(200);
-    expect(exported.headers["content-disposition"]).toContain(
-      "member-profile.json",
+    const currentProjection = await inject(
+      "GET",
+      `/member-profiles/${privateProfile.publicProfileId}`,
+      viewerToken,
     );
-    expect(exported.json()).toEqual({
-      schemaVersion: "member-profile-export.v1",
+    expect(currentProjection.statusCode).toBe(200);
+    expect(currentProjection.json()).toMatchObject({
       profile: { displayName: "Кирилл", bio: null },
     });
 
-    const deleted = await app.getHttpAdapter().getInstance().inject({
+    const removedExportRoute = await inject(
+      "GET",
+      "/account/profile/export",
+      ownerToken,
+    );
+    expect(removedExportRoute.statusCode).toBe(404);
+
+    const removedDeleteRoute = await app.getHttpAdapter().getInstance().inject({
       method: "DELETE",
       url: "/account/profile",
       headers: { authorization: `Bearer ${ownerToken}` },
       payload: { expectedVersion: 2 },
     });
-    expect(deleted.statusCode).toBe(200);
-    expect(deleted.json()).toEqual({ deleted: true });
-    expect(
-      (
-        await inject(
-          "GET",
-          `/member-profiles/${privateProfile.publicProfileId}`,
-          viewerToken,
-        )
-      ).statusCode,
-    ).toBe(404);
-    await expect(database.prisma.memberProfileReport.count()).resolves.toBe(0);
+    expect(removedDeleteRoute.statusCode).toBe(404);
     await expect(
       database.prisma.memberProfileAuditEvent.findMany({
         where: { accountId: ownerAccountId },
@@ -608,9 +603,7 @@ describe("Accounts API", () => {
       }),
     ).resolves.toEqual([
       { event: "profile_created" },
-      { event: "profile_reported" },
       { event: "profile_updated" },
-      { event: "profile_deleted" },
     ]);
   });
 

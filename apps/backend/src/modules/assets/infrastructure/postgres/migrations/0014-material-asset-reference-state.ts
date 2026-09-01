@@ -1,4 +1,4 @@
-export const name = "0013_material_asset_reference_state";
+export const name = "0014_material_asset_reference_state";
 
 export const statement = `
   alter table assets.material_assets

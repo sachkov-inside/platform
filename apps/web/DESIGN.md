@@ -225,6 +225,16 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 - **Style:** accepted bounded Material preview with optional real `16:9` media, compact taxonomy, short title/summary, exact format/access facts and restrained elevation.
 - **Behavior:** no artificial media placeholder; a Material without preview remains content-first and naturally shorter.
 
+### Account and Member Profile
+
+- **Status:** accepted production pattern from issue #189 after owner desktop/mobile visual GO.
+- **Composition:** private Account presents one bounded editor and the exact member projection as two
+  balanced desktop columns; mobile preserves editor → projection order without a decorative seam.
+- **Actions:** Profile create/edit and the opaque member link are the complete self-service surface;
+  complaint, export and delete controls are absent.
+- **Copy:** `Профиль участника` names the projection directly; supporting copy explains only privacy,
+  validation or current visibility state.
+
 ### Candidate Authoring Workbench
 
 - **Status:** candidate pattern from issue #38; finish verdict is `ship`, but global adoption awaits owner visual/interaction GO.

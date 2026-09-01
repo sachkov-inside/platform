@@ -1,10 +1,6 @@
 import type { AccountId } from "../../../accounts/index.js";
 
 export type MemberProfileStatus = "active" | "disabled";
-export type MemberProfileReportReason =
-  | "unsafe_content"
-  | "impersonation"
-  | "other";
 
 export interface MemberProfileFields {
   readonly displayName: string;
@@ -57,11 +53,6 @@ export type UpdateMemberProfileError = Extract<
       | "internal_error";
   }
 >;
-export type DeleteMemberProfileError = Extract<
-  MemberProfileError,
-  { readonly code: "profile_not_found" | "conflict" | "internal_error" }
->;
-
 export type MemberProfileResult<Value, Error extends MemberProfileError> =
   | Readonly<{ ok: true; value: Value }>
   | Readonly<{ ok: false; error: Error }>;
@@ -75,22 +66,8 @@ export interface UpdateMemberProfileCommand extends MemberProfileFields {
   readonly expectedVersion: number;
 }
 
-export interface DeleteMemberProfileCommand {
-  readonly accountId: AccountId;
-  readonly expectedVersion: number;
-}
-
 export type ViewMemberProfileResult =
   | Readonly<{ ok: true; profile: MemberProfileProjection }>
-  | Readonly<{
-      ok: false;
-      error:
-        | Readonly<{ code: "not_found" }>
-        | Readonly<{ code: "internal_error"; correlationId: string }>;
-    }>;
-
-export type ReportMemberProfileResult =
-  | Readonly<{ ok: true; outcome: "recorded" | "already_recorded" }>
   | Readonly<{
       ok: false;
       error:
@@ -108,18 +85,8 @@ export interface MemberProfiles {
   updateProfile(
     command: UpdateMemberProfileCommand,
   ): Promise<MemberProfileResult<PrivateMemberProfile, UpdateMemberProfileError>>;
-  deleteProfile(
-    command: DeleteMemberProfileCommand,
-  ): Promise<
-    MemberProfileResult<Readonly<{ deleted: true }>, DeleteMemberProfileError>
-  >;
   viewProfile(
     viewerAccountId: AccountId,
     publicProfileId: string,
   ): Promise<ViewMemberProfileResult>;
-  reportProfile(
-    viewerAccountId: AccountId,
-    publicProfileId: string,
-    reason: MemberProfileReportReason,
-  ): Promise<ReportMemberProfileResult>;
 }

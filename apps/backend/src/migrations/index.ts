@@ -39,6 +39,10 @@ import {
   statement as memberProfilesMigrationStatement,
 } from "../modules/member-profiles/infrastructure/postgres/migrations/0008_member_profiles.js";
 import {
+  name as removeMemberProfileReportsMigrationName,
+  statement as removeMemberProfileReportsMigrationStatement,
+} from "../modules/member-profiles/infrastructure/postgres/migrations/0012-remove-member-profile-reports.js";
+import {
   name as publishedMaterialSearchMigrationName,
   statement as publishedMaterialSearchMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0009-published-material-search.js";
@@ -49,11 +53,11 @@ import {
 import {
   name as materialAssetsMigrationName,
   statement as materialAssetsMigrationStatement,
-} from "../modules/assets/infrastructure/postgres/migrations/0012-material-assets.js";
+} from "../modules/assets/infrastructure/postgres/migrations/0013-material-assets.js";
 import {
   name as materialAssetReferenceStateMigrationName,
   statement as materialAssetReferenceStateMigrationStatement,
-} from "../modules/assets/infrastructure/postgres/migrations/0013-material-asset-reference-state.js";
+} from "../modules/assets/infrastructure/postgres/migrations/0014-material-asset-reference-state.js";
 
 const migrations = [
   {
@@ -99,6 +103,10 @@ const migrations = [
   {
     name: telegramMembershipMigrationName,
     statement: telegramMembershipMigrationStatement,
+  },
+  {
+    name: removeMemberProfileReportsMigrationName,
+    statement: removeMemberProfileReportsMigrationStatement,
   },
   {
     name: materialAssetsMigrationName,

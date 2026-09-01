@@ -5,27 +5,18 @@ export {
   type ModerateMemberProfileResult,
   type ProfileModerationAction,
 } from "./features/moderate-profile/moderate-profile.js";
-export {
-  listOpenProfileReports,
-  type ListOpenProfileReportsError,
-  type OpenProfileReport,
-} from "./features/list-open-profile-reports/list-open-profile-reports.js";
 export type {
   CreateMemberProfileCommand,
   CreateMemberProfileError,
-  DeleteMemberProfileCommand,
-  DeleteMemberProfileError,
   MemberProfileError,
   MemberProfileFields,
   MemberProfileProjection,
-  MemberProfileReportReason,
   MemberProfileResult,
   MemberProfiles,
   PrivateMemberProfile,
   PrivateProfileState,
   ProfileValidationIssue,
   ReadPrivateProfileError,
-  ReportMemberProfileResult,
   UpdateMemberProfileCommand,
   UpdateMemberProfileError,
   ViewMemberProfileResult,

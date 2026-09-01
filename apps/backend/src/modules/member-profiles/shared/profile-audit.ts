@@ -7,10 +7,8 @@ import type { MemberProfilePersistence } from "../infrastructure/prisma.js";
 export type MemberProfileAuditEvent =
   | "profile_created"
   | "profile_updated"
-  | "profile_deleted"
   | "profile_disabled"
-  | "profile_restored"
-  | "profile_reported";
+  | "profile_restored";
 
 export async function appendMemberProfileAuditEvent(
   prisma: MemberProfilePersistence,

@@ -271,30 +271,6 @@ export function requestMemberProfileUpdate(
   );
 }
 
-export function requestMemberProfileDeletion(
-  expectedVersion: number,
-  accessToken: string,
-): Promise<BackendTransportResult> {
-  return executeGeneratedRequest(
-    (request) =>
-      new MemberProfilesService(request).deleteMemberProfile({
-        requestBody: { expectedVersion },
-      }),
-    200,
-    { accessToken },
-  );
-}
-
-export function requestMemberProfileExport(
-  accessToken: string,
-): Promise<BackendTransportResult> {
-  return executeGeneratedRequest(
-    (request) => new MemberProfilesService(request).exportMemberProfile(),
-    200,
-    { accessToken },
-  );
-}
-
 export function requestMemberProfileProjection(
   publicProfileId: string,
   accessToken?: string,
@@ -304,22 +280,6 @@ export function requestMemberProfileProjection(
       new MemberProfilesService(request).viewMemberProfile({ publicProfileId }),
     200,
     accessToken === undefined ? {} : { accessToken },
-  );
-}
-
-export function requestMemberProfileReport(
-  publicProfileId: string,
-  reason: "impersonation" | "other" | "unsafe_content",
-  accessToken: string,
-): Promise<BackendTransportResult> {
-  return executeGeneratedRequest(
-    (request) =>
-      new MemberProfilesService(request).reportMemberProfile({
-        publicProfileId,
-        requestBody: { reason },
-      }),
-    201,
-    { accessToken },
   );
 }
 

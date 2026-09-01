@@ -278,22 +278,18 @@ not need the owner's email. Repeating it reports that no Account or permission w
 
 ## Manual Member Profile moderation
 
-Profile reports store only a bounded reason and opaque Profile identity. List open reports through
-the release operation, then disable or restore the exact Profile without exposing a public admin
-route:
+Use the owner-only release operation to disable or restore the exact Profile by opaque identity
+without exposing a public admin route or participant reporting flow:
 
 ```bash
-PROFILE_MODERATION_ACTION=list \
-pnpm --filter @inside/backend release:moderate-profiles
-
 PROFILE_MODERATION_ACTION=disable \
 PROFILE_PUBLIC_ID=<opaque-public-profile-id> \
 pnpm --filter @inside/backend release:moderate-profiles
 ```
 
 Use `PROFILE_MODERATION_ACTION=restore` with the same `PROFILE_PUBLIC_ID` to restore it. Disable
-resolves current reports, increments the Profile version and writes redacted audit metadata; the
-operation never prints Profile fields, Account identity, Membership evidence or provider data.
+increments the Profile version and writes redacted audit metadata; the operation never prints
+Profile fields, Account identity, Membership evidence or provider data.
 
 ## Diagnose prerequisites
 

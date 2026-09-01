@@ -17,11 +17,9 @@ type ProfileMutationAction = (
 ) => Promise<ProfileMutationState>;
 
 export function AccountPageQuery({
-  deleteAction,
   saveAction,
   viewerScope,
 }: {
-  readonly deleteAction: ProfileMutationAction;
   readonly saveAction: ProfileMutationAction;
   readonly viewerScope: string;
 }) {
@@ -42,17 +40,13 @@ export function AccountPageQuery({
 
   return (
     <AccountPageClient
-      deleteAction={deleteAction}
       initialProfile={
         query.data.state.kind === "profile" ? query.data.state.profile : null
       }
       onProfileChange={(profile) => {
         queryClient.setQueryData(accountProfileQueryKey(viewerScope), {
           kind: "ready",
-          state:
-            profile === null
-              ? { kind: "missing" }
-              : { kind: "profile", profile },
+          state: { kind: "profile", profile },
         });
       }}
       saveAction={saveAction}

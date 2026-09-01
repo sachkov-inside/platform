@@ -67,7 +67,7 @@ const errorMetadata = {
   conflict: {
     status: HttpStatus.CONFLICT,
     title: "Profile changed concurrently",
-    detail: "Reload the Profile before saving or deleting it.",
+    detail: "Reload the Profile before saving it.",
   },
   internal_error: {
     status: HttpStatus.INTERNAL_SERVER_ERROR,

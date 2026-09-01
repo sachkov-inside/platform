@@ -4,7 +4,6 @@ import { getPrivateMemberProfile } from "@/_pages/account/api/get-private-member
 import { requestAccountProfile } from "@/_pages/account/api/request-account-profile";
 import { accountProfileQueryKey } from "@/_pages/account/model/account-profile-query";
 import {
-  executeDeleteMemberProfile,
   executeSaveMemberProfile,
   type ProfileMutationDependencies,
 } from "@/_pages/account/api/mutate-member-profile";
@@ -131,29 +130,6 @@ describe("Member Profile web workflow", () => {
     ).resolves.toEqual({ currentVersion: 4, kind: "conflict" });
   });
 
-  it("deletes only with the submitted expected version", async () => {
-    const dependencies = successfulDependencies();
-    const formData = new FormData();
-    formData.set("expectedVersion", "2");
-
-    await expect(
-      executeDeleteMemberProfile(formData, "access-token", dependencies),
-    ).resolves.toEqual({ kind: "deleted" });
-    expect(dependencies.delete).toHaveBeenCalledWith(2, "access-token");
-
-    const conflictDependencies = {
-      ...successfulDependencies(),
-      delete: vi.fn().mockResolvedValue({
-        ok: false,
-        problem: { code: "conflict", currentVersion: 3, status: 409 },
-        response: Response.json({}, { status: 409 }),
-      }),
-    } satisfies ProfileMutationDependencies;
-    await expect(
-      executeDeleteMemberProfile(formData, "access-token", conflictDependencies),
-    ).resolves.toEqual({ currentVersion: 3, kind: "conflict" });
-  });
-
   it("maps private missing state and fails closed for member projection", async () => {
     await expect(
       getPrivateMemberProfile(
@@ -216,11 +192,6 @@ function successfulDependencies(): ProfileMutationDependencies {
   return {
     create: vi.fn().mockResolvedValue({
       body: { profile },
-      ok: true,
-      response: Response.json({}),
-    }),
-    delete: vi.fn().mockResolvedValue({
-      body: { deleted: true },
       ok: true,
       response: Response.json({}),
     }),

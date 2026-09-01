@@ -1,4 +1,4 @@
-export const name = "0012_material_assets";
+export const name = "0013_material_assets";
 
 export const statement = `
   create schema assets;
