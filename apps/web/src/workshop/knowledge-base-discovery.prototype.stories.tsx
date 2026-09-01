@@ -123,7 +123,7 @@ export const Mobile: Story = {
       value: "mobile390",
     },
   },
-  name: "Mobile · all variants",
+  name: "Mobile · open topic pages",
   play: async ({ canvasElement }) => {
     const view = canvasElement.ownerDocument.defaultView;
     if (view === null) {
@@ -134,23 +134,16 @@ export const Mobile: Story = {
       view.innerWidth,
     );
     const canvas = within(canvasElement);
-    const switcher = canvas.getByRole("navigation", { name: "Варианты прототипа" });
-    const nextVariantButton = canvas.getByRole("button", { name: "Следующий вариант" });
+    const skipLink = canvas.getByRole("link", { name: "Перейти к содержанию" });
+    const firstTopicCard = canvas.getByRole("link", {
+      name: /Product engineering Продукт, архитектура/,
+    });
 
-    await expect(switcher).toBeVisible();
-    nextVariantButton.focus();
-    await expect(nextVariantButton).toHaveFocus();
-    await expect(nextVariantButton.className).toContain("focus-visible:outline-background");
-    await userEvent.keyboard("{ArrowRight}");
-    await expect(canvasElement.querySelector("[data-prototype-variant]")).toHaveAttribute(
-      "data-prototype-variant",
-      "equal",
-    );
-    await userEvent.keyboard("{ArrowRight}");
-    await expect(canvasElement.querySelector("[data-prototype-variant]")).toHaveAttribute(
-      "data-prototype-variant",
-      "playlist-first",
-    );
+    await userEvent.tab();
+    await expect(skipLink).toHaveFocus();
+    await userEvent.tab();
+    await expect(firstTopicCard).toHaveFocus();
+    await expect(firstTopicCard.className).toContain("focus-visible:outline-sidebar-ring");
   },
 };
 

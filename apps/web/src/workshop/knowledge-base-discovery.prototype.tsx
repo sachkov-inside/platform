@@ -2,14 +2,12 @@
 
 import {
   ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
   ListFilter,
   ListVideo,
   Search,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -101,49 +99,11 @@ const materials = [
   materialFixtures.careerVideo,
 ] as const satisfies readonly MaterialPreviewFixture[];
 
-const variants = [
-  { key: "featured", label: "A · Открыть тему" },
-  { key: "equal", label: "B · Равные карточки" },
-  { key: "playlist-first", label: "C · Сначала плейлист" },
-] as const satisfies readonly {
-  readonly key: KnowledgeBaseVariant;
-  readonly label: string;
-}[];
-
 export function KnowledgeBasePrototype({
   initialVariant = "featured",
   scenario = "populated",
 }: KnowledgeBasePrototypeProps) {
-  const [variant, setVariant] = useState<KnowledgeBaseVariant>(initialVariant);
   const scenarioData = getScenarioData(scenario);
-
-  useEffect(() => {
-    function handleKeyboard(event: KeyboardEvent) {
-      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
-        return;
-      }
-
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        target.closest("input, textarea, select, [contenteditable='true']") !== null
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-      setVariant((current) => adjacentVariant(current, event.key === "ArrowRight" ? 1 : -1));
-    }
-
-    window.addEventListener("keydown", handleKeyboard);
-    return () => {
-      window.removeEventListener("keydown", handleKeyboard);
-    };
-  }, []);
-
-  function chooseVariant(next: KnowledgeBaseVariant) {
-    setVariant(next);
-  }
 
   return (
     <ApplicationShell
@@ -156,14 +116,13 @@ export function KnowledgeBasePrototype({
         className="@container/knowledge -mx-5 -mb-7 overflow-clip bg-background sm:-mx-8 sm:-mb-10 md:m-0 md:overflow-visible md:bg-transparent"
         data-prototype="knowledge-base-responsive"
         data-prototype-scenario={scenario}
-        data-prototype-variant={variant}
+        data-prototype-variant={initialVariant}
       >
         <KnowledgeBaseHeader />
-        <PrototypeSwitcher chooseVariant={chooseVariant} variant={variant} />
         <div className="px-5 pb-24 sm:px-8 sm:pb-28 md:px-0 md:pb-24">
-          {variant === "featured" ? (
+          {initialVariant === "featured" ? (
             <FeaturedTopicsVariant {...scenarioData} />
-          ) : variant === "equal" ? (
+          ) : initialVariant === "equal" ? (
             <EqualTopicsVariant {...scenarioData} />
           ) : (
             <PlaylistFirstVariant {...scenarioData} />
@@ -758,47 +717,6 @@ function DiscoveryEmpty({ kind }: { readonly kind: "playlists" | "topics" }) {
   );
 }
 
-function PrototypeSwitcher({
-  chooseVariant,
-  variant,
-}: {
-  readonly chooseVariant: (variant: KnowledgeBaseVariant) => void;
-  readonly variant: KnowledgeBaseVariant;
-}) {
-  const current = variants.find((item) => item.key === variant) ?? variants[0];
-
-  return (
-    <nav
-      aria-label="Варианты прототипа"
-      className="sticky top-2 z-50 mx-auto mt-3 flex w-fit items-center gap-1 rounded-xl bg-foreground p-1 text-background shadow-card md:ml-auto md:mr-0"
-    >
-      <button
-        aria-label="Предыдущий вариант"
-        className="grid size-10 place-items-center rounded-lg hover:bg-background/12 focus-visible:outline-background"
-        onClick={() => {
-          chooseVariant(adjacentVariant(variant, -1));
-        }}
-        type="button"
-      >
-        <ChevronLeft aria-hidden="true" className="size-4" />
-      </button>
-      <span className="min-w-40 px-2 text-center text-xs font-semibold sm:min-w-48">
-        {current.label}
-      </span>
-      <button
-        aria-label="Следующий вариант"
-        className="grid size-10 place-items-center rounded-lg hover:bg-background/12 focus-visible:outline-background"
-        onClick={() => {
-          chooseVariant(adjacentVariant(variant, 1));
-        }}
-        type="button"
-      >
-        <ChevronRight aria-hidden="true" className="size-4" />
-      </button>
-    </nav>
-  );
-}
-
 interface ScenarioData {
   readonly materials: readonly MaterialPreviewFixture[];
   readonly playlists: readonly PlaylistFixture[];
@@ -819,15 +737,6 @@ function getScenarioData(scenario: KnowledgeBaseScenario): ScenarioData {
   }
 
   return { materials, playlists, topics };
-}
-
-function adjacentVariant(
-  current: KnowledgeBaseVariant,
-  offset: -1 | 1,
-): KnowledgeBaseVariant {
-  const currentIndex = variants.findIndex((item) => item.key === current);
-  const nextIndex = (currentIndex + offset + variants.length) % variants.length;
-  return variants[nextIndex]?.key ?? "featured";
 }
 
 function formatMaterialCount(count: number): string {
