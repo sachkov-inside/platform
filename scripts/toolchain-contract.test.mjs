@@ -211,6 +211,16 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(smoke, /down --volumes --remove-orphans \|\| true/u);
   });
 
+  it("keeps production smoke log checks on the GitHub runner baseline", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
+
+    assert.doesNotMatch(smoke, /\|\s*rg(?:\s|$)/u);
+    assert.match(
+      smoke,
+      /\[\[ "\$worker_logs" != \*'"process":"material-assets-worker","status":"ready"'\* \]\]/u,
+    );
+  });
+
   it("derives the production migration expectation from the registered source files", () => {
     const smoke = read("scripts/production-compose-smoke.sh");
 

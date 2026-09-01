@@ -96,9 +96,10 @@ if [[ "$worker_state" != "running:0" ]]; then
   "${compose[@]}" logs material-assets-worker >&2
   exit 1
 fi
-if ! "${compose[@]}" logs material-assets-worker | rg --quiet '"process":"material-assets-worker","status":"ready"'; then
+worker_logs="$("${compose[@]}" logs material-assets-worker)"
+if [[ "$worker_logs" != *'"process":"material-assets-worker","status":"ready"'* ]]; then
   echo "Material Asset worker did not report readiness" >&2
-  "${compose[@]}" logs material-assets-worker >&2
+  printf '%s\n' "$worker_logs" >&2
   exit 1
 fi
 
