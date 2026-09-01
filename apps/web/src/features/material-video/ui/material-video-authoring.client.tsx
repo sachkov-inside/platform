@@ -3,6 +3,7 @@
 import { Link2, LoaderCircle, RefreshCw, Upload, Video } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { z } from "zod";
 
 import { Button } from "@/shared/ui/button";
 
@@ -27,6 +28,7 @@ export function MaterialVideoAuthoring({
   readonly onChange: (videoId: string | null) => void;
   readonly primaryVideoId: string | null;
 }) {
+  const uploadAttempt = useRef<BrowserUploadAttempt | null>(null);
   const [providerVideoId, setProviderVideoId] = useState("");
   const [video, setVideo] = useState<MaterialVideo | null>(null);
   const [phase, setPhase] = useState<MaterialVideoAuthoringPhase>(
@@ -44,6 +46,10 @@ export function MaterialVideoAuthoring({
     }
     setVideo(result.value);
     if (result.value.state === "ready") {
+      if (uploadAttempt.current?.videoId === result.value.videoId) {
+        clearBrowserUploadAttempt(uploadAttempt.current);
+        uploadAttempt.current = null;
+      }
       onChange(result.value.videoId);
       setPhase("ready");
     } else {
@@ -79,18 +85,21 @@ export function MaterialVideoAuthoring({
   const upload = async (file: File) => {
     setPhase("uploading");
     setProgress(0);
+    const browserAttempt = await loadBrowserUploadAttempt(materialId, file);
+    uploadAttempt.current = browserAttempt;
     const initialized = await uploadVideo({
       access,
       byteSize: file.size,
       filename: file.name,
       materialId,
-      submissionId: crypto.randomUUID(),
+      submissionId: browserAttempt.submissionId,
       title: file.name.replace(/\.[^.]+$/u, ""),
     });
     if (initialized.kind !== "ready") {
       setPhase("error");
       return;
     }
+    uploadAttempt.current = { ...browserAttempt, videoId: initialized.value.video.videoId };
     setVideo(initialized.value.video);
     if (new URL(initialized.value.uploadEndpoint).hostname.endsWith(".invalid")) {
       setProgress(100);
@@ -147,6 +156,63 @@ export function MaterialVideoAuthoring({
 
 export type MaterialVideoAuthoringPhase = "idle" | "uploading" | "processing" | "ready" | "error";
 
+interface BrowserUploadAttempt {
+  readonly storageKey?: string;
+  readonly submissionId: string;
+  readonly videoId?: string;
+}
+
+const storedUploadAttemptSchema = z.object({
+  submissionId: z.uuid(),
+  version: z.literal(1),
+}).strict();
+
+async function loadBrowserUploadAttempt(
+  materialId: string,
+  file: File,
+): Promise<BrowserUploadAttempt> {
+  let storageKey: string;
+  try {
+    const fingerprint = new TextEncoder().encode(
+      `${file.name}\u0000${String(file.size)}\u0000${String(file.lastModified)}`,
+    );
+    const digest = await crypto.subtle.digest("SHA-256", fingerprint);
+    const hash = [...new Uint8Array(digest)]
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+    storageKey = `inside.video-upload.v1:${materialId}:${hash}`;
+    const stored = storedUploadAttemptSchema.safeParse(
+      JSON.parse(localStorage.getItem(storageKey) ?? "null"),
+    );
+    if (stored.success) {
+      return { storageKey, submissionId: stored.data.submissionId };
+    }
+  } catch {
+    return { submissionId: crypto.randomUUID() };
+  }
+  const submissionId = crypto.randomUUID();
+  try {
+    localStorage.setItem(storageKey, JSON.stringify({ submissionId, version: 1 }));
+  } catch {
+    // Upload remains available when storage is disabled, with server-side fail-closed protection.
+  }
+  return { storageKey, submissionId };
+}
+
+function clearBrowserUploadAttempt(attempt: BrowserUploadAttempt): void {
+  if (attempt.storageKey === undefined) return;
+  try {
+    const stored = storedUploadAttemptSchema.safeParse(
+      JSON.parse(localStorage.getItem(attempt.storageKey) ?? "null"),
+    );
+    if (stored.success && stored.data.submissionId === attempt.submissionId) {
+      localStorage.removeItem(attempt.storageKey);
+    }
+  } catch {
+    // Cleanup is best-effort when storage is unavailable.
+  }
+}
+
 export interface MaterialVideoAuthoringViewProps {
   readonly access: "free" | "membership";
   readonly activeVideoId: string | null;
@@ -199,6 +265,7 @@ export function MaterialVideoAuthoringView({
             disabled={disabled}
             onChange={(event) => {
               const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = "";
               if (file !== undefined) onFileSelected(file);
             }}
             ref={fileInput}
