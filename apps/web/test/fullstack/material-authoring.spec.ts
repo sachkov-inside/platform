@@ -16,7 +16,7 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   context,
   page,
   request,
-}) => {
+}, testInfo) => {
   const suffix = String(Date.now());
   const title = `Asset flow ${suffix}`;
   const slug = `asset-flow-${suffix}`;
@@ -49,6 +49,13 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   await expect(chooser.getByText("Готово к вставке")).toBeVisible({ timeout: 30_000 });
   await expect(diagram.getByText("Готово к вставке")).toBeVisible({ timeout: 30_000 });
   await expect(dropped.getByText("Готово к вставке")).toBeVisible({ timeout: 30_000 });
+  const uploadAccessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(uploadAccessibility.violations.filter(
+    ({ impact }) => impact === "serious" || impact === "critical",
+  )).toEqual([]);
+  await captureAssetEvidence(page, testInfo, "editor-ready");
   await chooser.getByRole("button", { name: "Вставить" }).click();
   await diagram.getByLabel("Описание изображения").fill("Схема asset flow");
   await diagram.getByRole("button", { name: "Вставить" }).click();
@@ -69,6 +76,13 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   await expect(page.getByRole("img", { name: "Схема asset flow" })).toBeVisible();
   const fileLink = page.getByRole("link", { name: /chooser.txt/u });
   await expect(fileLink).toBeVisible();
+  const readerAccessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(readerAccessibility.violations.filter(
+    ({ impact }) => impact === "serious" || impact === "critical",
+  )).toEqual([]);
+  await captureAssetEvidence(page, testInfo, "reader-inline-assets");
   const fileResponse = await request.get(await fileLink.getAttribute("href") ?? "");
   expect(fileResponse.status()).toBe(200);
   expect(fileResponse.headers()["cache-control"]).toContain("immutable");
@@ -81,6 +95,56 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   await expect(publishedRow.getByText("Снят с публикации", { exact: true })).toBeVisible({
     timeout: 15_000,
   });
+});
+
+test("member Material hides bytes from anonymous access and issues only a protected redirect", async ({
+  context,
+  page,
+  request,
+}) => {
+  const suffix = String(Date.now());
+  const title = `Member asset ${suffix}`;
+  const slug = `member-asset-${suffix}`;
+  await addFullStackSession(context);
+  await page.goto("/authoring/materials/new");
+  await completeProfileOnboardingIfPresent(page);
+  await fillPublishableDraft(page, title);
+  await page.getByRole("combobox", { name: "Доступ" }).click();
+  await page.getByRole("option", { name: "Для участников" }).click();
+  await page.getByRole("button", { name: "Создать черновик" }).click();
+  await expect(page).toHaveURL(currentMaterialEditorUrl);
+
+  await page.getByLabel("Выбрать файлы").setInputFiles({
+    buffer: Buffer.from("Protected member attachment\n"),
+    mimeType: "text/plain",
+    name: "member-guide.txt",
+  });
+  const upload = page.getByRole("listitem").filter({ hasText: "member-guide.txt" });
+  await expect(upload.getByText("Готово к вставке")).toBeVisible({ timeout: 30_000 });
+  await upload.getByRole("button", { name: "Вставить" }).click();
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Опубликовать" }).click();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+
+  await page.goto(`/materials/${slug}`);
+  const fileLink = page.getByRole("link", { name: /member-guide.txt/u });
+  await expect(fileLink).toBeVisible();
+  const href = await fileLink.getAttribute("href");
+  if (href === null) throw new Error("member file link is missing");
+  const anonymous = await request.get(href, { maxRedirects: 0 });
+  expect(anonymous.status()).toBe(404);
+  expect(anonymous.headers()["cache-control"]).toContain("no-store");
+  const manager = await page.request.get(href, { maxRedirects: 0 });
+  expect(manager.status()).toBe(302);
+  expect(manager.headers()["cache-control"]).toBe("private, no-store");
+  const location = manager.headers().location;
+  expect(location).toContain("X-Amz-Expires=60");
+
+  await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
+  const row = page.getByRole("listitem").filter({ hasText: title });
+  await row.getByRole("button", { name: "Снять с публикации" }).click();
+  await expect(row.getByText("Снят с публикации", { exact: true })).toBeVisible({ timeout: 15_000 });
 });
 
 test("trusted author creates a PostgreSQL draft and opens its current Preview", async ({
@@ -510,6 +574,22 @@ async function captureLifecycleEvidence(
   await mkdir(evidenceDirectory, { recursive: true });
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
+  await page.screenshot({
+    animations: "disabled",
+    fullPage: true,
+    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+  });
+}
+
+async function captureAssetEvidence(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+) {
+  if (process.env.CAPTURE_EVIDENCE !== "1") return;
+  const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-180");
+  await mkdir(evidenceDirectory, { recursive: true });
+  const viewport = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
     animations: "disabled",
     fullPage: true,

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import { MinioContainer, type StartedMinioContainer } from "@testcontainers/minio";
+import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { createS3ObjectStorage, type ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
@@ -83,15 +84,20 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     await expect(assets.upload(input)).resolves.toEqual(uploaded);
     await expect(
       assets.inspectReferences(materialId, [{ assetId: uploaded.value.assetId, kind: "file" }]),
-    ).resolves.toEqual([]);
+    ).resolves.toEqual({ ok: true, value: [] });
 
-    const delivery = await assets.loadDelivery({
+    const deliveryResult = await assets.loadDelivery({
       assetId: uploaded.value.assetId,
       materialId,
     });
-    expect(delivery?.object.publicKey).not.toBeNull();
-    if (delivery?.object.publicKey === null || delivery === null) throw new Error("missing public object");
-    await expect(storage.read("public", delivery.object.publicKey)).resolves.toMatchObject({
+    expect(deliveryResult).toMatchObject({ ok: true, value: { kind: "file" } });
+    if (!deliveryResult.ok || deliveryResult.value === null) {
+      throw new Error("missing public object");
+    }
+    const delivery = deliveryResult.value;
+    const publicKey = delivery.object.publicKey;
+    if (publicKey === null) throw new Error("missing public object key");
+    await expect(storage.read("public", publicKey)).resolves.toMatchObject({
       body,
       contentType: "text/plain",
     });
@@ -100,8 +106,86 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       graceMs: 60 * 60 * 1_000,
       isReferenced: () => Promise.resolve(false),
       now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
-    })).resolves.toEqual({ cleaned: 1, retained: 0 });
-    await expect(assets.loadDelivery({ assetId: uploaded.value.assetId, materialId })).resolves.toBeNull();
-    await expect(storage.read("public", delivery.object.publicKey)).resolves.toBeNull();
+    })).resolves.toEqual({ ok: true, value: { cleaned: 1, retained: 0 } });
+    await expect(assets.loadDelivery({
+      assetId: uploaded.value.assetId,
+      materialId,
+    })).resolves.toEqual({ ok: true, value: null });
+    await expect(storage.read("public", publicKey)).resolves.toBeNull();
+  });
+
+  test("replaces an image with a new Asset and retains only the current reference", async () => {
+    const assets = assembleMaterialAssets({ objectStorage: storage, prisma: database.prisma });
+    const materialId = randomUUID();
+    const actor = randomUUID();
+    const image = await sharp({
+      create: {
+        background: { alpha: 1, b: 80, g: 70, r: 60 },
+        channels: 4,
+        height: 320,
+        width: 640,
+      },
+    }).jpeg().withExif({ IFD0: { Artist: "must be stripped" } }).toBuffer();
+    const upload = (idempotencyKey: string) => assets.upload({
+      actor,
+      body: image,
+      declaredContentType: "image/jpeg",
+      declaredSize: image.byteLength,
+      expectedChecksumSha256: createHash("sha256").update(image).digest("hex"),
+      filename: "architecture.jpg",
+      idempotencyKey,
+      kind: "image",
+      materialId,
+    });
+    const original = await upload("integration-image-original");
+    const replacement = await upload("integration-image-replacement");
+    expect(original).toMatchObject({ ok: true, value: { kind: "image", state: "ready" } });
+    expect(replacement).toMatchObject({ ok: true, value: { kind: "image", state: "ready" } });
+    if (!original.ok || !replacement.ok) throw new Error("image upload failed");
+    expect(replacement.value.assetId).not.toBe(original.value.assetId);
+    expect(replacement.value.variants?.map(({ width }) => width)).toEqual([480, 640]);
+
+    await expect(assets.loadDelivery({
+      assetId: replacement.value.assetId,
+      materialId,
+    })).resolves.toEqual({ ok: true, value: null });
+    const variantResult = await assets.loadDelivery({
+      assetId: replacement.value.assetId,
+      materialId,
+      variantWidth: 480,
+    });
+    expect(variantResult).toMatchObject({
+      ok: true,
+      value: { contentType: "image/webp", kind: "image" },
+    });
+    if (!variantResult.ok || variantResult.value === null) {
+      throw new Error("missing image variant");
+    }
+    const variant = variantResult.value;
+    const variantPublicKey = variant.object.publicKey;
+    if (variantPublicKey === null) throw new Error("missing image variant key");
+    const publicBytes = await storage.read("public", variantPublicKey);
+    expect(publicBytes).toMatchObject({ contentType: "image/webp", contentLength: variant.size });
+    if (publicBytes === null) throw new Error("missing public image bytes");
+    expect((await sharp(publicBytes.body).metadata()).exif).toBeUndefined();
+
+    await expect(assets.cleanupOrphans({
+      graceMs: 60 * 60 * 1_000,
+      isReferenced: ({ assetId }) => Promise.resolve(assetId === replacement.value.assetId),
+      now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
+    })).resolves.toEqual({ ok: true, value: { cleaned: 1, retained: 1 } });
+    await expect(assets.loadDelivery({
+      assetId: original.value.assetId,
+      materialId,
+      variantWidth: 480,
+    })).resolves.toEqual({ ok: true, value: null });
+    await expect(assets.loadDelivery({
+      assetId: replacement.value.assetId,
+      materialId,
+      variantWidth: 480,
+    })).resolves.toMatchObject({
+      ok: true,
+      value: { assetId: replacement.value.assetId },
+    });
   });
 });

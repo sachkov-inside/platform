@@ -617,9 +617,14 @@ describe("ContentAccess authorization", () => {
 
   test("re-runs protected Material policy for a body-linked download", async () => {
     const facts = membershipMaterial(6);
+    const assetId = "83000000-0000-4000-8000-000000000006";
     let permissionReads = 0;
     let membershipReads = 0;
     const contentAccess = assembleContentAccess({
+      assetResourceFacts: {
+        findMany: () => Promise.resolve([{ assetId, kind: "file", materialId: facts.materialId }]),
+        findOne: () => Promise.resolve({ assetId, kind: "file", materialId: facts.materialId }),
+      },
       materialResourceFacts: {
         findMany: () => Promise.resolve([facts]),
         findOne: () => Promise.resolve(facts),
@@ -643,7 +648,7 @@ describe("ContentAccess authorization", () => {
     await expect(
       contentAccess.authorize({
         subject: { kind: "account", accountId },
-        resource: { kind: "material", materialId: facts.materialId },
+        resource: { kind: "asset", assetId },
         action: "download",
         enforcementPoint: "download_delivery",
         correlationId: "invalid-action-correlation-id",
@@ -662,7 +667,7 @@ describe("ContentAccess authorization", () => {
         operations: [
           {
             itemId: "invalid-action-item",
-            resource: { kind: "material", materialId: facts.materialId },
+            resource: { kind: "asset", assetId },
             action: "download",
           },
         ],

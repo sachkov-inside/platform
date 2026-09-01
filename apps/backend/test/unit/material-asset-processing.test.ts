@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { describe, expect, test } from "vitest";
 
-import { processMaterialAssetBytes } from "../../src/modules/assets/domain/process-material-asset-bytes.js";
+import { processMaterialAssetBytes } from "../../src/modules/assets/facets/material-assets/process-material-asset-bytes.js";
 
 function checksum(body: Uint8Array): string {
   return createHash("sha256").update(body).digest("hex");

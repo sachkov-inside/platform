@@ -11,7 +11,7 @@ import type {
 import type { LibraryDiscoveryResult } from "@/_pages/library-discovery";
 import { RelatedMaterialsSection } from "@/_pages/library-discovery";
 import { Button } from "@/shared/ui/button";
-import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets/ui/material-asset-blocks";
+import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
 import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
 
 export interface MaterialReaderViewProps {

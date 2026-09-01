@@ -49,13 +49,11 @@ export function assembleMaterialAssetDelivery(dependencies: {
 }): MaterialAssetDelivery {
   const delivery: MaterialAssetDelivery = {
     async deliver(input) {
-      const asset = await dependencies.assets.loadDelivery(input);
-      if (asset === null) return notFound();
       const access = await dependencies.contentAccess.authorize({
-        action: input.preview ? "preview" : asset.kind === "file" ? "download" : "read",
+        action: input.preview ? "preview" : input.variantWidth === undefined ? "download" : "read",
         correlationId: randomUUID(),
-        enforcementPoint: asset.kind === "file" ? "download_delivery" : "asset_delivery",
-        resource: { kind: "material", materialId: checkedMaterialId(asset.materialId) },
+        enforcementPoint: input.variantWidth === undefined ? "download_delivery" : "asset_delivery",
+        resource: { assetId: input.assetId, kind: "asset" },
         subject: input.subject,
       });
       if (access.effect === "deny") {
@@ -63,12 +61,28 @@ export function assembleMaterialAssetDelivery(dependencies: {
           ? dependencyUnavailable()
           : notFound();
       }
+      let loaded: Awaited<ReturnType<MaterialAssets["loadDelivery"]>>;
+      try {
+        loaded = await dependencies.assets.loadDelivery(input);
+      } catch {
+        return dependencyUnavailable();
+      }
+      if (!loaded.ok) return dependencyUnavailable();
+      const asset = loaded.value;
+      if (asset === null || checkedMaterialId(asset.materialId) !== checkedMaterialId(input.materialId)) {
+        return notFound();
+      }
       const contentDisposition = asset.kind === "file"
         ? attachmentDisposition(asset.filename)
         : undefined;
       if (access.reason === "public_resource") {
         if (asset.object.publicKey === null) return notFound();
-        const stored = await dependencies.objectStorage.read("public", asset.object.publicKey);
+        let stored;
+        try {
+          stored = await dependencies.objectStorage.read("public", asset.object.publicKey);
+        } catch {
+          return dependencyUnavailable();
+        }
         if (
           stored === null ||
           stored.contentLength !== asset.size ||
@@ -88,18 +102,29 @@ export function assembleMaterialAssetDelivery(dependencies: {
           },
         };
       }
+      const ttlSeconds = signedGetTtlSeconds(
+        dependencies.signedGetTtlSeconds,
+        access.reason === "active_membership" ? access.validUntil : undefined,
+      );
+      if (ttlSeconds === null) return notFound();
+      let location: string;
+      try {
+        location = await dependencies.objectStorage.signGet({
+          ...(contentDisposition === undefined ? {} : { contentDisposition }),
+          contentType: asset.contentType,
+          key: asset.object.protectedKey,
+          namespace: "protected",
+          ttlSeconds,
+        });
+      } catch {
+        return dependencyUnavailable();
+      }
       return {
         ok: true,
         value: {
           cacheScope: "private-no-store",
           kind: "redirect",
-          location: await dependencies.objectStorage.signGet({
-            ...(contentDisposition === undefined ? {} : { contentDisposition }),
-            contentType: asset.contentType,
-            key: asset.object.protectedKey,
-            namespace: "protected",
-            ttlSeconds: dependencies.signedGetTtlSeconds,
-          }),
+          location,
         },
       };
     },
@@ -120,4 +145,19 @@ function notFound(): DeliverMaterialAssetResult {
 
 function dependencyUnavailable(): DeliverMaterialAssetResult {
   return { error: { code: "dependency_unavailable" }, ok: false };
+}
+
+function signedGetTtlSeconds(
+  configuredTtlSeconds: number,
+  validUntil: string | undefined,
+): number | null {
+  if (validUntil === undefined) return configuredTtlSeconds;
+  const remainingWholeSeconds = Math.floor(
+    (Date.parse(validUntil) - Date.now()) / 1_000,
+  );
+  const boundedTtlSeconds = Math.min(
+    configuredTtlSeconds,
+    remainingWholeSeconds - 1,
+  );
+  return boundedTtlSeconds >= 1 ? boundedTtlSeconds : null;
 }

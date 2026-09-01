@@ -1,7 +1,8 @@
 import "server-only";
 
 import {
-  readBackendBaseUrl,
+  requestMaterialAssetDelivery,
+  requestMaterialAssetUpload,
 } from "@/shared/api/backend/index.server";
 import {
   getOptionalPlatformAccessToken,
@@ -10,8 +11,6 @@ import {
   LogtoSessionUnavailableError,
   readLogtoBffConfig,
 } from "@/shared/auth/index.server";
-
-const UPLOAD_TIMEOUT_MS = 60_000;
 
 export async function proxyMaterialAssetUpload(
   request: Request,
@@ -33,43 +32,38 @@ export async function proxyMaterialAssetUpload(
   if (idempotencyKey === null) {
     return problem(400, "invalid_upload", "Idempotency key is required");
   }
-  let formData: FormData;
-  try {
-    formData = await request.formData();
-  } catch {
+  const contentType = request.headers.get("content-type");
+  if (request.body === null || contentType?.toLowerCase().startsWith("multipart/form-data;") !== true) {
     return problem(400, "invalid_upload", "Upload form is malformed");
   }
-  const response = await fetch(
-    `${readBackendBaseUrl()}/authoring/materials/${encodeURIComponent(materialId)}/assets`,
-    {
-      body: formData,
-      cache: "no-store",
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        "idempotency-key": idempotencyKey,
-      },
-      method: "POST",
-      signal: AbortSignal.any([request.signal, AbortSignal.timeout(UPLOAD_TIMEOUT_MS)]),
-    },
-  );
+  const response = await requestMaterialAssetUpload({
+    accessToken,
+    body: request.body,
+    contentType,
+    idempotencyKey,
+    materialId,
+    signal: request.signal,
+  });
   return copyBackendResponse(response);
 }
 
 export async function proxyMaterialAssetDelivery(
   request: Request,
-  path: string,
+  input: {
+    readonly assetId: string;
+    readonly materialId: string;
+    readonly variantWidth?: string;
+  },
 ): Promise<Response> {
   const accessToken = await getOptionalPlatformAccessToken(request);
   const incomingUrl = new URL(request.url);
-  const backendUrl = new URL(`${readBackendBaseUrl()}${path}`);
-  if (incomingUrl.searchParams.get("preview") === "true") {
-    backendUrl.searchParams.set("preview", "true");
-  }
-  const response = await fetch(backendUrl, {
-    cache: "no-store",
-    headers: accessToken === undefined ? {} : { authorization: `Bearer ${accessToken}` },
-    redirect: "manual",
-    signal: AbortSignal.timeout(10_000),
+  const response = await requestMaterialAssetDelivery({
+    ...(accessToken === undefined ? {} : { accessToken }),
+    assetId: input.assetId,
+    materialId: input.materialId,
+    preview: incomingUrl.searchParams.get("preview") === "true",
+    signal: request.signal,
+    ...(input.variantWidth === undefined ? {} : { variantWidth: input.variantWidth }),
   });
   return copyBackendResponse(response);
 }

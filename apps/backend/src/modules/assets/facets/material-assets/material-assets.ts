@@ -29,6 +29,7 @@ export type UploadMaterialAssetError =
     }
   | { readonly code: "idempotency_key_reused" }
   | { readonly code: "invalid_upload" }
+  | { readonly code: "dependency_unavailable" }
   | { readonly code: "upload_in_progress" };
 
 export type UploadMaterialAssetResult =
@@ -48,6 +49,19 @@ export interface MaterialAssetReferenceIssue {
     | "asset_not_ready"
     | "asset_wrong_material";
 }
+
+export interface MaterialAssetAccessFacts {
+  readonly assetId: string;
+  readonly kind: MaterialAssetKind;
+  readonly materialId: string;
+}
+
+export type MaterialAssetQueryResult<Value> =
+  | Readonly<{ ok: true; value: Value }>
+  | Readonly<{
+      ok: false;
+      error: { code: "dependency_unavailable"; retryable: true };
+    }>;
 
 export interface MaterialAssetDelivery {
   readonly assetId: string;
@@ -93,16 +107,19 @@ export interface MaterialAssets {
   inspectReferences(
     materialId: string,
     references: readonly MaterialAssetReference[],
-  ): Promise<readonly MaterialAssetReferenceIssue[]>;
+  ): Promise<MaterialAssetQueryResult<readonly MaterialAssetReferenceIssue[]>>;
+  loadAccessFacts(
+    assetIds: readonly string[],
+  ): Promise<MaterialAssetQueryResult<readonly MaterialAssetAccessFacts[]>>;
   loadPresentations(
     materialId: string,
     assetIds: readonly string[],
-  ): Promise<readonly MaterialAssetPresentation[]>;
+  ): Promise<MaterialAssetQueryResult<readonly MaterialAssetPresentation[]>>;
   loadDelivery(input: {
     readonly assetId: string;
     readonly materialId: string;
     readonly variantWidth?: number;
-  }): Promise<MaterialAssetDelivery | null>;
+  }): Promise<MaterialAssetQueryResult<MaterialAssetDelivery | null>>;
   cleanupOrphans(input: {
     readonly graceMs: number;
     readonly isReferenced: (input: {
@@ -110,5 +127,5 @@ export interface MaterialAssets {
       readonly materialId: string;
     }) => Promise<boolean>;
     readonly now?: Date;
-  }): Promise<Readonly<{ cleaned: number; retained: number }>>;
+  }): Promise<MaterialAssetQueryResult<Readonly<{ cleaned: number; retained: number }>>>;
 }

@@ -10,7 +10,7 @@ export type UploadMaterialAssetForAuthoringResult =
   | UploadMaterialAssetResult
   | {
       readonly ok: false;
-      readonly error: { readonly code: "forbidden" | "material_not_found" };
+      readonly error: { readonly code: "dependency_unavailable" | "forbidden" | "material_not_found" };
     };
 
 export interface MaterialAssetAuthoring {
@@ -31,9 +31,13 @@ export function assembleMaterialAssetAuthoring(dependencies: {
         if (material.error.code === "forbidden" || material.error.code === "material_not_found") {
           return { error: { code: material.error.code }, ok: false };
         }
-        throw new Error("Material ownership check is unavailable");
+        return { error: { code: "dependency_unavailable" }, ok: false };
       }
-      return dependencies.assets.upload(input);
+      try {
+        return await dependencies.assets.upload(input);
+      } catch {
+        return { error: { code: "dependency_unavailable" }, ok: false };
+      }
     },
   };
   return Object.freeze(authoring);

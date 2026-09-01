@@ -1,4 +1,4 @@
-import { proxyMaterialAssetDelivery } from "@/features/material-assets/api/material-assets-bff.server";
+import { proxyMaterialAssetDelivery } from "@/features/material-assets.server";
 
 export async function GET(
   request: Request,
@@ -13,6 +13,6 @@ export async function GET(
   const { assetId, materialId, width } = await context.params;
   return proxyMaterialAssetDelivery(
     request,
-    `/materials/${encodeURIComponent(materialId)}/assets/${encodeURIComponent(assetId)}/images/${encodeURIComponent(width)}`,
+    { assetId, materialId, variantWidth: width },
   );
 }

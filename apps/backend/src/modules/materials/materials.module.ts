@@ -28,6 +28,7 @@ import {
 import { AssetsModule, MATERIAL_ASSETS, OBJECT_STORAGE, type MaterialAssets } from "../assets/index.js";
 import type { ObjectStorage } from "../../infrastructure/object-storage/index.js";
 import { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
+import { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
 import { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
 import type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
 import { MATERIAL_AUTHORING } from "./facets/material-authoring/material-authoring.token.js";
@@ -53,12 +54,10 @@ import {
   MATERIAL_ASSET_DELIVERY,
   type MaterialAssetDelivery,
 } from "./features/deliver-material-asset/deliver-material-asset.js";
-import { MaterialAssetCleanupScheduler } from "./adapters/nest/material-asset-cleanup.scheduler.js";
 
 @Module({
   imports: [PrismaModule, AccountsModule, AssetsModule, MembershipEntitlementsModule],
   providers: [
-    MaterialAssetCleanupScheduler,
     {
       provide: MATERIAL_AUTHORING,
       inject: [PrismaClientProvider, ACCOUNTS, CONTENT_ACCESS, MATERIAL_ASSETS],
@@ -113,13 +112,15 @@ import { MaterialAssetCleanupScheduler } from "./adapters/nest/material-asset-cl
     },
     {
       provide: CONTENT_ACCESS,
-      inject: [MATERIAL_CONTENT, ACCOUNTS, MEMBERSHIP_ENTITLEMENTS],
+      inject: [MATERIAL_CONTENT, MATERIAL_ASSETS, ACCOUNTS, MEMBERSHIP_ENTITLEMENTS],
       useFactory: (
         materialContent: MaterialContent,
+        materialAssets: MaterialAssets,
         accounts: Accounts,
         membershipEntitlements: MembershipEntitlements,
       ): ContentAccess =>
         assembleContentAccess({
+          assetResourceFacts: assembleAssetResourceFacts(materialAssets),
           materialResourceFacts: assembleMaterialResourceFacts(materialContent),
           accountPermissions: assembleCurrentAccountPermissions(accounts),
           membershipEntitlements,

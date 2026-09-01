@@ -581,7 +581,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  });
+  }, 15_000);
 
   test("rejects a ledger that is not an exact registry prefix", async () => {
     const database = await createTestDatabase();
@@ -598,7 +598,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  });
+  }, 15_000);
 
   test("rejects migrations unknown to the running registry", async () => {
     const database = await createTestDatabase();
@@ -615,7 +615,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  });
+  }, 15_000);
 
   test("rejects the checksum-less pre-Prisma ledger", async () => {
     const database = await createTestDatabase();

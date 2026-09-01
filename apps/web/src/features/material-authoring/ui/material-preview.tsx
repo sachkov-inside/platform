@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
-import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets/ui/material-asset-blocks";
+import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
 import { materialTaxonomyLabel } from "@/entities/material";
 
 import type {

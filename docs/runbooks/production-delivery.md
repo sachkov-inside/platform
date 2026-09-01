@@ -6,8 +6,9 @@ is deliberately separate from `compose.yaml`, which remains the source-mounted d
 ## Runtime topology
 
 `compose.production.yaml` accepts prebuilt API and web image references, provisions separate
-non-superuser migration and runtime database roles, runs migrations once, waits for healthy
-application processes, and exposes only Caddy on ports 80 and 443. Separate edge, application and
+non-superuser migration and runtime database roles, runs application and library-owned `pg-boss`
+migrations once, then starts API plus the no-listener `material-assets-worker`. It waits for healthy
+HTTP application processes and exposes only Caddy on ports 80 and 443. Separate edge, application and
 internal data networks keep Caddy and web away from PostgreSQL while preserving the outbound
 identity-provider access needed by web and API. Caddy owns TLS certificates and proxies requests
 to web.

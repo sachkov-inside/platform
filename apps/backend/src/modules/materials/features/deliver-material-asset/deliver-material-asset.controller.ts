@@ -5,10 +5,10 @@ import {
   NotFoundException,
   Param,
   Query,
-  Res,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import {
+  ApiFoundResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -18,9 +18,10 @@ import {
   ApiServiceUnavailableResponse,
   ApiTags,
 } from "@nestjs/swagger";
-import type { FastifyReply } from "fastify";
 import { z } from "zod";
 
+import { MaterialAssetDeliveryCache } from "../../../../infrastructure/http/http-cache-policy.js";
+import { problemDetailsContent } from "../../../../infrastructure/http/zod-openapi.js";
 import {
   accountId as checkedAccountId,
   OptionalAccountEndpoint,
@@ -34,6 +35,12 @@ import {
 } from "./deliver-material-asset.js";
 
 const uuid = z.uuid();
+const assetDeliveryProblemSchema = z.object({
+  code: z.enum(["asset_not_found", "dependency_unavailable"]),
+  status: z.union([z.literal(404), z.literal(503)]),
+  title: z.string(),
+  type: z.string(),
+}).strict();
 
 @ApiTags("Material assets")
 @OptionalAccountEndpoint()
@@ -50,17 +57,18 @@ export class DeliverMaterialAssetController {
   @ApiParam({ name: "assetId", schema: { type: "string", format: "uuid" } })
   @ApiQuery({ name: "preview", required: false, schema: { type: "boolean" } })
   @ApiProduces("application/octet-stream")
-  @ApiOkResponse({ description: "File bytes or a short-lived protected redirect" })
-  @ApiNotFoundResponse({ description: "Asset is absent or not currently accessible" })
-  @ApiServiceUnavailableResponse({ description: "Access or storage dependency is unavailable" })
+  @ApiOkResponse({ description: "Public immutable file bytes", schema: { type: "string", format: "binary" } })
+  @ApiFoundResponse({ description: "Short-lived protected redirect", headers: { Location: { schema: { type: "string", format: "uri" } } } })
+  @ApiNotFoundResponse({ description: "Asset is absent or not currently accessible", content: problemDetailsContent(assetDeliveryProblemSchema) })
+  @ApiServiceUnavailableResponse({ description: "Access or storage dependency is unavailable", content: problemDetailsContent(assetDeliveryProblemSchema) })
+  @MaterialAssetDeliveryCache()
   download(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("materialId") materialId: string,
     @Param("assetId") assetId: string,
     @Query("preview") preview: string | undefined,
-    @Res() reply: FastifyReply,
   ) {
-    return this.send({ account, assetId, materialId, preview, reply });
+    return this.send({ account, assetId, materialId, preview });
   }
 
   @Get(":materialId/assets/:assetId/images/:width")
@@ -70,17 +78,20 @@ export class DeliverMaterialAssetController {
   @ApiParam({ name: "width", schema: { type: "integer", minimum: 1 } })
   @ApiQuery({ name: "preview", required: false, schema: { type: "boolean" } })
   @ApiProduces("image/webp")
-  @ApiOkResponse({ description: "Image bytes or a short-lived protected redirect" })
+  @ApiOkResponse({ description: "Public immutable image bytes", schema: { type: "string", format: "binary" } })
+  @ApiFoundResponse({ description: "Short-lived protected redirect", headers: { Location: { schema: { type: "string", format: "uri" } } } })
+  @ApiNotFoundResponse({ description: "Asset is absent or not currently accessible", content: problemDetailsContent(assetDeliveryProblemSchema) })
+  @ApiServiceUnavailableResponse({ description: "Access or storage dependency is unavailable", content: problemDetailsContent(assetDeliveryProblemSchema) })
+  @MaterialAssetDeliveryCache()
   image(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("materialId") materialId: string,
     @Param("assetId") assetId: string,
     @Param("width") width: string,
     @Query("preview") preview: string | undefined,
-    @Res() reply: FastifyReply,
   ) {
     const variantWidth = Number(width);
-    return this.send({ account, assetId, materialId, preview, reply, variantWidth });
+    return this.send({ account, assetId, materialId, preview, variantWidth });
   }
 
   private async send(input: {
@@ -88,7 +99,6 @@ export class DeliverMaterialAssetController {
     readonly assetId: string;
     readonly materialId: string;
     readonly preview: string | undefined;
-    readonly reply: FastifyReply;
     readonly variantWidth?: number;
   }) {
     if (
@@ -116,22 +126,7 @@ export class DeliverMaterialAssetController {
       }
       throw notFound();
     }
-    input.reply.header("X-Content-Type-Options", "nosniff");
-    input.reply.header(
-      "Cache-Control",
-      result.value.cacheScope === "public-immutable"
-        ? "public, max-age=31536000, immutable"
-        : "private, no-store",
-    );
-    if (result.value.kind === "redirect") {
-      return input.reply.redirect(result.value.location, 302);
-    }
-    input.reply.header("Content-Type", result.value.contentType);
-    input.reply.header("Content-Length", String(result.value.contentLength));
-    if (result.value.contentDisposition !== undefined) {
-      input.reply.header("Content-Disposition", result.value.contentDisposition);
-    }
-    return input.reply.send(Buffer.from(result.value.body));
+    return result.value;
   }
 }
 

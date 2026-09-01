@@ -3,8 +3,8 @@ import { Module } from "@nestjs/common";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../../config/platform-config.js";
 import { createS3ObjectStorage, ensureS3Buckets, type ObjectStorage } from "../../infrastructure/object-storage/index.js";
 import { PrismaClientProvider, PrismaModule } from "../../infrastructure/prisma/index.js";
-import { assembleMaterialAssets } from "./assemble-material-assets.js";
-import type { MaterialAssets } from "./material-assets.js";
+import { assembleMaterialAssets } from "./facets/material-assets/assemble-material-assets.js";
+import type { MaterialAssets } from "./facets/material-assets/material-assets.js";
 
 export const MATERIAL_ASSETS = Symbol("MATERIAL_ASSETS");
 export const OBJECT_STORAGE = Symbol("OBJECT_STORAGE");

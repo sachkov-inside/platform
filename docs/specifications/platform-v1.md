@@ -90,7 +90,7 @@ throwaway prototype:
 |---|---|
 | Runtime/tooling | Node.js 24 LTS, strict TypeScript, pnpm и exact lockfile |
 | Web | Next.js App Router + React |
-| Backend | один NestJS + Fastify codebase с thin demand-driven process entrypoints; сейчас `api` и `mcp` |
+| Backend | один NestJS + Fastify codebase с thin demand-driven process entrypoints; сейчас `api`, `mcp` и capability-specific `material-assets-worker` |
 | Application contract | REST + OpenAPI; transports не владеют application rules |
 | Transactional store | PostgreSQL 18 |
 | Data access | Prisma 7 + `@prisma/adapter-pg` — единственный application ORM для всех persistent capabilities; capability-scoped clients ограничивают delegates; checked-in append-only SQL migrations с checksum остаются authority |
@@ -268,7 +268,7 @@ entities и invariants v1:
 | `Tag` | Material имеет 0..N Tags; managed dictionary поддерживает rename/merge без synonyms-duplicates |
 | `Series` | имеет 0..N ordered memberships; Material входит в 0..N Series |
 | `SeriesMembership` | пара Series/Material уникальна; ordinal уникален внутри Series |
-| `Asset` | принадлежит Platform; current Material ссылается на 0..N Assets |
+| `MaterialAsset` | принадлежит ровно одному Material; current MaterialBody ссылается на 0..N immutable ready MaterialAssets; `pending | processing | ready | failed` |
 | `Video` | local identity с одним Kinescope provider mapping; current Material ссылается на 0..N Videos |
 | `ExternalLink` | typed label + normalized URL; current Material содержит 0..N links |
 | `NavigationPage` | editorial content и curated/query links; Roadmap использует эту роль |
@@ -381,13 +381,29 @@ Published body читается только для current `published` state; d
 
 ### Assets, downloads и video
 
-1. `Assets` создаёт immutable upload target, а finalize проверяет type, size и checksum; publish
-   допускает только ready resources.
-2. Closed asset/download проходит `ContentAccess`; short-lived delivery credential связан с одним
-   Subject/Resource/Action и не переживает access decision.
-3. `Videos` начинает Kinescope upload, считает webhook только hint и сверяет authoritative provider
+1. `Assets` принимает non-video bytes через quarantine, проверяет ownership, actual size,
+   signature/MIME и SHA-256, блокирует executable/script content и создаёт случайные immutable
+   object keys с overwrite protection. Antivirus и URL import в v1 отсутствуют.
+2. Один narrow S3-compatible port обслуживает Yandex Object Storage production adapter и тот же
+   conformance contract для MinIO integration. Public, protected и quarantine — разные private
+   buckets/namespaces; provider SDK types, storage keys и signed URLs не входят в MaterialBody или
+   browser state.
+3. Image finalize безопасно decode-ит AVIF/JPEG/PNG/WebP с bounded pixels, применяет orientation,
+   удаляет EXIF, хранит normalized original только protected и создаёт public/protected WebP
+   variants до 480/960/1600 px. File bytes сохраняются immutable в public и protected namespace.
+4. Publish допускает только ready MaterialAssets exact owning Material. Replacement создаёт новый
+   Asset; body reference остаётся stable opaque `assetId`, а referenced Asset сохраняется.
+5. Asset `read | download | preview` сначала передаёт exact opaque Asset resource в
+   `ContentAccess`; safe owner/kind facts разрешаются до authorize, private locator читается только
+   после allow. Public delivery возвращает immutable bytes через stable Platform route; protected
+   delivery получает private/no-store redirect, а TTL не длиннее adapter cap и remaining
+   Membership validity.
+6. `material-assets-worker` через durable `pg-boss` schedule после grace period удаляет
+   unreferenced pending/failed/ready objects. Cleanup и concurrent Save сериализуются Material
+   advisory lock; повтор job безопасен, referenced resources retain-ятся.
+7. `Videos` начинает Kinescope upload, считает webhook только hint и сверяет authoritative provider
    state; publish допускает только ready Video.
-4. Playback token и strict authorization callback повторно вызывают `ContentAccess`; mismatch,
+8. Playback token и strict authorization callback повторно вызывают `ContentAccess`; mismatch,
    stale entitlement и outage дают deny.
 
 ### Search, navigation и related Materials

@@ -32,14 +32,16 @@ interface UploadedAsset {
   readonly state: "ready";
 }
 
-interface PendingUpload {
+export interface PendingUpload {
   readonly decorative: boolean;
   readonly file: File;
   readonly id: string;
+  readonly idempotencyKey: string;
   readonly insertAt: number;
   readonly kind: AssetKind;
   readonly message?: string;
   readonly progress: number;
+  readonly retryWithNewIdempotencyKey: boolean;
   readonly result?: UploadedAsset;
   readonly status: UploadStatus;
   readonly text: string;
@@ -91,6 +93,7 @@ export function useMaterialAssetUploads(
       const result = await uploadFile({
         checksum,
         file: upload.file,
+        idempotencyKey: upload.idempotencyKey,
         kind: upload.kind,
         materialId,
         onProgress(progress) {
@@ -115,6 +118,7 @@ export function useMaterialAssetUploads(
       if (error instanceof DOMException && error.name === "AbortError") return;
       setUploads((current) => patchUpload(current, upload.id, {
         message: uploadErrorMessage(error),
+        retryWithNewIdempotencyKey: uploadErrorCode(error) !== "network",
         status: "error",
       }));
     }
@@ -128,9 +132,11 @@ export function useMaterialAssetUploads(
         decorative: false,
         file,
         id: crypto.randomUUID(),
+        idempotencyKey: `web-asset-${crypto.randomUUID()}`,
         insertAt: insertAt ?? editor.state.selection.from,
         kind,
         progress: 0,
+        retryWithNewIdempotencyKey: false,
         status: "hashing",
         text: kind === "file" ? file.name : "",
       };
@@ -153,7 +159,11 @@ export function useMaterialAssetUploads(
     const retried: PendingUpload = {
       ...retained,
       id: crypto.randomUUID(),
+      idempotencyKey: upload.retryWithNewIdempotencyKey
+        ? `web-asset-${crypto.randomUUID()}`
+        : upload.idempotencyKey,
       progress: 0,
+      retryWithNewIdempotencyKey: false,
       status: "hashing",
     };
     setUploads((current) => current.map((candidate) => candidate.id === id ? retried : candidate));
@@ -220,6 +230,10 @@ export function MaterialAssetUploadButtons({
   );
 }
 
+/**
+ * Temporary semantic UI for #180.
+ * Replace through #190 after Storybook acceptance.
+ */
 export function MaterialAssetUploadQueue({
   controller,
 }: {
@@ -291,6 +305,7 @@ async function sha256(file: File): Promise<string> {
 function uploadFile(input: {
   readonly checksum: string;
   readonly file: File;
+  readonly idempotencyKey: string;
   readonly kind: AssetKind;
   readonly materialId: string;
   readonly onProgress: (progress: number) => void;
@@ -302,7 +317,7 @@ function uploadFile(input: {
     input.onRequest(request);
     request.open("POST", `/api/authoring/materials/${encodeURIComponent(input.materialId)}/assets`);
     request.responseType = "json";
-    request.setRequestHeader("idempotency-key", `web-asset-${crypto.randomUUID()}`);
+    request.setRequestHeader("idempotency-key", input.idempotencyKey);
     request.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable) input.onProgress(Math.round((event.loaded / event.total) * 100));
     });
@@ -335,7 +350,7 @@ function patchUpload(
 }
 
 function uploadErrorMessage(error: unknown): string {
-  const code = error instanceof Error ? error.message : "upload_failed";
+  const code = uploadErrorCode(error);
   switch (code) {
     case "executable_content": return "Исполняемые файлы и скрипты запрещены";
     case "image_too_large": return "Изображение превышает допустимый размер";
@@ -344,4 +359,8 @@ function uploadErrorMessage(error: unknown): string {
     case "checksum_mismatch": return "Файл повредился при передаче — повторите загрузку";
     default: return "Не удалось загрузить. Локальный текст сохранён";
   }
+}
+
+function uploadErrorCode(error: unknown): string {
+  return error instanceof Error ? error.message : "upload_failed";
 }

@@ -8,7 +8,7 @@ export class MaterialAssetsService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
    * Download a file through current Material access
-   * @returns any File bytes or a short-lived protected redirect
+   * @returns binary Public immutable file bytes
    * @throws ApiError
    */
   public downloadMaterialAsset({
@@ -19,7 +19,7 @@ export class MaterialAssetsService {
     assetId: string,
     materialId: string,
     preview?: boolean,
-  }): CancelablePromise<any> {
+  }): CancelablePromise<Blob> {
     return this.httpRequest.request({
       method: 'GET',
       url: '/materials/{materialId}/assets/{assetId}',
@@ -31,6 +31,7 @@ export class MaterialAssetsService {
         'preview': preview,
       },
       errors: {
+        302: `Short-lived protected redirect`,
         401: `Optional Account proof is invalid`,
         404: `Asset is absent or not currently accessible`,
         500: `Account resolution failed`,
@@ -40,7 +41,7 @@ export class MaterialAssetsService {
   }
   /**
    * Read a responsive image through current Material access
-   * @returns any Image bytes or a short-lived protected redirect
+   * @returns binary Public immutable image bytes
    * @throws ApiError
    */
   public readMaterialAssetImage({
@@ -53,7 +54,7 @@ export class MaterialAssetsService {
     assetId: string,
     materialId: string,
     preview?: boolean,
-  }): CancelablePromise<any> {
+  }): CancelablePromise<Blob> {
     return this.httpRequest.request({
       method: 'GET',
       url: '/materials/{materialId}/assets/{assetId}/images/{width}',
@@ -66,9 +67,11 @@ export class MaterialAssetsService {
         'preview': preview,
       },
       errors: {
+        302: `Short-lived protected redirect`,
         401: `Optional Account proof is invalid`,
+        404: `Asset is absent or not currently accessible`,
         500: `Account resolution failed`,
-        503: `Account proof dependency is unavailable`,
+        503: `Access or storage dependency is unavailable`,
       },
     });
   }

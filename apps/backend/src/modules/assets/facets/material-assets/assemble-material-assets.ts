@@ -1,21 +1,23 @@
 import { createHash, randomUUID } from "node:crypto";
 import { basename } from "node:path";
+import { z } from "zod";
 
-import { Prisma, type AssetsPrismaClient } from "../../infrastructure/prisma/index.js";
-import type { ObjectStorage } from "../../infrastructure/object-storage/index.js";
-import { processMaterialAssetBytes } from "./domain/process-material-asset-bytes.js";
+import { Prisma, type AssetsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { processMaterialAssetBytes } from "./process-material-asset-bytes.js";
 import type {
   MaterialAssetDelivery,
   MaterialAssetDto,
   MaterialAssetPresentation,
+  MaterialAssetQueryResult,
   MaterialAssetReference,
   MaterialAssetReferenceIssue,
   MaterialAssets,
   UploadMaterialAssetResult,
 } from "./material-assets.js";
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
-const SHA256 = /^[0-9a-f]{64}$/iu;
+const uuidSchema = z.uuid();
+const sha256Schema = z.hash("sha256");
 
 export function assembleMaterialAssets(dependencies: {
   readonly objectStorage: ObjectStorage;
@@ -241,189 +243,247 @@ export function assembleMaterialAssets(dependencies: {
         });
         await deleteQuarantineBestEffort(objectStorage, quarantineObjectKey);
         return { ok: true, value: toDto(ready) };
-      } catch (error) {
-        await prisma.materialAsset.updateMany({
-          data: { failureCode: "storage_failure", state: "failed", updatedAt: new Date() },
-          where: { id: assetId, state: "processing" },
-        });
-        throw error;
+      } catch {
+        try {
+          await prisma.materialAsset.updateMany({
+            data: { failureCode: "storage_failure", state: "failed", updatedAt: new Date() },
+            where: { id: assetId, state: "processing" },
+          });
+        } catch {
+          // The transport-neutral failure below remains authoritative even if
+          // the best-effort lifecycle marker cannot be persisted.
+        }
+        return { error: { code: "dependency_unavailable" }, ok: false };
       }
     },
 
     async inspectReferences(materialId, references) {
-      const unique = uniqueReferences(references);
-      if (unique.length === 0) return [];
-      const assets = await prisma.materialAsset.findMany({
-        where: { id: { in: unique.map((reference) => reference.assetId) } },
+      return materialAssetQuery(async () => {
+        const unique = uniqueReferences(references);
+        if (unique.length === 0) return [];
+        const assets = await prisma.materialAsset.findMany({
+          where: { id: { in: unique.map((reference) => reference.assetId) } },
+        });
+        const byId = new Map(assets.map((asset) => [asset.id, asset]));
+        return unique.flatMap((reference): readonly MaterialAssetReferenceIssue[] => {
+          const asset = byId.get(reference.assetId);
+          if (asset === undefined) return [{ assetId: reference.assetId, code: "asset_not_found" }];
+          if (asset.materialId !== materialId) return [{ assetId: reference.assetId, code: "asset_wrong_material" }];
+          if (asset.kind !== reference.kind) return [{ assetId: reference.assetId, code: "asset_kind_mismatch" }];
+          if (asset.state !== "ready") return [{ assetId: reference.assetId, code: "asset_not_ready" }];
+          return [];
+        });
       });
-      const byId = new Map(assets.map((asset) => [asset.id, asset]));
-      return unique.flatMap((reference): readonly MaterialAssetReferenceIssue[] => {
-        const asset = byId.get(reference.assetId);
-        if (asset === undefined) return [{ assetId: reference.assetId, code: "asset_not_found" }];
-        if (asset.materialId !== materialId) return [{ assetId: reference.assetId, code: "asset_wrong_material" }];
-        if (asset.kind !== reference.kind) return [{ assetId: reference.assetId, code: "asset_kind_mismatch" }];
-        if (asset.state !== "ready") return [{ assetId: reference.assetId, code: "asset_not_ready" }];
-        return [];
+    },
+
+    async loadAccessFacts(assetIds) {
+      return materialAssetQuery(async () => {
+        if (assetIds.length === 0) return [];
+        const rows = await prisma.materialAsset.findMany({
+          where: { id: { in: [...new Set(assetIds)] }, state: "ready" },
+          select: { id: true, kind: true, materialId: true },
+        });
+        return rows.flatMap((asset) =>
+          asset.kind === "file" || asset.kind === "image"
+            ? [{ assetId: asset.id, kind: asset.kind, materialId: asset.materialId }]
+            : [],
+        );
       });
     },
 
     async loadPresentations(materialId, assetIds) {
-      if (assetIds.length === 0) return [];
-      const rows = await prisma.materialAsset.findMany({
-        where: {
-          id: { in: [...new Set(assetIds)] },
-          materialId,
-          state: "ready",
-        },
-        include: { materialAssetVariants: true },
-      });
-      return rows.flatMap((asset): readonly MaterialAssetPresentation[] => {
-        if (
-          asset.kind === "image" &&
-          asset.width !== null &&
-          asset.height !== null
-        ) {
-          return [{
-            assetId: asset.id,
-            height: asset.height,
-            kind: "image",
-            variants: asset.materialAssetVariants
-              .map(({ height, width }) => ({ height, width }))
-              .toSorted((left, right) => left.width - right.width),
-            width: asset.width,
-          }];
-        }
-        if (
-          asset.kind === "file" &&
-          asset.actualContentType !== null &&
-          asset.actualSize !== null
-        ) {
-          return [{
-            assetId: asset.id,
-            contentType: asset.actualContentType,
-            filename: asset.originalFilename,
-            kind: "file",
-            size: asset.actualSize,
-          }];
-        }
-        return [];
+      return materialAssetQuery(async () => {
+        if (assetIds.length === 0) return [];
+        const rows = await prisma.materialAsset.findMany({
+          where: {
+            id: { in: [...new Set(assetIds)] },
+            materialId,
+            state: "ready",
+          },
+          include: { materialAssetVariants: true },
+        });
+        return rows.flatMap((asset): readonly MaterialAssetPresentation[] => {
+          if (
+            asset.kind === "image" &&
+            asset.width !== null &&
+            asset.height !== null
+          ) {
+            return [{
+              assetId: asset.id,
+              height: asset.height,
+              kind: "image",
+              variants: asset.materialAssetVariants
+                .map(({ height, width }) => ({ height, width }))
+                .toSorted((left, right) => left.width - right.width),
+              width: asset.width,
+            }];
+          }
+          if (
+            asset.kind === "file" &&
+            asset.actualContentType !== null &&
+            asset.actualSize !== null
+          ) {
+            return [{
+              assetId: asset.id,
+              contentType: asset.actualContentType,
+              filename: asset.originalFilename,
+              kind: "file",
+              size: asset.actualSize,
+            }];
+          }
+          return [];
+        });
       });
     },
 
-    async loadDelivery(input): Promise<MaterialAssetDelivery | null> {
-      const asset = await prisma.materialAsset.findFirst({
-        where: { id: input.assetId, materialId: input.materialId, state: "ready" },
-      });
-      if (asset === null || asset.protectedObjectKey === null || asset.actualContentType === null || asset.actualSize === null) {
-        return null;
-      }
-      if (input.variantWidth !== undefined) {
-        if (asset.kind !== "image") return null;
-        const variant = await prisma.materialAssetVariant.findUnique({
-          where: { assetId_width: { assetId: asset.id, width: input.variantWidth } },
+    async loadDelivery(input) {
+      return materialAssetQuery(async (): Promise<MaterialAssetDelivery | null> => {
+        const asset = await prisma.materialAsset.findFirst({
+          where: { id: input.assetId, materialId: input.materialId, state: "ready" },
         });
-        if (variant === null) return null;
+        if (
+          asset === null ||
+          asset.protectedObjectKey === null ||
+          asset.actualContentType === null ||
+          asset.actualSize === null
+        ) {
+          return null;
+        }
+        if (input.variantWidth !== undefined) {
+          if (asset.kind !== "image") return null;
+          const variant = await prisma.materialAssetVariant.findUnique({
+            where: { assetId_width: { assetId: asset.id, width: input.variantWidth } },
+          });
+          if (variant === null) return null;
+          return {
+            assetId: asset.id,
+            contentType: variant.contentType,
+            filename: asset.originalFilename,
+            kind: "image",
+            materialId: asset.materialId,
+            object: {
+              protectedKey: variant.protectedObjectKey,
+              publicKey: variant.publicObjectKey,
+            },
+            size: variant.byteSize,
+          };
+        }
+        // Images are delivered only through a verified responsive variant. The
+        // normalized protected original deliberately has no public locator and
+        // its bytes differ from the uploaded source metadata retained here.
+        if (asset.kind !== "file") return null;
         return {
           assetId: asset.id,
-          contentType: variant.contentType,
+          contentType: asset.actualContentType,
           filename: asset.originalFilename,
-          kind: "image",
+          kind: "file",
           materialId: asset.materialId,
-          object: { protectedKey: variant.protectedObjectKey, publicKey: variant.publicObjectKey },
-          size: variant.byteSize,
+          object: {
+            protectedKey: asset.protectedObjectKey,
+            publicKey: asset.publicObjectKey,
+          },
+          size: asset.actualSize,
         };
-      }
-      if (asset.kind !== "file" && asset.kind !== "image") return null;
-      return {
-        assetId: asset.id,
-        contentType: asset.actualContentType,
-        filename: asset.originalFilename,
-        kind: asset.kind,
-        materialId: asset.materialId,
-        object: { protectedKey: asset.protectedObjectKey, publicKey: asset.publicObjectKey },
-        size: asset.actualSize,
-      };
+      });
     },
 
     async cleanupOrphans(input) {
-      const now = input.now ?? new Date();
-      const cutoff = new Date(now.getTime() - input.graceMs);
-      const candidates = await prisma.materialAsset.findMany({
-        where: {
-          orphanedAt: { lte: cutoff },
-          updatedAt: { lte: cutoff },
-        },
-        orderBy: { orphanedAt: "asc" },
-        select: { id: true },
-        take: 100,
-      });
-      let cleaned = 0;
-      let retained = 0;
-      for (const candidate of candidates) {
-        const claimed = await prisma.$transaction(async (transaction) => {
-          const asset = await transaction.materialAsset.findUnique({
-            where: { id: candidate.id },
-            include: { materialAssetVariants: true },
-          });
-          if (
-            asset === null ||
-            asset.orphanedAt > cutoff ||
-            asset.updatedAt > cutoff
-          ) return null;
-          await transaction.$executeRaw(Prisma.sql`
-            select pg_advisory_xact_lock(hashtextextended(${asset.materialId}, 0))
-          `);
-          if (
-            asset.state === "ready" &&
-            await input.isReferenced({ assetId: asset.id, materialId: asset.materialId })
-          ) {
-            await transaction.materialAsset.update({
-              data: { orphanedAt: now, updatedAt: now },
-              where: { id: asset.id },
-            });
-            return { kind: "retained" as const };
-          }
-          const latest = await transaction.materialAsset.findUnique({
-            where: { id: asset.id },
-            include: { materialAssetVariants: true },
-          });
-          if (latest === null || latest.updatedAt > cutoff) return null;
-          await transaction.materialAsset.update({
-            data: {
-              cleanupClaimedAt: now,
-              failureCode: "cleanup_claimed",
-              state: "failed",
-              updatedAt: now,
-            },
-            where: { id: latest.id },
-          });
-          return { kind: "claimed" as const, asset: latest };
+      return materialAssetQuery(async () => {
+        const now = input.now ?? new Date();
+        const cutoff = new Date(now.getTime() - input.graceMs);
+        const candidates = await prisma.materialAsset.findMany({
+          where: {
+            orphanedAt: { lte: cutoff },
+            updatedAt: { lte: cutoff },
+          },
+          orderBy: { orphanedAt: "asc" },
+          select: { id: true },
+          take: 100,
         });
-        if (claimed?.kind === "retained") {
-          retained += 1;
-          continue;
-        }
-        if (claimed?.kind !== "claimed") continue;
-        const objects = [
-          { namespace: "quarantine" as const, key: claimed.asset.quarantineObjectKey },
-          ...(claimed.asset.protectedObjectKey === null ? [] : [{ namespace: "protected" as const, key: claimed.asset.protectedObjectKey }]),
-          ...(claimed.asset.publicObjectKey === null ? [] : [{ namespace: "public" as const, key: claimed.asset.publicObjectKey }]),
-          ...claimed.asset.materialAssetVariants.flatMap((variant) => [
-            { namespace: "protected" as const, key: variant.protectedObjectKey },
-            { namespace: "public" as const, key: variant.publicObjectKey },
-          ]),
-        ];
-        try {
-          for (const object of objects) {
-            await objectStorage.delete(object.namespace, object.key);
+        let cleaned = 0;
+        let retained = 0;
+        for (const candidate of candidates) {
+          const claimed = await prisma.$transaction(async (transaction) => {
+            const asset = await transaction.materialAsset.findUnique({
+              where: { id: candidate.id },
+              include: { materialAssetVariants: true },
+            });
+            if (
+              asset === null ||
+              asset.orphanedAt > cutoff ||
+              asset.updatedAt > cutoff
+            ) return null;
+            await transaction.$executeRaw(Prisma.sql`
+              select pg_advisory_xact_lock(hashtextextended(${asset.materialId}, 0))
+            `);
+            if (
+              asset.state === "ready" &&
+              await input.isReferenced({
+                assetId: asset.id,
+                materialId: asset.materialId,
+              })
+            ) {
+              await transaction.materialAsset.update({
+                data: { orphanedAt: now, updatedAt: now },
+                where: { id: asset.id },
+              });
+              return { kind: "retained" as const };
+            }
+            const latest = await transaction.materialAsset.findUnique({
+              where: { id: asset.id },
+              include: { materialAssetVariants: true },
+            });
+            if (latest === null || latest.updatedAt > cutoff) return null;
+            await transaction.materialAsset.update({
+              data: {
+                cleanupClaimedAt: now,
+                failureCode: "cleanup_claimed",
+                state: "failed",
+                updatedAt: now,
+              },
+              where: { id: latest.id },
+            });
+            return { kind: "claimed" as const, asset: latest };
+          });
+          if (claimed?.kind === "retained") {
+            retained += 1;
+            continue;
           }
-          await prisma.materialAsset.delete({ where: { id: claimed.asset.id } });
-          cleaned += 1;
-        } catch {
-          retained += 1;
+          if (claimed?.kind !== "claimed") continue;
+          const objects = [
+            {
+              namespace: "quarantine" as const,
+              key: claimed.asset.quarantineObjectKey,
+            },
+            ...(claimed.asset.protectedObjectKey === null
+              ? []
+              : [{
+                  namespace: "protected" as const,
+                  key: claimed.asset.protectedObjectKey,
+                }]),
+            ...(claimed.asset.publicObjectKey === null
+              ? []
+              : [{
+                  namespace: "public" as const,
+                  key: claimed.asset.publicObjectKey,
+                }]),
+            ...claimed.asset.materialAssetVariants.flatMap((variant) => [
+              { namespace: "protected" as const, key: variant.protectedObjectKey },
+              { namespace: "public" as const, key: variant.publicObjectKey },
+            ]),
+          ];
+          try {
+            for (const object of objects) {
+              await objectStorage.delete(object.namespace, object.key);
+            }
+            await prisma.materialAsset.delete({ where: { id: claimed.asset.id } });
+            cleaned += 1;
+          } catch {
+            retained += 1;
+          }
         }
-      }
-      return { cleaned, retained };
+        return { cleaned, retained };
+      });
     },
   };
   return Object.freeze(assets);
@@ -432,14 +492,27 @@ export function assembleMaterialAssets(dependencies: {
 function validateUpload(input: Parameters<MaterialAssets["upload"]>[0]) {
   const filename = sanitizeFilename(input.filename);
   if (
-    !UUID.test(input.actor) || !UUID.test(input.materialId) ||
-    !SHA256.test(input.expectedChecksumSha256) ||
+    !uuidSchema.safeParse(input.actor).success || !uuidSchema.safeParse(input.materialId).success ||
+    !sha256Schema.safeParse(input.expectedChecksumSha256.toLowerCase()).success ||
     input.idempotencyKey.length < 1 || input.idempotencyKey.length > 128 ||
     input.declaredContentType.length < 1 || input.declaredContentType.length > 255 ||
     !Number.isInteger(input.declaredSize) || input.declaredSize < 1 ||
     filename === null
   ) return null;
   return { ...input, expectedChecksumSha256: input.expectedChecksumSha256.toLowerCase(), filename };
+}
+
+async function materialAssetQuery<Value>(
+  operation: () => Promise<Value>,
+): Promise<MaterialAssetQueryResult<Value>> {
+  try {
+    return { ok: true, value: await operation() };
+  } catch {
+    return {
+      error: { code: "dependency_unavailable", retryable: true },
+      ok: false,
+    };
+  }
 }
 
 function sanitizeFilename(value: string): string | null {
@@ -496,6 +569,7 @@ function processingFailureCode(code: string): Extract<UploadMaterialAssetResult,
     case "mime_mismatch":
     case "size_mismatch":
     case "unsupported_image_type": return code;
+    case "storage_failure": return "dependency_unavailable";
     default: return "invalid_upload";
   }
 }

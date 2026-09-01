@@ -169,10 +169,11 @@ export function assembleSaveMaterial(
                     : [{ assetId: resource.assetId, kind: resource.kind }],
                 ),
               );
-              if (assetIssues.length > 0) {
+              if (!assetIssues.ok) return rollback(assetIssues.error);
+              if (assetIssues.value.length > 0) {
                 return rollback({
                   code: "invalid_reference",
-                  issues: assetIssues.map((issue) => ({
+                  issues: assetIssues.value.map((issue) => ({
                     code: issue.code,
                     path: "/body",
                   })),

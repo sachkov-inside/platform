@@ -14,6 +14,8 @@ The default stack contains:
 - Nest API on <http://127.0.0.1:3001> with health and OpenAPI endpoints;
 - the long-running MCP process at <http://127.0.0.1:3002/mcp> over the same application and database
   lifecycle;
+- `material-assets-worker`, which consumes the durable `pg-boss` cleanup queue and has no HTTP
+  listener;
 - Next.js web on <http://127.0.0.1:3000>.
 
 The optional Logto email-code proof is a separate, disposable Compose project with isolated ports
@@ -29,8 +31,8 @@ It owns different Compose project names and ports, proves the pinned Logto recip
 and dependency recovery behavior, verifies one local `Account` and no Platform session table, then
 removes only its disposable volumes.
 
-API and web expose real healthchecks. API and MCP wait for healthy PostgreSQL and a successful
-bootstrap; web waits for healthy API. Storybook is an optional profile on
+API and web expose real healthchecks. API, MCP and the Material Asset worker wait for healthy
+PostgreSQL and a successful bootstrap; web waits for healthy API. Storybook is an optional profile on
 <http://127.0.0.1:6006>. Integration tests continue to use their own temporary PostgreSQL and
 MinIO through Testcontainers and never share the Compose data services.
 

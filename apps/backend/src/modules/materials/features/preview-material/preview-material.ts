@@ -78,13 +78,14 @@ export function assemblePreviewMaterial(
       }
       const resources = dependencies.materialBodyOperations.extract(current.value.body);
       if (!resources.ok) return resources;
-      const presentations = dependencies.materialAssets === undefined
-        ? []
+      const loadedPresentations = dependencies.materialAssets === undefined
+        ? { ok: true as const, value: [] }
         : await dependencies.materialAssets.loadPresentations(
             parsed.value.materialId,
             resources.value.resources.flatMap((resource) =>
               resource.kind === "video" ? [] : [resource.assetId]),
           );
+      if (!loadedPresentations.ok) return loadedPresentations;
       return {
         ok: true,
         value: {
@@ -93,7 +94,7 @@ export function assemblePreviewMaterial(
           publicationState: current.value.lifecycle.publicationState,
           metadata: current.value.metadata.toValues(),
           cacheScope: "private-no-store",
-          body: hydrateMaterialAssets(rendered.value, presentations),
+          body: hydrateMaterialAssets(rendered.value, loadedPresentations.value),
         },
       };
     } catch (error) {

@@ -1,4 +1,4 @@
-import { proxyMaterialAssetUpload } from "@/features/material-assets/api/material-assets-bff.server";
+import { proxyMaterialAssetUpload } from "@/features/material-assets.server";
 
 export async function POST(
   request: Request,

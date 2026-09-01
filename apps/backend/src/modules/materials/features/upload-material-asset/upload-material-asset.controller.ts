@@ -14,12 +14,13 @@ import {
   ApiHeader,
   ApiOperation,
   ApiParam,
+  ApiResponse,
 } from "@nestjs/swagger";
 import type { MultipartFile } from "@fastify/multipart";
 import type { FastifyRequest } from "fastify";
 import { z } from "zod";
 
-import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
+import { problemDetailsContent, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import { CurrentAccount, type AuthenticatedAccount } from "../../../accounts/index.js";
 import { MATERIAL_ASSET_LIMITS } from "../../../assets/index.js";
 import { MaterialAuthoringEndpoint } from "../../adapters/nest/material-authoring-endpoint.js";
@@ -30,7 +31,7 @@ import {
   type UploadMaterialAssetForAuthoringResult,
 } from "./upload-material-asset.js";
 
-const checksumSchema = z.string().regex(/^[0-9a-f]{64}$/u);
+const checksumSchema = z.hash("sha256");
 const uploadResponseSchema = z.object({
   assetId: z.uuid(),
   contentType: z.string(),
@@ -42,6 +43,31 @@ const uploadResponseSchema = z.object({
   variants: z.array(z.object({ height: z.number().int().positive(), width: z.number().int().positive() })).optional(),
   width: z.number().int().positive().optional(),
 });
+const assetUploadProblemSchema = z.object({
+  code: z.enum([
+    "account_not_found",
+    "authentication_required",
+    "checksum_mismatch",
+    "dependency_unavailable",
+    "executable_content",
+    "forbidden",
+    "idempotency_key_reused",
+    "image_decode_failed",
+    "image_too_large",
+    "internal_error",
+    "invalid_proof",
+    "invalid_upload",
+    "material_not_found",
+    "mime_mismatch",
+    "size_mismatch",
+    "unsupported_image_type",
+    "upload_in_progress",
+    "upload_too_large",
+  ]),
+  status: z.number().int().min(400).max(599),
+  title: z.string(),
+  type: z.string(),
+}).loose();
 
 @MaterialAuthoringEndpoint()
 @Controller("authoring/materials")
@@ -67,6 +93,15 @@ export class UploadMaterialAssetController {
     },
   } })
   @ApiCreatedResponse({ schema: toOpenApiSchema(uploadResponseSchema) })
+  @ApiResponse({ status: 400, content: problemDetailsContent(assetUploadProblemSchema) })
+  @ApiResponse({ status: 401, content: problemDetailsContent(assetUploadProblemSchema) })
+  @ApiResponse({ status: 403, content: problemDetailsContent(assetUploadProblemSchema) })
+  @ApiResponse({ status: 404, content: problemDetailsContent(assetUploadProblemSchema) })
+  @ApiResponse({ status: 409, content: problemDetailsContent(assetUploadProblemSchema) })
+  @ApiResponse({ status: 413, content: problemDetailsContent(assetUploadProblemSchema) })
+  @ApiResponse({ status: 422, content: problemDetailsContent(assetUploadProblemSchema) })
+  @ApiResponse({ status: 500, content: problemDetailsContent(assetUploadProblemSchema) })
+  @ApiResponse({ status: 503, content: problemDetailsContent(assetUploadProblemSchema) })
   async upload(
     @CurrentAccount() account: AuthenticatedAccount,
     @Param("materialId") materialId: string,
@@ -131,6 +166,7 @@ function field(file: MultipartFile, name: string): string | undefined {
 
 function throwAssetUploadError(error: Extract<UploadMaterialAssetForAuthoringResult, { ok: false }>["error"]): never {
   switch (error.code) {
+    case "dependency_unavailable": throw uploadProblem(503, error.code, "Material asset dependency is unavailable");
     case "forbidden": throw uploadProblem(403, error.code, "Material asset upload is forbidden");
     case "material_not_found": throw uploadProblem(404, error.code, "Material was not found");
     case "idempotency_key_reused":

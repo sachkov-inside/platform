@@ -120,13 +120,14 @@ export async function readPublishedMaterial(
       }
       const extraction = dependencies.materialBodyOperations.extract(body.value);
       if (!extraction.ok) return internalError();
-      const presentations = dependencies.materialAssets === undefined
-        ? []
+      const loadedPresentations = dependencies.materialAssets === undefined
+        ? { ok: true as const, value: [] }
         : await dependencies.materialAssets.loadPresentations(
             projection.materialId,
             extraction.value.resources.flatMap((resource) =>
               resource.kind === "video" ? [] : [resource.assetId]),
           );
+      if (!loadedPresentations.ok) return loadedPresentations;
       return {
         ok: true,
         value: {
@@ -134,7 +135,7 @@ export async function readPublishedMaterial(
           cacheScope:
             access.reason === "public_resource" ? "public" : "private-no-store",
           projection,
-          body: hydrateMaterialAssets(rendered.value, presentations),
+          body: hydrateMaterialAssets(rendered.value, loadedPresentations.value),
         },
       };
     }

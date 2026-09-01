@@ -9,6 +9,7 @@ import type {
   AvailabilityBatchResult,
   ContentAccess,
   DenyReason,
+  Resource,
   Subject,
 } from "./content-access.interface.js";
 import type {
@@ -22,6 +23,11 @@ const MAX_BATCH_SIZE = 100;
 interface SubjectFacts {
   readonly permission: "granted" | "denied" | "unavailable";
   readonly membership?: MembershipAccessState;
+}
+
+interface ResolvedResourceFacts extends MaterialResourceFacts {
+  readonly resourceKey: string;
+  readonly resourceKind: "file_asset" | "image_asset" | "material";
 }
 
 export function assembleContentAccess(
@@ -45,15 +51,11 @@ export function assembleContentAccess(
         return { ok: false, error: { code: "duplicate_item_id" } };
       }
 
-      const materialIds = [
-        ...new Set(
-          input.operations.map(({ resource }) => resource.materialId),
-        ),
-      ];
-      let materials: readonly MaterialResourceFacts[];
+      let resourcesByKey: ReadonlyMap<string, ResolvedResourceFacts>;
       try {
-        materials = await dependencies.materialResourceFacts.findMany(
-          materialIds,
+        resourcesByKey = await resolveManyResourceFacts(
+          dependencies,
+          input.operations.map(({ resource }) => resource),
         );
       } catch {
         return {
@@ -64,15 +66,12 @@ export function assembleContentAccess(
           })),
         };
       }
-      const materialsById = new Map(
-        materials.map((facts) => [facts.materialId, facts]),
-      );
       const needsProtectedFacts = input.operations.some((operation) => {
-        const facts = materialsById.get(operation.resource.materialId);
+        const facts = resourcesByKey.get(resourceKey(operation.resource));
         return facts !== undefined && needsSubjectFacts(facts, operation.action);
       });
       const needsMembershipFacts = input.operations.some((operation) => {
-        const facts = materialsById.get(operation.resource.materialId);
+        const facts = resourcesByKey.get(resourceKey(operation.resource));
         return facts !== undefined && needsMembership(facts, operation.action);
       });
       const subjectFacts = needsProtectedFacts
@@ -88,7 +87,7 @@ export function assembleContentAccess(
         items: input.operations.map(({ itemId, resource, action }) => ({
           itemId,
           availability: projectAvailability(
-            materialsById.get(resource.materialId),
+            resourcesByKey.get(resourceKey(resource)),
             action,
             input.subject,
             subjectFacts,
@@ -98,18 +97,16 @@ export function assembleContentAccess(
     },
 
     async authorize(input: AccessRequest): Promise<AccessDecision> {
-      let facts: MaterialResourceFacts | null;
+      let facts: ResolvedResourceFacts | null;
       try {
-        facts = await dependencies.materialResourceFacts.findOne(
-          input.resource.materialId,
-        );
+        facts = await resolveOneResourceFacts(dependencies, input.resource);
       } catch {
         return decision("dependency_unavailable");
       }
       if (facts === null) {
         return decision("resource_not_found");
       }
-      if (facts.materialId !== input.resource.materialId) {
+      if (facts.resourceKey !== resourceKey(input.resource)) {
         return decision("resource_mismatch");
       }
       if (!needsSubjectFacts(facts, input.action)) {
@@ -202,14 +199,14 @@ async function resolveSubjectFacts(
 }
 
 function needsSubjectFacts(
-  facts: MaterialResourceFacts,
+  facts: ResolvedResourceFacts,
   action: AccessAction,
 ): boolean {
   return resourceReason(facts, action) === undefined;
 }
 
 function needsMembership(
-  facts: MaterialResourceFacts,
+  facts: ResolvedResourceFacts,
   action: AccessAction,
 ): boolean {
   return (action === "read" || action === "download") &&
@@ -218,7 +215,7 @@ function needsMembership(
 }
 
 function projectAvailability(
-  facts: MaterialResourceFacts | undefined,
+  facts: ResolvedResourceFacts | undefined,
   action: AccessAction,
   subject: Subject,
   subjectFacts: SubjectFacts | undefined,
@@ -241,7 +238,7 @@ function projectAvailability(
 }
 
 function evaluate(
-  facts: MaterialResourceFacts,
+  facts: ResolvedResourceFacts,
   action: AccessAction,
   subject: Subject,
   subjectFacts: SubjectFacts | undefined,
@@ -282,10 +279,14 @@ function evaluate(
 }
 
 function resourceReason(
-  facts: MaterialResourceFacts,
+  facts: ResolvedResourceFacts,
   action: AccessAction,
 ): DenyReason | "public_resource" | undefined {
-  if (action !== "read" && action !== "download" && action !== "preview") {
+  const validPair = action === "preview" ||
+    (facts.resourceKind === "material" && action === "read") ||
+    (facts.resourceKind === "image_asset" && action === "read") ||
+    (facts.resourceKind === "file_asset" && action === "download");
+  if (!validPair) {
     return "resource_action_invalid";
   }
   if ((action === "read" || action === "download") && facts.publicationState !== "published") {
@@ -295,4 +296,84 @@ function resourceReason(
     return "public_resource";
   }
   return undefined;
+}
+
+async function resolveOneResourceFacts(
+  dependencies: ContentAccessDependencies,
+  resource: Resource,
+): Promise<ResolvedResourceFacts | null> {
+  if (resource.kind === "material") {
+    const material = await dependencies.materialResourceFacts.findOne(
+      resource.materialId,
+    );
+    return material === null
+      ? null
+      : resolveMaterialFacts(material, "material", `material:${material.materialId}`);
+  }
+  const asset = await dependencies.assetResourceFacts?.findOne(resource.assetId) ?? null;
+  if (asset === null) return null;
+  const material = await dependencies.materialResourceFacts.findOne(asset.materialId);
+  if (material === null) return null;
+  return resolveMaterialFacts(
+    material,
+    asset.kind === "file" ? "file_asset" : "image_asset",
+    `asset:${asset.assetId}`,
+  );
+}
+
+async function resolveManyResourceFacts(
+  dependencies: ContentAccessDependencies,
+  resources: readonly Resource[],
+): Promise<ReadonlyMap<string, ResolvedResourceFacts>> {
+  const assetIds = [...new Set(resources.flatMap((resource) =>
+    resource.kind === "asset" ? [resource.assetId] : [],
+  ))];
+  const assets = assetIds.length === 0
+    ? []
+    : await dependencies.assetResourceFacts?.findMany(assetIds) ?? [];
+  const materialIds = [...new Set([
+    ...resources.flatMap((resource) =>
+      resource.kind === "material" ? [resource.materialId] : [],
+    ),
+    ...assets.map(({ materialId }) => materialId),
+  ])];
+  const materials = await dependencies.materialResourceFacts.findMany(materialIds);
+  const materialsById = new Map(materials.map((facts) => [facts.materialId, facts]));
+  const assetsById = new Map(assets.map((facts) => [facts.assetId, facts]));
+  return new Map(resources.flatMap((resource): readonly [string, ResolvedResourceFacts][] => {
+    if (resource.kind === "material") {
+      const material = materialsById.get(resource.materialId);
+      return material === undefined
+        ? []
+        : [[resourceKey(resource), resolveMaterialFacts(material, "material", resourceKey(resource))]];
+    }
+    const asset = assetsById.get(resource.assetId);
+    const material = asset === undefined
+      ? undefined
+      : materialsById.get(asset.materialId);
+    return asset === undefined || material === undefined
+      ? []
+      : [[
+          resourceKey(resource),
+          resolveMaterialFacts(
+            material,
+            asset.kind === "file" ? "file_asset" : "image_asset",
+            `asset:${asset.assetId}`,
+          ),
+        ]];
+  }));
+}
+
+function resolveMaterialFacts(
+  material: MaterialResourceFacts,
+  resourceKind: ResolvedResourceFacts["resourceKind"],
+  resourceKeyValue: string,
+): ResolvedResourceFacts {
+  return { ...material, resourceKey: resourceKeyValue, resourceKind };
+}
+
+function resourceKey(resource: Resource): string {
+  return resource.kind === "material"
+    ? `material:${resource.materialId}`
+    : `asset:${resource.assetId}`;
 }
