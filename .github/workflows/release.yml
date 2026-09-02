@@ -1,0 +1,207 @@
+name: Publish ordinal release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Next ordinal release (vN)
+        required: true
+        type: string
+      vulnerability_waiver_reason:
+        description: Auditable reason for accepting high or critical findings
+        required: false
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: platform-release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      source_sha: ${{ steps.plan.outputs.source_sha }}
+      version: ${{ steps.plan.outputs.version }}
+    permissions:
+      contents: read
+    steps:
+      - name: Check out captured source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Require immutable ordinal history and current main
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          immutable_enabled="$(
+            gh api \
+              --header "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/${GITHUB_REPOSITORY}/immutable-releases" \
+              --jq .enabled
+          )"
+          if [[ "$immutable_enabled" != "true" ]]; then
+            echo "Repository release immutability must be enabled before publication." >&2
+            exit 1
+          fi
+
+          current_main_sha="$(
+            gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
+          )"
+          existing_versions="$(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/tags?per_page=100" --jq '.[].name' |
+              awk '/^v[1-9][0-9]*$/' |
+              sort --version-sort --unique |
+              jq --raw-input --slurp 'split("\n") | map(select(length > 0))'
+          )"
+          jq --null-input \
+            --arg requestedVersion "$REQUESTED_VERSION" \
+            --arg sourceSha "$GITHUB_SHA" \
+            --arg currentMainSha "$current_main_sha" \
+            --argjson existingVersions "$existing_versions" \
+            '{requestedVersion, sourceSha, currentMainSha, existingVersions}' \
+            >release-plan-input.json
+          node scripts/release-contract.mjs plan --input release-plan-input.json \
+            >release-plan.json
+          echo "source_sha=$(jq --raw-output .sourceSha release-plan.json)" >>"$GITHUB_OUTPUT"
+          echo "version=$(jq --raw-output .version release-plan.json)" >>"$GITHUB_OUTPUT"
+
+  ci:
+    needs: plan
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      source_sha: ${{ needs.plan.outputs.source_sha }}
+
+  build-images:
+    needs:
+      - plan
+      - ci
+    permissions:
+      artifact-metadata: write
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    uses: ./.github/workflows/build-release-images.yml
+    with:
+      source_sha: ${{ needs.plan.outputs.source_sha }}
+      version: ${{ needs.plan.outputs.version }}
+      vulnerability_waiver_reason: ${{ inputs.vulnerability_waiver_reason }}
+
+  finalize:
+    needs:
+      - plan
+      - ci
+      - build-images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Check out captured source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.source_sha }}
+          persist-credentials: false
+      - name: Download verified image evidence
+        uses: actions/download-artifact@v8.0.1
+        with:
+          pattern: release-evidence-*
+          path: release-assets
+          merge-multiple: true
+      - name: Recheck release state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          immutable_enabled="$(
+            gh api \
+              --header "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/${GITHUB_REPOSITORY}/immutable-releases" \
+              --jq .enabled
+          )"
+          if [[ "$immutable_enabled" != "true" ]]; then
+            echo "Repository release immutability was disabled during the release." >&2
+            exit 1
+          fi
+
+          current_main_sha="$(
+            gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
+          )"
+          existing_versions="$(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/tags?per_page=100" --jq '.[].name' |
+              awk '/^v[1-9][0-9]*$/' |
+              sort --version-sort --unique |
+              jq --raw-input --slurp 'split("\n") | map(select(length > 0))'
+          )"
+          jq --null-input \
+            --arg requestedVersion "$VERSION" \
+            --arg sourceSha "$SOURCE_SHA" \
+            --arg currentMainSha "$current_main_sha" \
+            --argjson existingVersions "$existing_versions" \
+            '{requestedVersion, sourceSha, currentMainSha, existingVersions}' \
+            >"$RUNNER_TEMP/release-plan-input.json"
+          node scripts/release-contract.mjs plan \
+            --input "$RUNNER_TEMP/release-plan-input.json" \
+            >"$RUNNER_TEMP/release-plan.json"
+      - name: Create immutable manifest
+        env:
+          RELEASE_ACTOR: ${{ github.actor }}
+          RELEASE_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          jq --null-input \
+            --arg version "$VERSION" \
+            --arg sourceSha "$SOURCE_SHA" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg actor "$RELEASE_ACTOR" \
+            --arg runUrl "$RELEASE_RUN_URL" \
+            --arg identityInputsPath release/identity-inputs.json \
+            --arg backend release-assets/backend.evidence.json \
+            --arg web release-assets/web.evidence.json \
+            '{
+              version: $version,
+              sourceSha: $sourceSha,
+              repository: $repository,
+              workflow: {actor: $actor, runUrl: $runUrl},
+              identityInputsPath: $identityInputsPath,
+              images: {backend: $backend, web: $web}
+            }' >"$RUNNER_TEMP/release-manifest-input.json"
+          node scripts/release-contract.mjs manifest \
+            --input "$RUNNER_TEMP/release-manifest-input.json" \
+            >release-assets/release-manifest.json
+      - name: Publish immutable GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          jq --raw-output '
+            "Source: `" + .source.sha + "`\n\n" +
+            "Backend: `" + .images.backend.image.name + "@" + .images.backend.image.digest + "`\n\n" +
+            "Web: `" + .images.web.image.name + "@" + .images.web.image.digest + "`"
+          ' release-assets/release-manifest.json >"$RUNNER_TEMP/release-notes.md"
+          gh release create "$VERSION" \
+            --target "$SOURCE_SHA" \
+            --title "$VERSION" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --latest \
+            release-assets/release-manifest.json \
+            release-assets/backend.provenance.bundle.json \
+            release-assets/backend.sbom.bundle.json \
+            release-assets/backend.sbom.spdx.json \
+            release-assets/backend.vulnerabilities.json \
+            release-assets/web.provenance.bundle.json \
+            release-assets/web.sbom.bundle.json \
+            release-assets/web.sbom.spdx.json \
+            release-assets/web.vulnerabilities.json

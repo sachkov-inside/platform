@@ -1,0 +1,12 @@
+{
+  "migrations": [
+    "apps/backend/prisma/schema.prisma",
+    "apps/backend/src/migrations/**/*.ts",
+    "apps/backend/src/modules/**/infrastructure/postgres/migrations/*.ts"
+  ],
+  "configuration": [
+    "Caddyfile",
+    "compose.production.yaml",
+    "config/compose/production/*.env.example"
+  ]
+}

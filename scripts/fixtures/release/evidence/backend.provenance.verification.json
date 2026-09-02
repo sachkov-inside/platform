@@ -1,0 +1,30 @@
+[
+  {
+    "verificationResult": {
+      "statement": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "subject": [
+          {
+            "name": "ghcr.io/sachkov-inside/platform-backend",
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        ],
+        "predicateType": "https://slsa.dev/provenance/v1",
+        "predicate": {
+          "buildDefinition": {
+            "resolvedDependencies": [
+              {
+                "uri": "git+https://github.com/sachkov-inside/platform@refs/heads/main",
+                "digest": {
+                  "gitCommit": "3333333333333333333333333333333333333333"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+]

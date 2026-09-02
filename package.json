@@ -39,6 +39,7 @@
     "compose:up": "docker compose up -d --build --wait",
     "compose:smoke": "bash scripts/compose-stack-smoke.sh",
     "compose:production:smoke": "bash scripts/production-compose-smoke.sh",
+    "release:images:smoke": "bash scripts/release-image-smoke.sh",
     "conformance:telegram-membership": "pnpm --filter @inside/backend conformance:telegram-membership",
     "infra:up": "docker compose up -d --wait postgres object-storage",
     "infra:down": "docker compose down",

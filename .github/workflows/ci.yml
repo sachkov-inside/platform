@@ -5,6 +5,11 @@ on:
     branches:
       - main
   workflow_call:
+    inputs:
+      source_sha:
+        description: Exact commit to verify
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -24,6 +29,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          persist-credentials: false
       - name: Install pnpm
         uses: pnpm/action-setup@v6.0.10
       - name: Install Node.js
@@ -56,6 +64,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          persist-credentials: false
       - name: Install pnpm
         uses: pnpm/action-setup@v6.0.10
       - name: Install Node.js
@@ -78,6 +89,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          persist-credentials: false
       - name: Validate and build profile topology
         run: |
           docker compose --profile storybook config --quiet
@@ -135,6 +149,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          persist-credentials: false
       - name: Install Node.js
         uses: actions/setup-node@v7.0.0
         with:
@@ -145,6 +162,8 @@ jobs:
         env:
           PRODUCTION_SMOKE_ARTIFACT_DIR: ci-artifacts/compose-production
         run: pnpm compose:production:smoke
+      - name: Build and inspect release images
+        run: pnpm release:images:smoke
       - name: Upload failure diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7.0.1

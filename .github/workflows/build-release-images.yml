@@ -1,0 +1,206 @@
+name: Build release images
+
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Exact commit to build
+        required: true
+        type: string
+      version:
+        description: Accepted ordinal version
+        required: true
+        type: string
+      vulnerability_waiver_reason:
+        description: Auditable owner reason for accepting high or critical findings
+        required: false
+        default: ""
+        type: string
+
+permissions: {}
+
+jobs:
+  build-and-verify:
+    name: Build and verify ${{ matrix.kind }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - kind: backend
+            dockerfile: apps/backend/Dockerfile
+            target: backend-production
+            image_name: ghcr.io/sachkov-inside/platform-backend
+          - kind: web
+            dockerfile: apps/web/Dockerfile
+            target: web-production
+            image_name: ghcr.io/sachkov-inside/platform-web
+    permissions:
+      artifact-metadata: write
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    steps:
+      - name: Check out captured source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.3.0
+      - name: Log in to GHCR
+        uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Build and push exact source
+        id: build
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ matrix.image_name }}:${{ inputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ inputs.source_sha }}
+            org.opencontainers.image.version=${{ inputs.version }}
+          provenance: false
+          sbom: false
+      - name: Prepare evidence directory
+        run: mkdir -p release-evidence
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0.24.2
+        with:
+          image: ${{ matrix.image_name }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: release-evidence/${{ matrix.kind }}.sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Scan the SBOM for vulnerabilities
+        uses: anchore/scan-action@v7.4.2
+        with:
+          sbom: release-evidence/${{ matrix.kind }}.sbom.spdx.json
+          output-format: json
+          output-file: release-evidence/${{ matrix.kind }}.vulnerabilities.json
+          fail-build: false
+          severity-cutoff: high
+      - name: Attest build provenance
+        id: provenance
+        uses: actions/attest@v4.2.2
+        with:
+          subject-name: ${{ matrix.image_name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - name: Attest SPDX SBOM
+        id: sbom
+        uses: actions/attest@v4.2.2
+        with:
+          subject-name: ${{ matrix.image_name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: release-evidence/${{ matrix.kind }}.sbom.spdx.json
+          push-to-registry: true
+      - name: Preserve and verify attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_NAME: ${{ matrix.image_name }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          KIND: ${{ matrix.kind }}
+          PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+          SBOM_BUNDLE: ${{ steps.sbom.outputs.bundle-path }}
+        run: |
+          cp "$PROVENANCE_BUNDLE" "release-evidence/${KIND}.provenance.bundle.json"
+          cp "$SBOM_BUNDLE" "release-evidence/${KIND}.sbom.bundle.json"
+          gh attestation verify "oci://${IMAGE_NAME}@${IMAGE_DIGEST}" \
+            --bundle "release-evidence/${KIND}.provenance.bundle.json" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build-release-images.yml" \
+            --source-ref refs/heads/main \
+            --format json \
+            >"release-evidence/${KIND}.provenance.verification.json"
+          gh attestation verify "oci://${IMAGE_NAME}@${IMAGE_DIGEST}" \
+            --bundle "release-evidence/${KIND}.sbom.bundle.json" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build-release-images.yml" \
+            --source-ref refs/heads/main \
+            --predicate-type https://spdx.dev/Document/v2.3 \
+            --format json \
+            >"release-evidence/${KIND}.sbom.verification.json"
+      - name: Apply release evidence policy
+        env:
+          ATTESTATION_PROVENANCE_ID: ${{ steps.provenance.outputs.attestation-id }}
+          ATTESTATION_PROVENANCE_URL: ${{ steps.provenance.outputs.attestation-url }}
+          ATTESTATION_SBOM_ID: ${{ steps.sbom.outputs.attestation-id }}
+          ATTESTATION_SBOM_URL: ${{ steps.sbom.outputs.attestation-url }}
+          IMAGE_NAME: ${{ matrix.image_name }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          KIND: ${{ matrix.kind }}
+          RELEASE_ACTOR: ${{ github.actor }}
+          RELEASE_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          WAIVER_REASON: ${{ inputs.vulnerability_waiver_reason }}
+        run: |
+          waiver=null
+          if [[ -n "${WAIVER_REASON//[[:space:]]/}" ]]; then
+            waiver="$(
+              jq --null-input \
+                --arg actor "$RELEASE_ACTOR" \
+                --arg reason "$WAIVER_REASON" \
+                --arg runUrl "$RELEASE_RUN_URL" \
+                '{actor, reason, runUrl}'
+            )"
+          fi
+          jq --null-input \
+            --arg imageName "$IMAGE_NAME" \
+            --arg imageDigest "$IMAGE_DIGEST" \
+            --arg sourceSha "$SOURCE_SHA" \
+            --arg sbomPath "release-evidence/${KIND}.sbom.spdx.json" \
+            --arg vulnerabilityPath "release-evidence/${KIND}.vulnerabilities.json" \
+            --arg provenanceBundlePath "release-evidence/${KIND}.provenance.bundle.json" \
+            --arg provenanceVerificationPath "release-evidence/${KIND}.provenance.verification.json" \
+            --arg provenanceId "$ATTESTATION_PROVENANCE_ID" \
+            --arg provenanceUrl "$ATTESTATION_PROVENANCE_URL" \
+            --arg sbomBundlePath "release-evidence/${KIND}.sbom.bundle.json" \
+            --arg sbomVerificationPath "release-evidence/${KIND}.sbom.verification.json" \
+            --arg sbomId "$ATTESTATION_SBOM_ID" \
+            --arg sbomUrl "$ATTESTATION_SBOM_URL" \
+            --argjson waiver "$waiver" \
+            '{
+              image: {name: $imageName, digest: $imageDigest},
+              sourceSha: $sourceSha,
+              sbomPath: $sbomPath,
+              vulnerabilityPath: $vulnerabilityPath,
+              provenanceBundlePath: $provenanceBundlePath,
+              provenanceVerificationPath: $provenanceVerificationPath,
+              provenanceAttestation: {id: $provenanceId, url: $provenanceUrl},
+              sbomBundlePath: $sbomBundlePath,
+              sbomVerificationPath: $sbomVerificationPath,
+              sbomAttestation: {id: $sbomId, url: $sbomUrl},
+              waiver: $waiver
+            }' >"$RUNNER_TEMP/${KIND}.evidence-input.json"
+          node scripts/release-contract.mjs evidence \
+            --input "$RUNNER_TEMP/${KIND}.evidence-input.json" \
+            >"release-evidence/${KIND}.evidence.json"
+      - name: Prove public digest access
+        env:
+          IMAGE_NAME: ${{ matrix.image_name }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          docker logout ghcr.io
+          docker buildx imagetools inspect "${IMAGE_NAME}@${IMAGE_DIGEST}"
+      - name: Upload verified release evidence
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: release-evidence-${{ matrix.kind }}
+          path: |
+            release-evidence/${{ matrix.kind }}.evidence.json
+            release-evidence/${{ matrix.kind }}.provenance.bundle.json
+            release-evidence/${{ matrix.kind }}.sbom.bundle.json
+            release-evidence/${{ matrix.kind }}.sbom.spdx.json
+            release-evidence/${{ matrix.kind }}.vulnerabilities.json
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sachkov-inside/platform/blob/main/release/manifest.schema.json",
+  "title": "Inside Platform ordinal release manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "version", "ordinal", "source", "workflow", "identities", "images"],
+  "properties": {
+    "schemaVersion": {"const": "inside.platform.release-manifest.v1"},
+    "version": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+    "ordinal": {"type": "integer", "minimum": 1},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "sha"],
+      "properties": {
+        "repository": {"const": "sachkov-inside/platform"},
+        "sha": {"type": "string", "pattern": "^[a-f0-9]{40}$"}
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor", "runUrl"],
+      "properties": {
+        "actor": {"type": "string", "minLength": 1},
+        "runUrl": {"type": "string", "format": "uri"}
+      }
+    },
+    "identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["migrations", "configuration"],
+      "properties": {
+        "migrations": {"$ref": "#/$defs/treeIdentity"},
+        "configuration": {"$ref": "#/$defs/treeIdentity"}
+      }
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backend", "web"],
+      "properties": {
+        "backend": {"$ref": "#/$defs/imageEvidence"},
+        "web": {"$ref": "#/$defs/imageEvidence"}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "treeIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["digest", "files"],
+      "properties": {
+        "digest": {"$ref": "#/$defs/sha256"},
+        "files": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+      }
+    },
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "url"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[0-9]+$"},
+        "url": {"type": "string", "format": "uri"}
+      }
+    },
+    "waiver": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["actor", "reason", "runUrl"],
+      "properties": {
+        "actor": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 20, "maxLength": 1000},
+        "runUrl": {"type": "string", "format": "uri"}
+      }
+    },
+    "imageEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image", "sourceSha", "sbom", "provenance", "vulnerabilities", "assets"],
+      "properties": {
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "digest"],
+          "properties": {
+            "name": {"type": "string", "pattern": "^ghcr\\.io/"},
+            "digest": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "sourceSha": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+        "sbom": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["attestation", "bundleSha256", "documentSha256"],
+          "properties": {
+            "attestation": {"$ref": "#/$defs/attestation"},
+            "bundleSha256": {"$ref": "#/$defs/sha256"},
+            "documentSha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["attestation", "bundleSha256"],
+          "properties": {
+            "attestation": {"$ref": "#/$defs/attestation"},
+            "bundleSha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "vulnerabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["critical", "decision", "high", "reportSha256", "waiver"],
+          "properties": {
+            "critical": {"type": "integer", "minimum": 0},
+            "decision": {"enum": ["passed", "waived"]},
+            "high": {"type": "integer", "minimum": 0},
+            "reportSha256": {"$ref": "#/$defs/sha256"},
+            "waiver": {"$ref": "#/$defs/waiver"}
+          }
+        },
+        "assets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provenanceBundle", "sbomBundle", "sbomDocument", "vulnerabilityReport"],
+          "properties": {
+            "provenanceBundle": {"type": "string"},
+            "sbomBundle": {"type": "string"},
+            "sbomDocument": {"type": "string"},
+            "vulnerabilityReport": {"type": "string"}
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "requestedVersion": "v3",
+  "sourceSha": "3333333333333333333333333333333333333333",
+  "currentMainSha": "4444444444444444444444444444444444444444",
+  "existingVersions": ["v1", "v2"]
+}

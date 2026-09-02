@@ -108,19 +108,23 @@ is an explicit destructive reset.
 
 ## Production delivery baseline
 
-The current production Compose file is the deliberately small delivery baseline after CI and before
-CD.
-It builds API and web from the checked-out source, runs migrations once, uses one database account
-and lets Compose create its default network. Caddy is the public entry point. Registry images,
-digests, separate database roles, explicit networks and automated deployment are intentionally not
-implemented yet.
+The versioned release pipeline builds the exact current `main`, reruns CI, publishes public backend
+and web GHCR images, verifies SBOM/provenance and vulnerability evidence, and records the next
+ordinal `vN` in an immutable manifest. Release consumers identify images by digest, never by a
+moving tag.
+
+The current production Compose file remains the deliberately small runtime baseline before CD. It
+builds API and web from the checked-out source, runs migrations once, uses one database account and
+lets Compose create its default network. Caddy is the public entry point. Manifest-selected
+deployment, separate database roles, explicit networks and automated rollback are intentionally
+not implemented yet.
 
 ```bash
 pnpm compose:production:smoke
 ```
 
 See the [production delivery runbook](docs/runbooks/production-delivery.md) for the topology,
-configuration contract and the boundary for the upcoming GitHub Actions deployment workflow.
+release command, evidence contract, runtime configuration and remaining deployment boundary.
 
 For migrations, integration tests, manual database inspection and reset procedures, see the
 [local development runbook](docs/runbooks/local-development.md). Version policy and current

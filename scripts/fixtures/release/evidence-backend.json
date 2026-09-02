@@ -1,0 +1,22 @@
+{
+  "image": {
+    "name": "ghcr.io/sachkov-inside/platform-backend",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "sourceSha": "3333333333333333333333333333333333333333",
+  "sbomPath": "scripts/fixtures/release/evidence/backend.spdx.json",
+  "vulnerabilityPath": "scripts/fixtures/release/evidence/backend.vulnerabilities.json",
+  "provenanceBundlePath": "scripts/fixtures/release/evidence/backend.provenance.bundle.json",
+  "provenanceVerificationPath": "scripts/fixtures/release/evidence/backend.provenance.verification.json",
+  "provenanceAttestation": {
+    "id": "1001",
+    "url": "https://github.com/sachkov-inside/platform/attestations/1001"
+  },
+  "sbomBundlePath": "scripts/fixtures/release/evidence/backend.sbom.bundle.json",
+  "sbomVerificationPath": "scripts/fixtures/release/evidence/backend.sbom.verification.json",
+  "sbomAttestation": {
+    "id": "1002",
+    "url": "https://github.com/sachkov-inside/platform/attestations/1002"
+  },
+  "waiver": null
+}

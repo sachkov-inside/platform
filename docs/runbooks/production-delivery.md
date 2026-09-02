@@ -1,7 +1,9 @@
-# Production Compose baseline
+# Production delivery
 
-The repository currently contains a deliberately small single-server production baseline. It is
-the starting point for the CI/CD course, not a finished automated delivery system.
+The repository contains two delivery seams: an immutable release pipeline that publishes verified
+artifacts, and a deliberately small single-server Compose baseline that still builds those
+artifacts from a checkout. Deployment automation will connect the seams later; creating a release
+does not contact the production server.
 
 ## What runs
 
@@ -16,11 +18,12 @@ the starting point for the CI/CD course, not a finished automated delivery syste
 6. `web` builds the Next.js production target and becomes healthy.
 7. Caddy exposes web over HTTP and HTTPS.
 
-The application images are built directly from the checked-out source with Compose. Pull requests
-already pass the application CI contract, but there is no registry input, digest-addressed release,
-GitHub Actions deployment workflow, SSH deployment, release selector or automated rollback yet.
-Compose also uses its default network and one database account. These missing pieces are
-intentional: the lessons add them one at a time and explain the problem each one solves.
+The application images are built directly from the checked-out source with Compose. The release
+pipeline publishes digest-addressable images, but this temporary runtime baseline does not consume
+them yet. There is no GitHub Actions deployment workflow, SSH deployment, server-side release
+selector or automated rollback. Compose also uses its default network and one database account.
+These missing pieces are intentional: the lessons add them one at a time and explain the problem
+each one solves.
 
 The Material Asset worker remains part of the application and local development stack, but it is
 not started by this temporary production baseline. Orphaned Material Asset cleanup therefore does
@@ -68,8 +71,55 @@ docker compose \
 ```
 
 This manual command is intentionally not the final deployment method. A later CI/CD stage will
-build once on a runner, publish immutable artifacts and make the server run those exact artifacts
-without rebuilding source.
+make the server run an already-published manifest's exact image digests without rebuilding source.
+
+## Publish the next ordinal release
+
+`.github/workflows/release.yml` is the sole release entry point. One manual dispatch captures the
+selected commit, requires it still to be current `main`, runs the same CI contract used by pull
+requests, builds the backend and web production targets, and publishes only the requested `vN`
+tags. Release consumers must use the manifest's `name@sha256:...` identities; the ordinal tags are
+human-readable release names, not moving runtime selectors.
+
+Before the first release, an owner must enable immutable releases in the repository settings. The
+workflow checks this setting both before building and immediately before finalization. It also
+requires retained ordinal tags to be a contiguous `v1` through `vN-1` history, rejects a duplicate
+or skipped ordinal, and rechecks that `main` has not moved. These checks make a stale dispatch fail
+instead of publishing a release from an unexpected commit.
+
+From a clean `main`, publish the next ordinal with exactly one manual command:
+
+```bash
+gh workflow run release.yml --ref main --field version=vN
+```
+
+High or critical findings fail closed. An owner may make the exception explicit by adding a
+non-empty, auditable reason of at least 20 characters:
+
+```bash
+gh workflow run release.yml \
+  --ref main \
+  --field version=vN \
+  --field vulnerability_waiver_reason='Owner-approved reason and compensating control'
+```
+
+The completed immutable GitHub Release contains `release-manifest.json` plus the SBOM,
+vulnerability report, provenance bundle and SBOM attestation bundle for each image. The manifest
+binds the ordinal version and source SHA to both public GHCR digests, migration/configuration tree
+identities, evidence hashes, attestation records and any waiver. The reusable image workflow
+verifies attestations and exact SBOM content before finalization, then logs out of GHCR and proves
+each digest is anonymously readable. Missing or inconsistent evidence stops the release.
+
+The manifest contract is defined by `release/manifest.schema.json`; executable policy lives in
+`scripts/release-contract.mjs`. To exercise the release seams without publishing anything, run:
+
+```bash
+pnpm test:tooling
+pnpm release:images:smoke
+```
+
+The image smoke builds both clean production targets and asserts that their runtime files do not
+depend on the source checkout. It uses temporary local image names and removes them on exit.
 
 ## Local production smoke
 
@@ -86,11 +136,10 @@ pnpm compose:production:smoke
 
 The next delivery stages will extend this baseline with:
 
-- registry publication and immutable image identity;
 - separate database migration and runtime roles;
 - explicit network boundaries;
 - the Material Asset background worker;
 - server-side secret delivery;
-- automated deployment, health proof and rollback.
+- manifest-selected deployment, health proof and rollback.
 
 Keeping these concerns out of the starting point makes every later change visible and testable.

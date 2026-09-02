@@ -1,0 +1,12 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "ghcr.io/sachkov-inside/platform-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "documentNamespace": "https://github.com/sachkov-inside/platform/releases/v3/backend",
+  "creationInfo": {
+    "created": "2026-09-02T00:00:00Z",
+    "creators": ["Tool: syft"]
+  },
+  "packages": []
+}

@@ -2,6 +2,7 @@
   "extends": "./tsconfig.build.json",
   "files": [
     "src/entrypoints/api.ts",
+    "src/entrypoints/mcp.ts",
     "src/entrypoints/material-assets-worker.ts",
     "src/entrypoints/profile-avatars-worker.ts",
     "src/entrypoints/video-deletions-worker.ts",
