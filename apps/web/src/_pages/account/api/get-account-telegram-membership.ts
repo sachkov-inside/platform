@@ -9,7 +9,7 @@ import {
 import {
   accountTelegramMembershipSchema,
   type AccountTelegramMembership,
-} from "../model/account-telegram-membership";
+} from "@/features/account-access/model/account-telegram-membership";
 
 export type AccountTelegramMembershipResult =
   | Readonly<{ kind: "ready"; presentation: AccountTelegramMembership }>

@@ -68,6 +68,158 @@ test("guest shell exposes a server-owned sign-in mutation on desktop and mobile"
   await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute("method", "post");
 });
 
+test("unlinked Account sees centered onboarding once per authenticated session", async ({
+  page,
+}) => {
+  let authenticated = true;
+  await page.route("**/auth/status", (route) =>
+    route.fulfill({
+      body: JSON.stringify({
+        canManageMaterials: false,
+        state: authenticated ? "authenticated" : "guest",
+      }),
+      contentType: "application/json",
+      status: 200,
+    }),
+  );
+  await page.route("**/api/account", (route) =>
+    route.fulfill({
+      body: JSON.stringify(unlinkedAccountPresentation()),
+      contentType: "application/json",
+      status: 200,
+    }),
+  );
+
+  await page.goto("/library");
+  const dialog = page.getByRole("dialog", { name: "Подключите Telegram" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Доступ не активен")).toHaveCount(0);
+  await expect(dialog.getByText("Получить доступ")).toHaveCount(0);
+  await expect(dialog).not.toContainText("Membership");
+  const [dialogBox, viewport] = await Promise.all([
+    dialog.boundingBox(),
+    page.evaluate(() => ({
+      height: window.innerHeight,
+      width: window.innerWidth,
+    })),
+  ]);
+  expect(dialogBox).not.toBeNull();
+  expect(dialogBox?.width).toBeLessThanOrEqual(480);
+  expect(
+    Math.abs(
+      (dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) / 2 - viewport.width / 2,
+    ),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(
+      (dialogBox?.y ?? 0) + (dialogBox?.height ?? 0) / 2 - viewport.height / 2,
+    ),
+  ).toBeLessThanOrEqual(1);
+
+  await dialog.getByRole("button", { name: "Закрыть подключение Telegram" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.reload();
+  await expect(dialog).toHaveCount(0);
+
+  authenticated = false;
+  await page.reload();
+  await expect(page.locator("button:visible", { hasText: "Войти" })).toBeEnabled();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        sessionStorage.getItem("inside.telegram-onboarding.dismissed"),
+      ),
+    )
+    .toBeNull();
+
+  authenticated = true;
+  await page.reload();
+  await expect(dialog).toBeVisible();
+});
+
+test("Telegram onboarding keeps the final linked result visible without Membership", async ({
+  page,
+}) => {
+  const linkRef = "62000000-0000-4000-8000-000000000001";
+  let state: "linked" | "linking" | "unlinked" = "unlinked";
+  await page.route("**/auth/status", (route) =>
+    route.fulfill({
+      body: JSON.stringify({
+        canManageMaterials: false,
+        state: "authenticated",
+      }),
+      contentType: "application/json",
+      status: 200,
+    }),
+  );
+  await page.route("**/api/account**", (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname === "/api/account/telegram-link/begin") {
+      state = "linking";
+      return route.fulfill({
+        body: JSON.stringify({
+          kind: "received",
+          state: {
+            deepLink: "https://t.me/inside_test_bot?start=opaque",
+            expiresAt: "2030-01-01T00:05:00.000Z",
+            linkRef,
+            status: "pending",
+          },
+        }),
+        contentType: "application/json",
+        status: 200,
+      });
+    }
+    if (pathname === "/api/account/telegram-link/confirm") {
+      state = "linked";
+      return route.fulfill({
+        body: JSON.stringify({
+          kind: "received",
+          state: {
+            expiresAt: "2030-01-01T00:05:00.000Z",
+            linkRef,
+            status: "linked",
+          },
+        }),
+        contentType: "application/json",
+        status: 200,
+      });
+    }
+    return route.fulfill({
+      body: JSON.stringify(
+        state === "linked"
+          ? linkedAccountPresentation()
+          : state === "linking"
+            ? linkingAccountPresentation(linkRef)
+            : unlinkedAccountPresentation(),
+      ),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+
+  await page.goto("/library");
+  const dialog = page.locator(
+    "dialog[aria-labelledby='telegram-onboarding-heading']",
+  );
+  await expect(dialog).toHaveAccessibleName("Подключите Telegram");
+  await dialog.getByRole("button", { name: "Подключить Telegram" }).click();
+  await expect(
+    dialog.getByRole("link", { name: "Открыть Telegram" }),
+  ).toHaveAttribute("href", "https://t.me/inside_test_bot?start=opaque");
+  await dialog.getByRole("button", { name: "Проверить связь" }).click();
+  await expect(dialog.getByText("Telegram подключён")).toBeVisible();
+  await expect(dialog).not.toContainText("Доступ активен");
+  await expect(dialog).not.toContainText("Membership");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Продолжить" }).click();
+  await page.evaluate(() => {
+    sessionStorage.removeItem("inside.telegram-onboarding.dismissed");
+  });
+  await page.reload();
+  await expect(dialog).toHaveCount(0);
+});
+
 test("manager shell exposes editor navigation on desktop and mobile", async ({
   page,
 }, testInfo) => {
@@ -343,6 +495,46 @@ function navigationMode(projectName: string): "desktop" | "mobile" {
   }
 
   throw new Error(`No navigation mode configured for Playwright project ${projectName}`);
+}
+
+function unlinkedAccountPresentation() {
+  return {
+    profile: { kind: "missing" },
+    telegramMembership: {
+      link: { kind: "unlinked" },
+      membership: {
+        acquisitionUrl: "https://t.me/tribute/inside",
+        kind: "inactive",
+      },
+    },
+  };
+}
+
+function linkingAccountPresentation(linkRef: string) {
+  return {
+    profile: { kind: "missing" },
+    telegramMembership: {
+      link: {
+        expiresAt: "2030-01-01T00:05:00.000Z",
+        kind: "linking",
+        linkRef,
+      },
+      membership: {
+        acquisitionUrl: "https://t.me/tribute/inside",
+        kind: "inactive",
+      },
+    },
+  };
+}
+
+function linkedAccountPresentation() {
+  return {
+    profile: { kind: "missing" },
+    telegramMembership: {
+      link: { kind: "linked" },
+      membership: { kind: "active" },
+    },
+  };
 }
 
 async function hoverUntilSidebarOpens(page: Page, sidebar: Locator, target: Locator) {

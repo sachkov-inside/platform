@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { AccountPageQuery } from "@/_pages/account";
-import { QueryProvider } from "@/_app";
 
 export const metadata: Metadata = {
   title: "Аккаунт",
@@ -8,9 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function AccountRoute() {
-  return (
-    <QueryProvider>
-      <AccountPageQuery />
-    </QueryProvider>
-  );
+  return <AccountPageQuery />;
 }

@@ -4,7 +4,7 @@ import type {
   PrivateMemberProfile,
   PrivateMemberProfileState,
   ProfileField,
-} from "@/entities/member-profile";
+} from "./member-profile";
 
 const fieldsSchema = z.object({ bio: z.string().nullable(), displayName: z.string() }).strict();
 const avatarSchema = z.object({ avatarId: z.uuid() }).strict();

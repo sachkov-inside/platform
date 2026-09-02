@@ -5,4 +5,3 @@ export {
   AccountSignInRequired,
   AccountUnavailable,
 } from "./ui/account-page";
-export { accountPresentationQueryKey } from "./model/account-presentation-query";

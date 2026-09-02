@@ -183,9 +183,9 @@ arbitrary layout blocks;
 | Series | Все | Понять series и пройти ordered episodes; public visitor видит карточки и порядок даже closed Series | Ordered `SeriesMembership`; Material data не копируется |
 | Roadmap | Все | Понять направления продукта и перейти к Topics/Series/Materials | Editorial `NavigationPage` с curated/query links |
 | Material | Все с actor-dependent body state | Прочитать teaser/free/closed body, использовать image/file/video, related Materials и read status | Только current `published` state; public projection отделена от protected body |
-| Sign-in handoff | Anonymous | Создать или открыть account одним email-code flow | После успеха — skippable Telegram-link prompt, затем return destination; separate sign-up form отсутствует |
+| Sign-in handoff | Anonymous | Создать или открыть account одним email-code flow | После успеха и на каждом следующем входе при unlinked Telegram — центрированное skippable onboarding-окно один раз за authenticated browser session; separate sign-up form отсутствует |
 | Account | Authenticated human | Видеть account, Telegram link и coarse Membership state; запускать link/local-state-update/recovery-supported actions | Account не управляет billing/subscription и не хранит Membership rule в UI |
-| Telegram link result | Authenticated human | Отправить `/start` по short-lived bot link, вернуться в Account и увидеть linked-member / linked-not-member / expired / conflict / unavailable outcome | Linking не является login и само по себе не даёт access; отдельного browser callback нет |
+| Telegram link result | Authenticated human | Отправить `/start` по short-lived bot link и увидеть linked / expired / conflict / unavailable outcome; Membership result остаётся в Account | Linking не является login и само по себе не даёт access; отдельного browser callback нет |
 | Recent history / reading state | Authenticated human | Вернуться к недавно просмотренному, вручную mark read/unread | Последний/короткий список на Home, полная bounded history в Account; auto-mark отсутствует |
 | Author material list | Author/admin | Найти draft/published/unpublished Materials, создать Material, открыть editor | Private, noindex; list не становится second content authority |
 | Author Topic/Series | Author/admin | Создать, переименовать, описать, архивировать и восстановить Topic/Series; управлять полным составом Series | Slug immutable; composition сохраняется атомарно с optimistic conflict protection; archived references сохраняются, но не назначаются заново |
@@ -223,9 +223,12 @@ states этого brief.
 2. **Understand a closed Material.** Public visitor opens F2/F3, receives the complete public
    projection and indexable teaser, but no closed bytes; one `Получить доступ` CTA opens the
    Platform-configured Tribute URL for every locked state.
-3. **Link and unlock.** After email-code sign-in, Account sees a skippable Telegram-link prompt.
-   Later linking remains in Account; callback keeps link and Membership as separate states, then
-   returns to the preserved destination. Only current `ContentAccess` allow opens the body.
+3. **Link Telegram.** После каждого email-code sign-in при unlinked Telegram Platform один раз за
+   authenticated browser session открывает центрированное skippable onboarding-окно поверх
+   сохранённого destination. Компактное окно содержит только begin, Telegram `/start`, browser
+   confirmation и финальный link result; Membership state и acquisition CTA в нём отсутствуют.
+   После закрытия тот же flow и отдельный Membership state доступны из Account. Only current
+   `ContentAccess` allow opens the body.
 4. **Lose and restore access.** Expired member sees the same locked teaser and acquisition CTA while
    account/history/read state remain preserved and rejoins externally. Telegram event or background
    reconciliation produces fresh evidence; after Platform accepts it, the next local read restores
@@ -675,19 +678,21 @@ order does not interrupt heading/body sequence.
 [safe explanation: what linking does / does not do]
 [sign out]
 
-first sign-in prompt:
-[Связать Telegram] [Пропустить]
-[why: unlock current Membership; free content remains available]
-
-callback result:
-[h1 result]
-[linked identity summary when safe]
-[active | inactive | conflict | unavailable]
-[Continue to Material | Return to Account | Recovery handoff]
+post-sign-in onboarding while Telegram is unlinked:
+[compact centered modal, once per authenticated browser session]
+[Telegram icon] [Закрыть]
+[Подключите Telegram]
+[one short Telegram-only explanation]
+[Подключить Telegram]
+[begin → external Telegram /start → Проверить связь]
+[Telegram подключён | conflict | unavailable remains visible]
+[no Membership state or acquisition CTA]
 ```
 
 The first action is derived from coarse outcome. Link status and Membership status stay separate
-lines so `linked + inactive` cannot read as a broken login.
+lines so `linked + inactive` cannot read as a broken login. Dismissal survives navigation and reload
+inside the current authenticated browser session; logout or a confirmed guest state resets it, so
+an unlinked Account receives the prompt again after the next sign-in.
 
 ```text
 DESKTOP ACCOUNT
@@ -787,7 +792,7 @@ resources; saving an already published Material makes the new current state live
 | Editor conflict | Материал изменился в другой сессии | Ваши изменения сохранены локально. Перезагрузите current state или перенесите их вручную. | Показать текущую версию |
 
 Controls use the same verb as their result: `Сохранить` → `Сохранено`, `Опубликовать` →
-`Опубликовано`, `Связать Telegram` → `Telegram связан`. Copy never claims payment/subscription
+`Опубликовано`, `Подключить Telegram` → `Telegram подключён`. Copy never claims payment/subscription
 state, provider failure or permanent access. `Получить доступ` is an ordinary outbound link to one
 Platform-configured Tribute URL; Platform does not consume Tribute API/webhooks and never uses the
 click or payment page as `MembershipEvidence`.
@@ -802,7 +807,7 @@ Owner-approved UX structure is complete. Ни один оставшийся пу
 | Exact v1 formatting limits | F1/F2 establish headings, paragraph, blockquote/callout, code, table, image, file and video minimum | Strike/nested-list need, heading levels, table/code/document size limits from real corpus and schema tests | Content-schema implementation |
 | Concrete taxonomy values | F1–F3 labels are approved representative fixtures only; Material has one Topic/Format and 0..N Tags/Series | Production dictionaries and reviewed RU/EN synonyms emerge during manual authoring | Content filling / search proof |
 | Home composition details | Conditional Продолжить, short history, new feed, Темы, active Серии and Карта are fixed | Curated/query source per block, item counts and exact responsive composition | Owning Home/Roadmap production Specification |
-| Identity provider mechanics | One email-code UX creates/opens account; post-login linking is immediate but skippable | Redirect/inline mechanics, provider/fallback and Yandex horizon after identity proof | Stage 3 identity proof |
+| Identity provider mechanics | One email-code UX creates/opens account; post-login linking is a centered, immediate but skippable session-scoped modal while Telegram is unlinked | Provider/fallback and Yandex horizon after identity proof | Stage 3 identity proof |
 | Account linking/recovery | Telegram linking только после login; no auto-merge/transfer; Membership не unlink-ит identity; expired/replayed attempt можно начать заново; conflict/unsafe recovery остаются owner-mediated без self-service unlink/relink; support URL optional, иначе показывается owner-handoff text | Exact operational support destination and wording can change through runtime configuration/content review | Account operations |
 | Telegram bot public identity | Dedicated branded bot и `/start` handoff confirmed; browser OIDC/callback не используется | Username, display name/avatar и owner/recovery account | Telegram handoff screens |
 | Related Materials presentation | Metadata score + author pins confirmed | Count/order labels, distinction between pinned/generated if any, empty state | Material wireframe |

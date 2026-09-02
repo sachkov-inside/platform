@@ -2,9 +2,11 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { accountPresentationBrowserQueryOptions } from "../api/account-presentation-query.browser";
-import type { AccountPresentationResult } from "../model/account-presentation";
-import { accountPresentationQueryKey } from "../model/account-presentation-query";
+import {
+  accountPresentationBrowserQueryOptions,
+  accountPresentationQueryKey,
+  type AccountPresentationResult,
+} from "@/features/account-access";
 import { AccountPageClient } from "./account-page.client";
 import {
   AccountLoading,

@@ -44,10 +44,11 @@ private Account, member-only Member Profile и reading experience. `sachkov.dev`
   form;
 - управляет private Account и отдельным Member Profile;
 - видит Member Profiles других действующих участников;
-- после первого входа получает предложение связать Account с Telegram, но может
-  пропустить шаг и продолжить с бесплатным контентом;
-- может позже связать Telegram из Account: Platform выдаёт short-lived bot link, участник отправляет
-  `/start` в Telegram и завершает подтверждение в Account;
+- после каждого входа, пока Telegram не связан, один раз за authenticated browser session видит
+  центрированное onboarding-окно; может закрыть его и продолжить с бесплатным контентом;
+- связывает Telegram целиком в onboarding-окне либо позже из Account: Platform выдаёт short-lived
+  bot link, участник отправляет `/start` в Telegram, возвращается в Platform и завершает
+  подтверждение там же;
 - получает доступ на основании внешнего признака активного Membership;
 - имеет один уровень закрытого доступа без тарифной матрицы;
 - после окончания Membership сохраняет Account, Member Profile, историю и статусы
@@ -57,7 +58,10 @@ private Account, member-only Member Profile и reading experience. `sachkov.dev`
 Account является приватной surface владельца: отдельный блок `Доступ Inside` показывает coarse
 Telegram linking и authoritative Membership state двумя независимыми строками. Linked Telegram не
 обещает access; Membership timestamps, evidence, provider identity и internal identifiers не
-показываются. Истёкшую обычную попытку можно начать заново, а conflict или recovery с риском silent
+показываются. Компактное onboarding-окно посвящено только подключению Telegram и после успеха
+показывает результат связи; Membership state и acquisition action остаются только в Account и на
+закрытых материалах. Истёкшую обычную попытку
+можно начать заново, а conflict или recovery с риском silent
 transfer ведут только к owner/support handoff; URL поддержки является optional runtime setting и
 при его отсутствии заменяется безопасным текстом без неработающей ссылки. Member Profile — отдельная проекция для
 других действующих участников. Anonymous visitor, non-member и search crawler её не получают;

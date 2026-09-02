@@ -5,6 +5,7 @@ isolated full-stack checks passed.
 
 | Surface | Desktop | Mobile |
 | --- | --- | --- |
+| Post-sign-in Telegram onboarding | [`onboarding-unlinked-desktop.png`](./onboarding-unlinked-desktop.png) | [`onboarding-unlinked-mobile.png`](./onboarding-unlinked-mobile.png) |
 | Live authenticated `/account` access block | [`account-unlinked-desktop.png`](./account-unlinked-desktop.png) | [`account-unlinked-mobile.png`](./account-unlinked-mobile.png) |
 | Linked active / rejoined | [`active-rejoined-desktop.png`](./active-rejoined-desktop.png) | — |
 | Linking | [`linking-desktop.png`](./linking-desktop.png) | — |
@@ -18,6 +19,11 @@ isolated full-stack checks passed.
   the same `390px` mobile width with enough vertical canvas to show both independent rows.
 - Telegram linking and Membership are independent rows. The unlinked state does not imply access,
   and the inactive state keeps one external acquisition action.
+- While Telegram is unlinked, the centered onboarding appears once per authenticated browser
+  session after sign-in. It is dismissible, survives navigation/reload after dismissal, and owns
+  the complete begin → Telegram `/start` → confirm journey. It is a compact Telegram-only surface:
+  no Membership state or acquisition action is shown, and the linked result stays visible until
+  the user closes it.
 - The live projection contains no email, AccountId, Telegram ID/username, provider identity,
   evidence, Membership timestamps or audit/security data.
 - The isolated full-stack smoke exercised the authenticated Web BFF through real Next/Nest HTTP and
@@ -26,4 +32,9 @@ isolated full-stack checks passed.
   stale, unavailable, separately typed safe retry and unsafe recovery, page loading/error and
   mobile composition. The interaction journey exercises Begin, confirmation outage, retry and the
   final linked state.
+- Eight compact onboarding stories cover every Telegram link state plus both safe unavailable
+  retry modes without introducing Membership or acquisition copy into the modal.
+- Route checks prove compact centered desktop/mobile geometry, session-scoped dismissal/reset, the
+  complete linking journey, visible final linked result without Membership copy, and suppression
+  for an already linked Account.
 - Product-owner visual GO is intentionally still pending; these images are the checkpoint input.

@@ -373,9 +373,14 @@ Published body читается только для current `published` state; d
 
 ### Membership linking и projection
 
-1. После email-code sign-in Platform предлагает skippable linking; signed-in Account начинает
-   short-lived link transaction сразу или позже из Account. Locked Material не создаёт второй
-   linking/recovery flow.
+1. После каждого email-code sign-in, пока Telegram не связан, Platform один раз за authenticated
+   browser session открывает центрированное skippable onboarding-окно поверх текущей public
+   surface. Компактное окно владеет только полным begin → Telegram `/start` → confirm flow и
+   остаётся открытым после успеха, чтобы показать результат связи. Membership state и acquisition
+   action в onboarding не выводятся: они остаются в Account и на закрытых материалах. Закрытие
+   сохраняется при navigation и reload текущей session, но logout или подтверждённый guest state
+   сбрасывает его; тот же flow остаётся доступен позже из Account. Locked Material не создаёт
+   второй linking/recovery flow.
 2. Отдельная Telegram application проверяет Telegram identity, uniqueness и Membership в
    каноническом закрытом chat.
 3. При linking Telegram application выполняет initial check, затем durably принимает member-status

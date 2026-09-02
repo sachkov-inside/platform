@@ -7,7 +7,7 @@ import {
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 
-import type { TelegramLinkMutationResult } from "../model/account-telegram-membership";
+import type { TelegramLinkMutationResult } from "@/features/account-access/model/account-telegram-membership";
 import {
   mapTelegramLinkMutationResult,
   unavailableTelegramLinkMutation,

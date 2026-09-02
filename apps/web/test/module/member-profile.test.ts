@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { getPrivateMemberProfile } from "@/_pages/account/api/get-private-member-profile";
 import { getAccountTelegramMembership } from "@/_pages/account/api/get-account-telegram-membership";
-import { beginTelegramLink } from "@/_pages/account/api/begin-telegram-link.browser";
-import { confirmTelegramLink } from "@/_pages/account/api/confirm-telegram-link.browser";
-import { requestAccountPresentation } from "@/_pages/account/api/request-account-presentation";
-import { accountPresentationQueryKey } from "@/_pages/account/model/account-presentation-query";
+import { beginTelegramLink } from "@/features/account-access/api/begin-telegram-link.browser";
+import { confirmTelegramLink } from "@/features/account-access/api/confirm-telegram-link.browser";
+import { requestAccountPresentation } from "@/features/account-access/api/request-account-presentation";
+import { accountPresentationQueryKey } from "@/features/account-access";
 import {
   executeBeginTelegramLink,
   executeConfirmTelegramLink,

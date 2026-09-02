@@ -5,7 +5,7 @@ import { expect, userEvent, within } from "storybook/test";
 import type { PrivateMemberProfile } from "@/entities/member-profile";
 import { withMutationFetch } from "@/workshop/mutation-mock";
 
-import type { AccountTelegramMembership } from "../model/account-telegram-membership";
+import type { AccountTelegramMembership } from "@/features/account-access";
 import { AccountLoading, AccountUnavailable } from "./account-page";
 import { AccountPageClient } from "./account-page.client";
 

@@ -11,17 +11,23 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
-import { useMutation } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
 
-import { beginTelegramLink } from "../api/begin-telegram-link.browser";
-import { confirmTelegramLink } from "../api/confirm-telegram-link.browser";
 import type {
   AccountTelegramMembership,
   TelegramLinkMutationResult,
 } from "../model/account-telegram-membership";
+import {
+  type TelegramLinkFlow,
+  useTelegramLinkFlow,
+} from "../model/use-telegram-link-flow.client";
+import {
+  type TelegramLinkAction,
+  type TelegramLinkContent,
+  telegramLinkPresentation,
+} from "./telegram-link-presentation";
 
 export function AccountMembershipPanel({
   onRefresh,
@@ -30,47 +36,7 @@ export function AccountMembershipPanel({
   readonly onRefresh: () => Promise<void>;
   readonly presentation: AccountTelegramMembership;
 }) {
-  const [deepLink, setDeepLink] = useState<string | null>(null);
-  const beginMutation = useMutation({
-    mutationFn: beginTelegramLink,
-    onSuccess: async (result) => {
-      if (result.kind === "received" && result.state.deepLink !== undefined) {
-        setDeepLink(result.state.deepLink);
-      }
-      await onRefresh();
-    },
-  });
-  const confirmMutation = useMutation({
-    mutationFn: confirmTelegramLink,
-    onSuccess: async (result) => {
-      if (result.kind === "received" && result.state.status !== "pending") {
-        setDeepLink(null);
-      }
-      await onRefresh();
-    },
-  });
-  const refreshMutation = useMutation({ mutationFn: onRefresh });
-  const mutationResult = confirmMutation.data ?? beginMutation.data ?? null;
-  const pending =
-    beginMutation.isPending ||
-    confirmMutation.isPending ||
-    refreshMutation.isPending;
-
-  const begin = () => {
-    beginMutation.reset();
-    confirmMutation.reset();
-    beginMutation.mutate();
-  };
-  const confirm = (linkRef: string) => {
-    beginMutation.reset();
-    confirmMutation.reset();
-    confirmMutation.mutate(linkRef);
-  };
-  const refresh = () => {
-    beginMutation.reset();
-    confirmMutation.reset();
-    refreshMutation.mutate();
-  };
+  const flow = useTelegramLinkFlow(onRefresh);
 
   return (
     <section
@@ -94,22 +60,15 @@ export function AccountMembershipPanel({
       </div>
 
       <div className="grid lg:grid-cols-2 lg:divide-x lg:divide-border">
-        <TelegramState
-          begin={begin}
-          confirm={confirm}
-          deepLink={deepLink}
-          pending={pending}
-          refresh={refresh}
-          state={presentation.link}
-        />
+        <TelegramState state={presentation.link} {...flow} />
         <MembershipState
-          pending={pending}
-          refresh={refresh}
+          pending={flow.pending}
+          refresh={flow.refresh}
           state={presentation.membership}
         />
       </div>
 
-      <MutationNotice result={mutationResult} />
+      <MutationNotice result={flow.mutationResult} />
     </section>
   );
 }
@@ -150,41 +109,6 @@ function TelegramState({
         <div className="mt-5 flex flex-wrap gap-3">{view.actions}</div>
       )}
     </article>
-  );
-}
-
-function UnavailableLinkAction({
-  confirm,
-  pending,
-  refresh,
-  retry,
-}: {
-  readonly confirm: (linkRef: string) => void;
-  readonly pending: boolean;
-  readonly refresh: () => void;
-  readonly retry: Extract<
-    AccountTelegramMembership["link"],
-    { kind: "unavailable" }
-  >["retry"];
-}) {
-  if (retry.kind === "confirm") {
-    const linkRef = retry.linkRef;
-    return (
-      <ActionButton
-        label="Повторить проверку"
-        onClick={() => {
-          confirm(linkRef);
-        }}
-        pending={pending}
-      />
-    );
-  }
-  return (
-    <ActionButton
-      label="Обновить состояние"
-      onClick={refresh}
-      pending={pending}
-    />
   );
 }
 
@@ -278,9 +202,7 @@ function SupportLink({ url }: { readonly url: string }) {
   );
 }
 
-function MutationNotice({
-  result,
-}: {
+function MutationNotice({ result }: {
   readonly result: TelegramLinkMutationResult | null;
 }) {
   if (result === null || result.kind === "received") return null;
@@ -318,138 +240,68 @@ function StatusIcon({
 
 function telegramView(
   state: AccountTelegramMembership["link"],
-  actions: {
-    readonly begin: () => void;
-    readonly confirm: (linkRef: string) => void;
-    readonly deepLink: string | null;
-    readonly pending: boolean;
-    readonly refresh: () => void;
-  },
-): { readonly actions: ReactNode; readonly content: StateContent } {
-  switch (state.kind) {
-    case "unlinked":
-      return {
-        actions: (
+  flow: TelegramActionFlow,
+): { readonly actions: ReactNode; readonly content: TelegramLinkContent } {
+  const presentation = telegramLinkPresentation(state);
+  return {
+    actions: telegramAction(presentation.action, flow),
+    content: presentation.account,
+  };
+}
+
+type TelegramActionFlow = Pick<
+  TelegramLinkFlow,
+  "begin" | "confirm" | "deepLink" | "pending" | "refresh"
+>;
+
+function telegramAction(action: TelegramLinkAction, flow: TelegramActionFlow) {
+  switch (action.kind) {
+    case "begin":
+      return (
+        <ActionButton
+          label={action.context === "initial" ? "Связать Telegram" : "Начать заново"}
+          onClick={flow.begin}
+          pending={flow.pending}
+        />
+      );
+    case "confirm":
+      return (
+        <>
+          {action.context === "linking" && flow.deepLink !== null ? (
+            <Button asChild className="h-11 rounded-xl px-4" size="lg">
+              <a href={flow.deepLink} rel="noopener noreferrer" target="_blank">
+                Открыть Telegram
+                <ArrowUpRight aria-hidden="true" data-icon="inline-end" />
+              </a>
+            </Button>
+          ) : null}
           <ActionButton
-            label="Связать Telegram"
-            onClick={actions.begin}
-            pending={actions.pending}
+            label={
+              action.context === "linking"
+                ? "Проверить связь"
+                : "Повторить проверку"
+            }
+            onClick={() => {
+              flow.confirm(action.linkRef);
+            }}
+            pending={flow.pending}
+            variant={flow.deepLink === null ? "default" : "outline"}
           />
-        ),
-        content: {
-          description:
-            "Свяжите Account с Telegram, чтобы Platform могла получить ваш Membership state. Сама связь не открывает материалы.",
-          title: "Telegram не связан",
-          tone: "pending",
-        },
-      };
-    case "linking":
-      return {
-        actions: (
-          <>
-            {actions.deepLink === null ? null : (
-              <Button asChild className="h-11 rounded-xl px-4" size="lg">
-                <a
-                  href={actions.deepLink}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  Открыть Telegram
-                  <ArrowUpRight aria-hidden="true" data-icon="inline-end" />
-                </a>
-              </Button>
-            )}
-            <ActionButton
-              label="Проверить связь"
-              onClick={() => {
-                actions.confirm(state.linkRef);
-              }}
-              pending={actions.pending}
-              variant={actions.deepLink === null ? "default" : "outline"}
-            />
-          </>
-        ),
-        content: {
-          description:
-            "Откройте бота, отправьте команду /start и вернитесь сюда. Затем проверьте связь — повторная загрузка страницы не создаст новую попытку.",
-          title: "Ожидаем подтверждения",
-          tone: "pending",
-        },
-      };
-    case "linked":
-      return {
-        actions: null,
-        content: {
-          description:
-            "Связь подтверждена. Она сохраняется при окончании Membership и не является разрешением на доступ.",
-          title: "Telegram связан",
-          tone: "active",
-        },
-      };
-    case "conflict":
-      return {
-        actions:
-          state.supportUrl === undefined ? null : (
-            <SupportLink url={state.supportUrl} />
-          ),
-        content: {
-          description:
-            "Эта Telegram identity уже связана с другим Account. Автоматический перенос отключён; обратитесь к владельцу сообщества.",
-          title: "Обнаружен конфликт",
-          tone: "warning",
-        },
-      };
-    case "retryable":
-      return {
-        actions: (
-          <ActionButton
-            label="Начать заново"
-            onClick={actions.begin}
-            pending={actions.pending}
-          />
-        ),
-        content: {
-          description:
-            state.reason === "expired"
-              ? "Срок предыдущей попытки истёк. Можно безопасно начать новую привязку."
-              : "Ответ предыдущей попытки уже использован. Можно безопасно начать новую привязку.",
-          title:
-            state.reason === "expired"
-              ? "Срок попытки истёк"
-              : "Попытка уже использована",
-          tone: "warning",
-        },
-      };
-    case "unavailable":
-      return {
-        actions: (
-          <UnavailableLinkAction
-            confirm={actions.confirm}
-            pending={actions.pending}
-            refresh={actions.refresh}
-            retry={state.retry}
-          />
-        ),
-        content: {
-          description:
-            "Сервис связи не ответил. Account и существующая связь не изменились; повторите безопасный шаг.",
-          title: "Telegram временно недоступен",
-          tone: "warning",
-        },
-      };
-    case "recovery-required":
-      return {
-        actions:
-          state.recovery.url === undefined ? null : (
-            <SupportLink url={state.recovery.url} />
-          ),
-        content: {
-          description:
-            "Автоматическое продолжение остановлено, чтобы не перенести identity молча. Обратитесь к владельцу сообщества.",
-          title: "Нужна ручная проверка",
-          tone: "warning",
-        },
-      };
+        </>
+      );
+    case "refresh":
+      return (
+        <ActionButton
+          label="Обновить состояние"
+          onClick={flow.refresh}
+          pending={flow.pending}
+        />
+      );
+    case "support":
+      return <SupportLink url={action.url} />;
+    case "complete":
+    case "none":
+      return null;
   }
 }
 

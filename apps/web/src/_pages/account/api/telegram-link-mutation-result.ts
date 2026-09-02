@@ -10,7 +10,7 @@ import {
 import {
   telegramLinkStateSchema,
   type TelegramLinkMutationResult,
-} from "../model/account-telegram-membership";
+} from "@/features/account-access/model/account-telegram-membership";
 
 const problemSchema = z
   .object({ code: z.string(), correlationId: z.string().optional() })
