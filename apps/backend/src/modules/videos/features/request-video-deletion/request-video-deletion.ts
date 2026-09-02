@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { VideosPrisma } from "../../../../infrastructure/prisma/index.js";
+import { isVideoDeletionState } from "../../facets/videos/videos.interface.js";
 import {
   newVideoDeletionOperationId,
   videoAccountIdSchema,
@@ -50,12 +51,7 @@ export async function requestVideoDeletion(
   if (video.origin !== "platform_upload") {
     return { code: "video_deletion_forbidden", ok: false };
   }
-  if (
-    video.state === "deletion_requested" ||
-    video.state === "deleting" ||
-    video.state === "deleted" ||
-    video.state === "delete_failed"
-  ) {
+  if (isVideoDeletionState(video.state)) {
     return { code: "video_deletion_already_requested", ok: false };
   }
   const operationId = newVideoDeletionOperationId();

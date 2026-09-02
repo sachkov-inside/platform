@@ -580,9 +580,32 @@ describe("MaterialAuthoring", () => {
         videoId,
       },
     }));
-    const videos = { inspectPrimaryReference, loadPresentation } satisfies Pick<
+    const loadAuthoringPresentation = vi.fn(
+      ({ videoId }: { readonly videoId: string }) => Promise.resolve({
+        ok: true as const,
+        value: {
+          origin: "platform_upload" as const,
+          state: "ready" as const,
+          title: videoId === firstVideoId ? "First Video" : "Replacement Video",
+          videoId,
+        },
+      }),
+    );
+    const loadLatestDeletion = vi.fn(() => Promise.resolve({
+      ok: true as const,
+      value: null,
+    }));
+    const videos = {
+      inspectPrimaryReference,
+      loadAuthoringPresentation,
+      loadLatestDeletion,
+      loadPresentation,
+    } satisfies Pick<
       Videos,
-      "inspectPrimaryReference" | "loadPresentation"
+      | "inspectPrimaryReference"
+      | "loadAuthoringPresentation"
+      | "loadLatestDeletion"
+      | "loadPresentation"
     >;
     const withVideos = assembleMaterials({
       prisma: testDatabase.prisma,

@@ -45,13 +45,13 @@ export function assembleLoadMaterial(
       }
       if (!material.ok) return material;
       const [primaryVideo, latestVideoDeletion] = await Promise.all([
-        material.value.primaryVideoId === null || dependencies.videos?.loadAuthoringPresentation === undefined
+        material.value.primaryVideoId === null || dependencies.videos === undefined
           ? Promise.resolve({ ok: true as const, value: null })
           : dependencies.videos.loadAuthoringPresentation({
               materialId: parsed.value.materialId,
               videoId: material.value.primaryVideoId,
             }),
-        dependencies.videos?.loadLatestDeletion === undefined
+        dependencies.videos === undefined
           ? Promise.resolve({ ok: true as const, value: null })
           : dependencies.videos.loadLatestDeletion(parsed.value.materialId),
       ]);

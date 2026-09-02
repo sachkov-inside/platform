@@ -34,8 +34,13 @@ export function assembleMaterials(dependencies: {
     "inspectReferences" | "loadPresentations" | "markUnreferenced"
   >;
   readonly membershipAcquisitionUrl?: string;
-  readonly videos?: Pick<Videos, "inspectPrimaryReference" | "loadPresentation"> &
-    Partial<Pick<Videos, "loadAuthoringPresentation" | "loadLatestDeletion">>;
+  readonly videos?: Pick<
+    Videos,
+    | "inspectPrimaryReference"
+    | "loadAuthoringPresentation"
+    | "loadLatestDeletion"
+    | "loadPresentation"
+  >;
 }): Materials {
   const materialContent = assembleMaterialContent({
     prisma: dependencies.prisma,

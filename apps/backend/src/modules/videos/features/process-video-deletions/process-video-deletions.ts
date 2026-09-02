@@ -1,10 +1,12 @@
-import { z } from "zod";
-
 import {
   Prisma,
   type VideosPrisma,
   type VideosPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
+import {
+  videoOriginSchema,
+  type VideoOrigin,
+} from "../../facets/videos/videos.interface.js";
 import type { VideoProvider } from "../../ports/video-provider.js";
 
 const VIDEO_DELETION_RETRY_ATTEMPT_LIMIT = 5;
@@ -12,6 +14,7 @@ const VIDEO_DELETION_CLAIM_TIMEOUT_MILLISECONDS = 300_000;
 const VIDEO_DELETION_RETRY_INITIAL_DELAY_MILLISECONDS = 30_000;
 const VIDEO_DELETION_RETRY_MAX_DELAY_MILLISECONDS = 300_000;
 const VIDEO_DELETION_RETRY_JITTER_RATIO = 0.2;
+const VIDEO_DELETION_ACTIVE_RECHECK_DELAY_MILLISECONDS = 30_000;
 const VIDEO_DELETION_BATCH_SIZE = 25;
 
 export const VIDEO_DELETION_MAINTENANCE = Symbol("VIDEO_DELETION_MAINTENANCE");
@@ -60,7 +63,10 @@ export function assembleVideoDeletionMaintenance(dependencies: {
           now().getTime() - VIDEO_DELETION_CLAIM_TIMEOUT_MILLISECONDS,
         );
         const candidates = await dependencies.prisma.videoDeletionOperation.findMany({
-          orderBy: { requestedAt: "asc" },
+          orderBy: [
+            { nextAttemptAt: "asc" },
+            { requestedAt: "asc" },
+          ],
           take: VIDEO_DELETION_BATCH_SIZE,
           where: {
             OR: [
@@ -209,7 +215,7 @@ export function assembleVideoDeletionMaintenance(dependencies: {
         cycleAttempts,
         kind: "claimed",
         operationId: operation.id,
-        origin: originSchema.parse(operation.video.origin),
+        origin: videoOriginSchema.parse(operation.video.origin),
         providerVideoId: operation.video.providerVideoId,
         providerVisibleAt: operation.video.providerVisibleAt,
         videoId: operation.videoId,
@@ -218,6 +224,16 @@ export function assembleVideoDeletionMaintenance(dependencies: {
   }
 
   async function reconcileActiveProviderState(input: DeferredDeletion): Promise<void> {
+    const deferredAt = now();
+    await dependencies.prisma.videoDeletionOperation.updateMany({
+      data: {
+        nextAttemptAt: new Date(
+          deferredAt.getTime() + VIDEO_DELETION_ACTIVE_RECHECK_DELAY_MILLISECONDS,
+        ),
+        updatedAt: deferredAt,
+      },
+      where: { id: input.operationId, state: "deletion_requested" },
+    });
     let remote;
     try {
       remote = await dependencies.provider.find({
@@ -233,13 +249,21 @@ export function assembleVideoDeletionMaintenance(dependencies: {
       remote.projectId !== input.projectId
     ) return;
     const observedAt = now();
-    await dependencies.prisma.video.updateMany({
-      data: {
-        providerStatus: remote.status.slice(0, 64),
-        providerVisibleAt: observedAt,
-        updatedAt: observedAt,
-      },
-      where: { id: input.videoId, state: "deletion_requested" },
+    await dependencies.prisma.$transaction(async (transaction) => {
+      await transaction.video.updateMany({
+        data: {
+          providerStatus: remote.status.slice(0, 64),
+          providerVisibleAt: observedAt,
+          updatedAt: observedAt,
+        },
+        where: { id: input.videoId, state: "deletion_requested" },
+      });
+      if (isTerminalProviderState(remote.status)) {
+        await transaction.videoDeletionOperation.updateMany({
+          data: { nextAttemptAt: observedAt, updatedAt: observedAt },
+          where: { id: input.operationId, state: "deletion_requested" },
+        });
+      }
     });
   }
 
@@ -360,7 +384,7 @@ interface DeletionClaim {
   readonly cycleAttempts: number;
   readonly kind: "claimed";
   readonly operationId: string;
-  readonly origin: "external_attachment" | "platform_upload";
+  readonly origin: VideoOrigin;
   readonly providerVideoId: string;
   readonly providerVisibleAt: Date | null;
   readonly videoId: string;
@@ -373,8 +397,6 @@ interface DeferredDeletion {
   readonly providerVideoId: string;
   readonly videoId: string;
 }
-
-const originSchema = z.enum(["external_attachment", "platform_upload"]);
 
 function isTerminalProviderState(status: string): boolean {
   return status === "done" || status === "error";
