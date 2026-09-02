@@ -12,6 +12,7 @@ import {
   useLibraryCatalogQuery,
   withoutLibraryCursor,
 } from "@/features/library-catalog";
+import { materialReaderOriginHref } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
 
 export function TopicMaterialCatalog({
@@ -73,6 +74,7 @@ export function TopicMaterialCatalog({
           isFetchingNextPage={catalog.query.isFetchingNextPage}
           onLoadNextPage={catalog.loadNextPage}
           pages={catalog.readyPages}
+          returnHref={materialReaderOriginHref("topic", topicSlug)}
           totalCount={firstPage.totalCount}
         />
       )}

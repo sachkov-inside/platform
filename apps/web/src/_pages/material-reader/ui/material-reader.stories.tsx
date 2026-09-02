@@ -10,6 +10,10 @@ import {
   type ApplicationNavigationItem,
 } from "@/widgets/application-shell";
 import {
+  materialReaderHref,
+  parseMaterialReaderReturnTarget,
+} from "@/shared/routing/material-reader";
+import {
   MaterialReaderAccess,
   MaterialReaderLoading,
   MaterialReaderNotFound,
@@ -199,6 +203,7 @@ type ReaderStoryMode =
   | "loading"
   | "mobile"
   | "not-found"
+  | "playlist-return"
   | "unavailable";
 
 function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
@@ -219,6 +224,19 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
     case "desktop":
     case "mobile":
       return <MaterialReaderView body={body} material={material} />;
+    case "playlist-return": {
+      const returnTarget = parseMaterialReaderReturnTarget(
+        "/series/platform-inside",
+      );
+      return (
+        <MaterialReaderView
+          body={body}
+          material={material}
+          returnTarget={returnTarget}
+          sourceHref={materialReaderHref(material.slug, returnTarget.href)}
+        />
+      );
+    }
     case "loading":
       return <MaterialReaderLoading />;
     case "not-found":
@@ -234,11 +252,11 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
         />
       );
     case "access-unavailable":
-      return <MaterialReaderUnavailable slug={material.slug} />;
+      return <MaterialReaderUnavailable retryHref={materialReaderHref(material.slug)} />;
     case "error":
       return <MaterialReaderUnexpectedError onRetry={() => undefined} />;
     case "unavailable":
-      return <MaterialReaderUnavailable slug={material.slug} />;
+      return <MaterialReaderUnavailable retryHref={materialReaderHref(material.slug)} />;
   }
 }
 
@@ -281,7 +299,7 @@ export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("navigation", { name: "В этом материале" })).toBeInTheDocument();
-    await expect(canvas.getAllByRole("link", { name: "В Базу знаний" })).toHaveLength(2);
+    await expect(canvas.getAllByRole("link", { name: "Назад в Базу знаний" })).toHaveLength(2);
     await expect(canvas.getByRole("region", { name: "Таблица в материале" })).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" })).toBeInTheDocument();
   },
@@ -297,12 +315,23 @@ export const Loading: Story = {
   },
 };
 
+export const PlaylistReturn: Story = {
+  args: { mode: "playlist-return" },
+  play: async ({ canvasElement }) => {
+    const links = within(canvasElement).getAllByRole("link", {
+      name: "Назад к плейлисту",
+    });
+    await expect(links).toHaveLength(2);
+    await expect(links[0]).toHaveAttribute("href", "/series/platform-inside");
+  },
+};
+
 export const NotFound: Story = {
   args: { mode: "not-found" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Материал не найден" })).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "В Базу знаний" })).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Назад в Базу знаний" })).toBeInTheDocument();
   },
 };
 

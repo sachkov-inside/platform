@@ -144,7 +144,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     if (new URL(page.url()).searchParams.get("authentication") === "failed") {
       throw new Error("Real Logto callback failed");
     }
-    await expect(page).toHaveURL(`${webBaseUrl}/`);
+    await expect(page).toHaveURL(`${webBaseUrl}/library`);
     await expect(
       page.getByRole("button", { exact: true, name: "Выйти" }),
     ).toBeVisible();
@@ -164,7 +164,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     const recovery = await browser.newPage({ ignoreHTTPSErrors: true });
     await beginSignIn(recovery, recipient);
     await enterCode(recovery, await waitForCode(recipient, 2));
-    await expect(recovery).toHaveURL(`${webBaseUrl}/`);
+    await expect(recovery).toHaveURL(`${webBaseUrl}/library`);
 
     await recovery.waitForTimeout(61_000);
     await stopService("logto");

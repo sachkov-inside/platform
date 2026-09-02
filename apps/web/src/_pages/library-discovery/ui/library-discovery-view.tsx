@@ -20,6 +20,10 @@ import type {
 import type { MaterialPreview } from "@/entities/material";
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
+import {
+  materialReaderHref,
+  materialReaderOriginHref,
+} from "@/shared/routing/material-reader";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
 type ResolvedDiscoveryResult = Exclude<
@@ -170,7 +174,13 @@ function SeriesMaterials({
                 </span>
                 Выпуск
               </div>
-              <SeriesMaterialRow material={material} />
+              <SeriesMaterialRow
+                material={material}
+                returnHref={materialReaderOriginHref(
+                  "series",
+                  result.reference.slug,
+                )}
+              />
             </li>
           );
         })}
@@ -180,7 +190,13 @@ function SeriesMaterials({
   );
 }
 
-function SeriesMaterialRow({ material }: { readonly material: MaterialPreview }) {
+function SeriesMaterialRow({
+  material,
+  returnHref,
+}: {
+  readonly material: MaterialPreview;
+  readonly returnHref: ReturnType<typeof materialReaderOriginHref>;
+}) {
   const available = material.availability === "available";
   const AccessIcon = available ? Unlock : LockKeyhole;
   const accessLabel =
@@ -203,7 +219,7 @@ function SeriesMaterialRow({ material }: { readonly material: MaterialPreview })
           </Link>
         </span>
         <h3 className="mt-2 text-lg font-semibold leading-6 tracking-[-0.025em]">
-          <Link className="no-underline after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/row:underline group-hover/row:decoration-accent group-hover/row:underline-offset-4" href={`/materials/${material.slug}`} prefetch={false}>
+          <Link className="no-underline after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/row:underline group-hover/row:decoration-accent group-hover/row:underline-offset-4" href={materialReaderHref(material.slug, returnHref)} prefetch={false}>
             {material.title}
           </Link>
         </h3>

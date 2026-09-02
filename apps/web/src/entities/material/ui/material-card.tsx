@@ -5,8 +5,10 @@ import {
   Play,
   Unlock,
 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
+import { materialReaderHref } from "@/shared/routing/material-reader";
 import { cn } from "@/shared/lib/utils";
 import type { MaterialPreview } from "../model/material-preview";
 import { materialTaxonomyLabel } from "../model/material-taxonomy-label";
@@ -15,12 +17,14 @@ export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
   readonly headingLevel?: "h2" | "h3";
   readonly material: MaterialPreview;
+  readonly returnHref?: Route;
 }
 
 /** Safe published Material summary with media only when the presentation contract provides it. */
 export function MaterialCard({
   headingLevel = "h2",
   material,
+  returnHref,
 }: MaterialCardProps) {
   const hasPreview = material.preview !== undefined;
   const Heading = headingLevel;
@@ -57,7 +61,7 @@ export function MaterialCard({
           <Heading className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em]">
             <Link
               className="no-underline after:absolute after:inset-0 after:rounded-xl after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:underline group-hover/card:decoration-accent group-hover/card:underline-offset-4"
-              href={`/materials/${material.slug}`}
+              href={materialReaderHref(material.slug, returnHref)}
               id={titleId}
               prefetch={false}
             >

@@ -1,6 +1,7 @@
 "use client";
 
 import { RefreshCw } from "lucide-react";
+import type { Route } from "next";
 import { useEffect, useRef } from "react";
 
 import { MaterialCard } from "@/entities/material";
@@ -22,6 +23,7 @@ export function InfiniteMaterialCatalog({
   isFetchingNextPage,
   onLoadNextPage,
   pages,
+  returnHref,
   totalCount,
 }: {
   readonly hasNextPage: boolean;
@@ -29,6 +31,7 @@ export function InfiniteMaterialCatalog({
   readonly isFetchingNextPage: boolean;
   readonly onLoadNextPage: () => void;
   readonly pages: readonly ReadyLibraryCatalogPage[];
+  readonly returnHref?: Route;
   readonly totalCount: number;
 }) {
   const loadSentinelRef = useRef<HTMLDivElement>(null);
@@ -72,6 +75,7 @@ export function InfiniteMaterialCatalog({
           items={page.items}
           key={page.items[0]?.slug ?? `catalog-page-${String(pageIndex + 1)}`}
           label={`Материалы, страница ${String(pageIndex + 1)}`}
+          {...(returnHref === undefined ? {} : { returnHref })}
         />
       ))}
       <div aria-hidden="true" className="h-px" ref={loadSentinelRef} />
@@ -105,10 +109,12 @@ export function MaterialCatalogGrid({
   className = "",
   items,
   label,
+  returnHref,
 }: {
   readonly className?: string;
   readonly items: ReadyLibraryCatalogPage["items"];
   readonly label?: string;
+  readonly returnHref?: Route;
 }) {
   return (
     <ul
@@ -119,7 +125,11 @@ export function MaterialCatalogGrid({
     >
       {items.map((material) => (
         <li className="h-full w-full max-w-[28rem]" key={material.slug}>
-          <MaterialCard headingLevel="h3" material={material} />
+          <MaterialCard
+            headingLevel="h3"
+            material={material}
+            {...(returnHref === undefined ? {} : { returnHref })}
+          />
         </li>
       ))}
     </ul>

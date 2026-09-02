@@ -6,6 +6,7 @@ import {
   type LibraryDiscoveryResult,
 } from "@/features/library-discovery";
 import type { MaterialPreview } from "@/entities/material";
+import { materialReaderHref } from "@/shared/routing/material-reader";
 import {
   ApplicationShell,
   type ApplicationNavigationItem,
@@ -225,7 +226,7 @@ export const RelatedReady: Story = {
         relatedSeries: [],
         topics: [],
       }}
-      sourceSlug="inside-platform-overview"
+      sourceHref={materialReaderHref("inside-platform-overview")}
     />
   ),
   name: "Related · ready",
@@ -242,7 +243,7 @@ export const RelatedEmpty: Story = {
         relatedSeries: [],
         topics: [],
       }}
-      sourceSlug="inside-platform-overview"
+      sourceHref={materialReaderHref("inside-platform-overview")}
     />
   ),
   name: "Related · empty",
@@ -253,7 +254,7 @@ export const RelatedUnavailable: Story = {
   render: () => (
     <RelatedMaterialsSection
       result={{ kind: "unavailable" }}
-      sourceSlug="inside-platform-overview"
+      sourceHref={materialReaderHref("inside-platform-overview")}
     />
   ),
   name: "Related · unavailable",

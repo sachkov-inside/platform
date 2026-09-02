@@ -2,9 +2,13 @@ import type { Metadata } from "next";
 
 import { loadMaterialReader, MaterialReaderPage } from "@/_pages/material-reader.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
+import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 interface MaterialPageProps {
   readonly params: Promise<{ readonly slug: string }>;
+  readonly searchParams: Promise<{
+    readonly from?: string | readonly string[] | undefined;
+  }>;
 }
 
 export async function generateMetadata({
@@ -27,12 +31,13 @@ export async function generateMetadata({
   };
 }
 
-export default async function MaterialRoute({ params }: MaterialPageProps) {
-  const { slug } = await params;
+export default async function MaterialRoute({ params, searchParams }: MaterialPageProps) {
+  const [{ slug }, query] = await Promise.all([params, searchParams]);
   const accessToken = await getOptionalPlatformAccessToken();
   return (
     <MaterialReaderPage
       {...(accessToken === undefined ? {} : { accessToken })}
+      returnTarget={parseMaterialReaderReturnTarget(query.from)}
       slug={slug}
     />
   );

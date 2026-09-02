@@ -1,4 +1,5 @@
 import { ArrowLeft, BookOpenText } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -14,11 +15,18 @@ import { materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
 import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
+import {
+  libraryMaterialReaderReturnTarget,
+  materialReaderHref,
+  type MaterialReaderReturnTarget,
+} from "@/shared/routing/material-reader";
 
 export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
   readonly related?: RelatedMaterialsResult;
+  readonly returnTarget?: MaterialReaderReturnTarget;
+  readonly sourceHref?: Route;
 }
 
 interface OutlineItem {
@@ -28,12 +36,18 @@ interface OutlineItem {
 }
 
 /** Client-safe presentation shared by the production RSC route and Storybook. */
-export function MaterialReaderView({ body, material, related }: MaterialReaderViewProps) {
+export function MaterialReaderView({
+  body,
+  material,
+  related,
+  returnTarget = libraryMaterialReaderReturnTarget,
+  sourceHref,
+}: MaterialReaderViewProps) {
   const outline = collectOutline(body);
 
   return (
     <div className="@container/material-reader" data-material-reader-state="available">
-      <ReaderBackAction />
+      <ReaderBackAction target={returnTarget} />
       <div className="mt-10 min-w-0">
         <MaterialHeader material={material} />
         <ReaderOutline items={outline} />
@@ -45,9 +59,12 @@ export function MaterialReaderView({ body, material, related }: MaterialReaderVi
         </article>
       </div>
       {related === undefined ? null : (
-        <RelatedMaterialsSection result={related} sourceSlug={material.slug} />
+        <RelatedMaterialsSection
+          result={related}
+          sourceHref={sourceHref ?? materialReaderHref(material.slug)}
+        />
       )}
-      <ReaderBackAction className="mt-16" />
+      <ReaderBackAction className="mt-16" target={returnTarget} />
     </div>
   );
 }
@@ -124,13 +141,19 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
   );
 }
 
-function ReaderBackAction({ className = "" }: { readonly className?: string }) {
+export function ReaderBackAction({
+  className = "",
+  target,
+}: {
+  readonly className?: string;
+  readonly target: MaterialReaderReturnTarget;
+}) {
   return (
     <div className={`flex min-h-11 items-center border-b border-border pb-3 ${className}`}>
       <Button asChild className="bg-background" size="lg" variant="outline">
-        <Link href="/library">
+        <Link href={target.href}>
           <ArrowLeft aria-hidden="true" />
-          В Базу знаний
+          {target.label}
         </Link>
       </Button>
     </div>

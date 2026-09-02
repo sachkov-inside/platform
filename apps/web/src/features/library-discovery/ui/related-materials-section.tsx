@@ -1,4 +1,5 @@
 import { RefreshCw, Sparkles } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
 import type { RelatedMaterialsResult } from "../model/library-discovery-view";
@@ -7,10 +8,10 @@ import { Button } from "@/shared/ui/button";
 
 export function RelatedMaterialsSection({
   result,
-  sourceSlug,
+  sourceHref,
 }: {
   readonly result: RelatedMaterialsResult;
-  readonly sourceSlug: string;
+  readonly sourceHref: Route;
 }) {
   if (result.kind === "unavailable" || result.kind === "not-found") {
     return (
@@ -26,7 +27,7 @@ export function RelatedMaterialsSection({
           Сам материал остаётся доступен. Подборку можно загрузить повторно.
         </p>
         <Button asChild className="mt-5" size="lg" variant="outline">
-          <Link href={`/materials/${sourceSlug}`}>
+          <Link href={sourceHref}>
             <RefreshCw aria-hidden="true" />
             Повторить
           </Link>
@@ -69,7 +70,11 @@ export function RelatedMaterialsSection({
       <ul className="mt-5 grid grid-cols-1 items-stretch gap-4 @min-[42rem]/material-reader:grid-cols-2 @min-[66rem]/material-reader:grid-cols-3" role="list">
         {result.items.map((material) => (
           <li className="h-full w-full max-w-[28rem]" key={material.slug}>
-            <MaterialCard headingLevel="h3" material={material} />
+            <MaterialCard
+              headingLevel="h3"
+              material={material}
+              returnHref={sourceHref}
+            />
           </li>
         ))}
       </ul>

@@ -248,7 +248,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     page.getByRole("heading", { name: "Первый вертикальный срез", level: 2 }),
   ).toBeVisible();
   await expect(page).toHaveTitle("Как устроен Inside Platform · Inside");
-  await expect(page.getByRole("link", { name: "В Базу знаний" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Назад в Базу знаний" }).first()).toBeVisible();
   await expect(page.getByRole("main")).toContainText("PostgreSQL хранит current Material");
   await expect(page.locator("[data-reader-body]")).toHaveCount(1);
 
@@ -415,14 +415,19 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
 });
 
 test("returns the production not-found state for an unpublished slug", async ({ page }) => {
-  await page.goto("/materials/not-published");
+  await page.goto(
+    "/materials/not-published?from=%2Fseries%2Fplatform-inside",
+  );
 
   await expect(page.locator('head meta[name="robots"]')).toHaveAttribute(
     "content",
     /noindex/,
   );
   await expect(page.getByRole("heading", { name: "Материал не найден" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "В Базу знаний" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Назад к плейлисту" })).toHaveAttribute(
+    "href",
+    "/series/platform-inside",
+  );
 });
 
 test("navigates Library → Topic → ordered Series and exposes canonical Reader context", async ({
@@ -451,6 +456,18 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(page.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
   await expect(page).toHaveTitle("Platform — тема · Inside");
   await expect(page.getByText("Для участников")).toBeVisible();
+  const topicMaterialHref = await page
+    .locator("[data-material-grid]")
+    .getByRole("link", {
+      name: "Developer Pipeline без потери контекста",
+      exact: true,
+    })
+    .getAttribute("href");
+  expect(
+    new URL(topicMaterialHref ?? "", "http://127.0.0.1:3000").searchParams.get(
+      "from",
+    ),
+  ).toBe("/topics/platform");
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue93Evidence(page, testInfo, "topic");
@@ -489,7 +506,18 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await page
     .getByRole("link", { name: "Как устроен Inside Platform", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform$/u);
+  await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform\?/u);
+  expect(new URL(page.url()).searchParams.get("from")).toBe(
+    "/series/platform-inside",
+  );
+  const playlistBackLinks = page.getByRole("link", {
+    name: "Назад к плейлисту",
+  });
+  await expect(playlistBackLinks).toHaveCount(2);
+  await expect(playlistBackLinks.first()).toHaveAttribute(
+    "href",
+    "/series/platform-inside",
+  );
   await expect(
     page.getByRole("link", { name: "Platform", exact: true }),
   ).toHaveAttribute("href", "/topics/platform");
@@ -518,6 +546,28 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(page).toHaveTitle("Как устроен Inside Platform · Inside");
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
+
+  const relatedMaterialLink = related.getByRole("link", {
+    name: "Архитектурная заметка 01",
+  });
+  const sourceHref =
+    "/materials/kak-ustroen-inside-platform?from=%2Fseries%2Fplatform-inside";
+  expect(
+    new URL(
+      (await relatedMaterialLink.getAttribute("href")) ?? "",
+      "http://127.0.0.1:3000",
+    ).searchParams.get("from"),
+  ).toBe(sourceHref);
+  await relatedMaterialLink.click();
+  await expect(page.getByRole("link", { name: "Назад к материалу" }).first()).toHaveAttribute(
+    "href",
+    sourceHref,
+  );
+  await page.getByRole("link", { name: "Назад к материалу" }).first().click();
+  await expect(page.getByRole("link", { name: "Назад к плейлисту" }).first()).toHaveAttribute(
+    "href",
+    "/series/platform-inside",
+  );
 });
 
 async function expectNoSeriousAccessibilityFindings(page: Page) {
