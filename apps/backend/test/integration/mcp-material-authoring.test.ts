@@ -315,10 +315,6 @@ describe("delegated Material authoring over MCP", () => {
     });
     const initial = successfulValue(initialComposition);
     expect(initial.items).toEqual([]);
-    const availableMaterials = z
-      .array(z.looseObject({ materialId: z.string() }))
-      .parse(initial.availableMaterials);
-    expect(availableMaterials.some((item) => item.materialId === materialId)).toBe(true);
     if (typeof initial.orderVersion !== "string") {
       throw new TypeError("MCP result has no Playlist order version");
     }

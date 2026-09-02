@@ -6,27 +6,36 @@ import {
 } from "@/features/series-order";
 import { withMutationFetch } from "./mutation-mock";
 
-const saveOrderSpy = fn(() =>
+const loadMaterialsSpy = fn(() =>
+  Promise.resolve({
+    items: [
+      {
+        materialId: "95000000-0000-4000-8000-000000000004",
+        publicationState: "draft" as const,
+        title: "Материал вне плейлиста",
+      },
+    ],
+    kind: "ready" as const,
+    page: 1,
+    totalItems: 1,
+    totalPages: 1,
+  }),
+);
+const saveOrderSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
   Promise.resolve(Response.json({ kind: "saved", orderVersion: "b".repeat(64) })),
 );
-const failedOrderSpy = fn(() =>
+const failedOrderSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
   Promise.resolve(Response.json({ kind: "error", reference: "series-order-save" })),
 );
 
 const meta = {
   args: {
+    loadMaterials: loadMaterialsSpy,
     onBack: fn(),
     onRefresh: fn(),
     onSelectPlaylist: fn(),
     presentation: {
       archived: false,
-      availableMaterials: [
-        {
-          materialId: "95000000-0000-4000-8000-000000000004",
-          publicationState: "draft",
-          title: "Материал вне плейлиста",
-        },
-      ],
       items: [
         {
           materialId: "95000000-0000-4000-8000-000000000001",
@@ -70,15 +79,46 @@ export const Reordering: Story = {
     const canvas = within(canvasElement);
     await moveFirstItem(canvasElement);
     await expect(canvas.getByText("Есть несохранённые изменения.")).toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
+    await userEvent.click(firstSaveButton(canvasElement));
     await expect(await canvas.findByText("Порядок сохранён.")).toBeInTheDocument();
     await expect(saveOrderSpy).toHaveBeenCalledOnce();
+    await moveFirstItem(canvasElement);
+    await expect(firstSaveButton(canvasElement)).toBeEnabled();
+    await userEvent.click(firstSaveButton(canvasElement));
+    await expect(saveOrderSpy).toHaveBeenCalledTimes(2);
+    const secondBody = saveOrderSpy.mock.calls[1]?.[1]?.body;
+    await expect(secondBody).toBeInstanceOf(FormData);
+    if (secondBody instanceof FormData) {
+      await expect(secondBody.get("expectedOrderVersion")).toBe("b".repeat(64));
+    }
   },
 };
 
 export const Empty: Story = {
   args: {
     presentation: { ...meta.args.presentation, items: [] },
+  },
+};
+
+export const AddMaterial: Story = {
+  play: async ({ canvasElement }) => {
+    loadMaterialsSpy.mockClear();
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Добавить материал" }));
+    const dialog = canvas.getByRole("dialog", { name: "Добавить материал" });
+    await expect(dialog).toBeVisible();
+    await userEvent.type(
+      within(dialog).getByRole("searchbox", {
+        name: "Поиск материала для добавления",
+      }),
+      "Материал",
+    );
+    await expect(
+      await within(dialog).findByRole("button", {
+        name: "Добавить «Материал вне плейлиста»",
+      }),
+    ).toBeVisible();
+    await expect(loadMaterialsSpy).toHaveBeenCalledOnce();
   },
 };
 
@@ -97,7 +137,7 @@ export const Conflict: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await moveFirstItem(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
+    await userEvent.click(firstSaveButton(canvasElement));
     await expect(
       await canvas.findByText("Состав или порядок изменился в другой вкладке."),
     ).toBeInTheDocument();
@@ -111,10 +151,10 @@ export const SaveError: Story = {
     failedOrderSpy.mockClear();
     const canvas = within(canvasElement);
     await moveFirstItem(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
+    await userEvent.click(firstSaveButton(canvasElement));
     await expect(await canvas.findByText(/Не удалось сохранить/u)).toBeInTheDocument();
-    const retry = await canvas.findByRole("button", { name: "Повторить сохранение" });
-    await expect(retry).toBeVisible();
+    const retry = firstSaveButton(canvasElement);
+    await expect(retry).toBeEnabled();
     await userEvent.click(retry);
     await expect(failedOrderSpy).toHaveBeenCalledTimes(2);
   },
@@ -129,7 +169,7 @@ export const SessionExpired: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await moveFirstItem(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Сохранить порядок" }));
+    await userEvent.click(firstSaveButton(canvasElement));
     await expect(await canvas.findByText(/Сессия завершилась/u)).toBeInTheDocument();
     await expect(await canvas.findByRole("button", { name: "Войти" })).toBeVisible();
   },
@@ -146,4 +186,12 @@ async function moveFirstItem(canvasElement: HTMLElement): Promise<void> {
       name: "Опустить «С чего начинается Platform Inside»",
     }),
   );
+}
+
+function firstSaveButton(canvasElement: HTMLElement): HTMLElement {
+  const button = within(canvasElement)
+    .getAllByRole("button", { name: "Сохранить" })
+    .at(0);
+  if (button === undefined) throw new Error("Save button is missing");
+  return button;
 }

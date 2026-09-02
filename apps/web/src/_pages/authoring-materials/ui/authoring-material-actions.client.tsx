@@ -2,8 +2,7 @@
 
 import type { Route } from "next";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
   deleteMaterialDraft,
@@ -14,6 +13,7 @@ import {
 } from "@/features/material-lifecycle";
 
 import type { AuthoringMaterialListItem } from "../model/authoring-materials-presentation";
+import { authoringMaterialsQueryKey } from "../model/authoring-materials-query-options";
 
 export function AuthoringMaterialActions({
   editorHref,
@@ -22,17 +22,19 @@ export function AuthoringMaterialActions({
   readonly editorHref: Route;
   readonly material: AuthoringMaterialListItem;
 }) {
-  const router = useRouter();
+  const queryClient = useQueryClient();
+  const refreshMaterials = () =>
+    queryClient.invalidateQueries({ queryKey: authoringMaterialsQueryKey() });
   const publicationMutation = useMutation({
     mutationFn: transitionMaterialPublication,
     onSuccess: (result) => {
-      if (result.kind === "saved") router.refresh();
+      if (result.kind === "saved") void refreshMaterials();
     },
   });
   const deletionMutation = useMutation({
     mutationFn: deleteMaterialDraft,
     onSuccess: (result) => {
-      if (result.kind === "deleted") router.refresh();
+      if (result.kind === "deleted") void refreshMaterials();
     },
   });
   const publicationResult = publicationMutation.data ?? null;
@@ -103,14 +105,11 @@ function PublicationNotice({
   if (result === null) return null;
   if (result.kind === "saved") {
     return (
-      <p
-        className="col-span-2 text-sm font-medium text-foreground sm:basis-full"
-        role="status"
-      >
+      <span className="sr-only" role="status">
         {result.publicationState === "published"
           ? "Материал опубликован."
           : "Материал снят с публикации."}
-      </p>
+      </span>
     );
   }
   const message =

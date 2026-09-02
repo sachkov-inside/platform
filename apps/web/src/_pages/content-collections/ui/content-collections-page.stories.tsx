@@ -50,7 +50,7 @@ export const TopicsDesktop: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { level: 1, name: "Темы" })).toBeVisible();
     await expect(canvas.getByText("В архиве")).toBeVisible();
-    await expect(canvas.getAllByRole("button", { name: "Сохранить metadata" })[0]).toBeDisabled();
+    await expect(canvas.getAllByRole("button", { name: "Сохранить" })[0]).toBeDisabled();
   },
 };
 

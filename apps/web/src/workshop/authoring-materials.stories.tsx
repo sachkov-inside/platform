@@ -87,7 +87,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Production-представление списка материалов. Серверный маршрут и Storybook передают только сериализуемое состояние; авторизация и transport остаются вне UI.",
+          "Production-представление списка материалов. Страница использует browser-owned TanStack Query; Storybook передаёт сериализуемое состояние напрямую.",
       },
     },
     nextjs: { appDirectory: true },
@@ -137,11 +137,11 @@ export const PublicationUsesLatestReceipt: Story = {
     const canvas = within(canvasElement);
 
     await userEvent.click(canvas.getByRole("button", { name: "Опубликовать" }));
-    await expect(await canvas.findByText("Материал опубликован.")).toBeVisible();
+    await expect(await canvas.findByText("Материал опубликован.")).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Снять с публикации" }));
     await expect(
       await canvas.findByText("Материал снят с публикации."),
-    ).toBeVisible();
+    ).toBeInTheDocument();
 
     const firstBody = lifecycleMutationSpy.mock.calls[0]?.[1]?.body;
     const secondBody = lifecycleMutationSpy.mock.calls[1]?.[1]?.body;

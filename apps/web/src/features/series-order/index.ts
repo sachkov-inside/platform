@@ -1,6 +1,9 @@
 export type {
+  LoadSeriesOrderMaterials,
   ReorderSeriesInput,
   ReorderSeriesResult,
+  SeriesOrderItemPresentation,
+  SeriesOrderMaterialSearchResult,
   SeriesOrderPresentation,
 } from "./model/presentation";
 export { SeriesOrderManager } from "./ui/series-order-manager.client";

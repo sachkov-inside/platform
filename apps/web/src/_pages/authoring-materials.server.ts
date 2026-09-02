@@ -2,4 +2,5 @@
 export {
   AuthoringMaterialsLoading,
   AuthoringMaterialsPage,
+  handleAuthoringMaterialsRequest,
 } from "./authoring-materials/index.server";

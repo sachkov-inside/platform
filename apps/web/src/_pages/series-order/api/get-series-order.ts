@@ -12,15 +12,6 @@ import {
 const schema = z
   .object({
     archived: z.boolean(),
-    availableMaterials: z.array(
-      z
-        .object({
-          materialId: z.uuid(),
-          publicationState: z.enum(["draft", "published", "unpublished"]),
-          title: z.string().nullable(),
-        })
-        .strict(),
-    ),
     items: z.array(
       z
         .object({
@@ -73,11 +64,6 @@ export async function getSeriesOrder(
     kind: "ready",
     order: {
       archived: parsed.data.archived,
-      availableMaterials: parsed.data.availableMaterials.map((item) => ({
-        materialId: item.materialId,
-        publicationState: item.publicationState,
-        title: item.title ?? "Без названия",
-      })),
       items: parsed.data.items.map((item) => ({
         materialId: item.materialId,
         publicationState: item.publicationState,

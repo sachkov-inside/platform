@@ -12,11 +12,6 @@ const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
 export interface SeriesOrderSnapshot {
   readonly archived: boolean;
-  readonly availableMaterials: readonly {
-    readonly materialId: string;
-    readonly publicationState: "draft" | "published" | "unpublished";
-    readonly title: string | null;
-  }[];
   readonly items: readonly {
     readonly materialId: string;
     readonly ordinal: number;
@@ -31,7 +26,7 @@ export async function loadSeriesOrderSnapshot(
   prisma: MaterialsPrisma,
   seriesId: string,
 ): Promise<SeriesOrderSnapshot | undefined> {
-  const [series, memberships, availableMaterials] = await Promise.all([
+  const [series, memberships] = await Promise.all([
     prisma.series.findUnique({
       where: { id: seriesId },
       select: { archivedAt: true, id: true, name: true },
@@ -40,10 +35,6 @@ export async function loadSeriesOrderSnapshot(
       where: { seriesId },
       orderBy: [{ ordinal: "asc" }, { materialId: "asc" }],
       select: { materialId: true, ordinal: true },
-    }),
-    prisma.material.findMany({
-      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-      select: { id: true, publicationState: true, title: true },
     }),
   ]);
   if (series === null) {
@@ -59,11 +50,6 @@ export async function loadSeriesOrderSnapshot(
   const materialById = new Map(materials.map((material) => [material.id, material]));
   return {
     archived: series.archivedAt !== null,
-    availableMaterials: availableMaterials.map((material) => ({
-      materialId: material.id,
-      publicationState: publicationStateSchema.parse(material.publicationState),
-      title: material.title,
-    })),
     items: memberships.map(({ materialId, ordinal }) => {
       const material = materialById.get(materialId);
       if (material === undefined) {

@@ -84,15 +84,6 @@ export const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
 export const seriesOrderSchema = z
   .object({
     archived: z.boolean(),
-    availableMaterials: z.array(
-      z
-        .object({
-          materialId: materialIdSchema,
-          publicationState: publicationStateWireSchema,
-          title: z.string().nullable(),
-        })
-        .strict(),
-    ),
     items: z.array(
       z
         .object({

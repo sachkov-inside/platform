@@ -19,10 +19,6 @@ describe("Series order web adapters", () => {
     const request = vi.fn().mockResolvedValue({
       body: {
         archived: false,
-        availableMaterials: [
-          { materialId: firstId, publicationState: "published", title: "Первый" },
-          { materialId: secondId, publicationState: "draft", title: null },
-        ],
         items: [
           { materialId: firstId, ordinal: 1, publicationState: "published", title: "Первый" },
           { materialId: secondId, ordinal: 2, publicationState: "draft", title: null },
@@ -39,10 +35,6 @@ describe("Series order web adapters", () => {
       kind: "ready",
       order: {
         archived: false,
-        availableMaterials: [
-          { materialId: firstId, publicationState: "published", title: "Первый" },
-          { materialId: secondId, publicationState: "draft", title: "Без названия" },
-        ],
         items: [
           { materialId: firstId, publicationState: "published", title: "Первый" },
           { materialId: secondId, publicationState: "draft", title: "Без названия" },

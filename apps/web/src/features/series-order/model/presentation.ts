@@ -6,13 +6,31 @@ export interface SeriesOrderItemPresentation {
 
 export interface SeriesOrderPresentation {
   readonly archived: boolean;
-  readonly availableMaterials: readonly SeriesOrderItemPresentation[];
   readonly items: readonly SeriesOrderItemPresentation[];
   readonly name: string;
   readonly options: readonly { readonly archived?: boolean; readonly label: string; readonly value: string }[];
   readonly orderVersion: string;
   readonly seriesId: string;
 }
+
+export interface SeriesOrderMaterialPage {
+  readonly items: readonly SeriesOrderItemPresentation[];
+  readonly kind: "ready";
+  readonly page: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
+export type SeriesOrderMaterialSearchResult =
+  | SeriesOrderMaterialPage
+  | { readonly kind: "unauthorized" }
+  | { readonly kind: "error"; readonly reference: string };
+
+export type LoadSeriesOrderMaterials = (input: {
+  readonly page: number;
+  readonly search: string;
+  readonly signal: AbortSignal;
+}) => Promise<SeriesOrderMaterialSearchResult>;
 
 export interface ReorderSeriesInput {
   readonly expectedOrderVersion: string;

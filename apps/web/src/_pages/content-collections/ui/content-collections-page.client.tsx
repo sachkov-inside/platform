@@ -84,16 +84,16 @@ export function ContentCollectionsPageClient({
           <p className="font-mono text-xs text-muted-foreground">Структура Базы знаний</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">{plural}</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Создавайте и редактируйте metadata. Slug фиксируется после создания; архив сохраняет существующие ссылки.
+            Создавайте и редактируйте записи. Адрес фиксируется после создания, а архив сохраняет существующие ссылки.
           </p>
         </header>
 
-        <section aria-labelledby="create-collection" className="mt-7 rounded-2xl bg-card p-5 shadow-card sm:p-6">
+        <section aria-labelledby="create-collection" className="mt-6 rounded-2xl bg-card p-4 shadow-card sm:p-5">
           <h2 className="text-xl font-semibold tracking-[-0.025em]" id="create-collection">
             Создать {noun}
           </h2>
           <form
-            className="mt-5 grid gap-4 sm:grid-cols-2"
+            className="mt-4 grid gap-3 sm:grid-cols-2"
             onSubmit={(event) => {
               event.preventDefault();
               createMutation.mutate({ kind, name, slug, summary });
@@ -106,7 +106,7 @@ export function ContentCollectionsPageClient({
               <input className={fieldClassName} maxLength={120} onChange={(event) => { setSlug(event.currentTarget.value); }} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="platform-engineering" required value={slug} />
             </Field>
             <Field className="sm:col-span-2" label="Краткое описание">
-              <textarea className={`${fieldClassName} min-h-24 py-3`} maxLength={500} onChange={(event) => { setSummary(event.currentTarget.value); }} value={summary} />
+              <textarea className={`${fieldClassName} min-h-20 py-3`} maxLength={500} onChange={(event) => { setSummary(event.currentTarget.value); }} value={summary} />
             </Field>
             <div className="sm:col-span-2">
               <Button disabled={pending} type="submit">
@@ -124,12 +124,12 @@ export function ContentCollectionsPageClient({
             <span className="font-mono text-xs text-muted-foreground">{String(collections.length)}</span>
           </div>
           {collections.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-dashed border-border bg-card px-5 py-12 text-center">
+            <div className="mt-4 rounded-2xl border border-dashed border-border bg-card px-5 py-10 text-center">
               <p className="font-semibold">Пока ничего нет</p>
               <p className="mt-2 text-sm text-muted-foreground">Создайте первую запись формой выше.</p>
             </div>
           ) : (
-            <div className="mt-4 grid gap-4">
+            <div className="mt-4 grid gap-3">
               {collections.map((collection) => (
                 <CollectionEditor
                   collection={collection}
@@ -164,14 +164,14 @@ function CollectionEditor({
   const [summary, setSummary] = useState(collection.summary);
   const dirty = name.trim() !== collection.name || summary.trim() !== collection.summary;
   return (
-    <article className={cn("rounded-2xl border border-border bg-card p-5", collection.archived && "opacity-75")}>
+    <article className={cn("rounded-2xl border border-border bg-card p-4 sm:p-5", collection.archived && "bg-muted/30")}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <code className="font-mono text-xs text-muted-foreground">/{collection.slug}</code>
             {collection.archived ? <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold">В архиве</span> : null}
           </div>
-          <p className="mt-2 font-mono text-xs text-muted-foreground">{formatCount(collection.materialCount)}</p>
+          <p className="mt-1 font-mono text-xs text-muted-foreground">{formatCount(collection.materialCount)}</p>
         </div>
         {collection.kind === "series" ? (
           <Button asChild size="sm" variant="outline">
@@ -183,7 +183,7 @@ function CollectionEditor({
         ) : null}
       </div>
       <form
-        className="mt-5 grid gap-4"
+        className="mt-4 grid gap-3 lg:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
           onUpdate({
@@ -199,12 +199,12 @@ function CollectionEditor({
           <input className={fieldClassName} disabled={disabled} maxLength={120} onChange={(event) => { setName(event.currentTarget.value); }} required value={name} />
         </Field>
         <Field label="Краткое описание">
-          <textarea className={`${fieldClassName} min-h-24 py-3`} disabled={disabled} maxLength={500} onChange={(event) => { setSummary(event.currentTarget.value); }} value={summary} />
+          <textarea className={`${fieldClassName} min-h-16 py-3`} disabled={disabled} maxLength={500} onChange={(event) => { setSummary(event.currentTarget.value); }} value={summary} />
         </Field>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 lg:col-span-2">
           <Button disabled={disabled || !dirty} type="submit">
             <Check aria-hidden="true" />
-            Сохранить metadata
+            Сохранить
           </Button>
           <Button
             disabled={disabled}

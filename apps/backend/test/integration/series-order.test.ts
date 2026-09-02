@@ -101,9 +101,6 @@ describe("Series order", () => {
       orderVersion: loaded.value.orderVersion,
       seriesId,
     });
-    expect(
-      new Set(loaded.value.availableMaterials.map(({ materialId }) => materialId)),
-    ).toEqual(new Set(materialIds));
     expect(loaded.value.orderVersion).toMatch(/^[a-f0-9]{64}$/u);
     const reversed = [...materialIds].reverse();
     const reordered = await authoring.reorderSeries({
@@ -219,9 +216,6 @@ describe("Series order", () => {
     expect(afterRemoval.value.items.map(({ materialId }) => materialId)).toEqual(
       moved,
     );
-    expect(
-      afterRemoval.value.availableMaterials.map(({ materialId }) => materialId),
-    ).toContain(appended.value.materialId);
   });
 
   test("serializes concurrent reorders through one optimistic order version", async () => {

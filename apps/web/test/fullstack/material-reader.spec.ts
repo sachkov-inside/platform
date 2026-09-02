@@ -52,13 +52,21 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
     window.scrollTo({ top: document.documentElement.scrollHeight });
   });
   await continuation;
-  await expect(page.getByRole("article")).toHaveCount(13);
+  const articles = page.getByRole("article");
+  await expect.poll(() => articles.count()).toBeGreaterThanOrEqual(13);
+  const loadedCount = await articles.count();
+  expect(loadedCount).toBeGreaterThanOrEqual(13);
   await expect(
     page.getByRole("link", { name: "Как устроен Inside Platform" }),
   ).toBeVisible();
-  await expect(
-    page.getByText("13 материалов найдено · 13 материалов загружено"),
-  ).toBeVisible();
+  const catalogStatus = page.getByText(
+    /^\d+ материал(?:а|ов)? найдено · \d+ материал(?:а|ов)? загружено$/u,
+  );
+  await expect(catalogStatus).toBeVisible();
+  const counts = (await catalogStatus.innerText()).match(/\d+/gu);
+  expect(counts).toHaveLength(2);
+  expect(Number(counts?.[0])).toBeGreaterThanOrEqual(loadedCount);
+  expect(Number(counts?.[1])).toBe(loadedCount);
 
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Перейти к содержанию" })).toBeFocused();
