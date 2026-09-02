@@ -233,7 +233,7 @@ function ReaderBlockView({
   switch (block.kind) {
     case "paragraph":
       return (
-        <p className="mt-5 first:mt-0">
+        <p className="mt-6 first:mt-0">
           <ReaderInline content={block.content} />
         </p>
       );
@@ -252,7 +252,13 @@ function ReaderBlockView({
     case "ordered_list": {
       const List = block.kind === "bullet_list" ? "ul" : "ol";
       return (
-        <List className="mt-5 space-y-2 pl-6 marker:text-accent">
+        <List
+          className={
+            block.kind === "bullet_list"
+              ? "mt-6 list-disc space-y-3 pl-7 marker:text-accent"
+              : "mt-6 list-decimal space-y-3 pl-7 marker:font-semibold marker:text-accent"
+          }
+        >
           {block.items.map((item, index) => (
             <li key={index}>
               <ReaderBlocks blocks={item} contentVersion={contentVersion} materialId={materialId} path={[...path, index]} />
@@ -263,28 +269,28 @@ function ReaderBlockView({
     }
     case "blockquote":
       return (
-        <blockquote className="mt-6 border-l-4 border-accent pl-5 text-muted-foreground">
+        <blockquote className="mt-8 border-l-4 border-accent py-1 pl-5 text-muted-foreground">
           <ReaderBlocks blocks={block.content} contentVersion={contentVersion} materialId={materialId} path={path} />
         </blockquote>
       );
     case "code_block":
       return (
         <pre
-          className="mt-6 overflow-x-auto rounded-xl bg-sidebar p-5 font-mono text-[0.8125rem] leading-6 text-sidebar-foreground [scrollbar-color:var(--sidebar-border)_var(--sidebar)]"
+          className="mt-8 overflow-x-auto rounded-xl bg-sidebar p-5 font-mono text-[0.8125rem] leading-6 text-sidebar-foreground [scrollbar-color:var(--sidebar-border)_var(--sidebar)]"
           tabIndex={0}
         >
           <code>{block.text}</code>
         </pre>
       );
     case "horizontal_rule":
-      return <hr className="my-10 border-border" />;
+      return <hr className="my-12 border-border" />;
     case "table":
       return <ReaderTable block={block} contentVersion={contentVersion} materialId={materialId} path={path} />;
     case "callout":
       return (
         <aside
           aria-label={calloutLabel(block.tone)}
-          className="mt-6 rounded-xl bg-secondary px-5 py-5 text-[0.9375rem] leading-7 text-secondary-foreground sm:px-6"
+          className="mt-8 rounded-xl bg-secondary px-5 py-5 text-[0.9375rem] leading-7 text-secondary-foreground sm:px-6"
         >
           <p className="font-semibold">{calloutLabel(block.tone)}</p>
           <ReaderBlocks blocks={block.content} contentVersion={contentVersion} materialId={materialId} path={path} />
@@ -292,34 +298,38 @@ function ReaderBlockView({
       );
     case "image":
       return (
-        <MaterialAssetImage
-          alt={block.alt}
-          assetId={block.assetId}
-          caption={block.caption}
-          contentVersion={contentVersion}
-          height={block.height}
-          materialId={materialId}
-          variants={block.variants}
-          width={block.width}
-        />
+        <div className="mt-8" data-reader-block="image">
+          <MaterialAssetImage
+            alt={block.alt}
+            assetId={block.assetId}
+            caption={block.caption}
+            contentVersion={contentVersion}
+            height={block.height}
+            materialId={materialId}
+            variants={block.variants}
+            width={block.width}
+          />
+        </div>
       );
     case "file":
       return (
-        <MaterialAssetFile
-          assetId={block.assetId}
-          contentType={block.contentType}
-          contentVersion={contentVersion}
-          filename={block.filename}
-          label={block.label}
-          materialId={materialId}
-          size={block.size}
-        />
+        <div className="mt-8" data-reader-block="file">
+          <MaterialAssetFile
+            assetId={block.assetId}
+            contentType={block.contentType}
+            contentVersion={contentVersion}
+            filename={block.filename}
+            label={block.label}
+            materialId={materialId}
+            size={block.size}
+          />
+        </div>
       );
     case "video":
       return (
         <MaterialResourcePlaceholder
           caption={block.caption}
-          className="mt-7"
+          className="mt-8"
           id={resourceId(path)}
           kind="video"
         />
@@ -377,7 +387,8 @@ function ReaderTable({
   return (
     <div
       aria-label="Таблица в материале"
-      className="mt-7 max-w-full overflow-x-auto rounded-xl border border-border [scrollbar-color:var(--muted-foreground)_var(--muted)]"
+      className="mt-8 max-w-full overflow-x-auto rounded-xl border border-border [scrollbar-color:var(--muted-foreground)_var(--muted)]"
+      data-reader-block="table"
       role="region"
       tabIndex={0}
     >
