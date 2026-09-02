@@ -5,7 +5,7 @@ import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@fontsource-variable/manrope/wght.css";
 
 import { DevelopmentFeedbackOverlay } from "@/_app/ui/development-feedback-overlay.client";
-import { readWebRuntimeConfig } from "@/shared/config/index.server";
+import { readWebRuntimeMode } from "@/shared/config/index.server";
 
 import "./globals.css";
 
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
-  const showFeedbackOverlay = readWebRuntimeConfig().mode === "development";
+  const showFeedbackOverlay = readWebRuntimeMode() === "development";
 
   return (
     <html lang="ru">
