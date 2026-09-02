@@ -70,7 +70,7 @@ stack smoke. For that optional host gate, stop the full Compose stack and use po
 It does not require host Node, pnpm or `.env`; `pnpm platform:doctor` is only a convenience alias for
 an installed host toolchain.
 
-Pull requests into `main` run five parallel application checks and the required aggregate
+Pull requests into `main` run four parallel application checks and the required aggregate
 `CI Gate`. See the [continuous integration runbook](docs/runbooks/continuous-integration.md) for
 the exact jobs, security boundary, diagnostics, cleanup and future release reuse contract.
 

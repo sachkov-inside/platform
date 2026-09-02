@@ -208,9 +208,10 @@ pnpm check:full
 
 This adds isolated Testcontainers integration tests and the host full-stack smoke. Stop the full
 Compose stack and start only `pnpm infra:up` first, because the host smoke owns ports 3000, 3001 and
-3002. Pull requests into `main` run the complete application and Docker Compose gate on clean
-GitHub-hosted runners; see [Continuous integration](continuous-integration.md) for its job and
-failure-diagnostics contract.
+3002. This host-process smoke remains a local gate for relevant changes and release candidates; it
+does not run on every pull request. Pull requests into `main` run the four-job application and
+Docker Compose gate on clean GitHub-hosted runners; see
+[Continuous integration](continuous-integration.md) for its job and failure-diagnostics contract.
 
 Run only the real-PostgreSQL backend suite with:
 

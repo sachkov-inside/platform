@@ -11,19 +11,22 @@ request with a successful `CI Gate`.
 
 ## Required checks
 
-Five jobs run independently so a failure identifies its owning verification seam:
+Four jobs run independently so a failure identifies its owning verification seam:
 
 | Job | Repository command or proof |
 |---|---|
 | `quality` | frozen install, Chromium and `pnpm check` |
 | `integration` | `pnpm test:integration` with Testcontainers-owned PostgreSQL and MinIO |
-| `full-stack` | local Compose PostgreSQL/Object Storage plus host `pnpm smoke:fullstack` |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
 | `compose-production` | isolated `pnpm compose:production:smoke` |
 
-`CI Gate` depends on all five jobs and succeeds only when every result is `success`. The repository
+`CI Gate` depends on all four jobs and succeeds only when every result is `success`. The repository
 ruleset requires this exact check name and strict synchronization with `main`; individual job names
 may evolve without changing the branch-protection interface.
+
+The host-process `pnpm smoke:fullstack` is intentionally a local verification seam rather than a
+per-pull-request job. Run `pnpm check:full` locally when a change can affect the browser-to-host
+application path, or before a release candidate is selected.
 
 ## Diagnostics and cleanup
 

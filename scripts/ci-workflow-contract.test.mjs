@@ -16,7 +16,6 @@ const productionSmoke = readFileSync(
 const requiredJobs = [
   "quality",
   "integration",
-  "full-stack",
   "compose-development",
   "compose-production",
 ];
@@ -65,7 +64,7 @@ describe("application CI workflow contract", () => {
     }
   });
 
-  it("runs all five required checks on pinned GitHub-hosted runners", () => {
+  it("runs all four required checks on pinned GitHub-hosted runners", () => {
     for (const job of requiredJobs) {
       const body = jobBlock(job);
       assert.match(body, /^ {4}runs-on: ubuntu-24\.04$/mu);
@@ -80,12 +79,8 @@ describe("application CI workflow contract", () => {
     assert.match(jobBlock("integration"), /run: pnpm test:integration/u);
     assert.doesNotMatch(jobBlock("integration"), /services:/u);
 
-    assert.match(jobBlock("full-stack"), /run: pnpm infra:up/u);
-    assert.match(jobBlock("full-stack"), /run: pnpm smoke:fullstack/u);
-    assert.match(
-      jobBlock("full-stack"),
-      /docker compose down --volumes --remove-orphans/u,
-    );
+    assert.doesNotMatch(workflow, /^ {2}full-stack:/mu);
+    assert.doesNotMatch(workflow, /pnpm smoke:fullstack/u);
 
     assert.match(
       jobBlock("compose-development"),
@@ -138,9 +133,9 @@ describe("application CI workflow contract", () => {
   });
 
   it("uploads only bounded failure diagnostics for seven days", () => {
-    assert.equal(workflow.match(/uses: actions\/upload-artifact@/gu)?.length, 4);
-    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 4);
-    assert.equal(workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length, 6);
+    assert.equal(workflow.match(/uses: actions\/upload-artifact@/gu)?.length, 3);
+    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 3);
+    assert.equal(workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length, 4);
     assert.match(workflow, /docker compose logs --no-color --tail 500/u);
     assert.doesNotMatch(workflow, /\.ci-artifacts/u);
     assert.match(

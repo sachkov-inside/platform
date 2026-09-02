@@ -26,7 +26,8 @@ Repository dependency changes preserve:
 - `minimumReleaseAge: 1440` supply-chain quarantine;
 - strict peer dependencies without overrides;
 - atomic package-family updates;
-- `pnpm check:full`, Docker image/config checks and the Compose clean/repeat/watch smoke.
+- `pnpm check`, Docker image/config checks and the Compose clean/repeat smoke in CI;
+- local `pnpm check:full` when the update can affect the browser-to-host application path.
 
 ## Current baseline
 

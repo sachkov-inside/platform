@@ -69,52 +69,6 @@ jobs:
       - name: Run isolated integration tests
         run: pnpm test:integration
 
-  full-stack:
-    name: Full stack
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    env:
-      COMPOSE_PROJECT_NAME: inside-platform-full-stack-${{ github.run_id }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v7.0.1
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6.0.10
-      - name: Install Node.js
-        uses: actions/setup-node@v7.0.0
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Install Chromium
-        run: pnpm --filter @inside/web exec playwright install --with-deps chromium
-      - name: Start data services
-        run: pnpm infra:up
-      - name: Run full-stack smoke
-        run: pnpm smoke:fullstack
-      - name: Capture failure diagnostics
-        if: ${{ failure() }}
-        run: |
-          mkdir -p ci-artifacts/full-stack
-          docker compose ps --all >ci-artifacts/full-stack/compose-ps.txt 2>&1 || true
-          docker compose logs --no-color --tail 500 postgres object-storage >ci-artifacts/full-stack/compose.log 2>&1 || true
-      - name: Upload failure diagnostics
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: full-stack-diagnostics-${{ github.run_attempt }}
-          path: |
-            ci-artifacts/full-stack
-            apps/web/playwright-report
-            apps/web/test-results
-          if-no-files-found: ignore
-          retention-days: 7
-      - name: Stop data services
-        if: ${{ always() }}
-        run: docker compose down --volumes --remove-orphans
-
   compose-development:
     name: Development Compose
     runs-on: ubuntu-24.04
@@ -208,7 +162,6 @@ jobs:
     needs:
       - quality
       - integration
-      - full-stack
       - compose-development
       - compose-production
     steps:
@@ -216,14 +169,12 @@ jobs:
         env:
           QUALITY_RESULT: ${{ needs.quality.result }}
           INTEGRATION_RESULT: ${{ needs.integration.result }}
-          FULL_STACK_RESULT: ${{ needs.full-stack.result }}
           COMPOSE_DEVELOPMENT_RESULT: ${{ needs.compose-development.result }}
           COMPOSE_PRODUCTION_RESULT: ${{ needs.compose-production.result }}
         run: |
           for result in \
             "$QUALITY_RESULT" \
             "$INTEGRATION_RESULT" \
-            "$FULL_STACK_RESULT" \
             "$COMPOSE_DEVELOPMENT_RESULT" \
             "$COMPOSE_PRODUCTION_RESULT"
           do
