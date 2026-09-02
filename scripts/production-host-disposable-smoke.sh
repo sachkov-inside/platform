@@ -5,6 +5,22 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 suffix="$$"
 image="inside-production-host-fixture:$suffix"
 container="inside-production-host-fixture-$suffix"
+systemd_ready_timeout_seconds=30
+systemd_ready_poll_interval_seconds=1
+
+wait_for_disposable_systemd() {
+  local deadline_seconds=$((SECONDS + systemd_ready_timeout_seconds))
+  local systemd_state
+  while ((SECONDS < deadline_seconds)); do
+    systemd_state="$(docker exec "$container" systemctl is-system-running 2>/dev/null || true)"
+    if [[ "$systemd_state" == "running" || "$systemd_state" == "degraded" ]]; then
+      return 0
+    fi
+    sleep "$systemd_ready_poll_interval_seconds"
+  done
+  echo "Disposable Ubuntu systemd did not become ready" >&2
+  return 1
+}
 
 docker_architecture="$(docker info --format '{{.Architecture}}')"
 if [[ "$docker_architecture" != "x86_64" && "$docker_architecture" != "amd64" ]]; then
@@ -37,17 +53,7 @@ docker run \
   --volume /sys/fs/cgroup:/sys/fs/cgroup:rw \
   "$image" >/dev/null
 
-for _ in {1..30}; do
-  state="$(docker exec "$container" systemctl is-system-running 2>/dev/null || true)"
-  if [[ "$state" == "running" || "$state" == "degraded" ]]; then
-    break
-  fi
-  sleep 1
-done
-if [[ "$state" != "running" && "$state" != "degraded" ]]; then
-  echo "Disposable Ubuntu systemd did not become ready" >&2
-  exit 1
-fi
+wait_for_disposable_systemd
 
 docker exec "$container" mkdir -p \
   /foundation/infra/identity \

@@ -207,10 +207,10 @@ def install_packages(manifest: dict[str, object]) -> None:
     run(["systemctl", "enable", "--now", "docker", "ssh"])
 
 
-def download(url: str, destination: Path, sha256: str | None, mode: int) -> None:
+def download(url: str, destination: Path, sha256: str, mode: int) -> None:
     with urllib.request.urlopen(url) as response:
         payload = response.read()
-    if sha256 is not None and hashlib.sha256(payload).hexdigest() != sha256:
+    if hashlib.sha256(payload).hexdigest() != sha256:
         raise FoundationError(f"Checksum mismatch for {destination.name}")
     atomic_write(destination, payload, mode)
 

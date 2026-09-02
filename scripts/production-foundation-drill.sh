@@ -8,6 +8,13 @@ logto_project="inside-foundation-logto-$$"
 database_network="inside-foundation-database-$$"
 logto_port="${FOUNDATION_DRILL_LOGTO_PORT:-43301}"
 artifact_dir="${FOUNDATION_DRILL_ARTIFACT_DIR:-}"
+oidc_discovery_retry_count=20
+oidc_discovery_retry_delay_seconds=1
+oidc_discovery_retry_policy=(
+  --retry "$oidc_discovery_retry_count"
+  --retry-all-errors
+  --retry-delay "$oidc_discovery_retry_delay_seconds"
+)
 
 public_config="$temporary_root/public"
 secret_config="$temporary_root/secrets"
@@ -66,6 +73,18 @@ latest_backup_set() {
   "${database_compose[@]}" --profile operations run --rm -T pgbackrest \
     --stanza=production --output=json info \
     | node -e 'let value="";process.stdin.on("data",chunk=>value+=chunk).on("end",()=>{const info=JSON.parse(value);const backups=info[0]?.backup??[];process.stdout.write(backups.at(-1)?.label??"")})'
+}
+
+resolve_postgres_volume() {
+  local volume
+  volume="$(docker volume ls --quiet \
+    --filter "label=com.docker.compose.project=$database_project" \
+    --filter "label=com.docker.compose.volume=postgres-data")"
+  if [[ -z "$volume" || "$volume" == *$'\n'* ]]; then
+    echo "Could not resolve one disposable PostgreSQL volume" >&2
+    return 1
+  fi
+  printf '%s\n' "$volume"
 }
 
 verify_recovery_markers() {
@@ -161,7 +180,7 @@ chmod 600 "$FOUNDATION_MINIO_CERT_DIR/private.key"
 "${logto_compose[@]}" build logto
 "${logto_compose[@]}" up --detach --wait
 "${logto_compose[@]}" run --rm logto-migrations
-discovery="$({ curl --fail --silent --show-error --retry 20 --retry-all-errors --retry-delay 1 "http://127.0.0.1:${logto_port}/oidc/.well-known/openid-configuration"; })"
+discovery="$({ curl --fail --silent --show-error "${oidc_discovery_retry_policy[@]}" "http://127.0.0.1:${logto_port}/oidc/.well-known/openid-configuration"; })"
 node -e 'const value=JSON.parse(process.argv[1]);if(value.issuer!=="https://auth.sachkov.dev/oidc")process.exit(1)' "$discovery"
 
 for database_spec in "inside:platform_owner" "logto:logto_owner"; do
@@ -236,13 +255,7 @@ fi
 "${logto_compose[@]}" down
 "${database_compose[@]}" stop postgres
 "${database_compose[@]}" rm --force postgres
-postgres_volume="$(docker volume ls --quiet \
-  --filter "label=com.docker.compose.project=$database_project" \
-  --filter "label=com.docker.compose.volume=postgres-data")"
-if [[ -z "$postgres_volume" || "$postgres_volume" == *$'\n'* ]]; then
-  echo "Could not resolve one disposable PostgreSQL volume" >&2
-  exit 1
-fi
+postgres_volume="$(resolve_postgres_volume)"
 docker volume rm "$postgres_volume" >/dev/null
 
 empty_started="$(date +%s)"
@@ -259,9 +272,7 @@ empty_rpo="$(node -e 'process.stdout.write(String(Math.max(0, Number(process.arg
 
 "${database_compose[@]}" stop postgres
 "${database_compose[@]}" rm --force postgres
-postgres_volume="$(docker volume ls --quiet \
-  --filter "label=com.docker.compose.project=$database_project" \
-  --filter "label=com.docker.compose.volume=postgres-data")"
+postgres_volume="$(resolve_postgres_volume)"
 docker volume rm "$postgres_volume" >/dev/null
 pitr_started="$(date +%s)"
 "${database_compose[@]}" --profile operations run --rm restore \
