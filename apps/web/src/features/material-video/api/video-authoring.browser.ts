@@ -1,19 +1,11 @@
 import { z } from "zod";
 
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
+import { videoSchema, type MaterialVideo } from "../model/video";
 
-export const videoSchema = z.object({
-  access: z.enum(["free", "membership"]),
-  failureCode: z.string().optional(),
-  materialId: z.uuid(),
-  state: z.enum(["uploading", "processing", "ready", "failed"]),
-  title: z.string(),
-  videoId: z.uuid(),
-}).strict();
 const readyEnvelopeSchema = z.object({ kind: z.literal("ready"), value: z.unknown() }).strict();
 const uploadResponseSchema = z.object({ uploadEndpoint: z.url(), video: videoSchema }).strict();
 
-export type MaterialVideo = z.infer<typeof videoSchema>;
 export type VideoMutationResult<Value> =
   | { readonly kind: "ready"; readonly value: Value }
   | { readonly kind: "unavailable" };
@@ -61,6 +53,17 @@ export async function reconcileMaterialVideo(input: {
   formData.set("videoId", input.videoId);
   return parseMutation(
     await requestSameOriginMutation("/api/authoring/material-video-reconciliations", "POST", formData),
+    videoSchema,
+  );
+}
+
+export async function retryMaterialVideoDeletion(input: {
+  readonly videoId: string;
+}): Promise<VideoMutationResult<MaterialVideo>> {
+  const formData = new FormData();
+  formData.set("videoId", input.videoId);
+  return parseMutation(
+    await requestSameOriginMutation("/api/authoring/material-video-deletion-retries", "POST", formData),
     videoSchema,
   );
 }

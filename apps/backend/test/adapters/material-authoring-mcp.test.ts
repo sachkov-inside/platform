@@ -89,6 +89,8 @@ describe("Material authoring MCP adapter", () => {
             firstPublishedAt: "2026-08-30T10:00:00.000Z",
             publishedAt: null,
             primaryVideoId: null,
+            primaryVideo: null,
+            latestVideoDeletion: null,
             metadata: {
               ...incompleteMetadata("Loaded"),
               seriesMemberships: [],

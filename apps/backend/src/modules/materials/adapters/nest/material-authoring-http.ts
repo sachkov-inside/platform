@@ -15,6 +15,7 @@ import type {
   SetContentCollectionArchiveError,
   UpdateContentCollectionError,
 } from "../../index.js";
+import { videoAuthoringPresentationSchema } from "../../../videos/index.js";
 import {
   contentVersionWireSchema,
   idempotencyKeyWireSchema,
@@ -50,6 +51,8 @@ export const materialSchema = z
     contentVersion: contentVersionSchema,
     publicationState: publicationStateWireSchema,
     primaryVideoId: z.uuid().nullable(),
+    primaryVideo: videoAuthoringPresentationSchema.nullable(),
+    latestVideoDeletion: videoAuthoringPresentationSchema.nullable(),
     firstPublishedAt: z.iso.datetime({ offset: true }).nullable(),
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
     metadata: materialMetadataSchema,
@@ -66,6 +69,7 @@ export const saveMaterialBodySchema = z
     expectedContentVersion: contentVersionSchema,
     publicationState: publicationStateWireSchema,
     primaryVideoId: z.uuid().nullable().default(null),
+    deleteVideoId: z.uuid().nullable().default(null),
     metadata: materialMetadataSelectionSchema,
     body: materialBodySnapshotSchema,
   })
@@ -79,7 +83,10 @@ export const transitionMaterialPublicationBodySchema = z
   .strict();
 
 export const deleteDraftBodySchema = z
-  .object({ expectedContentVersion: contentVersionSchema })
+  .object({
+    deleteVideoId: z.uuid().nullable().default(null),
+    expectedContentVersion: contentVersionSchema,
+  })
   .strict();
 
 export const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);

@@ -8,6 +8,7 @@
     "dev:web": "pnpm --filter @inside/web dev",
     "dev:api": "pnpm --filter @inside/backend dev:api",
     "dev:mcp": "pnpm --filter @inside/backend dev:mcp",
+    "dev:video-deletions-worker": "pnpm --filter @inside/backend dev:video-deletions-worker",
     "storybook": "pnpm --filter @inside/web storybook",
     "platform:doctor": "bash scripts/doctor.sh",
     "identity:proof:certs": "node scripts/identity-proof-certificates.mjs",

@@ -90,7 +90,7 @@ throwaway prototype:
 |---|---|
 | Runtime/tooling | Node.js 24 LTS, strict TypeScript, pnpm и exact lockfile |
 | Web | Next.js App Router + React |
-| Backend | один NestJS + Fastify codebase с thin demand-driven process entrypoints; сейчас `api`, `mcp`, capability-specific `material-assets-worker` и `profile-avatars-worker` |
+| Backend | один NestJS + Fastify codebase с thin demand-driven process entrypoints; сейчас `api`, `mcp`, capability-specific `material-assets-worker`, `profile-avatars-worker` и `video-deletions-worker` |
 | Application contract | REST + OpenAPI; transports не владеют application rules |
 | Transactional store | PostgreSQL 18 |
 | Data access | Prisma 7 + `@prisma/adapter-pg` — единственный application ORM для всех persistent capabilities; capability-scoped clients ограничивают delegates; checked-in append-only SQL migrations с checksum остаются authority |
@@ -433,8 +433,13 @@ Published body читается только для current `published` state; d
    retry/reconciliation.
 10. Save/publish с `primaryVideoId` fails closed для missing, processing/failed, wrong-Material,
     wrong-access или wrong-project Video. Current и published pointers меняются одной Material Save;
-    неуспешная replacement не меняет уже опубликованный playback. Remove сохраняет provider object
-    как tracked unreferenced Video до отдельной owner-approved retention policy — silent delete нет.
+    неуспешная replacement не меняет уже опубликованный playback. «Убрать из материала» и обычная
+    replacement никогда не удаляют provider object. Только отдельное подтверждённое действие для
+    immutable `platform_upload` атомарно сохраняет detach/replacement и durable VideoDeletion;
+    `external_attachment` всегда detach-only. `video-deletions-worker` повторно проверяет current и
+    published references под Material concurrency guard, ждёт terminal provider state для active
+    upload/processing, выполняет bounded retry и сохраняет audit/tombstone. UI показывает
+    `deletion_requested | deleting | deleted | delete_failed` и не обещает provider restore.
 11. Reader сначала получает только safe Video presentation. До явного click нет iframe, provider
     script/request, locator или token. Playback session повторно вызывает exact `ContentAccess`
     `play`; membership Video получает short-lived JWT, а strict provider authorization callback ещё
@@ -445,7 +450,8 @@ Published body читается только для current `published` state; d
     устройствами. Anonymous public resume хранится versioned по local Video ID в `localStorage`;
     replacement не наследует позицию. Ни один resume path не меняет manual `ReadingState` и не
     передаёт Account PII provider-у.
-13. Production `real` adapter требует отдельные public/membership projects, callback credentials,
+13. Production `real` adapter требует отдельные public/membership projects, delete-capable API
+    token, callback credentials,
     webhook secret и playback signing secret. ADR о production adapter/config создаётся только
     после redacted credentialed proof на approved account; test adapter не считается таким proof.
 

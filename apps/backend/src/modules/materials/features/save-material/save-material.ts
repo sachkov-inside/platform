@@ -33,7 +33,8 @@ import { materializeMetadataSelection } from "../../shared/materialize-metadata-
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
-import { lockMaterialAssetReferenceSet, lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
+import { requestVideoDeletion } from "../../../videos/index.js";
+import { lockMaterialForLifecycleChange, lockMaterialReferenceChanges } from "../../infrastructure/postgres/material-locks.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
 import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
@@ -47,6 +48,7 @@ const saveMaterialCommand = z
     expectedContentVersion: z.number().int().positive(),
     publicationState: z.enum(["draft", "published", "unpublished"]),
     primaryVideoId: z.uuid().nullable().optional().default(null),
+    deleteVideoId: z.uuid().nullable().optional().default(null),
     metadata: z.unknown(),
     body: z.unknown(),
   })
@@ -100,6 +102,7 @@ export function assembleSaveMaterial(
       metadata: selection.value.toValues(),
       body: body.value,
       primaryVideoId: command.primaryVideoId,
+      deleteVideoId: command.deleteVideoId,
     });
     let materializedMetadata: MaterialMetadata | undefined;
     const result = await executeAuthoringTransaction<
@@ -124,12 +127,22 @@ export function assembleSaveMaterial(
               command.materialId,
               selection.value.toValues().seriesIds,
             );
+            await lockMaterialReferenceChanges(transaction, command.materialId);
             const locked = await lockMaterialForLifecycleChange(
               transaction,
               command.materialId,
             );
             if (locked === undefined) {
               return rollback({ code: "material_not_found" });
+            }
+            if (
+              command.deleteVideoId !== null &&
+              command.primaryVideoId === command.deleteVideoId
+            ) {
+              return rollback({
+                code: "invalid_reference",
+                issues: [{ code: "video_deletion_target_mismatch", path: "/deleteVideoId" }],
+              });
             }
             const selectedValues = selection.value.toValues();
             const slug =
@@ -167,7 +180,6 @@ export function assembleSaveMaterial(
               rollback,
             );
             if (dependencies.materialAssets !== undefined) {
-              await lockMaterialAssetReferenceSet(transaction, command.materialId);
               const assetIssues = await dependencies.materialAssets.inspectReferences(
                 command.materialId,
                 assetReferences,
@@ -270,6 +282,19 @@ export function assembleSaveMaterial(
                 referencedAssetIds: assetReferences.map(({ assetId }) => assetId),
               });
               if (!marked.ok) return rollback(marked.error);
+            }
+            if (command.deleteVideoId !== null) {
+              const deletion = await requestVideoDeletion(transaction, {
+                actor: command.actor,
+                materialId: command.materialId,
+                videoId: command.deleteVideoId,
+              }, savedAt);
+              if (!deletion.ok) {
+                return rollback({
+                  code: "invalid_reference",
+                  issues: [{ code: deletion.code, path: "/deleteVideoId" }],
+                });
+              }
             }
             return {
               kind: "material",

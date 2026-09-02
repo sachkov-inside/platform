@@ -43,9 +43,31 @@ export function assembleLoadMaterial(
       if (material === undefined) {
         return failure<never, LoadMaterialError>({ code: "material_not_found" });
       }
-      return material.ok
-        ? { ok: true, value: toMaterialDto(material.value) }
-        : material;
+      if (!material.ok) return material;
+      const [primaryVideo, latestVideoDeletion] = await Promise.all([
+        material.value.primaryVideoId === null || dependencies.videos === undefined
+          ? Promise.resolve({ ok: true as const, value: null })
+          : dependencies.videos.loadAuthoringPresentation({
+              materialId: parsed.value.materialId,
+              videoId: material.value.primaryVideoId,
+            }),
+        dependencies.videos === undefined
+          ? Promise.resolve({ ok: true as const, value: null })
+          : dependencies.videos.loadLatestDeletion(parsed.value.materialId),
+      ]);
+      if (!primaryVideo.ok || !latestVideoDeletion.ok) {
+        return failure<never, LoadMaterialError>({
+          code: "dependency_unavailable",
+          retryable: true,
+        });
+      }
+      return {
+        ok: true,
+        value: toMaterialDto(material.value, {
+          primaryVideo: primaryVideo.value,
+          latestVideoDeletion: latestVideoDeletion.value,
+        }),
+      };
     } catch (error) {
       return failure(mapPostgresReadError(error));
     }

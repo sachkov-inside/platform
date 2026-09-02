@@ -66,8 +66,16 @@ _Avoid_: Media library item, attachment URL, mutable file
 **Video**:
 A local identity for one Kinescope object owned by exactly one Material. A Material may select at
 most one ready Video through nullable `primaryVideoId` outside MaterialBody; provider IDs, embed
-locators, status and errors remain Video facts and never enter the document.
+locators, status and errors remain Video facts and never enter the document. Its immutable origin
+distinguishes a Platform Upload, which an author may explicitly delete, from an External
+Attachment, which Platform may only detach.
 _Avoid_: Inline video node, iframe block, provider URL as Material content
+
+**VideoDeletion**:
+A durable request to delete one Platform Upload after a successful Material Save has removed every
+current and published reference. It remains observable through requested, deleting, deleted or
+failed state; ordinary detach and replacement never create it.
+_Avoid_: Automatic cleanup, remove button, external video deletion
 
 ## Access and activity
 

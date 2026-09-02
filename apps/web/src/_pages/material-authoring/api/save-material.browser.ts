@@ -11,6 +11,7 @@ export async function saveMaterial(
 ): Promise<SaveMaterialResult> {
   const formData = new FormData();
   formData.set("access", input.access);
+  formData.set("deleteVideoId", input.deleteVideoId ?? "none");
   formData.set("document", JSON.stringify(input.document));
   formData.set("expectedContentVersion", String(input.expectedContentVersion));
   formData.set("formatId", input.formatId);

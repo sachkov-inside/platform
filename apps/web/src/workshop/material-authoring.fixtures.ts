@@ -43,6 +43,9 @@ export const materialAuthoringPresentation = {
   draft: {
     access: "membership",
     canDelete: true,
+    deleteVideoId: null,
+    latestVideoDeletion: null,
+    primaryVideo: null,
     primaryVideoId: null,
     document: {
       type: "doc",

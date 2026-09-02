@@ -288,6 +288,7 @@ describe("Authoring Materials server adapter", () => {
     expect(dependencies.delete).toHaveBeenNthCalledWith(
       2,
       {
+        deleteVideoId: null,
         expectedContentVersion: 7,
         idempotencyKey: `web-delete-material-draft-${submissionId}`,
         materialId,
@@ -295,6 +296,20 @@ describe("Authoring Materials server adapter", () => {
       "access-token",
     );
     expect(dependencies.transition).not.toHaveBeenCalled();
+  });
+
+  it("passes an explicitly selected owned Video through draft hard-delete", async () => {
+    const dependencies = lifecycleDependencies();
+    const formData = deletionFormData();
+    const videoId = "96000000-0000-4000-8000-000000000009";
+    formData.set("deleteVideoId", videoId);
+
+    await executeDeleteMaterialDraft(formData, "access-token", dependencies.delete);
+
+    expect(dependencies.delete).toHaveBeenCalledWith(
+      expect.objectContaining({ deleteVideoId: videoId }),
+      "access-token",
+    );
   });
 
   it.each([

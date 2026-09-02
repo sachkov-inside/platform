@@ -38,25 +38,23 @@ import {
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
 import { VIDEOS } from "../../videos.module.js";
-import type { VideoError, Videos } from "../../facets/videos/videos.interface.js";
+import {
+  videoAccessSchema,
+  videoDtoSchema,
+  type VideoError,
+  type Videos,
+} from "../../facets/videos/videos.interface.js";
 
-const videoSchema = z.object({
-  access: z.enum(["free", "membership"]),
-  failureCode: z.string().optional(),
-  materialId: z.uuid(),
-  state: z.enum(["uploading", "processing", "ready", "failed"]),
-  title: z.string(),
-  videoId: z.uuid(),
-}).strict();
+const videoSchema = videoDtoSchema;
 const initBodySchema = z.object({
-  access: z.enum(["free", "membership"]),
+  access: videoAccessSchema,
   byteSize: z.number().int().positive().max(20 * 1024 * 1024 * 1024),
   filename: z.string().min(1).max(255),
   title: z.string().min(1).max(255),
 }).strict();
 const initResponseSchema = z.object({ uploadEndpoint: z.url(), video: videoSchema }).strict();
 const attachmentBodySchema = z.object({
-  access: z.enum(["free", "membership"]),
+  access: videoAccessSchema,
   providerVideoId: z.string().min(1).max(256),
 }).strict();
 
@@ -144,6 +142,33 @@ export class VideoAuthoringController {
     if (!result.ok) throwVideoError(result.error);
     return result.value;
   }
+
+  @Post("videos/:videoId/deletion-retries")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "retryMaterialVideoDeletion",
+    summary: "Retry one failed owned Video deletion",
+  })
+  @ApiParam({ name: "videoId", schema: toOpenApiSchema(z.uuid()) })
+  @ApiOkResponse({ schema: toOpenApiSchema(videoSchema) })
+  @VideoErrorResponses({
+    400: ["invalid_request"],
+    403: ["forbidden"],
+    404: ["video_not_found"],
+    409: ["video_deletion_not_retryable"],
+    503: ["dependency_unavailable"],
+  })
+  async retryDeletion(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Param("videoId") videoId: string,
+  ) {
+    const result = await this.videos.retryDeletion({
+      actor: current.accountId,
+      videoId,
+    });
+    if (!result.ok) throwVideoError(result.error);
+    return result.value;
+  }
 }
 
 type VideoProblemCodes = Partial<Record<400 | 403 | 404 | 409 | 503, readonly [VideoError["code"], ...VideoError["code"][]]>>;
@@ -179,6 +204,7 @@ function throwVideoError(error: VideoError): never {
     case "idempotency_key_reused":
     case "provider_mismatch":
     case "upload_outcome_unknown":
+    case "video_deletion_not_retryable":
     case "video_not_ready": throw videoException(409, error.code);
     case "dependency_unavailable": throw videoException(503, error.code, true);
     default: return assertNever(error);

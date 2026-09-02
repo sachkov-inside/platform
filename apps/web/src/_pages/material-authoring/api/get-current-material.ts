@@ -14,6 +14,7 @@ import {
 } from "@/shared/api/backend/index.server";
 
 import { getMaterialAuthoringReferences } from "@/features/material-authoring-references.server";
+import { authoringVideoSchema } from "@/features/material-video/model/video";
 
 const seriesMembershipSchema = z
   .object({ ordinal: z.number().int().positive(), seriesId: z.uuid() })
@@ -24,6 +25,7 @@ const currentMaterialSchema = z
     contentVersion: z.number().int().positive(),
     firstPublishedAt: z.iso.datetime({ offset: true }).nullable(),
     materialId: z.uuid(),
+    latestVideoDeletion: authoringVideoSchema.nullable(),
     metadata: z
       .object({
         access: z.enum(["free", "membership"]),
@@ -38,6 +40,7 @@ const currentMaterialSchema = z
       .strict(),
     publicationState: z.enum(["draft", "published", "unpublished"]),
     primaryVideoId: z.uuid().nullable(),
+    primaryVideo: authoringVideoSchema.nullable(),
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
   })
   .strict();
@@ -132,6 +135,9 @@ export async function getCurrentMaterial(
       document: parsed.data.body.doc,
       formatId: parsed.data.metadata.formatId ?? "unassigned",
       materialId: parsed.data.materialId,
+      deleteVideoId: null,
+      latestVideoDeletion: parsed.data.latestVideoDeletion,
+      primaryVideo: parsed.data.primaryVideo,
       primaryVideoId: parsed.data.primaryVideoId,
       readOnly: false,
       seriesIds: parsed.data.metadata.seriesMemberships.map(({ seriesId }) => seriesId),

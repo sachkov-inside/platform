@@ -3,6 +3,7 @@ import type {
   ForbiddenError,
   IdempotencyError,
   InvalidContentError,
+  InvalidReferenceError,
   MaterialNotFoundError,
   StaleContentVersionError,
   SystemError,
@@ -14,12 +15,14 @@ export interface DeleteDraftCommand {
   readonly idempotencyKey: string;
   readonly materialId: string;
   readonly expectedContentVersion: number;
+  readonly deleteVideoId?: string | null;
 }
 
 export type DeleteDraftError =
   | InvalidContentError
   | ForbiddenError
   | MaterialNotFoundError
+  | InvalidReferenceError
   | StaleContentVersionError
   | DraftDeletionForbiddenError
   | IdempotencyError

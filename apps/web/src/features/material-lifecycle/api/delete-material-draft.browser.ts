@@ -10,6 +10,7 @@ export async function deleteMaterialDraft(
   input: DeleteMaterialDraftInput,
 ): Promise<DeleteMaterialDraftResult> {
   const formData = new FormData();
+  formData.set("deleteVideoId", input.deleteVideoId ?? "none");
   formData.set("expectedContentVersion", String(input.expectedContentVersion));
   formData.set("materialId", input.materialId);
   formData.set("submissionId", input.submissionId);

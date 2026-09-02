@@ -93,3 +93,14 @@ export function requestVideoReconcile(
     { accessToken },
   );
 }
+
+export function requestVideoDeletionRetry(
+  videoId: string,
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new MaterialVideoAuthoringService(request).retryMaterialVideoDeletion({ videoId }),
+    200,
+    { accessToken },
+  );
+}

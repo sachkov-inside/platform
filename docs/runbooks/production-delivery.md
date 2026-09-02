@@ -5,14 +5,16 @@ the starting point for the CI/CD course, not a finished automated delivery syste
 
 ## What runs
 
-`compose.production.yaml` starts six services in order:
+`compose.production.yaml` starts seven services in order:
 
 1. PostgreSQL becomes healthy.
 2. `migrations` builds the backend production target and applies the schema once.
 3. `api` builds the same backend production target and becomes healthy.
 4. `profile-avatars-worker` builds the backend target and starts bounded orphan cleanup.
-5. `web` builds the Next.js production target and becomes healthy.
-6. Caddy exposes web over HTTP and HTTPS.
+5. `video-deletions-worker` builds the backend target and processes explicit, reference-safe
+   Kinescope deletion requests.
+6. `web` builds the Next.js production target and becomes healthy.
+7. Caddy exposes web over HTTP and HTTPS.
 
 The application images are built directly from the checked-out source with Compose. Pull requests
 already pass the application CI contract, but there is no registry input, digest-addressed release,
@@ -28,13 +30,16 @@ Profile Avatar cleanup is part of the feature's safe storage lifecycle, so its d
 present even in this small baseline. Configure its retention window with
 `PROFILE_AVATAR_ORPHAN_GRACE_SECONDS`.
 
+Explicit owned Video deletion is also part of the safe provider lifecycle, so its dedicated worker
+ships with the Kinescope deletion capability. See the [Video deletion runbook](video-deletion.md).
+
 ## Runtime configuration
 
 Create the ignored server-owned env files from the tracked templates and replace every placeholder.
 Each service receives only its own runtime configuration and secrets.
-The API file also owns Kinescope API/project/callback/webhook/playback values; the browser and web
-container do not receive them. Production startup rejects the test adapter and equal public/member
-project IDs.
+The API and Video deletion worker files own the Kinescope values needed by their processes; the
+browser and web container do not receive them. Production startup rejects the test adapter and
+equal public/member project IDs.
 
 ```bash
 for template in config/compose/production/*.env.example; do
@@ -69,9 +74,9 @@ without rebuilding source.
 ## Local production smoke
 
 The isolated smoke uses synthetic runtime values, builds the current production targets, applies
-all migrations, verifies the Profile Avatar worker readiness log and API health, and checks the home
-and Library pages through Caddy. It removes its containers, volumes and Compose-built images after
-the run.
+all migrations, verifies the Profile Avatar and Video deletion worker readiness logs and API
+health, and checks the home and Library pages through Caddy. It removes its containers, volumes and
+Compose-built images after the run.
 
 ```bash
 pnpm compose:production:smoke

@@ -42,6 +42,10 @@ export interface MaterialContent {
     readonly checkedContentVersion?: number;
     readonly materialId: string;
   }): Promise<Result<boolean, MaterialContentError>>;
+  containsVideoReference(input: {
+    readonly materialId: string;
+    readonly videoId: string;
+  }): Promise<Result<boolean, MaterialContentError>>;
 }
 
 export const MATERIAL_CONTENT = Symbol("MATERIAL_CONTENT");
@@ -67,6 +71,10 @@ const assetReferenceQuerySchema = z
     materialId: z.uuid(),
   })
   .strict();
+const videoReferenceQuerySchema = z.object({
+  materialId: z.uuid(),
+  videoId: z.uuid(),
+}).strict();
 
 export function assembleMaterialContent(dependencies: {
   readonly prisma: MaterialsPrismaClient;
@@ -211,6 +219,37 @@ export function assembleMaterialContent(dependencies: {
             (resource) => resource.assetId === parsed.data.assetId,
           ),
         };
+      } catch (error) {
+        return { error: mapPostgresReadError(error), ok: false };
+      }
+    },
+
+    async containsVideoReference(input: {
+      readonly materialId: string;
+      readonly videoId: string;
+    }): Promise<Result<boolean, MaterialContentError>> {
+      const parsed = videoReferenceQuerySchema.safeParse(input);
+      if (!parsed.success) {
+        return { error: { code: "invalid_request_shape" }, ok: false };
+      }
+      try {
+        const [current, published] = await Promise.all([
+          dependencies.prisma.material.findFirst({
+            where: {
+              id: parsed.data.materialId,
+              primaryVideoId: parsed.data.videoId,
+            },
+            select: { id: true },
+          }),
+          dependencies.prisma.publishedMaterial.findFirst({
+            where: {
+              materialId: parsed.data.materialId,
+              primaryVideoId: parsed.data.videoId,
+            },
+            select: { materialId: true },
+          }),
+        ]);
+        return { ok: true, value: current !== null || published !== null };
       } catch (error) {
         return { error: mapPostgresReadError(error), ok: false };
       }

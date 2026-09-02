@@ -1,9 +1,18 @@
 import { randomUUID } from "node:crypto";
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
-import { assembleVideos, type ProviderVideo, type VideoProvider } from "../../src/modules/videos/index.js";
+import {
+  assembleVideoDeletionMaintenance,
+  assembleVideos,
+  requestVideoDeletion,
+  type ProviderVideo,
+  type VideoProvider,
+} from "../../src/modules/videos/index.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
+
+const unusedDelete: VideoProvider["delete"] = () =>
+  Promise.reject(new Error("unused"));
 
 describe("Videos against PostgreSQL and provider test adapter", () => {
   let database: TestDatabase;
@@ -20,6 +29,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     const remote = new Map<string, ProviderVideo>();
     let providerAvailable = true;
     const provider: VideoProvider = {
+      delete: unusedDelete,
       initUpload(input) {
         const id = randomUUID();
         remote.set(id, {
@@ -141,6 +151,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
   test("maps an unknown authoritative provider status to a visible failed state", async () => {
     const providerVideoId = randomUUID();
     const provider: VideoProvider = {
+      delete: unusedDelete,
       initUpload: () => Promise.reject(new Error("unused")),
       find: () => Promise.resolve({
         embedLocator: null,
@@ -173,6 +184,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider: {
+        delete: unusedDelete,
         initUpload: () => {
           initCalls += 1;
           return Promise.reject(new Error("timeout after an unknown provider outcome"));
@@ -224,6 +236,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
   test("keeps an early webhook pending and reconciles it after the local Video exists", async () => {
     const providerVideoId = `early-${randomUUID()}`;
     const provider: VideoProvider = {
+      delete: unusedDelete,
       initUpload: () => Promise.resolve({
         id: providerVideoId,
         uploadEndpoint: `https://uploads.example.test/${providerVideoId}`,
@@ -280,6 +293,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     const lookupReleased = new Promise<void>((resolve) => { releaseLookup = resolve; });
     let findCalls = 0;
     const provider: VideoProvider = {
+      delete: unusedDelete,
       initUpload: () => Promise.reject(new Error("unused")),
       async find(input) {
         findCalls += 1;
@@ -328,6 +342,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
 
   test("rejects a provider response whose identity does not match the lookup", async () => {
     const provider: VideoProvider = {
+      delete: unusedDelete,
       initUpload: () => Promise.reject(new Error("unused")),
       find: () => Promise.resolve({
         embedLocator: "https://kinescope.io/embed/different-video",
@@ -350,4 +365,446 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       providerVideoId: "requested-video",
     })).resolves.toEqual({ error: { code: "provider_mismatch" }, ok: false });
   });
+
+  test("deletes a requested owned Video once and keeps late webhooks from resurrecting its tombstone", async () => {
+    const deletedProviderIds: string[] = [];
+    const providerVideoId = `delete-${randomUUID()}`;
+    const provider: VideoProvider = {
+      delete(input) {
+        deletedProviderIds.push(input.id);
+        return Promise.resolve({ kind: "deleted", providerRequestId: "provider-delete-1" });
+      },
+      find(input) {
+        return Promise.resolve({
+          embedLocator: `https://kinescope.io/embed/${input.id}`,
+          id: input.id,
+          projectId: input.projectId,
+          status: "done",
+          title: "Deletion target",
+        });
+      },
+      initUpload: () => Promise.reject(new Error("unused")),
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: database.prisma,
+      provider,
+      projects: { free: "public-project", membership: "member-project" },
+    });
+    const materialId = randomUUID();
+    const video = await database.prisma.video.create({
+      data: {
+        access: "free",
+        createdAt: new Date("2026-09-02T10:00:00.000Z"),
+        createdBy: randomUUID(),
+        id: randomUUID(),
+        materialId,
+        origin: "platform_upload",
+        projectId: "public-project",
+        providerEmbedLocator: `https://kinescope.io/embed/${providerVideoId}`,
+        providerStatus: "done",
+        providerVideoId,
+        providerVisibleAt: new Date("2026-09-02T10:00:00.000Z"),
+        readyAt: new Date("2026-09-02T10:00:00.000Z"),
+        state: "ready",
+        title: "Deletion target",
+        updatedAt: new Date("2026-09-02T10:00:00.000Z"),
+      },
+    });
+    await database.prisma.$transaction((transaction) => requestVideoDeletion(
+      transaction,
+      { actor: randomUUID(), materialId, videoId: video.id },
+      new Date("2026-09-02T10:01:00.000Z"),
+    ));
+    const maintenance = assembleVideoDeletionMaintenance({
+      clock: () => new Date("2026-09-02T10:02:00.000Z"),
+      prisma: database.prisma,
+      provider,
+    });
+
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toEqual({
+        ok: true,
+        value: { deferred: 0, deleted: 1, failed: 0, retried: 0 },
+      });
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toEqual({
+        ok: true,
+        value: { deferred: 0, deleted: 0, failed: 0, retried: 0 },
+      });
+    expect(deletedProviderIds).toEqual([providerVideoId]);
+    await expect(videos.loadAuthoringPresentation({ materialId, videoId: video.id }))
+      .resolves.toMatchObject({
+        ok: true,
+        value: { origin: "platform_upload", state: "deleted" },
+      });
+    await expect(videos.loadPlayback(video.id)).resolves.toEqual({
+      error: { code: "video_not_ready" },
+      ok: false,
+    });
+    await expect(videos.saveProgress({
+      accountId: randomUUID(),
+      durationSeconds: 60,
+      positionSeconds: 10,
+      videoId: video.id,
+    })).resolves.toEqual({
+      error: { code: "video_not_ready" },
+      ok: false,
+    });
+
+    await expect(videos.acceptWebhook({
+      event: "media.update.status",
+      providerStatus: "done",
+      providerVideoId,
+    })).resolves.toEqual({ ok: true, value: undefined });
+    await expect(videos.loadPresentation({ materialId, videoId: video.id }))
+      .resolves.toMatchObject({
+        ok: true,
+        value: { state: "deleted" },
+      });
+  });
+
+  test("fails closed before provider deletion when a current or published reference remains", async () => {
+    const target = await seedRequestedVideo(database);
+    const reportFailure = vi.fn();
+    const deleteProviderVideo = vi.fn<VideoProvider["delete"]>()
+      .mockResolvedValue({ kind: "deleted" });
+    const maintenance = assembleVideoDeletionMaintenance({
+      prisma: database.prisma,
+      provider: {
+        delete: deleteProviderVideo,
+        find: () => Promise.reject(new Error("unused")),
+      },
+      reportFailure,
+    });
+
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(true) }))
+      .resolves.toEqual({
+        ok: true,
+        value: { deferred: 0, deleted: 0, failed: 1, retried: 0 },
+      });
+    expect(deleteProviderVideo).not.toHaveBeenCalled();
+    expect(reportFailure).toHaveBeenCalledWith({
+      category: "referenced",
+      operationId: target.operationId,
+    });
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: database.prisma,
+      provider: {
+        delete: deleteProviderVideo,
+        find: () => Promise.reject(new Error("unused")),
+        initUpload: () => Promise.reject(new Error("unused")),
+      },
+      projects: { free: "public-project", membership: "member-project" },
+    });
+    await expect(videos.inspectPrimaryReference({
+      access: "free",
+      materialId: target.materialId,
+      videoId: target.videoId,
+    })).resolves.toEqual({ error: { code: "video_not_ready" }, ok: false });
+    await expect(videos.loadPresentation({
+      materialId: target.materialId,
+      videoId: target.videoId,
+    })).resolves.toMatchObject({
+      ok: true,
+      value: { failureCode: "referenced", state: "delete_failed" },
+    });
+    await expect(videos.retryDeletion({
+      actor: randomUUID(),
+      videoId: target.videoId,
+    })).resolves.toMatchObject({
+      ok: true,
+      value: { state: "deletion_requested" },
+    });
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toMatchObject({ ok: true, value: { deleted: 1 } });
+    expect(deleteProviderVideo).toHaveBeenCalledOnce();
+  });
+
+  test("waits for an authoritative terminal provider state before DELETE", async () => {
+    const target = await seedRequestedVideo(database, { providerStatus: "processing" });
+    let currentTime = new Date("2026-09-02T11:00:00.000Z");
+    let remoteStatus = "processing";
+    const deleteProviderVideo = vi.fn<VideoProvider["delete"]>()
+      .mockResolvedValue({ kind: "deleted" });
+    const maintenance = assembleVideoDeletionMaintenance({
+      clock: () => currentTime,
+      prisma: database.prisma,
+      provider: {
+        delete: deleteProviderVideo,
+        find: () => Promise.resolve({
+          embedLocator: remoteStatus === "done"
+            ? `https://kinescope.io/embed/${target.providerVideoId}`
+            : null,
+          id: target.providerVideoId,
+          projectId: "public-project",
+          status: remoteStatus,
+          title: "Active deletion target",
+        }),
+      },
+    });
+
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toMatchObject({ ok: true, value: { deferred: 1, deleted: 0 } });
+    expect(deleteProviderVideo).not.toHaveBeenCalled();
+    remoteStatus = "done";
+    currentTime = new Date("2026-09-02T11:00:31.000Z");
+    await maintenance.process({ isReferenced: () => Promise.resolve(false) });
+    expect(deleteProviderVideo).not.toHaveBeenCalled();
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toMatchObject({ ok: true, value: { deferred: 0, deleted: 1 } });
+    expect(deleteProviderVideo).toHaveBeenCalledOnce();
+  });
+
+  test("reschedules active uploads so they cannot starve later terminal deletions", async () => {
+    const activeTargets = await Promise.all(
+      Array.from({ length: 25 }, () =>
+        seedRequestedVideo(database, { providerStatus: "processing" })),
+    );
+    const terminalTarget = await seedRequestedVideo(database);
+    const activeOperationIds = activeTargets.map((target) => target.operationId);
+    const activeVideoIds = activeTargets.map((target) => target.videoId);
+    const [firstActiveOperationId] = activeOperationIds;
+    if (firstActiveOperationId === undefined) throw new Error("missing active deletion target");
+    await database.prisma.videoDeletionOperation.updateMany({
+      data: {
+        nextAttemptAt: new Date("2026-09-02T09:00:00.000Z"),
+        requestedAt: new Date("2026-09-02T09:00:00.000Z"),
+      },
+      where: { id: { in: activeOperationIds } },
+    });
+    await database.prisma.videoDeletionOperation.update({
+      data: {
+        nextAttemptAt: new Date("2026-09-02T09:01:00.000Z"),
+        requestedAt: new Date("2026-09-02T09:01:00.000Z"),
+      },
+      where: { id: terminalTarget.operationId },
+    });
+    const deleteProviderVideo = vi.fn<VideoProvider["delete"]>()
+      .mockResolvedValue({ kind: "deleted" });
+    const maintenance = assembleVideoDeletionMaintenance({
+      clock: () => new Date("2026-09-02T12:00:00.000Z"),
+      prisma: database.prisma,
+      provider: {
+        delete: deleteProviderVideo,
+        find: ({ id, projectId }) => Promise.resolve({
+          embedLocator: null,
+          id,
+          projectId,
+          status: "processing",
+          title: "Active deletion target",
+        }),
+      },
+    });
+
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toEqual({
+        ok: true,
+        value: { deferred: 25, deleted: 0, failed: 0, retried: 0 },
+      });
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toEqual({
+        ok: true,
+        value: { deferred: 0, deleted: 1, failed: 0, retried: 0 },
+      });
+    expect(deleteProviderVideo).toHaveBeenCalledOnce();
+    expect(deleteProviderVideo).toHaveBeenCalledWith({ id: terminalTarget.providerVideoId });
+    await expect(database.prisma.videoDeletionOperation.findUniqueOrThrow({
+      where: { id: firstActiveOperationId },
+    })).resolves.toMatchObject({
+      nextAttemptAt: new Date("2026-09-02T12:00:30.000Z"),
+      state: "deletion_requested",
+    });
+
+    await database.prisma.$transaction([
+      database.prisma.videoDeletionOperation.updateMany({
+        data: { lastErrorCategory: "test_cleanup", state: "delete_failed" },
+        where: { id: { in: activeOperationIds } },
+      }),
+      database.prisma.video.updateMany({
+        data: { failureCode: "test_cleanup", state: "delete_failed" },
+        where: { id: { in: activeVideoIds } },
+      }),
+    ]);
+  });
+
+  test("converges a trusted 404 but fails an unverified 404 for operator investigation", async () => {
+    const trusted = await seedRequestedVideo(database);
+    const unverified = await seedRequestedVideo(database, { providerVisibleAt: null });
+    const maintenance = assembleVideoDeletionMaintenance({
+      prisma: database.prisma,
+      provider: {
+        delete: () => Promise.resolve({ kind: "not_found" }),
+        find: () => Promise.reject(new Error("unused")),
+      },
+    });
+
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toEqual({
+        ok: true,
+        value: { deferred: 0, deleted: 1, failed: 1, retried: 0 },
+      });
+    await expect(database.prisma.video.findUniqueOrThrow({ where: { id: trusted.videoId } }))
+      .resolves.toMatchObject({ state: "deleted" });
+    await expect(database.prisma.video.findUniqueOrThrow({ where: { id: unverified.videoId } }))
+      .resolves.toMatchObject({
+        failureCode: "provider_not_found_unverified",
+        state: "delete_failed",
+      });
+  });
+
+  test("retries a transient provider failure with bounded backoff and the same operation", async () => {
+    const target = await seedRequestedVideo(database);
+    let currentTime = new Date("2026-09-02T12:00:00.000Z");
+    const deleteProviderVideo = vi.fn<VideoProvider["delete"]>()
+      .mockResolvedValueOnce({ category: "timeout", kind: "retryable_failure" })
+      .mockResolvedValueOnce({ kind: "deleted" });
+    const maintenance = assembleVideoDeletionMaintenance({
+      clock: () => currentTime,
+      prisma: database.prisma,
+      provider: {
+        delete: deleteProviderVideo,
+        find: () => Promise.reject(new Error("unused")),
+      },
+      random: () => 0,
+    });
+    const before = await database.prisma.videoDeletionOperation.findUniqueOrThrow({
+      where: { videoId: target.videoId },
+    });
+
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toMatchObject({ ok: true, value: { retried: 1 } });
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toMatchObject({ ok: true, value: { deleted: 0, retried: 0 } });
+    currentTime = new Date("2026-09-02T12:00:31.000Z");
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toMatchObject({ ok: true, value: { deleted: 1 } });
+    const after = await database.prisma.videoDeletionOperation.findUniqueOrThrow({
+      where: { videoId: target.videoId },
+    });
+    expect(after.id).toBe(before.id);
+    expect(after.attempts).toBe(2);
+    expect(deleteProviderVideo).toHaveBeenCalledTimes(2);
+  });
+
+  test("ignores a stale worker result after a reclaimed claim has completed deletion", async () => {
+    const target = await seedRequestedVideo(database);
+    let resolveStaleAttempt: ((outcome: Awaited<ReturnType<VideoProvider["delete"]>>) => void)
+      | undefined;
+    const deleteProviderVideo = vi.fn<VideoProvider["delete"]>()
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveStaleAttempt = resolve;
+      }))
+      .mockResolvedValueOnce({ kind: "deleted", providerRequestId: "winning-request" });
+    let currentTime = new Date("2026-09-02T12:00:00.000Z");
+    const maintenance = assembleVideoDeletionMaintenance({
+      clock: () => currentTime,
+      prisma: database.prisma,
+      provider: {
+        delete: deleteProviderVideo,
+        find: () => Promise.reject(new Error("unused")),
+      },
+    });
+
+    const staleProcess = maintenance.process({ isReferenced: () => Promise.resolve(false) });
+    await vi.waitFor(() => {
+      expect(deleteProviderVideo).toHaveBeenCalledTimes(1);
+    });
+    currentTime = new Date("2026-09-02T12:06:00.000Z");
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toMatchObject({ ok: true, value: { deleted: 1 } });
+    resolveStaleAttempt?.({ category: "timeout", kind: "retryable_failure" });
+    await expect(staleProcess).resolves.toMatchObject({
+      ok: true,
+      value: { deleted: 0, failed: 0, retried: 0 },
+    });
+
+    await expect(database.prisma.videoDeletionOperation.findUniqueOrThrow({
+      where: { id: target.operationId },
+    })).resolves.toMatchObject({
+      providerRequestId: "winning-request",
+      state: "deleted",
+    });
+    await expect(database.prisma.video.findUniqueOrThrow({ where: { id: target.videoId } }))
+      .resolves.toMatchObject({ state: "deleted" });
+  });
+
+  test("records terminal provider categories without removing the local audit row", async () => {
+    const target = await seedRequestedVideo(database);
+    const reportFailure = vi.fn();
+    const maintenance = assembleVideoDeletionMaintenance({
+      prisma: database.prisma,
+      provider: {
+        delete: () => Promise.resolve({
+          category: "permission",
+          kind: "terminal_failure",
+          providerRequestId: "permission-request",
+        }),
+        find: () => Promise.reject(new Error("unused")),
+      },
+      reportFailure,
+    });
+
+    await expect(maintenance.process({ isReferenced: () => Promise.resolve(false) }))
+      .resolves.toMatchObject({ ok: true, value: { failed: 1 } });
+    await expect(database.prisma.videoDeletionOperation.findUniqueOrThrow({
+      where: { videoId: target.videoId },
+    })).resolves.toMatchObject({
+      lastErrorCategory: "permission",
+      providerRequestId: "permission-request",
+      state: "delete_failed",
+    });
+    await expect(database.prisma.video.findUniqueOrThrow({ where: { id: target.videoId } }))
+      .resolves.toMatchObject({
+        providerEmbedLocator: `https://kinescope.io/embed/${target.providerVideoId}`,
+        state: "delete_failed",
+      });
+    expect(reportFailure).toHaveBeenCalledWith({
+      category: "permission",
+      operationId: target.operationId,
+      providerRequestId: "permission-request",
+    });
+  });
 });
+
+async function seedRequestedVideo(
+  database: TestDatabase,
+  overrides: {
+    readonly providerStatus?: string;
+    readonly providerVisibleAt?: Date | null;
+  } = {},
+) {
+  const materialId = randomUUID();
+  const providerVideoId = `delete-fixture-${randomUUID()}`;
+  const videoId = randomUUID();
+  const createdAt = new Date("2026-09-02T09:00:00.000Z");
+  await database.prisma.video.create({
+    data: {
+      access: "free",
+      createdAt,
+      createdBy: randomUUID(),
+      id: videoId,
+      materialId,
+      origin: "platform_upload",
+      projectId: "public-project",
+      providerEmbedLocator: `https://kinescope.io/embed/${providerVideoId}`,
+      providerStatus: overrides.providerStatus ?? "done",
+      providerVideoId,
+      providerVisibleAt: overrides.providerVisibleAt === undefined
+        ? createdAt
+        : overrides.providerVisibleAt,
+      readyAt: createdAt,
+      state: "ready",
+      title: "Deletion fixture",
+      updatedAt: createdAt,
+    },
+  });
+  const deletion = await database.prisma.$transaction((transaction) => requestVideoDeletion(
+    transaction,
+    { actor: randomUUID(), materialId, videoId },
+    new Date("2026-09-02T09:01:00.000Z"),
+  ));
+  if (!deletion.ok) throw new Error(deletion.code);
+  return { materialId, operationId: deletion.operationId, providerVideoId, videoId };
+}

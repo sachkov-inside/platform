@@ -5,7 +5,10 @@ import type {
   DeleteDraftOperation,
 } from "./delete-draft.contract.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
-import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
+import {
+  lockMaterialForLifecycleChange,
+  lockMaterialReferenceChanges,
+} from "../../infrastructure/postgres/material-locks.js";
 import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import {
@@ -21,6 +24,7 @@ import {
 } from "../../shared/command-validation.js";
 import { executeIdempotentMaterialMutation } from "../../shared/idempotent-operation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
+import { requestVideoDeletion } from "../../../videos/index.js";
 
 const deleteDraftCommand = z
   .object({
@@ -28,6 +32,7 @@ const deleteDraftCommand = z
     idempotencyKey: idempotencyKeySchema,
     materialId: materialIdSchema,
     expectedContentVersion: z.number().int().positive(),
+    deleteVideoId: z.uuid().nullable().optional().default(null),
   })
   .strict();
 
@@ -56,6 +61,7 @@ export function assembleDeleteDraft(
       operation: "delete_draft",
       materialId: command.materialId,
       expectedContentVersion: command.expectedContentVersion,
+      deleteVideoId: command.deleteVideoId,
     });
     const result = await executeAuthoringTransaction<
       DeleteDraftEffect,
@@ -75,6 +81,7 @@ export function assembleDeleteDraft(
           rollback,
           async () => {
             await lockMaterialSeries(transaction, command.materialId);
+            await lockMaterialReferenceChanges(transaction, command.materialId);
             const material = await lockMaterialForLifecycleChange(
               transaction,
               command.materialId,
@@ -93,6 +100,28 @@ export function assembleDeleteDraft(
             }
             if (!material.lifecycle.canDelete()) {
               return rollback({ code: "draft_deletion_forbidden" });
+            }
+            if (
+              command.deleteVideoId !== null &&
+              material.primaryVideoId !== command.deleteVideoId
+            ) {
+              return rollback({
+                code: "invalid_reference",
+                issues: [{ code: "video_deletion_target_mismatch", path: "/deleteVideoId" }],
+              });
+            }
+            if (command.deleteVideoId !== null) {
+              const deletion = await requestVideoDeletion(transaction, {
+                actor: command.actor,
+                materialId: command.materialId,
+                videoId: command.deleteVideoId,
+              }, new Date());
+              if (!deletion.ok) {
+                return rollback({
+                  code: "invalid_reference",
+                  issues: [{ code: deletion.code, path: "/deleteVideoId" }],
+                });
+              }
             }
             await transaction.material.delete({
               where: { id: command.materialId },

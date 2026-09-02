@@ -14,6 +14,7 @@ const lockedMaterialRowsSchema = z.array(
     publication_state: z.enum(["draft", "published", "unpublished"]),
     content_version: z.coerce.number().int().positive(),
     first_published_at: z.coerce.date().nullable(),
+    primary_video_id: z.uuid().nullable(),
     published_at: z.coerce.date().nullable(),
     published_by: z.uuid().nullable(),
   }),
@@ -21,6 +22,7 @@ const lockedMaterialRowsSchema = z.array(
 
 export interface LockedMaterial {
   readonly lifecycle: Material;
+  readonly primaryVideoId: string | null;
   readonly publishedBy: string | null;
 }
 
@@ -36,6 +38,7 @@ export async function lockMaterialForLifecycleChange(
         publication_state,
         content_version,
         first_published_at,
+        primary_video_id,
         published_at,
         published_by
       from materials.materials
@@ -55,11 +58,12 @@ export async function lockMaterialForLifecycleChange(
           firstPublishedAt: row.first_published_at,
           publishedAt: row.published_at,
         }),
+        primaryVideoId: row.primary_video_id,
         publishedBy: row.published_by,
       };
 }
 
-export async function lockMaterialAssetReferenceSet(
+export async function lockMaterialReferenceChanges(
   transaction: MaterialsPrismaTransaction,
   materialIdValue: MaterialId,
 ): Promise<void> {

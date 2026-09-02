@@ -235,6 +235,7 @@ export class MaterialAuthoringService {
     idempotencyKey: string,
     materialId: string,
     requestBody: {
+      deleteVideoId: string | null;
       expectedContentVersion: number;
     },
   }): CancelablePromise<{
@@ -269,6 +270,13 @@ export class MaterialAuthoringService {
     };
     contentVersion: number;
     firstPublishedAt: string | null;
+    latestVideoDeletion: {
+      failureCode?: string;
+      origin: 'external_attachment' | 'platform_upload';
+      state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
+      title: string;
+      videoId: string;
+    } | null;
     materialId: string;
     metadata: {
       access: 'free' | 'membership';
@@ -283,6 +291,13 @@ export class MaterialAuthoringService {
       title: string | null;
       topicId: string | null;
     };
+    primaryVideo: {
+      failureCode?: string;
+      origin: 'external_attachment' | 'platform_upload';
+      state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
+      title: string;
+      videoId: string;
+    } | null;
     primaryVideoId: string | null;
     publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
@@ -312,6 +327,7 @@ export class MaterialAuthoringService {
         doc: Record<string, any>;
         schemaVersion: 1;
       };
+      deleteVideoId: string | null;
       expectedContentVersion: number;
       metadata: {
         access: 'free' | 'membership';

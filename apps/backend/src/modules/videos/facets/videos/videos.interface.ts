@@ -1,20 +1,43 @@
-export type VideoAccess = "free" | "membership";
-export type VideoState = "uploading" | "processing" | "ready" | "failed";
+import { z } from "zod";
 
-export interface VideoDto {
-  readonly access: VideoAccess;
-  readonly materialId: string;
-  readonly state: VideoState;
-  readonly title: string;
-  readonly videoId: string;
-  readonly failureCode?: string;
-}
+export const videoAccessSchema = z.enum(["free", "membership"]);
+export const videoOriginSchema = z.enum(["external_attachment", "platform_upload"]);
+export const videoStateSchema = z.enum([
+  "uploading",
+  "processing",
+  "ready",
+  "failed",
+  "deletion_requested",
+  "deleting",
+  "deleted",
+  "delete_failed",
+]);
+export const videoPresentationSchema = z.object({
+  failureCode: z.string().optional(),
+  state: videoStateSchema,
+  title: z.string(),
+  videoId: z.uuid(),
+}).strict();
+export const videoAuthoringPresentationSchema = videoPresentationSchema.extend({
+  origin: videoOriginSchema,
+}).strict();
+export const videoDtoSchema = videoAuthoringPresentationSchema.extend({
+  access: videoAccessSchema,
+  materialId: z.uuid(),
+}).strict();
 
-export interface VideoPresentation {
-  readonly state: VideoState;
-  readonly title: string;
-  readonly videoId: string;
-  readonly failureCode?: string;
+export type VideoAccess = z.infer<typeof videoAccessSchema>;
+export type VideoOrigin = z.infer<typeof videoOriginSchema>;
+export type VideoState = z.infer<typeof videoStateSchema>;
+export type VideoDto = z.infer<typeof videoDtoSchema>;
+export type VideoPresentation = z.infer<typeof videoPresentationSchema>;
+export type VideoAuthoringPresentation = z.infer<typeof videoAuthoringPresentationSchema>;
+
+export function isVideoDeletionState(value: string): boolean {
+  return value === "deletion_requested" ||
+    value === "deleting" ||
+    value === "deleted" ||
+    value === "delete_failed";
 }
 
 export interface VideoAccessFacts {
@@ -38,6 +61,7 @@ export type VideoError =
   | { readonly code: "invalid_request" }
   | { readonly code: "provider_mismatch" }
   | { readonly code: "upload_outcome_unknown" }
+  | { readonly code: "video_deletion_not_retryable" }
   | { readonly code: "video_not_found" }
   | { readonly code: "video_not_ready" };
 
@@ -74,6 +98,15 @@ export type ReconcileVideoResult = OperationResult<
   "dependency_unavailable" | "forbidden" | "invalid_request" | "provider_mismatch" | "video_not_found"
 >;
 
+export type RetryVideoDeletionResult = OperationResult<
+  VideoDto,
+  | "dependency_unavailable"
+  | "forbidden"
+  | "invalid_request"
+  | "video_deletion_not_retryable"
+  | "video_not_found"
+>;
+
 export type AcceptVideoWebhookResult = OperationResult<
   void,
   "dependency_unavailable" | "invalid_request" | "provider_mismatch" | "video_not_found"
@@ -99,6 +132,10 @@ export interface Videos {
     readonly actor: string;
     readonly videoId: string;
   }): Promise<ReconcileVideoResult>;
+  retryDeletion(input: {
+    readonly actor: string;
+    readonly videoId: string;
+  }): Promise<RetryVideoDeletionResult>;
   acceptWebhook(input: {
     readonly event: string;
     readonly providerStatus?: string;
@@ -116,6 +153,13 @@ export interface Videos {
     readonly materialId: string;
     readonly videoId: string;
   }): Promise<OperationResult<VideoPresentation | null, "dependency_unavailable" | "invalid_request">>;
+  loadAuthoringPresentation(input: {
+    readonly materialId: string;
+    readonly videoId: string;
+  }): Promise<OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">>;
+  loadLatestDeletion(materialId: string): Promise<
+    OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">
+  >;
   loadAccessFacts(videoIds: readonly string[]): Promise<
     OperationResult<readonly VideoAccessFacts[], "dependency_unavailable" | "invalid_request">
   >;
@@ -134,5 +178,8 @@ export interface Videos {
     readonly durationSeconds: number;
     readonly positionSeconds: number;
     readonly videoId: string;
-  }): Promise<OperationResult<void, "dependency_unavailable" | "invalid_request">>;
+  }): Promise<OperationResult<
+    void,
+    "dependency_unavailable" | "invalid_request" | "video_not_ready"
+  >>;
 }

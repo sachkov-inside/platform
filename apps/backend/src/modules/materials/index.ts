@@ -7,6 +7,8 @@ export type {
   MaterialAccessFacts,
   MaterialContent,
 } from "./facets/material-content/material-content.js";
+export { MATERIAL_CONTENT } from "./facets/material-content/material-content.js";
+export { MaterialContentModule } from "./material-content.module.js";
 export { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
 export { MATERIAL_AUTHORING } from "./facets/material-authoring/material-authoring.token.js";
 export type {

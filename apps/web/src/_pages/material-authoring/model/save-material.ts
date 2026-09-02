@@ -38,6 +38,7 @@ export const saveMaterialResultSchema = z.discriminatedUnion("kind", [
 
 export interface SaveMaterialInput {
   readonly access: "free" | "membership";
+  readonly deleteVideoId: string | null;
   readonly document: JSONContent;
   readonly expectedContentVersion: number;
   readonly formatId: string;

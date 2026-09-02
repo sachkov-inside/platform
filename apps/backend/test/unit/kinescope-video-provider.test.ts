@@ -73,6 +73,88 @@ describe("Kinescope VideoProvider adapter", () => {
       .resolves.toMatchObject({ projectId: "different-project" });
   });
 
+  test("deletes one stored provider identity and retains the provider request ID", async () => {
+    let observedInit: RequestInit | undefined;
+    let observedUrl: string | undefined;
+    const request = vi.fn<typeof globalThis.fetch>((input, init) => {
+      observedUrl = typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
+      observedInit = init;
+      return Promise.resolve(Response.json(
+        { data: { success: true } },
+        { headers: { "x-request-id": "provider-request-1" } },
+      ));
+    });
+    const provider = createKinescopeVideoProvider({ ...config, fetch: request });
+
+    await expect(provider.delete({ id: "provider-video" })).resolves.toEqual({
+      kind: "deleted",
+      providerRequestId: "provider-request-1",
+    });
+    expect(observedUrl).toBe("https://api.kinescope.io/v1/videos/provider-video");
+    expect(observedInit?.method).toBe("DELETE");
+    expect(new Headers(observedInit?.headers).get("authorization")).toBe(
+      "Bearer provider-secret-token",
+    );
+  });
+
+  test.each([
+    [404, "not_found", undefined],
+    [429, "retryable_failure", "rate_limited"],
+    [500, "retryable_failure", "provider_unavailable"],
+    [400, "terminal_failure", "invalid_request"],
+    [401, "terminal_failure", "authentication"],
+    [403, "terminal_failure", "permission"],
+  ] as const)(
+    "maps provider DELETE %i to %s",
+    async (status, kind, category) => {
+      const provider = createKinescopeVideoProvider({
+        ...config,
+        fetch: vi.fn().mockResolvedValue(new Response(null, {
+          headers: { "x-request-id": `provider-request-${String(status)}` },
+          status,
+        })),
+      });
+
+      await expect(provider.delete({ id: "provider-video" })).resolves.toEqual({
+        ...(category === undefined ? {} : { category }),
+        kind,
+        providerRequestId: `provider-request-${String(status)}`,
+      });
+    },
+  );
+
+  test("separates timeout, network and malformed success outcomes", async () => {
+    const timeout = createKinescopeVideoProvider({
+      ...config,
+      fetch: vi.fn().mockRejectedValue(new DOMException("timed out", "TimeoutError")),
+    });
+    const network = createKinescopeVideoProvider({
+      ...config,
+      fetch: vi.fn().mockRejectedValue(new TypeError("connection reset")),
+    });
+    const malformed = createKinescopeVideoProvider({
+      ...config,
+      fetch: vi.fn().mockResolvedValue(Response.json({ data: { success: false } })),
+    });
+
+    await expect(timeout.delete({ id: "provider-video" })).resolves.toEqual({
+      category: "timeout",
+      kind: "retryable_failure",
+    });
+    await expect(network.delete({ id: "provider-video" })).resolves.toEqual({
+      category: "network",
+      kind: "retryable_failure",
+    });
+    await expect(malformed.delete({ id: "provider-video" })).resolves.toEqual({
+      category: "invalid_response",
+      kind: "terminal_failure",
+    });
+  });
+
   test("rejects non-success responses and unsafe embed locators", async () => {
     const unavailable = createKinescopeVideoProvider({
       ...config,

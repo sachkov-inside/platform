@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
-import { migrateToLatest } from "../../src/migrations/index.js";
+import { migrateToLatest, platformMigrations } from "../../src/migrations/index.js";
 import {
   name as materialsMigrationName,
   statement as materialsMigrationStatement,
@@ -62,7 +62,13 @@ const memberProfileTables = [
 
 const telegramMembershipTables = ["link_transactions"] as const;
 const assetTables = ["material_asset_variants", "material_assets"] as const;
-const videoTables = ["playback_progress", "upload_attempts", "videos", "webhook_inbox"] as const;
+const videoTables = [
+  "deletion_operations",
+  "playback_progress",
+  "upload_attempts",
+  "videos",
+  "webhook_inbox",
+] as const;
 
 const legacyMigrations = [
   { name: materialsMigrationName, statement: materialsMigrationStatement },
@@ -138,6 +144,7 @@ describe("Platform migrations", () => {
         "0017_primary_video",
         "0018_durable_video_upload_attempts",
         "0019_content_collections",
+        "0020_safe_video_deletion",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -200,6 +207,72 @@ describe("Platform migrations", () => {
     expect(cursorIndexes[0]?.definition).toContain(
       "(published_at DESC, material_id DESC)",
     );
+  });
+
+  test("backfills conservative immutable Video origin from durable upload evidence", async () => {
+    const database = await createTestDatabase();
+    try {
+      await runMigrationsToLatest(database.url, platformMigrations.slice(0, -1));
+      await database.prisma.$executeRaw(Prisma.sql`
+        insert into videos.videos (
+          id, material_id, created_by, access, project_id, provider_video_id,
+          title, provider_embed_locator, provider_status, state, ready_at,
+          created_at, updated_at, last_synced_at
+        ) values
+        (
+          '81000000-0000-4000-8000-000000000001',
+          '81000000-0000-4000-8000-000000000011',
+          '81000000-0000-4000-8000-000000000021',
+          'free', 'public-project', 'uploaded-provider-video', 'Uploaded',
+          'https://kinescope.io/embed/uploaded-provider-video', 'done', 'ready',
+          '2026-09-01T10:00:00Z', '2026-09-01T10:00:00Z', '2026-09-01T10:00:00Z',
+          '2026-09-01T10:05:00Z'
+        ),
+        (
+          '81000000-0000-4000-8000-000000000002',
+          '81000000-0000-4000-8000-000000000012',
+          '81000000-0000-4000-8000-000000000022',
+          'free', 'public-project', 'attached-provider-video', 'Attached',
+          'https://kinescope.io/embed/attached-provider-video', 'done', 'ready',
+          '2026-09-01T11:00:00Z', '2026-09-01T11:00:00Z', '2026-09-01T11:00:00Z',
+          '2026-09-01T11:05:00Z'
+        );
+        insert into videos.upload_attempts (
+          id, video_id, material_id, created_by, idempotency_key, upload_endpoint,
+          filename, byte_size, access, project_id, title, status, created_at, updated_at
+        ) values (
+          '81000000-0000-4000-8000-000000000031',
+          '81000000-0000-4000-8000-000000000001',
+          '81000000-0000-4000-8000-000000000011',
+          '81000000-0000-4000-8000-000000000021',
+          'migration-upload-proof', 'https://uploads.example.test/video',
+          'uploaded.mp4', 1024, 'free', 'public-project', 'Uploaded', 'ready',
+          '2026-09-01T10:00:00Z', '2026-09-01T10:00:00Z'
+        );
+      `);
+
+      await migrateToLatest(database.url);
+
+      await expect(database.prisma.video.findMany({
+        orderBy: { id: "asc" },
+        select: { origin: true, providerVisibleAt: true },
+      })).resolves.toEqual([
+        {
+          origin: "platform_upload",
+          providerVisibleAt: new Date("2026-09-01T10:00:00Z"),
+        },
+        {
+          origin: "external_attachment",
+          providerVisibleAt: new Date("2026-09-01T11:05:00Z"),
+        },
+      ]);
+      await expect(database.prisma.video.update({
+        data: { origin: "external_attachment" },
+        where: { id: "81000000-0000-4000-8000-000000000001" },
+      })).rejects.toThrow("Video origin is immutable");
+    } finally {
+      await database.dispose();
+    }
   });
 
   test("moves the visible published revision into the current Material", async () => {
@@ -478,6 +551,7 @@ describe("Platform migrations", () => {
           "0017_primary_video",
           "0018_durable_video_upload_attempts",
           "0019_content_collections",
+          "0020_safe_video_deletion",
         ],
       });
 
@@ -627,11 +701,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 20, repeat('0', 64))
+        values ('9999_unknown', 21, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 20",
+        "Migration ledger is not an exact registry prefix at position 21",
       );
     } finally {
       await database.dispose();

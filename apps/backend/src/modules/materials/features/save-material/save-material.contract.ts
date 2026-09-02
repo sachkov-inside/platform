@@ -21,6 +21,7 @@ export interface SaveMaterialCommand {
   readonly expectedContentVersion: number;
   readonly publicationState: PublicationState;
   readonly primaryVideoId?: string | null;
+  readonly deleteVideoId?: string | null;
   readonly metadata: MaterialMetadataSelectionInput;
   readonly body: unknown;
 }

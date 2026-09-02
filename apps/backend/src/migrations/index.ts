@@ -78,8 +78,12 @@ import {
   name as contentCollectionsMigrationName,
   statement as contentCollectionsMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0019-content-collections.js";
+import {
+  name as safeVideoDeletionMigrationName,
+  statement as safeVideoDeletionMigrationStatement,
+} from "../modules/videos/infrastructure/postgres/migrations/0020-safe-video-deletion.js";
 
-const migrations = [
+export const platformMigrations = [
   {
     name: materialsMigrationName,
     statement: materialsMigrationStatement,
@@ -150,10 +154,14 @@ const migrations = [
     name: contentCollectionsMigrationName,
     statement: contentCollectionsMigrationStatement,
   },
+  {
+    name: safeVideoDeletionMigrationName,
+    statement: safeVideoDeletionMigrationStatement,
+  },
 ] as const;
 
 export function migrateToLatest(
   connectionString: string,
 ): Promise<MigrationOutcome> {
-  return runMigrationsToLatest(connectionString, migrations);
+  return runMigrationsToLatest(connectionString, platformMigrations);
 }

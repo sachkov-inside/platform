@@ -71,6 +71,21 @@ services:
     restart: unless-stopped
     stop_grace_period: 10s
 
+  video-deletions-worker:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: api-production
+    command: ["node", "dist/entrypoints/video-deletions-worker.js"]
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/video-deletions-worker.env
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 10s
+
   web:
     build:
       context: .

@@ -10,3 +10,4 @@ export {
   type MaterialVideoAuthoringPhase,
   type MaterialVideoAuthoringViewProps,
 } from "./ui/material-video-authoring.client";
+export type { MaterialAuthoringVideo } from "./model/video";

@@ -15,6 +15,7 @@ import type {
   InvalidContentError,
   MaterialDto,
 } from "../../facets/material-authoring/material-authoring.contract.js";
+import type { VideoAuthoringPresentation } from "../../../videos/index.js";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
@@ -120,7 +121,13 @@ export async function loadPublishedBodyAtVersion(
   return body.ok ? body.value : undefined;
 }
 
-export function toMaterialDto(material: CurrentMaterial): MaterialDto {
+export function toMaterialDto(
+  material: CurrentMaterial,
+  videos: {
+    readonly latestVideoDeletion: VideoAuthoringPresentation | null;
+    readonly primaryVideo: VideoAuthoringPresentation | null;
+  },
+): MaterialDto {
   return {
     materialId: material.lifecycle.id,
     contentVersion: material.lifecycle.contentVersion,
@@ -129,6 +136,8 @@ export function toMaterialDto(material: CurrentMaterial): MaterialDto {
       material.lifecycle.firstPublishedAt?.toISOString() ?? null,
     publishedAt: material.lifecycle.publishedAt?.toISOString() ?? null,
     primaryVideoId: material.primaryVideoId,
+    primaryVideo: videos.primaryVideo,
+    latestVideoDeletion: videos.latestVideoDeletion,
     metadata: material.metadata.toValues(),
     body: material.body,
   };

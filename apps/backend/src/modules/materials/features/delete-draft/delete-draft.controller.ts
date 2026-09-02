@@ -25,7 +25,13 @@ export class DeleteDraftController {
   @ApiMaterialAuthoringErrors(400, 401, 403, 404, 409, 422, 500, 503)
   async delete(@CurrentAccount() account: AuthenticatedAccount, @Param("materialId") materialId: string, @Headers("idempotency-key") idempotencyKey: string | undefined, @Body() input: unknown) {
     const body = parseMaterialAuthoringBody(deleteDraftBodySchema, input);
-    const result = await this.authoring.deleteDraft({ actor: account.accountId, idempotencyKey: idempotencyKey ?? "", materialId, expectedContentVersion: body.expectedContentVersion });
+    const result = await this.authoring.deleteDraft({
+      actor: account.accountId,
+      deleteVideoId: body.deleteVideoId,
+      expectedContentVersion: body.expectedContentVersion,
+      idempotencyKey: idempotencyKey ?? "",
+      materialId,
+    });
     if (!result.ok) throwMaterialAuthoringError(result.error);
     return result.value;
   }

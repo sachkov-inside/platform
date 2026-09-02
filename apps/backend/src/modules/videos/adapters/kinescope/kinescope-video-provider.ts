@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import type { VideoProvider, ProviderVideo } from "../../ports/video-provider.js";
+import type {
+  ProviderVideo,
+  VideoProvider,
+} from "../../ports/video-provider.js";
 
 const initResponseSchema = z.object({
   data: z.object({
@@ -10,6 +13,10 @@ const initResponseSchema = z.object({
 }).loose();
 
 const providerResponseSchema = z.object({ data: z.record(z.string(), z.unknown()) }).loose();
+const deleteResponseSchema = z.object({
+  data: z.object({ success: z.literal(true) }).strict(),
+}).loose();
+const KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS = 8_000;
 
 export function createKinescopeVideoProvider(config: {
   readonly apiBaseUrl: string;
@@ -19,6 +26,73 @@ export function createKinescopeVideoProvider(config: {
 }): VideoProvider {
   const request = config.fetch ?? globalThis.fetch;
   const provider: VideoProvider = {
+    async delete(input) {
+      let response: Response;
+      try {
+        response = await request(
+          new URL(`/v1/videos/${encodeURIComponent(input.id)}`, config.apiBaseUrl),
+          {
+            headers: { authorization: `Bearer ${config.apiToken}` },
+            method: "DELETE",
+            signal: AbortSignal.timeout(KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS),
+          },
+        );
+      } catch (error) {
+        return {
+          category: isTimeout(error) ? "timeout" : "network",
+          kind: "retryable_failure",
+        };
+      }
+      const providerRequestId = readProviderRequestId(response);
+      if (response.status === 404) {
+        return { kind: "not_found", ...providerRequestId };
+      }
+      if (response.status === 429) {
+        return {
+          category: "rate_limited",
+          kind: "retryable_failure",
+          ...providerRequestId,
+        };
+      }
+      if (response.status >= 500) {
+        return {
+          category: "provider_unavailable",
+          kind: "retryable_failure",
+          ...providerRequestId,
+        };
+      }
+      const terminalCategory = response.status === 400
+        ? "invalid_request"
+        : response.status === 401
+          ? "authentication"
+          : response.status === 403
+            ? "permission"
+            : null;
+      if (terminalCategory !== null) {
+        return {
+          category: terminalCategory,
+          kind: "terminal_failure",
+          ...providerRequestId,
+        };
+      }
+      if (!response.ok) {
+        return {
+          category: "invalid_response",
+          kind: "terminal_failure",
+          ...providerRequestId,
+        };
+      }
+      try {
+        deleteResponseSchema.parse(await response.json());
+        return { kind: "deleted", ...providerRequestId };
+      } catch {
+        return {
+          category: "invalid_response",
+          kind: "terminal_failure",
+          ...providerRequestId,
+        };
+      }
+    },
     async initUpload(input) {
       const response = await request(new URL("/v2/init", config.uploaderBaseUrl), {
         method: "POST",
@@ -33,7 +107,7 @@ export function createKinescopeVideoProvider(config: {
           title: input.title,
           filesize: input.byteSize,
         }),
-        signal: AbortSignal.timeout(8_000),
+        signal: AbortSignal.timeout(KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS),
       });
       if (!response.ok) throw new Error("Kinescope upload init failed");
       const parsed = initResponseSchema.parse(await response.json());
@@ -45,7 +119,7 @@ export function createKinescopeVideoProvider(config: {
         new URL(`/v1/videos/${encodeURIComponent(input.id)}`, config.apiBaseUrl),
         {
           headers: { authorization: `Bearer ${config.apiToken}` },
-          signal: AbortSignal.timeout(8_000),
+          signal: AbortSignal.timeout(KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS),
         },
       );
       if (response.status === 404) return null;
@@ -55,6 +129,20 @@ export function createKinescopeVideoProvider(config: {
     },
   };
   return Object.freeze(provider);
+}
+
+function readProviderRequestId(
+  response: Response,
+): { readonly providerRequestId?: string } {
+  const value = response.headers.get("x-request-id")?.trim();
+  return value === undefined || value.length === 0 || value.length > 256
+    ? {}
+    : { providerRequestId: value };
+}
+
+function isTimeout(error: unknown): boolean {
+  return error instanceof DOMException &&
+    (error.name === "AbortError" || error.name === "TimeoutError");
 }
 
 function parseProviderVideo(data: Record<string, unknown>): ProviderVideo {

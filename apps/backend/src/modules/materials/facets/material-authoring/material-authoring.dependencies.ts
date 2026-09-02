@@ -14,5 +14,8 @@ export interface MaterialAuthoringDependencies {
     MaterialAssets,
     "inspectReferences" | "loadPresentations" | "markUnreferenced"
   >;
-  readonly videos?: Pick<Videos, "inspectPrimaryReference">;
+  readonly videos?: Pick<
+    Videos,
+    "inspectPrimaryReference" | "loadAuthoringPresentation" | "loadLatestDeletion"
+  >;
 }

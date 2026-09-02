@@ -202,6 +202,7 @@ export function assembleVideoPlayback(dependencies: {
       switch (saved.error.code) {
         case "dependency_unavailable": return failure("dependency_unavailable");
         case "invalid_request": return failure("invalid_request");
+        case "video_not_ready": return failure("video_not_ready");
         default: return assertNever(saved.error);
       }
     },

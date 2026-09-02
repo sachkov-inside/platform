@@ -11,6 +11,7 @@ import type { DeleteMaterialDraftResult } from "../model/delete-material-draft";
 
 const formSchema = z
   .object({
+    deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
     expectedContentVersion: z.coerce.number().int().positive(),
     materialId: z.uuid(),
     submissionId: z.uuid(),
@@ -35,6 +36,7 @@ export async function executeDeleteMaterialDraft(
   request: typeof requestMaterialDeletion = requestMaterialDeletion,
 ): Promise<DeleteMaterialDraftResult> {
   const parsed = formSchema.safeParse({
+    deleteVideoId: formData.get("deleteVideoId") ?? undefined,
     expectedContentVersion: formData.get("expectedContentVersion"),
     materialId: formData.get("materialId"),
     submissionId: formData.get("submissionId"),
@@ -53,6 +55,7 @@ export async function executeDeleteMaterialDraft(
   try {
     result = await request(
       {
+        deleteVideoId: parsed.data.deleteVideoId === "none" ? null : parsed.data.deleteVideoId,
         expectedContentVersion: parsed.data.expectedContentVersion,
         idempotencyKey: `web-delete-material-draft-${parsed.data.submissionId}`,
         materialId: parsed.data.materialId,
