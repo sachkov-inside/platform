@@ -2,6 +2,10 @@ export { assembleTelegramMembership } from "./facets/telegram-membership/assembl
 export { TelegramMembershipModule } from "./telegram-membership.module.js";
 export type {
   AcceptTelegramEvidenceCommand,
+  AccountMembershipState,
+  AccountTelegramLinkState,
+  AccountTelegramMembershipPresentation,
+  AccountTelegramMembershipResult,
   TelegramLinkResult,
   TelegramLinkState,
   TelegramLinkStatus,

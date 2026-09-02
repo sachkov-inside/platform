@@ -46,15 +46,20 @@ private Account, member-only Member Profile и reading experience. `sachkov.dev`
 - видит Member Profiles других действующих участников;
 - после первого входа получает предложение связать Account с Telegram, но может
   пропустить шаг и продолжить с бесплатным контентом;
-- может позже связать Telegram из Account;
+- может позже связать Telegram из Account: Platform выдаёт short-lived bot link, участник отправляет
+  `/start` в Telegram и завершает подтверждение в Account;
 - получает доступ на основании внешнего признака активного Membership;
 - имеет один уровень закрытого доступа без тарифной матрицы;
 - после окончания Membership сохраняет Account, Member Profile, историю и статусы
   прочтения, но до возобновления Membership теряет доступ к закрытым материалам и Member Profiles
   других участников.
 
-Account является приватной surface владельца: в ней находятся identity/security state,
-Telegram linking, Membership state и recovery actions. Member Profile — отдельная проекция для
+Account является приватной surface владельца: отдельный блок `Доступ Inside` показывает coarse
+Telegram linking и authoritative Membership state двумя независимыми строками. Linked Telegram не
+обещает access; Membership timestamps, evidence, provider identity и internal identifiers не
+показываются. Истёкшую обычную попытку можно начать заново, а conflict или recovery с риском silent
+transfer ведут только к owner/support handoff; URL поддержки является optional runtime setting и
+при его отсутствии заменяется безопасным текстом без неработающей ссылки. Member Profile — отдельная проекция для
 других действующих участников. Anonymous visitor, non-member и search crawler её не получают;
 profile не индексируется и никогда не содержит email, Platform или Telegram internal identifiers,
 Telegram username, linking/evidence, security или audit data. Exact поля, avatar, discoverability

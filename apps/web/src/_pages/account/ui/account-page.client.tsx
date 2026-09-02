@@ -15,17 +15,23 @@ import { Button } from "@/shared/ui/button";
 
 import { createMemberProfile } from "../api/create-member-profile.browser";
 import { updateMemberProfile } from "../api/update-member-profile.browser";
+import type { AccountTelegramMembership } from "../model/account-telegram-membership";
 import type { CreateMemberProfileResult } from "../model/create-member-profile";
 import type { UpdateMemberProfileResult } from "../model/update-member-profile";
+import { AccountMembershipPanel } from "./account-membership-panel.client";
 import { ProfileAvatarEditor } from "./profile-avatar-editor.client";
 
 interface AccountPageClientProps {
   readonly initialProfile: PrivateMemberProfile | null;
+  readonly initialTelegramMembership: AccountTelegramMembership;
+  readonly onTelegramMembershipRefresh?: () => Promise<void>;
   readonly onProfileChange?: (profile: PrivateMemberProfile) => void;
 }
 
 export function AccountPageClient({
   initialProfile,
+  initialTelegramMembership,
+  onTelegramMembershipRefresh = () => Promise.resolve(),
   onProfileChange,
 }: AccountPageClientProps) {
   const [profile, setProfile] = useState(initialProfile);
@@ -98,6 +104,11 @@ export function AccountPageClient({
           </Button>
         </form>
       </header>
+
+      <AccountMembershipPanel
+        onRefresh={onTelegramMembershipRefresh}
+        presentation={initialTelegramMembership}
+      />
 
       <form
         className="grid gap-8 lg:grid-cols-2 lg:gap-12"

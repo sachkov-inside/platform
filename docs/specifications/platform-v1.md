@@ -364,8 +364,9 @@ Published body читается только для current `published` state; d
    и `noindex`; email, AccountId, Logto/Telegram identifiers, permissions, evidence и security/audit
    state не входят в projection.
 8. Manual owner release operation disable/restore скрывает projection и пишет redacted audit без
-   participant report queue или публичной admin surface. Telegram linking, Membership state и
-   recovery presentation остаются в #122 и не смешиваются с этим Profile interface.
+   participant report queue или публичной admin surface. Owner-only Account composition отдельно
+   читает Profile и coarse Telegram/Membership presentation; ни один из contracts не расширяет
+   другой и partial private state не попадает в member projection.
 9. `profile-avatars-worker` через собственную durable `pg-boss` queue после настраиваемого
    ProfileAvatar storage grace удаляет только tracked unreferenced renditions. Cleanup и concurrent avatar change
    сериализуются Account advisory lock; current или cross-Account resource сохраняется.
@@ -386,6 +387,18 @@ Published body читается только для current `published` state; d
    Telegram или не ждёт reconciliation. Positive MembershipEvidence живёт не более пяти минут;
    принятый Platform новый removal evidence запрещает доступ немедленно, stale projection или
    outage после expiry fails closed.
+6. Private Account показывает Telegram link и Membership двумя независимыми coarse states:
+   `unlinked | linking | linked | retryable | conflict | unavailable | recovery-required` и
+   `active | inactive | stale | unavailable`. Presentation не содержит email, AccountId,
+   Telegram ID/username, provider identity, evidence или Membership timestamps и не является
+   bearer permission: protected operation повторно вызывает `ContentAccess`.
+7. Begin-link атомарно резервирует не более одной current attempt на Account и возвращает
+   short-lived bot deep link только создавшему request; reload продолжает ту же попытку без нового
+   provider registration. Обычный expired/replayed outcome разрешает новую попытку. Conflict и
+   recovery с риском silent transfer не дают self-service unlink/relink даже после TTL: Account
+   показывает optional configured HTTP(S) support destination либо безопасный owner-handoff text.
+   Неоднозначный outage во время provider registration сохраняет ту же current attempt до expiry и
+   не повторяет registration автоматически.
 
 ### Assets, downloads и video
 

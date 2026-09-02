@@ -2,24 +2,26 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { accountProfileBrowserQueryOptions } from "../api/account-profile-query.browser";
-import { accountProfileQueryKey } from "../model/account-profile-query";
+import { accountPresentationBrowserQueryOptions } from "../api/account-presentation-query.browser";
+import type { AccountPresentationResult } from "../model/account-presentation";
+import { accountPresentationQueryKey } from "../model/account-presentation-query";
 import { AccountPageClient } from "./account-page.client";
 import {
+  AccountLoading,
   AccountSignInRequired,
   AccountUnavailable,
 } from "./account-page";
 
 export function AccountPageQuery() {
-  const options = accountProfileBrowserQueryOptions();
+  const options = accountPresentationBrowserQueryOptions();
   const query = useQuery(options);
   const queryClient = useQueryClient();
 
   if (query.isPending) {
-    return <AccountUnavailable reference="profile-loading" />;
+    return <AccountLoading />;
   }
   if (query.isError) {
-    return <AccountUnavailable reference="profile-query" />;
+    return <AccountUnavailable reference="account-query" />;
   }
   if (query.data.kind === "unauthorized") return <AccountSignInRequired />;
   if (query.data.kind === "unavailable") {
@@ -28,13 +30,26 @@ export function AccountPageQuery() {
   return (
     <AccountPageClient
       initialProfile={
-        query.data.state.kind === "profile" ? query.data.state.profile : null
+        query.data.presentation.profile.kind === "profile"
+          ? query.data.presentation.profile.profile
+          : null
       }
+      initialTelegramMembership={query.data.presentation.telegramMembership}
+      onTelegramMembershipRefresh={() => query.refetch().then(() => undefined)}
       onProfileChange={(profile) => {
-        queryClient.setQueryData(accountProfileQueryKey(), {
-          kind: "ready",
-          state: { kind: "profile", profile },
-        });
+        queryClient.setQueryData<AccountPresentationResult>(
+          accountPresentationQueryKey(),
+          (current) =>
+            current?.kind === "ready"
+              ? {
+                  kind: "ready",
+                  presentation: {
+                    ...current.presentation,
+                    profile: { kind: "profile", profile },
+                  },
+                }
+              : current,
+        );
       }}
     />
   );

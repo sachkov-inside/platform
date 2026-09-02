@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { getPrivateMemberProfile } from "@/_pages/account/api/get-private-member-profile";
-import { requestAccountProfile } from "@/_pages/account/api/request-account-profile";
-import { accountProfileQueryKey } from "@/_pages/account/model/account-profile-query";
+import { getAccountTelegramMembership } from "@/_pages/account/api/get-account-telegram-membership";
+import { beginTelegramLink } from "@/_pages/account/api/begin-telegram-link.browser";
+import { confirmTelegramLink } from "@/_pages/account/api/confirm-telegram-link.browser";
+import { requestAccountPresentation } from "@/_pages/account/api/request-account-presentation";
+import { accountPresentationQueryKey } from "@/_pages/account/model/account-presentation-query";
 import {
+  executeBeginTelegramLink,
+  executeConfirmTelegramLink,
   executeCreateMemberProfile,
   executeUpdateMemberProfile,
 } from "@/_pages/account.operations.server";
@@ -55,22 +60,186 @@ describe("Member Profile web workflow", () => {
     );
   });
 
-  it("keeps one Account Profile query identity and validates the BFF payload", async () => {
-    expect(accountProfileQueryKey()).toEqual(["account", "profile"]);
+  it("validates the composite Account presentation BFF payload", async () => {
+    expect(accountPresentationQueryKey()).toEqual(["account", "presentation"]);
     const fetch = vi.fn().mockResolvedValue(
-      Response.json({ state: { kind: "missing" } }, { status: 200 }),
+      Response.json(
+        {
+          profile: { kind: "missing" },
+          telegramMembership: {
+            link: { kind: "unlinked" },
+            membership: {
+              acquisitionUrl: "https://t.me/tribute/inside",
+              kind: "inactive",
+            },
+          },
+        },
+        { status: 200 },
+      ),
     );
     vi.stubGlobal("fetch", fetch);
     try {
       await expect(
-        requestAccountProfile(new AbortController().signal),
+        requestAccountPresentation(new AbortController().signal),
       ).resolves.toEqual({
         kind: "ready",
-        state: { kind: "missing" },
+        presentation: {
+          profile: { kind: "missing" },
+          telegramMembership: {
+            link: { kind: "unlinked" },
+            membership: {
+              acquisitionUrl: "https://t.me/tribute/inside",
+              kind: "inactive",
+            },
+          },
+        },
       });
       expect(fetch).toHaveBeenCalledWith(
-        "/api/account/profile",
+        "/api/account",
         expect.objectContaining({ cache: "no-store" }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("maps only the private coarse Telegram and Membership presentation", async () => {
+    const request = vi.fn().mockResolvedValue({
+      body: {
+        link: { kind: "linked" },
+        membership: { kind: "active" },
+      },
+      ok: true,
+      response: Response.json({}),
+    });
+    await expect(
+      getAccountTelegramMembership("access-token", request),
+    ).resolves.toEqual({
+      kind: "ready",
+      presentation: {
+        link: { kind: "linked" },
+        membership: { kind: "active" },
+      },
+    });
+    expect(request).toHaveBeenCalledWith("access-token");
+
+    const malformed = vi.fn().mockResolvedValue({
+      body: {
+        accountId: "72000000-0000-4000-8000-000000000001",
+        link: { kind: "linked", telegramUsername: "inside" },
+        membership: {
+          checkedAt: "2030-01-01T00:00:00.000Z",
+          kind: "active",
+        },
+      },
+      ok: true,
+      response: Response.json({}),
+    });
+    await expect(
+      getAccountTelegramMembership("access-token", malformed),
+    ).resolves.toEqual({
+      kind: "unavailable",
+      reference: "telegram-membership-contract",
+    });
+
+    const unsafeLink = vi.fn().mockResolvedValue({
+      body: {
+        link: { kind: "conflict", supportUrl: "javascript:alert(1)" },
+        membership: { kind: "active" },
+      },
+      ok: true,
+      response: Response.json({}),
+    });
+    await expect(
+      getAccountTelegramMembership("access-token", unsafeLink),
+    ).resolves.toEqual({
+      kind: "unavailable",
+      reference: "telegram-membership-contract",
+    });
+  });
+
+  it("keeps begin and confirm as separate typed Account mutations", async () => {
+    const beginRequest = vi.fn().mockResolvedValue({
+      body: {
+        deepLink: "https://t.me/inside_test_bot?start=opaque",
+        expiresAt: "2030-01-01T00:05:00.000Z",
+        linkRef: "62000000-0000-4000-8000-000000000001",
+        status: "pending",
+      },
+      ok: true,
+      response: Response.json({}),
+    });
+    await expect(
+      executeBeginTelegramLink(new FormData(), "access-token", beginRequest),
+    ).resolves.toMatchObject({
+      kind: "received",
+      state: { status: "pending" },
+    });
+    expect(beginRequest).toHaveBeenCalledWith("access-token");
+
+    const confirmRequest = vi.fn().mockResolvedValue({
+      body: {
+        expiresAt: "2030-01-01T00:05:00.000Z",
+        linkRef: "62000000-0000-4000-8000-000000000001",
+        status: "linked",
+      },
+      ok: true,
+      response: Response.json({}),
+    });
+    const confirmation = new FormData();
+    confirmation.set("linkRef", "62000000-0000-4000-8000-000000000001");
+    await expect(
+      executeConfirmTelegramLink(
+        confirmation,
+        "access-token",
+        confirmRequest,
+      ),
+    ).resolves.toMatchObject({
+      kind: "received",
+      state: { status: "linked" },
+    });
+    expect(confirmRequest).toHaveBeenCalledWith(
+      "62000000-0000-4000-8000-000000000001",
+      "access-token",
+    );
+
+    const invalid = new FormData();
+    invalid.set("linkRef", "raw-telegram-id");
+    await expect(
+      executeConfirmTelegramLink(invalid, "access-token", confirmRequest),
+    ).resolves.toEqual({
+      kind: "unavailable",
+      reference: "telegram-link-input",
+    });
+    expect(confirmRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses literal same-origin routes for begin and confirm", async () => {
+    const fetch = vi.fn().mockImplementation((url: string) =>
+      Promise.resolve(
+        Response.json({
+          kind: "received",
+          state: {
+            expiresAt: "2030-01-01T00:05:00.000Z",
+            linkRef: "62000000-0000-4000-8000-000000000001",
+            status: url.endsWith("/begin") ? "pending" : "linked",
+          },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetch);
+    try {
+      await beginTelegramLink();
+      await confirmTelegramLink("62000000-0000-4000-8000-000000000001");
+      expect(fetch).toHaveBeenNthCalledWith(
+        1,
+        "/api/account/telegram-link/begin",
+        expect.objectContaining({ method: "POST" }),
+      );
+      expect(fetch).toHaveBeenNthCalledWith(
+        2,
+        "/api/account/telegram-link/confirm",
+        expect.objectContaining({ method: "POST" }),
       );
     } finally {
       vi.unstubAllGlobals();
