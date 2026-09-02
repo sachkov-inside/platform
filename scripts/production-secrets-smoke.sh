@@ -16,7 +16,28 @@ else
   materialize_command="materialize-fixture"
   materialize_extra=(--fixture-root "$temporary_root")
 fi
-trap 'rm -r "$temporary_root"' EXIT
+
+secret_marker=""
+cleanup() {
+  local test_status=$?
+  local lifecycle_log
+  trap - EXIT
+  if ((test_status != 0)); then
+    if [[ -n "$secret_marker" ]] \
+      && grep -R -q -- "$secret_marker" "$temporary_root"/*.log 2>/dev/null; then
+      echo "Secret lifecycle diagnostics omitted because they contain plaintext" >&2
+    else
+      for lifecycle_log in "$temporary_root"/*.log; do
+        [[ -s "$lifecycle_log" ]] || continue
+        printf 'Secret lifecycle failure in %s:\n' "$(basename "$lifecycle_log")" >&2
+        sed -n '1,120p' "$lifecycle_log" >&2
+      done
+    fi
+  fi
+  rm -rf -- "$temporary_root"
+  exit "$test_status"
+}
+trap cleanup EXIT
 
 host_key="$temporary_root/host.age"
 offline_key="$temporary_root/offline.age"

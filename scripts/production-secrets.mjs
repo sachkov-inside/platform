@@ -110,7 +110,23 @@ function parseArguments(arguments_) {
 }
 
 function sops(arguments_, options = {}) {
-  const result = spawnSync(process.env.SOPS_BINARY ?? "sops", arguments_, {
+  const executable = process.env.SOPS_BINARY ?? "sops";
+  // On Linux, spawnSync(input) exposes stdin as a socket that SOPS cannot
+  // reopen through /dev/stdin. Bridge it through cat so plaintext stays in
+  // memory while SOPS receives a regular pipe.
+  const invocation = options.input === undefined
+    ? { command: executable, arguments: arguments_ }
+    : {
+      command: "/bin/sh",
+      arguments: [
+        "-c",
+        'cat | "$@"',
+        "inside-sops-stdin",
+        executable,
+        ...arguments_,
+      ],
+    };
+  const result = spawnSync(invocation.command, invocation.arguments, {
     encoding: "utf8",
     env: { ...process.env, ...options.environment },
     input: options.input,
