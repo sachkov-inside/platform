@@ -15,9 +15,9 @@ wiring cost without a varying production adapter.
 Framework-agnostic assembly remains available for seeds, tests, and non-Nest entrypoints. Nest
 binds exported facets directly only for production consumers instead of assembling an aggregate
 provider and splitting it into pass-through providers. This refines the Nest composition described
-in ADR 0002 without changing its deep `Materials` interface, transaction ownership, or persistence
-encapsulation. Operational layout, naming, and enforcement rules live in the normative
-[`CODING_STANDARDS.md`](../../CODING_STANDARDS.md).
+in ADR 0009 without changing its deep `Materials` interface, transaction ownership, or persistence
+encapsulation. Operational layout, naming, and enforcement rules live in the normative backend
+[`CODING_STANDARDS.md`](../../apps/backend/CODING_STANDARDS.md).
 
 Persistence placement is refined by ADR 0005: a slice may use its injected Prisma client directly;
 feature-local persistence is not forced through a horizontal repository layer.

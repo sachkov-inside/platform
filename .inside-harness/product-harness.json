@@ -1,14 +1,14 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "package": "inside-engineering",
-  "version": "0.3.9",
+  "version": "0.3.11",
+  "profile": "frontend",
   "managedSkills": [
     "ask-matt",
     "code-review",
     "codebase-design",
     "diagnosing-bugs",
     "domain-modeling",
-    "frontend-design",
     "grill-me",
     "grill-with-docs",
     "grilling",
@@ -32,7 +32,6 @@
     "vercel-react-best-practices",
     "wait-what",
     "wayfinder",
-    "web-design-guidelines",
     "wizard",
     "writing-for-agents"
   ],

@@ -43,6 +43,7 @@ function collectAgentDocumentation(repositoryRoot) {
       if (
         name === "AGENTS.md" ||
         name === "CLAUDE.md" ||
+        name === "CODING_STANDARDS.md" ||
         (path.startsWith(resolve(repositoryRoot, "docs/agents")) && name.endsWith(".md"))
       ) {
         files.add(relative(repositoryRoot, path));
@@ -106,6 +107,12 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
   const backendAgents = read(repositoryRoot, "apps/backend/AGENTS.md");
   const context = read(repositoryRoot, "CONTEXT.md");
   const materialsAdr = read(repositoryRoot, "docs/adr/0002-deep-materials-module.md");
+  const generatedTransportAdr = read(
+    repositoryRoot,
+    "docs/adr/0007-generated-openapi-web-transport.md",
+  );
+  const mutableMaterialsAdr = read(repositoryRoot, "docs/adr/0009-one-mutable-material.md");
+  const clientLibraryAdr = read(repositoryRoot, "docs/adr/0011-client-owned-library-catalog.md");
   const platformSpecification = read(repositoryRoot, "docs/specifications/platform-v1.md");
   const backendAudit = read(repositoryRoot, "docs/research/backend-architecture-audit.md");
   const engineeringResearch = read(
@@ -134,6 +141,34 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
     context,
     "MaterialRevision",
     "the active glossary must not restore the superseded MaterialRevision term",
+  );
+  requireText(
+    failures,
+    "docs/adr/0002-deep-materials-module.md",
+    materialsAdr,
+    "status: superseded by ADR-0009",
+    "make ADR 0009 the machine-readable current Materials decision",
+  );
+  requireText(
+    failures,
+    "docs/adr/0009-one-mutable-material.md",
+    mutableMaterialsAdr,
+    "This ADR supersedes ADR 0002 and restates all retained decisions",
+    "keep the current Materials ADR self-contained",
+  );
+  requireText(
+    failures,
+    "docs/adr/0007-generated-openapi-web-transport.md",
+    generatedTransportAdr,
+    "status: superseded by ADR-0011",
+    "make ADR 0011 the machine-readable current Web data-boundary decision",
+  );
+  requireText(
+    failures,
+    "docs/adr/0011-client-owned-library-catalog.md",
+    clientLibraryAdr,
+    "This ADR supersedes ADR 0007 and restates its retained transport",
+    "keep the current Web data-boundary ADR self-contained",
   );
   rejectText(
     failures,
