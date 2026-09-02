@@ -70,6 +70,10 @@ stack smoke. For that optional host gate, stop the full Compose stack and use po
 It does not require host Node, pnpm or `.env`; `pnpm platform:doctor` is only a convenience alias for
 an installed host toolchain.
 
+Pull requests into `main` run four parallel application checks and the required aggregate
+`CI Gate`. See the [continuous integration runbook](docs/runbooks/continuous-integration.md) for
+the exact jobs, security boundary, diagnostics, cleanup and future release reuse contract.
+
 See the [runtime configuration contract](docs/runbooks/runtime-configuration.md) for the typed
 NestJS and Next.js configuration model, local `.env`, server-owned production env files and Docker
 Compose precedence.
@@ -103,7 +107,8 @@ is an explicit destructive reset.
 
 ## Production delivery baseline
 
-The current production Compose file is the deliberately small starting point for the CI/CD course.
+The current production Compose file is the deliberately small delivery baseline after CI and before
+CD.
 It builds API and web from the checked-out source, runs migrations once, uses one database account
 and lets Compose create its default network. Caddy is the public entry point. Registry images,
 digests, separate database roles, explicit networks and automated deployment are intentionally not

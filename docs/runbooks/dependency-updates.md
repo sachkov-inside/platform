@@ -12,11 +12,12 @@ digest-pinned provenance contract.
 Dependabot checks the pnpm workspace, Docker sources and GitHub Actions weekly. Patch and minor
 updates are grouped, with Next, Tiptap, Storybook and React families kept atomic. Major updates stay
 in separate pull requests. Security patch/minor updates use their own groups; security majors are
-also separate pull requests. No dependency pull request is auto-merged. Until the CI/CD course
-restores application CI, its complete gate is run manually and the change remains owner-controlled.
+also separate pull requests. No dependency pull request is auto-merged. Every dependency pull
+request must pass the strict application `CI Gate`; merge remains owner-controlled.
 
 `@types/node` stays on the same major as `.node-version`. A Node LTS major change updates the
-runtime, declarations, Docker base and CI as one reviewed migration.
+runtime, declarations, Docker base and CI as one reviewed migration. Application CI actions stay
+pinned to exact release version tags and are advanced only by reviewed Dependabot pull requests.
 
 Repository dependency changes preserve:
 
@@ -25,7 +26,8 @@ Repository dependency changes preserve:
 - `minimumReleaseAge: 1440` supply-chain quarantine;
 - strict peer dependencies without overrides;
 - atomic package-family updates;
-- `pnpm check:full`, Docker image/config checks and the Compose clean/repeat/watch smoke.
+- `pnpm check`, Docker image/config checks and the Compose clean/repeat smoke in CI;
+- local `pnpm check:full` when the update can affect the browser-to-host application path.
 
 ## Current baseline
 

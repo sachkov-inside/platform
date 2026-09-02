@@ -6,6 +6,7 @@ config/compose/production/*.env
 .next/
 .impeccable/review/
 .identity-proof/
+ci-artifacts/
 .playwright-cli/
 playwright-report/
 test-results/

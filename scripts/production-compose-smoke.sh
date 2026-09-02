@@ -8,6 +8,7 @@ http_port="${PRODUCTION_SMOKE_HTTP_PORT:-38080}"
 https_port="${PRODUCTION_SMOKE_HTTPS_PORT:-38443}"
 project_name="inside-platform-production-smoke-$$"
 runtime_config_dir="$(mktemp -d "${TMPDIR:-/tmp}/inside-platform-production-smoke-env.XXXXXX")"
+artifact_dir="${PRODUCTION_SMOKE_ARTIFACT_DIR:-}"
 postgres_db=inside
 postgres_user=inside
 
@@ -93,6 +94,11 @@ cleanup() {
   local test_status=$?
   local cleanup_status=0
   trap - EXIT
+
+  if ((test_status != 0)) && [[ -n "$artifact_dir" ]] && mkdir -p "$artifact_dir"; then
+    "${compose[@]}" ps --all >"$artifact_dir/compose-ps.txt" 2>&1 || true
+    "${compose[@]}" logs --no-color --tail 500 >"$artifact_dir/compose.log" 2>&1 || true
+  fi
 
   if ! "${compose[@]}" down --rmi local --volumes --remove-orphans; then
     echo "Failed to remove production smoke containers, local images or persistent data" >&2

@@ -14,11 +14,11 @@ the starting point for the CI/CD course, not a finished automated delivery syste
 5. `web` builds the Next.js production target and becomes healthy.
 6. Caddy exposes web over HTTP and HTTPS.
 
-The application images are built directly from the checked-out source with Compose. There is no
-registry input, digest-addressed release, GitHub Actions application workflow, SSH deployment,
-release selector or automated rollback yet. Compose also uses its default network and one database
-account. These missing pieces are intentional: the lessons add them one at a time and explain the
-problem each one solves.
+The application images are built directly from the checked-out source with Compose. Pull requests
+already pass the application CI contract, but there is no registry input, digest-addressed release,
+GitHub Actions deployment workflow, SSH deployment, release selector or automated rollback yet.
+Compose also uses its default network and one database account. These missing pieces are
+intentional: the lessons add them one at a time and explain the problem each one solves.
 
 The Material Asset worker remains part of the application and local development stack, but it is
 not started by this temporary production baseline. Orphaned Material Asset cleanup therefore does
@@ -79,9 +79,8 @@ pnpm compose:production:smoke
 
 ## Hardening that comes later
 
-The course will extend this baseline with:
+The next delivery stages will extend this baseline with:
 
-- an application CI workflow and its checks;
 - registry publication and immutable image identity;
 - separate database migration and runtime roles;
 - explicit network boundaries;
