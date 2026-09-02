@@ -22,6 +22,7 @@ export interface CurrentMaterial {
   readonly lifecycle: Material;
   readonly metadata: MaterialMetadata;
   readonly body: MaterialBody;
+  readonly primaryVideoId: string | null;
 }
 
 export async function loadCurrentMaterial(
@@ -90,6 +91,7 @@ export async function loadCurrentMaterial(
       }),
       metadata: metadata.value,
       body: body.value,
+      primaryVideoId: row.primaryVideoId,
     },
   };
 }
@@ -126,6 +128,7 @@ export function toMaterialDto(material: CurrentMaterial): MaterialDto {
     firstPublishedAt:
       material.lifecycle.firstPublishedAt?.toISOString() ?? null,
     publishedAt: material.lifecycle.publishedAt?.toISOString() ?? null,
+    primaryVideoId: material.primaryVideoId,
     metadata: material.metadata.toValues(),
     body: material.body,
   };

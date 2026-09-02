@@ -132,6 +132,12 @@ export type {
   ValidationIssue,
 } from "./domain/material-body/material-body.js";
 export { MaterialsModule } from "./materials.module.js";
+export {
+  VideoPlaybackController,
+  VideoProgressController,
+} from "./adapters/nest/video-playback.controller.js";
+export { KinescopeVideoAuthorizationController } from "./adapters/nest/kinescope-video-authorization.controller.js";
+export { VIDEO_PLAYBACK, assembleVideoPlayback } from "./facets/video-playback/video-playback.js";
 export { MaterialAssetMaintenanceModule } from "./material-asset-maintenance.module.js";
 export { assembleMaterialAuthoringMcpServer } from "./adapters/mcp/material-authoring-mcp.js";
 export { assembleMaterials, type Materials } from "./assemble-materials.js";

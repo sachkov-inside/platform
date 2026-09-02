@@ -1,11 +1,12 @@
 ---
-status: accepted
+status: superseded by ADR-0011
 ---
 
 # Generate the Web transport contract from Nest OpenAPI
 
-> ADR 0011 supersedes this decision's Library-specific SSR/hydration path. The generated transport,
-> direct RSC transport and same-origin browser BFF boundaries remain current.
+ADR 0011 fully restates the retained generated transport, direct RSC and same-origin browser BFF
+boundaries and supersedes this ADR. This document is historical evidence and must not be used as
+current guidance.
 
 Nest owns Platform's HTTP wire contract. The repository commits a deterministic OpenAPI document
 and generates an immutable TypeScript client from it. Web keeps that client and its local HTTP

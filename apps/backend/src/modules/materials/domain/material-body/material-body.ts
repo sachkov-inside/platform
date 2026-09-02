@@ -82,8 +82,7 @@ export type RenderedBlock =
       readonly filename?: string;
       readonly label: string;
       readonly size?: number;
-    }
-  | { readonly kind: "video"; readonly videoId: string; readonly caption?: string };
+    };
 
 export interface RenderedMaterialBody {
   readonly schemaVersion: 1;
@@ -97,8 +96,7 @@ export type MaterialBodyResourceSummary =
       readonly alt: string;
       readonly caption?: string;
     }
-  | { readonly kind: "file"; readonly assetId: string; readonly label: string }
-  | { readonly kind: "video"; readonly caption?: string };
+  | { readonly kind: "file"; readonly assetId: string; readonly label: string };
 
 export interface MaterialBodyExtraction {
   readonly plainText: string;

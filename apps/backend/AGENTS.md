@@ -9,17 +9,8 @@ durable job. Put behaviour behind capability interfaces.
 ## Required context
 
 Before changing or reviewing backend code, apply
-[`CODING_STANDARDS.md`](../../CODING_STANDARDS.md). It is the single source of truth for vertical
+[`CODING_STANDARDS.md`](CODING_STANDARDS.md). It is the single source of truth for vertical
 slices under `features/`, naming, module interfaces, Nest DI, and allowed imports.
-
-## Backend contracts
-
-- Keep application results transport-neutral and discriminated. Each operation exposes its actual
-  error union, and every adapter mapping is exhaustive.
-- Treat external input as `unknown` until the owning module validates it. Public DTOs keep
-  serializable string identifiers; domain and persistence code use checked branded identifiers.
-- Keep `MaterialBody` validation, versioning, rendering, and extraction inside Materials until an
-  independent caller proves another seam.
 
 Run `pnpm --filter @inside/backend guardrails` after changing imports, public interfaces, result
 unions, TypeScript projects, or lint configuration. Completion means both the positive repository
@@ -33,8 +24,7 @@ scan and every negative fixture pass.
 - When changing Prisma access, raw SQL, schema mapping, or persistence placement, read
   [`ADR 0005`](../../docs/adr/0005-prisma-in-use-cases.md).
 - When changing the Materials interface, model, body codec, composition, or persistence, read
-  [`ADR 0002`](../../docs/adr/0002-deep-materials-module.md), its mutable-model replacement
-  [`ADR 0009`](../../docs/adr/0009-one-mutable-material.md), and the backend contract in
+  [`ADR 0009`](../../docs/adr/0009-one-mutable-material.md) and the backend contract in
   [`docs/specifications/platform-v1.md`](../../docs/specifications/platform-v1.md).
 - When changing an entrypoint or process lifecycle, or proposing another backend package, process,
   or deployable, read

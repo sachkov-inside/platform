@@ -11,6 +11,8 @@ export type {
   MaterialResourceFactsAdapter,
   MembershipAccessState,
   MembershipEntitlements,
+  VideoResourceFacts,
+  VideoResourceFactsAdapter,
 } from "./facets/content-access/content-access.dependencies.js";
 export {
   anonymousSubject,
@@ -27,4 +29,5 @@ export {
   type MaterialResource,
   type Resource,
   type Subject,
+  type VideoResource,
 } from "./facets/content-access/content-access.interface.js";

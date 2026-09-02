@@ -6,41 +6,16 @@
 presentation models, and data adapters live in feature-owned slices under `src`. Keep `app/` thin:
 it owns routing, metadata, route states, and composition.
 
-## Slice boundaries
+## Required context
 
-- `_app` owns root providers and the application shell; `_pages` owns route-level slices;
-  `widgets`, `features`, `entities`, and `shared` form the remaining dependency layers.
-- Import a slice through a public entrypoint. Prefer a focused sub-entrypoint when a broad barrel
-  would pull editor or server code into another runtime graph. The architecture guardrail enforces
-  downward layer imports and slice isolation.
-- Put route-specific behaviour beside its `_pages/<page>` slice. Promote code to `shared` only
-  after multiple real consumers need the same smaller interface.
-- Keep Storybook proofs and fixtures outside the production graph. When changing production UI,
-  Storybook, responsive behaviour, accessibility, or owner-review evidence, follow
-  [`docs/agents/frontend-delivery.md`](../../docs/agents/frontend-delivery.md).
+Before changing or reviewing Web code, apply [`CODING_STANDARDS.md`](CODING_STANDARDS.md). For
+production UI, Storybook, responsive behaviour, accessibility, or owner-review evidence, also read
+[`docs/agents/frontend-delivery.md`](../../docs/agents/frontend-delivery.md).
 
-## Server data
-
-- Mark direct backend adapters, BFF handlers, and server query options with `server-only`. Mark the
-  interactive boundary with `*.client.tsx`; client modules import no server-only interface.
-- Treat backend payloads as `unknown`, validate them with Zod in the owning adapter, and map them to
-  a presentation model before UI code consumes them.
-- Choose one runtime owner for each server-state surface. Browser-owned live search, filters, and
-  infinite lists use one page-owned TanStack Query factory and a same-origin feature BFF; the RSC
-  route renders only metadata and a hydration-safe shell. Browser code parses and normalizes the
-  URL; the route does not read `searchParams`, prefetch or dehydrate that query.
-- When initial results must be server-rendered and then continue in the browser, use the complete
-  TanStack SSR path: a request-isolated `QueryClient`, prefetch, dehydration and
-  `HydrationBoundary`. Do not maintain parallel server and browser cache paths for convenience.
-- For server-render-only data with no browser lifecycle, call the server adapter directly instead
-  of adding TanStack Query. Query `staleTime` is client-cache policy, not an HTTP cache header;
-  declare public or private HTTP caching at the BFF/backend boundary.
-- Interactive writes use one path: `useMutation` → browser adapter → same-origin capability Route
-  Handler → generated Nest transport. Give each product operation its own `useMutation`, named
-  browser adapter, exact input/result types and literal route/method; share only transport and
-  authentication mechanics. Put the `QueryProvider` in the lowest route layout shared by its
-  consumers. The current client-owned mutation contract is recorded in
-  [`ADR 0012`](../../docs/adr/0012-browser-owned-interactive-mutations.md).
+Read [`ADR 0011`](../../docs/adr/0011-client-owned-library-catalog.md) when changing Library data
+ownership, generated transport, direct RSC calls, or same-origin BFF boundaries. Read
+[`ADR 0012`](../../docs/adr/0012-browser-owned-interactive-mutations.md) when changing interactive
+writes or proposing Server Actions.
 
 ## Verification
 

@@ -8,6 +8,7 @@ import {
 } from "./material-authoring-chrome.client";
 import { MaterialCurrentPreview } from "./material-current-preview";
 import { MaterialMetadataPanel } from "./material-metadata-panel.client";
+import { MaterialVideoAuthoring } from "@/features/material-video";
 import {
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
@@ -113,6 +114,17 @@ export function MaterialAuthoringWorkspace({
           <h2 className="text-sm font-semibold" id="document-heading">
             Содержимое материала
           </h2>
+          <MaterialVideoAuthoring
+            access={presentation.draft.access}
+            disabled={
+              presentation.save.kind === "submitting" ||
+              presentation.blocking.kind !== "none" ||
+              presentation.draft.readOnly
+            }
+            materialId={presentation.draft.materialId}
+            onChange={actions.onPrimaryVideoChange}
+            primaryVideoId={presentation.draft.primaryVideoId}
+          />
           <MaterialDocumentEditor
             disabled={
               presentation.save.kind === "submitting" ||

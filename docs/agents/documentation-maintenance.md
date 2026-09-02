@@ -11,7 +11,9 @@ source of truth for every durable fact, not a prose copy of every implementation
 | Product scope or user-visible behaviour | `docs/product/platform-mvp-brief.md` and the owning specification when its contract changes |
 | Domain term, meaning, or relationship | `CONTEXT.md`; keep implementation and history out of the glossary |
 | Hard-to-reverse or surprising trade-off | Add an ADR, or let the replacement ADR supersede the old decision explicitly; do not rewrite accepted history as if it never happened |
-| Backend module seam, slice layout, DI, persistence, or import rule | `CODING_STANDARDS.md` for the current rule and the relevant ADR for rationale |
+| Repository-wide coding rule | Root `CODING_STANDARDS.md`; keep it a short router and shared contract |
+| Backend module seam, slice layout, DI, persistence, REST, or import rule | `apps/backend/CODING_STANDARDS.md` for the current rule and the relevant ADR for rationale |
+| Web slice, runtime, transport, server-state, mutation, or UI implementation rule | `apps/web/CODING_STANDARDS.md` for the current rule and the relevant ADR for rationale |
 | REST contract | Controller schemas, generated OpenAPI, and the generated Web client; `pnpm api:check` owns drift detection |
 | Development, test, run, configuration, or deployment procedure | The owning README or runbook; keep exact executable commands in package/config files |
 | Agent trigger, routing, verification, or completion rule | The nearest `AGENTS.md` or `docs/agents/` contract; do not copy product/domain explanations into agent files |

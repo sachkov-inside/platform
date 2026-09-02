@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
 import { materialTaxonomyLabel } from "@/entities/material";
 
@@ -131,10 +130,6 @@ function PreviewBlock({ block, contentVersion, materialId }: {
       );
     case "file":
       return <MaterialAssetFile assetId={block.assetId} contentType={block.contentType} contentVersion={contentVersion} filename={block.filename} label={block.label} materialId={materialId} preview size={block.size} />;
-    case "video":
-      return (
-        <MaterialResourcePlaceholder caption={block.caption} kind="video" />
-      );
   }
 }
 

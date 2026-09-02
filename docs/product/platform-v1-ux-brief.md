@@ -163,9 +163,10 @@ Topic/Format/Tag dictionaries остаются evolving fixtures, а не seed o
 
 Canonical Material document — current ProseMirror JSON; `contentVersion` является optimistic
 concurrency token, а не хранимой версией документа. Tiptap является authoring adapter.
-Issue #20 требует, чтобы UX fixture проверял структурированный body, code, table, callout, image,
-file и Kinescope video. Authoring research предлагает соответствующие typed node families через
-local IDs и исключает raw HTML/MDX, iframe markup, provider tokens и arbitrary layout blocks;
+Issue #20 требует, чтобы UX fixture проверял структурированный body, code, table, callout, image и
+file, а отдельная Video section проверяла optional `primaryVideoId` вне body. Authoring schema
+использует local IDs и исключает inline Video, raw HTML/MDX, iframe markup, provider tokens и
+arbitrary layout blocks;
 точные limits проверяются content-schema implementation на approved corpus. ([Workspace stack contract][workspace-stack],
 [Platform issue #20](https://github.com/sachkov-inside/platform/issues/20),
 [authoring schema][authoring-schema])
@@ -262,7 +263,7 @@ CTA.
 | R06 | Ordered Series, включая closed Series visibility | Visitor видит description/order/cards; member читает episodes | Series | ordered episodes, free/closed/read status, empty/partial; no invented overall progress percent | [Platform actors][platform-brief-actors] |
 | R07 | Editorial Roadmap | Любой actor понимает product directions и переходит к content | Roadmap | editorial body + curated/query links; partial links fail independently | [Workspace navigation roles][workspace-navigation-roles] |
 | R08 | Public card/teaser каждого published Material | Visitor оценивает состав до покупки | Cards на Home/Library/Topic/Series/Roadmap и Material | free/closed label, title, description, cover, author, taxonomy/series, `publishedAt`; no closed body bytes | [Workspace public projection][workspace-public-projection] |
-| R09 | Полное чтение free Material без account | Visitor открывает free card | Material | body, code/table/callout/media/file/video as present; loading/error; related content | [ContentAccess matrix][access-matrix] |
+| R09 | Полное чтение free Material без account | Visitor открывает free card | Material | body, code/table/callout/media/file; optional primary Video section; loading/error; related content | [ContentAccess matrix][access-matrix] |
 | R10 | Closed Material deny без утечки | Actor без доступа открывает closed card | Material | indexable public teaser + один `Получить доступ` CTA на configured Tribute URL; protected bytes absent | [Access copy boundary][access-copy] |
 | R11 | Authenticated non-member closed state | Signed-in non-member открывает closed Material | Material + Account | Material показывает только общий `locked`; Membership details/recovery могут жить в Account; free content остаётся доступным | [Membership UX][membership-ux] |
 | R12 | Protected reading | Active member или `materials:manage` opens body/image/file/video | Material | single authorize current published Material; conditional one-body load по `contentVersion`; resource unavailable локален | [ContentAccess matrix][access-matrix] |
@@ -275,12 +276,12 @@ CTA.
 | R19 | Read/unread state | Member explicitly toggles status for a Material | Material card/page; personal history | manual read/unread with mutation feedback; no auto-scroll/time/video trigger, percent, position or achievements | [Platform navigation][platform-brief-navigation] |
 | R20 | Minimal recent history | Member returns to recently viewed content | Short Home layer + full Account history | empty/populated; survives Membership expiry; length/retention and unpublish behavior remain implementation inputs | [Platform actors][platform-brief-actors] |
 | R21 | Related Materials | Reader continues to relevant content | Material | metadata-generated links + explicit author pins; empty/partial | [Workspace search flow][workspace-search-flow] |
-| R22 | Text/guides/images/links/files/video | Reader consumes all v1 content shapes | Material | long-form body; code/table bounded overflow; callout; image alt/caption; file label/download; video caption/player | [Authoring schema][authoring-schema] |
+| R22 | Text/guides/images/links/files + one primary Video | Reader consumes all v1 content shapes | Material | long-form body; code/table bounded overflow; callout; image alt/caption; file label/download; separate Video frame before body | [Authoring schema][authoring-schema] |
 | R23 | Kinescope playback | Free/active/author actor plays allowed Video | Material/Preview | placeholder/loading, ready/play, access denied, unsupported/error, provider unavailable; no public fallback | [Kinescope player contract][kinescope-player] |
 | R24 | Author Material management | Author creates/finds draft, published or unpublished Material | Author material list | loading, empty, filters/status if evidence proves need, create/open, finite lifecycle distinction | [Workspace modules][workspace-modules] |
 | R25 | Structured full-state editor | Author edits body, metadata, relations, access и publication | Author editor | dirty/saving/saved, validation warnings/errors, current `contentVersion`, long content; published Save immediately live | [Authoring UX][authoring-ux] |
 | R26 | Image/file upload and attach | Author uploads resource, finalizes, attaches | Author editor/resource picker | pending, uploading/progress, processing/finalizing, ready, failed/retry, invalid type/size, unavailable | [Workspace asset flow][workspace-resource-flow] |
-| R27 | Kinescope upload/process/attach | Author uploads Video and waits for readiness | Author editor/video picker | upload created/uploading/paused/processing/ready/failed/retry; only ready attaches/publishes | [Kinescope lifecycle][kinescope-lifecycle] |
+| R27 | Kinescope upload/process/attach | Author uploads or attaches Video and waits for readiness | Author editor/video picker outside body editor | upload created/uploading/paused/processing/ready/failed/retry; only ready may become `primaryVideoId` on Save | [Kinescope lifecycle][kinescope-lifecycle] |
 | R28 | Validation and current saved preview | Author checks publishability and rendered result | Editor + Preview | valid, warnings, structured errors, dependency unavailable; preview current saved state, no-store | [Workspace authoring flow][workspace-authoring-flow] |
 | R29 | Optimistic conflict | Author/MCP saves stale Material | Editor conflict state; MCP structured outcome | `expectedContentVersion`, `409`, current version, preserved local input, manual reapply/reload; no last-write-wins | [Workspace authoring flow][workspace-authoring-flow] |
 | R30 | Mutable lifecycle without history | Author manages lifecycle | Editor + Preview | `draft → published ↔ unpublished`; hard-delete only never-published draft; no revisions/compare/restore or mutation journal | [Workspace authoring flow][workspace-authoring-flow], [ADR 0009](../adr/0009-one-mutable-material.md) |
@@ -496,17 +497,17 @@ git diff origin/main...HEAD --check
 
 Diagram ниже показывает не Git internals, а ownership: discussion остаётся в issue, durable
 decision — в owning document, code — в application repository. Excalidraw source приложен, чтобы
-автор мог обновить схему вместе с process contract. Видео проходит тот же closed access decision,
-что body и file; отсутствие playback не скрывает доступный текст.
+автор мог обновить схему вместе с process contract. Видео проходит отдельный exact `play` access
+decision; отсутствие playback не скрывает доступный текст.
 
 | Resource | Local fixture ref | Metadata / state coverage |
 |---|---|---|
 | Image | `asset-pipeline-stage-map` | Alt: «Пять стадий delivery от ready issue до owner-approved merge»; wide 21:9 stress + mobile rendition |
 | File | `asset-pipeline-stage-map-source` | Label: «Исходная схема Developer Pipeline»; filename `inside-platform-developer-pipeline-stage-map.excalidraw`; 2.4 MB |
-| Video | `video-platform-build-05` | Caption: «Создание Platform Inside, выпуск 5»; duration `38:42`; poster ref `asset-platform-build-05-poster`; states loading/ready/denied/unavailable/unsupported |
+| Primary Video | `video-platform-build-05` | Title: «Создание Platform Inside, выпуск 5»; отдельная section между summary и body; states idle/loading/ready/locked/failed/unavailable |
 
 F2 является одним end-to-end representative Material: его title/description/body, code, table,
-callout, image, file, Video и Series metadata используются вместе в reader, editor, Preview,
+callout, image, file, primary Video и Series metadata используются вместе в reader, editor, Preview,
 search/access tests и production surfaces.
 
 ### F3 — closed search/card diversity
@@ -520,7 +521,7 @@ search/access tests и production surfaces.
 | Topic / Format | Candidate Topic `Карьера`; candidate Format `Video` |
 | Tags | Candidate values `job search`, `resume` |
 | Series | Нет |
-| Resource | File `find_job.excalidraw` с label «Карта поиска работы» и Video `video-career-resume` |
+| Resources | File `find_job.excalidraw` с label «Карта поиска работы»; primary Video `video-career-resume` вне body |
 | Search probes | `поиск работы резюме`, `job search`, `резюмэ`, `карта поиска работы` |
 
 ### Corpus stress profile и sanitation
@@ -637,11 +638,11 @@ continuation → footer. Desktop columns must not reorder focus relative to mobi
 [series position + read/unread action when authenticated]
 
 ALLOWED                            DENIED / OFFER
+[primary video player/status]      [no video presentation/locator]
 [body heading navigation]          [public teaser]
 [paragraph/callout/code/table]      [coarse state heading]
 [image + alt/caption]               [state explanation]
 [file label + Download]             [Получить доступ -> configured Tribute URL]
-[video caption + player/status]     [same locked outcome for every deny reason]
 [related Materials]                [public related Materials]
 ```
 

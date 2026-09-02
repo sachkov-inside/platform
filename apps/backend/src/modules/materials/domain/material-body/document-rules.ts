@@ -10,5 +10,4 @@ export const addressableBlockTypes: readonly string[] = [
   "callout",
   "assetImage",
   "assetFile",
-  "video",
 ];

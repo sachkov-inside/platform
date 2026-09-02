@@ -17,7 +17,12 @@ export type AssetResource = Readonly<{
   assetId: string;
 }>;
 
-export type Resource = MaterialResource | AssetResource;
+export type VideoResource = Readonly<{
+  kind: "video";
+  videoId: string;
+}>;
+
+export type Resource = MaterialResource | AssetResource | VideoResource;
 
 export type AccessAction = "read" | "preview" | "download" | "play";
 

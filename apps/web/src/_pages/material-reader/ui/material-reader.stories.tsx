@@ -188,11 +188,6 @@ const body = [
     assetId: "skill-review-checklist",
     label: "Чек-лист проверки repository-owned skill",
   },
-  {
-    kind: "video",
-    videoId: "skill-review-session",
-    caption: "Разбор проверки skill contract",
-  },
 ] as const satisfies readonly ReaderBlock[];
 
 type ReaderStoryMode =
@@ -204,7 +199,9 @@ type ReaderStoryMode =
   | "mobile"
   | "not-found"
   | "playlist-return"
-  | "unavailable";
+  | "unavailable"
+  | "video-failed"
+  | "video-processing";
 
 function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
   return (
@@ -223,7 +220,15 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
   switch (mode) {
     case "desktop":
     case "mobile":
-      return <MaterialReaderView body={body} material={material} />;
+      return <MaterialReaderView
+        body={body}
+        material={material}
+        primaryVideo={{
+          state: "ready",
+          title: "Разбор проверки skill contract",
+          videoId: "03000000-0000-4000-8000-000000000001",
+        }}
+      />;
     case "playlist-return": {
       const returnTarget = parseMaterialReaderReturnTarget(
         "/series/platform-inside",
@@ -232,6 +237,7 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
         <MaterialReaderView
           body={body}
           material={material}
+          primaryVideo={null}
           returnTarget={returnTarget}
           sourceHref={materialReaderHref(material.slug, returnTarget.href)}
         />
@@ -239,6 +245,27 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
     }
     case "loading":
       return <MaterialReaderLoading />;
+    case "video-processing":
+      return <MaterialReaderView
+        body={body}
+        material={material}
+        primaryVideo={{
+          state: "processing",
+          title: "Разбор проверки skill contract",
+          videoId: "03000000-0000-4000-8000-000000000001",
+        }}
+      />;
+    case "video-failed":
+      return <MaterialReaderView
+        body={body}
+        material={material}
+        primaryVideo={{
+          failureCode: "provider_error",
+          state: "failed",
+          title: "Разбор проверки skill contract",
+          videoId: "03000000-0000-4000-8000-000000000001",
+        }}
+      />;
     case "not-found":
       return <MaterialReaderNotFound />;
     case "access-required":
@@ -309,6 +336,26 @@ export const Desktop: Story = {
       if (block === null) throw new Error(`Reader ${kind} block is missing`);
       await expect(Number.parseFloat(getComputedStyle(block).marginTop)).toBeGreaterThanOrEqual(32);
     }
+    await expect(canvas.getByRole("button", { name: "Загрузить player" })).toBeVisible();
+    await expect(canvasElement.querySelector("iframe")).toBeNull();
+  },
+};
+
+export const VideoProcessing: Story = {
+  args: { mode: "video-processing" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("heading", { name: "Видео обрабатывается" })).toBeVisible();
+    await expect(canvas.getByText("Можно продолжить чтение и вернуться к player позже.")).toBeVisible();
+  },
+};
+
+export const VideoFailed: Story = {
+  args: { mode: "video-failed" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("heading", { name: "Видео временно недоступно" })).toBeVisible();
+    await expect(canvas.getByText("Хороший skill начинается", { exact: false })).toBeVisible();
   },
 };
 

@@ -8,13 +8,14 @@ import type {
   ReaderBlock,
   ReaderMark,
   ReaderText,
+  PrimaryVideoPresentation,
 } from "@/_pages/material-reader/model/material-reader-view";
 import type { RelatedMaterialsResult } from "@/features/library-discovery";
 import { RelatedMaterialsSection } from "@/features/library-discovery";
 import { materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
-import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
+import { MaterialPrimaryVideo } from "@/features/material-video";
 import {
   libraryMaterialReaderReturnTarget,
   materialReaderHref,
@@ -24,6 +25,7 @@ import {
 export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
+  readonly primaryVideo: PrimaryVideoPresentation | null;
   readonly related?: RelatedMaterialsResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly sourceHref?: Route;
@@ -39,6 +41,7 @@ interface OutlineItem {
 export function MaterialReaderView({
   body,
   material,
+  primaryVideo,
   related,
   returnTarget = libraryMaterialReaderReturnTarget,
   sourceHref,
@@ -46,10 +49,13 @@ export function MaterialReaderView({
   const outline = collectOutline(body);
 
   return (
-    <div className="@container/material-reader" data-material-reader-state="available">
+    <div className="@container/material-reader" data-material-id={material.materialId} data-material-reader-state="available">
       <ReaderBackAction target={returnTarget} />
       <div className="mt-10 min-w-0">
         <MaterialHeader material={material} />
+        {primaryVideo === null ? null : (
+          <MaterialPrimaryVideo materialId={material.materialId} video={primaryVideo} />
+        )}
         <ReaderOutline items={outline} />
         <article
           className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[0.96875rem] leading-[1.7] sm:mt-12 sm:text-[1.0625rem]"
@@ -325,15 +331,6 @@ function ReaderBlockView({
           />
         </div>
       );
-    case "video":
-      return (
-        <MaterialResourcePlaceholder
-          caption={block.caption}
-          className="mt-8"
-          id={resourceId(path)}
-          kind="video"
-        />
-      );
   }
 }
 
@@ -442,10 +439,6 @@ function collectOutline(blocks: readonly ReaderBlock[], path: readonly number[] 
 
 function headingId(path: readonly number[]): string {
   return `material-section-${path.join("-")}`;
-}
-
-function resourceId(path: readonly number[]): string {
-  return `material-resource-${path.join("-")}`;
 }
 
 function textContent(content: readonly ReaderText[]): string {

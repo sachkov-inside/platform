@@ -63,9 +63,21 @@ import {
   statement as materialAssetReferenceStateMigrationStatement,
 } from "../modules/assets/infrastructure/postgres/migrations/0014-material-asset-reference-state.js";
 import {
+  name as videosMigrationName,
+  statement as videosMigrationStatement,
+} from "../modules/videos/infrastructure/postgres/migrations/0016-videos.js";
+import {
+  name as primaryVideoMigrationName,
+  statement as primaryVideoMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0017-primary-video.js";
+import {
+  name as durableVideoUploadAttemptsMigrationName,
+  statement as durableVideoUploadAttemptsMigrationStatement,
+} from "../modules/videos/infrastructure/postgres/migrations/0018-durable-video-upload-attempts.js";
+import {
   name as contentCollectionsMigrationName,
   statement as contentCollectionsMigrationStatement,
-} from "../modules/materials/infrastructure/postgres/migrations/0016-content-collections.js";
+} from "../modules/materials/infrastructure/postgres/migrations/0019-content-collections.js";
 
 const migrations = [
   {
@@ -127,6 +139,12 @@ const migrations = [
   {
     name: profileAvatarsMigrationName,
     statement: profileAvatarsMigrationStatement,
+  },
+  { name: videosMigrationName, statement: videosMigrationStatement },
+  { name: primaryVideoMigrationName, statement: primaryVideoMigrationStatement },
+  {
+    name: durableVideoUploadAttemptsMigrationName,
+    statement: durableVideoUploadAttemptsMigrationStatement,
   },
   {
     name: contentCollectionsMigrationName,

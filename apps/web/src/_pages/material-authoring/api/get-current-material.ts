@@ -37,6 +37,7 @@ const currentMaterialSchema = z
       })
       .strict(),
     publicationState: z.enum(["draft", "published", "unpublished"]),
+    primaryVideoId: z.uuid().nullable(),
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
   })
   .strict();
@@ -131,6 +132,7 @@ export async function getCurrentMaterial(
       document: parsed.data.body.doc,
       formatId: parsed.data.metadata.formatId ?? "unassigned",
       materialId: parsed.data.materialId,
+      primaryVideoId: parsed.data.primaryVideoId,
       readOnly: false,
       seriesIds: parsed.data.metadata.seriesMemberships.map(({ seriesId }) => seriesId),
       status: parsed.data.publicationState,

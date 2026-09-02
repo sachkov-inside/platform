@@ -17,9 +17,8 @@ reader-visible, and Unpublished was previously visible but is now hidden.
 _Avoid_: Revision pointer, publication entity
 
 **MaterialBody**:
-The current validated structured content owned by a Material. Its persisted schema is versioned,
-while the domain term itself is not version-suffixed. In Russian product language:
-«Содержимое материала».
+The current structured content owned by a Material. In Russian product language: «Содержимое
+материала».
 _Avoid_: MaterialDocumentV1, HTML blob, editor state
 
 **Public Material Projection**:
@@ -64,11 +63,17 @@ inline from its current MaterialBody. It inherits the Material access class and 
 while ready and currently authorized.
 _Avoid_: Media library item, attachment URL, mutable file
 
+**Video**:
+A local identity for one Kinescope object owned by exactly one Material. A Material may select at
+most one ready Video through nullable `primaryVideoId` outside MaterialBody; provider IDs, embed
+locators, status and errors remain Video facts and never enter the document.
+_Avoid_: Inline video node, iframe block, provider URL as Material content
+
 ## Access and activity
 
 **Account**:
-Platform's stable local identity for one human authenticated by Logto. It owns Platform permissions
-and is independent of mutable profile data and Membership.
+Platform's stable private identity for one authenticated human. It owns Platform permissions and
+is independent of profile presentation and Membership.
 _Avoid_: Principal, External Identity, Platform Account, Platform Session, user
 
 **Member Profile**:
@@ -85,10 +90,15 @@ Platform's time-bounded conclusion that an Account currently has Inside Membersh
 _Avoid_: Subscription, Telegram membership status
 
 **ContentAccess**:
-Platform's authority for availability and protected delivery. It batch-projects card availability
-and separately authorizes one Material or body-linked resource before protected bytes are loaded.
+Platform's authority for the availability and protected delivery of a Material or its linked
+Resource to an Account or visitor.
 _Avoid_: Paywall middleware, UI lock state, Membership role
 
 **ReadingState**:
 The current read or unread relationship between an Account and a Material.
 _Avoid_: Progress, completion percentage
+
+**VideoPlaybackProgress**:
+A coarse resume position for one Account and one local Video identity. Replacement Video therefore
+starts independently, and playback progress never changes ReadingState.
+_Avoid_: Material completion, read status, Kinescope user profile

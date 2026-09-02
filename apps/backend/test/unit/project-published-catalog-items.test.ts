@@ -49,6 +49,7 @@ function projection(ordinal: number): PublishedMaterialProjectionDto {
       slug: "guide",
     },
     materialId: `72000000-0000-4000-8000-${suffix}`,
+    primaryVideoId: null,
     publishedAt: "2026-09-02T00:00:00.000Z",
     seriesMemberships: [
       {

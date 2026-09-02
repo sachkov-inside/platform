@@ -46,6 +46,7 @@ const saveMaterialCommand = z
     materialId: materialIdSchema,
     expectedContentVersion: z.number().int().positive(),
     publicationState: z.enum(["draft", "published", "unpublished"]),
+    primaryVideoId: z.uuid().nullable().optional().default(null),
     metadata: z.unknown(),
     body: z.unknown(),
   })
@@ -79,11 +80,10 @@ export function assembleSaveMaterial(
     if (!extraction.ok) {
       return failure(extraction.error);
     }
-    const assetReferences = extraction.value.resources.flatMap((resource) =>
-      resource.kind === "video"
-        ? []
-        : [{ assetId: resource.assetId, kind: resource.kind }],
-    );
+    const assetReferences = extraction.value.resources.map((resource) => ({
+      assetId: resource.assetId,
+      kind: resource.kind,
+    }));
     const authorization = await authorizeManager(
       dependencies.authorPolicy,
       command.actor,
@@ -99,6 +99,7 @@ export function assembleSaveMaterial(
       publicationState: command.publicationState,
       metadata: selection.value.toValues(),
       body: body.value,
+      primaryVideoId: command.primaryVideoId,
     });
     let materializedMetadata: MaterialMetadata | undefined;
     const result = await executeAuthoringTransaction<
@@ -182,6 +183,30 @@ export function assembleSaveMaterial(
                 });
               }
             }
+            if (command.primaryVideoId !== null) {
+              if (dependencies.videos === undefined) {
+                return rollback({ code: "dependency_unavailable", retryable: true });
+              }
+              const videoReference = await dependencies.videos.inspectPrimaryReference({
+                access: materializedMetadata.access,
+                materialId: command.materialId,
+                videoId: command.primaryVideoId,
+              });
+              if (!videoReference.ok) {
+                if (videoReference.error.code === "dependency_unavailable") {
+                  return rollback(videoReference.error);
+                }
+                const code = videoReference.error.code === "video_not_found"
+                  ? "video_not_found"
+                  : videoReference.error.code === "video_not_ready"
+                    ? "video_not_ready"
+                    : "video_provider_mismatch";
+                return rollback({
+                  code: "invalid_reference",
+                  issues: [{ code, path: "/primaryVideoId" }],
+                });
+              }
+            }
 
             const entersPublished =
               locked.lifecycle.publicationState !== "published" &&
@@ -205,6 +230,7 @@ export function assembleSaveMaterial(
                 firstPublishedAt: next.value.firstPublishedAt,
                 publishedAt: next.value.publishedAt,
                 publishedBy,
+                primaryVideoId: command.primaryVideoId,
                 updatedAt: savedAt,
               },
             });
@@ -227,6 +253,7 @@ export function assembleSaveMaterial(
                 publishedAt: requireDate(next.value.publishedAt),
                 publishedBy,
                 plainText: extraction.value.plainText,
+                primaryVideoId: command.primaryVideoId,
               });
             } else {
               await transaction.publishedMaterial.deleteMany({
@@ -282,6 +309,7 @@ async function replacePublishedProjections(
     readonly publishedAt: Date;
     readonly publishedBy: string;
     readonly plainText: string;
+    readonly primaryVideoId: string | null;
   },
 ): Promise<void> {
   await transaction.publishedMaterial.upsert({
@@ -298,6 +326,7 @@ async function replacePublishedProjections(
       publicSearchText: "",
       publishedBy: values.publishedBy,
       publishedAt: values.publishedAt,
+      primaryVideoId: values.primaryVideoId,
     },
     update: {
       contentVersion: BigInt(values.contentVersion),
@@ -310,6 +339,7 @@ async function replacePublishedProjections(
       publicSearchText: "",
       publishedBy: values.publishedBy,
       publishedAt: values.publishedAt,
+      primaryVideoId: values.primaryVideoId,
     },
   });
   await transaction.publishedMaterialTag.deleteMany({

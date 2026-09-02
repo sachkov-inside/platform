@@ -43,6 +43,7 @@ export const materialAuthoringPresentation = {
   draft: {
     access: "membership",
     canDelete: true,
+    primaryVideoId: null,
     document: {
       type: "doc",
       content: [
@@ -170,11 +171,6 @@ export const materialAuthoringPresentation = {
         assetId: "94000000-0000-4000-8000-000000000052",
         kind: "file",
         label: "Checklist проверки",
-      },
-      {
-        caption: "Разбор delivery-потока",
-        kind: "video",
-        videoId: "94000000-0000-4000-8000-000000000053",
       },
     ],
     format: "Guide",

@@ -27,7 +27,7 @@ interface SubjectFacts {
 
 interface ResolvedResourceFacts extends MaterialResourceFacts {
   readonly resourceKey: string;
-  readonly resourceKind: "file_asset" | "image_asset" | "material";
+  readonly resourceKind: "file_asset" | "image_asset" | "material" | "video";
 }
 
 export function assembleContentAccess(
@@ -209,7 +209,7 @@ function needsMembership(
   facts: ResolvedResourceFacts,
   action: AccessAction,
 ): boolean {
-  return (action === "read" || action === "download") &&
+  return (action === "read" || action === "download" || action === "play") &&
     facts.publicationState === "published" &&
     facts.access === "membership";
 }
@@ -285,14 +285,15 @@ function resourceReason(
   const validPair = action === "preview" ||
     (facts.resourceKind === "material" && action === "read") ||
     (facts.resourceKind === "image_asset" && action === "read") ||
-    (facts.resourceKind === "file_asset" && action === "download");
+    (facts.resourceKind === "file_asset" && action === "download") ||
+    (facts.resourceKind === "video" && action === "play");
   if (!validPair) {
     return "resource_action_invalid";
   }
-  if ((action === "read" || action === "download") && facts.publicationState !== "published") {
+  if ((action === "read" || action === "download" || action === "play") && facts.publicationState !== "published") {
     return "resource_unpublished";
   }
-  if ((action === "read" || action === "download") && facts.access === "free") {
+  if ((action === "read" || action === "download" || action === "play") && facts.access === "free") {
     return "public_resource";
   }
   return undefined;
@@ -309,6 +310,19 @@ async function resolveOneResourceFacts(
     return material === null
       ? null
       : resolveMaterialFacts(material, "material", `material:${material.materialId}`);
+  }
+  if (resource.kind === "video") {
+    const video = await dependencies.videoResourceFacts?.findOne(resource.videoId) ?? null;
+    if (video === null) return null;
+    const material = await dependencies.materialResourceFacts.findOne(video.materialId);
+    if (material === null) return null;
+    return resolveMaterialFacts(
+      material,
+      "video",
+      video.access === material.access && material.primaryVideoId === video.videoId
+        ? `video:${video.videoId}`
+        : `video-mismatch:${video.videoId}`,
+    );
   }
   const asset = await dependencies.assetResourceFacts?.findOne(resource.assetId) ?? null;
   if (asset === null) return null;
@@ -331,21 +345,41 @@ async function resolveManyResourceFacts(
   const assets = assetIds.length === 0
     ? []
     : await dependencies.assetResourceFacts?.findMany(assetIds) ?? [];
+  const videoIds = [...new Set(resources.flatMap((resource) =>
+    resource.kind === "video" ? [resource.videoId] : [],
+  ))];
+  const videos = videoIds.length === 0
+    ? []
+    : await dependencies.videoResourceFacts?.findMany(videoIds) ?? [];
   const materialIds = [...new Set([
     ...resources.flatMap((resource) =>
       resource.kind === "material" ? [resource.materialId] : [],
     ),
     ...assets.map(({ materialId }) => materialId),
+    ...videos.map(({ materialId }) => materialId),
   ])];
   const materials = await dependencies.materialResourceFacts.findMany(materialIds);
   const materialsById = new Map(materials.map((facts) => [facts.materialId, facts]));
   const assetsById = new Map(assets.map((facts) => [facts.assetId, facts]));
+  const videosById = new Map(videos.map((facts) => [facts.videoId, facts]));
   return new Map(resources.flatMap((resource): readonly [string, ResolvedResourceFacts][] => {
     if (resource.kind === "material") {
       const material = materialsById.get(resource.materialId);
       return material === undefined
         ? []
         : [[resourceKey(resource), resolveMaterialFacts(material, "material", resourceKey(resource))]];
+    }
+    if (resource.kind === "video") {
+      const video = videosById.get(resource.videoId);
+      const material = video === undefined
+        ? undefined
+        : materialsById.get(video.materialId);
+      return video === undefined ||
+        material === undefined ||
+        video.access !== material.access ||
+        material.primaryVideoId !== video.videoId
+        ? []
+        : [[resourceKey(resource), resolveMaterialFacts(material, "video", resourceKey(resource))]];
     }
     const asset = assetsById.get(resource.assetId);
     const material = asset === undefined
@@ -373,7 +407,7 @@ function resolveMaterialFacts(
 }
 
 function resourceKey(resource: Resource): string {
-  return resource.kind === "material"
-    ? `material:${resource.materialId}`
-    : `asset:${resource.assetId}`;
+  if (resource.kind === "material") return `material:${resource.materialId}`;
+  if (resource.kind === "video") return `video:${resource.videoId}`;
+  return `asset:${resource.assetId}`;
 }

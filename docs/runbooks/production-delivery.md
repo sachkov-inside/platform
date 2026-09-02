@@ -32,6 +32,9 @@ present even in this small baseline. Configure its retention window with
 
 Create the ignored server-owned env files from the tracked templates and replace every placeholder.
 Each service receives only its own runtime configuration and secrets.
+The API file also owns Kinescope API/project/callback/webhook/playback values; the browser and web
+container do not receive them. Production startup rejects the test adapter and equal public/member
+project IDs.
 
 ```bash
 for template in config/compose/production/*.env.example; do

@@ -417,10 +417,37 @@ Published body читается только для current `published` state; d
 6. `material-assets-worker` через durable `pg-boss` schedule после grace period удаляет
    unreferenced pending/failed/ready objects. Cleanup и concurrent Save сериализуются Material
    advisory lock; повтор job безопасен, referenced resources retain-ятся.
-7. `Videos` начинает Kinescope upload, считает webhook только hint и сверяет authoritative provider
-   state; publish допускает только ready Video.
-8. Playback token и strict authorization callback повторно вызывают `ContentAccess`; mismatch,
-   stale entitlement и outage дают deny.
+7. Current Material и immutable published projection имеют один nullable `primaryVideoId` вне
+   `MaterialBody`. V1 document schema не принимает inline Video node, provider ID, URL или iframe.
+   Bounded migration останавливается до изменения schema, если находит legacy inline Video, поэтому
+   rollout не может тихо потерять содержимое.
+8. `Videos` хранит local identity, exact owning Material/access/project, opaque Kinescope API ID,
+   returned embed locator, authoritative status и sync/error facts. Upload attempt фиксируется до
+   provider I/O; один unresolved attempt на Material+actor блокирует новый key после ambiguous
+   timeout, поэтому browser retry не создаёт второй provider object. Browser выполняет resumable
+   Tus transfer без API token. Attach-existing всегда делает server lookup в фиксированном public
+   или membership project.
+9. Webhook — durable hint: duplicate и out-of-order deliveries попадают в inbox, после чего Platform
+   повторно читает provider state. Только `done` с безопасным returned embed locator становится
+   `ready`; unknown status становится видимым failed state, а provider outage оставляет event для
+   retry/reconciliation.
+10. Save/publish с `primaryVideoId` fails closed для missing, processing/failed, wrong-Material,
+    wrong-access или wrong-project Video. Current и published pointers меняются одной Material Save;
+    неуспешная replacement не меняет уже опубликованный playback. Remove сохраняет provider object
+    как tracked unreferenced Video до отдельной owner-approved retention policy — silent delete нет.
+11. Reader сначала получает только safe Video presentation. До явного click нет iframe, provider
+    script/request, locator или token. Playback session повторно вызывает exact `ContentAccess`
+    `play`; membership Video получает short-lived JWT, а strict provider authorization callback ещё
+    раз проверяет token, Video mapping и current access. Mismatch, tampering, expiry и outage deny.
+    Platform-owned responsive frame оставляет playback controls Kinescope; если выпуск не заявляет
+    captions, Reader сообщает это явно, а subtitles/transcripts остаются вне V1.
+12. Account resume хранится coarse server-side по `(accountId, videoId)` и работает между
+    устройствами. Anonymous public resume хранится versioned по local Video ID в `localStorage`;
+    replacement не наследует позицию. Ни один resume path не меняет manual `ReadingState` и не
+    передаёт Account PII provider-у.
+13. Production `real` adapter требует отдельные public/membership projects, callback credentials,
+    webhook secret и playback signing secret. ADR о production adapter/config создаётся только
+    после redacted credentialed proof на approved account; test adapter не считается таким proof.
 
 ### Search, navigation и related Materials
 

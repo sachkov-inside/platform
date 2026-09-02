@@ -2,6 +2,7 @@ import type { RenderedMaterialBody } from "../../domain/material-body/material-b
 import type { Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
 import type { Result } from "../../result.js";
+import type { VideoPresentation } from "../../../videos/index.js";
 
 export interface LockedMaterialAccessDto {
   readonly availability: "locked";
@@ -17,6 +18,7 @@ export type PublishedMaterialReadDto =
       readonly cacheScope: "private-no-store" | "public";
       readonly projection: PublishedMaterialProjectionDto;
       readonly body: RenderedMaterialBody;
+      readonly primaryVideo: VideoPresentation | null;
     }
   | {
       readonly kind: "teaser";

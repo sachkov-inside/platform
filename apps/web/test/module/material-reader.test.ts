@@ -10,6 +10,7 @@ const publishedProjection = {
   summary: "Один реальный published Material.",
   access: "free",
   publishedAt: "2026-08-25T05:00:00.000Z",
+  primaryVideoId: null,
   topic: {
     id: "72000000-0000-4000-8000-000000000002",
     name: "Platform",
@@ -64,6 +65,7 @@ describe("Material Reader server adapter", () => {
           cacheScope: "public",
           projection: publishedProjection,
           body: renderedBody,
+          primaryVideo: null,
         }),
       ),
     );
@@ -99,6 +101,7 @@ describe("Material Reader server adapter", () => {
           content: [{ kind: "text", text: "Содержимое из PostgreSQL.", marks: [] }],
         },
       ],
+      primaryVideo: null,
     });
     expect(fetch).toHaveBeenCalledOnce();
   });
@@ -168,6 +171,7 @@ describe("Material Reader server adapter", () => {
           cacheScope: "public",
           projection: publishedProjection,
           body: { schemaVersion: 1, blocks: [{ kind: "paragraph" }] },
+          primaryVideo: null,
         }),
       ),
     );

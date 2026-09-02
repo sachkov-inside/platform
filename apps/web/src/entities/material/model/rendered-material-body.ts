@@ -38,8 +38,7 @@ export type RenderedBlock =
       readonly kind: "file";
       readonly label: string;
       readonly size?: number | undefined;
-    }
-  | { readonly caption?: string | undefined; readonly kind: "video"; readonly videoId: string };
+    };
 
 export interface RenderedMaterialBody {
   readonly blocks: readonly RenderedBlock[];
@@ -92,7 +91,6 @@ export const renderedBlockSchema: z.ZodType<RenderedBlock> = z.lazy(() =>
       label: z.string(),
       size: z.number().int().nonnegative().optional(),
     }).strict(),
-    z.object({ caption: z.string().optional(), kind: z.literal("video"), videoId: z.uuid() }).strict(),
   ]),
 );
 

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import { assembleMaterials } from "../../src/modules/materials/index.js";
+import type { Videos } from "../../src/modules/videos/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,
@@ -68,6 +69,7 @@ describe("MaterialAuthoring", () => {
         publicationState: "draft",
         firstPublishedAt: null,
         publishedAt: null,
+        primaryVideoId: null,
         metadata: {
           title: null,
           summary: null,
@@ -198,6 +200,7 @@ describe("MaterialAuthoring", () => {
           publicationState: true,
           access: true,
           contentVersion: true,
+          primaryVideoId: true,
         },
       }),
     );
@@ -507,5 +510,145 @@ describe("MaterialAuthoring", () => {
     await expect(
       unauthorized.authoring.listMaterials({ actor, first: 20, page: 1 }),
     ).resolves.toEqual({ ok: false, error: { code: "forbidden" } });
+  });
+
+  test("fails closed on Video validation and changes published playback only after a successful Save", async () => {
+    const topicId = "96000000-0000-4000-8000-000000000031";
+    const formatId = "96000000-0000-4000-8000-000000000032";
+    const firstVideoId = "96000000-0000-4000-8000-000000000033";
+    const replacementVideoId = "96000000-0000-4000-8000-000000000034";
+    await Promise.all([
+      testDatabase.prisma.topic.create({
+        data: { id: topicId, name: "Video topic", slug: "video-topic" },
+      }),
+      testDatabase.prisma.format.create({
+        data: { id: formatId, name: "Video guide", slug: "video-guide" },
+      }),
+    ]);
+    const metadata = {
+      access: "free" as const,
+      formatId,
+      seriesIds: [],
+      summary: "One primary Video outside the Material body.",
+      tagIds: [],
+      title: "Primary Video lifecycle",
+      topicId,
+    };
+    const withoutVideos = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === actor },
+    });
+    const created = await withoutVideos.authoring.createDraft({
+      actor,
+      body: representativeDocument("Published body remains independent."),
+      idempotencyKey: "create-primary-video-material",
+      metadata,
+    });
+    if (!created.ok) throw new Error(created.error.code);
+
+    await expect(withoutVideos.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("Published body remains independent."),
+      expectedContentVersion: 1,
+      idempotencyKey: "publish-with-missing-video-dependency",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: firstVideoId,
+      publicationState: "published",
+    })).resolves.toEqual({
+      error: { code: "dependency_unavailable", retryable: true },
+      ok: false,
+    });
+
+    let replacementReady = false;
+    const inspectPrimaryReference = vi.fn(({ videoId }: { readonly videoId: string }) =>
+      Promise.resolve(videoId === replacementVideoId && !replacementReady
+        ? { error: { code: "video_not_ready" as const }, ok: false as const }
+        : { ok: true as const, value: undefined }));
+    const loadPresentation = vi.fn(({ videoId }: { readonly videoId: string }) => Promise.resolve({
+      ok: true as const,
+      value: {
+        state: "ready" as const,
+        title: videoId === firstVideoId ? "First Video" : "Replacement Video",
+        videoId,
+      },
+    }));
+    const videos = { inspectPrimaryReference, loadPresentation } satisfies Pick<
+      Videos,
+      "inspectPrimaryReference" | "loadPresentation"
+    >;
+    const withVideos = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === actor },
+      videos,
+    });
+    const published = await withVideos.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("Published body remains independent."),
+      expectedContentVersion: 1,
+      idempotencyKey: "publish-with-primary-video",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: firstVideoId,
+      publicationState: "published",
+    });
+    expect(published).toMatchObject({ ok: true, value: { contentVersion: 2 } });
+
+    await expect(withVideos.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("Published body remains independent."),
+      expectedContentVersion: 2,
+      idempotencyKey: "reject-processing-video-replacement",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: replacementVideoId,
+      publicationState: "published",
+    })).resolves.toEqual({
+      error: {
+        code: "invalid_reference",
+        issues: [{ code: "video_not_ready", path: "/primaryVideoId" }],
+      },
+      ok: false,
+    });
+    await expect(withVideos.publishedMaterialReader.read({
+      slug: "primary-video-lifecycle",
+      subject: { kind: "anonymous" },
+    })).resolves.toMatchObject({
+      ok: true,
+      value: {
+        kind: "available",
+        primaryVideo: { title: "First Video", videoId: firstVideoId },
+        projection: { primaryVideoId: firstVideoId },
+      },
+    });
+
+    replacementReady = true;
+    await expect(withVideos.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("Published body remains independent."),
+      expectedContentVersion: 2,
+      idempotencyKey: "save-ready-video-replacement",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: replacementVideoId,
+      publicationState: "published",
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
+    await expect(withVideos.authoring.loadMaterial({
+      actor,
+      materialId: created.value.materialId,
+    })).resolves.toMatchObject({
+      ok: true,
+      value: { primaryVideoId: replacementVideoId },
+    });
+    await expect(withVideos.publishedMaterialReader.read({
+      slug: "primary-video-lifecycle",
+      subject: { kind: "anonymous" },
+    })).resolves.toMatchObject({
+      ok: true,
+      value: {
+        primaryVideo: { title: "Replacement Video", videoId: replacementVideoId },
+        projection: { primaryVideoId: replacementVideoId },
+      },
+    });
   });
 });

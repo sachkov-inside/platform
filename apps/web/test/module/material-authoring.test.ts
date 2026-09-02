@@ -193,6 +193,7 @@ describe("Material Authoring action workflow", () => {
             topicId,
           },
           publicationState: "published",
+          primaryVideoId: null,
           publishedAt: "2026-08-30T08:00:00.000Z",
         },
         response: Response.json({}),
@@ -238,6 +239,7 @@ describe("Material Authoring action workflow", () => {
             topicId: null,
           },
           publicationState: "draft",
+          primaryVideoId: null,
           publishedAt: null,
         },
         response: Response.json({}),
@@ -296,11 +298,6 @@ describe("Material Authoring action workflow", () => {
         kind: "file",
         label: "Pipeline checklist",
       },
-      {
-        caption: "Platform build episode",
-        kind: "video",
-        videoId: "03000000-0000-4000-8000-000000000001",
-      },
     );
 
     const mapped = mapCurrentMaterialPreview(representativePreview);
@@ -311,7 +308,6 @@ describe("Material Authoring action workflow", () => {
       "table",
       "image",
       "file",
-      "video",
     ]);
   });
 
@@ -338,6 +334,7 @@ describe("Material Authoring action workflow", () => {
         idempotencyKey: `web-save-${submissionId}`,
         materialId,
         publicationState: "published",
+        primaryVideoId: null,
         seriesIds: [seriesId],
         summary: "Saved summary",
         tagIds: [tagId],

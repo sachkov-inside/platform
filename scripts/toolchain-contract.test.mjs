@@ -91,6 +91,15 @@ describe("supported toolchain contract", () => {
     assert.match(nextConfig, /tsconfigPath: "tsconfig\.next\.json"/u);
   });
 
+  it("allows local previews and protected image delivery through the Web CSP", () => {
+    const nextConfig = read("apps/web/next.config.ts");
+
+    assert.match(
+      nextConfig,
+      /"img-src 'self' blob: data: https: http:\/\/127\.0\.0\.1:9000/u,
+    );
+  });
+
   it("uses only the Oxc lint and parser toolchain", () => {
     assert.equal(
       rootPackage.scripts.lint,

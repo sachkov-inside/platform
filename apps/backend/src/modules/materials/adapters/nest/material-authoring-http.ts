@@ -49,6 +49,7 @@ export const materialSchema = z
     materialId: materialIdSchema,
     contentVersion: contentVersionSchema,
     publicationState: publicationStateWireSchema,
+    primaryVideoId: z.uuid().nullable(),
     firstPublishedAt: z.iso.datetime({ offset: true }).nullable(),
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
     metadata: materialMetadataSchema,
@@ -64,6 +65,7 @@ export const saveMaterialBodySchema = z
   .object({
     expectedContentVersion: contentVersionSchema,
     publicationState: publicationStateWireSchema,
+    primaryVideoId: z.uuid().nullable().default(null),
     metadata: materialMetadataSelectionSchema,
     body: materialBodySnapshotSchema,
   })

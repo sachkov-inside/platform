@@ -9,6 +9,7 @@ import {
   type MaterialResourceFacts,
   type MembershipAccessState,
   type Subject,
+  type VideoResourceFacts,
 } from "../../src/modules/content-access/index.js";
 import { materialId } from "../../src/modules/materials/domain/material-identifiers.js";
 
@@ -411,6 +412,105 @@ describe("ContentAccess availability", () => {
 });
 
 describe("ContentAccess authorization", () => {
+  test.each([
+    {
+      name: "free Video",
+      facts: { ...membershipMaterial(40), access: "free" as const },
+      subject: { kind: "anonymous" as const },
+      expected: { effect: "allow", reason: "public_resource" },
+    },
+    {
+      name: "membership Video",
+      facts: membershipMaterial(41),
+      subject: { kind: "account" as const, accountId },
+      expected: { effect: "allow", reason: "active_membership" },
+    },
+  ])("authorizes play through the referenced Material for a $name", async ({ facts, subject, expected }) => {
+    const video = primaryVideo(facts, 1);
+    const referencedFacts = { ...facts, primaryVideoId: video.videoId };
+    const contentAccess = assembleContentAccess({
+      videoResourceFacts: {
+        findMany: () => Promise.resolve([video]),
+        findOne: () => Promise.resolve(video),
+      },
+      materialResourceFacts: {
+        findMany: () => Promise.resolve([referencedFacts]),
+        findOne: () => Promise.resolve(referencedFacts),
+      },
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      membershipEntitlements: {
+        resolveForAccess: () => Promise.resolve({ kind: "active", validUntil: activeUntil }),
+      },
+      clock: () => new Date(decidedAt),
+      decisionId: () => "video-decision-id",
+    });
+
+    await expect(contentAccess.authorize({
+      subject,
+      resource: { kind: "video", videoId: video.videoId },
+      action: "play",
+      enforcementPoint: "playback_token_issue",
+      correlationId: "video-correlation-id",
+    })).resolves.toMatchObject(expected);
+  });
+
+  test("fails closed when Video facts point at a different access class", async () => {
+    const facts = membershipMaterial(42);
+    const video = { ...primaryVideo(facts, 2), access: "free" as const };
+    const referencedFacts = { ...facts, primaryVideoId: video.videoId };
+    const contentAccess = assembleContentAccess({
+      videoResourceFacts: {
+        findMany: () => Promise.resolve([video]),
+        findOne: () => Promise.resolve(video),
+      },
+      materialResourceFacts: {
+        findMany: () => Promise.resolve([referencedFacts]),
+        findOne: () => Promise.resolve(referencedFacts),
+      },
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      membershipEntitlements: {
+        resolveForAccess: () => Promise.resolve({ kind: "active", validUntil: activeUntil }),
+      },
+      clock: () => new Date(decidedAt),
+      decisionId: () => "video-mismatch-decision-id",
+    });
+
+    await expect(contentAccess.authorize({
+      subject: { kind: "account", accountId },
+      resource: { kind: "video", videoId: video.videoId },
+      action: "play",
+      enforcementPoint: "playback_token_issue",
+      correlationId: "video-mismatch-correlation-id",
+    })).resolves.toMatchObject({ effect: "deny", reason: "resource_mismatch" });
+  });
+
+  test("fails closed when Video is no longer the current published primary reference", async () => {
+    const facts = membershipMaterial(43);
+    const video = primaryVideo(facts, 3);
+    const contentAccess = assembleContentAccess({
+      videoResourceFacts: {
+        findMany: () => Promise.resolve([video]),
+        findOne: () => Promise.resolve(video),
+      },
+      materialResourceFacts: {
+        findMany: () => Promise.resolve([facts]),
+        findOne: () => Promise.resolve(facts),
+      },
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(true) },
+      membershipEntitlements: {
+        resolveForAccess: () => Promise.resolve({ kind: "active", validUntil: activeUntil }),
+      },
+    });
+
+    await expect(contentAccess.authorize({
+      subject: { kind: "account", accountId },
+      resource: { kind: "video", videoId: video.videoId },
+      action: "play",
+      enforcementPoint: "playback_token_issue",
+      correlationId: "stale-video-correlation-id",
+    })).resolves.toMatchObject({ effect: "deny", reason: "resource_mismatch" });
+  });
+
   test.each(policyCases)("decides $name", async (policyCase) => {
     const contentAccess = assemblePolicyContentAccess(policyCase);
     const expectedDecision = {
@@ -831,6 +931,18 @@ function membershipMaterial(index: number): MaterialResourceFacts {
     publicationState: "published",
     access: "membership",
     contentVersion: 1,
+    primaryVideoId: null,
+  };
+}
+
+function primaryVideo(
+  material: MaterialResourceFacts,
+  index: number,
+): VideoResourceFacts {
+  return {
+    videoId: `84000000-0000-4000-8000-${index.toString().padStart(12, "0")}`,
+    materialId: material.materialId,
+    access: material.access,
   };
 }
 

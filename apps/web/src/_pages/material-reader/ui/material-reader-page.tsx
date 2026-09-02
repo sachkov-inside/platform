@@ -51,6 +51,7 @@ export async function MaterialReaderPage({
     <MaterialReaderView
       body={result.body}
       material={result.material}
+      primaryVideo={result.primaryVideo}
       related={related}
       returnTarget={returnTarget}
       sourceHref={currentMaterialHref(slug, returnTarget)}
