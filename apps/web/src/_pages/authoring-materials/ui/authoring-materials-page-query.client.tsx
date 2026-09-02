@@ -1,12 +1,13 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import {
   useCallback,
-  useEffect,
   useMemo,
-  useState,
 } from "react";
+
+import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
 
 import type { AuthoringMaterialsQuery } from "../model/authoring-materials-presentation";
 import { authoringMaterialsQueryOptions } from "../model/authoring-materials-query-options";
@@ -21,26 +22,21 @@ import {
   AuthoringMaterialsView,
 } from "./authoring-materials-view";
 
-const SEARCH_DEBOUNCE_MS = 250;
-
-export function AuthoringMaterialsPageQuery({
-  initialQuery,
-}: {
-  readonly initialQuery: AuthoringMaterialsQuery;
-}) {
-  return <AuthoringMaterialsQueryView initialQuery={initialQuery} />;
+export function AuthoringMaterialsPageQuery() {
+  const searchParams = useSearchParams();
+  return <AuthoringMaterialsQueryView locationSearch={searchParams.toString()} />;
 }
 
 function AuthoringMaterialsQueryView({
-  initialQuery,
+  locationSearch,
 }: {
-  readonly initialQuery: AuthoringMaterialsQuery;
+  readonly locationSearch: string;
 }) {
-  const [query, setQuery] = useState(initialQuery);
-  const debouncedSearch = useDebouncedValue(
-    query.search,
-    SEARCH_DEBOUNCE_MS,
+  const query = useMemo(
+    () => parseBrowserAuthoringMaterialsQuery(locationSearch),
+    [locationSearch],
   );
+  const debouncedSearch = useLiveSearchValue(query.search);
   const requestQuery = useMemo(
     () =>
       parseAuthoringMaterialsQuery({
@@ -56,30 +52,11 @@ function AuthoringMaterialsQueryView({
   );
   const materials = useQuery({
     ...authoringMaterialsQueryOptions(requestQuery),
-    enabled: typeof window !== "undefined",
     placeholderData: keepPreviousData,
   });
 
-  useEffect(() => {
-    replaceAuthoringMaterialsUrl(requestQuery);
-  }, [requestQuery]);
-
-  useEffect(() => {
-    const restoreQuery = () => {
-      setQuery(
-        parseAuthoringMaterialsUrlSearchParams(
-          new URLSearchParams(window.location.search),
-        ),
-      );
-    };
-    window.addEventListener("popstate", restoreQuery);
-    return () => {
-      window.removeEventListener("popstate", restoreQuery);
-    };
-  }, []);
-
   const changeQuery = useCallback((next: AuthoringMaterialsQuery) => {
-    setQuery(next);
+    replaceAuthoringMaterialsUrl(next);
   }, []);
 
   if (materials.isPending) return <AuthoringMaterialsLoading />;
@@ -112,15 +89,13 @@ function replaceAuthoringMaterialsUrl(query: AuthoringMaterialsQuery): void {
   }
 }
 
-function useDebouncedValue<Value>(value: Value, delay: number): Value {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setDebounced(value);
-    }, delay);
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [delay, value]);
-  return debounced;
+function parseBrowserAuthoringMaterialsQuery(
+  locationSearch: string,
+): AuthoringMaterialsQuery {
+  const searchParams = new URLSearchParams(locationSearch);
+  const query = parseAuthoringMaterialsUrlSearchParams(searchParams);
+  const rawSearch = searchParams.get("search");
+  return query.search === undefined || rawSearch === null
+    ? query
+    : { ...query, search: rawSearch };
 }

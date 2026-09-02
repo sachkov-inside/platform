@@ -3,10 +3,11 @@
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import {
   useCallback,
-  useEffect,
   useMemo,
   useState,
 } from "react";
+
+import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
 
 import type { LibraryCatalogPage } from "./library-view";
 import type { LibraryCatalogQueryOptions } from "./library-catalog-query";
@@ -14,8 +15,6 @@ import {
   withoutLibraryCursor,
   type LibrarySearchQuery,
 } from "./library-search-query";
-
-const SEARCH_DEBOUNCE_MS = 250;
 
 export function useLibraryCatalogQuery({
   createQueryOptions,
@@ -29,10 +28,7 @@ export function useLibraryCatalogQuery({
   const [searchQuery, setSearchQuery] = useState(() =>
     withoutLibraryCursor(initialQuery),
   );
-  const debouncedSearch = useDebouncedValue(
-    searchQuery.q,
-    SEARCH_DEBOUNCE_MS,
-  );
+  const debouncedSearch = useLiveSearchValue(searchQuery.q);
   const requestQuery = useMemo(
     () =>
       withoutLibraryCursor({ ...searchQuery, q: debouncedSearch }),
@@ -68,19 +64,4 @@ function isReadyPage(
   page: LibraryCatalogPage,
 ): page is Extract<LibraryCatalogPage, { readonly kind: "ready" }> {
   return page.kind === "ready";
-}
-
-function useDebouncedValue<Value>(value: Value, delay: number): Value {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setDebounced(value);
-    }, delay);
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [delay, value]);
-
-  return debounced;
 }

@@ -1,12 +1,19 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import {
   SeriesOrderManager,
+  type CreateSeriesOrderMaterialSearchQueryOptions,
+  type SeriesOrderMaterialSearchResult,
 } from "@/features/series-order";
 import { withMutationFetch } from "./mutation-mock";
 
-const loadMaterialsSpy = fn(() =>
+const loadMaterialsSpy = fn((_input: {
+  readonly page: number;
+  readonly search: string;
+  readonly signal: AbortSignal;
+}): Promise<SeriesOrderMaterialSearchResult> =>
   Promise.resolve({
     items: [
       {
@@ -21,6 +28,13 @@ const loadMaterialsSpy = fn(() =>
     totalPages: 1,
   }),
 );
+const createMaterialSearchQueryOptions: CreateSeriesOrderMaterialSearchQueryOptions =
+  ({ page, search }) =>
+    queryOptions({
+      placeholderData: keepPreviousData,
+      queryFn: ({ signal }) => loadMaterialsSpy({ page, search, signal }),
+      queryKey: ["series-order", "material-search", search, page] as const,
+    });
 const saveOrderSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
   Promise.resolve(Response.json({ kind: "saved", orderVersion: "b".repeat(64) })),
 );
@@ -30,7 +44,7 @@ const failedOrderSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
 
 const meta = {
   args: {
-    loadMaterials: loadMaterialsSpy,
+    createMaterialSearchQueryOptions,
     onBack: fn(),
     onRefresh: fn(),
     onSelectPlaylist: fn(),

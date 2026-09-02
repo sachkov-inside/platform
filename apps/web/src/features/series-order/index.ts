@@ -1,5 +1,5 @@
 export type {
-  LoadSeriesOrderMaterials,
+  CreateSeriesOrderMaterialSearchQueryOptions,
   ReorderSeriesInput,
   ReorderSeriesResult,
   SeriesOrderItemPresentation,

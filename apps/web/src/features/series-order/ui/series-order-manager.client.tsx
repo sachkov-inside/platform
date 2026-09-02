@@ -12,14 +12,14 @@ import {
   X,
 } from "lucide-react";
 import {
-  keepPreviousData,
   useMutation,
   useQuery,
 } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { RefObject } from "react";
 
 import { cn } from "@/shared/lib/utils";
+import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
 import { Button } from "@/shared/ui/button";
 import {
   Select,
@@ -31,22 +31,20 @@ import {
 
 import { reorderSeries } from "../api/series-order.browser";
 import type {
-  LoadSeriesOrderMaterials,
+  CreateSeriesOrderMaterialSearchQueryOptions,
   ReorderSeriesResult,
   SeriesOrderItemPresentation,
   SeriesOrderPresentation,
 } from "../model/presentation";
 
-const SEARCH_DEBOUNCE_MS = 250;
-
 export function SeriesOrderManager({
-  loadMaterials,
+  createMaterialSearchQueryOptions,
   onBack,
   onRefresh,
   onSelectPlaylist,
   presentation,
 }: {
-  readonly loadMaterials: LoadSeriesOrderMaterials;
+  readonly createMaterialSearchQueryOptions: CreateSeriesOrderMaterialSearchQueryOptions;
   readonly onBack: () => void;
   readonly onRefresh: () => void;
   readonly onSelectPlaylist: (seriesId: string) => void;
@@ -188,8 +186,8 @@ export function SeriesOrderManager({
         />
 
         <MaterialPickerDialog
+          createQueryOptions={createMaterialSearchQueryOptions}
           dialogRef={pickerRef}
-          loadMaterials={loadMaterials}
           onAdd={(material) => {
             mutation.reset();
             setItems((current) =>
@@ -370,15 +368,15 @@ function OrderFeedback({
 }
 
 function MaterialPickerDialog({
+  createQueryOptions,
   dialogRef,
-  loadMaterials,
   onAdd,
   onOpenChange,
   open,
   selectedIds,
 }: {
+  readonly createQueryOptions: CreateSeriesOrderMaterialSearchQueryOptions;
   readonly dialogRef: RefObject<HTMLDialogElement | null>;
-  readonly loadMaterials: LoadSeriesOrderMaterials;
   readonly onAdd: (material: SeriesOrderItemPresentation) => void;
   readonly onOpenChange: (open: boolean) => void;
   readonly open: boolean;
@@ -386,16 +384,13 @@ function MaterialPickerDialog({
 }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS)
+  const debouncedSearch = useLiveSearchValue(search)
     .trim()
     .replace(/\s+/gu, " ");
   const searchReady = search.trim().length >= 2 && debouncedSearch.length >= 2;
   const materials = useQuery({
-    queryKey: ["series-order", "material-search", debouncedSearch, page],
-    queryFn: ({ signal }) =>
-      loadMaterials({ page, search: debouncedSearch, signal }),
+    ...createQueryOptions({ page, search: debouncedSearch }),
     enabled: open && searchReady,
-    placeholderData: keepPreviousData,
   });
   const result = materials.data;
   const candidates =
@@ -592,19 +587,6 @@ function actionMessage(
   if (dirty) return "Есть несохранённые изменения.";
   if (result?.kind === "saved") return "Порядок сохранён.";
   return null;
-}
-
-function useDebouncedValue<Value>(value: Value, delay: number): Value {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setDebounced(value);
-    }, delay);
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [delay, value]);
-  return debounced;
 }
 
 function stateLabel(
