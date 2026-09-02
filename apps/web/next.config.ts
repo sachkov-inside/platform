@@ -13,7 +13,7 @@ const contentSecurityPolicy = [
   "form-action 'self'",
   "frame-ancestors 'none'",
   "object-src 'none'",
-  "img-src 'self' data: https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net",
+  "img-src 'self' data: blob: http://127.0.0.1:* https://storage.yandexcloud.net https://*.storage.yandexcloud.net https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net",
   "media-src 'self' blob: https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net",
   scriptSources,
   "style-src 'self' 'unsafe-inline'",

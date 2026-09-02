@@ -471,13 +471,13 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(
     page.getByRole("link", { name: "Platform", exact: true }),
   ).toHaveAttribute("href", "/topics/platform");
+  const expectedSeriesLabel =
+    `Создание Platform Inside · выпуск ${representativeOrdinal ?? ""}`;
   const readerSeriesLink = page
     .getByRole("list", { name: "Плейлисты материала" })
-    .getByRole("link");
+    .getByRole("link", { exact: true, name: expectedSeriesLabel });
   await expect(readerSeriesLink).toHaveAttribute("href", "/series/platform-inside");
-  await expect(readerSeriesLink).toHaveText(
-    `Создание Platform Inside · выпуск ${representativeOrdinal ?? ""}`,
-  );
+  await expect(readerSeriesLink).toHaveText(expectedSeriesLabel);
   const related = page.locator('[data-related-state="ready"]');
   await expect(related.getByRole("heading", { name: "Похожие материалы" })).toBeVisible();
   await expect(
