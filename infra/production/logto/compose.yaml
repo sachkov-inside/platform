@@ -1,0 +1,56 @@
+name: ${FOUNDATION_LOGTO_PROJECT:-inside-production-logto}
+
+x-logto-runtime: &logto-runtime
+  build:
+    context: ../../identity/logto
+    dockerfile: Dockerfile
+  image: inside/logto-production:1.41.0-inside.2
+  entrypoint: ["/foundation/entrypoint.sh"]
+  env_file:
+    - ${FOUNDATION_PUBLIC_CONFIG_DIR:?FOUNDATION_PUBLIC_CONFIG_DIR is required}/logto.env
+    - ${FOUNDATION_SECRET_CONFIG_DIR:?FOUNDATION_SECRET_CONFIG_DIR is required}/logto.env
+  networks: [database, edge, identity]
+  volumes:
+    - ./entrypoint.sh:/foundation/entrypoint.sh:ro
+
+services:
+  logto-migrations:
+    <<: *logto-runtime
+    command:
+      - npm
+      - run
+      - cli
+      - db
+      - seed
+      - --
+      - --swe
+      - --disable-admin-pwned-password-check
+    restart: "no"
+
+  logto:
+    <<: *logto-runtime
+    command: ["npm", "start"]
+    depends_on:
+      logto-migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3001/oidc/.well-known/openid-configuration').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    ports:
+      - 127.0.0.1:${FOUNDATION_LOGTO_LOOPBACK_PORT:-3301}:3001
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+networks:
+  database:
+    external: true
+    name: ${FOUNDATION_DATABASE_NETWORK:-inside-production-database}
+  edge:
+  identity:
+    internal: true

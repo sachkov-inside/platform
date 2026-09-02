@@ -1,0 +1,1 @@
+inside-deploy ALL=(root) NOPASSWD: /usr/local/libexec/inside/host-foundation.py deploy *

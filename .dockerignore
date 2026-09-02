@@ -4,6 +4,10 @@
 .env.*
 !.env.example
 config/compose/production/*.env
+config/production/*.json
+infra/production/**/*.age
+infra/production/**/*.decrypted.*
+.production-foundation
 .impeccable
 .inside-harness
 **/.next

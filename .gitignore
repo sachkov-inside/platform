@@ -3,6 +3,11 @@
 .env.*
 !.env.example
 config/compose/production/*.env
+config/production/*.json
+!config/production/*.sops.json
+infra/production/**/*.age
+infra/production/**/*.decrypted.*
+.production-foundation/
 .next/
 .impeccable/review/
 .identity-proof/

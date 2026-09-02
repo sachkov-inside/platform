@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+backup_type="${1:-}"
+case "$backup_type" in
+  full | diff | incr) ;;
+  *)
+    echo "Backup type must be full, diff, or incr" >&2
+    exit 64
+    ;;
+esac
+
+foundation_root="${INSIDE_FOUNDATION_ROOT:-/opt/inside/foundation/current/infra/production}"
+export FOUNDATION_PUBLIC_CONFIG_DIR="${FOUNDATION_PUBLIC_CONFIG_DIR:-/etc/inside/foundation}"
+export FOUNDATION_SECRET_CONFIG_DIR="${FOUNDATION_SECRET_CONFIG_DIR:-/run/inside/secrets/current}"
+
+exec docker compose \
+  --file "$foundation_root/database/compose.yaml" \
+  --profile operations \
+  run --rm pgbackrest \
+  --stanza=production \
+  --type="$backup_type" \
+  backup

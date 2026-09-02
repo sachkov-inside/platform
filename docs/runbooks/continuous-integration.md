@@ -11,7 +11,7 @@ request with a successful `CI Gate`.
 
 ## Required checks
 
-Four jobs run independently so a failure identifies its owning verification seam:
+Five jobs run independently so a failure identifies its owning verification seam:
 
 | Job | Repository command or proof |
 |---|---|
@@ -19,8 +19,9 @@ Four jobs run independently so a failure identifies its owning verification seam
 | `integration` | `pnpm test:integration` with Testcontainers-owned PostgreSQL and MinIO |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
 | `compose-production` | isolated `pnpm compose:production:smoke` |
+| `production-foundation` | synthetic SOPS/age lost-host proof plus isolated Logto, pgBackRest PITR and empty-host recovery |
 
-`CI Gate` depends on all four jobs and succeeds only when every result is `success`. The repository
+`CI Gate` depends on all five jobs and succeeds only when every result is `success`. The repository
 ruleset requires this exact check name and strict synchronization with `main`; individual job names
 may evolve without changing the branch-protection interface.
 
@@ -36,8 +37,10 @@ retained for seven days; successful runs store none of them.
 
 Every Compose job owns an isolated project on its runner and removes containers, networks and
 volumes even after a failed command. The production smoke additionally removes locally built
-images. CI does not publish packages, use GHCR permissions, deploy to a server or read production
-configuration.
+images. The foundation job installs checksum-pinned SOPS/age binaries, uses only generated
+credentials and a local TLS object-storage fixture, and retains only bounded redacted diagnostics
+on failure. CI does not publish packages, use GHCR permissions, deploy to a server or read
+production configuration.
 
 The executable workflow contract lives in `scripts/ci-workflow-contract.test.mjs` and runs through
 `pnpm test:tooling` and therefore `pnpm check`. It protects triggers, permissions, action pinning,
