@@ -84,6 +84,12 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
   account; отдельной registration form нет.
 - После первого sign-in Platform сразу предлагает связать Telegram, но шаг можно пропустить.
   Позже Linking доступен только в Account; locked Material не создаёт второй recovery flow.
+- Первый Telegram CTA сразу открывает short-lived bot link. После возврата на Platform нормальный
+  linking flow подтверждается автоматически и показывает success state с галочкой; отдельный
+  `Проверить связь` остаётся только fallback для восстановленной или незавершённой попытки.
+- В private Account Telegram представлен компактной голубой status-плашкой, а подписка — отдельной
+  premium-карточкой `Доступ к Sachkov Inside` с оранжевым акцентом и продуктовым, а не техническим
+  текстом. Для inactive state карточка показывает единый acquisition CTA.
 - Closed Material остаётся addressable и индексируемой public page с teaser. Один CTA
   `Получить доступ` для любого locked state ведёт на общую Platform setting с Tribute URL; ссылка
   не является полем Material, billing integration или источником Membership state.
@@ -225,8 +231,9 @@ states этого brief.
    Platform-configured Tribute URL for every locked state.
 3. **Link Telegram.** После каждого email-code sign-in при unlinked Telegram Platform один раз за
    authenticated browser session открывает центрированное skippable onboarding-окно поверх
-   сохранённого destination. Компактное окно содержит только begin, Telegram `/start`, browser
-   confirmation и финальный link result; Membership state и acquisition CTA в нём отсутствуют.
+   сохранённого destination. Первый CTA сразу открывает Telegram `/start`; после возврата browser
+   автоматически запускает confirmation и показывает финальный link result. Membership state и
+   acquisition CTA в компактном окне отсутствуют.
    После закрытия тот же flow и отдельный Membership state доступны из Account. Only current
    `ContentAccess` allow opens the body.
 4. **Lose and restore access.** Expired member sees the same locked teaser and acquisition CTA while
@@ -246,7 +253,7 @@ states этого brief.
    меняет content, metadata, `free | membership` и publication state. Save published Material сразу
    обновляет reader, Library и search; отдельного prepare/owner GO или revision pointer нет.
 
-В Account действие `Обновить состояние` означает только новый local Platform read. Оно не вызывает
+В Account действие `Обновить доступ` означает только новый local Platform read. Оно не вызывает
 Telegram, не запускает reconciliation и не ждёт provider; свежий status появляется после
 независимого event/reconciliation evidence ingestion. Locked Material сохраняет только acquisition
 CTA.
@@ -353,7 +360,7 @@ CTA.
 | Surface | Actor | Observable state | Разрешённые действия | Запрещённое следствие |
 |---|---|---|---|---|
 | Sign-in handoff | Public visitor | Start / code sent / input / rate-limited / failed / success | Ввести email/code, resend when allowed; после success связать Telegram или пропустить; return | Не принимать Membership решение внутри identity UI |
-| Account | Authenticated unlinked/linking Account | `telegram_not_linked` или pending short-lived attempt | Start Telegram link, открыть bot `/start`, подтвердить или безопасно повторить истёкшую попытку, sign out | Не предлагать заменить уже связанную identity без recovery policy |
+| Account | Authenticated unlinked/linking Account | `telegram_not_linked` или pending short-lived attempt | Одним CTA начать link и открыть bot `/start`; после возврата автоматически подтвердить; безопасно повторить истёкшую попытку; sign out | Не предлагать заменить уже связанную identity без recovery policy |
 | Account | Linked non-member / expired | Linked identity + inactive/stale/unavailable coarse state | Обновить только local state, открыть approved acquisition destination | Не показывать raw Telegram status, Membership/evidence timestamps или provider data как authority |
 | Account | Active member | Linked + active coarse state | Open Library/history | Не давать Platform subscription management |
 | Account | Account с `materials:manage` | Явный authoring entry | Открыть существующую админку | Не показывать authoring entry без permission |
@@ -684,21 +691,24 @@ post-sign-in onboarding while Telegram is unlinked:
 [Подключите Telegram]
 [one short Telegram-only explanation]
 [Подключить Telegram]
-[begin → external Telegram /start → Проверить связь]
+[begin → external Telegram /start → return → automatic confirmation]
 [Telegram подключён | conflict | unavailable remains visible]
 [no Membership state or acquisition CTA]
 ```
 
-The first action is derived from coarse outcome. Link status and Membership status stay separate
-lines so `linked + inactive` cannot read as a broken login. Dismissal survives navigation and reload
+The first action is derived from coarse outcome. In Account the link appears as a compact blue
+Telegram strip above a separate orange-accented premium access card, so `linked + inactive` cannot
+read as a broken login or a technical provider error. Dismissal survives navigation and reload
 inside the current authenticated browser session; logout or a confirmed guest state resets it, so
 an unlinked Account receives the prompt again after the next sign-in.
 
 ```text
 DESKTOP ACCOUNT
 [Account nav] [h1 Аккаунт]
-[identity and Telegram/link state]     [full recent history]
-[Membership coarse state/actions]      [Material history row + manual read state]
+[compact blue Telegram status/action]
+[premium Доступ к Sachkov Inside card + state-derived action]
+[Profile editing]                      [Member Profile preview]
+[full recent history]                  [Material history row + manual read state]
 [sign out]                             [empty/unpublished row state]
 ```
 

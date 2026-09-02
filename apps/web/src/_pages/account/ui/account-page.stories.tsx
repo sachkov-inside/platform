@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 
 import type { PrivateMemberProfile } from "@/entities/member-profile";
 import { withMutationFetch } from "@/workshop/mutation-mock";
@@ -57,9 +57,11 @@ export const ActiveDesktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Ваш профиль" })).toBeInTheDocument();
-    await expect(canvas.getByRole("heading", { name: "Доступ Inside" })).toBeInTheDocument();
-    await expect(canvas.getByText("Telegram связан")).toBeInTheDocument();
-    await expect(canvas.getByText("Доступ активен")).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "Доступ к Sachkov Inside" }),
+    ).toBeInTheDocument();
+    await expect(canvas.getByText("Telegram подключён")).toBeInTheDocument();
+    await expect(canvas.getByText("Всё открыто")).toBeInTheDocument();
     await expect(canvas.getByLabelText("Имя")).toHaveValue("Кирилл Сачков");
     await expect(canvas.getAllByText("Кирилл Сачков")).toHaveLength(1);
     await expect(canvas.getByText("Видят участники")).toBeInTheDocument();
@@ -103,11 +105,13 @@ export const Unlinked: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Telegram не связан")).toBeInTheDocument();
+    await expect(canvas.getByText("Telegram не подключён")).toBeInTheDocument();
     await expect(
-      canvas.getByRole("button", { name: "Связать Telegram" }),
+      canvas.getByRole("button", { name: "Подключить" }),
     ).toBeInTheDocument();
-    await expect(canvas.getByText("Доступ не активен")).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("link", { name: "Получить доступ" }),
+    ).toBeInTheDocument();
   },
 };
 
@@ -127,9 +131,9 @@ export const Linking: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Ожидаем подтверждения")).toBeInTheDocument();
+    await expect(canvas.getByText("Подключаем Telegram")).toBeInTheDocument();
     await expect(
-      canvas.getByRole("button", { name: "Проверить связь" }),
+      canvas.getByRole("button", { name: "Проверить подключение" }),
     ).toBeInTheDocument();
     await expect(canvas.queryByText(/2030|00:05/iu)).not.toBeInTheDocument();
   },
@@ -230,7 +234,7 @@ export const ExpiredAttempt: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Срок попытки истёк")).toBeInTheDocument();
     await expect(
-      canvas.getByRole("button", { name: "Начать заново" }),
+      canvas.getByRole("button", { name: "Попробовать снова" }),
     ).toBeInTheDocument();
   },
 };
@@ -266,26 +270,42 @@ export const LinkJourney: Story = {
       );
     }),
   ],
-  name: "Begin → confirm outage → retry → linked",
+  name: "Begin → automatic confirm outage → retry → linked",
   play: async ({ canvasElement }) => {
     journeyConfirmAttempts = 0;
     const canvas = within(canvasElement);
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Связать Telegram" }),
-    );
-    await expect(
-      await canvas.findByRole("link", { name: "Открыть Telegram" }),
-    ).toHaveAttribute(
-      "href",
-      "https://t.me/inside_test_bot?start=opaque",
-    );
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Проверить связь" }),
-    );
-    await userEvent.click(
-      await canvas.findByRole("button", { name: "Повторить проверку" }),
-    );
-    await expect(await canvas.findByText("Telegram связан")).toBeInTheDocument();
+    const storyWindow = canvasElement.ownerDocument.defaultView;
+    if (storyWindow === null) throw new Error("Story window is unavailable");
+    const originalOpen = storyWindow.open;
+    const openedTelegram = fn();
+    Object.defineProperty(storyWindow, "open", {
+      configurable: true,
+      value: () => ({
+        close: () => undefined,
+        location: { replace: openedTelegram },
+        opener: null,
+      }),
+    });
+    try {
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Подключить" }),
+      );
+      await expect(openedTelegram).toHaveBeenCalledWith(
+        "https://t.me/inside_test_bot?start=opaque",
+      );
+      storyWindow.dispatchEvent(new Event("focus"));
+      await userEvent.click(
+        await canvas.findByRole("button", { name: "Повторить проверку" }),
+      );
+      await expect(
+        await canvas.findByText("Telegram подключён"),
+      ).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(storyWindow, "open", {
+        configurable: true,
+        value: originalOpen,
+      });
+    }
   },
   render: () => <TelegramLinkJourney />,
 };

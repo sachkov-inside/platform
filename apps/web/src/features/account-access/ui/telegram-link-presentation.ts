@@ -29,9 +29,8 @@ export function telegramLinkPresentation(
     case "unlinked":
       return {
         account: {
-          description:
-            "Свяжите Account с Telegram, чтобы Platform могла получить ваш Membership state. Сама связь не открывает материалы.",
-          title: "Telegram не связан",
+          description: "Подключите бота Inside — это займёт меньше минуты.",
+          title: "Telegram не подключён",
           tone: "pending",
         },
         action: { context: "initial", kind: "begin" },
@@ -46,8 +45,8 @@ export function telegramLinkPresentation(
       return {
         account: {
           description:
-            "Откройте бота, отправьте команду /start и вернитесь сюда. Затем проверьте связь — повторная загрузка страницы не создаст новую попытку.",
-          title: "Ожидаем подтверждения",
+            "Нажмите Start в боте и вернитесь сюда — подключение проверится автоматически.",
+          title: "Подключаем Telegram",
           tone: "pending",
         },
         action: {
@@ -56,17 +55,17 @@ export function telegramLinkPresentation(
           linkRef: state.linkRef,
         },
         onboarding: {
-          description: "Откройте бота, нажмите Start и вернитесь сюда.",
-          title: "Завершите подключение",
+          description:
+            "Нажмите Start в боте и вернитесь — мы всё проверим автоматически.",
+          title: "Подключаем Telegram",
           tone: "pending",
         },
       };
     case "linked":
       return {
         account: {
-          description:
-            "Связь подтверждена. Она сохраняется при окончании Membership и не является разрешением на доступ.",
-          title: "Telegram связан",
+          description: "Готово. Аккаунт связан с ботом Inside.",
+          title: "Telegram подключён",
           tone: "active",
         },
         action: { kind: "complete" },
@@ -120,7 +119,7 @@ export function telegramLinkPresentation(
       return {
         account: {
           description:
-            "Сервис связи не ответил. Account и существующая связь не изменились; повторите безопасный шаг.",
+            "Не получилось обновить связь. Попробуйте ещё раз — аккаунт останется без изменений.",
           title: "Telegram временно недоступен",
           tone: "warning",
         },

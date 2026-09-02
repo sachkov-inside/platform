@@ -1,14 +1,14 @@
 "use client";
 
 import {
+  ArrowRight,
   ArrowUpRight,
-  CheckCircle2,
+  Check,
   CircleAlert,
-  Link2,
   LoaderCircle,
   RefreshCw,
   Send,
-  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -25,7 +25,6 @@ import {
 } from "../model/use-telegram-link-flow.client";
 import {
   type TelegramLinkAction,
-  type TelegramLinkContent,
   telegramLinkPresentation,
 } from "./telegram-link-presentation";
 
@@ -41,78 +40,61 @@ export function AccountMembershipPanel({
   return (
     <section
       aria-labelledby="inside-access-heading"
-      className="mb-10 overflow-hidden rounded-2xl border border-border bg-muted/25 shadow-sm"
+      className="mb-10 grid gap-4"
     >
-      <div className="border-b border-border px-5 py-5 sm:px-7">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground">
-          Private Account
-        </p>
-        <h2
-          className="mt-2 text-2xl font-bold tracking-[-0.035em]"
-          id="inside-access-heading"
-        >
-          Доступ Inside
-        </h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-          Связь с Telegram подтверждает identity, а доступ к закрытым материалам
-          определяется текущим Membership отдельно.
-        </p>
-      </div>
-
-      <div className="grid lg:grid-cols-2 lg:divide-x lg:divide-border">
-        <TelegramState state={presentation.link} {...flow} />
-        <MembershipState
-          pending={flow.pending}
-          refresh={flow.refresh}
-          state={presentation.membership}
-        />
-      </div>
-
+      <h2 className="sr-only" id="inside-access-heading">
+        Telegram и доступ к Sachkov Inside
+      </h2>
+      <TelegramConnection state={presentation.link} {...flow} />
+      <InsideAccessCard
+        pending={flow.pending}
+        refresh={flow.refresh}
+        state={presentation.membership}
+      />
       <MutationNotice result={flow.mutationResult} />
     </section>
   );
 }
 
-function TelegramState({
-  begin,
-  confirm,
-  deepLink,
-  pending,
-  refresh,
+function TelegramConnection({
   state,
-}: {
-  readonly begin: () => void;
-  readonly confirm: (linkRef: string) => void;
-  readonly deepLink: string | null;
-  readonly pending: boolean;
-  readonly refresh: () => void;
+  ...flow
+}: TelegramActionFlow & {
   readonly state: AccountTelegramMembership["link"];
 }) {
-  const view = telegramView(state, {
-    begin,
-    confirm,
-    deepLink,
-    pending,
-    refresh,
-  });
+  const presentation = telegramLinkPresentation(state);
+  const linked = state.kind === "linked";
+
   return (
-    <article className="border-b border-border p-5 lg:border-b-0 lg:p-7">
-      <StateHeading icon={<Send aria-hidden="true" />} label="Telegram" />
-      <p className="mt-5 flex items-center gap-2 font-semibold">
-        <StatusIcon kind={view.content.tone} />
-        {view.content.title}
-      </p>
-      <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-        {view.content.description}
-      </p>
-      {view.actions === null ? null : (
-        <div className="mt-5 flex flex-wrap gap-3">{view.actions}</div>
-      )}
+    <article className="flex flex-col gap-5 rounded-2xl border border-[#229ED9]/25 bg-[#229ED9]/[0.08] p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="flex min-w-0 items-start gap-4 sm:items-center">
+        <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#229ED9] text-white shadow-sm [&_svg]:size-5">
+          {linked ? (
+            <Check aria-hidden="true" strokeWidth={2.5} />
+          ) : (
+            <Send aria-hidden="true" />
+          )}
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#075985]">
+            Telegram
+          </p>
+          <h3 className="mt-1 text-lg font-bold tracking-[-0.025em]">
+            {presentation.account.title}
+          </h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+            {presentation.account.description}
+          </p>
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+        {telegramAction(presentation.action, flow)}
+      </div>
     </article>
   );
 }
 
-function MembershipState({
+function InsideAccessCard({
   pending,
   refresh,
   state,
@@ -121,61 +103,258 @@ function MembershipState({
   readonly refresh: () => void;
   readonly state: AccountTelegramMembership["membership"];
 }) {
-  const view = membershipView(state, { pending, refresh });
+  const view = accessView(state, { pending, refresh });
+
   return (
-    <article className="p-5 lg:p-7">
-      <StateHeading
-        icon={<ShieldCheck aria-hidden="true" />}
-        label="Материалы Membership"
+    <article className="relative overflow-hidden rounded-[1.75rem] border border-accent/25 bg-card p-6 shadow-sm sm:p-7">
+      <span
+        aria-hidden="true"
+        className="absolute -right-16 -top-20 size-56 rounded-full bg-accent/15 blur-3xl"
       />
-      <p className="mt-5 flex items-center gap-2 font-semibold">
-        <StatusIcon kind={view.content.tone} />
-        {view.content.title}
-      </p>
-      <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-        {view.content.description}
-      </p>
-      <div className="mt-5 flex flex-wrap gap-3">{view.actions}</div>
+      <div className="relative flex flex-col gap-7 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-2xl">
+          <span className="grid size-12 place-items-center rounded-2xl bg-accent/15 text-accent ring-1 ring-inset ring-accent/20 [&_svg]:size-5">
+            <Sparkles aria-hidden="true" />
+          </span>
+          <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-[#9A3412]">
+            {view.label}
+          </p>
+          <h3 className="mt-2 text-2xl font-bold tracking-[-0.035em] sm:text-[1.75rem]">
+            Доступ к Sachkov Inside
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
+            {view.description}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-3">{view.action}</div>
+      </div>
     </article>
   );
 }
 
-function StateHeading({
-  icon,
-  label,
-}: {
-  readonly icon: ReactNode;
-  readonly label: string;
-}) {
-  return (
-    <h3 className="flex items-center gap-3 text-sm font-semibold text-muted-foreground">
-      <span className="grid size-9 place-items-center rounded-xl bg-background text-foreground shadow-sm [&_svg]:size-4">
-        {icon}
-      </span>
-      {label}
-    </h3>
-  );
+type TelegramActionFlow = Pick<
+  TelegramLinkFlow,
+  | "automaticConfirmation"
+  | "begin"
+  | "confirm"
+  | "deepLink"
+  | "pending"
+  | "refresh"
+>;
+
+function telegramAction(action: TelegramLinkAction, flow: TelegramActionFlow) {
+  switch (action.kind) {
+    case "begin":
+      return (
+        <TelegramButton
+          label={
+            action.context === "initial" ? "Подключить" : "Попробовать снова"
+          }
+          onClick={() => {
+            void flow.begin();
+          }}
+          pending={flow.pending}
+        />
+      );
+    case "confirm":
+      if (action.context === "linking" && flow.automaticConfirmation) {
+        return (
+          <p
+            className="flex h-10 items-center gap-2 rounded-xl bg-background/70 px-4 text-sm font-semibold"
+            role="status"
+          >
+            <LoaderCircle
+              aria-hidden="true"
+              className="size-4 animate-spin motion-reduce:animate-none"
+            />
+            Проверяем подключение…
+          </p>
+        );
+      }
+      return (
+        <>
+          {action.context === "linking" && flow.deepLink !== null ? (
+            <Button
+              asChild
+              className="h-10 rounded-xl border-[#229ED9]/30 bg-background/70 px-4 text-[#075985] hover:bg-background"
+              size="lg"
+              variant="outline"
+            >
+              <a href={flow.deepLink} rel="noopener noreferrer" target="_blank">
+                Открыть Telegram
+                <ArrowUpRight aria-hidden="true" data-icon="inline-end" />
+              </a>
+            </Button>
+          ) : null}
+          <TelegramButton
+            label={
+              action.context === "linking"
+                ? "Проверить подключение"
+                : "Повторить проверку"
+            }
+            onClick={() => {
+              flow.confirm(action.linkRef);
+            }}
+            pending={flow.pending}
+            secondary={flow.deepLink !== null}
+          />
+        </>
+      );
+    case "refresh":
+      return (
+        <TelegramButton
+          label="Обновить"
+          onClick={flow.refresh}
+          pending={flow.pending}
+        />
+      );
+    case "support":
+      return (
+        <Button
+          asChild
+          className="h-10 rounded-xl bg-[#0369A1] px-4 text-white hover:bg-[#075985]"
+          size="lg"
+        >
+          <a href={action.url} rel="noopener noreferrer" target="_blank">
+            Написать в поддержку
+            <ArrowUpRight aria-hidden="true" data-icon="inline-end" />
+          </a>
+        </Button>
+      );
+    case "complete":
+    case "none":
+      return null;
+  }
 }
 
-function ActionButton({
+function TelegramButton({
   label,
   onClick,
   pending,
-  variant = "default",
+  secondary = false,
 }: {
   readonly label: string;
   readonly onClick: () => void;
   readonly pending: boolean;
-  readonly variant?: "default" | "outline";
+  readonly secondary?: boolean;
 }) {
   return (
     <Button
-      className="h-11 rounded-xl px-4"
+      className={
+        secondary
+          ? "h-10 rounded-xl border-[#229ED9]/30 bg-background/70 px-4 text-[#075985] hover:bg-background"
+          : "h-10 rounded-xl bg-[#0369A1] px-4 text-white hover:bg-[#075985]"
+      }
       disabled={pending}
       onClick={onClick}
       size="lg"
       type="button"
-      variant={variant}
+      variant={secondary ? "outline" : "default"}
+    >
+      {label}
+      {pending ? (
+        <LoaderCircle
+          aria-hidden="true"
+          className="animate-spin motion-reduce:animate-none"
+          data-icon="inline-end"
+        />
+      ) : (
+        <ArrowRight aria-hidden="true" data-icon="inline-end" />
+      )}
+    </Button>
+  );
+}
+
+function accessView(
+  state: AccountTelegramMembership["membership"],
+  actions: { readonly pending: boolean; readonly refresh: () => void },
+): {
+  readonly action: ReactNode;
+  readonly description: string;
+  readonly label: string;
+} {
+  switch (state.kind) {
+    case "active":
+      return {
+        action: (
+          <Button asChild className="h-11 rounded-xl px-5" size="lg">
+            <Link href="/library">
+              Перейти к материалам
+              <ArrowRight aria-hidden="true" data-icon="inline-end" />
+            </Link>
+          </Button>
+        ),
+        description:
+          "Подписка активна — вам открыты закрытые материалы, разборы и обновления платформы.",
+        label: "Всё открыто",
+      };
+    case "inactive":
+      return {
+        action: (
+          <Button
+            asChild
+            className="h-11 rounded-xl bg-accent px-5 text-foreground hover:bg-accent/85"
+            size="lg"
+          >
+            <a
+              href={state.acquisitionUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Получить доступ
+              <ArrowUpRight aria-hidden="true" data-icon="inline-end" />
+            </a>
+          </Button>
+        ),
+        description:
+          "Откройте полную базу знаний, закрытые материалы и новые практические разборы.",
+        label: "Подписка Inside",
+      };
+    case "stale":
+      return {
+        action: (
+          <AccessRefreshButton
+            label="Обновить доступ"
+            onClick={actions.refresh}
+            pending={actions.pending}
+          />
+        ),
+        description:
+          "Обновим статус подписки и сразу покажем доступные вам материалы.",
+        label: "Проверяем подписку",
+      };
+    case "unavailable":
+      return {
+        action: (
+          <AccessRefreshButton
+            label="Обновить доступ"
+            onClick={actions.refresh}
+            pending={actions.pending}
+          />
+        ),
+        description:
+          "Все материалы Inside остаются здесь. Обновите статус, чтобы увидеть возможности вашей подписки.",
+        label: "Подписка Inside",
+      };
+  }
+}
+
+function AccessRefreshButton({
+  label,
+  onClick,
+  pending,
+}: {
+  readonly label: string;
+  readonly onClick: () => void;
+  readonly pending: boolean;
+}) {
+  return (
+    <Button
+      className="h-11 rounded-xl px-5"
+      disabled={pending}
+      onClick={onClick}
+      size="lg"
+      type="button"
     >
       {pending ? (
         <LoaderCircle
@@ -191,204 +370,21 @@ function ActionButton({
   );
 }
 
-function SupportLink({ url }: { readonly url: string }) {
-  return (
-    <Button asChild className="h-11 rounded-xl px-4" size="lg">
-      <a href={url} rel="noopener noreferrer" target="_blank">
-        Написать в поддержку
-        <ArrowUpRight aria-hidden="true" data-icon="inline-end" />
-      </a>
-    </Button>
-  );
-}
-
-function MutationNotice({ result }: {
+function MutationNotice({
+  result,
+}: {
   readonly result: TelegramLinkMutationResult | null;
 }) {
   if (result === null || result.kind === "received") return null;
   return (
     <p
-      className="border-t border-border bg-destructive/6 px-5 py-4 text-sm sm:px-7"
+      className="flex items-start gap-2 rounded-xl bg-destructive/6 px-4 py-3 text-sm"
       role="alert"
     >
+      <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
       {result.kind === "unauthorized"
         ? "Сессия завершилась. Войдите снова, чтобы продолжить."
         : `Не удалось выполнить действие. Текущее состояние не изменилось. Код: ${result.reference}`}
     </p>
   );
-}
-
-function StatusIcon({
-  kind,
-}: {
-  readonly kind: "active" | "pending" | "warning";
-}) {
-  const className =
-    kind === "active"
-      ? "size-5 text-foreground"
-      : kind === "pending"
-        ? "size-5 text-muted-foreground"
-        : "size-5 text-destructive";
-  return kind === "active" ? (
-    <CheckCircle2 aria-hidden="true" className={className} />
-  ) : kind === "pending" ? (
-    <Link2 aria-hidden="true" className={className} />
-  ) : (
-    <CircleAlert aria-hidden="true" className={className} />
-  );
-}
-
-function telegramView(
-  state: AccountTelegramMembership["link"],
-  flow: TelegramActionFlow,
-): { readonly actions: ReactNode; readonly content: TelegramLinkContent } {
-  const presentation = telegramLinkPresentation(state);
-  return {
-    actions: telegramAction(presentation.action, flow),
-    content: presentation.account,
-  };
-}
-
-type TelegramActionFlow = Pick<
-  TelegramLinkFlow,
-  "begin" | "confirm" | "deepLink" | "pending" | "refresh"
->;
-
-function telegramAction(action: TelegramLinkAction, flow: TelegramActionFlow) {
-  switch (action.kind) {
-    case "begin":
-      return (
-        <ActionButton
-          label={action.context === "initial" ? "Связать Telegram" : "Начать заново"}
-          onClick={flow.begin}
-          pending={flow.pending}
-        />
-      );
-    case "confirm":
-      return (
-        <>
-          {action.context === "linking" && flow.deepLink !== null ? (
-            <Button asChild className="h-11 rounded-xl px-4" size="lg">
-              <a href={flow.deepLink} rel="noopener noreferrer" target="_blank">
-                Открыть Telegram
-                <ArrowUpRight aria-hidden="true" data-icon="inline-end" />
-              </a>
-            </Button>
-          ) : null}
-          <ActionButton
-            label={
-              action.context === "linking"
-                ? "Проверить связь"
-                : "Повторить проверку"
-            }
-            onClick={() => {
-              flow.confirm(action.linkRef);
-            }}
-            pending={flow.pending}
-            variant={flow.deepLink === null ? "default" : "outline"}
-          />
-        </>
-      );
-    case "refresh":
-      return (
-        <ActionButton
-          label="Обновить состояние"
-          onClick={flow.refresh}
-          pending={flow.pending}
-        />
-      );
-    case "support":
-      return <SupportLink url={action.url} />;
-    case "complete":
-    case "none":
-      return null;
-  }
-}
-
-function membershipView(
-  state: AccountTelegramMembership["membership"],
-  actions: { readonly pending: boolean; readonly refresh: () => void },
-): { readonly actions: ReactNode; readonly content: StateContent } {
-  switch (state.kind) {
-    case "active":
-      return {
-        actions: (
-          <Button asChild className="h-11 rounded-xl px-4" size="lg">
-            <Link href="/library">Открыть Базу знаний</Link>
-          </Button>
-        ),
-        content: {
-          description:
-            "Текущий Membership подтверждён. Каждый закрытый материал всё равно проверяет доступ заново при открытии.",
-          title: "Доступ активен",
-          tone: "active",
-        },
-      };
-    case "inactive":
-      return {
-        actions: (
-          <Button
-            asChild
-            className="h-11 rounded-xl px-4"
-            size="lg"
-            variant="outline"
-          >
-            <a
-              href={state.acquisitionUrl}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Получить доступ
-              <ArrowUpRight aria-hidden="true" data-icon="inline-end" />
-            </a>
-          </Button>
-        ),
-        content: {
-          description:
-            "Действующий Membership сейчас не подтверждён. Бесплатные материалы и ваш Account остаются доступны.",
-          title: "Доступ не активен",
-          tone: "pending",
-        },
-      };
-    case "stale":
-      return {
-        actions: (
-          <ActionButton
-            label="Обновить состояние"
-            onClick={actions.refresh}
-            pending={actions.pending}
-            variant="outline"
-          />
-        ),
-        content: {
-          description:
-            "Последнее подтверждение устарело, поэтому закрытые материалы временно недоступны. Platform ожидает новое состояние.",
-          title: "Нужно обновление Membership",
-          tone: "warning",
-        },
-      };
-    case "unavailable":
-      return {
-        actions: (
-          <ActionButton
-            label="Обновить состояние"
-            onClick={actions.refresh}
-            pending={actions.pending}
-            variant="outline"
-          />
-        ),
-        content: {
-          description:
-            "Platform не может подтвердить текущий Membership и безопасно не открывает закрытые материалы.",
-          title: "Состояние Membership недоступно",
-          tone: "warning",
-        },
-      };
-  }
-}
-
-interface StateContent {
-  readonly description: string;
-  readonly title: string;
-  readonly tone: "active" | "pending" | "warning";
 }

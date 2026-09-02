@@ -375,8 +375,9 @@ Published body читается только для current `published` state; d
 
 1. После каждого email-code sign-in, пока Telegram не связан, Platform один раз за authenticated
    browser session открывает центрированное skippable onboarding-окно поверх текущей public
-   surface. Компактное окно владеет только полным begin → Telegram `/start` → confirm flow и
-   остаётся открытым после успеха, чтобы показать результат связи. Membership state и acquisition
+   surface. Первый begin CTA сразу открывает short-lived Telegram `/start`; после возврата browser
+   автоматически вызывает confirm. Компактное окно остаётся открытым после успеха, чтобы показать
+   result с галочкой без второго обязательного user action. Membership state и acquisition
    action в onboarding не выводятся: они остаются в Account и на закрытых материалах. Закрытие
    сохраняется при navigation и reload текущей session, но logout или подтверждённый guest state
    сбрасывает его; тот же flow остаётся доступен позже из Account. Locked Material не создаёт
@@ -396,7 +397,10 @@ Published body читается только для current `published` state; d
    `unlinked | linking | linked | retryable | conflict | unavailable | recovery-required` и
    `active | inactive | stale | unavailable`. Presentation не содержит email, AccountId,
    Telegram ID/username, provider identity, evidence или Membership timestamps и не является
-   bearer permission: protected operation повторно вызывает `ContentAccess`.
+   bearer permission: protected operation повторно вызывает `ContentAccess`. Визуально Telegram
+   оформлен компактной голубой status-плашкой над отдельной premium-карточкой
+   `Доступ к Sachkov Inside`; inactive card объясняет ценность и ведёт одним CTA на configured
+   acquisition URL, а stale/unavailable не выводятся как основное техническое сообщение.
 7. Begin-link атомарно резервирует не более одной current attempt на Account и возвращает
    short-lived bot deep link только создавшему request; reload продолжает ту же попытку без нового
    provider registration. Обычный expired/replayed outcome разрешает новую попытку. Conflict и

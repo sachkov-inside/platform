@@ -100,11 +100,27 @@ function TelegramAction({
               ? "Подключить Telegram"
               : "Попробовать снова"
           }
-          onClick={flow.begin}
+          onClick={() => {
+            void flow.begin();
+          }}
           pending={flow.pending}
         />
       );
     case "confirm":
+      if (action.context === "linking" && flow.automaticConfirmation) {
+        return (
+          <div
+            className="flex h-11 items-center justify-center gap-2 rounded-xl bg-muted px-4 text-sm font-semibold sm:col-span-2"
+            role="status"
+          >
+            <LoaderCircle
+              aria-hidden="true"
+              className="size-4 animate-spin motion-reduce:animate-none"
+            />
+            Проверяем подключение…
+          </div>
+        );
+      }
       return (
         <>
           {action.context === "linking" && flow.deepLink !== null ? (

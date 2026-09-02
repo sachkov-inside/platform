@@ -59,7 +59,7 @@ export const Linking: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Завершите подключение")).toBeInTheDocument();
+    await expect(canvas.getByText("Подключаем Telegram")).toBeInTheDocument();
     await expect(
       canvas.getByRole("button", { name: "Проверить связь" }),
     ).toBeInTheDocument();

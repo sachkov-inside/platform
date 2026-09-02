@@ -142,6 +142,20 @@ test("Telegram onboarding keeps the final linked result visible without Membersh
 }) => {
   const linkRef = "62000000-0000-4000-8000-000000000001";
   let state: "linked" | "linking" | "unlinked" = "unlinked";
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "open", {
+      configurable: true,
+      value: () => ({
+        close: () => undefined,
+        location: {
+          replace: (url: string) => {
+            sessionStorage.setItem("test.telegram-opened", url);
+          },
+        },
+        opener: null,
+      }),
+    });
+  });
   await page.route("**/auth/status", (route) =>
     route.fulfill({
       body: JSON.stringify({
@@ -204,10 +218,17 @@ test("Telegram onboarding keeps the final linked result visible without Membersh
   );
   await expect(dialog).toHaveAccessibleName("Подключите Telegram");
   await dialog.getByRole("button", { name: "Подключить Telegram" }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => sessionStorage.getItem("test.telegram-opened")),
+    )
+    .toBe("https://t.me/inside_test_bot?start=opaque");
   await expect(
-    dialog.getByRole("link", { name: "Открыть Telegram" }),
-  ).toHaveAttribute("href", "https://t.me/inside_test_bot?start=opaque");
-  await dialog.getByRole("button", { name: "Проверить связь" }).click();
+    dialog.getByRole("button", { name: "Проверить связь" }),
+  ).toHaveCount(0);
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("focus"));
+  });
   await expect(dialog.getByText("Telegram подключён")).toBeVisible();
   await expect(dialog).not.toContainText("Доступ активен");
   await expect(dialog).not.toContainText("Membership");

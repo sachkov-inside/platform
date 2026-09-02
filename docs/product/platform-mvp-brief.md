@@ -47,20 +47,21 @@ private Account, member-only Member Profile и reading experience. `sachkov.dev`
 - после каждого входа, пока Telegram не связан, один раз за authenticated browser session видит
   центрированное onboarding-окно; может закрыть его и продолжить с бесплатным контентом;
 - связывает Telegram целиком в onboarding-окне либо позже из Account: Platform выдаёт short-lived
-  bot link, участник отправляет `/start` в Telegram, возвращается в Platform и завершает
-  подтверждение там же;
+  bot link, первое действие сразу открывает Telegram, участник отправляет `/start`, а после возврата
+  Platform автоматически подтверждает связь и показывает явный success result;
 - получает доступ на основании внешнего признака активного Membership;
 - имеет один уровень закрытого доступа без тарифной матрицы;
 - после окончания Membership сохраняет Account, Member Profile, историю и статусы
   прочтения, но до возобновления Membership теряет доступ к закрытым материалам и Member Profiles
   других участников.
 
-Account является приватной surface владельца: отдельный блок `Доступ Inside` показывает coarse
-Telegram linking и authoritative Membership state двумя независимыми строками. Linked Telegram не
-обещает access; Membership timestamps, evidence, provider identity и internal identifiers не
-показываются. Компактное onboarding-окно посвящено только подключению Telegram и после успеха
-показывает результат связи; Membership state и acquisition action остаются только в Account и на
-закрытых материалах. Истёкшую обычную попытку
+Account является приватной surface владельца: компактная голубая Telegram-плашка располагается над
+отдельной premium-карточкой `Доступ к Sachkov Inside`. Карточка объясняет ценность подписки и для
+inactive state показывает единый acquisition CTA; coarse состояния остаются независимыми, но не
+выводятся как техническая диагностическая таблица. Linked Telegram не обещает access; Membership
+timestamps, evidence, provider identity и internal identifiers не показываются. Компактное
+onboarding-окно посвящено только подключению Telegram и после успеха показывает результат связи;
+Membership state и acquisition action остаются только в Account и на закрытых материалах. Истёкшую обычную попытку
 можно начать заново, а conflict или recovery с риском silent
 transfer ведут только к owner/support handoff; URL поддержки является optional runtime setting и
 при его отсутствии заменяется безопасным текстом без неработающей ссылки. Member Profile — отдельная проекция для

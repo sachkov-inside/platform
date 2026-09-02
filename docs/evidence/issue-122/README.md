@@ -17,21 +17,22 @@ isolated full-stack checks passed.
 
 - Desktop viewport: `1440 × 1024`; live mobile viewport: `390 × 844`. Storybook access blocks use
   the same `390px` mobile width with enough vertical canvas to show both independent rows.
-- Telegram linking and Membership are independent rows. The unlinked state does not imply access,
-  and the inactive state keeps one external acquisition action.
+- Telegram linking and Membership remain independent: Account renders a compact blue Telegram
+  strip above an orange-accented premium `Доступ к Sachkov Inside` card. The inactive state keeps
+  one external acquisition action without exposing a diagnostic table.
 - While Telegram is unlinked, the centered onboarding appears once per authenticated browser
   session after sign-in. It is dismissible, survives navigation/reload after dismissal, and owns
-  the complete begin → Telegram `/start` → confirm journey. It is a compact Telegram-only surface:
-  no Membership state or acquisition action is shown, and the linked result stays visible until
-  the user closes it.
+  the complete one-action begin → Telegram `/start` → return → automatic confirm journey. It is a
+  compact Telegram-only surface: no Membership state or acquisition action is shown, and the
+  linked result with its success check stays visible until the user closes it.
 - The live projection contains no email, AccountId, Telegram ID/username, provider identity,
   evidence, Membership timestamps or audit/security data.
 - The isolated full-stack smoke exercised the authenticated Web BFF through real Next/Nest HTTP and
   PostgreSQL. The access block has no serious/critical axe findings or horizontal overflow.
 - Sixteen Account Storybook cases cover unlinked, linking, linked member/non-member, conflict,
   stale, unavailable, separately typed safe retry and unsafe recovery, page loading/error and
-  mobile composition. The interaction journey exercises Begin, confirmation outage, retry and the
-  final linked state.
+  mobile composition. The interaction journey exercises Begin, immediate bot launch, automatic
+  confirmation on browser return, outage fallback, retry and the final linked state.
 - Eight compact onboarding stories cover every Telegram link state plus both safe unavailable
   retry modes without introducing Membership or acquisition copy into the modal.
 - Route checks prove compact centered desktop/mobile geometry, session-scoped dismissal/reset, the
