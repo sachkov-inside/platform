@@ -31,7 +31,9 @@ export function AuthenticationFeedback() {
       <button
         aria-label="Закрыть уведомление"
         className="-m-2 shrink-0 rounded-full p-2 text-current transition-colors hover:bg-destructive/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-        onClick={() => setIsVisible(false)}
+        onClick={() => {
+          setIsVisible(false);
+        }}
         type="button"
       >
         <X aria-hidden="true" className="size-4" />

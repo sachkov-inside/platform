@@ -112,9 +112,13 @@ function assertSlug(slug: string): void {
   }
 }
 
+function isInternalRoute(value: string): value is Route {
+  return value.startsWith("/") && !value.startsWith("//");
+}
+
 function internalRoute(value: string): Route {
-  if (!value.startsWith("/") || value.startsWith("//")) {
+  if (!isInternalRoute(value)) {
     throw new TypeError("Expected an internal application route");
   }
-  return value as Route;
+  return value;
 }
