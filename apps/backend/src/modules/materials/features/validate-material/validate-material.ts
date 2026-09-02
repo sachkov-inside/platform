@@ -86,11 +86,10 @@ export function assembleValidateMaterial(
         if (dependencies.materialAssets !== undefined) {
           const assetIssues = await dependencies.materialAssets.inspectReferences(
             parsed.value.materialId,
-            extraction.value.resources.flatMap((resource) =>
-              resource.kind === "video"
-                ? []
-                : [{ assetId: resource.assetId, kind: resource.kind }],
-            ),
+            extraction.value.resources.map((resource) => ({
+              assetId: resource.assetId,
+              kind: resource.kind,
+            })),
           );
           if (!assetIssues.ok) return rollback(assetIssues.error);
           if (assetIssues.value.length > 0) {

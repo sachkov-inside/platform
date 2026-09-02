@@ -43,6 +43,7 @@ export interface SaveMaterialInput {
   readonly formatId: string;
   readonly materialId: string;
   readonly publicationState: "draft" | "published" | "unpublished";
+  readonly primaryVideoId: string | null;
   readonly seriesIds: readonly string[];
   readonly submissionId: string;
   readonly summary: string;

@@ -58,6 +58,12 @@ inline from its current MaterialBody. It inherits the Material access class and 
 while ready and currently authorized.
 _Avoid_: Media library item, attachment URL, mutable file
 
+**Video**:
+A local identity for one Kinescope object owned by exactly one Material. A Material may select at
+most one ready Video through nullable `primaryVideoId` outside MaterialBody; provider IDs, embed
+locators, status and errors remain Video facts and never enter the document.
+_Avoid_: Inline video node, iframe block, provider URL as Material content
+
 ## Access and activity
 
 **Account**:
@@ -86,3 +92,8 @@ _Avoid_: Paywall middleware, UI lock state, Membership role
 **ReadingState**:
 The current read or unread relationship between an Account and a Material.
 _Avoid_: Progress, completion percentage
+
+**VideoPlaybackProgress**:
+A coarse resume position for one Account and one local Video identity. Replacement Video therefore
+starts independently, and playback progress never changes ReadingState.
+_Avoid_: Material completion, read status, Kinescope user profile

@@ -19,6 +19,7 @@ export interface MaterialAccessFacts {
   readonly publicationState: PublicationState;
   readonly access: MaterialAccess;
   readonly contentVersion: number;
+  readonly primaryVideoId: string | null;
 }
 
 type MaterialContentError =
@@ -50,6 +51,7 @@ const accessFactsRowSchema = z.object({
   publicationState: z.enum(["draft", "published", "unpublished"]),
   access: z.enum(["free", "membership"]),
   contentVersion: z.bigint(),
+  primaryVideoId: z.uuid().nullable(),
 });
 const loadBodyQuerySchema = z
   .object({
@@ -86,6 +88,7 @@ export function assembleMaterialContent(dependencies: {
             publicationState: true,
             access: true,
             contentVersion: true,
+            primaryVideoId: true,
           },
         });
         if (row === null) {
@@ -120,6 +123,7 @@ export function assembleMaterialContent(dependencies: {
             publicationState: true,
             access: true,
             contentVersion: true,
+            primaryVideoId: true,
           },
         });
         const facts = rows.map(toAccessFacts);
@@ -204,9 +208,7 @@ export function assembleMaterialContent(dependencies: {
         return {
           ok: true,
           value: extraction.value.resources.some(
-            (resource) =>
-              resource.kind !== "video" &&
-              resource.assetId === parsed.data.assetId,
+            (resource) => resource.assetId === parsed.data.assetId,
           ),
         };
       } catch (error) {
@@ -229,5 +231,6 @@ function toAccessFacts(row: unknown): MaterialAccessFacts | undefined {
     publicationState: parsed.data.publicationState,
     access: parsed.data.access,
     contentVersion,
+    primaryVideoId: parsed.data.primaryVideoId,
   };
 }

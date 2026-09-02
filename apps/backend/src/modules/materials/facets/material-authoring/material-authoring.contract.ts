@@ -35,6 +35,7 @@ export interface MaterialDto {
   readonly publicationState: PublicationState;
   readonly firstPublishedAt: string | null;
   readonly publishedAt: string | null;
+  readonly primaryVideoId: string | null;
   readonly metadata: MaterialMetadataDto;
   readonly body: MaterialBodySnapshot;
 }

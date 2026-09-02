@@ -67,7 +67,7 @@ during the image build. The web process reads server-only values when its contai
 
 | Group | Examples | Owner |
 | --- | --- | --- |
-| Backend application | `DATABASE_URL`, Logto verifier, Telegram and Object Storage values | `PlatformConfig` |
+| Backend application | `DATABASE_URL`, Logto verifier, Telegram, Object Storage and Kinescope values | `PlatformConfig` |
 | Web server/BFF | `BACKEND_BASE_URL`, Logto app and cookie values, `WEB_BASE_URL` | `WebRuntimeConfig` |
 | Database container | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | `postgres.env` |
 | Deployment transport | future SSH host, user, key and known hosts | future protected CI/CD environment |
@@ -76,3 +76,11 @@ When introducing a variable, add it to the owning Zod schema, typed config objec
 tests, relevant Compose service and tracked example. Put its real production value only in the
 server-owned environment file until a later lesson introduces a secret manager or encrypted
 configuration flow.
+
+Kinescope defaults to the deterministic `test` adapter only in development/test. Production
+requires `KINESCOPE_PROVIDER_MODE=real`, distinct public and membership project IDs, server-only API
+and DRM callback credentials, separate webhook Basic credentials and a playback JWT secret. Never place any of
+these values in `NEXT_PUBLIC_*`, Material JSON, screenshots, issue text or client logs. The two
+integration routes are `/integrations/kinescope/v1/webhook` and
+`/integrations/kinescope/v1/authorize`; expose them only through the approved HTTPS domain and copy
+their exact provider-side settings during the credentialed acceptance run.

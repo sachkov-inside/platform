@@ -21,11 +21,19 @@ export interface MaterialReaderMetadata {
   readonly topic: { readonly name: string; readonly slug: string };
 }
 
+export interface PrimaryVideoPresentation {
+  readonly failureCode?: string | undefined;
+  readonly state: "uploading" | "processing" | "ready" | "failed";
+  readonly title: string;
+  readonly videoId: string;
+}
+
 export type MaterialReaderResult =
   | {
       readonly kind: "available";
       readonly material: MaterialReaderMetadata;
       readonly body: readonly ReaderBlock[];
+      readonly primaryVideo: PrimaryVideoPresentation | null;
     }
   | {
       readonly kind: "access";

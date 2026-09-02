@@ -15,6 +15,7 @@ export const publishedMaterialProjectionHttpSchema = z
     summary: z.string(),
     access: z.enum(["free", "membership"]),
     publishedAt: z.iso.datetime({ offset: true }),
+    primaryVideoId: z.uuid().nullable(),
     topic: referenceSchema,
     format: referenceSchema,
     tags: z.array(z.object({ id: z.string(), name: z.string() }).strict()),
@@ -32,6 +33,12 @@ export const publishedMaterialReadHttpSchema = z.discriminatedUnion("kind", [
       kind: z.literal("available"),
       cacheScope: z.enum(["public", "private-no-store"]),
       projection: publishedMaterialProjectionHttpSchema,
+      primaryVideo: z.object({
+        failureCode: z.string().optional(),
+        state: z.enum(["uploading", "processing", "ready", "failed"]),
+        title: z.string(),
+        videoId: z.uuid(),
+      }).strict().nullable(),
       body: z.object({ schemaVersion: z.literal(1), blocks: z.array(renderedBlockSchema) }).strict(),
     })
     .strict(),

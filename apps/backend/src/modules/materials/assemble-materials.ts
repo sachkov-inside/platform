@@ -15,6 +15,7 @@ import {
 import { assemblePublishedMaterialReader } from "./facets/published-material-reader/assemble-published-material-reader.js";
 import type { PublishedMaterialReader } from "./facets/published-material-reader/published-material-reader.js";
 import type { AuthorPolicy } from "./ports/author-policy.js";
+import type { Videos } from "../videos/index.js";
 import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 
 export interface Materials {
@@ -33,6 +34,7 @@ export function assembleMaterials(dependencies: {
     "inspectReferences" | "loadPresentations" | "markUnreferenced"
   >;
   readonly membershipAcquisitionUrl?: string;
+  readonly videos?: Pick<Videos, "inspectPrimaryReference" | "loadPresentation">;
 }): Materials {
   const materialContent = assembleMaterialContent({
     prisma: dependencies.prisma,
@@ -56,6 +58,7 @@ export function assembleMaterials(dependencies: {
     ...(dependencies.materialAssets === undefined
       ? {}
       : { materialAssets: dependencies.materialAssets }),
+    ...(dependencies.videos === undefined ? {} : { videos: dependencies.videos }),
   };
   return Object.freeze({
     authoring: assembleMaterialAuthoring(shared),
@@ -66,6 +69,7 @@ export function assembleMaterials(dependencies: {
       contentAccess,
       materialContent,
       materialBodyOperations,
+      ...(dependencies.videos === undefined ? {} : { videos: dependencies.videos }),
       membershipAcquisitionUrl:
         dependencies.membershipAcquisitionUrl ?? "https://t.me/tribute",
     }),

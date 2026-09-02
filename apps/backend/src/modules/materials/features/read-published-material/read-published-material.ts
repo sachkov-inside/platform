@@ -15,6 +15,7 @@ import type {
   ReadPublishedMaterialQuery,
 } from "./read-published-material.contract.js";
 import { hydrateMaterialAssets } from "../../domain/material-body/hydrate-material-assets.js";
+import type { Videos } from "../../../videos/index.js";
 
 const querySchema = z
   .object({
@@ -43,6 +44,7 @@ export async function readPublishedMaterial(
     readonly materialBodyOperations: MaterialBodyOperations;
     readonly membershipAcquisitionUrl: string;
     readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
+    readonly videos?: Pick<Videos, "loadPresentation">;
   },
   query: ReadPublishedMaterialQuery,
 ): Promise<PublishedMaterialReadResult> {
@@ -124,10 +126,26 @@ export async function readPublishedMaterial(
         ? { ok: true as const, value: [] }
         : await dependencies.materialAssets.loadPresentations(
             projection.materialId,
-            extraction.value.resources.flatMap((resource) =>
-              resource.kind === "video" ? [] : [resource.assetId]),
+            extraction.value.resources.map((resource) => resource.assetId),
           );
       if (!loadedPresentations.ok) return loadedPresentations;
+      let loadedVideo;
+      if (projection.primaryVideoId === null) {
+        loadedVideo = { ok: true as const, value: null };
+      } else {
+        if (dependencies.videos === undefined) {
+          return { ok: false, error: { code: "dependency_unavailable", retryable: true } };
+        }
+        loadedVideo = await dependencies.videos.loadPresentation({
+          materialId: projection.materialId,
+          videoId: projection.primaryVideoId,
+        });
+      }
+      if (!loadedVideo.ok) {
+        return loadedVideo.error.code === "dependency_unavailable"
+          ? { ok: false, error: loadedVideo.error }
+          : internalError();
+      }
       return {
         ok: true,
         value: {
@@ -136,6 +154,7 @@ export async function readPublishedMaterial(
             access.reason === "public_resource" ? "public" : "private-no-store",
           projection,
           body: hydrateMaterialAssets(rendered.value, loadedPresentations.value),
+          primaryVideo: loadedVideo.value,
         },
       };
     }

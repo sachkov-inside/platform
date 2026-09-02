@@ -154,6 +154,7 @@ export class MaterialAuthoringService {
       title: string | null;
       topicId: string | null;
     };
+    primaryVideoId: string | null;
     publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
   }> {
@@ -192,6 +193,7 @@ export class MaterialAuthoringService {
         title: string | null;
         topicId: string | null;
       };
+      primaryVideoId: string | null;
       publicationState: 'draft' | 'published' | 'unpublished';
     },
   }): CancelablePromise<{

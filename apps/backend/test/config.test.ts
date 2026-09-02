@@ -42,6 +42,7 @@ describe("process configuration", () => {
       contentAccess: {
         membershipAcquisitionUrl: "https://t.me/tribute/example",
       },
+      kinescope: localKinescopeConfig,
       objectStorage: {
         accessKeyId: "inside-local-access-key",
         buckets: {
@@ -71,6 +72,7 @@ describe("process configuration", () => {
     expect(Object.isFrozen(config.api)).toBe(true);
     expect(Object.isFrozen(config.identity)).toBe(true);
     expect(Object.isFrozen(config.contentAccess)).toBe(true);
+    expect(Object.isFrozen(config.kinescope)).toBe(true);
     expect(Object.isFrozen(config.objectStorage)).toBe(true);
     expect(Object.isFrozen(config.objectStorage.buckets)).toBe(true);
     expect(Object.isFrozen(config.telegramMembership)).toBe(true);
@@ -93,6 +95,7 @@ describe("process configuration", () => {
       contentAccess: {
         membershipAcquisitionUrl: "https://t.me/tribute",
       },
+      kinescope: localKinescopeConfig,
       objectStorage: {
         accessKeyId: "inside-local-access-key",
         buckets: {
@@ -218,8 +221,29 @@ describe("process configuration", () => {
         OBJECT_STORAGE_FORCE_PATH_STYLE: "false",
       }).objectStorage.forcePathStyle,
     ).toBe(false);
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        KINESCOPE_API_BASE_URL: "https://attacker.example",
+      }),
+    ).toThrow("KINESCOPE_API_BASE_URL must use HTTPS on a Kinescope host");
   });
 });
+
+const localKinescopeConfig = {
+  apiBaseUrl: "https://api.kinescope.io",
+  apiToken: "inside-local-kinescope-api-token",
+  callbackPassword: "inside-local-callback-password",
+  callbackUsername: "inside-local-callback",
+  membershipProjectId: "inside-local-membership-project",
+  playbackJwtSecret: "inside-local-kinescope-playback-secret",
+  playbackJwtTtlSeconds: 60,
+  providerMode: "test",
+  publicProjectId: "inside-local-public-project",
+  uploaderBaseUrl: "https://uploader.kinescope.io",
+  webhookPassword: "inside-local-webhook-password",
+  webhookUsername: "inside-local-webhook",
+} as const;
 
 describe("MCP process configuration", () => {
   it("uses an explicit local Streamable HTTP endpoint", () => {

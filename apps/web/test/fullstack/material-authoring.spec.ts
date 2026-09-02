@@ -12,6 +12,196 @@ import {
 
 const currentMaterialEditorUrl = /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
 
+test("uploads, resumes and replaces one primary Video while keeping provider bytes behind authorization", async ({
+  context,
+  page,
+  request,
+}, testInfo) => {
+  const suffix = String(Date.now());
+  const title = `Video flow ${suffix}`;
+  const slug = `video-flow-${suffix}`;
+  const providerRequests: string[] = [];
+  page.on("request", (request) => {
+    const hostname = new URL(request.url()).hostname;
+    if (hostname.endsWith("kinescope.io")) providerRequests.push(request.url());
+  });
+
+  await addFullStackSession(context);
+  await page.goto("/authoring/materials/new");
+  await completeProfileOnboardingIfPresent(page);
+  await fillPublishableDraft(page, title);
+  await page.getByRole("button", { name: "Создать черновик" }).click();
+  await expect(page).toHaveURL(currentMaterialEditorUrl);
+  const visibleEditor = page.locator("main[data-material-authoring='true']:visible");
+  await expect(visibleEditor).toBeVisible({ timeout: 15_000 });
+  const editorUrl = page.url();
+
+  await visibleEditor.getByLabel("Видео для загрузки").setInputFiles({
+    buffer: Buffer.from("Full-stack test Video\n"),
+    mimeType: "video/mp4",
+    name: `test-video-${suffix}.mp4`,
+  });
+  await expect(page.getByText("Kinescope обрабатывает видео")).toBeVisible();
+  await expect(page.getByText("Готово к Save")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Опубликовать" }).click();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+
+  const readerResponse = await page.goto(`/materials/${slug}`);
+  expect(readerResponse?.headers()["content-security-policy"]).toContain("frame-src https://kinescope.io");
+  expect(readerResponse?.headers()["content-security-policy"]).toContain("script-src 'self' 'unsafe-inline' https://player.kinescope.io");
+  await expect(page.getByRole("heading", { name: "Видео", level: 2 })).toBeVisible();
+  await expect(page.locator("p:visible", { hasText: `test-video-${suffix}` })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Загрузить player" })).toBeVisible();
+  await expect(page.locator("iframe")).toHaveCount(0);
+  expect(providerRequests).toEqual([]);
+
+  const materialId = await page.getByRole("button", { name: "Загрузить player" }).evaluate((button) =>
+    button.closest("main")?.querySelector<HTMLElement>("[data-material-id]")?.dataset.materialId ?? null,
+  );
+  const videoId = await page.getByRole("button", { name: "Загрузить player" }).evaluate((button) =>
+    button.closest("section")?.getAttribute("data-video-id"),
+  );
+  if (typeof materialId !== "string" || typeof videoId !== "string") {
+    throw new Error("Video identity evidence is missing");
+  }
+  const session = await page.request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(session.status()).toBe(200);
+  await expect(session.json()).resolves.toMatchObject({
+    drmAuthToken: null,
+    progressScope: "account",
+    videoId,
+  });
+  const anonymousSession = await request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(anonymousSession.status()).toBe(200);
+  await expect(anonymousSession.json()).resolves.toMatchObject({
+    drmAuthToken: null,
+    progressScope: "anonymous",
+    resumeSeconds: null,
+    videoId,
+  });
+
+  const progress = await page.request.put("/api/material-video-progress", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { durationSeconds: "120", materialId, positionSeconds: "37", videoId },
+  });
+  expect(progress.status()).toBe(200);
+  await expect(progress.json()).resolves.toEqual({ kind: "saved" });
+  const resumedSession = await page.request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(resumedSession.status()).toBe(200);
+  await expect(resumedSession.json()).resolves.toMatchObject({
+    progressScope: "account",
+    resumeSeconds: 37,
+    videoId,
+  });
+  await captureVideoEvidence(page, testInfo, "reader-privacy-facade");
+
+  await page.goto(editorUrl);
+  await page.getByLabel(/ID существующего видео/u).fill(`test-outage-once-${suffix}`);
+  await page.getByRole("button", { name: "Привязать" }).click();
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.getByRole("button", { name: "Привязать" }).click();
+  await expect(page.getByText("Готово к Save")).toBeVisible();
+  const preSaveSession = await page.request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(preSaveSession.status()).toBe(200);
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+  await page.goto(`/materials/${slug}`);
+  const replacementVideoId = await page.getByRole("button", { name: "Загрузить player" }).evaluate((button) =>
+    button.closest("section")?.getAttribute("data-video-id"),
+  );
+  if (typeof replacementVideoId !== "string") {
+    throw new Error("Replacement Video identity is missing");
+  }
+  expect(replacementVideoId).not.toBe(videoId);
+  const staleSession = await page.request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(staleSession.status()).toBe(403);
+  const replacementSession = await page.request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId: replacementVideoId },
+  });
+  expect(replacementSession.status()).toBe(200);
+  await expect(replacementSession.json()).resolves.toMatchObject({ videoId: replacementVideoId });
+
+  await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
+  const row = page.getByRole("listitem").filter({ hasText: title });
+  await row.getByRole("button", { name: "Снять с публикации" }).click();
+  await expect(row.getByText("Снят с публикации", { exact: true })).toBeVisible({ timeout: 15_000 });
+});
+
+test("member primary Video denies anonymous playback and issues a DRM proof to an authorized Account", async ({
+  context,
+  page,
+  request,
+}) => {
+  const suffix = String(Date.now());
+  const title = `Member Video ${suffix}`;
+  const slug = `member-video-${suffix}`;
+  await addFullStackSession(context);
+  await page.goto("/authoring/materials/new");
+  await completeProfileOnboardingIfPresent(page);
+  await fillPublishableDraft(page, title);
+  await page.getByRole("combobox", { name: "Доступ" }).click();
+  await page.getByRole("option", { name: "Для участников" }).click();
+  await page.getByRole("button", { name: "Создать черновик" }).click();
+  await expect(page).toHaveURL(currentMaterialEditorUrl);
+
+  await page.getByLabel(/ID существующего видео/u).fill(`member-provider-${suffix}`);
+  await page.getByRole("button", { name: "Привязать" }).click();
+  await expect(page.getByText("Готово к Save")).toBeVisible();
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Опубликовать" }).click();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+
+  await page.goto(`/materials/${slug}`);
+  const videoSection = page.locator("section[data-video-id]");
+  const materialId = await page.locator("[data-material-reader-state][data-material-id]")
+    .getAttribute("data-material-id");
+  const videoId = await videoSection.getAttribute("data-video-id");
+  if (materialId === null || videoId === null) throw new Error("Member Video identity is missing");
+  const anonymousSession = await request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(anonymousSession.status()).toBe(403);
+  await addFullStackMemberSession(context);
+  const memberSession = await page.request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: { materialId, videoId },
+  });
+  expect(memberSession.status()).toBe(200);
+  const memberBody = await memberSession.json() as {
+    readonly drmAuthToken?: unknown;
+    readonly progressScope?: unknown;
+    readonly videoId?: unknown;
+  };
+  expect(memberBody).toMatchObject({ progressScope: "account", videoId });
+  expect(memberBody.drmAuthToken).toEqual(expect.any(String));
+
+  await addFullStackSession(context);
+  await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
+  const row = page.getByRole("listitem").filter({ hasText: title });
+  await row.getByRole("button", { name: "Снять с публикации" }).click();
+  await expect(row.getByText("Снят с публикации", { exact: true })).toBeVisible({ timeout: 15_000 });
+});
+
 test("trusted author uploads chooser, paste and drop assets through Preview and public Reader", async ({
   context,
   page,
@@ -504,8 +694,19 @@ test("guest cannot reach the production playlist manager", async ({ page }) => {
 });
 
 async function addFullStackSession(context: BrowserContext) {
+  await addSessionCookie(context, "FULLSTACK_LOGTO_SESSION");
+}
+
+async function addFullStackMemberSession(context: BrowserContext) {
+  await addSessionCookie(context, "FULLSTACK_LOGTO_MEMBER_SESSION");
+}
+
+async function addSessionCookie(
+  context: BrowserContext,
+  environmentName: "FULLSTACK_LOGTO_MEMBER_SESSION" | "FULLSTACK_LOGTO_SESSION",
+) {
   const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const session = process.env.FULLSTACK_LOGTO_SESSION;
+  const session = process.env[environmentName];
   if (cookieName === undefined || session === undefined) {
     throw new Error("Full-stack Logto session fixture is missing");
   }
@@ -591,6 +792,22 @@ async function captureAssetEvidence(
 ) {
   if (process.env.CAPTURE_EVIDENCE !== "1") return;
   const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-180");
+  await mkdir(evidenceDirectory, { recursive: true });
+  const viewport = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
+  await page.screenshot({
+    animations: "disabled",
+    fullPage: true,
+    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+  });
+}
+
+async function captureVideoEvidence(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+) {
+  if (process.env.CAPTURE_EVIDENCE !== "1") return;
+  const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-183");
   await mkdir(evidenceDirectory, { recursive: true });
   const viewport = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({

@@ -72,14 +72,6 @@ describe("MaterialBodyOperations", () => {
               nodeId: "55555555-5555-4555-8555-555555555555",
             },
           },
-          {
-            type: "video",
-            attrs: {
-              videoId: "66666666-6666-4666-8666-666666666666",
-              caption: "Выпуск 5",
-              nodeId: "77777777-7777-4777-8777-777777777777",
-            },
-          },
         ],
       },
     } as const;
@@ -134,7 +126,7 @@ describe("MaterialBodyOperations", () => {
       ok: true,
       value: {
         plainText:
-          "Developer Pipeline\n\nIssue хранит intent и evidence.\n\nDecision\n\nIssue\n\nOwner gate.\n\npnpm check\n\nStage\tEvidence\nReview\tChecks\n\nPublish requires owner GO.\n\nDelivery stages\nOne retained path\n\nPipeline checklist\n\nPlatform build episode",
+          "Developer Pipeline\n\nIssue хранит intent и evidence.\n\nDecision\n\nIssue\n\nOwner gate.\n\npnpm check\n\nStage\tEvidence\nReview\tChecks\n\nPublish requires owner GO.\n\nDelivery stages\nOne retained path\n\nPipeline checklist",
         headings: [{ level: 2, text: "Developer Pipeline" }],
         resources: [
           {
@@ -148,13 +140,25 @@ describe("MaterialBodyOperations", () => {
             assetId: "02000000-0000-4000-8000-000000000002",
             label: "Pipeline checklist",
           },
-          {
-            kind: "video",
-            caption: "Platform build episode",
-          },
         ],
       },
     });
+  });
+
+  test("rejects the removed legacy inline Video node", () => {
+    expect(materialBodyOperations.accept({
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [{
+          type: "video",
+          attrs: {
+            nodeId: "77777777-7777-4777-8777-777777777777",
+            videoId: "66666666-6666-4666-8666-666666666666",
+          },
+        }],
+      },
+    })).toMatchObject({ ok: false, error: { code: "invalid_content" } });
   });
 
   test("canonicalizes accepted content and rejects non-JSON or duplicate nested node IDs", () => {

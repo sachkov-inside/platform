@@ -88,6 +88,15 @@ The API creates only the three named local buckets in development mode. Objects 
 immutable keys and are never written over. The persistent `object-storage-data` volume follows the
 same ownership and non-destructive restart rules as PostgreSQL.
 
+Local development uses `KINESCOPE_PROVIDER_MODE=test`. It creates deterministic provider facts for
+upload-init, attach, processing reconciliation and playback without a real credential or outbound
+Kinescope call; its reserved `.invalid` upload endpoint makes the browser complete the simulated
+transfer immediately. Exact Tus and provider callback behavior is covered at the adapter boundary; real
+upload/playback acceptance still requires the owner-gated contour described in issue #183. Switch
+to `real` only in a private environment with the full Kinescope configuration from
+[the runtime contract](runtime-configuration.md); never paste credentials into the repository or
+issue evidence.
+
 For a detached stack suitable for smoke commands:
 
 ```bash

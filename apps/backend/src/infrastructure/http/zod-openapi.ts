@@ -19,6 +19,18 @@ export function problemDetailsContent(schema: z.ZodType) {
   } as const;
 }
 
+export function problemDetailsSchema<const Code extends string>(
+  status: number,
+  codes: readonly [Code, ...Code[]],
+) {
+  return z.object({
+    code: z.enum(codes),
+    status: z.literal(status),
+    title: z.string(),
+    type: z.string(),
+  }).loose();
+}
+
 export function problemDetailsOneOfContent(
   ...schemas: readonly z.ZodType[]
 ) {

@@ -25,7 +25,7 @@ export function requestCurrentMaterial(materialId: string, accessToken: string):
   return executeGeneratedRequest((request) => new MaterialAuthoringService(request).loadCurrentMaterial({ materialId }), 200, { accessToken });
 }
 
-export function requestMaterialSave(input: { readonly access: "free" | "membership"; readonly document: Record<string, unknown>; readonly expectedContentVersion: number; readonly formatId: string | null; readonly idempotencyKey: string; readonly materialId: string; readonly publicationState: "draft" | "published" | "unpublished"; readonly seriesIds: readonly string[]; readonly summary: string | null; readonly tagIds: readonly string[]; readonly title: string | null; readonly topicId: string | null }, accessToken: string): Promise<BackendTransportResult> {
+export function requestMaterialSave(input: { readonly access: "free" | "membership"; readonly document: Record<string, unknown>; readonly expectedContentVersion: number; readonly formatId: string | null; readonly idempotencyKey: string; readonly materialId: string; readonly publicationState: "draft" | "published" | "unpublished"; readonly primaryVideoId: string | null; readonly seriesIds: readonly string[]; readonly summary: string | null; readonly tagIds: readonly string[]; readonly title: string | null; readonly topicId: string | null }, accessToken: string): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) => new MaterialAuthoringService(request).saveCurrentMaterial({
       idempotencyKey: input.idempotencyKey,
@@ -35,6 +35,7 @@ export function requestMaterialSave(input: { readonly access: "free" | "membersh
         expectedContentVersion: input.expectedContentVersion,
         metadata: { access: input.access, formatId: input.formatId, seriesIds: [...input.seriesIds], summary: input.summary, tagIds: [...input.tagIds], title: input.title, topicId: input.topicId },
         publicationState: input.publicationState,
+        primaryVideoId: input.primaryVideoId,
       },
     }),
     200,

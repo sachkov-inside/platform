@@ -179,14 +179,6 @@ function renderBlock(value: JsonValue): RenderedBlock {
         assetId: string(attrs.assetId, "asset ID"),
         label: string(attrs.label, "file label"),
       };
-    case "video": {
-      const caption = optionalString(attrs.caption);
-      return {
-        kind: "video",
-        videoId: string(attrs.videoId, "video ID"),
-        ...(caption === undefined ? {} : { caption }),
-      };
-    }
     default:
       throw new TypeError(`Unsupported block: ${type}`);
   }
@@ -239,8 +231,6 @@ function blockText(block: RenderedBlock): string {
       return [block.alt, block.caption].filter(Boolean).join("\n");
     case "file":
       return block.label;
-    case "video":
-      return block.caption ?? "";
   }
 }
 
@@ -278,12 +268,6 @@ function collect(
       return;
     case "file":
       resources.push({ assetId: block.assetId, kind: "file", label: block.label });
-      return;
-    case "video":
-      resources.push({
-        kind: "video",
-        ...(block.caption === undefined ? {} : { caption: block.caption }),
-      });
       return;
     case "paragraph":
     case "code_block":

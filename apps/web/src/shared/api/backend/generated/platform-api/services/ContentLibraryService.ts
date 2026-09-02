@@ -56,6 +56,7 @@ export class ContentLibraryService {
         slug: string;
       };
       materialId: string;
+      primaryVideoId: string | null;
       publishedAt: string;
       seriesMemberships: Array<{
         ordinal: number;
@@ -121,6 +122,7 @@ export class ContentLibraryService {
         slug: string;
       };
       materialId: string;
+      primaryVideoId: string | null;
       publishedAt: string;
       seriesMemberships: Array<{
         ordinal: number;
@@ -186,6 +188,7 @@ export class ContentLibraryService {
         slug: string;
       };
       materialId: string;
+      primaryVideoId: string | null;
       publishedAt: string;
       seriesMemberships: Array<{
         ordinal: number;
@@ -251,6 +254,7 @@ export class ContentLibraryService {
         slug: string;
       };
       materialId: string;
+      primaryVideoId: string | null;
       publishedAt: string;
       seriesMemberships: Array<{
         ordinal: number;

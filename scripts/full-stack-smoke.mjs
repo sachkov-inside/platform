@@ -99,18 +99,27 @@ try {
     MCP_SMOKE_ACCESS_TOKEN: mcpAccessToken.token,
     MCP_SMOKE_SERVER_URL: mcpServerUrl,
   });
+  const memberAccessToken = await fullStackIdentity.createAccessToken(
+    fullStackIdentity.memberSubject,
+  );
+  await establishFullStackAccount(memberAccessToken.token);
   await runPnpm(
     ["--filter", "@inside/backend", "smoke:grant-full-stack-membership"],
-    childEnvironment,
+    {
+      ...childEnvironment,
+      FULLSTACK_MEMBER_LOGTO_SUBJECT: fullStackIdentity.memberSubject,
+    },
   );
   const browserAccessToken = await fullStackIdentity.createAccessToken();
   const fullStackSession = await fullStackIdentity.createSession(browserAccessToken);
-  await runPnpm(["--filter", "@inside/web", "test:fullstack"], {
+  const fullStackMemberSession = await fullStackIdentity.createSession(memberAccessToken);
+  await runPnpm(fullStackTestArguments(), {
     ...childEnvironment,
     FULLSTACK_API_BASE_URL: apiBaseUrl,
     FULLSTACK_MEMBERSHIP_ACQUISITION_URL:
       childEnvironment.MEMBERSHIP_ACQUISITION_URL ?? "https://t.me/tribute",
     FULLSTACK_LOGTO_COOKIE_NAME: fullStackIdentity.cookieName,
+    FULLSTACK_LOGTO_MEMBER_SESSION: fullStackMemberSession,
     FULLSTACK_LOGTO_SESSION: fullStackSession,
     FULLSTACK_WEB_BASE_URL: webBaseUrl,
   });
@@ -132,6 +141,15 @@ try {
 
 if (interruptedSignal !== undefined) {
   process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;
+}
+
+function fullStackTestArguments() {
+  const arguments_ = ["--filter", "@inside/web", "test:fullstack"];
+  const grep = process.env.FULLSTACK_TEST_GREP?.trim();
+  if (grep !== undefined && grep.length > 0) {
+    arguments_.push("--grep", grep);
+  }
+  return arguments_;
 }
 
 function startPnpm(name, arguments_, environment, detached = true) {
@@ -163,6 +181,18 @@ async function runPnpm(arguments_, environment = childEnvironment) {
 async function waitForJson(url, entries) {
   const response = await waitForHttp(url, entries);
   return response.json();
+}
+
+async function establishFullStackAccount(accessToken) {
+  const response = await globalThis.fetch(`${apiBaseUrl}/accounts`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  if (response.status !== 201) {
+    throw new Error(
+      `Full-stack member Account establishment returned HTTP ${String(response.status)}: ${await response.text()}`,
+    );
+  }
 }
 
 async function waitForHttp(url, entries) {
@@ -256,6 +286,7 @@ function formatProcessOutput(entries) {
 async function startFullStackIdentity() {
   const issuer = "https://identity.fullstack.test/oidc";
   const subject = "fullstack-owner";
+  const memberSubject = "fullstack-member";
   const audience = apiBaseUrl;
   const appId = "inside-web-fullstack";
   const cookieSecret = "inside-fullstack-cookie-secret-key";
@@ -282,13 +313,16 @@ async function startFullStackIdentity() {
   }
   return {
     cookieName: `logto_${appId}`,
-    createAccessToken: async () => {
+    memberSubject,
+    createAccessToken: async (tokenSubject = subject) => {
       const now = Math.floor(Date.now() / 1_000);
-      const token = await new SignJWT({})
+      const token = await new SignJWT({
+        inside_verified_email: `${tokenSubject}@inside.test`,
+      })
         .setProtectedHeader({ alg: "ES384", kid: "fullstack-key-1" })
         .setIssuer(issuer)
         .setAudience(audience)
-        .setSubject(subject)
+        .setSubject(tokenSubject)
         .setIssuedAt(now)
         .setExpirationTime(now + fullStackAccessTokenTtlSeconds)
         .sign(keyPair.privateKey);

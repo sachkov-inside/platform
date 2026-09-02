@@ -59,6 +59,22 @@ export function createApiOpenApiDocument(
       },
       "telegram-membership",
     )
+    .addBasicAuth(
+      {
+        type: "http",
+        scheme: "basic",
+        description: "Kinescope webhook credentials configured for the Platform endpoint.",
+      },
+      "kinescope-webhook",
+    )
+    .addBasicAuth(
+      {
+        type: "http",
+        scheme: "basic",
+        description: "Kinescope DRM authorization callback credentials.",
+      },
+      "kinescope-callback",
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config, {

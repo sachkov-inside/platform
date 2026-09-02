@@ -26,7 +26,7 @@ const Callout = Node.create({
 });
 
 function localResourceNode(
-  name: "assetFile" | "assetImage" | "video",
+  name: "assetFile" | "assetImage",
   attributes: readonly string[],
 ) {
   return Node.create({
@@ -47,7 +47,6 @@ function localResourceNode(
 
 const AssetImage = localResourceNode("assetImage", ["assetId", "alt", "caption"]);
 const AssetFile = localResourceNode("assetFile", ["assetId", "label"]);
-const Video = localResourceNode("video", ["videoId", "caption"]);
 
 export const contentExtensions = [
   StarterKit.configure({
@@ -67,7 +66,6 @@ export const contentExtensions = [
   Callout,
   AssetImage,
   AssetFile,
-  Video,
 ];
 
 export const materialDocumentSchemaV1: Schema = getSchema(contentExtensions);

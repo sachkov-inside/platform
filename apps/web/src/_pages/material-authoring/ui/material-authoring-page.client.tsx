@@ -177,6 +177,8 @@ export function MaterialAuthoringPageClient({
         markDirty({
           ...effectiveDraft,
           access: value === "membership" ? "membership" : "free",
+          primaryVideoId:
+            value === effectiveDraft.access ? effectiveDraft.primaryVideoId : null,
         });
         return;
       }
@@ -194,6 +196,9 @@ export function MaterialAuthoringPageClient({
           ),
         );
       }
+    },
+    onPrimaryVideoChange: (primaryVideoId) => {
+      markDirty({ ...effectiveDraft, primaryVideoId });
     },
     onRetry: () => {
       if (creating && retryCreateInput.current !== null) {
@@ -250,6 +255,7 @@ export function MaterialAuthoringPageClient({
         formatId: effectiveDraft.formatId,
         materialId: effectiveDraft.materialId,
         publicationState,
+        primaryVideoId: effectiveDraft.primaryVideoId,
         seriesIds: effectiveDraft.seriesIds,
         submissionId: presentation.submissionId,
         summary: effectiveDraft.summary,

@@ -50,7 +50,6 @@ function hydrateBlock(
     case "heading":
     case "horizontal_rule":
     case "paragraph":
-    case "video":
       return block;
   }
 }

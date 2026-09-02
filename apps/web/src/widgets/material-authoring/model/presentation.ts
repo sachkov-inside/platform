@@ -23,6 +23,7 @@ export interface MaterialDraftPresentation {
   readonly document: JSONContent;
   readonly formatId: string;
   readonly materialId: string | null;
+  readonly primaryVideoId: string | null;
   readonly contentVersion: number | null;
   readonly readOnly: boolean;
   readonly seriesIds: readonly string[];
@@ -118,6 +119,7 @@ export interface MaterialAuthoringActions {
   readonly onDelete: (input: DeleteMaterialDraftInput) => void;
   readonly onFieldChange: (field: MaterialDraftField, value: string) => void;
   readonly onOpenPreview: () => void;
+  readonly onPrimaryVideoChange: (videoId: string | null) => void;
   readonly onRetry: () => void;
   readonly onReturnToEditor: () => void;
   readonly onSave: (

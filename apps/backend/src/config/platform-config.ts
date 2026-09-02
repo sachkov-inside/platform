@@ -27,6 +27,18 @@ const DEFAULT_OBJECT_STORAGE_QUARANTINE_BUCKET = "inside-local-quarantine";
 const DEFAULT_OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS = "60";
 const DEFAULT_MATERIAL_ASSET_ORPHAN_GRACE_SECONDS = "86400";
 const DEFAULT_PROFILE_AVATAR_ORPHAN_GRACE_SECONDS = "86400";
+const DEFAULT_KINESCOPE_PROVIDER_MODE = "test";
+const DEFAULT_KINESCOPE_API_BASE_URL = "https://api.kinescope.io";
+const DEFAULT_KINESCOPE_UPLOADER_BASE_URL = "https://uploader.kinescope.io";
+const DEFAULT_KINESCOPE_API_TOKEN = "inside-local-kinescope-api-token";
+const DEFAULT_KINESCOPE_PUBLIC_PROJECT_ID = "inside-local-public-project";
+const DEFAULT_KINESCOPE_MEMBERSHIP_PROJECT_ID = "inside-local-membership-project";
+const DEFAULT_KINESCOPE_CALLBACK_USERNAME = "inside-local-callback";
+const DEFAULT_KINESCOPE_CALLBACK_PASSWORD = "inside-local-callback-password";
+const DEFAULT_KINESCOPE_WEBHOOK_USERNAME = "inside-local-webhook";
+const DEFAULT_KINESCOPE_WEBHOOK_PASSWORD = "inside-local-webhook-password";
+const DEFAULT_KINESCOPE_PLAYBACK_JWT_SECRET = "inside-local-kinescope-playback-secret";
+const DEFAULT_KINESCOPE_PLAYBACK_JWT_TTL_SECONDS = "60";
 
 export const PLATFORM_CONFIG = Symbol("PLATFORM_CONFIG");
 
@@ -116,6 +128,12 @@ const telegramSecretSchema = (name: string) =>
   z.string().regex(/^[A-Za-z0-9_-]{16,256}$/u, {
     message: `${name} must be a base64url credential of at least 16 characters`,
   });
+const kinescopeUrlSchema = (name: string) =>
+  httpUrlSchema(name).refine((value) => {
+    const url = new URL(value);
+    return url.protocol === "https:" &&
+      (url.hostname === "kinescope.io" || url.hostname.endsWith(".kinescope.io"));
+  }, { message: `${name} must use HTTPS on a Kinescope host` });
 const telegramMembershipSchema = z
   .object({
     botStartUrl: httpUrlSchema("TELEGRAM_BOT_START_URL").refine(
@@ -146,6 +164,24 @@ const telegramMembershipSchema = z
     ).transform((seconds) => seconds * 1_000),
   })
   .readonly();
+const kinescopeSchema = z.object({
+  apiBaseUrl: kinescopeUrlSchema("KINESCOPE_API_BASE_URL"),
+  apiToken: z.string().min(16),
+  callbackPassword: z.string().min(16),
+  callbackUsername: z.string().min(1),
+  membershipProjectId: z.string().min(1).max(128),
+  playbackJwtSecret: z.string().min(32),
+  playbackJwtTtlSeconds: integerStringSchema(
+    "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS must be an integer between 30 and 300",
+    30,
+    300,
+  ),
+  providerMode: z.enum(["real", "test"]),
+  publicProjectId: z.string().min(1).max(128),
+  uploaderBaseUrl: kinescopeUrlSchema("KINESCOPE_UPLOADER_BASE_URL"),
+  webhookPassword: z.string().min(16),
+  webhookUsername: z.string().min(1),
+}).readonly();
 const platformConfigSchema = z
   .object({
     mode: platformModeSchema,
@@ -161,6 +197,7 @@ const platformConfigSchema = z
     identity: identitySchema,
     contentAccess: contentAccessSchema,
     objectStorage: objectStorageSchema,
+    kinescope: kinescopeSchema,
     telegramMembership: telegramMembershipSchema,
   })
   .readonly();
@@ -296,6 +333,20 @@ export function parsePlatformConfig(
         DEFAULT_OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS,
       ),
     },
+    kinescope: {
+      apiBaseUrl: readRuntimeValue(environment, "KINESCOPE_API_BASE_URL", mode, DEFAULT_KINESCOPE_API_BASE_URL),
+      apiToken: readRuntimeValue(environment, "KINESCOPE_API_TOKEN", mode, DEFAULT_KINESCOPE_API_TOKEN),
+      callbackPassword: readRuntimeValue(environment, "KINESCOPE_CALLBACK_PASSWORD", mode, DEFAULT_KINESCOPE_CALLBACK_PASSWORD),
+      callbackUsername: readRuntimeValue(environment, "KINESCOPE_CALLBACK_USERNAME", mode, DEFAULT_KINESCOPE_CALLBACK_USERNAME),
+      membershipProjectId: readRuntimeValue(environment, "KINESCOPE_MEMBERSHIP_PROJECT_ID", mode, DEFAULT_KINESCOPE_MEMBERSHIP_PROJECT_ID),
+      playbackJwtSecret: readRuntimeValue(environment, "KINESCOPE_PLAYBACK_JWT_SECRET", mode, DEFAULT_KINESCOPE_PLAYBACK_JWT_SECRET),
+      playbackJwtTtlSeconds: readRuntimeValue(environment, "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS", mode, DEFAULT_KINESCOPE_PLAYBACK_JWT_TTL_SECONDS),
+      providerMode: environment.KINESCOPE_PROVIDER_MODE?.trim() || (mode === "production" ? "real" : DEFAULT_KINESCOPE_PROVIDER_MODE),
+      publicProjectId: readRuntimeValue(environment, "KINESCOPE_PUBLIC_PROJECT_ID", mode, DEFAULT_KINESCOPE_PUBLIC_PROJECT_ID),
+      uploaderBaseUrl: readRuntimeValue(environment, "KINESCOPE_UPLOADER_BASE_URL", mode, DEFAULT_KINESCOPE_UPLOADER_BASE_URL),
+      webhookPassword: readRuntimeValue(environment, "KINESCOPE_WEBHOOK_PASSWORD", mode, DEFAULT_KINESCOPE_WEBHOOK_PASSWORD),
+      webhookUsername: readRuntimeValue(environment, "KINESCOPE_WEBHOOK_USERNAME", mode, DEFAULT_KINESCOPE_WEBHOOK_USERNAME),
+    },
     telegramMembership: {
       botStartUrl: readRuntimeValue(
         environment,
@@ -350,6 +401,13 @@ export function parsePlatformConfig(
 
   if (new Set(Object.values(config.data.objectStorage.buckets)).size !== 3) {
     throw new Error("Object Storage buckets must be distinct");
+  }
+
+  if (mode === "production" && config.data.kinescope.providerMode !== "real") {
+    throw new Error("KINESCOPE_PROVIDER_MODE must be real in production mode");
+  }
+  if (config.data.kinescope.publicProjectId === config.data.kinescope.membershipProjectId) {
+    throw new Error("Public and membership Kinescope projects must be distinct");
   }
 
   const linkingUrl = new URL(
@@ -409,6 +467,17 @@ function readRuntimeValue(
     | "LOGTO_JWKS_URL"
     | "MEMBERSHIP_ACQUISITION_URL"
     | "MATERIAL_ASSET_ORPHAN_GRACE_SECONDS"
+    | "KINESCOPE_API_BASE_URL"
+    | "KINESCOPE_API_TOKEN"
+    | "KINESCOPE_CALLBACK_PASSWORD"
+    | "KINESCOPE_CALLBACK_USERNAME"
+    | "KINESCOPE_MEMBERSHIP_PROJECT_ID"
+    | "KINESCOPE_PLAYBACK_JWT_SECRET"
+    | "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS"
+    | "KINESCOPE_PUBLIC_PROJECT_ID"
+    | "KINESCOPE_UPLOADER_BASE_URL"
+    | "KINESCOPE_WEBHOOK_PASSWORD"
+    | "KINESCOPE_WEBHOOK_USERNAME"
     | "OBJECT_STORAGE_ACCESS_KEY_ID"
     | "OBJECT_STORAGE_ENDPOINT"
     | "OBJECT_STORAGE_PROTECTED_BUCKET"

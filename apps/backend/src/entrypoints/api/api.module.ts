@@ -30,7 +30,15 @@ import {
   ValidateMaterialController,
   UploadMaterialAssetController,
   DeliverMaterialAssetController,
+  KinescopeVideoAuthorizationController,
+  VideoPlaybackController,
+  VideoProgressController,
 } from "../../modules/materials/index.js";
+import {
+  KinescopeWebhookController,
+  VideoAuthoringController,
+  VideosModule,
+} from "../../modules/videos/index.js";
 import { HealthController } from "./health.controller.js";
 
 @Module({
@@ -52,6 +60,11 @@ import { HealthController } from "./health.controller.js";
     ReorderSeriesController,
     UploadMaterialAssetController,
     DeliverMaterialAssetController,
+    VideoAuthoringController,
+    VideoPlaybackController,
+    VideoProgressController,
+    KinescopeWebhookController,
+    KinescopeVideoAuthorizationController,
   ],
   providers: [
     OperationalReadiness,
@@ -70,6 +83,7 @@ export class ApiModule {
         MemberProfilesModule,
         TelegramMembershipModule,
         MaterialsModule,
+        VideosModule,
       ],
     };
   }

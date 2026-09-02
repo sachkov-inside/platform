@@ -203,14 +203,6 @@ export async function seedLocalDevelopment(
               label: "Reader verification checklist",
             },
           },
-          {
-            type: "video",
-            attrs: {
-              nodeId: "72000000-0000-4000-8000-000000000027",
-              videoId: "72000000-0000-4000-8000-000000000032",
-              caption: "Reader vertical slice walkthrough",
-            },
-          },
         ],
       },
     },
