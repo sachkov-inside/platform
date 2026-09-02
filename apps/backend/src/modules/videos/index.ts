@@ -11,6 +11,15 @@ export {
   VIDEO_DELETION_MAINTENANCE,
   type VideoDeletionMaintenance,
 } from "./features/process-video-deletions/process-video-deletions.js";
+export {
+  isVideoDeletionState,
+  videoAccessSchema,
+  videoAuthoringPresentationSchema,
+  videoDtoSchema,
+  videoOriginSchema,
+  videoPresentationSchema,
+  videoStateSchema,
+} from "./facets/videos/videos.interface.js";
 export type {
   VideoAccess,
   VideoAccessFacts,

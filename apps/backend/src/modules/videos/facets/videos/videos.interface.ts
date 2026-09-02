@@ -1,34 +1,43 @@
-export type VideoAccess = "free" | "membership";
-export type VideoOrigin = "external_attachment" | "platform_upload";
-export type VideoState =
-  | "uploading"
-  | "processing"
-  | "ready"
-  | "failed"
-  | "deletion_requested"
-  | "deleting"
-  | "deleted"
-  | "delete_failed";
+import { z } from "zod";
 
-export interface VideoDto {
-  readonly access: VideoAccess;
-  readonly materialId: string;
-  readonly origin: VideoOrigin;
-  readonly state: VideoState;
-  readonly title: string;
-  readonly videoId: string;
-  readonly failureCode?: string;
-}
+export const videoAccessSchema = z.enum(["free", "membership"]);
+export const videoOriginSchema = z.enum(["external_attachment", "platform_upload"]);
+export const videoStateSchema = z.enum([
+  "uploading",
+  "processing",
+  "ready",
+  "failed",
+  "deletion_requested",
+  "deleting",
+  "deleted",
+  "delete_failed",
+]);
+export const videoPresentationSchema = z.object({
+  failureCode: z.string().optional(),
+  state: videoStateSchema,
+  title: z.string(),
+  videoId: z.uuid(),
+}).strict();
+export const videoAuthoringPresentationSchema = videoPresentationSchema.extend({
+  origin: videoOriginSchema,
+}).strict();
+export const videoDtoSchema = videoAuthoringPresentationSchema.extend({
+  access: videoAccessSchema,
+  materialId: z.uuid(),
+}).strict();
 
-export interface VideoPresentation {
-  readonly state: VideoState;
-  readonly title: string;
-  readonly videoId: string;
-  readonly failureCode?: string;
-}
+export type VideoAccess = z.infer<typeof videoAccessSchema>;
+export type VideoOrigin = z.infer<typeof videoOriginSchema>;
+export type VideoState = z.infer<typeof videoStateSchema>;
+export type VideoDto = z.infer<typeof videoDtoSchema>;
+export type VideoPresentation = z.infer<typeof videoPresentationSchema>;
+export type VideoAuthoringPresentation = z.infer<typeof videoAuthoringPresentationSchema>;
 
-export interface VideoAuthoringPresentation extends VideoPresentation {
-  readonly origin: VideoOrigin;
+export function isVideoDeletionState(value: string): boolean {
+  return value === "deletion_requested" ||
+    value === "deleting" ||
+    value === "deleted" ||
+    value === "delete_failed";
 }
 
 export interface VideoAccessFacts {

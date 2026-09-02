@@ -18,6 +18,14 @@ import {
 import { VideoDeletionsWorkerModule } from "./video-deletions-worker/video-deletions-worker.module.js";
 
 const DELETION_QUEUE = "videos.deletions";
+const VIDEO_DELETION_JOB_RETENTION_SECONDS = 86_400;
+const VIDEO_DELETION_JOB_TIMEOUT_SECONDS = 300;
+const VIDEO_DELETION_RETRY_INITIAL_DELAY_SECONDS = 30;
+const VIDEO_DELETION_RETRY_MAX_DELAY_SECONDS = 300;
+const VIDEO_DELETION_RETRY_LIMIT = 5;
+const VIDEO_DELETION_SCHEDULE = "* * * * *";
+const VIDEO_DELETION_SINGLETON_SECONDS = 60;
+const VIDEO_DELETION_SHUTDOWN_TIMEOUT_MILLISECONDS = 10_000;
 
 void bootstrap().catch((error: unknown) => {
   console.error(error);
@@ -44,15 +52,17 @@ async function bootstrap(): Promise<void> {
   try {
     await jobs.start();
     await jobs.createQueue(DELETION_QUEUE, {
-      deleteAfterSeconds: 86_400,
-      expireInSeconds: 300,
+      deleteAfterSeconds: VIDEO_DELETION_JOB_RETENTION_SECONDS,
+      expireInSeconds: VIDEO_DELETION_JOB_TIMEOUT_SECONDS,
       retryBackoff: true,
-      retryDelay: 30,
-      retryDelayMax: 300,
-      retryLimit: 5,
+      retryDelay: VIDEO_DELETION_RETRY_INITIAL_DELAY_SECONDS,
+      retryDelayMax: VIDEO_DELETION_RETRY_MAX_DELAY_SECONDS,
+      retryLimit: VIDEO_DELETION_RETRY_LIMIT,
     });
-    await jobs.schedule(DELETION_QUEUE, "* * * * *", {});
-    await jobs.send(DELETION_QUEUE, {}, { singletonSeconds: 60 });
+    await jobs.schedule(DELETION_QUEUE, VIDEO_DELETION_SCHEDULE, {});
+    await jobs.send(DELETION_QUEUE, {}, {
+      singletonSeconds: VIDEO_DELETION_SINGLETON_SECONDS,
+    });
     await jobs.work(DELETION_QUEUE, async () => {
       const result = await maintenance.process({
         async isReferenced(input) {
@@ -68,7 +78,11 @@ async function bootstrap(): Promise<void> {
     await shutdown.received;
   } finally {
     shutdown.dispose();
-    await jobs.stop({ close: true, graceful: true, timeout: 10_000 });
+    await jobs.stop({
+      close: true,
+      graceful: true,
+      timeout: VIDEO_DELETION_SHUTDOWN_TIMEOUT_MILLISECONDS,
+    });
     await application.close();
   }
 }

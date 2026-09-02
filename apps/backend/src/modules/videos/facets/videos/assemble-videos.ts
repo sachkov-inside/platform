@@ -16,16 +16,21 @@ import {
   type VideoUploadAttemptId,
 } from "../../domain/video-identifiers.js";
 import type { VideoProvider, ProviderVideo } from "../../ports/video-provider.js";
-import type {
-  InitVideoUploadResult,
-  VideoDto,
-  VideoError,
-  VideoResult,
-  Videos,
-  VideoState,
+import {
+  isVideoDeletionState,
+  videoAccessSchema,
+  videoAuthoringPresentationSchema,
+  videoDtoSchema,
+  videoStateSchema,
+  type InitVideoUploadResult,
+  type VideoDto,
+  type VideoError,
+  type VideoResult,
+  type Videos,
+  type VideoState,
 } from "./videos.interface.js";
 
-const access = z.enum(["free", "membership"]);
+const access = videoAccessSchema;
 const initInput = z.object({
   access,
   actor: videoAccountIdSchema,
@@ -474,7 +479,7 @@ export function assembleVideos(dependencies: {
           select: { state: true },
           where: { id: parsed.data.videoId },
         });
-        if (video === null || isDeletionState(video.state)) return videoNotReady();
+        if (video === null || isVideoDeletionState(video.state)) return videoNotReady();
         await dependencies.prisma.videoPlaybackProgress.upsert({
           where: { accountId_videoId: { accountId: parsed.data.accountId, videoId: parsed.data.videoId } },
           create: { ...parsed.data, updatedAt: now() },
@@ -585,7 +590,7 @@ export function assembleVideos(dependencies: {
         remote.projectId !== local.projectId
       ) return providerMismatch();
       const lifecycle = providerLifecycle(remote);
-      const deleting = isDeletionState(local.state);
+      const deleting = isVideoDeletionState(local.state);
       const syncedAt = now();
       const updated = await dependencies.prisma.$transaction(async (transaction) => {
         const video = await transaction.video.update({
@@ -653,15 +658,15 @@ function providerLifecycle(remote: ProviderVideo): {
 }
 
 function toDto(video: { id: string; access: string; materialId: string; origin: string; state: string; title: string; failureCode: string | null }): VideoDto {
-  return {
+  return videoDtoSchema.parse({
     access: access.parse(video.access),
     materialId: videoMaterialIdSchema.parse(video.materialId),
-    origin: z.enum(["external_attachment", "platform_upload"]).parse(video.origin),
+    origin: video.origin,
     state: parseVideoState(video.state),
     title: video.title,
     videoId: videoIdSchema.parse(video.id),
     ...(video.failureCode === null ? {} : { failureCode: video.failureCode }),
-  };
+  });
 }
 
 function toAuthoringPresentation(video: {
@@ -671,33 +676,17 @@ function toAuthoringPresentation(video: {
   readonly state: string;
   readonly title: string;
 }) {
-  return {
-    origin: z.enum(["external_attachment", "platform_upload"]).parse(video.origin),
+  return videoAuthoringPresentationSchema.parse({
+    origin: video.origin,
     state: parseVideoState(video.state),
     title: video.title,
     videoId: videoIdSchema.parse(video.id),
     ...(video.failureCode === null ? {} : { failureCode: video.failureCode }),
-  };
+  });
 }
 
 function parseVideoState(value: string): VideoState {
-  return z.enum([
-    "uploading",
-    "processing",
-    "ready",
-    "failed",
-    "deletion_requested",
-    "deleting",
-    "deleted",
-    "delete_failed",
-  ]).parse(value);
-}
-
-function isDeletionState(value: string): boolean {
-  return value === "deletion_requested" ||
-    value === "deleting" ||
-    value === "deleted" ||
-    value === "delete_failed";
+  return videoStateSchema.parse(value);
 }
 
 type VideoFailure<Code extends VideoError["code"]> = Readonly<{

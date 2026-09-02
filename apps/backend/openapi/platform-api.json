@@ -9374,10 +9374,10 @@
                         }
                       },
                       "required": [
-                        "origin",
                         "state",
                         "title",
-                        "videoId"
+                        "videoId",
+                        "origin"
                       ],
                       "type": "object"
                     },
@@ -9510,10 +9510,10 @@
                         }
                       },
                       "required": [
-                        "origin",
                         "state",
                         "title",
-                        "videoId"
+                        "videoId",
+                        "origin"
                       ],
                       "type": "object"
                     },
@@ -14303,12 +14303,12 @@
                     }
                   },
                   "required": [
-                    "access",
-                    "materialId",
-                    "origin",
                     "state",
                     "title",
-                    "videoId"
+                    "videoId",
+                    "origin",
+                    "access",
+                    "materialId"
                   ],
                   "type": "object"
                 }
@@ -14793,12 +14793,12 @@
                         }
                       },
                       "required": [
-                        "access",
-                        "materialId",
-                        "origin",
                         "state",
                         "title",
-                        "videoId"
+                        "videoId",
+                        "origin",
+                        "access",
+                        "materialId"
                       ],
                       "type": "object"
                     }
@@ -17173,12 +17173,12 @@
                     }
                   },
                   "required": [
-                    "access",
-                    "materialId",
-                    "origin",
                     "state",
                     "title",
-                    "videoId"
+                    "videoId",
+                    "origin",
+                    "access",
+                    "materialId"
                   ],
                   "type": "object"
                 }
@@ -17641,12 +17641,12 @@
                     }
                   },
                   "required": [
-                    "access",
-                    "materialId",
-                    "origin",
                     "state",
                     "title",
-                    "videoId"
+                    "videoId",
+                    "origin",
+                    "access",
+                    "materialId"
                   ],
                   "type": "object"
                 }

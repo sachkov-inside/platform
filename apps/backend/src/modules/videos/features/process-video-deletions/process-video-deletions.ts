@@ -7,9 +7,12 @@ import {
 } from "../../../../infrastructure/prisma/index.js";
 import type { VideoProvider } from "../../ports/video-provider.js";
 
-const MAX_ATTEMPTS = 5;
-const CLAIM_TIMEOUT_MS = 5 * 60 * 1_000;
-const BATCH_SIZE = 25;
+const VIDEO_DELETION_RETRY_ATTEMPT_LIMIT = 5;
+const VIDEO_DELETION_CLAIM_TIMEOUT_MILLISECONDS = 300_000;
+const VIDEO_DELETION_RETRY_INITIAL_DELAY_MILLISECONDS = 30_000;
+const VIDEO_DELETION_RETRY_MAX_DELAY_MILLISECONDS = 300_000;
+const VIDEO_DELETION_RETRY_JITTER_RATIO = 0.2;
+const VIDEO_DELETION_BATCH_SIZE = 25;
 
 export const VIDEO_DELETION_MAINTENANCE = Symbol("VIDEO_DELETION_MAINTENANCE");
 
@@ -53,10 +56,12 @@ export function assembleVideoDeletionMaintenance(dependencies: {
     async process(input) {
       const summary = { deferred: 0, deleted: 0, failed: 0, retried: 0 };
       try {
-        const claimCutoff = new Date(now().getTime() - CLAIM_TIMEOUT_MS);
+        const claimCutoff = new Date(
+          now().getTime() - VIDEO_DELETION_CLAIM_TIMEOUT_MILLISECONDS,
+        );
         const candidates = await dependencies.prisma.videoDeletionOperation.findMany({
           orderBy: { requestedAt: "asc" },
-          take: BATCH_SIZE,
+          take: VIDEO_DELETION_BATCH_SIZE,
           where: {
             OR: [
               { state: "deletion_requested", nextAttemptAt: { lte: now() } },
@@ -92,7 +97,10 @@ export function assembleVideoDeletionMaintenance(dependencies: {
             }
             continue;
           }
-          if (outcome.kind === "retryable_failure" && claim.cycleAttempts < MAX_ATTEMPTS) {
+          if (
+            outcome.kind === "retryable_failure" &&
+            claim.cycleAttempts < VIDEO_DELETION_RETRY_ATTEMPT_LIMIT
+          ) {
             if (await scheduleRetry(claim, outcome.category, outcome.providerRequestId)) {
               summary.retried += 1;
             }
@@ -146,7 +154,9 @@ export function assembleVideoDeletionMaintenance(dependencies: {
         include: { video: true },
         where: { id: operationId },
       });
-      const claimCutoff = new Date(now().getTime() - CLAIM_TIMEOUT_MS);
+      const claimCutoff = new Date(
+        now().getTime() - VIDEO_DELETION_CLAIM_TIMEOUT_MILLISECONDS,
+      );
       if (
         operation === null ||
         !(
@@ -275,8 +285,13 @@ export function assembleVideoDeletionMaintenance(dependencies: {
     providerRequestId: string | undefined,
   ): Promise<boolean> {
     const retryAt = now();
-    const baseDelayMs = Math.min(30_000 * 2 ** (claim.cycleAttempts - 1), 300_000);
-    const jitterMs = Math.floor(baseDelayMs * 0.2 * random());
+    const baseDelayMs = Math.min(
+      VIDEO_DELETION_RETRY_INITIAL_DELAY_MILLISECONDS * 2 ** (claim.cycleAttempts - 1),
+      VIDEO_DELETION_RETRY_MAX_DELAY_MILLISECONDS,
+    );
+    const jitterMs = Math.floor(
+      baseDelayMs * VIDEO_DELETION_RETRY_JITTER_RATIO * random(),
+    );
     const nextAttemptAt = new Date(retryAt.getTime() + baseDelayMs + jitterMs);
     return dependencies.prisma.$transaction(async (transaction) => {
       const operation = await transaction.videoDeletionOperation.updateMany({

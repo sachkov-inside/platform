@@ -16,6 +16,7 @@ const providerResponseSchema = z.object({ data: z.record(z.string(), z.unknown()
 const deleteResponseSchema = z.object({
   data: z.object({ success: z.literal(true) }).strict(),
 }).loose();
+const KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS = 8_000;
 
 export function createKinescopeVideoProvider(config: {
   readonly apiBaseUrl: string;
@@ -33,7 +34,7 @@ export function createKinescopeVideoProvider(config: {
           {
             headers: { authorization: `Bearer ${config.apiToken}` },
             method: "DELETE",
-            signal: AbortSignal.timeout(8_000),
+            signal: AbortSignal.timeout(KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS),
           },
         );
       } catch (error) {
@@ -106,7 +107,7 @@ export function createKinescopeVideoProvider(config: {
           title: input.title,
           filesize: input.byteSize,
         }),
-        signal: AbortSignal.timeout(8_000),
+        signal: AbortSignal.timeout(KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS),
       });
       if (!response.ok) throw new Error("Kinescope upload init failed");
       const parsed = initResponseSchema.parse(await response.json());
@@ -118,7 +119,7 @@ export function createKinescopeVideoProvider(config: {
         new URL(`/v1/videos/${encodeURIComponent(input.id)}`, config.apiBaseUrl),
         {
           headers: { authorization: `Bearer ${config.apiToken}` },
-          signal: AbortSignal.timeout(8_000),
+          signal: AbortSignal.timeout(KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS),
         },
       );
       if (response.status === 404) return null;

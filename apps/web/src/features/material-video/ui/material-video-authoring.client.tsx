@@ -24,6 +24,8 @@ import {
 } from "../api/video-upload-transfer.browser";
 import type { MaterialAuthoringVideo, MaterialVideo } from "../model/video";
 
+const VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS = 5_000;
+
 export function MaterialVideoAuthoring({
   access,
   deleteVideoId,
@@ -104,7 +106,10 @@ export function MaterialVideoAuthoring({
       video.state === "ready" ||
       video.state === "failed"
     ) return;
-    const timer = window.setTimeout(() => { void reconcile(video.videoId); }, 5_000);
+    const timer = window.setTimeout(
+      () => { void reconcile(video.videoId); },
+      VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS,
+    );
     return () => { window.clearTimeout(timer); };
   }, [materialId, phase, reconcile, video]);
 
@@ -113,7 +118,10 @@ export function MaterialVideoAuthoring({
       deletionVideo === null ||
       (deletionVideo.state !== "deletion_requested" && deletionVideo.state !== "deleting")
     ) return;
-    const timer = window.setInterval(() => { void reconcile(deletionVideo.videoId); }, 5_000);
+    const timer = window.setInterval(
+      () => { void reconcile(deletionVideo.videoId); },
+      VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS,
+    );
     return () => { window.clearInterval(timer); };
   }, [deletionVideo, reconcile]);
 

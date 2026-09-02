@@ -15,6 +15,7 @@ import type {
   SetContentCollectionArchiveError,
   UpdateContentCollectionError,
 } from "../../index.js";
+import { videoAuthoringPresentationSchema } from "../../../videos/index.js";
 import {
   contentVersionWireSchema,
   idempotencyKeyWireSchema,
@@ -44,33 +45,14 @@ export const materialMutationReceiptSchema = z
   })
   .strict();
 
-const authoringVideoSchema = z
-  .object({
-    failureCode: z.string().optional(),
-    origin: z.enum(["external_attachment", "platform_upload"]),
-    state: z.enum([
-      "uploading",
-      "processing",
-      "ready",
-      "failed",
-      "deletion_requested",
-      "deleting",
-      "deleted",
-      "delete_failed",
-    ]),
-    title: z.string(),
-    videoId: z.uuid(),
-  })
-  .strict();
-
 export const materialSchema = z
   .object({
     materialId: materialIdSchema,
     contentVersion: contentVersionSchema,
     publicationState: publicationStateWireSchema,
     primaryVideoId: z.uuid().nullable(),
-    primaryVideo: authoringVideoSchema.nullable(),
-    latestVideoDeletion: authoringVideoSchema.nullable(),
+    primaryVideo: videoAuthoringPresentationSchema.nullable(),
+    latestVideoDeletion: videoAuthoringPresentationSchema.nullable(),
     firstPublishedAt: z.iso.datetime({ offset: true }).nullable(),
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
     metadata: materialMetadataSchema,

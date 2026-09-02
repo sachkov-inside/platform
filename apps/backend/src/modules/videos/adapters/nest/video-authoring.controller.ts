@@ -38,35 +38,23 @@ import {
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
 import { VIDEOS } from "../../videos.module.js";
-import type { VideoError, Videos } from "../../facets/videos/videos.interface.js";
+import {
+  videoAccessSchema,
+  videoDtoSchema,
+  type VideoError,
+  type Videos,
+} from "../../facets/videos/videos.interface.js";
 
-const videoSchema = z.object({
-  access: z.enum(["free", "membership"]),
-  failureCode: z.string().optional(),
-  materialId: z.uuid(),
-  origin: z.enum(["external_attachment", "platform_upload"]),
-  state: z.enum([
-    "uploading",
-    "processing",
-    "ready",
-    "failed",
-    "deletion_requested",
-    "deleting",
-    "deleted",
-    "delete_failed",
-  ]),
-  title: z.string(),
-  videoId: z.uuid(),
-}).strict();
+const videoSchema = videoDtoSchema;
 const initBodySchema = z.object({
-  access: z.enum(["free", "membership"]),
+  access: videoAccessSchema,
   byteSize: z.number().int().positive().max(20 * 1024 * 1024 * 1024),
   filename: z.string().min(1).max(255),
   title: z.string().min(1).max(255),
 }).strict();
 const initResponseSchema = z.object({ uploadEndpoint: z.url(), video: videoSchema }).strict();
 const attachmentBodySchema = z.object({
-  access: z.enum(["free", "membership"]),
+  access: videoAccessSchema,
   providerVideoId: z.string().min(1).max(256),
 }).strict();
 
