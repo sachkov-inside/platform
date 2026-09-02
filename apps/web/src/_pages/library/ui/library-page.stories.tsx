@@ -3,16 +3,18 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
-import { createLibraryCatalogQueryOptions } from "@/_pages/library/model/library-catalog-query";
-import type { LibraryCatalogPage } from "@/_pages/library/model/library-view";
-import type { LibrarySearchQuery } from "@/_pages/library/model/library-search-query";
+import {
+  createLibraryCatalogQueryOptions,
+  InfiniteMaterialCatalog,
+  type LibraryCatalogPage,
+  type LibrarySearchQuery,
+} from "@/features/library-catalog";
 import {
   LibraryLoading,
   LibraryPage,
   LibraryUnexpectedError,
 } from "@/_pages/library/ui/library-page";
 import { LibraryCatalogQueryView } from "@/_pages/library/ui/library-page-query.client";
-import { InfiniteLibraryCatalog } from "@/_pages/library/ui/infinite-library-catalog.client";
 import type { MaterialPreview } from "@/entities/material";
 import {
   ApplicationShell,
@@ -20,9 +22,7 @@ import {
 } from "@/widgets/application-shell";
 
 const navigationItems = [
-  { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
-  { href: "/map", icon: "map", label: "Карта" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const catalogItems = [
@@ -85,8 +85,8 @@ const defaultQuery = {
 
 const catalogFacets = {
   formats: [
-    { count: 2, id: "format-guide", name: "Гайд", slug: "guide" },
-    { count: 1, id: "format-video", name: "Видео", slug: "video" },
+    { count: 2, id: "format-guide", name: "Гайд", slug: "guide", summary: null },
+    { count: 1, id: "format-video", name: "Видео", slug: "video", summary: null },
   ],
   series: [
     {
@@ -94,6 +94,7 @@ const catalogFacets = {
       id: "series-platform-inside",
       name: "Создание Platform Inside",
       slug: "platform-inside",
+      summary: "Путь от продуктовой идеи до работающей платформы.",
     },
   ],
   topics: [
@@ -102,18 +103,21 @@ const catalogFacets = {
       id: "topic-ai-first",
       name: "AI-first engineering",
       slug: "ai-first-engineering",
+      summary: "Инженерные системы и процессы для работы с агентами.",
     },
     {
       count: 1,
       id: "topic-career",
       name: "Карьера",
       slug: "career",
+      summary: "Практика профессионального развития и поиска работы.",
     },
     {
       count: 1,
       id: "topic-product-engineering",
       name: "Product engineering",
       slug: "product-engineering",
+      summary: "Продуктовые решения, архитектура и поставка.",
     },
   ],
 } as const;
@@ -146,7 +150,7 @@ function AutoLoadCatalogHarness() {
   const [pageCount, setPageCount] = useState(1);
 
   return (
-    <InfiniteLibraryCatalog
+    <InfiniteMaterialCatalog
       hasNextPage={pageCount < 2}
       isFetchNextPageError={false}
       isFetchingNextPage={false}
@@ -165,7 +169,7 @@ function RetryCatalogHarness() {
   return (
     <>
       <output aria-label="Попыток повторной загрузки">{attempts}</output>
-      <InfiniteLibraryCatalog
+      <InfiniteMaterialCatalog
         hasNextPage
         isFetchNextPageError
         isFetchingNextPage={false}
@@ -369,7 +373,7 @@ export const ReadyMobile: Story = {
     });
     for (
       let tabIndex = 0;
-      tabIndex < 12 && canvasElement.ownerDocument.activeElement !== firstCardLink;
+      tabIndex < 40 && canvasElement.ownerDocument.activeElement !== firstCardLink;
       tabIndex += 1
     ) {
       await userEvent.tab();
@@ -472,7 +476,7 @@ export const RendersLoadedPages: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Infinite catalog · loaded pages",
   render: () => (
-    <InfiniteLibraryCatalog
+    <InfiniteMaterialCatalog
       hasNextPage={false}
       isFetchNextPageError={false}
       isFetchingNextPage={false}

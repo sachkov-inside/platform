@@ -25,7 +25,6 @@ export function AccountPageQuery() {
   if (query.data.kind === "unavailable") {
     return <AccountUnavailable reference={query.data.reference} />;
   }
-
   return (
     <AccountPageClient
       initialProfile={

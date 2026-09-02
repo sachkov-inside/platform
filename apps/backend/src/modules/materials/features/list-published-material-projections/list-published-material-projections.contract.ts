@@ -3,6 +3,7 @@ import type { Result } from "../../result.js";
 
 export interface ListPublishedMaterialProjectionsQuery {
   readonly after?: PublishedMaterialProjectionCursor;
+  readonly canonicalTopicSlug?: string;
   readonly formatSlugs?: readonly string[];
   readonly first: number;
   readonly q?: string;
@@ -45,6 +46,7 @@ export interface PublishedMaterialFacetOptionDto {
   readonly id: string;
   readonly name: string;
   readonly slug: string;
+  readonly summary: string | null;
 }
 
 export interface PublishedMaterialProjectionPageDto {

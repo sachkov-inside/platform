@@ -1,11 +1,14 @@
 import {
   ArrowLeft,
+  BookOpenText,
   LibraryBig,
   ListVideo,
+  LockKeyhole,
   RefreshCw,
   SearchX,
   ShieldAlert,
   Tags,
+  Unlock,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -14,8 +17,17 @@ import type {
   PublishedSeriesResult,
   PublishedTopicResult,
 } from "@/features/library-discovery";
-import { MaterialCard, type MaterialPreview } from "@/entities/material";
+import {
+  materialTaxonomyLabel,
+  type MaterialPreview,
+} from "@/entities/material";
+import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
+import {
+  materialReaderHref,
+  materialReaderOriginHref,
+} from "@/shared/routing/material-reader";
+import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
 type ResolvedDiscoveryResult = Exclude<
   PublishedSeriesResult | PublishedTopicResult,
@@ -48,12 +60,17 @@ export function LibraryDiscoveryView({
         <span className="relative grid size-11 place-items-center rounded-xl bg-background/80 text-accent [&_svg]:size-5">
           <Icon aria-hidden="true" />
         </span>
-        <p className="relative mt-5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <p className="relative mt-5 text-sm font-medium text-muted-foreground">
           {isSeries ? "Плейлист" : "Тема"}
         </p>
-        <h1 className="relative mt-2 max-w-[24ch] text-balance text-3xl font-semibold leading-[1.08] tracking-[-0.035em] sm:text-4xl @min-[64rem]/discovery:text-5xl">
+        <h1 className="relative mt-2 max-w-[24ch] break-words text-balance text-3xl font-semibold leading-[1.08] tracking-[-0.035em] sm:text-4xl @min-[64rem]/discovery:text-5xl">
           {result.reference.name}
         </h1>
+        {result.reference.summary ? (
+          <p className="relative mt-4 max-w-[64ch] text-pretty text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+            {result.reference.summary}
+          </p>
+        ) : null}
       </header>
 
       {result.kind === "empty" ? (
@@ -72,36 +89,36 @@ function TopicMaterials({
 }: {
   readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
 }) {
-  const series = uniqueSeries(result.items);
-
   return (
     <>
-      {series.length > 0 ? (
-        <nav aria-label="Плейлисты темы" className="mt-8 sm:mt-10">
-          <p className="text-sm font-semibold">Плейлисты в теме</p>
-          <ul className="mt-3 flex flex-wrap gap-2" role="list">
-            {series.map((item) => (
-              <li key={item.slug}>
-                <Link
-                  className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm font-semibold no-underline hover:bg-secondary focus-visible:outline-ring"
-                  href={`/series/${item.slug}`}
-                  prefetch={false}
-                >
-                  <ListVideo aria-hidden="true" className="size-4 text-accent" />
-                  {item.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      ) : null}
-      <section aria-labelledby="topic-materials" className="mt-8 sm:mt-10">
-        <h2 className="text-xl font-semibold tracking-[-0.025em]" id="topic-materials">
-          Материалы
+      <section aria-labelledby="topic-playlists" className="mt-8 sm:mt-10">
+        <h2 className="text-xl font-semibold tracking-[-0.025em]" id="topic-playlists">
+          Плейлисты
         </h2>
-        <MaterialGrid items={result.items} />
-        <DiscoveryContinuation result={result} />
+        {result.relatedSeries.length > 0 ? (
+          <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/discovery:grid-cols-2">
+            {result.relatedSeries.map((playlist) => (
+              <PlaylistCard
+                key={playlist.slug}
+                playlist={{
+                  countLabel: `${formatMaterialCount(playlist.matchingMaterialCount)} в теме · ${formatMaterialCount(playlist.totalMaterialCount)} всего`,
+                  name: playlist.name,
+                  slug: playlist.slug,
+                  summary: playlist.summary,
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-2xl bg-muted px-5 py-7 font-semibold sm:px-8">
+            Связанных плейлистов пока нет
+          </p>
+        )}
       </section>
+      <TopicMaterialCatalog
+        key={result.reference.slug}
+        topicSlug={result.reference.slug}
+      />
     </>
   );
 }
@@ -111,16 +128,16 @@ function SeriesMaterials({
 }: {
   readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
 }) {
-  const topics = uniqueTopics(result.items);
+  const topics = result.topics;
 
   return (
     <section aria-labelledby="series-materials" className="mt-8 sm:mt-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold tracking-[-0.025em]" id="series-materials">
-            Выпуски
+            Материалы
           </h2>
-          <p className="mt-1 font-mono text-xs text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             {formatMaterialCount(result.items.length)}
           </p>
         </div>
@@ -150,17 +167,22 @@ function SeriesMaterials({
             )?.ordinal ?? index + 1;
           return (
             <li
-              className="grid items-start gap-3 @min-[38rem]/discovery:grid-cols-[6rem_minmax(0,1fr)]"
+              className="grid items-start gap-2 @min-[38rem]/discovery:grid-cols-[3rem_minmax(0,1fr)]"
               data-series-ordinal={ordinal}
               key={material.slug}
             >
-              <div className="flex min-h-11 items-center gap-2 font-mono text-xs font-semibold text-muted-foreground @min-[38rem]/discovery:pt-4">
-                <span className="grid size-8 place-items-center rounded-full bg-accent/10 text-foreground">
+              <div className="flex min-h-11 items-center font-semibold text-foreground @min-[38rem]/discovery:pt-4">
+                <span className="grid size-9 place-items-center rounded-full bg-accent/10 text-base">
                   {ordinal}
                 </span>
-                Выпуск
               </div>
-              <MaterialCard headingLevel="h3" material={material} />
+              <SeriesMaterialRow
+                material={material}
+                returnHref={materialReaderOriginHref(
+                  "series",
+                  result.reference.slug,
+                )}
+              />
             </li>
           );
         })}
@@ -170,18 +192,48 @@ function SeriesMaterials({
   );
 }
 
-function MaterialGrid({ items }: { readonly items: readonly MaterialPreview[] }) {
+function SeriesMaterialRow({
+  material,
+  returnHref,
+}: {
+  readonly material: MaterialPreview;
+  readonly returnHref: ReturnType<typeof materialReaderOriginHref>;
+}) {
+  const available = material.availability === "available";
+  const AccessIcon = available ? Unlock : LockKeyhole;
+  const accessLabel =
+    material.availability === "locked"
+      ? "Для участников"
+      : material.availability === "unavailable"
+        ? "Недоступно"
+        : "Доступно";
   return (
-    <ul
-      className="mt-5 grid grid-cols-1 items-stretch justify-items-center gap-4 @min-[40rem]/discovery:grid-cols-2 @min-[68rem]/discovery:grid-cols-3"
-      role="list"
-    >
-      {items.map((material) => (
-        <li className="h-full w-full max-w-[28rem]" key={material.slug}>
-          <MaterialCard headingLevel="h3" material={material} />
-        </li>
-      ))}
-    </ul>
+    <article className="group/row relative grid min-h-32 gap-4 rounded-2xl bg-card p-5 shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+      <span className="grid size-11 place-items-center rounded-xl bg-secondary text-accent">
+        <BookOpenText aria-hidden="true" className="size-5" />
+      </span>
+      <span className="min-w-0">
+        <span className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
+          <span>{materialTaxonomyLabel(material.format)}</span>
+          <span aria-hidden="true">·</span>
+          <Link className="relative z-10 no-underline hover:text-foreground" href={`/topics/${material.topicSlug}`}>
+            {material.topic}
+          </Link>
+        </span>
+        <h3 className="mt-2 text-lg font-semibold leading-6 tracking-[-0.025em]">
+          <Link className="no-underline after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/row:underline group-hover/row:decoration-accent group-hover/row:underline-offset-4" href={materialReaderHref(material.slug, returnHref)} prefetch={false}>
+            {material.title}
+          </Link>
+        </h3>
+        <p className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground">
+          {material.summary}
+        </p>
+      </span>
+      <span className="inline-flex min-h-8 w-fit shrink-0 items-center gap-1.5 rounded-full bg-secondary px-3 text-xs font-semibold sm:self-start">
+        <AccessIcon aria-hidden="true" className="size-3.5" />
+        {accessLabel}
+      </span>
+    </article>
   );
 }
 
@@ -208,7 +260,7 @@ function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
     <section className="mt-8 max-w-[48rem] rounded-2xl bg-muted px-6 py-7 sm:mt-10 sm:px-8">
       <LibraryBig aria-hidden="true" className="size-6 text-accent" />
       <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em]">
-        {kind === "series" ? "В плейлисте пока нет выпусков" : "В теме пока нет материалов"}
+        {kind === "series" ? "В плейлисте пока нет материалов" : "В теме пока нет материалов"}
       </h2>
       <Button asChild className="mt-6" size="lg" variant="outline">
         <Link href="/library">Открыть Базу знаний</Link>
@@ -226,7 +278,7 @@ function DiscoveryBreadcrumb({
 }) {
   return (
     <nav aria-label="Хлебные крошки">
-      <ol className="flex min-h-10 flex-wrap items-center gap-2 font-mono text-xs text-muted-foreground">
+      <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <li>
           <Link
             className="inline-flex min-h-10 items-center rounded-lg px-2 no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
@@ -367,37 +419,4 @@ function DiscoveryStatus({
       </div>
     </section>
   );
-}
-
-function uniqueSeries(items: readonly MaterialPreview[]) {
-  return uniqueBySlug(
-    items.flatMap((material) => material.seriesMemberships),
-  );
-}
-
-function uniqueTopics(items: readonly MaterialPreview[]) {
-  return uniqueBySlug(
-    items.map((material) => ({ name: material.topic, slug: material.topicSlug })),
-  );
-}
-
-function uniqueBySlug<T extends { readonly name: string; readonly slug: string }>(
-  items: readonly T[],
-): readonly T[] {
-  return [...new Map(items.map((item) => [item.slug, item])).values()];
-}
-
-function formatMaterialCount(count: number) {
-  const mod100 = count % 100;
-  const mod10 = count % 10;
-  const noun =
-    mod100 >= 11 && mod100 <= 14
-      ? "материалов"
-      : mod10 === 1
-        ? "материал"
-        : mod10 >= 2 && mod10 <= 4
-          ? "материала"
-          : "материалов";
-
-  return `${String(count)} ${noun}`;
 }

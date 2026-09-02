@@ -144,7 +144,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     if (new URL(page.url()).searchParams.get("authentication") === "failed") {
       throw new Error("Real Logto callback failed");
     }
-    await expect(page).toHaveURL(`${webBaseUrl}/`);
+    await expect(page).toHaveURL(`${webBaseUrl}/library`);
     await expect(
       page.getByRole("button", { exact: true, name: "Выйти" }),
     ).toBeVisible();
@@ -159,21 +159,27 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await page.goto(callbackUrl);
     await expect(page).toHaveURL(/authentication=failed/u);
     const replayStatus = await page.request.get("/auth/status");
-    await expect(replayStatus.json()).resolves.toEqual({ state: "guest" });
+    await expect(replayStatus.json()).resolves.toEqual({
+      canManageMaterials: false,
+      state: "guest",
+    });
 
     const recovery = await browser.newPage({ ignoreHTTPSErrors: true });
     await beginSignIn(recovery, recipient);
     await enterCode(recovery, await waitForCode(recipient, 2));
-    await expect(recovery).toHaveURL(`${webBaseUrl}/`);
+    await expect(recovery).toHaveURL(`${webBaseUrl}/library`);
 
     await recovery.waitForTimeout(61_000);
     await stopService("logto");
     const unavailable = await recovery.request.get("/auth/status");
-    await expect(unavailable.json()).resolves.toEqual({ state: "unavailable" });
+    await expect(unavailable.json()).resolves.toEqual({
+      canManageMaterials: false,
+      state: "unavailable",
+    });
     await startService("logto");
     await waitForEndpoint(`${logtoEndpoint}/oidc/.well-known/openid-configuration`);
     const refreshed = await recovery.request.get("/auth/status");
-    await expect(refreshed.json()).resolves.toEqual({ state: "authenticated" });
+    await expect(refreshed.json()).resolves.toMatchObject({ state: "authenticated" });
 
     const appSession = (await recovery.context().cookies()).find(
       ({ domain, name }) =>

@@ -424,8 +424,15 @@ async function ensureRelatedPin(
 async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
   await prisma.topic.upsert({
     where: { id: topicId },
-    create: { id: topicId, slug: "platform", name: "Platform" },
-    update: {},
+    create: {
+      id: topicId,
+      slug: "platform",
+      name: "Platform",
+      summary: "Архитектура продукта, bounded contexts и управляемая поставка.",
+    },
+    update: {
+      summary: "Архитектура продукта, bounded contexts и управляемая поставка.",
+    },
   });
   await prisma.format.upsert({
     where: { id: formatId },
@@ -447,7 +454,8 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
       id: seriesId,
       slug: "platform-inside",
       name: "Создание Platform Inside",
+      summary: "Путь от продуктовой идеи до работающей Platform.",
     },
-    update: {},
+    update: { summary: "Путь от продуктовой идеи до работающей Platform." },
   });
 }

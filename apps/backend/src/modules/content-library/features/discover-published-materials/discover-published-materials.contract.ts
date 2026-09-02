@@ -2,7 +2,7 @@ import type { Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../list-published-materials/list-published-materials.contract.js";
 
 export interface DiscoverPublishedMaterialsQuery {
-  readonly first: number;
+  readonly first: number | null;
   readonly kind: "related" | "series" | "topic";
   readonly slug: string;
   readonly subject: Subject;
@@ -16,7 +16,21 @@ export interface PublishedMaterialDiscoveryDto {
     readonly id: string;
     readonly name: string;
     readonly slug: string;
+    readonly summary: string;
   };
+  readonly relatedSeries: readonly {
+    readonly id: string;
+    readonly matchingMaterialCount: number;
+    readonly name: string;
+    readonly slug: string;
+    readonly summary: string;
+    readonly totalMaterialCount: number;
+  }[];
+  readonly topics: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly slug: string;
+  }[];
 }
 
 export type PublishedMaterialDiscoveryError =

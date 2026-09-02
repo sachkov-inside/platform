@@ -227,11 +227,7 @@ describe("published Material HTTP contract", () => {
       kind: "topic",
       reference: { name: "Platform", slug: "platform" },
     });
-    expect(
-      topicBody.items.find(
-        ({ slug }) => slug === "developer-pipeline-bez-poteri-konteksta",
-      ),
-    ).toMatchObject({ availability: "locked" });
+    expect(topicBody.items).toEqual([]);
     expect(series.statusCode).toBe(200);
     const seriesBody = series.json<{
       readonly kind: string;

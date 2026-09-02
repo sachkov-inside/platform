@@ -7,15 +7,27 @@ import type { MaterialMetadata } from "../../domain/material-metadata.js";
 
 export async function findReferenceIssues(
   transaction: MaterialsPrismaTransaction,
+  materialId: MaterialId,
   metadata: MaterialMetadata,
 ): Promise<readonly { readonly code: string; readonly path: string }[]> {
   const issues: { code: string; path: string }[] = [];
+  const currentMaterial = await transaction.material.findUnique({
+    where: { id: materialId },
+    select: { topicId: true },
+  });
+  const currentSeriesMemberships = await transaction.seriesMembership.findMany({
+    where: { materialId },
+    select: { seriesId: true },
+  });
+  const currentSeriesIds = new Set(
+    currentSeriesMemberships.map(({ seriesId }) => seriesId),
+  );
   const topic =
     metadata.topicId === null
       ? null
       : await transaction.topic.findUnique({
           where: { id: metadata.topicId },
-          select: { id: true },
+          select: { archivedAt: true, id: true },
         });
   const format =
     metadata.formatId === null
@@ -40,11 +52,17 @@ export async function findReferenceIssues(
               in: metadata.seriesMemberships.map(({ seriesId }) => seriesId),
             },
           },
-          select: { id: true },
+          select: { archivedAt: true, id: true },
         });
 
   if (metadata.topicId !== null && topic === null) {
     issues.push({ code: "topic_not_found", path: "/metadata/topicId" });
+  } else if (
+    metadata.topicId !== null &&
+    topic?.archivedAt !== null &&
+    currentMaterial?.topicId !== metadata.topicId
+  ) {
+    issues.push({ code: "topic_archived", path: "/metadata/topicId" });
   }
   if (metadata.formatId !== null && format === null) {
     issues.push({ code: "format_not_found", path: "/metadata/formatId" });
@@ -56,10 +74,23 @@ export async function findReferenceIssues(
     }
   });
   const foundSeries = new Set(series.map(({ id }) => id));
+  const archivedSeries = new Set(
+    series.flatMap(({ archivedAt, id }) =>
+      archivedAt === null ? [] : [id],
+    ),
+  );
   metadata.seriesMemberships.forEach(({ seriesId }, index) => {
     if (!foundSeries.has(seriesId)) {
       issues.push({
         code: "series_not_found",
+        path: `/metadata/seriesMemberships/${index}/seriesId`,
+      });
+    } else if (
+      archivedSeries.has(seriesId) &&
+      !currentSeriesIds.has(seriesId)
+    ) {
+      issues.push({
+        code: "series_archived",
         path: `/metadata/seriesMemberships/${index}/seriesId`,
       });
     }

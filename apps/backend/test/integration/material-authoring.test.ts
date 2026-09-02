@@ -249,12 +249,32 @@ describe("MaterialAuthoring", () => {
     await expect(owner.authoring.listReferences({ actor })).resolves.toEqual({
       ok: true,
       value: {
-        formats: [{ id: "94000000-0000-4000-8000-000000000033", name: "Гайд" }],
-        series: [{ id: "94000000-0000-4000-8000-000000000035", name: "Build" }],
-        tags: [{ id: "94000000-0000-4000-8000-000000000034", name: "delivery" }],
+        formats: [{
+          archived: false,
+          id: "94000000-0000-4000-8000-000000000033",
+          name: "Гайд",
+        }],
+        series: [{
+          archived: false,
+          id: "94000000-0000-4000-8000-000000000035",
+          name: "Build",
+        }],
+        tags: [{
+          archived: false,
+          id: "94000000-0000-4000-8000-000000000034",
+          name: "delivery",
+        }],
         topics: [
-          { id: "94000000-0000-4000-8000-000000000032", name: "AI" },
-          { id: "94000000-0000-4000-8000-000000000031", name: "Platform" },
+          {
+            archived: false,
+            id: "94000000-0000-4000-8000-000000000032",
+            name: "AI",
+          },
+          {
+            archived: false,
+            id: "94000000-0000-4000-8000-000000000031",
+            name: "Platform",
+          },
         ],
       },
     });

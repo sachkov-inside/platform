@@ -74,6 +74,10 @@ import {
   name as durableVideoUploadAttemptsMigrationName,
   statement as durableVideoUploadAttemptsMigrationStatement,
 } from "../modules/videos/infrastructure/postgres/migrations/0018-durable-video-upload-attempts.js";
+import {
+  name as contentCollectionsMigrationName,
+  statement as contentCollectionsMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0019-content-collections.js";
 
 const migrations = [
   {
@@ -141,6 +145,10 @@ const migrations = [
   {
     name: durableVideoUploadAttemptsMigrationName,
     statement: durableVideoUploadAttemptsMigrationStatement,
+  },
+  {
+    name: contentCollectionsMigrationName,
+    statement: contentCollectionsMigrationStatement,
   },
 ] as const;
 

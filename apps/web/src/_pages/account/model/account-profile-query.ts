@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 
-import type { PrivateMemberProfileResult } from "@/entities/member-profile";
+import type { AccountProfileResult } from "../api/request-account-profile";
 
 export function accountProfileQueryKey() {
   return ["account", "profile"] as const;
@@ -8,7 +8,7 @@ export function accountProfileQueryKey() {
 
 export type LoadAccountProfile = (input: {
   readonly signal: AbortSignal;
-}) => Promise<PrivateMemberProfileResult>;
+}) => Promise<AccountProfileResult>;
 
 export type AccountProfileQueryOptions = ReturnType<
   typeof createAccountProfileQueryOptions

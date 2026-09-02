@@ -3,7 +3,6 @@ import { expect, userEvent, within } from "storybook/test";
 
 import type { PrivateMemberProfile } from "@/entities/member-profile";
 import { withMutationFetch } from "@/workshop/mutation-mock";
-
 import { AccountPageClient } from "./account-page.client";
 
 const activeProfile = {

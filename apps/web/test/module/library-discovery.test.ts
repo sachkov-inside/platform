@@ -67,7 +67,10 @@ describe("Library discovery server adapter", () => {
               id: "72000000-0000-4000-8000-000000000002",
               name: "Platform",
               slug: "platform",
+              summary: "Материалы о Platform.",
             },
+            relatedSeries: [],
+            topics: [],
           }),
         ),
       );
@@ -96,7 +99,9 @@ describe("Library discovery server adapter", () => {
           },
         ],
         kind: "ready",
-        reference: { name: "Platform", slug: "platform" },
+        reference: { name: "Platform", slug: "platform", summary: "Материалы о Platform." },
+        relatedSeries: [],
+        topics: [],
       });
       const request = vi.mocked(fetch).mock.calls[0]?.[0];
       expect(request).toBeInstanceOf(Request);
@@ -119,7 +124,10 @@ describe("Library discovery server adapter", () => {
             id: "72000000-0000-4000-8000-000000000020",
             name: "Как устроен Inside Platform",
             slug: "inside-platform-overview",
+            summary: "Один реальный published Material.",
           },
+          relatedSeries: [],
+          topics: [],
         }),
       ),
     );
@@ -132,7 +140,39 @@ describe("Library discovery server adapter", () => {
       reference: {
         name: "Как устроен Inside Platform",
         slug: "inside-platform-overview",
+        summary: "Один реальный published Material.",
       },
+      relatedSeries: [],
+      topics: [],
+    });
+  });
+
+  it("keeps an existing Topic ready while its browser catalog loads independently", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          hasNext: false,
+          items: [],
+          kind: "topic",
+          reference: {
+            id: "72000000-0000-4000-8000-000000000002",
+            name: "Platform",
+            slug: "platform",
+            summary: "Материалы о Platform.",
+          },
+          relatedSeries: [],
+          topics: [],
+        }),
+      ),
+    );
+
+    await expect(getPublishedTopic("platform")).resolves.toMatchObject({
+      discoveryKind: "topic",
+      items: [],
+      kind: "ready",
+      reference: { slug: "platform" },
     });
   });
 

@@ -44,16 +44,33 @@ export function authoringMaterialsHref(
   query: AuthoringMaterialsQuery,
   page = query.page,
 ): Route {
+  const serialized = serializeAuthoringMaterialsQuery({ ...query, page });
+  return serialized === ""
+    ? authoringMaterialsRootHref
+    : `${authoringMaterialsRootHref}?${serialized}`;
+}
+
+export function parseAuthoringMaterialsUrlSearchParams(
+  searchParams: URLSearchParams,
+): AuthoringMaterialsQuery {
+  const values: Record<string, string | readonly string[] | undefined> = {};
+  for (const key of new Set(searchParams.keys())) {
+    const all = searchParams.getAll(key);
+    values[key] = all.length === 1 ? all[0] : all;
+  }
+  return parseAuthoringMaterialsQuery(values);
+}
+
+export function serializeAuthoringMaterialsQuery(
+  query: AuthoringMaterialsQuery,
+): string {
   const params = new URLSearchParams();
   if (query.search !== undefined) params.set("search", query.search);
   if (query.publicationState !== undefined) {
     params.set("state", query.publicationState);
   }
-  if (page > 1) params.set("page", String(page));
-  const serialized = params.toString();
-  return serialized === ""
-    ? authoringMaterialsRootHref
-    : `${authoringMaterialsRootHref}?${serialized}`;
+  if (query.page > 1) params.set("page", String(query.page));
+  return params.toString();
 }
 
 export const authoringDestinationHref = withAuthoringReturnHref;

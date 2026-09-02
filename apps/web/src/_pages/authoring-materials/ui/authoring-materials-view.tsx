@@ -40,19 +40,32 @@ import {
 } from "./authoring-material-actions.client";
 
 export function AuthoringMaterialsView({
+  isRefreshing = false,
+  onQueryChange,
+  onRetry,
   query,
   state,
 }: {
+  readonly isRefreshing?: boolean;
+  readonly onQueryChange?: (query: AuthoringMaterialsQuery) => void;
+  readonly onRetry?: () => void;
   readonly query: AuthoringMaterialsQuery;
   readonly state: AuthoringMaterialsState;
 }) {
   const returnHref = authoringMaterialsHref(query);
   if (state.kind !== "ready") {
-    return <AuthoringMaterialsStateView query={query} state={state} />;
+    return (
+      <AuthoringMaterialsStateView
+        {...(onRetry === undefined ? {} : { onRetry })}
+        query={query}
+        state={state}
+      />
+    );
   }
   return (
     <>
       <main
+        aria-busy={isRefreshing}
         aria-labelledby="authoring-materials-heading"
         className="h-full min-h-svh overflow-y-auto bg-background text-foreground md:min-h-0 md:overscroll-y-contain"
         id="authoring-content"
@@ -76,8 +89,13 @@ export function AuthoringMaterialsView({
             </Button>
           </header>
 
-          <AuthoringMaterialsFilters query={query} totalItems={state.totalItems} />
+          <AuthoringMaterialsFilters
+            {...(onQueryChange === undefined ? {} : { onQueryChange })}
+            query={query}
+            totalItems={state.totalItems}
+          />
           <AuthoringMaterialsResults
+            {...(onQueryChange === undefined ? {} : { onQueryChange })}
             query={query}
             returnHref={returnHref}
             state={state}
@@ -89,9 +107,11 @@ export function AuthoringMaterialsView({
 }
 
 function AuthoringMaterialsFilters({
+  onQueryChange,
   query,
   totalItems,
 }: {
+  readonly onQueryChange?: (query: AuthoringMaterialsQuery) => void;
   readonly query: AuthoringMaterialsQuery;
   readonly totalItems: number;
 }) {
@@ -106,10 +126,7 @@ function AuthoringMaterialsFilters({
           {formatMaterialCount(totalItems)}
         </p>
       </div>
-      <form
-        action={authoringMaterialsRootHref}
-        className="mt-3 grid gap-3 sm:grid-cols-[minmax(16rem,1fr)_13rem_auto]"
-      >
+      <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(16rem,1fr)_13rem_auto]">
         <label className="relative block">
           <span className="sr-only">Поиск по названию, описанию или адресу</span>
           <Search
@@ -119,14 +136,22 @@ function AuthoringMaterialsFilters({
           <input
             autoComplete="off"
             className="min-h-11 w-full rounded-xl border border-input bg-card py-2 pl-10 pr-3 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 sm:text-sm"
-            defaultValue={query.search ?? ""}
+            onChange={(event) => {
+              onQueryChange?.(withMaterialSearch(query, event.currentTarget.value));
+            }}
             maxLength={160}
             name="search"
             placeholder="Название, описание или адрес"
             type="search"
+            value={query.search ?? ""}
           />
         </label>
-        <Select defaultValue={query.publicationState ?? "all"} name="state">
+        <Select
+          onValueChange={(value) => {
+            onQueryChange?.(withPublicationState(query, value));
+          }}
+          value={query.publicationState ?? "all"}
+        >
           <SelectTrigger aria-label="Состояние публикации" className="bg-card text-base sm:text-sm">
             <SelectValue />
           </SelectTrigger>
@@ -137,28 +162,40 @@ function AuthoringMaterialsFilters({
             <SelectItem value="unpublished">Снятые с публикации</SelectItem>
           </SelectContent>
         </Select>
-        <div className="flex gap-2">
-          <Button className="min-h-11 flex-1 sm:flex-none" type="submit" variant="secondary">
-            Показать
-          </Button>
-          {hasFilters ? (
+        {hasFilters ? (
+          onQueryChange === undefined ? (
             <Button asChild className="size-11" size="icon-lg" variant="ghost">
               <Link aria-label="Сбросить поиск и фильтр" href={authoringMaterialsRootHref}>
                 <FilterX aria-hidden="true" />
               </Link>
             </Button>
-          ) : null}
-        </div>
-      </form>
+          ) : (
+            <Button
+              aria-label="Сбросить поиск и фильтр"
+              className="size-11"
+              onClick={() => {
+                onQueryChange({ page: 1 });
+              }}
+              size="icon-lg"
+              type="button"
+              variant="ghost"
+            >
+              <FilterX aria-hidden="true" />
+            </Button>
+          )
+        ) : null}
+      </div>
     </section>
   );
 }
 
 function AuthoringMaterialsResults({
+  onQueryChange,
   query,
   returnHref,
   state,
 }: {
+  readonly onQueryChange?: (query: AuthoringMaterialsQuery) => void;
   readonly query: AuthoringMaterialsQuery;
   readonly returnHref: Route;
   readonly state: Extract<AuthoringMaterialsState, { readonly kind: "ready" }>;
@@ -214,7 +251,11 @@ function AuthoringMaterialsResults({
           />
         ))}
       </ul>
-      <AuthoringMaterialsPagination query={query} state={state} />
+      <AuthoringMaterialsPagination
+        {...(onQueryChange === undefined ? {} : { onQueryChange })}
+        query={query}
+        state={state}
+      />
     </section>
   );
 }
@@ -326,9 +367,11 @@ function PublicationState({
 }
 
 function AuthoringMaterialsPagination({
+  onQueryChange,
   query,
   state,
 }: {
+  readonly onQueryChange?: (query: AuthoringMaterialsQuery) => void;
   readonly query: AuthoringMaterialsQuery;
   readonly state: Extract<AuthoringMaterialsState, { readonly kind: "ready" }>;
 }) {
@@ -339,12 +382,25 @@ function AuthoringMaterialsPagination({
       className="flex items-center justify-between gap-3 py-6"
     >
       {state.page > 1 ? (
-        <Button asChild variant="outline">
-          <Link href={authoringMaterialsHref(query, state.page - 1)}>
+        onQueryChange === undefined ? (
+          <Button asChild variant="outline">
+            <Link href={authoringMaterialsHref(query, state.page - 1)}>
+              <ArrowLeft aria-hidden="true" data-icon="inline-start" />
+              Назад
+            </Link>
+          </Button>
+        ) : (
+          <Button
+            onClick={() => {
+              onQueryChange({ ...query, page: state.page - 1 });
+            }}
+            type="button"
+            variant="outline"
+          >
             <ArrowLeft aria-hidden="true" data-icon="inline-start" />
             Назад
-          </Link>
-        </Button>
+          </Button>
+        )
       ) : (
         <span />
       )}
@@ -352,12 +408,25 @@ function AuthoringMaterialsPagination({
         Страница {state.page} из {state.totalPages}
       </span>
       {state.page < state.totalPages ? (
-        <Button asChild variant="outline">
-          <Link href={authoringMaterialsHref(query, state.page + 1)}>
+        onQueryChange === undefined ? (
+          <Button asChild variant="outline">
+            <Link href={authoringMaterialsHref(query, state.page + 1)}>
+              Далее
+              <ArrowRight aria-hidden="true" data-icon="inline-end" />
+            </Link>
+          </Button>
+        ) : (
+          <Button
+            onClick={() => {
+              onQueryChange({ ...query, page: state.page + 1 });
+            }}
+            type="button"
+            variant="outline"
+          >
             Далее
             <ArrowRight aria-hidden="true" data-icon="inline-end" />
-          </Link>
-        </Button>
+          </Button>
+        )
       ) : (
         <span />
       )}
@@ -366,9 +435,11 @@ function AuthoringMaterialsPagination({
 }
 
 function AuthoringMaterialsStateView({
+  onRetry,
   query,
   state,
 }: {
+  readonly onRetry?: () => void;
   readonly query: AuthoringMaterialsQuery;
   readonly state: Exclude<AuthoringMaterialsState, { readonly kind: "ready" }>;
 }) {
@@ -406,9 +477,13 @@ function AuthoringMaterialsStateView({
               <form action="/auth/sign-in" method="post">
                 <Button type="submit">Войти</Button>
               </form>
-            ) : (
+            ) : onRetry === undefined ? (
               <Button asChild>
                 <Link href={currentHref}>Повторить</Link>
+              </Button>
+            ) : (
+              <Button onClick={onRetry} type="button">
+                Повторить
               </Button>
             )}
             <Button asChild variant="outline">
@@ -486,6 +561,32 @@ export function AuthoringMaterialsLoading() {
       </main>
     </>
   );
+}
+
+function withMaterialSearch(
+  query: AuthoringMaterialsQuery,
+  search: string,
+): AuthoringMaterialsQuery {
+  return {
+    page: 1,
+    ...(query.publicationState === undefined
+      ? {}
+      : { publicationState: query.publicationState }),
+    ...(search === "" ? {} : { search }),
+  };
+}
+
+function withPublicationState(
+  query: AuthoringMaterialsQuery,
+  state: string,
+): AuthoringMaterialsQuery {
+  return {
+    page: 1,
+    ...(state === "draft" || state === "published" || state === "unpublished"
+      ? { publicationState: state }
+      : {}),
+    ...(query.search === undefined ? {} : { search: query.search }),
+  };
 }
 
 function formatUpdatedAt(value: string): string {

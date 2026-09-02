@@ -1,4 +1,5 @@
 import { ArrowLeft, BookOpenText } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -15,12 +16,19 @@ import { materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
 import { MaterialPrimaryVideo } from "@/features/material-video";
+import {
+  libraryMaterialReaderReturnTarget,
+  materialReaderHref,
+  type MaterialReaderReturnTarget,
+} from "@/shared/routing/material-reader";
 
 export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
   readonly primaryVideo: PrimaryVideoPresentation | null;
   readonly related?: RelatedMaterialsResult;
+  readonly returnTarget?: MaterialReaderReturnTarget;
+  readonly sourceHref?: Route;
 }
 
 interface OutlineItem {
@@ -30,12 +38,19 @@ interface OutlineItem {
 }
 
 /** Client-safe presentation shared by the production RSC route and Storybook. */
-export function MaterialReaderView({ body, material, primaryVideo, related }: MaterialReaderViewProps) {
+export function MaterialReaderView({
+  body,
+  material,
+  primaryVideo,
+  related,
+  returnTarget = libraryMaterialReaderReturnTarget,
+  sourceHref,
+}: MaterialReaderViewProps) {
   const outline = collectOutline(body);
 
   return (
     <div className="@container/material-reader" data-material-id={material.materialId} data-material-reader-state="available">
-      <ReaderBackAction />
+      <ReaderBackAction target={returnTarget} />
       <div className="mt-10 min-w-0">
         <MaterialHeader material={material} />
         {primaryVideo === null ? null : (
@@ -50,9 +65,12 @@ export function MaterialReaderView({ body, material, primaryVideo, related }: Ma
         </article>
       </div>
       {related === undefined ? null : (
-        <RelatedMaterialsSection result={related} sourceSlug={material.slug} />
+        <RelatedMaterialsSection
+          result={related}
+          sourceHref={sourceHref ?? materialReaderHref(material.slug)}
+        />
       )}
-      <ReaderBackAction className="mt-16" />
+      <ReaderBackAction className="mt-16" target={returnTarget} />
     </div>
   );
 }
@@ -67,7 +85,7 @@ function MaterialHeader({ material }: { readonly material: MaterialReaderMetadat
 
   return (
     <header className="min-w-0 max-w-[56rem]">
-      <div className="flex flex-wrap items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-secondary px-2.5 font-semibold text-secondary-foreground">
           <BookOpenText aria-hidden="true" className="size-3.5 text-accent" />
           {materialTaxonomyLabel(material.format.name)}
@@ -103,7 +121,7 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
         <ul aria-label="Теги материала" className="flex flex-wrap gap-2" role="list">
           {material.tags.map((tag) => (
             <li key={tag.name}>
-              <span className="inline-flex min-h-8 items-center rounded-md bg-muted px-2.5 py-1.5 font-mono text-[0.6875rem] text-muted-foreground">
+              <span className="inline-flex min-h-8 items-center rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
                 {tag.name}
               </span>
             </li>
@@ -115,11 +133,11 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
           {material.seriesMemberships.map(({ ordinal, series }) => (
             <li key={series.slug}>
               <Link
-                className="inline-flex min-h-8 items-center rounded-md px-2 font-mono text-xs text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
+                className="inline-flex min-h-8 items-center rounded-lg px-2 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
                 href={`/series/${series.slug}`}
                 prefetch={false}
               >
-                {series.name} · выпуск {ordinal}
+                {series.name} · № {ordinal}
               </Link>
             </li>
           ))}
@@ -129,13 +147,19 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
   );
 }
 
-function ReaderBackAction({ className = "" }: { readonly className?: string }) {
+export function ReaderBackAction({
+  className = "",
+  target,
+}: {
+  readonly className?: string;
+  readonly target: MaterialReaderReturnTarget;
+}) {
   return (
     <div className={`flex min-h-11 items-center border-b border-border pb-3 ${className}`}>
       <Button asChild className="bg-background" size="lg" variant="outline">
-        <Link href="/library">
+        <Link href={target.href}>
           <ArrowLeft aria-hidden="true" />
-          В Базу знаний
+          {target.label}
         </Link>
       </Button>
     </div>
@@ -163,7 +187,7 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
       <details className="group rounded-xl bg-muted/60 @min-[40rem]/material-reader:hidden">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
           В этом материале
-          <span aria-hidden="true" className="font-mono text-xs text-muted-foreground">
+          <span aria-hidden="true" className="text-xs text-muted-foreground">
             {items.length}
           </span>
         </summary>
@@ -215,7 +239,7 @@ function ReaderBlockView({
   switch (block.kind) {
     case "paragraph":
       return (
-        <p className="mt-5 first:mt-0">
+        <p className="mt-6 first:mt-0">
           <ReaderInline content={block.content} />
         </p>
       );
@@ -234,7 +258,13 @@ function ReaderBlockView({
     case "ordered_list": {
       const List = block.kind === "bullet_list" ? "ul" : "ol";
       return (
-        <List className="mt-5 space-y-2 pl-6 marker:text-accent">
+        <List
+          className={
+            block.kind === "bullet_list"
+              ? "mt-6 list-disc space-y-3 pl-7 marker:text-accent"
+              : "mt-6 list-decimal space-y-3 pl-7 marker:font-semibold marker:text-accent"
+          }
+        >
           {block.items.map((item, index) => (
             <li key={index}>
               <ReaderBlocks blocks={item} contentVersion={contentVersion} materialId={materialId} path={[...path, index]} />
@@ -245,28 +275,28 @@ function ReaderBlockView({
     }
     case "blockquote":
       return (
-        <blockquote className="mt-6 border-l-4 border-accent pl-5 text-muted-foreground">
+        <blockquote className="mt-8 border-l-4 border-accent py-1 pl-5 text-muted-foreground">
           <ReaderBlocks blocks={block.content} contentVersion={contentVersion} materialId={materialId} path={path} />
         </blockquote>
       );
     case "code_block":
       return (
         <pre
-          className="mt-6 overflow-x-auto rounded-xl bg-sidebar p-5 font-mono text-[0.8125rem] leading-6 text-sidebar-foreground [scrollbar-color:var(--sidebar-border)_var(--sidebar)]"
+          className="mt-8 overflow-x-auto rounded-xl bg-sidebar p-5 font-mono text-[0.8125rem] leading-6 text-sidebar-foreground [scrollbar-color:var(--sidebar-border)_var(--sidebar)]"
           tabIndex={0}
         >
           <code>{block.text}</code>
         </pre>
       );
     case "horizontal_rule":
-      return <hr className="my-10 border-border" />;
+      return <hr className="my-12 border-border" />;
     case "table":
       return <ReaderTable block={block} contentVersion={contentVersion} materialId={materialId} path={path} />;
     case "callout":
       return (
         <aside
           aria-label={calloutLabel(block.tone)}
-          className="mt-6 rounded-xl bg-secondary px-5 py-5 text-[0.9375rem] leading-7 text-secondary-foreground sm:px-6"
+          className="mt-8 rounded-xl bg-secondary px-5 py-5 text-[0.9375rem] leading-7 text-secondary-foreground sm:px-6"
         >
           <p className="font-semibold">{calloutLabel(block.tone)}</p>
           <ReaderBlocks blocks={block.content} contentVersion={contentVersion} materialId={materialId} path={path} />
@@ -274,28 +304,32 @@ function ReaderBlockView({
       );
     case "image":
       return (
-        <MaterialAssetImage
-          alt={block.alt}
-          assetId={block.assetId}
-          caption={block.caption}
-          contentVersion={contentVersion}
-          height={block.height}
-          materialId={materialId}
-          variants={block.variants}
-          width={block.width}
-        />
+        <div className="mt-8" data-reader-block="image">
+          <MaterialAssetImage
+            alt={block.alt}
+            assetId={block.assetId}
+            caption={block.caption}
+            contentVersion={contentVersion}
+            height={block.height}
+            materialId={materialId}
+            variants={block.variants}
+            width={block.width}
+          />
+        </div>
       );
     case "file":
       return (
-        <MaterialAssetFile
-          assetId={block.assetId}
-          contentType={block.contentType}
-          contentVersion={contentVersion}
-          filename={block.filename}
-          label={block.label}
-          materialId={materialId}
-          size={block.size}
-        />
+        <div className="mt-8" data-reader-block="file">
+          <MaterialAssetFile
+            assetId={block.assetId}
+            contentType={block.contentType}
+            contentVersion={contentVersion}
+            filename={block.filename}
+            label={block.label}
+            materialId={materialId}
+            size={block.size}
+          />
+        </div>
       );
   }
 }
@@ -350,7 +384,8 @@ function ReaderTable({
   return (
     <div
       aria-label="Таблица в материале"
-      className="mt-7 max-w-full overflow-x-auto rounded-xl border border-border [scrollbar-color:var(--muted-foreground)_var(--muted)]"
+      className="mt-8 max-w-full overflow-x-auto rounded-xl border border-border [scrollbar-color:var(--muted-foreground)_var(--muted)]"
+      data-reader-block="table"
       role="region"
       tabIndex={0}
     >

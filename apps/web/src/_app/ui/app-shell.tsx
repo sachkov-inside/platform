@@ -7,28 +7,38 @@ import {
   ApplicationShell,
   type ApplicationNavigationItem,
 } from "@/widgets/application-shell";
-import { AuthStatusControl } from "./auth-status-control.client";
+import { DesktopAuthControl, MobileAuthControl } from "@/widgets/auth-control";
+import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
+import { useAuthStatus } from "./auth-status-control.client";
 
 interface AppShellProps {
   readonly children: ReactNode;
 }
 
-const navigationItems = [
-  { href: "/", icon: "home", label: "Главная" },
+const publicNavigationItems = [
   { href: "/library", icon: "library", label: "База знаний" },
-  { href: "/map", icon: "map", label: "Карта" },
 ] satisfies readonly ApplicationNavigationItem[];
+
+const authoringNavigationItem = {
+  href: authoringMaterialsRootHref,
+  icon: "pen",
+  label: "Редактор",
+} as const satisfies ApplicationNavigationItem;
 
 /** Connects the accepted application shell to App Router route state. */
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+  const authStatus = useAuthStatus();
+  const navigationItems = authStatus.canManageMaterials
+    ? [...publicNavigationItems, authoringNavigationItem]
+    : publicNavigationItems;
 
   return (
     <ApplicationShell
       accountLabel="Гость"
       currentPath={pathname}
-      desktopAccountSlot={<AuthStatusControl presentation="desktop" />}
-      mobileAccountSlot={<AuthStatusControl presentation="mobile" />}
+      desktopAccountSlot={<DesktopAuthControl state={authStatus.state} />}
+      mobileAccountSlot={<MobileAuthControl state={authStatus.state} />}
       navigationItems={navigationItems}
     >
       {children}

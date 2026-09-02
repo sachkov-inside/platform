@@ -489,10 +489,10 @@ function successfulReferences() {
   return vi.fn().mockResolvedValue({
     ok: true,
     body: {
-      formats: [{ id: formatId, name: "Гайд" }],
-      series: [{ id: seriesId, name: "Build" }],
-      tags: [{ id: tagId, name: "delivery" }],
-      topics: [{ id: topicId, name: "Platform" }],
+      formats: [{ archived: false, id: formatId, name: "Гайд" }],
+      series: [{ archived: false, id: seriesId, name: "Build" }],
+      tags: [{ archived: false, id: tagId, name: "delivery" }],
+      topics: [{ archived: false, id: topicId, name: "Platform" }],
     },
     response: Response.json({}),
   });

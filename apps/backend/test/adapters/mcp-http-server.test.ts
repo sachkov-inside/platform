@@ -62,6 +62,12 @@ describe("MCP Streamable HTTP adapter", () => {
         "material_load",
         "material_save",
         "material_preview",
+        "content_collection_list",
+        "content_collection_create",
+        "content_collection_update",
+        "content_collection_set_archive",
+        "playlist_load_composition",
+        "playlist_save_composition",
       ]);
     } finally {
       await client.close();

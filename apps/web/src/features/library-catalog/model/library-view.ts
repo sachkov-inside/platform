@@ -7,6 +7,7 @@ export interface LibraryCatalogFacet {
   readonly id: string;
   readonly name: string;
   readonly slug: string;
+  readonly summary: string | null;
 }
 
 export type LibraryCatalogPage =

@@ -1,6 +1,7 @@
 import type {
   ForbiddenError,
   InvalidContentError,
+  InvalidReferenceError,
   SystemError,
 } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { SeriesNotFoundError } from "../load-series-order/load-series-order.contract.js";
@@ -22,14 +23,10 @@ export type StaleSeriesOrderError = {
   readonly code: "stale_series_order";
   readonly currentOrderVersion: string;
 };
-export type SeriesMembershipChangedError = {
-  readonly code: "series_membership_changed";
-  readonly currentOrderVersion: string;
-};
 export type ReorderSeriesError =
   | ForbiddenError
   | InvalidContentError
-  | SeriesMembershipChangedError
+  | InvalidReferenceError
   | SeriesNotFoundError
   | StaleSeriesOrderError
   | SystemError;

@@ -13,6 +13,7 @@ export interface SeriesOrderMaterialDto {
 }
 
 export interface SeriesOrderDto {
+  readonly archived: boolean;
   readonly items: readonly SeriesOrderMaterialDto[];
   readonly name: string;
   readonly orderVersion: string;

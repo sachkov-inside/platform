@@ -27,6 +27,7 @@ const querySchema = z
         .strict(),
     ]),
     after: z.string().min(1).max(512).optional(),
+    canonicalTopicSlug: facetSlugSchema.optional(),
     formatSlugs: facetSlugsSchema.optional(),
     first: z.number().int().min(1).max(24),
     q: z.string().max(120).optional(),
@@ -36,6 +37,16 @@ const querySchema = z
   })
   .strict()
   .superRefine((query, context) => {
+    if (
+      query.canonicalTopicSlug !== undefined &&
+      (query.topicSlugs?.length ?? 0) > 0
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Canonical Topic scope cannot be combined with Topic filters",
+        path: ["topicSlugs"],
+      });
+    }
     if (
       query.sort === "series" &&
       new Set(query.seriesSlugs ?? []).size !== 1
@@ -121,6 +132,9 @@ export async function listPublishedMaterials(
   }
 
   const page = await publishedMaterialReader.listProjections({
+    ...(normalized.canonicalTopicSlug === undefined
+      ? {}
+      : { canonicalTopicSlug: normalized.canonicalTopicSlug }),
     first: parsed.data.first,
     formatSlugs: normalized.formatSlugs,
     seriesSlugs: normalized.seriesSlugs,
@@ -156,6 +170,7 @@ export async function listPublishedMaterials(
 }
 
 interface NormalizedCatalogQuery {
+  readonly canonicalTopicSlug: string | undefined;
   readonly formatSlugs: readonly string[];
   readonly q: string | undefined;
   readonly seriesSlugs: readonly string[];
@@ -169,6 +184,7 @@ function normalizeQuery(
   const q = query.q?.trim().replace(/\s+/gu, " ");
   const seriesSlugs = uniqueSorted(query.seriesSlugs ?? []);
   return {
+    canonicalTopicSlug: query.canonicalTopicSlug,
     formatSlugs: uniqueSorted(query.formatSlugs ?? []),
     q: q === undefined || q.length === 0 ? undefined : q,
     seriesSlugs,
@@ -233,6 +249,7 @@ function queryFingerprint(query: NormalizedCatalogQuery): string {
 function isDefaultQuery(query: NormalizedCatalogQuery): boolean {
   return (
     query.q === undefined &&
+    query.canonicalTopicSlug === undefined &&
     query.formatSlugs.length === 0 &&
     query.seriesSlugs.length === 0 &&
     query.sort === "newest" &&

@@ -17,6 +17,7 @@ interface PublicRequestOptions {
 export function requestPublishedMaterialCatalog(
   query: {
     readonly after?: string;
+    readonly canonicalTopic?: string;
     readonly format?: readonly string[];
     readonly q?: string;
     readonly series?: readonly string[];
@@ -29,6 +30,9 @@ export function requestPublishedMaterialCatalog(
     (request) =>
       new ContentLibraryService(request).listPublishedMaterials({
         ...(query.after === undefined ? {} : { after: query.after }),
+        ...(query.canonicalTopic === undefined
+          ? {}
+          : { canonicalTopic: query.canonicalTopic }),
         ...(query.format === undefined ? {} : { format: [...query.format] }),
         ...(query.q === undefined ? {} : { q: query.q }),
         ...(query.series === undefined ? {} : { series: [...query.series] }),

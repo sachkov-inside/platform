@@ -2,16 +2,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
 
 import { GET } from "../../app/api/library/materials/route";
+import { GET as GET_TOPIC_MATERIALS } from "../../app/api/library/topics/[topicSlug]/materials/route";
 import { handleLibraryCatalogRequest } from "@/_pages/library.server";
 import { libraryCatalogQueryKey } from "@/_pages/library";
 import {
   libraryCatalogQueryOptions,
   requestLibraryCatalogPage,
-} from "../../src/_pages/library/api/library-catalog.browser";
+  topicLibraryCatalogQueryOptions,
+} from "../../src/features/library-catalog/api/library-catalog.browser";
 import {
   parseLibrarySearchParams,
   serializeLibrarySearchQuery,
-} from "../../src/_pages/library/model/library-search-query";
+} from "../../src/features/library-catalog/model/library-search-query";
 
 const readyCatalog = {
   facets: { formats: [], series: [], topics: [] },
@@ -132,6 +134,74 @@ describe("Library TanStack Query interface", () => {
     expect(
       queryClient.getQueryData(libraryCatalogQueryKey(defaultQuery)),
     ).toEqual(data);
+  });
+
+  it("keeps the Topic scope while loading results beyond the first page", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ ...readyCatalog, nextCursor: "topic_next_cursor" }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ...readyCatalog,
+          items: [
+            {
+              ...readyCatalog.items[0],
+              slug: "topic-second-page",
+              title: "Материал со второй страницы темы",
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const topicQuery = { ...defaultQuery, topicSlugs: ["platform"] };
+    const data = await new QueryClient().infiniteQuery({
+      ...topicLibraryCatalogQueryOptions("platform", topicQuery),
+      pages: 2,
+    });
+
+    const secondPage = data.pages[1];
+    expect(secondPage).toMatchObject({
+      kind: "ready",
+      items: [expect.objectContaining({ slug: "topic-second-page" })],
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "/api/library/topics/platform/materials",
+    );
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      "/api/library/topics/platform/materials?after=topic_next_cursor",
+    );
+  });
+
+  it("uses canonical Topic scope without exposing archived Topics as discovery filters", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          facets: { formats: [], series: [], topics: [] },
+          items: [],
+          nextCursor: null,
+          totalCount: 0,
+        }),
+      ),
+    );
+
+    const response = await GET_TOPIC_MATERIALS(
+      new Request(
+        "https://platform-web.example.test/api/library/topics/platform/materials",
+      ),
+      { params: Promise.resolve({ topicSlug: "platform" }) },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ kind: "empty" });
+    const backendRequest = vi.mocked(fetch).mock.calls[0]?.[0];
+    expect(backendRequest).toBeInstanceOf(Request);
+    expect((backendRequest as Request).url).toBe(
+      "https://platform-api.example.test/library/materials?sort=relevance&canonicalTopic=platform",
+    );
   });
 
   it("loads and validates the browser presentation contract", async () => {

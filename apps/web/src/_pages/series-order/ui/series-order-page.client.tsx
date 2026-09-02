@@ -8,6 +8,8 @@ import {
   type SeriesOrderPresentation,
 } from "@/features/series-order";
 
+import { seriesOrderMaterialSearchQueryOptions } from "../model/series-order-material-search-query";
+
 export function SeriesOrderPageClient({
   presentation,
 }: {
@@ -16,6 +18,7 @@ export function SeriesOrderPageClient({
   const router = useRouter();
   return (
     <SeriesOrderManager
+      createMaterialSearchQueryOptions={seriesOrderMaterialSearchQueryOptions}
       onBack={() => { router.push(authoringMaterialsRootHref); }}
       onRefresh={() => { router.refresh(); }}
       onSelectPlaylist={(seriesId) => { router.push(`/authoring/playlists/${seriesId}`); }}

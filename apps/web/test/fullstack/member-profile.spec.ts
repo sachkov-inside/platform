@@ -13,16 +13,19 @@ test("creates or edits the Account Profile and preserves the member projection",
 
   const profileStateResponse = await page.request.get("/api/account/profile");
   expect(profileStateResponse.status()).toBe(200);
-  const profileState = (await profileStateResponse.json()) as { readonly kind?: string };
+  const profileState = (await profileStateResponse.json()) as {
+    readonly state?: { readonly kind?: string };
+  };
+  const profileKind = profileState.state?.kind;
   const account = await page.goto("/account");
   expect(account?.status()).toBe(200);
   const nameInput = page.getByRole("textbox", { exact: true, name: "Имя" });
-  if (profileState.kind === "missing") {
+  if (profileKind === "missing") {
     await nameInput.fill("Кирилл Сачков");
     await page.getByRole("button", { name: "Создать" }).click();
     await expect(page.getByText("Профиль сохранён.")).toBeVisible();
   } else {
-    expect(profileState.kind).toBe("profile");
+    expect(profileKind).toBe("profile");
   }
   await expect(page.getByRole("heading", { name: "Ваш профиль" })).toBeVisible();
   const displayName = await nameInput.inputValue();

@@ -34,7 +34,7 @@ export async function executeReorderSeries(
   } catch {
     return { kind: "error", reference: "series-order-form" };
   }
-  const orderedMaterialIds = z.array(z.uuid()).max(10_000).safeParse(materialIds);
+  const orderedMaterialIds = z.array(z.uuid()).safeParse(materialIds);
   if (!orderedMaterialIds.success) {
     return { kind: "error", reference: "series-order-form" };
   }

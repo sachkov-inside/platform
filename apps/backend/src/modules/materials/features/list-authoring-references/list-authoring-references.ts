@@ -33,7 +33,7 @@ export function assembleListAuthoringReferences(
         }),
         dependencies.prisma.series.findMany({
           orderBy: [{ name: "asc" }, { id: "asc" }],
-          select: { id: true, name: true },
+          select: { archivedAt: true, id: true, name: true },
         }),
         dependencies.prisma.tag.findMany({
           orderBy: [{ name: "asc" }, { id: "asc" }],
@@ -41,10 +41,24 @@ export function assembleListAuthoringReferences(
         }),
         dependencies.prisma.topic.findMany({
           orderBy: [{ name: "asc" }, { id: "asc" }],
-          select: { id: true, name: true },
+          select: { archivedAt: true, id: true, name: true },
         }),
       ]);
-      return { ok: true, value: { formats, series, tags, topics } };
+      return {
+        ok: true,
+        value: {
+          formats: formats.map((item) => ({ ...item, archived: false })),
+          series: series.map(({ archivedAt, ...item }) => ({
+            ...item,
+            archived: archivedAt !== null,
+          })),
+          tags: tags.map((item) => ({ ...item, archived: false })),
+          topics: topics.map(({ archivedAt, ...item }) => ({
+            ...item,
+            archived: archivedAt !== null,
+          })),
+        },
+      };
     } catch (error) {
       return failure(mapPostgresReadError(error));
     }

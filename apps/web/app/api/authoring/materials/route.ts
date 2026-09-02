@@ -2,10 +2,15 @@ import {
   handleCreateMaterialRequest,
   handleSaveMaterialRequest,
 } from "@/_pages/material-authoring.server";
+import { handleAuthoringMaterialsRequest } from "@/_pages/authoring-materials.server";
 import {
   handleDeleteMaterialDraftRequest,
   handleTransitionMaterialPublicationRequest,
 } from "@/features/material-lifecycle.server";
+
+export function GET(request: Request): Promise<Response> {
+  return handleAuthoringMaterialsRequest(request);
+}
 
 export function POST(request: Request): Promise<Response> {
   return handleCreateMaterialRequest(request);

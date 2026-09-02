@@ -173,9 +173,14 @@ model TelegramLinkTransaction {
 }
 
 model Topic {
-  id   String @id @db.Uuid
-  slug String @unique(map: "topics_slug_unique")
-  name String
+  id         String    @id @db.Uuid
+  slug       String    @unique(map: "topics_slug_unique")
+  name       String
+  summary    String    @default("")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz
+  version    Int       @default(1)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
   @@map("topics")
   @@schema("materials")
@@ -200,9 +205,14 @@ model Tag {
 }
 
 model Series {
-  id   String @id @db.Uuid
-  slug String @unique(map: "series_slug_unique")
-  name String
+  id         String    @id @db.Uuid
+  slug       String    @unique(map: "series_slug_unique")
+  name       String
+  summary    String    @default("")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz
+  version    Int       @default(1)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
   @@map("series")
   @@schema("materials")

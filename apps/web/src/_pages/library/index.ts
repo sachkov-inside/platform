@@ -1,16 +1,15 @@
-export type {
-  LibraryCatalogPage,
-  LibraryMaterialPreview,
-} from "./model/library-view";
-export { libraryCatalogQueryKey } from "./model/library-catalog-query";
 export {
+  libraryCatalogQueryKey,
   parseLibrarySearchParams,
   serializeLibrarySearchQuery,
+  type LibraryCatalogPage,
+  type LibraryMaterialPreview,
   type LibrarySearchQuery,
-} from "./model/library-search-query";
+} from "@/features/library-catalog";
 export {
   LibraryLoading,
   LibraryPage,
   LibraryUnexpectedError,
 } from "./ui/library-page";
 export { LibraryPageQuery } from "./ui/library-page-query.client";
+export { AuthenticationFeedback } from "./ui/authentication-feedback.client";

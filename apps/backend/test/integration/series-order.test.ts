@@ -76,7 +76,7 @@ describe("Series order", () => {
 
     const loaded = await authoring.loadSeriesOrder({ actor, seriesId });
     if (!loaded.ok) throw new Error(loaded.error.code);
-    expect(loaded.value).toEqual({
+    expect(loaded.value).toMatchObject({
       items: [
         {
           materialId: firstMaterialId,
@@ -156,7 +156,7 @@ describe("Series order", () => {
     });
   });
 
-  test("rejects stale order and membership changes with a refresh version", async () => {
+  test("rejects stale order and atomically adds or removes playlist membership", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
@@ -199,18 +199,23 @@ describe("Series order", () => {
       body: representativeDocument("Appended body."),
     });
     if (!appended.ok) throw new Error(appended.error.code);
+    const afterAppend = await authoring.loadSeriesOrder({ actor, seriesId });
+    if (!afterAppend.ok) throw new Error(afterAppend.error.code);
+    expect(afterAppend.value.items.map(({ materialId }) => materialId)).toContain(
+      appended.value.materialId,
+    );
     const changed = await authoring.reorderSeries({
         actor,
         seriesId,
-        expectedOrderVersion: first.value.orderVersion,
+        expectedOrderVersion: afterAppend.value.orderVersion,
         orderedMaterialIds: moved,
       });
-    expect(changed.ok).toBe(false);
-    if (changed.ok) throw new Error("Expected membership change conflict");
-    expect(changed.error.code).toBe("series_membership_changed");
-    if (changed.error.code === "series_membership_changed") {
-      expect(changed.error.currentOrderVersion).toMatch(/^[a-f0-9]{64}$/u);
-    }
+    expect(changed).toMatchObject({ ok: true, value: { seriesId } });
+    const afterRemoval = await authoring.loadSeriesOrder({ actor, seriesId });
+    if (!afterRemoval.ok) throw new Error(afterRemoval.error.code);
+    expect(afterRemoval.value.items.map(({ materialId }) => materialId)).toEqual(
+      moved,
+    );
   });
 
   test("serializes concurrent reorders through one optimistic order version", async () => {
@@ -246,6 +251,65 @@ describe("Series order", () => {
       ok: false,
       error: { code: "stale_series_order" },
     });
+  });
+
+  test("keeps archived composition editable but rejects new assignments", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const unassigned = await authoring.createDraft({
+      actor,
+      idempotencyKey: "series-order-archived-unassigned",
+      metadata: { ...metadata("Unassigned"), seriesIds: [] },
+      body: representativeDocument("Unassigned body."),
+    });
+    if (!unassigned.ok) throw new Error(unassigned.error.code);
+    await testDatabase.prisma.series.update({
+      where: { id: seriesId },
+      data: { archivedAt: new Date() },
+    });
+    try {
+      const loaded = await authoring.loadSeriesOrder({ actor, seriesId });
+      if (!loaded.ok) throw new Error(loaded.error.code);
+      expect(loaded.value.archived).toBe(true);
+      const currentIds = loaded.value.items.map(({ materialId }) => materialId);
+      const reordered = await authoring.reorderSeries({
+        actor,
+        seriesId,
+        expectedOrderVersion: loaded.value.orderVersion,
+        orderedMaterialIds: rotateLeft(currentIds),
+      });
+      if (!reordered.ok) throw new Error(reordered.error.code);
+
+      await expect(
+        authoring.reorderSeries({
+          actor,
+          seriesId,
+          expectedOrderVersion: reordered.value.orderVersion,
+          orderedMaterialIds: [
+            ...rotateLeft(currentIds),
+            unassigned.value.materialId,
+          ],
+        }),
+      ).resolves.toEqual({
+        ok: false,
+        error: {
+          code: "invalid_reference",
+          issues: [
+            {
+              code: "series_archived",
+              path: `/orderedMaterialIds/${String(currentIds.length)}`,
+            },
+          ],
+        },
+      });
+    } finally {
+      await testDatabase.prisma.series.update({
+        where: { id: seriesId },
+        data: { archivedAt: null },
+      });
+    }
   });
 
   test("uses one lock order for concurrent save, delete, and playlist reorder", async () => {
@@ -311,7 +375,7 @@ describe("Series order", () => {
     ]);
     expect(deleted.ok).toBe(true);
     if (!reorderedWithDelete.ok) {
-      expect(reorderedWithDelete.error.code).toBe("series_membership_changed");
+      expect(reorderedWithDelete.error.code).toBe("stale_series_order");
     }
   });
 

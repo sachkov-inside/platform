@@ -86,6 +86,10 @@ export function readWebRuntimeConfig(): WebRuntimeConfig {
   return parseWebRuntimeConfig(process.env);
 }
 
+export function readWebRuntimeMode(): WebRuntimeMode {
+  return parseMode(process.env.NODE_ENV);
+}
+
 export function validateWebRuntimeConfigOrExit(): void {
   try {
     readWebRuntimeConfig();

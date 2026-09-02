@@ -1,3 +1,6 @@
+import type { UseQueryOptions } from "@tanstack/react-query";
+import { z } from "zod";
+
 export interface SeriesOrderItemPresentation {
   readonly materialId: string;
   readonly publicationState: "draft" | "published" | "unpublished";
@@ -5,12 +8,43 @@ export interface SeriesOrderItemPresentation {
 }
 
 export interface SeriesOrderPresentation {
+  readonly archived: boolean;
   readonly items: readonly SeriesOrderItemPresentation[];
   readonly name: string;
-  readonly options: readonly { readonly label: string; readonly value: string }[];
+  readonly options: readonly { readonly archived?: boolean; readonly label: string; readonly value: string }[];
   readonly orderVersion: string;
   readonly seriesId: string;
 }
+
+export interface SeriesOrderMaterialPage {
+  readonly items: readonly SeriesOrderItemPresentation[];
+  readonly kind: "ready";
+  readonly page: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
+export type SeriesOrderMaterialSearchResult =
+  | SeriesOrderMaterialPage
+  | { readonly kind: "unauthorized" }
+  | { readonly kind: "error"; readonly reference: string };
+
+export type SeriesOrderMaterialSearchQueryKey = readonly [
+  "series-order",
+  "material-search",
+  string,
+  number,
+];
+
+export type CreateSeriesOrderMaterialSearchQueryOptions = (input: {
+  readonly page: number;
+  readonly search: string;
+}) => UseQueryOptions<
+  SeriesOrderMaterialSearchResult,
+  Error,
+  SeriesOrderMaterialSearchResult,
+  SeriesOrderMaterialSearchQueryKey
+>;
 
 export interface ReorderSeriesInput {
   readonly expectedOrderVersion: string;
@@ -19,7 +53,6 @@ export interface ReorderSeriesInput {
 }
 
 export type ReorderSeriesResult = z.infer<typeof reorderSeriesResultSchema>;
-import { z } from "zod";
 
 export const reorderSeriesResultSchema = z.discriminatedUnion("kind", [
   z

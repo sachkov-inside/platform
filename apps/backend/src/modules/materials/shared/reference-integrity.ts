@@ -21,7 +21,7 @@ export async function requireReferenceIntegrity(
   metadata: MaterialMetadata,
   rollback: Rollback<ReferenceIntegrityError>,
 ): Promise<void> {
-  const issues = await findReferenceIssues(transaction, metadata);
+  const issues = await findReferenceIssues(transaction, materialId, metadata);
   if (issues.length > 0) {
     rollback({ code: "invalid_reference", issues });
   }

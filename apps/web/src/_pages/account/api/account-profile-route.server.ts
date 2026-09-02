@@ -6,7 +6,6 @@ import {
   LogtoSessionUnavailableError,
   readLogtoBffConfig,
 } from "@/shared/auth/index.server";
-
 import { getPrivateMemberProfile } from "./get-private-member-profile";
 import { executeCreateMemberProfile } from "./create-member-profile";
 import { executeUpdateMemberProfile } from "./update-member-profile";
@@ -35,7 +34,10 @@ export async function handleAccountProfileRequest(): Promise<Response> {
       status: 503,
     });
   }
-  return Response.json(result.state, { headers: privateHeaders() });
+  return Response.json(
+    { state: result.state },
+    { headers: privateHeaders() },
+  );
 }
 
 export function handleCreateMemberProfileRequest(request: Request): Promise<Response> {

@@ -14,6 +14,7 @@ const catalogFacetSchema = z
     id: z.string(),
     name: z.string(),
     slug: z.string(),
+    summary: z.string().nullable(),
   })
   .strict();
 
@@ -45,10 +46,20 @@ export class LibraryCatalogQueryError extends Error {
   }
 }
 
-/** Owns the browser-side catalog query, including cursor continuation through the same-origin BFF. */
 export function libraryCatalogQueryOptions(query: LibrarySearchQuery) {
   return createLibraryCatalogQueryOptions(
     ({ after, signal }) => requestLibraryCatalogPage(query, after, signal),
+    query,
+  );
+}
+
+export function topicLibraryCatalogQueryOptions(
+  topicSlug: string,
+  query: LibrarySearchQuery,
+) {
+  return createLibraryCatalogQueryOptions(
+    ({ after, signal }) =>
+      requestTopicLibraryCatalogPage(topicSlug, query, after, signal),
     query,
   );
 }
@@ -58,26 +69,52 @@ export async function requestLibraryCatalogPage(
   after: string | undefined,
   signal: AbortSignal,
 ): Promise<LibraryCatalogPage> {
-  const search = serializeLibrarySearchQuery({
-    ...query,
-    after: after ?? null,
-  });
-  const response = await fetch(
+  const search = serializeLibrarySearchQuery({ ...query, after: after ?? null });
+  return requestCatalogPage(
     search.length === 0
       ? "/api/library/materials"
       : `/api/library/materials?${search}`,
-    {
-      headers: { Accept: "application/json" },
-      signal,
-    },
+    signal,
   );
+}
 
+export async function requestTopicLibraryCatalogPage(
+  topicSlug: string,
+  query: LibrarySearchQuery,
+  after: string | undefined,
+  signal: AbortSignal,
+): Promise<LibraryCatalogPage> {
+  const search = serializeLibrarySearchQuery({
+    ...query,
+    after: after ?? null,
+    topicSlugs: [],
+  });
+  const path = `/api/library/topics/${encodeURIComponent(topicSlug)}/materials`;
+  return requestCatalogPage(
+    search.length === 0 ? path : `${path}?${search}`,
+    signal,
+  );
+}
+
+async function requestCatalogPage(
+  path: string,
+  signal: AbortSignal,
+): Promise<LibraryCatalogPage> {
+  const response = await fetch(path, {
+    headers: { Accept: "application/json" },
+    signal,
+  });
+  return parseCatalogResponse(response);
+}
+
+async function parseCatalogResponse(
+  response: Response,
+): Promise<LibraryCatalogPage> {
   if (!response.ok) {
     throw new LibraryCatalogQueryError(
       `Library query returned ${String(response.status)}`,
     );
   }
-
   let payload: unknown;
   try {
     payload = await response.json();
@@ -87,7 +124,6 @@ export async function requestLibraryCatalogPage(
       { cause },
     );
   }
-
   const parsed = libraryCatalogPageSchema.safeParse(payload);
   if (!parsed.success) {
     throw new LibraryCatalogQueryError(
@@ -95,6 +131,5 @@ export async function requestLibraryCatalogPage(
       { cause: parsed.error },
     );
   }
-
   return parsed.data;
 }

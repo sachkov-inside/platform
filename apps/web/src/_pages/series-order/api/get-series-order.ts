@@ -11,6 +11,7 @@ import {
 
 const schema = z
   .object({
+    archived: z.boolean(),
     items: z.array(
       z
         .object({
@@ -62,6 +63,7 @@ export async function getSeriesOrder(
   return {
     kind: "ready",
     order: {
+      archived: parsed.data.archived,
       items: parsed.data.items.map((item) => ({
         materialId: item.materialId,
         publicationState: item.publicationState,

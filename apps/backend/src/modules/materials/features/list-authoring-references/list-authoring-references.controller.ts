@@ -15,7 +15,9 @@ import { throwMaterialAuthoringError } from "../../adapters/nest/material-author
 import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-authoring.token.js";
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 
-const referenceSchema = z.object({ id: z.uuid(), name: z.string().min(1) }).strict();
+const referenceSchema = z
+  .object({ archived: z.boolean(), id: z.uuid(), name: z.string().min(1) })
+  .strict();
 const responseSchema = z
   .object({
     formats: z.array(referenceSchema),

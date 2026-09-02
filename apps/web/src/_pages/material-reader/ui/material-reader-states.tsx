@@ -1,9 +1,15 @@
 import { ArrowLeft, ArrowUpRight, LockKeyhole, SearchX, ShieldAlert } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
 import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/material-reader-view";
 import { materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
+import {
+  libraryMaterialReaderReturnTarget,
+  type MaterialReaderReturnTarget,
+} from "@/shared/routing/material-reader";
+import { ReaderBackAction } from "./material-reader-view";
 
 export function MaterialReaderLoading() {
   return (
@@ -28,14 +34,18 @@ export function MaterialReaderLoading() {
   );
 }
 
-export function MaterialReaderNotFound() {
+export function MaterialReaderNotFound({
+  returnTarget = libraryMaterialReaderReturnTarget,
+}: {
+  readonly returnTarget?: MaterialReaderReturnTarget;
+}) {
   return (
     <ReaderStatus
       action={
         <Button asChild size="lg">
-          <Link href="/library">
+          <Link href={returnTarget.href}>
             <ArrowLeft aria-hidden="true" />
-            В Базу знаний
+            {returnTarget.label}
           </Link>
         </Button>
       }
@@ -50,26 +60,21 @@ export function MaterialReaderNotFound() {
 export function MaterialReaderAccess({
   cta,
   material,
+  returnTarget = libraryMaterialReaderReturnTarget,
 }: {
   readonly cta: {
     readonly label: "Получить доступ";
     readonly url: string;
   };
   readonly material: MaterialReaderMetadata;
+  readonly returnTarget?: MaterialReaderReturnTarget;
 }) {
   return (
     <div
       className="max-w-[52rem] pt-1 sm:pt-3"
       data-material-reader-state="access-required"
     >
-      <div className="flex min-h-11 items-center">
-        <Button asChild size="lg" variant="outline">
-          <Link href="/library">
-            <ArrowLeft aria-hidden="true" />
-            В Базу знаний
-          </Link>
-        </Button>
-      </div>
+      <ReaderBackAction target={returnTarget} />
       <header className="mt-7 max-w-[48rem] sm:mt-8">
         <div className="flex flex-wrap gap-2 text-xs font-semibold text-muted-foreground">
           <span className="rounded-full bg-muted px-3 py-1.5">
@@ -121,16 +126,22 @@ export function MaterialReaderAccess({
   );
 }
 
-export function MaterialReaderUnavailable({ slug }: { readonly slug: string }) {
+export function MaterialReaderUnavailable({
+  retryHref,
+  returnTarget = libraryMaterialReaderReturnTarget,
+}: {
+  readonly retryHref: Route;
+  readonly returnTarget?: MaterialReaderReturnTarget;
+}) {
   return (
     <ReaderStatus
       action={
         <div className="flex flex-wrap gap-3">
           <Button asChild size="lg">
-            <Link href={`/materials/${slug}`}>Повторить</Link>
+            <Link href={retryHref}>Повторить</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <Link href="/library">Открыть Базу знаний</Link>
+            <Link href={returnTarget.href}>{returnTarget.label}</Link>
           </Button>
         </div>
       }
@@ -142,14 +153,20 @@ export function MaterialReaderUnavailable({ slug }: { readonly slug: string }) {
   );
 }
 
-export function MaterialReaderUnexpectedError({ onRetry }: { readonly onRetry: () => void }) {
+export function MaterialReaderUnexpectedError({
+  onRetry,
+  returnTarget = libraryMaterialReaderReturnTarget,
+}: {
+  readonly onRetry: () => void;
+  readonly returnTarget?: MaterialReaderReturnTarget;
+}) {
   return (
     <ReaderStatus
       action={
         <div className="flex flex-wrap gap-3">
           <Button onClick={onRetry} size="lg">Повторить</Button>
           <Button asChild size="lg" variant="outline">
-            <Link href="/library">Открыть Базу знаний</Link>
+            <Link href={returnTarget.href}>{returnTarget.label}</Link>
           </Button>
         </div>
       }

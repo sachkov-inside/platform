@@ -7,6 +7,55 @@ export function requestAuthoringMaterials(query: { readonly page: number; readon
   return executeGeneratedRequest((request) => new MaterialAuthoringService(request).listAuthoringMaterials(query), 200, { accessToken });
 }
 
+export type ContentCollectionKind = "series" | "topic";
+
+export function requestContentCollections(kind: ContentCollectionKind, accessToken: string): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new MaterialAuthoringService(request).listAuthoringContentCollections({ kind }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestContentCollectionCreation(input: { readonly kind: ContentCollectionKind; readonly name: string; readonly slug: string; readonly summary: string }, accessToken: string): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new MaterialAuthoringService(request).createAuthoringContentCollection({ requestBody: input }),
+    201,
+    { accessToken },
+  );
+}
+
+export function requestContentCollectionUpdate(input: { readonly collectionId: string; readonly expectedVersion: number; readonly kind: ContentCollectionKind; readonly name: string; readonly summary: string }, accessToken: string): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new MaterialAuthoringService(request).updateAuthoringContentCollection({
+      collectionId: input.collectionId,
+      requestBody: {
+        expectedVersion: input.expectedVersion,
+        kind: input.kind,
+        name: input.name,
+        summary: input.summary,
+      },
+    }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestContentCollectionArchive(input: { readonly archived: boolean; readonly collectionId: string; readonly expectedVersion: number; readonly kind: ContentCollectionKind }, accessToken: string): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new MaterialAuthoringService(request).setAuthoringContentCollectionArchive({
+      collectionId: input.collectionId,
+      requestBody: {
+        archived: input.archived,
+        expectedVersion: input.expectedVersion,
+        kind: input.kind,
+      },
+    }),
+    200,
+    { accessToken },
+  );
+}
+
 export function requestMaterialDraftCreation(input: { readonly access: "free" | "membership"; readonly document: Record<string, unknown>; readonly formatId: string | null; readonly idempotencyKey: string; readonly seriesIds: readonly string[]; readonly summary: string; readonly tagIds: readonly string[]; readonly title: string; readonly topicId: string | null }, accessToken: string): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) => new MaterialAuthoringService(request).createMaterialDraft({

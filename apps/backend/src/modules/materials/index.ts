@@ -17,6 +17,10 @@ export type {
   SeriesMembershipInput,
 } from "./facets/material-authoring/material-authoring.contract.js";
 export type {
+  ContentCollectionDto,
+  ContentCollectionKind,
+} from "./facets/material-authoring/content-collection.contract.js";
+export type {
   CreateDraftCommand,
   CreateDraftError,
   CreateDraftResult,
@@ -62,6 +66,25 @@ export type {
   ReorderSeriesReceiptDto,
   ReorderSeriesResult,
 } from "./features/reorder-series/reorder-series.contract.js";
+export type {
+  CreateContentCollectionCommand,
+  CreateContentCollectionError,
+  CreateContentCollectionResult,
+} from "./features/create-content-collection/create-content-collection.contract.js";
+export type {
+  ListContentCollectionsQuery,
+  ListContentCollectionsResult,
+} from "./features/list-content-collections/list-content-collections.contract.js";
+export type {
+  SetContentCollectionArchiveCommand,
+  SetContentCollectionArchiveError,
+  SetContentCollectionArchiveResult,
+} from "./features/set-content-collection-archive/set-content-collection-archive.contract.js";
+export type {
+  UpdateContentCollectionCommand,
+  UpdateContentCollectionError,
+  UpdateContentCollectionResult,
+} from "./features/update-content-collection/update-content-collection.contract.js";
 export type {
   ValidateMaterialError,
   ValidateMaterialQuery,
@@ -141,6 +164,10 @@ export type {
 export { ValidateMaterialController } from "./features/validate-material/validate-material.controller.js";
 export { UploadMaterialAssetController } from "./features/upload-material-asset/upload-material-asset.controller.js";
 export { DeliverMaterialAssetController } from "./features/deliver-material-asset/deliver-material-asset.controller.js";
+export { CreateContentCollectionController } from "./features/create-content-collection/create-content-collection.controller.js";
+export { ListContentCollectionsController } from "./features/list-content-collections/list-content-collections.controller.js";
+export { SetContentCollectionArchiveController } from "./features/set-content-collection-archive/set-content-collection-archive.controller.js";
+export { UpdateContentCollectionController } from "./features/update-content-collection/update-content-collection.controller.js";
 export {
   MATERIAL_ASSET_MAINTENANCE,
   type CleanupMaterialAssetsResult,

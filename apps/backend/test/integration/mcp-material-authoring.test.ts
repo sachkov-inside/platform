@@ -8,6 +8,7 @@ import {
 } from "@modelcontextprotocol/client";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createMcpApplication } from "../../src/entrypoints/create-mcp-application.js";
@@ -275,6 +276,115 @@ describe("delegated Material authoring over MCP", () => {
     });
   });
 
+  test("manages collections and the complete Playlist composition through application rules", async () => {
+    const createdTopic = await callTool("content_collection_create", {
+      kind: "topic",
+      name: "MCP Architecture",
+      slug: "mcp-architecture",
+      summary: "Architecture managed through MCP.",
+    });
+    expect(createdTopic).toMatchObject({
+      structuredContent: {
+        ok: true,
+        value: { kind: "topic", slug: "mcp-architecture", version: 1 },
+      },
+    });
+
+    const createdPlaylist = await callTool("content_collection_create", {
+      kind: "series",
+      name: "MCP Platform path",
+      slug: "mcp-platform-path",
+      summary: "An ordered MCP-managed path.",
+    });
+    const playlist = successfulValue(createdPlaylist);
+    if (
+      typeof playlist.id !== "string" ||
+      typeof playlist.version !== "number"
+    ) {
+      throw new TypeError("MCP result has no Playlist identity");
+    }
+
+    const material = await callTool("material_create_draft", {
+      idempotencyKey: "mcp-playlist-material",
+      metadata: metadata("MCP Playlist Material", "free"),
+      body: representativeDocument("Playlist composition body."),
+    });
+    const materialId = successfulMaterialId(material);
+    const initialComposition = await callTool("playlist_load_composition", {
+      seriesId: playlist.id,
+    });
+    const initial = successfulValue(initialComposition);
+    expect(initial.items).toEqual([]);
+    if (typeof initial.orderVersion !== "string") {
+      throw new TypeError("MCP result has no Playlist order version");
+    }
+
+    expect(
+      await callTool("playlist_save_composition", {
+        expectedOrderVersion: initial.orderVersion,
+        orderedMaterialIds: [materialId],
+        seriesId: playlist.id,
+      }),
+    ).toMatchObject({ structuredContent: { ok: true } });
+    expect(
+      await callTool("playlist_load_composition", { seriesId: playlist.id }),
+    ).toMatchObject({
+      structuredContent: {
+        ok: true,
+        value: { items: [{ materialId, ordinal: 1 }] },
+      },
+    });
+
+    const updated = await callTool("content_collection_update", {
+      collectionId: playlist.id,
+      expectedVersion: playlist.version,
+      kind: "series",
+      name: "MCP Platform journey",
+      summary: "A refined ordered path.",
+    });
+    expect(updated).toMatchObject({
+      structuredContent: {
+        ok: true,
+        value: { name: "MCP Platform journey", slug: "mcp-platform-path", version: 2 },
+      },
+    });
+    expect(
+      await callTool("content_collection_update", {
+        collectionId: playlist.id,
+        expectedVersion: playlist.version,
+        kind: "series",
+        name: "Stale",
+        summary: "",
+      }),
+    ).toMatchObject({
+      isError: true,
+      structuredContent: {
+        ok: false,
+        error: { code: "stale_content_collection_version", currentVersion: 2 },
+      },
+    });
+
+    expect(
+      await callTool("content_collection_set_archive", {
+        archived: true,
+        collectionId: playlist.id,
+        expectedVersion: 2,
+        kind: "series",
+      }),
+    ).toMatchObject({
+      structuredContent: {
+        ok: true,
+        value: { archived: true, version: 3 },
+      },
+    });
+    expect(await callTool("content_collection_list", { kind: "series" })).toMatchObject({
+      structuredContent: {
+        ok: true,
+        value: [expect.objectContaining({ archived: true, id: playlist.id })],
+      },
+    });
+  });
+
   test("keeps validation and idempotency failures structured and effect-free", async () => {
     const countBefore = await database.prisma.material.count();
     const invalid = await callTool("material_create_draft", {
@@ -358,4 +468,22 @@ function successfulMaterialId(result: CallToolResult): string {
     throw new TypeError("MCP result has no successful Material identity");
   }
   return structured.value.materialId;
+}
+
+function successfulValue(result: CallToolResult): Record<string, unknown> {
+  const structured = result.structuredContent;
+  if (
+    structured === undefined ||
+    typeof structured !== "object" ||
+    structured === null ||
+    !("ok" in structured) ||
+    structured.ok !== true ||
+    !("value" in structured) ||
+    typeof structured.value !== "object" ||
+    structured.value === null ||
+    Array.isArray(structured.value)
+  ) {
+    throw new TypeError("MCP result has no successful object value");
+  }
+  return z.record(z.string(), z.unknown()).parse(structured.value);
 }

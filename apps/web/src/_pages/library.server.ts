@@ -2,6 +2,7 @@
 export {
   getLibraryCatalogPage,
   handleLibraryCatalogRequest,
+  handleTopicMaterialCatalogRequest,
   LibraryQueryRejectedError,
 } from "./library/index.server";
 export type {

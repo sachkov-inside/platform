@@ -24,6 +24,11 @@ const applicationResult = z.discriminatedUnion("ok", [
     .strict(),
 ]);
 
+const collectionKindSchema = z.enum(["series", "topic"]);
+const collectionIdSchema = z.uuid();
+const collectionVersionSchema = z.number().int().positive();
+const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
+
 type AuthoringResult =
   | { readonly ok: true; readonly value: unknown }
   | {
@@ -39,9 +44,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     { name: "inside-platform-material-authoring", version: "1.0.0" },
     {
       instructions:
-        "Manage the complete current Material through create, load, full-state Save, and Preview. " +
+        "Manage Topics, Playlists, playlist composition, and the complete current Material through the same Platform application rules. " +
         "Save may publish, unpublish, replace live content, or change access immediately. " +
-        "Always reload after a stale_content_version error; successful Saves have no server-side Undo or history.",
+        "Always reload after stale content, collection, or playlist order errors; successful Saves have no server-side Undo or history.",
     },
   );
 
@@ -158,6 +163,178 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
         dependencies.authoring.previewMaterial({
           actor: dependencies.accountId,
           materialId,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "content_collection_list",
+    {
+      title: "List Topics or Playlists",
+      description:
+        "List all active and archived Topics or Playlists with optimistic versions and Material counts.",
+      inputSchema: z.object({ kind: collectionKindSchema }).strict(),
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    ({ kind }) =>
+      toToolResult(
+        dependencies.authoring.listContentCollections({
+          actor: dependencies.accountId,
+          kind,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "content_collection_create",
+    {
+      title: "Create Topic or Playlist",
+      description:
+        "Create a Topic or Playlist. Its slug becomes the immutable canonical URL key.",
+      inputSchema: z
+        .object({
+          kind: collectionKindSchema,
+          name: z.string(),
+          slug: z.string(),
+          summary: z.string(),
+        })
+        .strict(),
+      annotations: {
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    ({ kind, name, slug, summary }) =>
+      toToolResult(
+        dependencies.authoring.createContentCollection({
+          actor: dependencies.accountId,
+          kind,
+          name,
+          slug,
+          summary,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "content_collection_update",
+    {
+      title: "Update Topic or Playlist",
+      description:
+        "Update the mutable name and summary using the latest optimistic version. The canonical slug cannot change.",
+      inputSchema: z
+        .object({
+          collectionId: collectionIdSchema,
+          expectedVersion: collectionVersionSchema,
+          kind: collectionKindSchema,
+          name: z.string(),
+          summary: z.string(),
+        })
+        .strict(),
+      annotations: {
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    ({ collectionId, expectedVersion, kind, name, summary }) =>
+      toToolResult(
+        dependencies.authoring.updateContentCollection({
+          actor: dependencies.accountId,
+          collectionId,
+          expectedVersion,
+          kind,
+          name,
+          summary,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "content_collection_set_archive",
+    {
+      title: "Archive or restore Topic or Playlist",
+      description:
+        "Archive hides a collection from new assignments and public discovery while preserving existing links and canonical readers.",
+      inputSchema: z
+        .object({
+          archived: z.boolean(),
+          collectionId: collectionIdSchema,
+          expectedVersion: collectionVersionSchema,
+          kind: collectionKindSchema,
+        })
+        .strict(),
+      annotations: {
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    ({ archived, collectionId, expectedVersion, kind }) =>
+      toToolResult(
+        dependencies.authoring.setContentCollectionArchive({
+          actor: dependencies.accountId,
+          archived,
+          collectionId,
+          expectedVersion,
+          kind,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "playlist_load_composition",
+    {
+      title: "Load Playlist composition",
+      description:
+        "Load the complete ordered Playlist and the searchable pool of Materials with its optimistic order version.",
+      inputSchema: z.object({ seriesId: collectionIdSchema }).strict(),
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    ({ seriesId }) =>
+      toToolResult(
+        dependencies.authoring.loadSeriesOrder({
+          actor: dependencies.accountId,
+          seriesId,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "playlist_save_composition",
+    {
+      title: "Save complete Playlist composition",
+      description:
+        "Atomically add, remove, and reorder the complete Playlist composition using the latest order version.",
+      inputSchema: z
+        .object({
+          expectedOrderVersion: seriesOrderVersionSchema,
+          orderedMaterialIds: z.array(materialIdWireSchema),
+          seriesId: collectionIdSchema,
+        })
+        .strict(),
+      annotations: {
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    ({ expectedOrderVersion, orderedMaterialIds, seriesId }) =>
+      toToolResult(
+        dependencies.authoring.reorderSeries({
+          actor: dependencies.accountId,
+          expectedOrderVersion,
+          orderedMaterialIds,
+          seriesId,
         }),
       ),
   );

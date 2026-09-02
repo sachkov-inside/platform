@@ -48,18 +48,14 @@ export function serializeLibrarySearchQuery(
   query: LibrarySearchQuery,
 ): string {
   const search = new URLSearchParams();
-  if (query.q.length > 0) {
-    search.set("q", query.q);
-  }
+  if (query.q.length > 0) search.set("q", query.q);
   appendValues(search, "topic", query.topicSlugs);
   appendValues(search, "format", query.formatSlugs);
   appendValues(search, "series", query.seriesSlugs);
   if (query.sort !== defaultSort(query.q, query.seriesSlugs)) {
     search.set("sort", query.sort);
   }
-  if (query.after !== null) {
-    search.set("after", query.after);
-  }
+  if (query.after !== null) search.set("after", query.after);
   return search.toString();
 }
 
@@ -76,15 +72,29 @@ export function hasActiveLibrarySearch(query: LibrarySearchQuery): boolean {
   );
 }
 
+export function withoutLibraryCursor(
+  query: LibrarySearchQuery,
+): LibrarySearchQuery {
+  return { ...query, after: null };
+}
+
+export function changeLibraryQuery(
+  query: LibrarySearchQuery,
+  patch: Partial<LibrarySearchQuery>,
+): LibrarySearchQuery {
+  const search = serializeLibrarySearchQuery({
+    ...query,
+    ...patch,
+    after: null,
+  });
+  return parseLibrarySearchParams(new URLSearchParams(search)).query;
+}
+
 function toSearchParams(input: SearchParamsInput): URLSearchParams {
-  if (input instanceof URLSearchParams) {
-    return new URLSearchParams(input);
-  }
+  if (input instanceof URLSearchParams) return new URLSearchParams(input);
   const search = new URLSearchParams();
   for (const [name, value] of Object.entries(input)) {
-    if (value === undefined) {
-      continue;
-    }
+    if (value === undefined) continue;
     for (const item of typeof value === "string" ? [value] : value) {
       search.append(name, item);
     }
@@ -128,10 +138,7 @@ function normalizeSort(
     : defaultSort(q, seriesSlugs);
 }
 
-function defaultSort(
-  q: string,
-  seriesSlugs: readonly string[],
-): LibraryCatalogSort {
+function defaultSort(q: string, seriesSlugs: readonly string[]): LibraryCatalogSort {
   return q.length === 0 && seriesSlugs.length === 1 ? "series" : "relevance";
 }
 
@@ -140,7 +147,5 @@ function appendValues(
   name: string,
   values: readonly string[],
 ): void {
-  for (const value of values) {
-    search.append(name, value);
-  }
+  for (const value of values) search.append(name, value);
 }

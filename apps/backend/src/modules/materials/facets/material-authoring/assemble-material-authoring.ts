@@ -11,6 +11,10 @@ import { assembleValidateMaterial } from "../../features/validate-material/valid
 import { assembleTransitionMaterialPublication } from "../../features/transition-material-publication/transition-material-publication.js";
 import type { MaterialAuthoringDependencies } from "./material-authoring.dependencies.js";
 import type { MaterialAuthoring } from "./material-authoring.js";
+import { assembleCreateContentCollection } from "../../features/create-content-collection/create-content-collection.js";
+import { assembleListContentCollections } from "../../features/list-content-collections/list-content-collections.js";
+import { assembleSetContentCollectionArchive } from "../../features/set-content-collection-archive/set-content-collection-archive.js";
+import { assembleUpdateContentCollection } from "../../features/update-content-collection/update-content-collection.js";
 
 export function assembleMaterialAuthoring(
   dependencies: MaterialAuthoringDependencies,
@@ -18,19 +22,24 @@ export function assembleMaterialAuthoring(
   const loadMaterial = assembleLoadMaterial(dependencies);
   const saveMaterial = assembleSaveMaterial(dependencies);
   return {
+    createContentCollection: assembleCreateContentCollection(dependencies),
     createDraft: assembleCreateDraft(dependencies),
     deleteDraft: assembleDeleteDraft(dependencies),
     loadMaterial,
     loadSeriesOrder: assembleLoadSeriesOrder(dependencies),
     listReferences: assembleListAuthoringReferences(dependencies),
     listMaterials: assembleListMaterials(dependencies),
+    listContentCollections: assembleListContentCollections(dependencies),
     previewMaterial: assemblePreviewMaterial(dependencies),
     reorderSeries: assembleReorderSeries(dependencies),
     saveMaterial,
+    setContentCollectionArchive:
+      assembleSetContentCollectionArchive(dependencies),
     transitionPublication: assembleTransitionMaterialPublication({
       loadMaterial,
       saveMaterial,
     }),
     validateMaterial: assembleValidateMaterial(dependencies),
+    updateContentCollection: assembleUpdateContentCollection(dependencies),
   };
 }

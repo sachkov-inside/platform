@@ -187,10 +187,11 @@ function TaxonomySelect({
           {options.map((option) => (
             <SelectItem
               className={authoringSelectItemClassName}
+              disabled={option.archived === true && option.value !== value}
               key={option.value}
               value={option.value}
             >
-              {materialTaxonomyLabel(option.label)}
+              {materialTaxonomyLabel(option.label)}{option.archived === true ? " · архив" : ""}
             </SelectItem>
           ))}
         </SelectContent>
@@ -266,7 +267,7 @@ function SeriesSelector({
               <input
                 checked={checked}
                 className="sr-only"
-                disabled={disabled}
+                disabled={disabled || (series.archived === true && !checked)}
                 onChange={(event) => {
                   actions.onSeriesToggle(series.value, event.currentTarget.checked);
                 }}
@@ -280,7 +281,7 @@ function SeriesSelector({
               >
                 <BookOpen aria-hidden="true" className="size-4" />
               </span>
-              <span className="truncate">{series.label}</span>
+              <span className="truncate">{series.label}{series.archived === true ? " · архив" : ""}</span>
               <span
                 className={cn(
                   "ml-auto grid size-6 shrink-0 place-items-center rounded-full border",

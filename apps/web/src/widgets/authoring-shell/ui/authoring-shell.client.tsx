@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, Files, FilePlus2, Globe2, LibraryBig, ListOrdered, PenLine } from "lucide-react";
+import { Eye, Files, Globe2, LibraryBig, ListOrdered, PenLine, Tags } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -12,13 +12,15 @@ const materialsHref = "/authoring/materials" as Route;
 
 export function AuthoringShell({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname();
-  const current = pathname.startsWith("/authoring/playlists")
+  const current = pathname.startsWith("/authoring/topics")
+    ? "topics"
+    : pathname.startsWith("/authoring/playlists")
     ? "playlists"
     : pathname.endsWith("/preview")
       ? "preview"
-      : pathname === materialsHref
+      : pathname.startsWith(materialsHref)
         ? "materials"
-        : "editor";
+        : undefined;
 
   return (
     <div className="min-h-svh bg-background text-foreground md:flex md:h-svh md:min-h-0 md:overflow-hidden">
@@ -41,7 +43,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
           </Link>
           <nav aria-label="Редактор" className="mt-7 grid gap-1">
             <AuthoringLink current={current === "materials"} href={materialsHref} icon={<Files aria-hidden="true" />} label="Материалы" />
-            <AuthoringLink current={current === "editor"} href="/authoring/materials/new" icon={<FilePlus2 aria-hidden="true" />} label="Новый материал" />
+            <AuthoringLink current={current === "topics"} href="/authoring/topics" icon={<Tags aria-hidden="true" />} label="Темы" />
             <AuthoringLink current={current === "playlists"} href="/authoring/playlists" icon={<ListOrdered aria-hidden="true" />} label="Плейлисты" />
             {current === "preview" ? (
               <div aria-current="page" className="flex min-h-11 items-center gap-3 rounded-xl bg-sidebar-accent px-3 text-sm font-medium text-sidebar-accent-foreground">
@@ -58,8 +60,9 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
       </aside>
       <div className="min-w-0 flex-1 pb-[calc(3.75rem+env(safe-area-inset-bottom))] md:h-full md:pb-0">{children}</div>
       <nav aria-label="Редактор на мобильном" className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden">
-        <div className="grid grid-cols-4 px-2 pt-1">
+        <div className="grid grid-cols-5 px-2 pt-1">
           <MobileLink current={current === "materials"} href={materialsHref} label="Материалы"><Files aria-hidden="true" /></MobileLink>
+          <MobileLink current={current === "topics"} href="/authoring/topics" label="Темы"><Tags aria-hidden="true" /></MobileLink>
           <MobileLink current={current === "playlists"} href="/authoring/playlists" label="Плейлисты"><ListOrdered aria-hidden="true" /></MobileLink>
           <MobileLink href="/library" label="База знаний"><LibraryBig aria-hidden="true" /></MobileLink>
           <MobileLink href="/" label="Сайт"><Globe2 aria-hidden="true" /></MobileLink>

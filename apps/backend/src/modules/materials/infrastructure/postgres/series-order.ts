@@ -6,10 +6,12 @@ import {
 import { z } from "zod";
 import type { SeriesMembership } from "../../domain/material-metadata.js";
 import type { MaterialId } from "../../domain/material-identifiers.js";
+import { refreshPublishedMaterialSearchProjections } from "./published-material-search.js";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
 export interface SeriesOrderSnapshot {
+  readonly archived: boolean;
   readonly items: readonly {
     readonly materialId: string;
     readonly ordinal: number;
@@ -27,7 +29,7 @@ export async function loadSeriesOrderSnapshot(
   const [series, memberships] = await Promise.all([
     prisma.series.findUnique({
       where: { id: seriesId },
-      select: { id: true, name: true },
+      select: { archivedAt: true, id: true, name: true },
     }),
     prisma.seriesMembership.findMany({
       where: { seriesId },
@@ -47,6 +49,7 @@ export async function loadSeriesOrderSnapshot(
         });
   const materialById = new Map(materials.map((material) => [material.id, material]));
   return {
+    archived: series.archivedAt !== null,
     items: memberships.map(({ materialId, ordinal }) => {
       const material = materialById.get(materialId);
       if (material === undefined) {
@@ -154,6 +157,10 @@ export async function replaceSeriesOrder(
   seriesId: string,
   orderedMaterialIds: readonly string[],
 ): Promise<void> {
+  const previousMemberships = await transaction.seriesMembership.findMany({
+    where: { seriesId },
+    select: { materialId: true },
+  });
   await transaction.seriesMembership.deleteMany({ where: { seriesId } });
   if (orderedMaterialIds.length > 0) {
     await transaction.seriesMembership.createMany({
@@ -168,16 +175,16 @@ export async function replaceSeriesOrder(
   await transaction.publishedMaterialSeriesMembership.deleteMany({
     where: { seriesId },
   });
-  if (orderedMaterialIds.length === 0) {
-    return;
-  }
-  const published = await transaction.material.findMany({
-    where: {
-      id: { in: [...orderedMaterialIds] },
-      publicationState: "published",
-    },
-    select: { id: true },
-  });
+  const published =
+    orderedMaterialIds.length === 0
+      ? []
+      : await transaction.material.findMany({
+          where: {
+            id: { in: [...orderedMaterialIds] },
+            publicationState: "published",
+          },
+          select: { id: true },
+        });
   const publishedIds = new Set(published.map(({ id }) => id));
   const publishedMemberships = orderedMaterialIds.flatMap((materialId, index) =>
     publishedIds.has(materialId)
@@ -189,4 +196,13 @@ export async function replaceSeriesOrder(
       data: publishedMemberships,
     });
   }
+  await refreshPublishedMaterialSearchProjections(transaction, {
+    kind: "materials",
+    materialIds: [
+      ...new Set([
+        ...previousMemberships.map(({ materialId }) => materialId),
+        ...orderedMaterialIds,
+      ]),
+    ],
+  });
 }

@@ -1,9 +1,9 @@
-import type { PrivateMemberProfileResult } from "@/entities/member-profile";
+import type { PrivateMemberProfileState } from "@/entities/member-profile";
 import { parsePrivateProfileState } from "./member-profile-contract";
 
 export async function requestAccountProfile(
   signal: AbortSignal,
-): Promise<PrivateMemberProfileResult> {
+): Promise<AccountProfileResult> {
   let response: Response;
   try {
     response = await fetch("/api/account/profile", {
@@ -22,8 +22,27 @@ export async function requestAccountProfile(
     };
   }
   try {
-    return { kind: "ready", state: parsePrivateProfileState(await response.json()) };
+    const payload = await response.json() as unknown;
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      !("state" in payload)
+    ) {
+      throw new TypeError("Account response shape is invalid");
+    }
+    return {
+      kind: "ready",
+      state: parsePrivateProfileState(payload.state),
+    };
   } catch {
     return { kind: "unavailable", reference: "profile-bff-contract" };
   }
 }
+
+export type AccountProfileResult =
+  | {
+      readonly kind: "ready";
+      readonly state: PrivateMemberProfileState;
+    }
+  | { readonly kind: "unauthorized" }
+  | { readonly kind: "unavailable"; readonly reference: string };

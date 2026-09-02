@@ -2,30 +2,28 @@
 
 import { useEffect, useState } from "react";
 
-import {
-  DesktopAuthControl,
-  type AuthControlState,
-  MobileAuthControl,
-} from "@/widgets/auth-control";
+import type { AuthControlState } from "@/widgets/auth-control";
 
-interface AuthStatusControlProps {
-  readonly accountLabel?: string | undefined;
-  readonly presentation: "desktop" | "mobile";
+interface AuthStatusSnapshot {
+  readonly canManageMaterials: boolean;
+  readonly state: AuthControlState;
 }
 
-let statusFlight: Promise<AuthControlState> | undefined;
+const initialStatus: AuthStatusSnapshot = {
+  canManageMaterials: false,
+  state: "guest",
+};
 
-export function AuthStatusControl({
-  accountLabel,
-  presentation,
-}: AuthStatusControlProps) {
-  const [state, setState] = useState<AuthControlState>("guest");
+let statusFlight: Promise<AuthStatusSnapshot> | undefined;
+
+export function useAuthStatus(): AuthStatusSnapshot {
+  const [status, setStatus] = useState<AuthStatusSnapshot>(initialStatus);
 
   useEffect(() => {
     let active = true;
-    void loadAuthStatus().then((authoritativeState) => {
+    void loadAuthStatus().then((authoritativeStatus) => {
       if (active) {
-        setState(authoritativeState);
+        setStatus(authoritativeStatus);
       }
     });
     return () => {
@@ -33,38 +31,46 @@ export function AuthStatusControl({
     };
   }, []);
 
-  return presentation === "desktop" ? (
-    <DesktopAuthControl accountLabel={accountLabel} state={state} />
-  ) : (
-    <MobileAuthControl accountLabel={accountLabel} state={state} />
-  );
+  return status;
 }
 
-function loadAuthStatus(): Promise<AuthControlState> {
+function loadAuthStatus(): Promise<AuthStatusSnapshot> {
   statusFlight ??= fetch("/auth/status", {
     cache: "no-store",
     credentials: "same-origin",
   })
     .then(async (response) => {
       if (!response.ok) {
-        return "unavailable";
+        return { canManageMaterials: false, state: "unavailable" } as const;
       }
       const payload: unknown = await response.json();
-      return isAuthControlStateResponse(payload) ? payload.state : "unavailable";
+      return parseAuthStatus(payload);
     })
-    .catch(() => "unavailable" as const)
+    .catch(
+      () => ({ canManageMaterials: false, state: "unavailable" }) as const,
+    )
     .finally(() => {
       statusFlight = undefined;
     });
   return statusFlight;
 }
 
-function isAuthControlStateResponse(
-  value: unknown,
-): value is { readonly state: AuthControlState } {
+function parseAuthStatus(value: unknown): AuthStatusSnapshot {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
+    return { canManageMaterials: false, state: "unavailable" };
   }
   const state = (value as Record<string, unknown>).state;
-  return state === "authenticated" || state === "guest" || state === "unavailable";
+  if (
+    state !== "authenticated" &&
+    state !== "guest" &&
+    state !== "unavailable"
+  ) {
+    return { canManageMaterials: false, state: "unavailable" };
+  }
+  return {
+    canManageMaterials:
+      state === "authenticated" &&
+      (value as Record<string, unknown>).canManageMaterials === true,
+    state,
+  };
 }

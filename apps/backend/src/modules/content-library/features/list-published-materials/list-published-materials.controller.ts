@@ -52,6 +52,7 @@ const queryValueSchema = z.union([z.string(), z.array(z.string()).max(20)]);
 const catalogHttpQuerySchema = z
   .object({
     after: queryValueSchema.optional(),
+    canonicalTopic: queryValueSchema.optional(),
     format: queryValueSchema.optional(),
     q: queryValueSchema.optional(),
     series: queryValueSchema.optional(),
@@ -87,6 +88,11 @@ export class ListPublishedMaterialsController {
     name: "after",
     required: false,
     schema: toOpenApiSchema(z.string().min(1).max(512)),
+  })
+  @ApiQuery({
+    name: "canonicalTopic",
+    required: false,
+    schema: toOpenApiSchema(facetSlugSchema),
   })
   @ApiQuery({
     name: "q",
@@ -147,14 +153,17 @@ export class ListPublishedMaterialsController {
       throwContentLibraryError({ code: "invalid_request_shape" });
     }
     const after = singleQueryValue(parsed.data.after);
+    const canonicalTopic = singleQueryValue(parsed.data.canonicalTopic);
     const q = singleQueryValue(parsed.data.q);
     const sort = singleQueryValue(parsed.data.sort);
     const parsedSort =
       sort === undefined ? undefined : catalogSortSchema.safeParse(sort);
     if (
       after === null ||
+      canonicalTopic === null ||
       q === null ||
       sort === null ||
+      (canonicalTopic !== undefined && parsed.data.topic !== undefined) ||
       (parsedSort !== undefined && !parsedSort.success)
     ) {
       throwContentLibraryError({ code: "invalid_request_shape" });
@@ -172,6 +181,9 @@ export class ListPublishedMaterialsController {
               },
         first: CATALOG_PAGE_SIZE,
         ...(after === undefined ? {} : { after }),
+        ...(canonicalTopic === undefined
+          ? {}
+          : { canonicalTopicSlug: canonicalTopic }),
         ...(q === undefined ? {} : { q }),
         ...(parsedSort === undefined
           ? {}

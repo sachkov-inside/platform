@@ -24,7 +24,7 @@ const commandSchema = z
   .object({
     actor: accountId,
     expectedOrderVersion: z.string().regex(/^[a-f0-9]{64}$/u),
-    orderedMaterialIds: z.array(entityId).max(10_000),
+    orderedMaterialIds: z.array(entityId),
     seriesId: entityId,
   })
   .strict()
@@ -70,14 +70,47 @@ export function assembleReorderSeries(
         if (sameOrder(currentIds, command.orderedMaterialIds)) {
           return { seriesId: command.seriesId, orderVersion: currentOrderVersion };
         }
-        if (!sameMembers(currentIds, command.orderedMaterialIds)) {
-          return rollback({
-            code: "series_membership_changed",
-            currentOrderVersion,
-          });
-        }
         if (currentOrderVersion !== command.expectedOrderVersion) {
           return rollback({ code: "stale_series_order", currentOrderVersion });
+        }
+        if (snapshot.archived) {
+          const currentSet = new Set(currentIds);
+          const addedIndex = command.orderedMaterialIds.findIndex(
+            (materialId) => !currentSet.has(materialId),
+          );
+          if (addedIndex >= 0) {
+            return rollback({
+              code: "invalid_reference",
+              issues: [
+                {
+                  code: "series_archived",
+                  path: `/orderedMaterialIds/${String(addedIndex)}`,
+                },
+              ],
+            });
+          }
+        }
+        const foundMaterials =
+          command.orderedMaterialIds.length === 0
+            ? []
+            : await transaction.material.findMany({
+                where: { id: { in: [...command.orderedMaterialIds] } },
+                select: { id: true },
+              });
+        const foundMaterialIds = new Set(foundMaterials.map(({ id }) => id));
+        const missingIndex = command.orderedMaterialIds.findIndex(
+          (materialId) => !foundMaterialIds.has(materialId),
+        );
+        if (missingIndex >= 0) {
+          return rollback({
+            code: "invalid_reference",
+            issues: [
+              {
+                code: "material_not_found",
+                path: `/orderedMaterialIds/${String(missingIndex)}`,
+              },
+            ],
+          });
         }
         await replaceSeriesOrder(
           transaction,
@@ -99,12 +132,4 @@ function sameOrder(left: readonly string[], right: readonly string[]): boolean {
     left.length === right.length &&
     left.every((value, index) => value === right[index])
   );
-}
-
-function sameMembers(left: readonly string[], right: readonly string[]): boolean {
-  if (left.length !== right.length) {
-    return false;
-  }
-  const rightValues = new Set(right);
-  return left.every((value) => rightValues.has(value));
 }

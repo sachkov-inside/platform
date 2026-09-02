@@ -11,6 +11,9 @@ import type {
   ReorderSeriesError,
   TransitionMaterialPublicationError,
   ValidateMaterialError,
+  CreateContentCollectionError,
+  SetContentCollectionArchiveError,
+  UpdateContentCollectionError,
 } from "../../index.js";
 import {
   contentVersionWireSchema,
@@ -82,6 +85,7 @@ export const deleteDraftBodySchema = z
 export const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
 export const seriesOrderSchema = z
   .object({
+    archived: z.boolean(),
     items: z.array(
       z
         .object({
@@ -100,7 +104,7 @@ export const seriesOrderSchema = z
 export const reorderSeriesBodySchema = z
   .object({
     expectedOrderVersion: seriesOrderVersionSchema,
-    orderedMaterialIds: z.array(materialIdSchema).max(10_000),
+    orderedMaterialIds: z.array(materialIdSchema),
   })
   .strict()
   .refine(
@@ -110,6 +114,44 @@ export const reorderSeriesBodySchema = z
   );
 export const reorderSeriesReceiptSchema = z
   .object({ seriesId: z.uuid(), orderVersion: seriesOrderVersionSchema })
+  .strict();
+
+export const contentCollectionKindSchema = z.enum(["series", "topic"]);
+export const contentCollectionSchema = z
+  .object({
+    archived: z.boolean(),
+    id: z.uuid(),
+    kind: contentCollectionKindSchema,
+    materialCount: z.number().int().nonnegative(),
+    name: z.string().min(1).max(120),
+    slug: z.string().min(1).max(120),
+    summary: z.string().max(500),
+    version: z.number().int().positive(),
+  })
+  .strict();
+export const contentCollectionListSchema = z.array(contentCollectionSchema);
+export const createContentCollectionBodySchema = z
+  .object({
+    kind: contentCollectionKindSchema,
+    name: z.string(),
+    slug: z.string(),
+    summary: z.string(),
+  })
+  .strict();
+export const updateContentCollectionBodySchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    kind: contentCollectionKindSchema,
+    name: z.string(),
+    summary: z.string(),
+  })
+  .strict();
+export const setContentCollectionArchiveBodySchema = z
+  .object({
+    archived: z.boolean(),
+    expectedVersion: z.number().int().positive(),
+    kind: contentCollectionKindSchema,
+  })
   .strict();
 
 export const validationIssueSchema = z
@@ -230,6 +272,7 @@ export const materialAuthoringProblemSchema = z.looseObject({
   issues: z.array(validationIssueSchema).optional(),
   currentContentVersion: contentVersionSchema.optional(),
   currentOrderVersion: seriesOrderVersionSchema.optional(),
+  currentVersion: z.number().int().positive().optional(),
   currentState: publicationStateWireSchema.optional(),
   targetState: publicationStateWireSchema.optional(),
 });
@@ -266,7 +309,10 @@ type MaterialAuthoringTransportError =
   | SaveMaterialError
   | ReorderSeriesError
   | TransitionMaterialPublicationError
-  | ValidateMaterialError;
+  | ValidateMaterialError
+  | CreateContentCollectionError
+  | SetContentCollectionArchiveError
+  | UpdateContentCollectionError;
 
 export type MaterialAuthoringErrorStatus = 403 | 404 | 409 | 422 | 500 | 503;
 
@@ -278,14 +324,16 @@ export function statusForMaterialAuthoringError(
       return 403;
     case "material_not_found":
     case "series_not_found":
+    case "content_collection_not_found":
       return 404;
     case "draft_deletion_forbidden":
     case "idempotency_key_reused":
     case "invalid_publication_transition":
     case "series_ordinal_conflict":
     case "stale_content_version":
-    case "series_membership_changed":
     case "stale_series_order":
+    case "content_collection_slug_conflict":
+    case "stale_content_collection_version":
       return 409;
     case "duplicate_tag":
     case "invalid_content":

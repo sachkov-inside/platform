@@ -2,15 +2,15 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { LibraryCatalogPage } from "@/_pages/library/model/library-view";
+import {
+  hasActiveLibrarySearch,
+  type LibraryCatalogPage,
+  type LibrarySearchQuery,
+} from "@/features/library-catalog";
 import {
   publishedMaterialProjectionSchema,
   toMaterialPreview,
 } from "@/entities/material";
-import {
-  hasActiveLibrarySearch,
-  type LibrarySearchQuery,
-} from "@/_pages/library/model/library-search-query";
 import {
   BackendConnectionError,
   requestPublishedMaterialCatalog,
@@ -23,6 +23,7 @@ const catalogFacetSchema = z
     id: z.string(),
     name: z.string(),
     slug: z.string(),
+    summary: z.string().nullable(),
   })
   .strict();
 
@@ -63,12 +64,41 @@ export async function getLibraryCatalogPage(
   accessToken?: string,
   signal?: AbortSignal,
 ): Promise<LibraryCatalogPage> {
+  return requestLibraryCatalogPage(query, after, accessToken, signal);
+}
+
+export async function getTopicMaterialCatalogPage(
+  topicSlug: string,
+  query: LibrarySearchQuery,
+  after: string | undefined,
+  accessToken?: string,
+  signal?: AbortSignal,
+): Promise<LibraryCatalogPage> {
+  return requestLibraryCatalogPage(
+    query,
+    after,
+    accessToken,
+    signal,
+    topicSlug,
+  );
+}
+
+async function requestLibraryCatalogPage(
+  query: LibrarySearchQuery,
+  after: string | undefined,
+  accessToken?: string,
+  signal?: AbortSignal,
+  canonicalTopicSlug?: string,
+): Promise<LibraryCatalogPage> {
   let result: Awaited<ReturnType<typeof requestPublishedMaterialCatalog>>;
   try {
-    result = await requestPublishedMaterialCatalog(toBackendQuery(query, after), {
-      ...(accessToken === undefined ? {} : { accessToken }),
-      ...(signal === undefined ? {} : { signal }),
-    });
+    result = await requestPublishedMaterialCatalog(
+      toBackendQuery(query, after, canonicalTopicSlug),
+      {
+        ...(accessToken === undefined ? {} : { accessToken }),
+        ...(signal === undefined ? {} : { signal }),
+      },
+    );
   } catch (error) {
     if (error instanceof BackendConnectionError && error.code === "unavailable") {
       return { kind: "unavailable" };
@@ -120,12 +150,15 @@ export async function getLibraryCatalogPage(
 function toBackendQuery(
   query: LibrarySearchQuery,
   after: string | undefined,
+  canonicalTopicSlug?: string,
 ) {
   return {
+    ...(canonicalTopicSlug === undefined
+      ? { topic: query.topicSlugs }
+      : { canonicalTopic: canonicalTopicSlug }),
     format: query.formatSlugs,
     series: query.seriesSlugs,
     sort: query.sort,
-    topic: query.topicSlugs,
     ...(after === undefined ? {} : { after }),
     ...(query.q.length === 0 ? {} : { q: query.q }),
   };
