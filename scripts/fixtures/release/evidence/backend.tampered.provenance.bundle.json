@@ -1,0 +1,13 @@
+{
+  "mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
+  "verificationMaterial": {
+    "certificate": {
+      "rawBytes": "fixture"
+    }
+  },
+  "dsseEnvelope": {
+    "payloadType": "application/vnd.in-toto+json",
+    "payload": "tampered-fixture",
+    "signatures": [{"sig": "fixture"}]
+  }
+}

@@ -2,5 +2,17 @@
   "requestedVersion": "v4",
   "sourceSha": "4444444444444444444444444444444444444444",
   "currentMainSha": "4444444444444444444444444444444444444444",
-  "existingVersions": ["v1", "v3"]
+  "existingTags": ["v1", "v3"],
+  "existingReleases": [
+    {
+      "version": "v1",
+      "immutable": true,
+      "assets": ["release-manifest.json", "backend.provenance.bundle.json", "backend.sbom.bundle.json", "backend.sbom.spdx.json", "backend.vulnerabilities.json", "web.provenance.bundle.json", "web.sbom.bundle.json", "web.sbom.spdx.json", "web.vulnerabilities.json"]
+    },
+    {
+      "version": "v3",
+      "immutable": true,
+      "assets": ["release-manifest.json", "backend.provenance.bundle.json", "backend.sbom.bundle.json", "backend.sbom.spdx.json", "backend.vulnerabilities.json", "web.provenance.bundle.json", "web.sbom.bundle.json", "web.sbom.spdx.json", "web.vulnerabilities.json"]
+    }
+  ]
 }

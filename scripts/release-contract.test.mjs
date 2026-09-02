@@ -56,6 +56,31 @@ describe("release contract CLI", () => {
     assert.equal(result.stdout, "");
   });
 
+  it("rejects an ordinal Git tag without a retained immutable release", () => {
+    const result = runReleaseContract(
+      "plan",
+      "scripts/fixtures/release/plan-bare-tag.json",
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /ordinal Git tags must exactly match retained immutable releases/u,
+    );
+    assert.equal(result.stdout, "");
+  });
+
+  it("rejects a retained ordinal release that is not immutable", () => {
+    const result = runReleaseContract(
+      "plan",
+      "scripts/fixtures/release/plan-mutable-release.json",
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /v1 is not an immutable published release/u);
+    assert.equal(result.stdout, "");
+  });
+
   it("normalizes verified image evidence with a passing vulnerability decision", () => {
     const result = runReleaseContract(
       "evidence",
@@ -133,10 +158,7 @@ describe("release contract CLI", () => {
     });
 
     assert.equal(result.status, 1);
-    assert.match(
-      result.stderr,
-      /provenance attestation contains unknown fields: unexpected/u,
-    );
+    assert.match(result.stderr, /provenanceAttestation.*Unrecognized key/u);
     assert.equal(result.stdout, "");
   });
 
@@ -149,7 +171,37 @@ describe("release contract CLI", () => {
     });
 
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /provenance attestation identity is invalid/u);
+    assert.match(
+      result.stderr,
+      /provenanceAttestation: attestation identity is invalid/u,
+    );
+    assert.equal(result.stdout, "");
+  });
+
+  it("accepts release assets that match the normalized evidence hashes", () => {
+    const result = runReleaseContract(
+      "assets",
+      "scripts/fixtures/release/evidence-assets-valid.json",
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(
+      JSON.parse(result.stdout).image.name,
+      "ghcr.io/sachkov-inside/platform-backend",
+    );
+  });
+
+  it("rejects a provenance bundle changed after initial verification", () => {
+    const result = runReleaseContract(
+      "assets",
+      "scripts/fixtures/release/evidence-assets-tampered-provenance.json",
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /provenance bundle does not match normalized evidence/u,
+    );
     assert.equal(result.stdout, "");
   });
 
@@ -187,7 +239,10 @@ describe("release contract CLI", () => {
     );
 
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /backend image evidence contains unknown fields: unexpected/u);
+    assert.match(
+      result.stderr,
+      /platform-backend evidence: Unrecognized key: "unexpected"/u,
+    );
     assert.equal(result.stdout, "");
   });
 });

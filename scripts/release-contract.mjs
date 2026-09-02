@@ -5,6 +5,29 @@ import { globSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 
+import {
+  attestationSchema,
+  attestationVerificationSchema,
+  backendImageName,
+  identityInputsSchema,
+  imageIdentitySchema,
+  normalizedEvidenceSchema,
+  ordinalVersionSchema,
+  parseSchema,
+  releaseAssetInputSchema,
+  releaseAssetNames,
+  releaseEvidenceInputSchema,
+  releaseManifestInputSchema,
+  releaseManifestSchema,
+  releasePlanInputSchema,
+  sigstoreBundleSchema,
+  spdxDocumentSchema,
+  vulnerabilityReportSchema,
+  waiverSchema,
+  webImageName,
+  workflowIdentitySchema,
+} from "../release/contract-schema.mjs";
+
 const [command, inputFlag, inputPath] = process.argv.slice(2);
 
 try {
@@ -12,7 +35,9 @@ try {
     throw new Error("usage: release-contract.mjs <command> --input <path>");
   }
 
-  const input = JSON.parse(await readFile(inputPath, "utf8"));
+  const input = JSON.parse(
+    await readFile(inputPath === "-" ? 0 : inputPath, "utf8"),
+  );
 
   if (command === "plan") {
     process.stdout.write(`${JSON.stringify(planRelease(input), null, 2)}\n`);
@@ -24,6 +49,10 @@ try {
     process.stdout.write(
       `${JSON.stringify(await createManifest(input), null, 2)}\n`,
     );
+  } else if (command === "assets") {
+    process.stdout.write(
+      `${JSON.stringify(await verifyEvidenceAssets(input), null, 2)}\n`,
+    );
   } else {
     throw new Error(`unknown release contract command: ${command ?? ""}`);
   }
@@ -34,14 +63,40 @@ try {
 }
 
 function planRelease(input) {
+  input = parseSchema(releasePlanInputSchema, input, "release plan");
   const ordinal = parseOrdinalVersion(input.requestedVersion);
-  assertSourceSha(input.sourceSha);
-  assertSourceSha(input.currentMainSha);
-  if (!Array.isArray(input.existingVersions)) {
-    throw new Error("existing release versions must be an array");
+  const ordinalReleases = input.existingReleases.filter(({ version }) =>
+    ordinalVersionSchema.safeParse(version).success,
+  );
+  const existingVersions = ordinalReleases.map(({ version }) => version);
+  for (const release of ordinalReleases) {
+    if (!release.immutable) {
+      throw new Error(`${release.version} is not an immutable published release`);
+    }
+    const missingAssets = releaseAssetNames.filter(
+      (asset) => !release.assets.includes(asset),
+    );
+    if (missingAssets.length > 0) {
+      throw new Error(
+        `${release.version} is missing retained release assets: ${missingAssets.join(", ")}`,
+      );
+    }
+  }
+  const uniqueTags = [
+    ...new Set(
+      input.existingTags.filter((tag) =>
+        ordinalVersionSchema.safeParse(tag).success,
+      ),
+    ),
+  ].sort();
+  const uniqueReleases = [...new Set(existingVersions)].sort();
+  if (!isDeepStrictEqual(uniqueTags, uniqueReleases)) {
+    throw new Error(
+      "ordinal Git tags must exactly match retained immutable releases",
+    );
   }
   const existingOrdinals = [
-    ...new Set(input.existingVersions.map((version) => parseOrdinalVersion(version))),
+    ...new Set(existingVersions.map((version) => parseOrdinalVersion(version))),
   ];
   const nextOrdinal = Math.max(0, ...existingOrdinals) + 1;
 
@@ -69,8 +124,8 @@ function planRelease(input) {
 }
 
 async function normalizeEvidence(input) {
+  input = parseSchema(releaseEvidenceInputSchema, input, "release evidence");
   const image = assertImage(input.image);
-  assertSourceSha(input.sourceSha);
 
   const sbom = await readJson(input.sbomPath, "SBOM");
   const vulnerabilities = await readJson(
@@ -98,7 +153,6 @@ async function normalizeEvidence(input) {
     provenanceVerification.value,
     image,
     "https://slsa.dev/provenance/v1",
-    input.sourceSha,
   );
   const verifiedSbom = assertVerification(
     sbomVerification.value,
@@ -109,10 +163,12 @@ async function normalizeEvidence(input) {
     throw new Error("SBOM does not describe the exact image digest");
   }
 
-  if (!Array.isArray(vulnerabilities.value.matches)) {
-    throw new Error("vulnerability report must contain matches");
-  }
-  const severities = vulnerabilities.value.matches.map(
+  const vulnerabilityReport = parseSchema(
+    vulnerabilityReportSchema,
+    vulnerabilities.value,
+    "vulnerability report",
+  );
+  const severities = vulnerabilityReport.matches.map(
     (match) => match?.vulnerability?.severity,
   );
   const high = severities.filter((severity) => severity === "High").length;
@@ -126,29 +182,33 @@ async function normalizeEvidence(input) {
   }
   const waiver = hasBlockingFindings ? assertWaiver(input.waiver) : null;
 
-  return {
-    image,
-    sourceSha: input.sourceSha,
-    sbom: {
-      attestation: assertAttestation(input.sbomAttestation, "SBOM attestation"),
-      bundleSha256: sha256(sbomBundle.text),
-      documentSha256: sha256(sbom.text),
+  return parseSchema(
+    normalizedEvidenceSchema,
+    {
+      image,
+      sourceSha: input.sourceSha,
+      sbom: {
+        attestation: assertAttestation(input.sbomAttestation, "SBOM attestation"),
+        bundleSha256: sha256(sbomBundle.text),
+        documentSha256: sha256(sbom.text),
+      },
+      provenance: {
+        attestation: assertAttestation(
+          input.provenanceAttestation,
+          "provenance attestation",
+        ),
+        bundleSha256: sha256(provenanceBundle.text),
+      },
+      vulnerabilities: {
+        critical,
+        decision: hasBlockingFindings ? "waived" : "passed",
+        high,
+        reportSha256: sha256(vulnerabilities.text),
+        waiver,
+      },
     },
-    provenance: {
-      attestation: assertAttestation(
-        input.provenanceAttestation,
-        "provenance attestation",
-      ),
-      bundleSha256: sha256(provenanceBundle.text),
-    },
-    vulnerabilities: {
-      critical,
-      decision: hasBlockingFindings ? "waived" : "passed",
-      high,
-      reportSha256: sha256(vulnerabilities.text),
-      waiver,
-    },
-  };
+    "normalized evidence",
+  );
 }
 
 async function readJson(path, label) {
@@ -167,105 +227,44 @@ async function readJson(path, label) {
 }
 
 function assertImage(image) {
-  assertExactKeys(image, ["digest", "name"], "image identity");
-  if (
-    typeof image?.name !== "string" ||
-    !/^ghcr\.io\/[a-z0-9-]+\/[a-z0-9-]+$/u.test(image.name) ||
-    typeof image.digest !== "string" ||
-    !/^sha256:[a-f0-9]{64}$/u.test(image.digest)
-  ) {
-    throw new Error("image identity is invalid");
-  }
-  return { digest: image.digest, name: image.name };
-}
-
-function assertSourceSha(sourceSha) {
-  if (typeof sourceSha !== "string" || !/^[a-f0-9]{40}$/u.test(sourceSha)) {
-    throw new Error("source SHA must be a full lowercase Git commit SHA");
-  }
+  return parseSchema(imageIdentitySchema, image, "image identity");
 }
 
 function assertSpdx(sbom) {
-  if (
-    sbom?.spdxVersion !== "SPDX-2.3" ||
-    sbom?.SPDXID !== "SPDXRef-DOCUMENT" ||
-    !Array.isArray(sbom?.packages)
-  ) {
-    throw new Error("SBOM must be a complete SPDX 2.3 JSON document");
-  }
+  parseSchema(spdxDocumentSchema, sbom, "SBOM");
 }
 
 function assertSigstoreBundle(bundle, label) {
-  if (
-    typeof bundle?.mediaType !== "string" ||
-    typeof bundle?.verificationMaterial !== "object" ||
-    typeof bundle?.dsseEnvelope !== "object"
-  ) {
-    throw new Error(`${label} is not a Sigstore bundle`);
-  }
+  parseSchema(sigstoreBundleSchema, bundle, label);
 }
 
-function assertVerification(verification, image, predicateType, sourceSha) {
-  if (!Array.isArray(verification) || verification.length === 0) {
-    throw new Error(`verified ${predicateType} attestation is missing`);
-  }
+function assertVerification(verification, image, predicateType) {
+  verification = parseSchema(
+    attestationVerificationSchema,
+    verification,
+    `verified ${predicateType} attestation`,
+  );
 
-  const statement = verification[0]?.verificationResult?.statement;
-  const subject = statement?.subject?.find(
-    (candidate) => candidate?.name === image.name,
+  const statement = verification[0].verificationResult.statement;
+  const subject = statement.subject.find(
+    (candidate) => candidate.name === image.name,
   );
   if (
     statement?.predicateType !== predicateType ||
-    subject?.digest?.sha256 !== image.digest.slice("sha256:".length)
+    subject?.digest.sha256 !== image.digest.slice("sha256:".length)
   ) {
     throw new Error(`verified ${predicateType} attestation has the wrong subject`);
   }
 
-  if (sourceSha) {
-    const dependencies = statement.predicate?.buildDefinition?.resolvedDependencies;
-    if (
-      !Array.isArray(dependencies) ||
-      !dependencies.some((dependency) => dependency?.digest?.gitCommit === sourceSha)
-    ) {
-      throw new Error("provenance does not bind the captured source SHA");
-    }
-  }
   return statement;
 }
 
 function assertAttestation(attestation, label) {
-  assertExactKeys(attestation, ["id", "url"], label);
-  if (
-    typeof attestation?.id !== "string" ||
-    !/^\d+$/u.test(attestation.id) ||
-    attestation.url !==
-      `https://github.com/sachkov-inside/platform/attestations/${attestation.id}`
-  ) {
-    throw new Error(`${label} identity is invalid`);
-  }
-  return { id: attestation.id, url: attestation.url };
+  return parseSchema(attestationSchema, attestation, label);
 }
 
 function assertWaiver(waiver) {
-  assertExactKeys(waiver, ["actor", "reason", "runUrl"], "owner waiver");
-  if (
-    typeof waiver?.actor !== "string" ||
-    !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/u.test(waiver.actor) ||
-    typeof waiver.reason !== "string" ||
-    waiver.reason.trim().length < 20 ||
-    waiver.reason.length > 1000 ||
-    typeof waiver.runUrl !== "string" ||
-    !/^https:\/\/github\.com\/[^/]+\/[^/]+\/actions\/runs\/\d+$/u.test(
-      waiver.runUrl,
-    )
-  ) {
-    throw new Error("owner waiver must contain an actor, reason and workflow run URL");
-  }
-  return {
-    actor: waiver.actor,
-    reason: waiver.reason,
-    runUrl: waiver.runUrl,
-  };
+  return parseSchema(waiverSchema, waiver, "owner waiver");
 }
 
 function sha256(text) {
@@ -273,37 +272,25 @@ function sha256(text) {
 }
 
 async function createManifest(input) {
+  input = parseSchema(releaseManifestInputSchema, input, "release manifest input");
   const ordinal = parseOrdinalVersion(input.version);
-  assertSourceSha(input.sourceSha);
-  if (input.repository !== "sachkov-inside/platform") {
-    throw new Error("release repository must be sachkov-inside/platform");
-  }
   const workflow = assertWorkflow(input.workflow);
   const identityInputs = (
     await readJson(input.identityInputsPath, "identity inputs")
   ).value;
-  assertExactKeys(
-    identityInputs,
-    ["configuration", "migrations"],
-    "identity inputs",
-  );
-  const backend = (
-    await readJson(input.images?.backend, "backend evidence")
-  ).value;
-  const web = (await readJson(input.images?.web, "web evidence")).value;
-
-  assertNormalizedEvidence(
-    backend,
-    "ghcr.io/sachkov-inside/platform-backend",
+  parseSchema(identityInputsSchema, identityInputs, "identity inputs");
+  const backend = assertNormalizedEvidence(
+    (await readJson(input.images?.backend, "backend evidence")).value,
+    backendImageName,
     input.sourceSha,
   );
-  assertNormalizedEvidence(
-    web,
-    "ghcr.io/sachkov-inside/platform-web",
+  const web = assertNormalizedEvidence(
+    (await readJson(input.images?.web, "web evidence")).value,
+    webImageName,
     input.sourceSha,
   );
 
-  return {
+  const manifest = {
     schemaVersion: "inside.platform.release-manifest.v1",
     version: input.version,
     ordinal,
@@ -324,106 +311,64 @@ async function createManifest(input) {
       web: withAssetNames("web", web),
     },
   };
+  return parseSchema(releaseManifestSchema, manifest, "release manifest");
 }
 
 function parseOrdinalVersion(version) {
-  if (typeof version !== "string" || !/^v[1-9][0-9]*$/u.test(version)) {
-    throw new Error("release version must be vN with a positive ordinal");
-  }
+  version = parseSchema(ordinalVersionSchema, version, "release version");
   const ordinal = Number(version.slice(1));
-  if (!Number.isSafeInteger(ordinal)) {
-    throw new Error("release ordinal exceeds the supported range");
-  }
   return ordinal;
 }
 
 function assertWorkflow(workflow) {
-  assertExactKeys(workflow, ["actor", "runUrl"], "workflow identity");
-  if (
-    typeof workflow?.actor !== "string" ||
-    workflow.actor.length === 0 ||
-    typeof workflow.runUrl !== "string" ||
-    !/^https:\/\/github\.com\/sachkov-inside\/platform\/actions\/runs\/\d+$/u.test(
-      workflow.runUrl,
-    )
-  ) {
-    throw new Error("workflow identity is invalid");
-  }
-  return { actor: workflow.actor, runUrl: workflow.runUrl };
+  return parseSchema(workflowIdentitySchema, workflow, "workflow identity");
 }
 
 function assertNormalizedEvidence(evidence, imageName, sourceSha) {
-  const kind = imageName.endsWith("-backend") ? "backend" : "web";
-  assertExactKeys(
+  evidence = parseSchema(
+    normalizedEvidenceSchema,
     evidence,
-    ["image", "provenance", "sbom", "sourceSha", "vulnerabilities"],
-    `${kind} image evidence`,
+    `${imageName} evidence`,
   );
-  assertExactKeys(evidence?.image, ["digest", "name"], `${kind} image identity`);
-  assertExactKeys(
-    evidence?.sbom,
-    ["attestation", "bundleSha256", "documentSha256"],
-    `${kind} SBOM evidence`,
-  );
-  assertExactKeys(
-    evidence?.provenance,
-    ["attestation", "bundleSha256"],
-    `${kind} provenance evidence`,
-  );
-  assertExactKeys(
-    evidence?.vulnerabilities,
-    ["critical", "decision", "high", "reportSha256", "waiver"],
-    `${kind} vulnerability evidence`,
-  );
-  assertImage(evidence.image);
   if (evidence.image.name !== imageName || evidence.sourceSha !== sourceSha) {
     throw new Error(`${imageName} evidence does not bind the release source`);
   }
-  for (const [label, digest] of [
-    ["SBOM document", evidence.sbom?.documentSha256],
-    ["SBOM bundle", evidence.sbom?.bundleSha256],
-    ["provenance bundle", evidence.provenance?.bundleSha256],
-    ["vulnerability report", evidence.vulnerabilities?.reportSha256],
-  ]) {
-    if (typeof digest !== "string" || !/^sha256:[a-f0-9]{64}$/u.test(digest)) {
-      throw new Error(`${imageName} ${label} digest is invalid`);
+  return evidence;
+}
+
+async function verifyEvidenceAssets(input) {
+  input = parseSchema(releaseAssetInputSchema, input, "release evidence assets");
+  const evidence = parseSchema(
+    normalizedEvidenceSchema,
+    (await readJson(input.evidencePath, "normalized evidence")).value,
+    "normalized evidence",
+  );
+  const assets = [
+    [
+      input.provenanceBundlePath,
+      evidence.provenance.bundleSha256,
+      "provenance bundle",
+    ],
+    [input.sbomBundlePath, evidence.sbom.bundleSha256, "SBOM bundle"],
+    [input.sbomPath, evidence.sbom.documentSha256, "SBOM document"],
+    [
+      input.vulnerabilityPath,
+      evidence.vulnerabilities.reportSha256,
+      "vulnerability report",
+    ],
+  ];
+  for (const [path, expectedDigest, label] of assets) {
+    const asset = await readJson(path, label);
+    if (sha256(asset.text) !== expectedDigest) {
+      throw new Error(`${label} does not match normalized evidence`);
     }
   }
-  assertAttestation(evidence.sbom?.attestation, "SBOM attestation");
-  assertAttestation(evidence.provenance?.attestation, "provenance attestation");
-
-  const vulnerabilities = evidence.vulnerabilities;
-  if (
-    !Number.isInteger(vulnerabilities?.high) ||
-    vulnerabilities.high < 0 ||
-    !Number.isInteger(vulnerabilities?.critical) ||
-    vulnerabilities.critical < 0
-  ) {
-    throw new Error(`${imageName} vulnerability counts are invalid`);
-  }
-  const hasFindings = vulnerabilities.high > 0 || vulnerabilities.critical > 0;
-  if (
-    (!hasFindings &&
-      (vulnerabilities.decision !== "passed" || vulnerabilities.waiver !== null)) ||
-    (hasFindings && vulnerabilities.decision !== "waived")
-  ) {
-    throw new Error(`${imageName} vulnerability decision is invalid`);
-  }
-  if (hasFindings) {
-    assertWaiver(vulnerabilities.waiver);
-  }
+  return evidence;
 }
 
 async function treeIdentity(patterns, label) {
-  if (!Array.isArray(patterns) || patterns.length === 0) {
-    throw new Error(`${label} identity must declare input patterns`);
-  }
-
   const files = [];
   for (const pattern of patterns) {
-    if (typeof pattern !== "string" || pattern.length === 0) {
-      throw new Error(`${label} identity contains an invalid pattern`);
-    }
     const matches = globSync(pattern, {
       cwd: process.cwd(),
       nodir: true,
@@ -459,15 +404,4 @@ function withAssetNames(kind, evidence) {
       vulnerabilityReport: `${kind}.vulnerabilities.json`,
     },
   };
-}
-
-function assertExactKeys(value, allowedKeys, label) {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`${label} must be an object`);
-  }
-  const allowed = new Set(allowedKeys);
-  const unknown = Object.keys(value).filter((key) => !allowed.has(key)).sort();
-  if (unknown.length > 0) {
-    throw new Error(`${label} contains unknown fields: ${unknown.join(", ")}`);
-  }
 }

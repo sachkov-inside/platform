@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@logto/node':
         specifier: 3.1.10
@@ -29,9 +33,6 @@ importers:
       typescript:
         specifier: 7.0.2
         version: 7.0.2
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
 
   apps/backend:
     dependencies:

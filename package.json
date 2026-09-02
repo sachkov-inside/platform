@@ -40,12 +40,18 @@
     "compose:smoke": "bash scripts/compose-stack-smoke.sh",
     "compose:production:smoke": "bash scripts/production-compose-smoke.sh",
     "release:images:smoke": "bash scripts/release-image-smoke.sh",
+    "release:dry-run": "bash scripts/release-dry-run.sh",
+    "release:schema": "node scripts/generate-release-manifest-schema.mjs",
+    "release:schema:check": "node scripts/generate-release-manifest-schema.mjs --check",
     "conformance:telegram-membership": "pnpm --filter @inside/backend conformance:telegram-membership",
     "infra:up": "docker compose up -d --wait postgres object-storage",
     "infra:down": "docker compose down",
     "smoke:health": "pnpm --filter @inside/backend smoke:health",
     "smoke:fullstack": "node scripts/full-stack-smoke.mjs",
     "check:full": "pnpm check && pnpm test:integration && pnpm smoke:fullstack"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@logto/node": "3.1.10",
@@ -54,7 +60,6 @@
     "oxlint-tsgolint": "7.0.2001",
     "oxc-parser": "0.147.0",
     "proper-lockfile": "4.1.2",
-    "typescript": "7.0.2",
-    "zod": "4.4.3"
+    "typescript": "7.0.2"
   }
 }

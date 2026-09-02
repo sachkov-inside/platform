@@ -33,41 +33,23 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.10
+      - name: Install Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - name: Install release contract dependencies
+        run: pnpm install --frozen-lockfile --filter . --prod
       - name: Require immutable ordinal history and current main
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
           REQUESTED_VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ github.sha }}
         run: |
-          immutable_enabled="$(
-            gh api \
-              --header "X-GitHub-Api-Version: 2026-03-10" \
-              "repos/${GITHUB_REPOSITORY}/immutable-releases" \
-              --jq .enabled
-          )"
-          if [[ "$immutable_enabled" != "true" ]]; then
-            echo "Repository release immutability must be enabled before publication." >&2
-            exit 1
-          fi
-
-          current_main_sha="$(
-            gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
-          )"
-          existing_versions="$(
-            gh api --paginate "repos/${GITHUB_REPOSITORY}/tags?per_page=100" --jq '.[].name' |
-              awk '/^v[1-9][0-9]*$/' |
-              sort --version-sort --unique |
-              jq --raw-input --slurp 'split("\n") | map(select(length > 0))'
-          )"
-          jq --null-input \
-            --arg requestedVersion "$REQUESTED_VERSION" \
-            --arg sourceSha "$GITHUB_SHA" \
-            --arg currentMainSha "$current_main_sha" \
-            --argjson existingVersions "$existing_versions" \
-            '{requestedVersion, sourceSha, currentMainSha, existingVersions}' \
-            >release-plan-input.json
-          node scripts/release-contract.mjs plan --input release-plan-input.json \
-            >release-plan.json
+          bash scripts/plan-release.sh >release-plan.json
           echo "source_sha=$(jq --raw-output .sourceSha release-plan.json)" >>"$GITHUB_OUTPUT"
           echo "version=$(jq --raw-output .version release-plan.json)" >>"$GITHUB_OUTPUT"
 
@@ -104,6 +86,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       actions: read
+      attestations: read
       contents: write
     steps:
       - name: Check out captured source
@@ -111,48 +94,34 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.source_sha }}
           persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.10
+      - name: Install Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - name: Install release contract dependencies
+        run: pnpm install --frozen-lockfile --filter . --prod
       - name: Download verified image evidence
         uses: actions/download-artifact@v8.0.1
         with:
           pattern: release-evidence-*
           path: release-assets
           merge-multiple: true
+      - name: Reverify downloaded image evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash scripts/reverify-release-evidence.sh backend release-assets
+          bash scripts/reverify-release-evidence.sh web release-assets
       - name: Recheck release state
         env:
           GH_TOKEN: ${{ github.token }}
+          REQUESTED_VERSION: ${{ needs.plan.outputs.version }}
           SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
-          VERSION: ${{ needs.plan.outputs.version }}
         run: |
-          immutable_enabled="$(
-            gh api \
-              --header "X-GitHub-Api-Version: 2026-03-10" \
-              "repos/${GITHUB_REPOSITORY}/immutable-releases" \
-              --jq .enabled
-          )"
-          if [[ "$immutable_enabled" != "true" ]]; then
-            echo "Repository release immutability was disabled during the release." >&2
-            exit 1
-          fi
-
-          current_main_sha="$(
-            gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
-          )"
-          existing_versions="$(
-            gh api --paginate "repos/${GITHUB_REPOSITORY}/tags?per_page=100" --jq '.[].name' |
-              awk '/^v[1-9][0-9]*$/' |
-              sort --version-sort --unique |
-              jq --raw-input --slurp 'split("\n") | map(select(length > 0))'
-          )"
-          jq --null-input \
-            --arg requestedVersion "$VERSION" \
-            --arg sourceSha "$SOURCE_SHA" \
-            --arg currentMainSha "$current_main_sha" \
-            --argjson existingVersions "$existing_versions" \
-            '{requestedVersion, sourceSha, currentMainSha, existingVersions}' \
-            >"$RUNNER_TEMP/release-plan-input.json"
-          node scripts/release-contract.mjs plan \
-            --input "$RUNNER_TEMP/release-plan-input.json" \
-            >"$RUNNER_TEMP/release-plan.json"
+          bash scripts/plan-release.sh >"$RUNNER_TEMP/release-plan.json"
       - name: Create immutable manifest
         env:
           RELEASE_ACTOR: ${{ github.actor }}

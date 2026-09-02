@@ -1,139 +1,408 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/sachkov-inside/platform/blob/main/release/manifest.schema.json",
-  "title": "Inside Platform ordinal release manifest",
   "type": "object",
-  "additionalProperties": false,
-  "required": ["schemaVersion", "version", "ordinal", "source", "workflow", "identities", "images"],
   "properties": {
-    "schemaVersion": {"const": "inside.platform.release-manifest.v1"},
-    "version": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
-    "ordinal": {"type": "integer", "minimum": 1},
+    "schemaVersion": {
+      "$ref": "#/$defs/__schema0"
+    },
+    "version": {
+      "$ref": "#/$defs/__schema1"
+    },
+    "ordinal": {
+      "$ref": "#/$defs/__schema2"
+    },
     "source": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["repository", "sha"],
-      "properties": {
-        "repository": {"const": "sachkov-inside/platform"},
-        "sha": {"type": "string", "pattern": "^[a-f0-9]{40}$"}
-      }
+      "$ref": "#/$defs/__schema3"
     },
     "workflow": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["actor", "runUrl"],
-      "properties": {
-        "actor": {"type": "string", "minLength": 1},
-        "runUrl": {"type": "string", "format": "uri"}
-      }
+      "$ref": "#/$defs/__schema5"
     },
     "identities": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["migrations", "configuration"],
-      "properties": {
-        "migrations": {"$ref": "#/$defs/treeIdentity"},
-        "configuration": {"$ref": "#/$defs/treeIdentity"}
-      }
+      "$ref": "#/$defs/__schema7"
     },
     "images": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["backend", "web"],
-      "properties": {
-        "backend": {"$ref": "#/$defs/imageEvidence"},
-        "web": {"$ref": "#/$defs/imageEvidence"}
-      }
+      "$ref": "#/$defs/__schema11"
     }
   },
+  "required": [
+    "schemaVersion",
+    "version",
+    "ordinal",
+    "source",
+    "workflow",
+    "identities",
+    "images"
+  ],
+  "additionalProperties": false,
+  "title": "Inside Platform ordinal release manifest",
   "$defs": {
-    "sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
-    "treeIdentity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["digest", "files"],
-      "properties": {
-        "digest": {"$ref": "#/$defs/sha256"},
-        "files": {"type": "array", "minItems": 1, "items": {"type": "string"}}
-      }
+    "__schema0": {
+      "type": "string",
+      "const": "inside.platform.release-manifest.v1"
     },
-    "attestation": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "url"],
-      "properties": {
-        "id": {"type": "string", "pattern": "^[0-9]+$"},
-        "url": {"type": "string", "format": "uri"}
-      }
+    "__schema1": {
+      "type": "string",
+      "pattern": "^v-?\\d+$"
     },
-    "waiver": {
-      "type": ["object", "null"],
-      "additionalProperties": false,
-      "required": ["actor", "reason", "runUrl"],
-      "properties": {
-        "actor": {"type": "string", "minLength": 1},
-        "reason": {"type": "string", "minLength": 20, "maxLength": 1000},
-        "runUrl": {"type": "string", "format": "uri"}
-      }
+    "__schema2": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
     },
-    "imageEvidence": {
+    "__schema3": {
       "type": "object",
-      "additionalProperties": false,
-      "required": ["image", "sourceSha", "sbom", "provenance", "vulnerabilities", "assets"],
       "properties": {
-        "image": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["name", "digest"],
-          "properties": {
-            "name": {"type": "string", "pattern": "^ghcr\\.io/"},
-            "digest": {"$ref": "#/$defs/sha256"}
-          }
+        "repository": {
+          "type": "string",
+          "const": "sachkov-inside/platform"
         },
-        "sourceSha": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
-        "sbom": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["attestation", "bundleSha256", "documentSha256"],
-          "properties": {
-            "attestation": {"$ref": "#/$defs/attestation"},
-            "bundleSha256": {"$ref": "#/$defs/sha256"},
-            "documentSha256": {"$ref": "#/$defs/sha256"}
-          }
+        "sha": {
+          "$ref": "#/$defs/__schema4"
+        }
+      },
+      "required": [
+        "repository",
+        "sha"
+      ],
+      "additionalProperties": false
+    },
+    "__schema4": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 40,
+      "format": "hex",
+      "pattern": "^[0-9a-fA-F]*$"
+    },
+    "__schema5": {
+      "type": "object",
+      "properties": {
+        "actor": {
+          "type": "string",
+          "minLength": 1
         },
-        "provenance": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["attestation", "bundleSha256"],
-          "properties": {
-            "attestation": {"$ref": "#/$defs/attestation"},
-            "bundleSha256": {"$ref": "#/$defs/sha256"}
-          }
+        "runUrl": {
+          "$ref": "#/$defs/__schema6"
+        }
+      },
+      "required": [
+        "actor",
+        "runUrl"
+      ],
+      "additionalProperties": false
+    },
+    "__schema6": {
+      "type": "string",
+      "format": "uri"
+    },
+    "__schema7": {
+      "type": "object",
+      "properties": {
+        "migrations": {
+          "$ref": "#/$defs/__schema8"
         },
-        "vulnerabilities": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["critical", "decision", "high", "reportSha256", "waiver"],
-          "properties": {
-            "critical": {"type": "integer", "minimum": 0},
-            "decision": {"enum": ["passed", "waived"]},
-            "high": {"type": "integer", "minimum": 0},
-            "reportSha256": {"$ref": "#/$defs/sha256"},
-            "waiver": {"$ref": "#/$defs/waiver"}
-          }
+        "configuration": {
+          "$ref": "#/$defs/__schema8"
+        }
+      },
+      "required": [
+        "migrations",
+        "configuration"
+      ],
+      "additionalProperties": false
+    },
+    "__schema8": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/__schema9"
         },
-        "assets": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["provenanceBundle", "sbomBundle", "sbomDocument", "vulnerabilityReport"],
-          "properties": {
-            "provenanceBundle": {"type": "string"},
-            "sbomBundle": {"type": "string"},
-            "sbomDocument": {"type": "string"},
-            "vulnerabilityReport": {"type": "string"}
+        "files": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema10"
           }
         }
-      }
+      },
+      "required": [
+        "digest",
+        "files"
+      ],
+      "additionalProperties": false
+    },
+    "__schema9": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-fA-F]{64}$"
+    },
+    "__schema10": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema11": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "object",
+          "properties": {
+            "image": {
+              "type": "object",
+              "properties": {
+                "digest": {
+                  "$ref": "#/$defs/__schema9"
+                },
+                "name": {
+                  "type": "string",
+                  "const": "ghcr.io/sachkov-inside/platform-backend"
+                }
+              },
+              "required": [
+                "digest",
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "provenance": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "sbom": {
+              "$ref": "#/$defs/__schema16"
+            },
+            "sourceSha": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "vulnerabilities": {
+              "$ref": "#/$defs/__schema17"
+            },
+            "assets": {
+              "$ref": "#/$defs/__schema22"
+            }
+          },
+          "required": [
+            "image",
+            "provenance",
+            "sbom",
+            "sourceSha",
+            "vulnerabilities",
+            "assets"
+          ],
+          "additionalProperties": false
+        },
+        "web": {
+          "type": "object",
+          "properties": {
+            "image": {
+              "type": "object",
+              "properties": {
+                "digest": {
+                  "$ref": "#/$defs/__schema9"
+                },
+                "name": {
+                  "type": "string",
+                  "const": "ghcr.io/sachkov-inside/platform-web"
+                }
+              },
+              "required": [
+                "digest",
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "provenance": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "sbom": {
+              "$ref": "#/$defs/__schema16"
+            },
+            "sourceSha": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "vulnerabilities": {
+              "$ref": "#/$defs/__schema17"
+            },
+            "assets": {
+              "$ref": "#/$defs/__schema22"
+            }
+          },
+          "required": [
+            "image",
+            "provenance",
+            "sbom",
+            "sourceSha",
+            "vulnerabilities",
+            "assets"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "backend",
+        "web"
+      ],
+      "additionalProperties": false
+    },
+    "__schema12": {
+      "type": "object",
+      "properties": {
+        "attestation": {
+          "$ref": "#/$defs/__schema13"
+        },
+        "bundleSha256": {
+          "$ref": "#/$defs/__schema9"
+        }
+      },
+      "required": [
+        "attestation",
+        "bundleSha256"
+      ],
+      "additionalProperties": false
+    },
+    "__schema13": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/__schema14"
+        },
+        "url": {
+          "$ref": "#/$defs/__schema15"
+        }
+      },
+      "required": [
+        "id",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "__schema14": {
+      "type": "string",
+      "pattern": "^-?\\d+$"
+    },
+    "__schema15": {
+      "type": "string",
+      "format": "uri"
+    },
+    "__schema16": {
+      "type": "object",
+      "properties": {
+        "attestation": {
+          "$ref": "#/$defs/__schema13"
+        },
+        "bundleSha256": {
+          "$ref": "#/$defs/__schema9"
+        },
+        "documentSha256": {
+          "$ref": "#/$defs/__schema9"
+        }
+      },
+      "required": [
+        "attestation",
+        "bundleSha256",
+        "documentSha256"
+      ],
+      "additionalProperties": false
+    },
+    "__schema17": {
+      "type": "object",
+      "properties": {
+        "critical": {
+          "$ref": "#/$defs/__schema18"
+        },
+        "decision": {
+          "$ref": "#/$defs/__schema19"
+        },
+        "high": {
+          "$ref": "#/$defs/__schema20"
+        },
+        "reportSha256": {
+          "$ref": "#/$defs/__schema9"
+        },
+        "waiver": {
+          "$ref": "#/$defs/__schema21"
+        }
+      },
+      "required": [
+        "critical",
+        "decision",
+        "high",
+        "reportSha256",
+        "waiver"
+      ],
+      "additionalProperties": false
+    },
+    "__schema18": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "__schema19": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "waived"
+      ]
+    },
+    "__schema20": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "__schema21": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "actor": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 20,
+              "maxLength": 1000
+            },
+            "runUrl": {
+              "$ref": "#/$defs/__schema6"
+            }
+          },
+          "required": [
+            "actor",
+            "reason",
+            "runUrl"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "__schema22": {
+      "type": "object",
+      "properties": {
+        "provenanceBundle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sbomBundle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sbomDocument": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vulnerabilityReport": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "provenanceBundle",
+        "sbomBundle",
+        "sbomDocument",
+        "vulnerabilityReport"
+      ],
+      "additionalProperties": false
     }
-  }
+  },
+  "$id": "https://github.com/sachkov-inside/platform/blob/main/release/manifest.schema.json"
 }

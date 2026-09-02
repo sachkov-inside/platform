@@ -83,9 +83,10 @@ human-readable release names, not moving runtime selectors.
 
 Before the first release, an owner must enable immutable releases in the repository settings. The
 workflow checks this setting both before building and immediately before finalization. It also
-requires retained ordinal tags to be a contiguous `v1` through `vN-1` history, rejects a duplicate
-or skipped ordinal, and rechecks that `main` has not moved. These checks make a stale dispatch fail
-instead of publishing a release from an unexpected commit.
+requires each ordinal tag to belong to a published immutable Release with the complete manifest
+and evidence asset set. Those retained Releases must form a contiguous `v1` through `vN-1`
+history; a bare tag, mutable/missing record, duplicate or skipped ordinal fails closed. The workflow
+rechecks the same state and confirms that `main` has not moved before publishing.
 
 From a clean `main`, publish the next ordinal with exactly one manual command:
 
@@ -108,14 +109,17 @@ vulnerability report, provenance bundle and SBOM attestation bundle for each ima
 binds the ordinal version and source SHA to both public GHCR digests, migration/configuration tree
 identities, evidence hashes, attestation records and any waiver. The reusable image workflow
 verifies attestations and exact SBOM content before finalization, then logs out of GHCR and proves
-each digest is anonymously readable. Missing or inconsistent evidence stops the release.
+each digest is anonymously readable. Finalization recomputes every downloaded asset hash and
+cryptographically reverifies both attestation bundles before creating the manifest. Missing,
+changed or inconsistent evidence stops the release.
 
-The manifest contract is defined by `release/manifest.schema.json`; executable policy lives in
-`scripts/release-contract.mjs`. To exercise the release seams without publishing anything, run:
+The manifest contract is owned by `release/contract-schema.mjs`; the checked-in
+`release/manifest.schema.json` is generated from it, and executable semantic policy lives in
+`scripts/release-contract.mjs`. To exercise the complete local release contract without publishing
+packages, attestations or a GitHub Release, run:
 
 ```bash
-pnpm test:tooling
-pnpm release:images:smoke
+pnpm release:dry-run
 ```
 
 The image smoke builds both clean production targets and asserts that their runtime files do not

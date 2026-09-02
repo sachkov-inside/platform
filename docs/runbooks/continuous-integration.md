@@ -49,5 +49,5 @@ commands, job dependencies and artifact retention from configuration drift.
 The release workflow and manifest policy have their own executable contracts in
 `scripts/release-workflow-contract.test.mjs`, `scripts/release-image-contract.test.mjs` and
 `scripts/release-contract.test.mjs`. Positive and negative fixtures cover next/duplicate/stale
-ordinals, discontinuous retained history, missing or tampered evidence, vulnerability waivers,
-manifest shape and least-privilege workflow boundaries.
+ordinals, bare/mutable/discontinuous retained history, missing or tampered evidence, vulnerability
+waivers, generated manifest schema and least-privilege workflow boundaries.

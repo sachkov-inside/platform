@@ -48,6 +48,15 @@ jobs:
         with:
           ref: ${{ inputs.source_sha }}
           persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.10
+      - name: Install Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - name: Install release contract dependencies
+        run: pnpm install --frozen-lockfile --filter . --prod
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4.3.0
       - name: Log in to GHCR
@@ -119,6 +128,7 @@ jobs:
             --bundle "release-evidence/${KIND}.provenance.bundle.json" \
             --repo "$GITHUB_REPOSITORY" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build-release-images.yml" \
+            --source-digest "$SOURCE_SHA" \
             --source-ref refs/heads/main \
             --format json \
             >"release-evidence/${KIND}.provenance.verification.json"
@@ -126,6 +136,7 @@ jobs:
             --bundle "release-evidence/${KIND}.sbom.bundle.json" \
             --repo "$GITHUB_REPOSITORY" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build-release-images.yml" \
+            --source-digest "$SOURCE_SHA" \
             --source-ref refs/heads/main \
             --predicate-type https://spdx.dev/Document/v2.3 \
             --format json \

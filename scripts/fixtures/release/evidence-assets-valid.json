@@ -1,0 +1,7 @@
+{
+  "evidencePath": "scripts/fixtures/release/manifest/backend.evidence.json",
+  "provenanceBundlePath": "scripts/fixtures/release/evidence/backend.provenance.bundle.json",
+  "sbomBundlePath": "scripts/fixtures/release/evidence/backend.sbom.bundle.json",
+  "sbomPath": "scripts/fixtures/release/evidence/backend.spdx.json",
+  "vulnerabilityPath": "scripts/fixtures/release/evidence/backend.vulnerabilities.json"
+}

@@ -1,0 +1,59 @@
+{
+  "release": {
+    "plan": {"contents": "read"},
+    "ci": {"contents": "read"},
+    "build-images": {
+      "artifact-metadata": "write",
+      "attestations": "write",
+      "contents": "read",
+      "id-token": "write",
+      "packages": "write"
+    },
+    "finalize": {
+      "actions": "read",
+      "attestations": "read",
+      "contents": "write"
+    }
+  },
+  "image": {
+    "build-and-verify": {
+      "artifact-metadata": "write",
+      "attestations": "write",
+      "contents": "read",
+      "id-token": "write",
+      "packages": "write"
+    }
+  },
+  "invalid": [
+    {
+      "name": "release plan can write contents",
+      "workflow": "release",
+      "job": "plan",
+      "permissions": {"contents": "write"}
+    },
+    {
+      "name": "image builder has unrelated actions write",
+      "workflow": "image",
+      "job": "build-and-verify",
+      "permissions": {
+        "actions": "write",
+        "artifact-metadata": "write",
+        "attestations": "write",
+        "contents": "read",
+        "id-token": "write",
+        "packages": "write"
+      }
+    },
+    {
+      "name": "finalizer can publish packages",
+      "workflow": "release",
+      "job": "finalize",
+      "permissions": {
+        "actions": "read",
+        "attestations": "read",
+        "contents": "write",
+        "packages": "write"
+      }
+    }
+  ]
+}
