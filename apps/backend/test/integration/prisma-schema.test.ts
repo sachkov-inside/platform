@@ -41,8 +41,9 @@ describe("Prisma schema", () => {
       testDatabase.prisma.videoUploadAttempt.count(),
       testDatabase.prisma.videoWebhookInbox.count(),
       testDatabase.prisma.videoPlaybackProgress.count(),
+      testDatabase.prisma.videoDeletionOperation.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 23 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 24 }, () => 0));
   });
 });

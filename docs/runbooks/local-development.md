@@ -19,6 +19,8 @@ The default stack contains:
   listener;
 - `profile-avatars-worker`, which consumes the independent durable ProfileAvatar cleanup queue and
   has no HTTP listener;
+- `video-deletions-worker`, which owns explicit Platform-uploaded Kinescope Video deletion,
+  reference rechecks and bounded retry and has no HTTP listener;
 - Next.js web on <http://127.0.0.1:3000>.
 
 The optional Logto email-code proof is a separate, disposable Compose project with isolated ports
@@ -34,8 +36,8 @@ It owns different Compose project names and ports, proves the pinned Logto recip
 and dependency recovery behavior, verifies one local `Account` and no Platform session table, then
 removes only its disposable volumes.
 
-API and web expose real healthchecks. API, MCP, the Material Asset worker and the Profile Avatar
-worker wait for healthy PostgreSQL and a successful seed; web waits for healthy API. Storybook is
+API and web expose real healthchecks. API, MCP and capability workers wait for healthy PostgreSQL
+and a successful seed; web waits for healthy API. Storybook is
 an optional profile on <http://127.0.0.1:6006>. Integration tests continue to use their own
 temporary PostgreSQL and MinIO through Testcontainers and never share the Compose data services.
 
@@ -97,6 +99,10 @@ upload/playback acceptance still requires the owner-gated contour described in i
 to `real` only in a private environment with the full Kinescope configuration from
 [the runtime contract](runtime-configuration.md); never paste credentials into the repository or
 issue evidence.
+
+The test provider also exercises deletion without outbound calls. Operational states and safe
+production recovery are documented in the
+[Video deletion runbook](video-deletion.md).
 
 For a detached stack suitable for smoke commands:
 

@@ -43,6 +43,7 @@ const formatId = "94000000-0000-4000-8000-000000000012";
 const topicId = "94000000-0000-4000-8000-000000000013";
 const tagId = "94000000-0000-4000-8000-000000000014";
 const seriesId = "94000000-0000-4000-8000-000000000015";
+const videoId = "94000000-0000-4000-8000-000000000016";
 
 describe("Material Authoring action workflow", () => {
   it("uses the read-only Logto reader while rendering existing Material routes", async () => {
@@ -193,6 +194,8 @@ describe("Material Authoring action workflow", () => {
             topicId,
           },
           publicationState: "published",
+          latestVideoDeletion: null,
+          primaryVideo: null,
           primaryVideoId: null,
           publishedAt: "2026-08-30T08:00:00.000Z",
         },
@@ -325,6 +328,7 @@ describe("Material Authoring action workflow", () => {
     expect(dependencies.save).toHaveBeenCalledWith(
       {
         access: "membership",
+        deleteVideoId: null,
         document: {
           content: [{ content: [{ text: "Local full state", type: "text" }], type: "paragraph" }],
           type: "doc",
@@ -341,6 +345,19 @@ describe("Material Authoring action workflow", () => {
         title: "Saved Material",
         topicId,
       },
+      "access-token",
+    );
+  });
+
+  it("passes explicit Video deletion intent only as part of the full-state Save", async () => {
+    const dependencies = successfulSaveDependencies();
+    const formData = validSaveFormData();
+    formData.set("deleteVideoId", videoId);
+
+    await executeSaveMaterial(formData, "access-token", dependencies);
+
+    expect(dependencies.save).toHaveBeenCalledWith(
+      expect.objectContaining({ deleteVideoId: videoId }),
       "access-token",
     );
   });

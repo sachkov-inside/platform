@@ -123,7 +123,15 @@ export function MaterialAuthoringWorkspace({
             }
             materialId={presentation.draft.materialId}
             onChange={actions.onPrimaryVideoChange}
-            primaryVideoId={presentation.draft.primaryVideoId}
+            deleteVideoId={presentation.draft.deleteVideoId}
+            latestVideoDeletion={presentation.draft.latestVideoDeletion}
+            key={[
+              presentation.draft.access,
+              presentation.draft.primaryVideo?.videoId ?? "none",
+              presentation.draft.latestVideoDeletion?.state ?? "none",
+              presentation.draft.deleteVideoId ?? "none",
+            ].join(":")}
+            primaryVideo={presentation.draft.primaryVideo}
           />
           <MaterialDocumentEditor
             disabled={

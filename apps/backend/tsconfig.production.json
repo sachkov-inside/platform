@@ -4,6 +4,7 @@
     "src/entrypoints/api.ts",
     "src/entrypoints/material-assets-worker.ts",
     "src/entrypoints/profile-avatars-worker.ts",
+    "src/entrypoints/video-deletions-worker.ts",
     "src/migrations/migrate.ts"
   ],
   "include": []

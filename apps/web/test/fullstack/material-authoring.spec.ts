@@ -146,6 +146,50 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await expect(row.getByText("Снят с публикации", { exact: true })).toBeVisible({ timeout: 15_000 });
 });
 
+test("explicitly requests deletion of a Platform-uploaded Video only with the successful Material Save", async ({
+  context,
+  page,
+}, testInfo) => {
+  const suffix = String(Date.now());
+  const title = `Safe Video deletion ${suffix}`;
+  await addFullStackSession(context);
+  await page.goto("/authoring/materials/new");
+  await completeProfileOnboardingIfPresent(page);
+  await fillPublishableDraft(page, title);
+  await page.getByRole("button", { name: "Создать черновик" }).click();
+  await expect(page).toHaveURL(currentMaterialEditorUrl);
+  await expect(page.locator("main[data-material-authoring='true']:visible")).toBeVisible({
+    timeout: 15_000,
+  });
+
+  await page.getByLabel("Видео для загрузки").setInputFiles({
+    buffer: Buffer.from("Full-stack deletion test Video\n"),
+    mimeType: "video/mp4",
+    name: `delete-me-${suffix}.mp4`,
+  });
+  await expect(page.getByText("Готово к Save")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: "Убрать и удалить из Kinescope…" }).click();
+  const dialog = page.getByRole("dialog", {
+    name: `Удалить «delete-me-${suffix}» из Kinescope?`,
+  });
+  await expect(dialog).toBeVisible();
+  await captureVideoDeletionEvidence(page, testInfo, "confirmation");
+  await dialog.getByRole("button", { name: "Убрать и удалить из Kinescope" }).click();
+
+  await expect(page.getByText(`Удаление «delete-me-${suffix}» будет запрошено только после Save.`))
+    .toBeVisible();
+  await expect(page.getByText("Основное видео не выбрано")).toBeVisible();
+  await captureVideoDeletionEvidence(page, testInfo, "pending-save");
+
+  await page.getByRole("button", { name: "Сохранить" }).click();
+  await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(`Удаление «delete-me-${suffix}» запрошено.`)).toBeVisible();
+  await captureVideoDeletionEvidence(page, testInfo, "requested");
+});
+
 test("member primary Video denies anonymous playback and issues a DRM proof to an authorized Account", async ({
   context,
   page,
@@ -845,6 +889,22 @@ async function captureVideoEvidence(
 ) {
   if (process.env.CAPTURE_EVIDENCE !== "1") return;
   const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-183");
+  await mkdir(evidenceDirectory, { recursive: true });
+  const viewport = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
+  await page.screenshot({
+    animations: "disabled",
+    fullPage: true,
+    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+  });
+}
+
+async function captureVideoDeletionEvidence(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+) {
+  if (process.env.CAPTURE_EVIDENCE !== "1") return;
+  const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-227");
   await mkdir(evidenceDirectory, { recursive: true });
   const viewport = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({

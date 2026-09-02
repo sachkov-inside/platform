@@ -12,6 +12,7 @@ import { createApiApplication } from "../src/entrypoints/api/create-api-applicat
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
 import { MaterialAssetsWorkerModule } from "../src/entrypoints/material-assets-worker/material-assets-worker.module.js";
 import { ProfileAvatarsWorkerModule } from "../src/entrypoints/profile-avatars-worker/profile-avatars-worker.module.js";
+import { VideoDeletionsWorkerModule } from "../src/entrypoints/video-deletions-worker/video-deletions-worker.module.js";
 import { OperationalReadiness } from "../src/infrastructure/operational-readiness.js";
 import {
   PrismaClientProvider,
@@ -27,6 +28,7 @@ import {
 } from "../src/modules/materials/index.js";
 import { MEMBERSHIP_ENTITLEMENTS } from "../src/modules/membership-entitlements/index.js";
 import { PROFILE_AVATAR_MAINTENANCE } from "../src/modules/member-profiles/index.js";
+import { VIDEO_DELETION_MAINTENANCE } from "../src/modules/videos/index.js";
 
 const config = parsePlatformConfig({
   NODE_ENV: "test",
@@ -116,6 +118,16 @@ describe("backend process composition", () => {
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
     expect(application.get(PROFILE_AVATAR_MAINTENANCE)).toBeDefined();
+  });
+
+  it("binds the Video deletion worker to stored provider configuration", async () => {
+    application = await NestFactory.createApplicationContext(
+      VideoDeletionsWorkerModule.forRoot(config),
+      { logger: false },
+    );
+
+    expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
+    expect(application.get(VIDEO_DELETION_MAINTENANCE)).toBeDefined();
   });
 
   it("keeps the API running while health reports an unreachable database", async () => {

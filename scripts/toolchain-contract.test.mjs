@@ -178,6 +178,11 @@ describe("supported toolchain contract", () => {
     assert.match(avatarWorker[1], /dockerfile: apps\/backend\/Dockerfile/u);
     assert.match(avatarWorker[1], /target: api-production/u);
     assert.match(avatarWorker[1], /profile-avatars-worker\.env/u);
+    const videoDeletionWorker = productionCompose.match(
+      /\n {2}video-deletions-worker:\n([\s\S]*?)(?=\n {2}[a-z][a-z0-9-]*:\n|$)/u,
+    );
+    assert.ok(videoDeletionWorker, "production must run Video deletion processing");
+    assert.match(videoDeletionWorker[1], /video-deletions-worker\.env/u);
   });
 
   it("keeps runtime configuration in service-owned env files", () => {
@@ -198,6 +203,7 @@ describe("supported toolchain contract", () => {
       "config/compose/local/mcp.env",
       "config/compose/local/material-assets-worker.env",
       "config/compose/local/profile-avatars-worker.env",
+      "config/compose/local/video-deletions-worker.env",
       "config/compose/local/web.env",
       "config/compose/local/storybook.env",
       "config/compose/production/compose.env.example",
@@ -205,6 +211,7 @@ describe("supported toolchain contract", () => {
       "config/compose/production/migrations.env.example",
       "config/compose/production/api.env.example",
       "config/compose/production/profile-avatars-worker.env.example",
+      "config/compose/production/video-deletions-worker.env.example",
       "config/compose/production/web.env.example",
       "config/compose/production/caddy.env.example",
     ]) {
@@ -235,6 +242,10 @@ describe("supported toolchain contract", () => {
     assert.match(
       smoke,
       /\[\[ "\$avatar_worker_logs" != \*'"process":"profile-avatars-worker","status":"ready"'\* \]\]/u,
+    );
+    assert.match(
+      smoke,
+      /\[\[ "\$video_deletion_worker_logs" != \*'"process":"video-deletions-worker","status":"ready"'\* \]\]/u,
     );
   });
 

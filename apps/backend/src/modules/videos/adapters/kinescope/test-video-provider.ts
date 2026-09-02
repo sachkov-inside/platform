@@ -3,9 +3,16 @@ import { randomUUID } from "node:crypto";
 import type { ProviderVideo, VideoProvider } from "../../ports/video-provider.js";
 
 export function createTestVideoProvider(): VideoProvider {
+  const deleted = new Set<string>();
   const videos = new Map<string, ProviderVideo>();
   const findCounts = new Map<string, number>();
   const provider: VideoProvider = {
+    delete(input) {
+      if (deleted.has(input.id)) return Promise.resolve({ kind: "not_found" });
+      deleted.add(input.id);
+      videos.delete(input.id);
+      return Promise.resolve({ kind: "deleted" });
+    },
     initUpload(input) {
       const id = randomUUID();
       videos.set(id, {
@@ -21,6 +28,7 @@ export function createTestVideoProvider(): VideoProvider {
       });
     },
     find(input) {
+      if (deleted.has(input.id)) return Promise.resolve(null);
       const findCount = (findCounts.get(input.id) ?? 0) + 1;
       findCounts.set(input.id, findCount);
       if (input.id.startsWith("test-outage-once-") && findCount === 1) {

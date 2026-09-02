@@ -1,4 +1,5 @@
 export interface DeleteMaterialDraftInput {
+  readonly deleteVideoId: string | null;
   readonly expectedContentVersion: number;
   readonly materialId: string;
   readonly submissionId: string;

@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import { assembleMaterials } from "../../src/modules/materials/index.js";
-import type { Videos } from "../../src/modules/videos/index.js";
+import {
+  assembleVideos,
+  type ProviderVideo,
+  type VideoProvider,
+  type Videos,
+} from "../../src/modules/videos/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,
@@ -70,6 +75,8 @@ describe("MaterialAuthoring", () => {
         firstPublishedAt: null,
         publishedAt: null,
         primaryVideoId: null,
+        primaryVideo: null,
+        latestVideoDeletion: null,
         metadata: {
           title: null,
           summary: null,
@@ -650,5 +657,419 @@ describe("MaterialAuthoring", () => {
         projection: { primaryVideoId: replacementVideoId },
       },
     });
+  });
+
+  test("commits an owned Video deletion intent only with a successful detach Save", async () => {
+    const providerVideos = new Map<string, ProviderVideo>();
+    let providerDeleteCalls = 0;
+    const provider: VideoProvider = {
+      delete() {
+        providerDeleteCalls += 1;
+        return Promise.resolve({ kind: "deleted" });
+      },
+      find(input) {
+        return Promise.resolve(providerVideos.get(input.id) ?? null);
+      },
+      initUpload(input) {
+        const id = `owned-${crypto.randomUUID()}`;
+        providerVideos.set(id, {
+          embedLocator: `https://kinescope.io/embed/${id}`,
+          id,
+          projectId: input.projectId,
+          status: "done",
+          title: input.title,
+        });
+        return Promise.resolve({
+          id,
+          uploadEndpoint: `https://uploads.example.test/${id}`,
+        });
+      },
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: testDatabase.prisma,
+      projects: { free: "public-project", membership: "member-project" },
+      provider,
+    });
+    const materials = assembleMaterials({
+      authorPolicy: { canManage: () => Promise.resolve(true) },
+      prisma: testDatabase.prisma,
+      videos,
+    });
+    const metadata = {
+      access: "free" as const,
+      formatId: null,
+      seriesIds: [],
+      summary: null,
+      tagIds: [],
+      title: "Owned Video deletion",
+      topicId: null,
+    };
+    const created = await materials.authoring.createDraft({
+      actor,
+      body: representativeDocument("Delete only after Save."),
+      idempotencyKey: "create-owned-video-deletion",
+      metadata,
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    const initialized = await videos.initUpload({
+      access: "free",
+      actor,
+      byteSize: 1_024,
+      filename: "owned.mp4",
+      idempotencyKey: "owned-video-upload",
+      materialId: created.value.materialId,
+      title: "Owned lesson",
+    });
+    if (!initialized.ok) throw new Error(initialized.error.code);
+    const videoId = initialized.value.video.videoId;
+    await expect(videos.reconcile({ actor, videoId })).resolves.toMatchObject({
+      ok: true,
+      value: { state: "ready" },
+    });
+    await expect(materials.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("Delete only after Save."),
+      expectedContentVersion: 1,
+      idempotencyKey: "attach-owned-video",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: videoId,
+      publicationState: "draft",
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
+
+    await expect(materials.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("Delete only after Save."),
+      expectedContentVersion: 2,
+      idempotencyKey: "detach-owned-video-without-deletion",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: null,
+      publicationState: "draft",
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
+    await expect(testDatabase.prisma.videoDeletionOperation.count({
+      where: { videoId },
+    })).resolves.toBe(0);
+    expect(providerDeleteCalls).toBe(0);
+
+    await expect(materials.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("Delete only after Save."),
+      expectedContentVersion: 3,
+      idempotencyKey: "reattach-owned-video-before-deletion",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: videoId,
+      publicationState: "draft",
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 4 } });
+
+    await expect(materials.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("Delete only after Save."),
+      deleteVideoId: videoId,
+      expectedContentVersion: 3,
+      idempotencyKey: "stale-owned-video-deletion",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: null,
+      publicationState: "draft",
+    })).resolves.toMatchObject({
+      error: { code: "stale_content_version" },
+      ok: false,
+    });
+    await expect(testDatabase.prisma.videoDeletionOperation.count({
+      where: { videoId },
+    })).resolves.toBe(0);
+
+    await expect(materials.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("Delete only after Save."),
+      deleteVideoId: videoId,
+      expectedContentVersion: 4,
+      idempotencyKey: "detach-and-delete-owned-video",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: null,
+      publicationState: "draft",
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 5 } });
+    await expect(testDatabase.prisma.videoDeletionOperation.findUniqueOrThrow({
+      where: { videoId },
+    })).resolves.toMatchObject({
+      attempts: 0,
+      completedAt: null,
+      requestedBy: actor,
+      state: "deletion_requested",
+    });
+    await expect(materials.authoring.loadMaterial({
+      actor,
+      materialId: created.value.materialId,
+    })).resolves.toMatchObject({
+      ok: true,
+      value: {
+        latestVideoDeletion: {
+          origin: "platform_upload",
+          state: "deletion_requested",
+          title: "Owned lesson",
+          videoId,
+        },
+        primaryVideo: null,
+        primaryVideoId: null,
+      },
+    });
+    expect(providerDeleteCalls).toBe(0);
+  });
+
+  test("records active Platform upload deletion on Save and defers physical DELETE to the worker", async () => {
+    let providerDeleteCalls = 0;
+    const provider: VideoProvider = {
+      delete() {
+        providerDeleteCalls += 1;
+        return Promise.resolve({ kind: "deleted" });
+      },
+      find(input) {
+        return Promise.resolve({
+          embedLocator: null,
+          id: input.id,
+          projectId: input.projectId,
+          status: "uploading",
+          title: "Interrupted upload",
+        });
+      },
+      initUpload(_input) {
+        const id = `active-${crypto.randomUUID()}`;
+        return Promise.resolve({ id, uploadEndpoint: `https://uploads.example.test/${id}` });
+      },
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: testDatabase.prisma,
+      projects: { free: "public-project", membership: "member-project" },
+      provider,
+    });
+    const materials = assembleMaterials({
+      authorPolicy: { canManage: () => Promise.resolve(true) },
+      prisma: testDatabase.prisma,
+      videos,
+    });
+    const metadata = {
+      access: "free" as const,
+      formatId: null,
+      seriesIds: [],
+      summary: null,
+      tagIds: [],
+      title: "Active upload deletion",
+      topicId: null,
+    };
+    const created = await materials.authoring.createDraft({
+      actor,
+      body: representativeDocument("Cancel transfer before deletion."),
+      idempotencyKey: "create-active-upload-deletion",
+      metadata,
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    const initialized = await videos.initUpload({
+      access: "free",
+      actor,
+      byteSize: 1_024,
+      filename: "interrupted.mp4",
+      idempotencyKey: "active-video-upload",
+      materialId: created.value.materialId,
+      title: "Interrupted upload",
+    });
+    if (!initialized.ok) throw new Error(initialized.error.code);
+
+    await expect(materials.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("Cancel transfer before deletion."),
+      deleteVideoId: initialized.value.video.videoId,
+      expectedContentVersion: 1,
+      idempotencyKey: "request-active-video-deletion",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: null,
+      publicationState: "draft",
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    await expect(testDatabase.prisma.video.findUniqueOrThrow({
+      where: { id: initialized.value.video.videoId },
+    })).resolves.toMatchObject({
+      providerStatus: "uploading",
+      state: "deletion_requested",
+    });
+    expect(providerDeleteCalls).toBe(0);
+  });
+
+  test("hard-deletes a never-published draft while retaining its owned Video deletion audit", async () => {
+    const provider: VideoProvider = {
+      delete: () => Promise.resolve({ kind: "deleted" }),
+      find(input) {
+        return Promise.resolve({
+          embedLocator: `https://kinescope.io/embed/${input.id}`,
+          id: input.id,
+          projectId: input.projectId,
+          status: "done",
+          title: "Draft-only video",
+        });
+      },
+      initUpload(_input) {
+        const id = `draft-${crypto.randomUUID()}`;
+        return Promise.resolve({ id, uploadEndpoint: `https://uploads.example.test/${id}` });
+      },
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: testDatabase.prisma,
+      projects: { free: "public-project", membership: "member-project" },
+      provider,
+    });
+    const materials = assembleMaterials({
+      authorPolicy: { canManage: () => Promise.resolve(true) },
+      prisma: testDatabase.prisma,
+      videos,
+    });
+    const metadata = {
+      access: "free" as const,
+      formatId: null,
+      seriesIds: [],
+      summary: null,
+      tagIds: [],
+      title: "Disposable draft",
+      topicId: null,
+    };
+    const created = await materials.authoring.createDraft({
+      actor,
+      body: representativeDocument("Draft is disposable."),
+      idempotencyKey: "create-draft-hard-delete-video",
+      metadata,
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    const initialized = await videos.initUpload({
+      access: "free",
+      actor,
+      byteSize: 1_024,
+      filename: "draft.mp4",
+      idempotencyKey: "draft-hard-delete-upload",
+      materialId: created.value.materialId,
+      title: "Draft-only video",
+    });
+    if (!initialized.ok) throw new Error(initialized.error.code);
+    await videos.reconcile({ actor, videoId: initialized.value.video.videoId });
+    await materials.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("Draft is disposable."),
+      expectedContentVersion: 1,
+      idempotencyKey: "attach-draft-hard-delete-video",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: initialized.value.video.videoId,
+      publicationState: "draft",
+    });
+
+    await expect(materials.authoring.deleteDraft({
+      actor,
+      deleteVideoId: initialized.value.video.videoId,
+      expectedContentVersion: 2,
+      idempotencyKey: "delete-draft-with-owned-video",
+      materialId: created.value.materialId,
+    })).resolves.toEqual({ ok: true, value: { materialId: created.value.materialId } });
+    await expect(testDatabase.prisma.material.findUnique({
+      where: { id: created.value.materialId },
+    })).resolves.toBeNull();
+    await expect(testDatabase.prisma.videoDeletionOperation.findUniqueOrThrow({
+      where: { videoId: initialized.value.video.videoId },
+    })).resolves.toMatchObject({ state: "deletion_requested" });
+  });
+
+  test("rejects deletion of an externally attached Video without detaching it", async () => {
+    let providerDeleteCalls = 0;
+    const provider: VideoProvider = {
+      delete() {
+        providerDeleteCalls += 1;
+        return Promise.resolve({ kind: "deleted" });
+      },
+      find(input) {
+        return Promise.resolve({
+          embedLocator: `https://kinescope.io/embed/${input.id}`,
+          id: input.id,
+          projectId: input.projectId,
+          status: "done",
+          title: "Externally attached lesson",
+        });
+      },
+      initUpload: () => Promise.reject(new Error("unused")),
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: testDatabase.prisma,
+      projects: { free: "public-project", membership: "member-project" },
+      provider,
+    });
+    const materials = assembleMaterials({
+      authorPolicy: { canManage: () => Promise.resolve(true) },
+      prisma: testDatabase.prisma,
+      videos,
+    });
+    const metadata = {
+      access: "free" as const,
+      formatId: null,
+      seriesIds: [],
+      summary: null,
+      tagIds: [],
+      title: "External Video deletion",
+      topicId: null,
+    };
+    const created = await materials.authoring.createDraft({
+      actor,
+      body: representativeDocument("External Video stays in Kinescope."),
+      idempotencyKey: "create-external-video-deletion",
+      metadata,
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    const attached = await videos.attachExisting({
+      access: "free",
+      actor,
+      materialId: created.value.materialId,
+      providerVideoId: `external-${crypto.randomUUID()}`,
+    });
+    if (!attached.ok) throw new Error(attached.error.code);
+    await expect(materials.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("External Video stays in Kinescope."),
+      expectedContentVersion: 1,
+      idempotencyKey: "attach-external-video",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: attached.value.videoId,
+      publicationState: "draft",
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
+
+    await expect(materials.authoring.saveMaterial({
+      actor,
+      body: representativeDocument("External Video stays in Kinescope."),
+      deleteVideoId: attached.value.videoId,
+      expectedContentVersion: 2,
+      idempotencyKey: "forged-external-video-deletion",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: null,
+      publicationState: "draft",
+    })).resolves.toEqual({
+      error: {
+        code: "invalid_reference",
+        issues: [{ code: "video_deletion_forbidden", path: "/deleteVideoId" }],
+      },
+      ok: false,
+    });
+    await expect(materials.authoring.loadMaterial({
+      actor,
+      materialId: created.value.materialId,
+    })).resolves.toMatchObject({
+      ok: true,
+      value: { contentVersion: 2, primaryVideoId: attached.value.videoId },
+    });
+    await expect(testDatabase.prisma.videoDeletionOperation.count({
+      where: { videoId: attached.value.videoId },
+    })).resolves.toBe(0);
+    expect(providerDeleteCalls).toBe(0);
   });
 });

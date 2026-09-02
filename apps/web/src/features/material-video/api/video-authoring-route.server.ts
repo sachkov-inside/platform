@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import { requestVideoAttach, requestVideoReconcile, requestVideoUploadInit } from "@/shared/api/backend/index.server";
+import { requestVideoAttach, requestVideoDeletionRetry, requestVideoReconcile, requestVideoUploadInit } from "@/shared/api/backend/index.server";
 import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
 
 const materialSchema = z.object({
@@ -47,6 +47,17 @@ export function handleVideoReconciliationRequest(request: Request): Promise<Resp
     const reconciled = await requestVideoReconcile(parsed.data.videoId, accessToken);
     return reconciled.ok
       ? { kind: "ready", value: reconciled.body }
+      : { kind: "unavailable" };
+  });
+}
+
+export function handleVideoDeletionRetryRequest(request: Request): Promise<Response> {
+  return handleAuthenticatedMutation(request, async (formData, accessToken) => {
+    const parsed = reconciliationSchema.safeParse(Object.fromEntries(formData));
+    if (!parsed.success) return { kind: "invalid_input" };
+    const retried = await requestVideoDeletionRetry(parsed.data.videoId, accessToken);
+    return retried.ok
+      ? { kind: "ready", value: retried.body }
       : { kind: "unavailable" };
   });
 }

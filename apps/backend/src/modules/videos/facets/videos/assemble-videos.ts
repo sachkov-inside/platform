@@ -42,6 +42,7 @@ const attachInput = z.object({
   providerVideoId: providerVideoIdSchema,
 }).strict();
 const reconcileInput = z.object({ actor: videoAccountIdSchema, videoId: videoIdSchema }).strict();
+const retryDeletionInput = reconcileInput;
 const webhookInput = z.object({
   event: z.string().trim().min(1).max(128),
   providerStatus: z.string().trim().min(1).max(64).optional(),
@@ -165,8 +166,10 @@ export function assembleVideos(dependencies: {
               createdBy: parsed.data.actor,
               materialId: parsed.data.materialId,
               originalFilename: parsed.data.filename,
+              origin: "platform_upload",
               projectId,
               providerStatus: "uploading",
+              providerVisibleAt: createdAt,
               providerVideoId: initializedProviderVideoId.data,
               state: "uploading",
               title: parsed.data.title,
@@ -233,10 +236,12 @@ export function assembleVideos(dependencies: {
               failureCode: lifecycle.failureCode,
               lastSyncedAt: savedAt,
               materialId: parsed.data.materialId,
+              origin: "external_attachment",
               projectId,
               providerEmbedLocator: lifecycle.embedLocator,
               providerMessage: remote.message ?? null,
               providerStatus: remote.status,
+              providerVisibleAt: savedAt,
               providerVideoId: parsed.data.providerVideoId,
               readyAt: lifecycle.state === "ready" ? savedAt : null,
               state: lifecycle.state,
@@ -266,6 +271,50 @@ export function assembleVideos(dependencies: {
       if (!parsed.success) return invalidRequest();
       if (!(await managerAllowed(parsed.data.actor))) return forbidden();
       return reconcileById(parsed.data.videoId);
+    },
+
+    async retryDeletion(input) {
+      const parsed = retryDeletionInput.safeParse(input);
+      if (!parsed.success) return invalidRequest();
+      if (!(await managerAllowed(parsed.data.actor))) return forbidden();
+      try {
+        const retriedAt = now();
+        return await dependencies.prisma.$transaction(async (transaction) => {
+          const video = await transaction.video.findUnique({
+            include: { deletionOperation: true },
+            where: { id: parsed.data.videoId },
+          });
+          if (video === null) return videoNotFound();
+          if (
+            video.origin !== "platform_upload" ||
+            video.state !== "delete_failed" ||
+            video.deletionOperation?.state !== "delete_failed"
+          ) return videoDeletionNotRetryable();
+          await transaction.videoDeletionOperation.update({
+            data: {
+              cycleAttempts: 0,
+              claimedAt: null,
+              lastErrorCategory: null,
+              nextAttemptAt: retriedAt,
+              providerRequestId: null,
+              state: "deletion_requested",
+              updatedAt: retriedAt,
+            },
+            where: { id: video.deletionOperation.id },
+          });
+          const updated = await transaction.video.update({
+            data: {
+              failureCode: null,
+              state: "deletion_requested",
+              updatedAt: retriedAt,
+            },
+            where: { id: video.id },
+          });
+          return { ok: true as const, value: toDto(updated) };
+        });
+      } catch {
+        return dependencyUnavailable();
+      }
     },
 
     async acceptWebhook(input) {
@@ -332,6 +381,44 @@ export function assembleVideos(dependencies: {
       }
     },
 
+    async loadAuthoringPresentation(input) {
+      const parsed = presentationInput.safeParse(input);
+      if (!parsed.success) return invalidRequest();
+      try {
+        const video = await dependencies.prisma.video.findFirst({
+          where: { id: parsed.data.videoId, materialId: parsed.data.materialId },
+        });
+        return {
+          ok: true,
+          value: video === null ? null : toAuthoringPresentation(video),
+        };
+      } catch {
+        return dependencyUnavailable();
+      }
+    },
+
+    async loadLatestDeletion(materialId) {
+      const parsed = videoMaterialIdSchema.safeParse(materialId);
+      if (!parsed.success) return invalidRequest();
+      try {
+        const video = await dependencies.prisma.video.findFirst({
+          orderBy: { updatedAt: "desc" },
+          where: {
+            materialId: parsed.data,
+            state: {
+              in: ["deletion_requested", "deleting", "deleted", "delete_failed"],
+            },
+          },
+        });
+        return {
+          ok: true,
+          value: video === null ? null : toAuthoringPresentation(video),
+        };
+      } catch {
+        return dependencyUnavailable();
+      }
+    },
+
     async loadAccessFacts(videoIds) {
       const parsed = z.array(videoIdSchema).safeParse(videoIds);
       if (!parsed.success) return invalidRequest();
@@ -383,6 +470,11 @@ export function assembleVideos(dependencies: {
       const parsed = saveProgressInput.safeParse(input);
       if (!parsed.success) return invalidRequest();
       try {
+        const video = await dependencies.prisma.video.findUnique({
+          select: { state: true },
+          where: { id: parsed.data.videoId },
+        });
+        if (video === null || isDeletionState(video.state)) return videoNotReady();
         await dependencies.prisma.videoPlaybackProgress.upsert({
           where: { accountId_videoId: { accountId: parsed.data.accountId, videoId: parsed.data.videoId } },
           create: { ...parsed.data, updatedAt: now() },
@@ -478,6 +570,14 @@ export function assembleVideos(dependencies: {
       if (local === null) return videoNotFound();
       const localProviderVideoId = providerVideoIdSchema.parse(local.providerVideoId);
       const reconciliationCutoff = now();
+      if (local.state === "deleted") {
+        await markPendingWebhooksReconciled(
+          dependencies.prisma,
+          localProviderVideoId,
+          reconciliationCutoff,
+        );
+        return { ok: true, value: toDto(local) };
+      }
       const remote = await dependencies.provider.find({ id: localProviderVideoId, projectId: local.projectId });
       if (
         remote === null ||
@@ -485,18 +585,22 @@ export function assembleVideos(dependencies: {
         remote.projectId !== local.projectId
       ) return providerMismatch();
       const lifecycle = providerLifecycle(remote);
+      const deleting = isDeletionState(local.state);
       const syncedAt = now();
       const updated = await dependencies.prisma.$transaction(async (transaction) => {
         const video = await transaction.video.update({
           where: { id: videoId },
           data: {
-            failureCode: lifecycle.failureCode,
+            failureCode: deleting ? local.failureCode : lifecycle.failureCode,
             lastSyncedAt: syncedAt,
             providerEmbedLocator: lifecycle.embedLocator,
             providerMessage: remote.message ?? null,
             providerStatus: remote.status,
-            readyAt: lifecycle.state === "ready" ? local.readyAt ?? syncedAt : null,
-            state: lifecycle.state,
+            providerVisibleAt: syncedAt,
+            readyAt: deleting
+              ? local.readyAt
+              : lifecycle.state === "ready" ? local.readyAt ?? syncedAt : null,
+            state: deleting ? local.state : lifecycle.state,
             title: remote.title,
             updatedAt: syncedAt,
           },
@@ -548,10 +652,27 @@ function providerLifecycle(remote: ProviderVideo): {
   return { embedLocator: null, failureCode: "unknown_provider_status", state: "failed" };
 }
 
-function toDto(video: { id: string; access: string; materialId: string; state: string; title: string; failureCode: string | null }): VideoDto {
+function toDto(video: { id: string; access: string; materialId: string; origin: string; state: string; title: string; failureCode: string | null }): VideoDto {
   return {
     access: access.parse(video.access),
     materialId: videoMaterialIdSchema.parse(video.materialId),
+    origin: z.enum(["external_attachment", "platform_upload"]).parse(video.origin),
+    state: parseVideoState(video.state),
+    title: video.title,
+    videoId: videoIdSchema.parse(video.id),
+    ...(video.failureCode === null ? {} : { failureCode: video.failureCode }),
+  };
+}
+
+function toAuthoringPresentation(video: {
+  readonly failureCode: string | null;
+  readonly id: string;
+  readonly origin: string;
+  readonly state: string;
+  readonly title: string;
+}) {
+  return {
+    origin: z.enum(["external_attachment", "platform_upload"]).parse(video.origin),
     state: parseVideoState(video.state),
     title: video.title,
     videoId: videoIdSchema.parse(video.id),
@@ -560,7 +681,23 @@ function toDto(video: { id: string; access: string; materialId: string; state: s
 }
 
 function parseVideoState(value: string): VideoState {
-  return z.enum(["uploading", "processing", "ready", "failed"]).parse(value);
+  return z.enum([
+    "uploading",
+    "processing",
+    "ready",
+    "failed",
+    "deletion_requested",
+    "deleting",
+    "deleted",
+    "delete_failed",
+  ]).parse(value);
+}
+
+function isDeletionState(value: string): boolean {
+  return value === "deletion_requested" ||
+    value === "deleting" ||
+    value === "deleted" ||
+    value === "delete_failed";
 }
 
 type VideoFailure<Code extends VideoError["code"]> = Readonly<{
@@ -573,5 +710,6 @@ const forbidden = (): VideoFailure<"forbidden"> => ({ ok: false, error: { code: 
 const dependencyUnavailable = (): VideoFailure<"dependency_unavailable"> => ({ ok: false, error: { code: "dependency_unavailable", retryable: true } });
 const providerMismatch = (): VideoFailure<"provider_mismatch"> => ({ ok: false, error: { code: "provider_mismatch" } });
 const uploadOutcomeUnknown = (): VideoFailure<"upload_outcome_unknown"> => ({ ok: false, error: { code: "upload_outcome_unknown" } });
+const videoDeletionNotRetryable = (): VideoFailure<"video_deletion_not_retryable"> => ({ ok: false, error: { code: "video_deletion_not_retryable" } });
 const videoNotFound = (): VideoFailure<"video_not_found"> => ({ ok: false, error: { code: "video_not_found" } });
 const videoNotReady = (): VideoFailure<"video_not_ready"> => ({ ok: false, error: { code: "video_not_ready" } });

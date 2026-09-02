@@ -44,12 +44,33 @@ export const materialMutationReceiptSchema = z
   })
   .strict();
 
+const authoringVideoSchema = z
+  .object({
+    failureCode: z.string().optional(),
+    origin: z.enum(["external_attachment", "platform_upload"]),
+    state: z.enum([
+      "uploading",
+      "processing",
+      "ready",
+      "failed",
+      "deletion_requested",
+      "deleting",
+      "deleted",
+      "delete_failed",
+    ]),
+    title: z.string(),
+    videoId: z.uuid(),
+  })
+  .strict();
+
 export const materialSchema = z
   .object({
     materialId: materialIdSchema,
     contentVersion: contentVersionSchema,
     publicationState: publicationStateWireSchema,
     primaryVideoId: z.uuid().nullable(),
+    primaryVideo: authoringVideoSchema.nullable(),
+    latestVideoDeletion: authoringVideoSchema.nullable(),
     firstPublishedAt: z.iso.datetime({ offset: true }).nullable(),
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
     metadata: materialMetadataSchema,
@@ -66,6 +87,7 @@ export const saveMaterialBodySchema = z
     expectedContentVersion: contentVersionSchema,
     publicationState: publicationStateWireSchema,
     primaryVideoId: z.uuid().nullable().default(null),
+    deleteVideoId: z.uuid().nullable().default(null),
     metadata: materialMetadataSelectionSchema,
     body: materialBodySnapshotSchema,
   })
@@ -79,7 +101,10 @@ export const transitionMaterialPublicationBodySchema = z
   .strict();
 
 export const deleteDraftBodySchema = z
-  .object({ expectedContentVersion: contentVersionSchema })
+  .object({
+    deleteVideoId: z.uuid().nullable().default(null),
+    expectedContentVersion: contentVersionSchema,
+  })
   .strict();
 
 export const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);

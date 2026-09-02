@@ -178,6 +178,13 @@ MCP является обязательной частью первой верс
 Material и его Library/search projection. Platform не хранит старые bodies, restore history или
 durable mutation journal; stale concurrent Save отклоняется по current content version.
 
+Основное Kinescope Video можно просто убрать из Material: только успешный Save снимает reference,
+а provider object остаётся нетронутым. Для загруженного самой Platform Video автор может отдельно
+подтвердить «убрать и удалить»; durable запрос создаётся в той же Save transaction и выполняется
+асинхронно только после проверки отсутствия current/published references. Привязанное по existing
+Kinescope ID Video удалить через Platform нельзя. UI показывает requested/deleting/deleted/failed,
+а восстановление или автоматическое удаление orphan Video не входят в продуктовый контракт.
+
 ## Создание актуальных материалов
 
 Актуальные материалы вручную заново создаются в Platform в удобной целевой структуре. Telegram

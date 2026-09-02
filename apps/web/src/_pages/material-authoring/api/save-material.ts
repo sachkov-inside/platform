@@ -15,6 +15,7 @@ import type { SaveMaterialResult } from "../model/save-material";
 import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
+  deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
   document: z.string().min(1).max(1_048_576),
   expectedContentVersion: z.coerce.number().int().positive(),
   formatId: z.union([z.uuid(), z.literal("unassigned")]),
@@ -101,6 +102,7 @@ function parseForm(
   | { readonly issues: readonly MaterialValidationIssue[]; readonly ok: false } {
   const parsed = formSchema.safeParse({
     access: formData.get("access"),
+    deleteVideoId: formData.get("deleteVideoId") ?? undefined,
     document: formData.get("document"),
     expectedContentVersion: formData.get("expectedContentVersion"),
     formatId: formData.get("formatId"),
@@ -131,6 +133,7 @@ function parseForm(
     ok: true,
     value: {
       access: parsed.data.access,
+      deleteVideoId: parsed.data.deleteVideoId === "none" ? null : parsed.data.deleteVideoId,
       document: documentFields.document,
       expectedContentVersion: parsed.data.expectedContentVersion,
       formatId: parsed.data.formatId === "unassigned" ? null : parsed.data.formatId,

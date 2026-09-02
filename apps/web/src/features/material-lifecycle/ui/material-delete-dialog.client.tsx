@@ -1,7 +1,7 @@
 "use client";
 
 import { RotateCcw, Trash2 } from "lucide-react";
-import { useId, useRef } from "react";
+import { useId, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 
@@ -10,11 +10,18 @@ import type {
   DeleteMaterialDraftResult,
 } from "../model/delete-material-draft";
 
+interface DeletableVideo {
+  readonly origin: "external_attachment" | "platform_upload";
+  readonly title: string;
+  readonly videoId: string;
+}
+
 export function MaterialDeleteDialog({
   contentVersion,
   materialId,
   onDelete,
   pending,
+  primaryVideo = null,
   result,
   submissionId,
   title,
@@ -23,11 +30,13 @@ export function MaterialDeleteDialog({
   readonly materialId: string;
   readonly onDelete: (input: DeleteMaterialDraftInput) => void;
   readonly pending: boolean;
+  readonly primaryVideo?: DeletableVideo | null;
   readonly result: DeleteMaterialDraftResult | null;
   readonly submissionId: string;
   readonly title: string | null;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [deleteOwnedVideo, setDeleteOwnedVideo] = useState(false);
   const dialogId = useId();
   const trimmedTitle = title?.trim();
   const displayTitle =
@@ -42,6 +51,7 @@ export function MaterialDeleteDialog({
       <Button
         className="min-h-11"
         onClick={() => {
+          setDeleteOwnedVideo(false);
           dialog.current?.showModal();
         }}
         type="button"
@@ -78,6 +88,24 @@ export function MaterialDeleteDialog({
               {materialId}
             </p>
           ) : null}
+          {primaryVideo?.origin === "platform_upload" ? (
+            <label className="mt-5 flex items-start gap-3 rounded-xl border border-destructive/30 p-4 text-sm leading-6">
+              <input
+                checked={deleteOwnedVideo}
+                className="mt-1 size-4"
+                disabled={pending}
+                onChange={(event) => { setDeleteOwnedVideo(event.currentTarget.checked); }}
+                type="checkbox"
+              />
+              <span>
+                Также удалить «{primaryVideo.title}» из Kinescope. Восстановление не гарантируется.
+              </span>
+            </label>
+          ) : primaryVideo?.origin === "external_attachment" ? (
+            <p className="mt-5 rounded-xl border border-border p-4 text-sm leading-6 text-muted-foreground">
+              «{primaryVideo.title}» останется в Kinescope: Platform не удаляет привязанные извне видео.
+            </p>
+          ) : null}
           <DeletionNotice result={result} />
           <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button
@@ -96,6 +124,7 @@ export function MaterialDeleteDialog({
               disabled={pending}
               onClick={() => {
                 onDelete({
+                  deleteVideoId: deleteOwnedVideo ? primaryVideo?.videoId ?? null : null,
                   expectedContentVersion: contentVersion,
                   materialId,
                   submissionId,

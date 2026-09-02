@@ -31,7 +31,8 @@ defaults apply only when `NODE_ENV` is `development` or `test`. Missing `NODE_EN
 
 The production files are copied manually before the first start, kept outside Git and restricted
 to their owner. `compose.env` configures the Compose project and published ports. `postgres.env`,
-`migrations.env`, `api.env`, `profile-avatars-worker.env`, `web.env` and `caddy.env` are
+`migrations.env`, `api.env`, `profile-avatars-worker.env`, `video-deletions-worker.env`, `web.env`
+and `caddy.env` are
 passed only to their owning services. CI/CD lessons will later automate their secure delivery
 without adding secrets to Git or images.
 
@@ -78,7 +79,8 @@ server-owned environment file until a later lesson introduces a secret manager o
 configuration flow.
 
 Kinescope defaults to the deterministic `test` adapter only in development/test. Production
-requires `KINESCOPE_PROVIDER_MODE=real`, distinct public and membership project IDs, server-only API
+requires `KINESCOPE_PROVIDER_MODE=real`, distinct public and membership project IDs, a server-only
+delete-capable API
 and DRM callback credentials, separate webhook Basic credentials and a playback JWT secret. Never place any of
 these values in `NEXT_PUBLIC_*`, Material JSON, screenshots, issue text or client logs. The two
 integration routes are `/integrations/kinescope/v1/webhook` and

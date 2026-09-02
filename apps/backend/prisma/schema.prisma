@@ -402,20 +402,48 @@ model Video {
   providerVideoId     String    @map("provider_video_id") @db.VarChar(256)
   title               String    @db.VarChar(255)
   originalFilename    String?   @map("original_filename") @db.VarChar(255)
+  origin              String
   providerEmbedLocator String?  @map("provider_embed_locator") @db.VarChar(2048)
   providerStatus      String    @map("provider_status") @db.VarChar(64)
+  providerVisibleAt   DateTime? @map("provider_visible_at") @db.Timestamptz
   state               String
   failureCode         String?   @map("failure_code") @db.VarChar(64)
   providerMessage     String?   @map("provider_message") @db.VarChar(500)
   readyAt             DateTime? @map("ready_at") @db.Timestamptz
   lastSyncedAt        DateTime? @map("last_synced_at") @db.Timestamptz
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletionOperation   VideoDeletionOperation?
 
   @@unique([providerVideoId, projectId], map: "videos_provider_identity_unique")
+  @@unique([id, materialId], map: "videos_deletion_identity_unique")
   @@unique([id, materialId, access], map: "videos_reference_identity_unique")
   @@index([materialId, state], map: "videos_material_state_idx")
   @@map("videos")
+  @@schema("videos")
+}
+
+model VideoDeletionOperation {
+  id                  String    @id @db.Uuid
+  videoId             String    @unique(map: "video_deletion_operations_video_unique") @map("video_id") @db.Uuid
+  materialId          String    @map("material_id") @db.Uuid
+  requestedBy         String    @map("requested_by") @db.Uuid
+  state               String
+  requestedAt         DateTime  @map("requested_at") @db.Timestamptz
+  claimedAt           DateTime? @map("claimed_at") @db.Timestamptz
+  completedAt         DateTime? @map("completed_at") @db.Timestamptz
+  attempts            Int       @default(0)
+  cycleAttempts       Int       @default(0) @map("cycle_attempts")
+  nextAttemptAt       DateTime  @map("next_attempt_at") @db.Timestamptz
+  lastErrorCategory   String?   @map("last_error_category") @db.VarChar(64)
+  providerRequestId   String?   @map("provider_request_id") @db.VarChar(256)
+  updatedAt           DateTime  @map("updated_at") @db.Timestamptz
+  video               Video     @relation(fields: [videoId, materialId], references: [id, materialId], onDelete: Restrict)
+
+  @@unique([videoId, materialId], map: "video_deletion_operations_video_material_unique")
+  @@index([state, nextAttemptAt, requestedAt], map: "video_deletion_operations_claim_idx")
+  @@map("deletion_operations")
   @@schema("videos")
 }
 

@@ -7,6 +7,7 @@ import type {
   MaterialBodySnapshot,
   ValidationIssue,
 } from "../../domain/material-body/material-body.js";
+import type { VideoAuthoringPresentation } from "../../../videos/index.js";
 
 export interface SeriesMembershipInput {
   readonly seriesId: string;
@@ -36,6 +37,8 @@ export interface MaterialDto {
   readonly firstPublishedAt: string | null;
   readonly publishedAt: string | null;
   readonly primaryVideoId: string | null;
+  readonly primaryVideo: VideoAuthoringPresentation | null;
+  readonly latestVideoDeletion: VideoAuthoringPresentation | null;
   readonly metadata: MaterialMetadataDto;
   readonly body: MaterialBodySnapshot;
 }

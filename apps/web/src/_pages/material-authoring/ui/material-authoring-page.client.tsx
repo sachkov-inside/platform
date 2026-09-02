@@ -69,6 +69,11 @@ export function MaterialAuthoringPageClient({
             canDelete:
               draft.canDelete && saved.publicationState === "draft",
             contentVersion: saved.contentVersion,
+            deleteVideoId: null,
+            latestVideoDeletion:
+              draft.deleteVideoId === null || draft.latestVideoDeletion === null
+                ? draft.latestVideoDeletion
+                : { ...draft.latestVideoDeletion, state: "deletion_requested" as const },
             status: saved.publicationState,
           }
         : draft;
@@ -177,6 +182,8 @@ export function MaterialAuthoringPageClient({
         markDirty({
           ...effectiveDraft,
           access: value === "membership" ? "membership" : "free",
+          deleteVideoId: null,
+          primaryVideo: value === effectiveDraft.access ? effectiveDraft.primaryVideo : null,
           primaryVideoId:
             value === effectiveDraft.access ? effectiveDraft.primaryVideoId : null,
         });
@@ -197,8 +204,18 @@ export function MaterialAuthoringPageClient({
         );
       }
     },
-    onPrimaryVideoChange: (primaryVideoId) => {
-      markDirty({ ...effectiveDraft, primaryVideoId });
+    onPrimaryVideoChange: (primaryVideo, deleteVideoId) => {
+      const deletionCandidate =
+        deleteVideoId !== null && effectiveDraft.primaryVideo?.videoId === deleteVideoId
+          ? effectiveDraft.primaryVideo
+          : effectiveDraft.latestVideoDeletion;
+      markDirty({
+        ...effectiveDraft,
+        deleteVideoId,
+        latestVideoDeletion: deletionCandidate,
+        primaryVideo,
+        primaryVideoId: primaryVideo?.videoId ?? null,
+      });
     },
     onRetry: () => {
       if (creating && retryCreateInput.current !== null) {
@@ -250,6 +267,7 @@ export function MaterialAuthoringPageClient({
       }
       const input: SaveMaterialInput = {
         access: effectiveDraft.access,
+        deleteVideoId: effectiveDraft.deleteVideoId,
         document: effectiveDraft.document,
         expectedContentVersion: effectiveDraft.contentVersion,
         formatId: effectiveDraft.formatId,

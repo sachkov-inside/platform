@@ -42,7 +42,6 @@ import {
 import { assemblePublishedMaterialReader } from "./facets/published-material-reader/assemble-published-material-reader.js";
 import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 import {
-  assembleMaterialContent,
   MATERIAL_CONTENT,
   type MaterialContent,
 } from "./facets/material-content/material-content.js";
@@ -61,9 +60,17 @@ import {
   VIDEO_PLAYBACK,
   type VideoPlayback,
 } from "./facets/video-playback/video-playback.js";
+import { MaterialContentModule } from "./material-content.module.js";
 
 @Module({
-  imports: [PrismaModule, AccountsModule, AssetsModule, MembershipEntitlementsModule, VideosModule],
+  imports: [
+    PrismaModule,
+    AccountsModule,
+    AssetsModule,
+    MaterialContentModule,
+    MembershipEntitlementsModule,
+    VideosModule,
+  ],
   providers: [
     {
       provide: MATERIAL_AUTHORING,
@@ -89,12 +96,6 @@ import {
           materialBodyOperations,
         });
       },
-    },
-    {
-      provide: MATERIAL_CONTENT,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider): MaterialContent =>
-        assembleMaterialContent({ prisma, materialBodyOperations }),
     },
     {
       provide: MATERIAL_ASSET_AUTHORING,

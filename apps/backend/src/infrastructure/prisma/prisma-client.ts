@@ -18,6 +18,8 @@ export type MaterialsPrisma = Pick<
   | "seriesMembership"
   | "tag"
   | "topic"
+  | "video"
+  | "videoDeletionOperation"
 >;
 export type MaterialsPrismaTransaction = MaterialsPrisma;
 export type MaterialsPrismaClient = MaterialsPrisma &
@@ -36,7 +38,13 @@ export type AssetsPrismaClient = AssetsPrisma &
 
 export type VideosPrisma = Pick<
   PlatformPrisma,
-  "video" | "videoPlaybackProgress" | "videoUploadAttempt" | "videoWebhookInbox"
+  | "$executeRaw"
+  | "$queryRaw"
+  | "video"
+  | "videoDeletionOperation"
+  | "videoPlaybackProgress"
+  | "videoUploadAttempt"
+  | "videoWebhookInbox"
 >;
 export type VideosPrismaClient = VideosPrisma & TransactionClient<VideosPrisma>;
 

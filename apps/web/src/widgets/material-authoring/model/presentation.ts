@@ -5,6 +5,7 @@ import type {
   DeleteMaterialDraftInput,
   DeleteMaterialDraftResult,
 } from "@/features/material-lifecycle";
+import type { MaterialAuthoringVideo } from "@/features/material-video";
 
 export type MaterialSaveState =
   | { readonly kind: "clean" }
@@ -22,8 +23,11 @@ export interface MaterialDraftPresentation {
   readonly access: "free" | "membership";
   readonly canDelete: boolean;
   readonly document: JSONContent;
+  readonly deleteVideoId: string | null;
   readonly formatId: string;
   readonly materialId: string | null;
+  readonly latestVideoDeletion: MaterialAuthoringVideo | null;
+  readonly primaryVideo: MaterialAuthoringVideo | null;
   readonly primaryVideoId: string | null;
   readonly contentVersion: number | null;
   readonly readOnly: boolean;
@@ -120,7 +124,10 @@ export interface MaterialAuthoringActions {
   readonly onDelete: (input: DeleteMaterialDraftInput) => void;
   readonly onFieldChange: (field: MaterialDraftField, value: string) => void;
   readonly onOpenPreview: () => void;
-  readonly onPrimaryVideoChange: (videoId: string | null) => void;
+  readonly onPrimaryVideoChange: (
+    primaryVideo: MaterialAuthoringVideo | null,
+    deleteVideoId: string | null,
+  ) => void;
   readonly onRetry: () => void;
   readonly onReturnToEditor: () => void;
   readonly onSave: (

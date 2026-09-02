@@ -24,7 +24,8 @@ export class MaterialVideoAuthoringService {
     access: 'free' | 'membership';
     failureCode?: string;
     materialId: string;
-    state: 'uploading' | 'processing' | 'ready' | 'failed';
+    origin: 'external_attachment' | 'platform_upload';
+    state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
     title: string;
     videoId: string;
   }> {
@@ -62,7 +63,8 @@ export class MaterialVideoAuthoringService {
       access: 'free' | 'membership';
       failureCode?: string;
       materialId: string;
-      state: 'uploading' | 'processing' | 'ready' | 'failed';
+      origin: 'external_attachment' | 'platform_upload';
+      state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
       title: string;
       videoId: string;
     };
@@ -81,6 +83,32 @@ export class MaterialVideoAuthoringService {
     });
   }
   /**
+   * Retry one failed owned Video deletion
+   * @returns any
+   * @throws ApiError
+   */
+  public retryMaterialVideoDeletion({
+    videoId,
+  }: {
+    videoId: string,
+  }): CancelablePromise<{
+    access: 'free' | 'membership';
+    failureCode?: string;
+    materialId: string;
+    origin: 'external_attachment' | 'platform_upload';
+    state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
+    title: string;
+    videoId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/videos/{videoId}/deletion-retries',
+      path: {
+        'videoId': videoId,
+      },
+    });
+  }
+  /**
    * Reconcile Video lifecycle from Kinescope
    * @returns any
    * @throws ApiError
@@ -93,7 +121,8 @@ export class MaterialVideoAuthoringService {
     access: 'free' | 'membership';
     failureCode?: string;
     materialId: string;
-    state: 'uploading' | 'processing' | 'ready' | 'failed';
+    origin: 'external_attachment' | 'platform_upload';
+    state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
     title: string;
     videoId: string;
   }> {

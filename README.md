@@ -50,6 +50,7 @@ pnpm dev          # web and API
 pnpm dev:web
 pnpm dev:api
 pnpm dev:mcp
+pnpm dev:video-deletions-worker
 
 pnpm docs:check
 pnpm lint

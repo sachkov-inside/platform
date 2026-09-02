@@ -68,6 +68,7 @@ KINESCOPE_PLAYBACK_JWT_TTL_SECONDS=60
 EOF
 
 cp "$runtime_config_dir/api.env" "$runtime_config_dir/profile-avatars-worker.env"
+cp "$runtime_config_dir/api.env" "$runtime_config_dir/video-deletions-worker.env"
 
 cat >"$runtime_config_dir/web.env" <<EOF
 NODE_ENV=production
@@ -127,6 +128,20 @@ avatar_worker_logs="$("${compose[@]}" logs profile-avatars-worker)"
 if [[ "$avatar_worker_logs" != *'"process":"profile-avatars-worker","status":"ready"'* ]]; then
   echo "Profile Avatar worker did not report readiness" >&2
   printf '%s\n' "$avatar_worker_logs" >&2
+  exit 1
+fi
+
+video_deletion_worker_container_id="$("${compose[@]}" ps --quiet video-deletions-worker)"
+video_deletion_worker_state="$(docker container inspect "$video_deletion_worker_container_id" --format '{{.State.Status}}:{{.RestartCount}}')"
+if [[ "$video_deletion_worker_state" != "running:0" ]]; then
+  echo "Video deletion worker did not stay running without restarts: $video_deletion_worker_state" >&2
+  "${compose[@]}" logs video-deletions-worker >&2
+  exit 1
+fi
+video_deletion_worker_logs="$("${compose[@]}" logs video-deletions-worker)"
+if [[ "$video_deletion_worker_logs" != *'"process":"video-deletions-worker","status":"ready"'* ]]; then
+  echo "Video deletion worker did not report readiness" >&2
+  printf '%s\n' "$video_deletion_worker_logs" >&2
   exit 1
 fi
 
@@ -193,4 +208,4 @@ if [[ "$migration_count" != "$expected_migration_count" ]]; then
   exit 1
 fi
 
-echo "Production Compose smoke passed: migrations -> Profile Avatar worker -> API -> web -> Caddy"
+echo "Production Compose smoke passed: migrations -> capability workers -> API -> web -> Caddy"

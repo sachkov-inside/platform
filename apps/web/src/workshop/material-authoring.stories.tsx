@@ -86,9 +86,14 @@ function MaterialAuthoringFixture({
       noopActions.onOpenPreview();
       setPresentation((current) => ({ ...current, mode: "preview" }));
     },
-    onPrimaryVideoChange: (primaryVideoId) => {
-      noopActions.onPrimaryVideoChange(primaryVideoId);
-      markDirty({ ...presentation.draft, primaryVideoId });
+    onPrimaryVideoChange: (primaryVideo, deleteVideoId) => {
+      noopActions.onPrimaryVideoChange(primaryVideo, deleteVideoId);
+      markDirty({
+        ...presentation.draft,
+        deleteVideoId,
+        primaryVideo,
+        primaryVideoId: primaryVideo?.videoId ?? null,
+      });
     },
     onRetry: () => {
       noopActions.onRetry();

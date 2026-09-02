@@ -6,6 +6,7 @@ const fakes = vi.hoisted(() => ({
   requestAttach: vi.fn(),
   requestPlayback: vi.fn(),
   requestProgress: vi.fn(),
+  requestRetryDeletion: vi.fn(),
   requestReconcile: vi.fn(),
   requestUpload: vi.fn(),
 }));
@@ -14,6 +15,7 @@ vi.mock("@/shared/api/backend/index.server", () => ({
   requestVideoAttach: fakes.requestAttach,
   requestVideoPlayback: fakes.requestPlayback,
   requestVideoProgress: fakes.requestProgress,
+  requestVideoDeletionRetry: fakes.requestRetryDeletion,
   requestVideoReconcile: fakes.requestReconcile,
   requestVideoUploadInit: fakes.requestUpload,
 }));
@@ -46,6 +48,7 @@ vi.mock("@/shared/auth/index.server", async () => {
 
 import {
   handleVideoAttachmentRequest,
+  handleVideoDeletionRetryRequest,
   handleVideoReconciliationRequest,
   handleVideoUploadRequest,
 } from "@/features/material-video/api/video-authoring-route.server";
@@ -193,6 +196,23 @@ describe("Material Video named authoring BFF mutations", () => {
       providerVideoId: "provider-video",
     }, "access-token");
     expect(fakes.requestReconcile).toHaveBeenCalledWith(videoId, "access-token");
+  });
+
+  it("retries a failed deletion through its named mutation", async () => {
+    fakes.requestRetryDeletion.mockResolvedValue({
+      body: { state: "deletion_requested", videoId },
+      ok: true,
+      response: Response.json({}),
+    });
+
+    const response = await handleVideoDeletionRetryRequest(mutationRequest(
+      "/api/authoring/material-video-deletion-retries",
+      { videoId },
+      "POST",
+    ));
+
+    await expect(response.json()).resolves.toMatchObject({ kind: "ready" });
+    expect(fakes.requestRetryDeletion).toHaveBeenCalledWith(videoId, "access-token");
   });
 
   it("saves progress through the authenticated PUT capability", async () => {

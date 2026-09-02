@@ -1,9 +1,19 @@
 export type VideoAccess = "free" | "membership";
-export type VideoState = "uploading" | "processing" | "ready" | "failed";
+export type VideoOrigin = "external_attachment" | "platform_upload";
+export type VideoState =
+  | "uploading"
+  | "processing"
+  | "ready"
+  | "failed"
+  | "deletion_requested"
+  | "deleting"
+  | "deleted"
+  | "delete_failed";
 
 export interface VideoDto {
   readonly access: VideoAccess;
   readonly materialId: string;
+  readonly origin: VideoOrigin;
   readonly state: VideoState;
   readonly title: string;
   readonly videoId: string;
@@ -15,6 +25,10 @@ export interface VideoPresentation {
   readonly title: string;
   readonly videoId: string;
   readonly failureCode?: string;
+}
+
+export interface VideoAuthoringPresentation extends VideoPresentation {
+  readonly origin: VideoOrigin;
 }
 
 export interface VideoAccessFacts {
@@ -38,6 +52,7 @@ export type VideoError =
   | { readonly code: "invalid_request" }
   | { readonly code: "provider_mismatch" }
   | { readonly code: "upload_outcome_unknown" }
+  | { readonly code: "video_deletion_not_retryable" }
   | { readonly code: "video_not_found" }
   | { readonly code: "video_not_ready" };
 
@@ -74,6 +89,15 @@ export type ReconcileVideoResult = OperationResult<
   "dependency_unavailable" | "forbidden" | "invalid_request" | "provider_mismatch" | "video_not_found"
 >;
 
+export type RetryVideoDeletionResult = OperationResult<
+  VideoDto,
+  | "dependency_unavailable"
+  | "forbidden"
+  | "invalid_request"
+  | "video_deletion_not_retryable"
+  | "video_not_found"
+>;
+
 export type AcceptVideoWebhookResult = OperationResult<
   void,
   "dependency_unavailable" | "invalid_request" | "provider_mismatch" | "video_not_found"
@@ -99,6 +123,10 @@ export interface Videos {
     readonly actor: string;
     readonly videoId: string;
   }): Promise<ReconcileVideoResult>;
+  retryDeletion(input: {
+    readonly actor: string;
+    readonly videoId: string;
+  }): Promise<RetryVideoDeletionResult>;
   acceptWebhook(input: {
     readonly event: string;
     readonly providerStatus?: string;
@@ -116,6 +144,13 @@ export interface Videos {
     readonly materialId: string;
     readonly videoId: string;
   }): Promise<OperationResult<VideoPresentation | null, "dependency_unavailable" | "invalid_request">>;
+  loadAuthoringPresentation(input: {
+    readonly materialId: string;
+    readonly videoId: string;
+  }): Promise<OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">>;
+  loadLatestDeletion(materialId: string): Promise<
+    OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">
+  >;
   loadAccessFacts(videoIds: readonly string[]): Promise<
     OperationResult<readonly VideoAccessFacts[], "dependency_unavailable" | "invalid_request">
   >;
@@ -134,5 +169,8 @@ export interface Videos {
     readonly durationSeconds: number;
     readonly positionSeconds: number;
     readonly videoId: string;
-  }): Promise<OperationResult<void, "dependency_unavailable" | "invalid_request">>;
+  }): Promise<OperationResult<
+    void,
+    "dependency_unavailable" | "invalid_request" | "video_not_ready"
+  >>;
 }
