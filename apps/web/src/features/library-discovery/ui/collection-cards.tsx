@@ -39,7 +39,7 @@ export function TopicCard({ topic }: { readonly topic: TopicCardPresentation }) 
             className="size-5 shrink-0 text-sidebar-primary transition-transform group-hover/topic:-translate-y-0.5 group-hover/topic:translate-x-0.5 motion-reduce:transform-none"
           />
         </span>
-        <span className="mt-4 block font-mono text-[0.6875rem] text-sidebar-foreground/58">
+        <span className="mt-4 block text-xs text-sidebar-foreground/58">
           {formatMaterialCount(topic.count)}
         </span>
       </span>
@@ -68,7 +68,7 @@ export function PlaylistCard({
           <span className="mt-2 block text-sm leading-5 text-muted-foreground">
             {playlist.summary || "Последовательность материалов"}
           </span>
-          <span className="mt-3 block font-mono text-[0.6875rem] text-muted-foreground">
+          <span className="mt-3 block text-xs text-muted-foreground">
             {playlist.countLabel}
           </span>
         </span>

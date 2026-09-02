@@ -37,7 +37,7 @@ export function MaterialCard({
       data-material-slug={material.slug}
     >
       <div
-        className="group/card relative grid h-full overflow-hidden rounded-xl bg-card no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-within:shadow-card-hover active:translate-y-0 active:shadow-card motion-reduce:transform-none motion-reduce:transition-none"
+        className="group/card relative grid h-full overflow-hidden rounded-2xl bg-card no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-within:shadow-card-hover active:translate-y-0 active:shadow-card motion-reduce:transform-none motion-reduce:transition-none"
       >
         {hasPreview ? (
           <MaterialPoster material={material} preview={material.preview} />
@@ -58,9 +58,9 @@ export function MaterialCard({
           <div className="mt-3">
             <MaterialTaxonomy material={material} />
           </div>
-          <Heading className="mt-3 line-clamp-2 text-base font-semibold leading-[1.3] tracking-[-0.02em]">
+          <Heading className="mt-3 line-clamp-3 text-xl font-bold leading-[1.2] tracking-[-0.03em]">
             <Link
-              className="no-underline after:absolute after:inset-0 after:rounded-xl after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:underline group-hover/card:decoration-accent group-hover/card:underline-offset-4"
+              className="no-underline after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:underline group-hover/card:decoration-accent group-hover/card:underline-offset-4"
               href={materialReaderHref(material.slug, returnHref)}
               id={titleId}
               prefetch={false}
@@ -89,7 +89,7 @@ function MaterialTaxonomy({
     <ul aria-label="Контекст материала" className="flex flex-wrap gap-1.5" role="list">
       <li>
         <Link
-          className="relative z-10 inline-flex min-h-7 items-center rounded-md bg-accent/10 px-2 py-1 text-[0.6875rem] font-semibold leading-4 text-foreground no-underline hover:bg-accent/20 focus-visible:outline-ring"
+          className="relative z-10 inline-flex min-h-7 items-center rounded-lg bg-accent/10 px-2.5 py-1 text-xs font-medium leading-4 text-foreground no-underline hover:bg-accent/20 focus-visible:outline-ring"
           href={`/topics/${material.topicSlug}`}
           prefetch={false}
         >
@@ -98,7 +98,7 @@ function MaterialTaxonomy({
       </li>
       {material.tags.slice(0, 2).map((tag) => (
         <li key={tag}>
-          <span className="inline-flex min-h-7 items-center rounded-md bg-secondary px-2 py-1 text-[0.6875rem] font-semibold leading-4 text-secondary-foreground/75">
+          <span className="inline-flex min-h-7 items-center rounded-lg bg-secondary px-2.5 py-1 text-xs font-medium leading-4 text-muted-foreground">
             {tag}
           </span>
         </li>
@@ -115,7 +115,7 @@ function MaterialFormat({
   const FormatIcon = material.preview === undefined ? BookOpenText : Play;
 
   return (
-    <span className="inline-flex min-h-7 shrink-0 items-center gap-1.5 font-mono text-[0.6875rem] text-muted-foreground">
+    <span className="inline-flex min-h-7 shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
       <FormatIcon aria-hidden="true" className="size-3.5 text-accent" />
       {materialTaxonomyLabel(material.format)}
     </span>
@@ -134,7 +134,7 @@ function MaterialPlaylists({
   return (
     <ul
       aria-label="Плейлисты материала"
-      className="mt-auto grid gap-1.5 border-t border-border pt-3 font-mono text-[0.6875rem] text-muted-foreground"
+      className="mt-auto grid gap-1.5 pt-3 text-xs text-muted-foreground"
       role="list"
     >
       {material.seriesMemberships.map((membership) => (
@@ -175,7 +175,7 @@ function AccessLabel({
   return (
     <span
       className={cn(
-        "inline-flex min-h-7 w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold",
+        "inline-flex min-h-7 w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium",
         isAvailable
           ? "bg-secondary text-secondary-foreground"
           : "bg-primary text-primary-foreground",

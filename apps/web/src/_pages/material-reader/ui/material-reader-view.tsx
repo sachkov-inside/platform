@@ -79,7 +79,7 @@ function MaterialHeader({ material }: { readonly material: MaterialReaderMetadat
 
   return (
     <header className="min-w-0 max-w-[56rem]">
-      <div className="flex flex-wrap items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-secondary px-2.5 font-semibold text-secondary-foreground">
           <BookOpenText aria-hidden="true" className="size-3.5 text-accent" />
           {materialTaxonomyLabel(material.format.name)}
@@ -115,7 +115,7 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
         <ul aria-label="Теги материала" className="flex flex-wrap gap-2" role="list">
           {material.tags.map((tag) => (
             <li key={tag.name}>
-              <span className="inline-flex min-h-8 items-center rounded-md bg-muted px-2.5 py-1.5 font-mono text-[0.6875rem] text-muted-foreground">
+              <span className="inline-flex min-h-8 items-center rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
                 {tag.name}
               </span>
             </li>
@@ -127,11 +127,11 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
           {material.seriesMemberships.map(({ ordinal, series }) => (
             <li key={series.slug}>
               <Link
-                className="inline-flex min-h-8 items-center rounded-md px-2 font-mono text-xs text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
+                className="inline-flex min-h-8 items-center rounded-lg px-2 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
                 href={`/series/${series.slug}`}
                 prefetch={false}
               >
-                {series.name} · выпуск {ordinal}
+                {series.name} · № {ordinal}
               </Link>
             </li>
           ))}
@@ -181,7 +181,7 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
       <details className="group rounded-xl bg-muted/60 @min-[40rem]/material-reader:hidden">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
           В этом материале
-          <span aria-hidden="true" className="font-mono text-xs text-muted-foreground">
+          <span aria-hidden="true" className="text-xs text-muted-foreground">
             {items.length}
           </span>
         </summary>

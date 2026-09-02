@@ -51,7 +51,7 @@ export function CatalogControls({
 
   return (
     <form
-      className="mt-12 border-t border-border pt-8 sm:mt-16 sm:pt-10"
+      className="mt-10 sm:mt-14"
       onSubmit={(event) => {
         event.preventDefault();
       }}
@@ -193,7 +193,7 @@ function CatalogFilterFieldset({
 }) {
   return (
     <fieldset className="min-w-0 border-0 p-0">
-      <legend className="mb-2 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+      <legend className="mb-2 text-xs font-medium text-muted-foreground">
         {legend}
       </legend>
       <div className="flex flex-wrap gap-2">
@@ -216,7 +216,7 @@ function CatalogFilterFieldset({
             />
             <span className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:border-muted-foreground/45 hover:bg-muted/80 peer-checked:border-accent/55 peer-checked:bg-accent/12 peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
               {name === "format" ? materialTaxonomyLabel(option.name) : option.name}
-              <span className="font-mono text-[0.6875rem] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 {option.count}
               </span>
             </span>

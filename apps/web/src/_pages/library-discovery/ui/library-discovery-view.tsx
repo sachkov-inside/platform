@@ -17,7 +17,10 @@ import type {
   PublishedSeriesResult,
   PublishedTopicResult,
 } from "@/features/library-discovery";
-import type { MaterialPreview } from "@/entities/material";
+import {
+  materialTaxonomyLabel,
+  type MaterialPreview,
+} from "@/entities/material";
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import {
@@ -57,7 +60,7 @@ export function LibraryDiscoveryView({
         <span className="relative grid size-11 place-items-center rounded-xl bg-background/80 text-accent [&_svg]:size-5">
           <Icon aria-hidden="true" />
         </span>
-        <p className="relative mt-5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <p className="relative mt-5 text-sm font-medium text-muted-foreground">
           {isSeries ? "Плейлист" : "Тема"}
         </p>
         <h1 className="relative mt-2 max-w-[24ch] break-words text-balance text-3xl font-semibold leading-[1.08] tracking-[-0.035em] sm:text-4xl @min-[64rem]/discovery:text-5xl">
@@ -132,9 +135,9 @@ function SeriesMaterials({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold tracking-[-0.025em]" id="series-materials">
-            Выпуски
+            Материалы
           </h2>
-          <p className="mt-1 font-mono text-xs text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             {formatMaterialCount(result.items.length)}
           </p>
         </div>
@@ -164,15 +167,14 @@ function SeriesMaterials({
             )?.ordinal ?? index + 1;
           return (
             <li
-              className="grid items-start gap-3 @min-[38rem]/discovery:grid-cols-[6rem_minmax(0,1fr)]"
+              className="grid items-start gap-2 @min-[38rem]/discovery:grid-cols-[3rem_minmax(0,1fr)]"
               data-series-ordinal={ordinal}
               key={material.slug}
             >
-              <div className="flex min-h-11 items-center gap-2 font-mono text-xs font-semibold text-muted-foreground @min-[38rem]/discovery:pt-4">
-                <span className="grid size-8 place-items-center rounded-full bg-accent/10 text-foreground">
+              <div className="flex min-h-11 items-center font-semibold text-foreground @min-[38rem]/discovery:pt-4">
+                <span className="grid size-9 place-items-center rounded-full bg-accent/10 text-base">
                   {ordinal}
                 </span>
-                Выпуск
               </div>
               <SeriesMaterialRow
                 material={material}
@@ -211,8 +213,8 @@ function SeriesMaterialRow({
         <BookOpenText aria-hidden="true" className="size-5" />
       </span>
       <span className="min-w-0">
-        <span className="flex flex-wrap items-center gap-2 font-mono text-[0.6875rem] text-muted-foreground">
-          <span>{material.format}</span>
+        <span className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
+          <span>{materialTaxonomyLabel(material.format)}</span>
           <span aria-hidden="true">·</span>
           <Link className="relative z-10 no-underline hover:text-foreground" href={`/topics/${material.topicSlug}`}>
             {material.topic}
@@ -258,7 +260,7 @@ function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
     <section className="mt-8 max-w-[48rem] rounded-2xl bg-muted px-6 py-7 sm:mt-10 sm:px-8">
       <LibraryBig aria-hidden="true" className="size-6 text-accent" />
       <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em]">
-        {kind === "series" ? "В плейлисте пока нет выпусков" : "В теме пока нет материалов"}
+        {kind === "series" ? "В плейлисте пока нет материалов" : "В теме пока нет материалов"}
       </h2>
       <Button asChild className="mt-6" size="lg" variant="outline">
         <Link href="/library">Открыть Базу знаний</Link>
@@ -276,7 +278,7 @@ function DiscoveryBreadcrumb({
 }) {
   return (
     <nav aria-label="Хлебные крошки">
-      <ol className="flex min-h-10 flex-wrap items-center gap-2 font-mono text-xs text-muted-foreground">
+      <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <li>
           <Link
             className="inline-flex min-h-10 items-center rounded-lg px-2 no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"

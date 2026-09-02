@@ -130,6 +130,12 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+@media (width < 48rem) {
+  .platform-agentation {
+    bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
 @media (width >= 48rem) {
   html,
   body {

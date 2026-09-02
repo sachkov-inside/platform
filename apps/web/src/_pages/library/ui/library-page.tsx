@@ -232,7 +232,7 @@ export function LibraryCatalog({
           <h2 className="text-lg font-semibold tracking-[-0.025em] @min-[30rem]/library:text-xl" id="materials-heading">
             Материалы
           </h2>
-          <p className="mt-1 font-mono text-xs text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             {formatFoundMaterialCount(totalCount)}
           </p>
         </div>

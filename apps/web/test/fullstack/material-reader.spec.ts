@@ -540,11 +540,11 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   const readerSeriesLink = page
     .getByRole("list", { name: "Плейлисты материала" })
     .getByRole("link", {
-      name: /^Создание Platform Inside · выпуск \d+$/u,
+      name: /^Создание Platform Inside · № \d+$/u,
     });
   await expect(readerSeriesLink).toHaveAttribute("href", "/series/platform-inside");
   await expect(readerSeriesLink).toHaveText(
-    `Создание Platform Inside · выпуск ${representativeOrdinal ?? ""}`,
+    `Создание Platform Inside · № ${representativeOrdinal ?? ""}`,
   );
   const related = page.locator('[data-related-state="ready"]');
   await expect(related.getByRole("heading", { name: "Похожие материалы" })).toBeVisible();
