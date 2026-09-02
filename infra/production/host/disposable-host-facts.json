@@ -1,0 +1,9 @@
+{
+  "architecture": "x86_64",
+  "availableDiskBytes": 85899345920,
+  "cpuCount": 4,
+  "effectiveUserId": 0,
+  "memoryBytes": 8589934592,
+  "osId": "ubuntu",
+  "osVersion": "24.04"
+}

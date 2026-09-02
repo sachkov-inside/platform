@@ -37,10 +37,12 @@ cleanup() {
   local cleanup_status=0
   trap - EXIT
   if ((test_status != 0)) && [[ -n "$artifact_dir" ]] && mkdir -p "$artifact_dir"; then
-    "${database_compose[@]}" --profile fixture --profile operations ps --all >"$artifact_dir/database-ps.txt" 2>&1 || true
-    "${database_compose[@]}" --profile fixture --profile operations logs --no-color --tail 300 >"$artifact_dir/database.log" 2>&1 || true
-    "${logto_compose[@]}" ps --all >"$artifact_dir/logto-ps.txt" 2>&1 || true
-    "${logto_compose[@]}" logs --no-color --tail 300 >"$artifact_dir/logto.log" 2>&1 || true
+    "${database_compose[@]}" --profile fixture --profile operations ps --all \
+      --format json >"$artifact_dir/database-ps.json" 2>&1 || true
+    "${logto_compose[@]}" ps --all --format json \
+      >"$artifact_dir/logto-ps.json" 2>&1 || true
+    printf '%s\n' 'Foundation drill failed; raw service logs are intentionally excluded.' \
+      >"$artifact_dir/README.txt"
   fi
   if ! "${logto_compose[@]}" down --volumes --remove-orphans; then
     cleanup_status=1
@@ -58,6 +60,32 @@ trap cleanup EXIT
 
 random_hex() {
   openssl rand -hex 24
+}
+
+latest_backup_set() {
+  "${database_compose[@]}" --profile operations run --rm -T pgbackrest \
+    --stanza=production --output=json info \
+    | node -e 'let value="";process.stdin.on("data",chunk=>value+=chunk).on("end",()=>{const info=JSON.parse(value);const backups=info[0]?.backup??[];process.stdout.write(backups.at(-1)?.label??"")})'
+}
+
+verify_recovery_markers() {
+  local expected="$1"
+  local mode="$2"
+  local database_spec database database_user recovered
+  for database_spec in "inside:platform_owner" "logto:logto_owner"; do
+    database="${database_spec%%:*}"
+    database_user="${database_spec##*:}"
+    recovered="$("${database_compose[@]}" exec -T postgres psql \
+      --username "$database_user" \
+      --dbname "$database" \
+      --tuples-only \
+      --no-align \
+      --command="select string_agg(id, ',' order by id) from foundation_recovery_marker;")"
+    if [[ "$recovered" != "$expected" ]]; then
+      echo "$database $mode marker verification failed" >&2
+      return 1
+    fi
+  done
 }
 
 postgres_password="$(random_hex)"
@@ -153,6 +181,11 @@ done
 
 "${database_compose[@]}" --profile operations run --rm pgbackrest \
   --stanza=production --type=full backup
+pitr_backup_set="$(latest_backup_set)"
+if [[ -z "$pitr_backup_set" ]]; then
+  echo "pgBackRest did not report the full backup set" >&2
+  exit 1
+fi
 # pgBackRest records backup stop times at whole-second precision. Keep the PITR
 # target strictly after that stop time so the selected base backup is eligible.
 "${database_compose[@]}" exec -T postgres psql \
@@ -194,10 +227,8 @@ last_marker_epoch="$("${database_compose[@]}" exec -T postgres psql \
 "${database_compose[@]}" --profile operations run --rm pgbackrest --stanza=production check
 "${database_compose[@]}" --profile operations run --rm pgbackrest \
   --stanza=production --type=incr backup
-backup_set="$("${database_compose[@]}" --profile operations run --rm -T pgbackrest \
-  --stanza=production --output=json info \
-  | node -e 'let value="";process.stdin.on("data",chunk=>value+=chunk).on("end",()=>{const info=JSON.parse(value);const backups=info[0]?.backup??[];process.stdout.write(backups.at(-1)?.label??"")})')"
-if [[ -z "$backup_set" ]]; then
+empty_backup_set="$(latest_backup_set)"
+if [[ -z "$empty_backup_set" ]]; then
   echo "pgBackRest did not report a recoverable backup set" >&2
   exit 1
 fi
@@ -221,20 +252,7 @@ empty_target_epoch="$empty_started"
 "${database_compose[@]}" --profile operations run --rm restore \
   --stanza=production --archive-mode=off restore
 "${database_compose[@]}" up --detach --wait postgres
-for database_spec in "inside:platform_owner" "logto:logto_owner"; do
-  database="${database_spec%%:*}"
-  database_user="${database_spec##*:}"
-  recovered="$("${database_compose[@]}" exec -T postgres psql \
-    --username "$database_user" \
-    --dbname "$database" \
-    --tuples-only \
-    --no-align \
-    --command="select string_agg(id, ',' order by id) from foundation_recovery_marker;")"
-  if [[ "$recovered" != "after-target,before-target" ]]; then
-    echo "$database empty-host marker verification failed" >&2
-    exit 1
-  fi
-done
+verify_recovery_markers "after-target,before-target" "empty-host"
 empty_finished="$(date +%s)"
 empty_rto="$(( empty_finished - empty_started ))"
 empty_rpo="$(node -e 'process.stdout.write(String(Math.max(0, Number(process.argv[1])-Number(process.argv[2]))))' "$empty_target_epoch" "$last_marker_epoch")"
@@ -253,33 +271,41 @@ pitr_started="$(date +%s)"
   --target-action=promote \
   restore
 "${database_compose[@]}" up --detach --wait postgres
-for database_spec in "inside:platform_owner" "logto:logto_owner"; do
-  database="${database_spec%%:*}"
-  database_user="${database_spec##*:}"
-  recovered="$("${database_compose[@]}" exec -T postgres psql \
-    --username "$database_user" \
-    --dbname "$database" \
-    --tuples-only \
-    --no-align \
-    --command="select string_agg(id, ',' order by id) from foundation_recovery_marker;")"
-  if [[ "$recovered" != "before-target" ]]; then
-    echo "$database PITR marker verification failed" >&2
-    exit 1
-  fi
-done
+verify_recovery_markers "before-target" "PITR"
 pitr_rto="$(( $(date +%s) - pitr_started ))"
 pitr_rpo="$(node -e 'process.stdout.write(String(Math.max(0, Number(process.argv[1])-Number(process.argv[2]))))' "$target_epoch" "$before_marker_epoch")"
 
 evidence="$temporary_root/recovery-evidence.json"
-node - "$evidence" "$backup_set" "$target_epoch" "$pitr_rpo" "$pitr_rto" "$empty_finished" "$empty_rpo" "$empty_rto" <<'NODE'
-const { writeFileSync } = require("node:fs");
-const [path, backupSet, pitrEpoch, pitrRpo, pitrRto, emptyEpoch, emptyRpo, emptyRto] = process.argv.slice(2);
-const databases = ["inside", "logto"];
+node - \
+  "$evidence" \
+  "$repository_root/infra/production/database/recovery-targets.json" \
+  "$pitr_backup_set" \
+  "$empty_backup_set" \
+  "$target_epoch" \
+  "$pitr_rpo" \
+  "$pitr_rto" \
+  "$empty_target_epoch" \
+  "$empty_rpo" \
+  "$empty_rto" <<'NODE'
+const { readFileSync, writeFileSync } = require("node:fs");
+const [
+  path,
+  targetsPath,
+  pitrBackupSet,
+  emptyBackupSet,
+  pitrEpoch,
+  pitrRpo,
+  pitrRto,
+  emptyEpoch,
+  emptyRpo,
+  emptyRto,
+] = process.argv.slice(2);
+const { databases } = JSON.parse(readFileSync(targetsPath, "utf8"));
 writeFileSync(path, JSON.stringify({
   schemaVersion: 1,
   drills: [
-    { backupSet, databases, mode: "pitr", rpoSeconds: Number(pitrRpo), rtoSeconds: Number(pitrRto), targetTimestamp: new Date(Number(pitrEpoch) * 1000).toISOString() },
-    { backupSet, databases, mode: "empty-host", rpoSeconds: Number(emptyRpo), rtoSeconds: Number(emptyRto), targetTimestamp: new Date(Number(emptyEpoch) * 1000).toISOString() },
+    { backupSet: pitrBackupSet, databases, mode: "pitr", rpoSeconds: Number(pitrRpo), rtoSeconds: Number(pitrRto), targetTimestamp: new Date(Number(pitrEpoch) * 1000).toISOString() },
+    { backupSet: emptyBackupSet, databases, mode: "empty-host", rpoSeconds: Number(emptyRpo), rtoSeconds: Number(emptyRto), targetTimestamp: new Date(Number(emptyEpoch) * 1000).toISOString() },
   ],
 }, undefined, 2));
 NODE

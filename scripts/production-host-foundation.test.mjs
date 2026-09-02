@@ -65,6 +65,10 @@ describe("production host foundation", () => {
     const undersized = createFixture({ memoryBytes: 1024 });
     assertFailure(runRaw(undersized, "preflight"), "memoryBytes");
 
+    const malformed = createFixture();
+    writeFileSync(malformed.factsPath, "[]");
+    assertFailure(runRaw(malformed, "preflight"), "JSON object");
+
     const unmanaged = createFixture();
     mkdirSync(resolve(unmanaged.root, "var/lib/inside"), { recursive: true });
     writeFileSync(resolve(unmanaged.root, "var/lib/inside/foreign"), "owned elsewhere");
@@ -76,6 +80,15 @@ describe("production host foundation", () => {
     });
     assertFailure(
       runRaw(foreignRelease, "preflight"),
+      "unmanagedReleasePath",
+    );
+
+    const redirected = createFixture();
+    mkdirSync(resolve(redirected.root, "srv"), { recursive: true });
+    mkdirSync(resolve(redirected.root, "foreign"));
+    symlinkSync("../foreign", resolve(redirected.root, "srv/inside"));
+    assertFailure(
+      runRaw(redirected, "preflight"),
       "unmanagedReleasePath",
     );
   });
@@ -98,6 +111,20 @@ describe("production host foundation", () => {
     });
     assertFailure(deployRaw(fixture, "release prepare ../escape"), "vN");
     assertFailure(deployRaw(fixture, "bash -lc id"), "not allowlisted");
+    const rootOverride = spawnSync(
+      "python3",
+      [
+        command,
+        "deploy",
+        "--root",
+        fixture.root,
+        "--original-command",
+        "release prepare v9",
+      ],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(rootOverride.status, 0);
+    assert.match(rootOverride.stderr, /unrecognized arguments/u);
     assert.equal(statSync(resolve(fixture.root, "etc")).isDirectory(), true);
   });
 
@@ -199,7 +226,7 @@ function deployRaw(fixture, originalCommand) {
     "python3",
     [
       command,
-      "deploy",
+      "deploy-fixture",
       "--root",
       fixture.root,
       "--original-command",
@@ -234,7 +261,7 @@ function snapshot(root) {
     "etc/systemd/system/inside-pgbackrest-full.timer",
     "etc/systemd/system/inside-pgbackrest-incr.timer",
     "opt/inside/foundation/v1/infra/identity/logto/Dockerfile",
-    "opt/inside/foundation/v1/infra/production/database/backup-policy.json",
+    "opt/inside/foundation/v1/infra/production/database/recovery-targets.json",
     "opt/inside/foundation/v1/infra/production/database/database-backup",
     "opt/inside/foundation/v1/infra/production/logto/compose.yaml",
     "opt/inside/foundation/v1/infra/production/secrets/secret-policy.json",

@@ -38,7 +38,7 @@ services:
         - CMD
         - node
         - -e
-        - fetch('http://127.0.0.1:3001/oidc/.well-known/openid-configuration').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+        - fetch('http://127.0.0.1:3001/oidc/.well-known/openid-configuration').then(async r=>{const body=await r.json();if(!r.ok||body.issuer!==process.env.ENDPOINT+'/oidc')process.exit(1)}).catch(()=>process.exit(1))
       interval: 3s
       timeout: 3s
       retries: 40

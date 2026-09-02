@@ -42,9 +42,25 @@ def rooted(root: Path, absolute: str) -> Path:
     return candidate
 
 
+def has_symlink_component(root: Path, absolute: str) -> bool:
+    if not absolute.startswith("/"):
+        raise FoundationError(f"Foundation path must be absolute: {absolute}")
+    current = root.resolve()
+    for component in Path(absolute).parts[1:]:
+        if component in ("", ".", ".."):
+            raise FoundationError(f"Foundation path is unsafe: {absolute}")
+        current /= component
+        if current.is_symlink():
+            return True
+    return False
+
+
 def read_host_facts(root: Path, facts_path: Path | None) -> dict[str, object]:
     if facts_path is not None:
-        return json.loads(facts_path.read_text(encoding="utf-8"))
+        facts = json.loads(facts_path.read_text(encoding="utf-8"))
+        if not isinstance(facts, dict):
+            raise FoundationError("Host facts must be a JSON object")
+        return facts
     if root.resolve() != Path("/"):
         raise FoundationError("A fixture root requires explicit --facts")
 
@@ -106,17 +122,20 @@ def preflight(root: Path, facts_path: Path | None, manifest: dict[str, object]) 
 
     paths = manifest["paths"]
     assert isinstance(paths, dict)
+    managed_roots = {
+        "unmanagedAgeIdentityPath": str(paths["ageIdentity"]),
+        "unmanagedFoundationPath": str(paths["foundation"]),
+        "unmanagedReleasePath": str(paths["releases"]),
+        "unmanagedRuntimePath": str(paths["runtime"]),
+        "unmanagedSecretPath": str(paths["secrets"]),
+        "unmanagedStatePath": str(paths["state"]),
+    }
+    for failure, absolute in managed_roots.items():
+        if has_symlink_component(root, absolute):
+            failures.append(failure)
     state_root = rooted(root, str(paths["state"]))
     marker = state_root / ".inside-foundation"
     if not marker.is_file():
-        managed_roots = {
-            "unmanagedAgeIdentityPath": str(paths["ageIdentity"]),
-            "unmanagedFoundationPath": str(paths["foundation"]),
-            "unmanagedReleasePath": str(paths["releases"]),
-            "unmanagedRuntimePath": str(paths["runtime"]),
-            "unmanagedSecretPath": str(paths["secrets"]),
-            "unmanagedStatePath": str(paths["state"]),
-        }
         for failure, absolute in managed_roots.items():
             candidate = rooted(root, absolute)
             if candidate.exists() and (
@@ -156,15 +175,14 @@ def install_packages(manifest: dict[str, object]) -> None:
     runtime = manifest["runtime"]
     assert isinstance(runtime, dict)
     run(["apt-get", "update"])
-    run([
-        "apt-get", "install", "-y", "ca-certificates", "curl", "gpg",
-        "openssh-server", "python3", "ufw",
-    ])
+    ubuntu_packages = runtime["ubuntuPackages"]
+    assert isinstance(ubuntu_packages, list)
+    run(["apt-get", "install", "-y", *map(str, ubuntu_packages)])
     Path("/etc/apt/keyrings").mkdir(mode=0o755, exist_ok=True)
     download(
         "https://download.docker.com/linux/ubuntu/gpg",
         Path("/etc/apt/keyrings/docker.asc"),
-        None,
+        str(runtime["dockerAptKeySha256"]),
         0o644,
     )
     atomic_write(
@@ -180,7 +198,7 @@ def install_packages(manifest: dict[str, object]) -> None:
         "apt-get", "install", "-y",
         str(runtime["dockerEnginePackage"]),
         str(runtime["dockerEngineCliPackage"]),
-        "containerd.io",
+        str(runtime["containerdPackage"]),
         str(runtime["dockerBuildxPackage"]),
         str(runtime["dockerComposePackage"]),
     ])
@@ -270,6 +288,51 @@ def ensure_identity(manifest: dict[str, object]) -> None:
         ])
 
 
+def command_output(command: list[str]) -> str:
+    return subprocess.run(
+        command,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def verify_runtime_versions(manifest: dict[str, object]) -> None:
+    runtime = manifest["runtime"]
+    assert isinstance(runtime, dict)
+    age = runtime["age"]
+    caddy = runtime["caddy"]
+    node = runtime["node"]
+    sops = runtime["sops"]
+    assert all(isinstance(value, dict) for value in (age, caddy, node, sops))
+    checks = (
+        (
+            ["docker", "version", "--format", "{{.Server.Version}}"],
+            str(runtime["dockerEngineVersion"]),
+        ),
+        (
+            ["docker", "compose", "version", "--short"],
+            str(runtime["dockerComposeVersion"]),
+        ),
+        (["docker", "buildx", "version"], f"v{runtime['dockerBuildxVersion']}"),
+        (["caddy", "version"], f"v{caddy['version']}"),
+        (["node", "--version"], f"v{node['version']}"),
+        (["sops", "--version"], str(sops["version"])),
+        (["age", "--version"], str(age["version"])),
+    )
+    failures = []
+    for command, expected in checks:
+        actual = command_output(command)
+        if expected not in actual:
+            failures.append(
+                command[0] if len(command) == 2 else " ".join(command[:2])
+            )
+    if failures:
+        raise FoundationError(
+            "Runtime version verification failed: " + ", ".join(failures)
+        )
+
+
 def bootstrap(root: Path, facts_path: Path | None, skip_packages: bool) -> None:
     manifest = load_manifest()
     preflight(root, facts_path, manifest)
@@ -302,7 +365,7 @@ def bootstrap(root: Path, facts_path: Path | None, skip_packages: bool) -> None:
     atomic_write(marker, b"schemaVersion=1\n", 0o640)
 
     if real_host:
-        configure_host_services()
+        configure_host_services(manifest)
 
 
 def install_files(root: Path) -> None:
@@ -372,7 +435,7 @@ def install_files(root: Path) -> None:
     atomic_symlink(rooted(root, "/opt/inside/foundation") / "current", "v1")
 
 
-def configure_host_services() -> None:
+def configure_host_services(manifest: dict[str, object]) -> None:
     run(["sshd", "-t"])
     run(["visudo", "--check", "--file", "/etc/sudoers.d/inside-deploy"])
     run(["caddy", "validate", "--config", "/etc/caddy/Caddyfile"])
@@ -388,6 +451,7 @@ def configure_host_services() -> None:
         ["systemctl", "reload", "ssh"],
     ):
         run(command)
+    verify_runtime_versions(manifest)
 
 
 def validate_version(value: str) -> str:
@@ -533,8 +597,10 @@ def parse_arguments() -> argparse.Namespace:
         if name == "bootstrap":
             command.add_argument("--skip-packages", action="store_true")
     deploy_parser = subparsers.add_parser("deploy")
-    deploy_parser.add_argument("--root", type=Path, default=Path("/"))
     deploy_parser.add_argument("--original-command", required=True)
+    fixture_deploy_parser = subparsers.add_parser("deploy-fixture")
+    fixture_deploy_parser.add_argument("--root", required=True, type=Path)
+    fixture_deploy_parser.add_argument("--original-command", required=True)
     tool_parser = subparsers.add_parser("install-secret-tools")
     tool_parser.add_argument("--destination", required=True, type=Path)
     return parser.parse_args()
@@ -552,6 +618,8 @@ def main() -> int:
         elif arguments.command == "install-secret-tools":
             install_secret_tools(load_manifest()["runtime"], arguments.destination)
             print("pinned secret tools installed")
+        elif arguments.command == "deploy":
+            deploy(Path("/"), arguments.original_command)
         else:
             deploy(arguments.root, arguments.original_command)
         return 0

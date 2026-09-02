@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "databases": ["inside", "logto"],
+  "rpoSeconds": 3600,
+  "rtoSeconds": 14400
+}

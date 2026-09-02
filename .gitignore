@@ -8,6 +8,8 @@ config/production/*.json
 infra/production/**/*.age
 infra/production/**/*.decrypted.*
 .production-foundation/
+__pycache__/
+*.py[cod]
 .next/
 .impeccable/review/
 .identity-proof/

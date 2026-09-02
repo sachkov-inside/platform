@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const policy = JSON.parse(
   readFileSync(
-    resolve(repositoryRoot, "infra/production/database/backup-policy.json"),
+    resolve(repositoryRoot, "infra/production/database/recovery-targets.json"),
     "utf8",
   ),
 );
@@ -31,7 +31,7 @@ export function validateRecoveryEvidence(input) {
     if (
       !Array.isArray(drill.databases) ||
       JSON.stringify([...drill.databases].sort()) !==
-        JSON.stringify([...policy.targets.databases].sort())
+        JSON.stringify([...policy.databases].sort())
     ) {
       throw new Error(`${drill.mode}: both recovery databases are required`);
     }
@@ -44,8 +44,8 @@ export function validateRecoveryEvidence(input) {
       throw new Error(`${drill.mode}: backup set and target timestamp are required`);
     }
     for (const [name, maximum] of [
-      ["rpoSeconds", policy.targets.rpoSeconds],
-      ["rtoSeconds", policy.targets.rtoSeconds],
+      ["rpoSeconds", policy.rpoSeconds],
+      ["rtoSeconds", policy.rtoSeconds],
     ]) {
       if (
         typeof drill[name] !== "number" ||

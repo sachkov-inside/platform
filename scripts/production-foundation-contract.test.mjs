@@ -25,6 +25,12 @@ describe("production foundation contract", () => {
     assert.ok(manifest.capacity.minimumDiskBytes >= 80 * 1024 ** 3);
     assert.equal(manifest.identity.releaseRetention, 4);
     assert.match(manifest.runtime.node.version, /^24\./u);
+    assert.match(manifest.runtime.dockerAptKeySha256, /^[a-f0-9]{64}$/u);
+    assert.match(manifest.runtime.containerdPackage, /^containerd\.io=\S+$/u);
+    assert.equal(
+      manifest.runtime.ubuntuPackages.every((value) => value.includes("=")),
+      true,
+    );
     assert.match(ssh, /ForceCommand \/usr\/local\/libexec\/inside\/inside-deploy-command/u);
     assert.match(ssh, /PermitTTY no/u);
     assert.match(sudoers, /^inside-deploy .* NOPASSWD:/mu);
@@ -47,32 +53,23 @@ describe("production foundation contract", () => {
   });
 
   it("enforces continuous encrypted backups and the bounded schedule", () => {
-    const policy = readJson("infra/production/database/backup-policy.json");
+    const targets = readJson("infra/production/database/recovery-targets.json");
     const pgBackRest = read("infra/production/database/pgbackrest.conf");
 
-    assert.equal(policy.archiveMode, "continuous");
-    assert.equal(policy.clientEncryption, "aes-256-cbc");
-    assert.equal(policy.retentionFullBackups, 4);
-    assert.deepEqual(policy.targets.databases, ["inside", "logto"]);
-    assert.equal(policy.targets.rpoSeconds, 3600);
-    assert.equal(policy.targets.rtoSeconds, 14_400);
-    assert.equal(
-      read("infra/production/database/inside-pgbackrest-full.timer").includes(
-        `OnCalendar=${policy.schedule.full}`,
-      ),
-      true,
+    assert.deepEqual(targets.databases, ["inside", "logto"]);
+    assert.equal(targets.rpoSeconds, 3600);
+    assert.equal(targets.rtoSeconds, 14_400);
+    assert.match(
+      read("infra/production/database/inside-pgbackrest-full.timer"),
+      /^OnCalendar=Sun \*-\*-\* 01:00:00 UTC$/mu,
     );
-    assert.equal(
-      read("infra/production/database/inside-pgbackrest-diff.timer").includes(
-        `OnCalendar=${policy.schedule.differential}`,
-      ),
-      true,
+    assert.match(
+      read("infra/production/database/inside-pgbackrest-diff.timer"),
+      /^OnCalendar=Mon\.\.Sat \*-\*-\* 01:00:00 UTC$/mu,
     );
-    assert.equal(
-      read("infra/production/database/inside-pgbackrest-incr.timer").includes(
-        `OnCalendar=${policy.schedule.incremental}`,
-      ),
-      true,
+    assert.match(
+      read("infra/production/database/inside-pgbackrest-incr.timer"),
+      /^OnCalendar=\*-\*-\* 00,06,12,18:00:00 UTC$/mu,
     );
     assert.match(pgBackRest, /^archive-async=y$/mu);
     assert.match(pgBackRest, /^archive-timeout=60$/mu);
@@ -111,5 +108,9 @@ describe("production foundation contract", () => {
     assert.equal(provider.identity.issuer, "https://auth.sachkov.dev/oidc");
     assert.equal(provider.identity.callbackUrl, "https://inside.sachkov.dev/callback");
     assert.equal(provider.mcp.serverUrl, "https://inside.sachkov.dev/mcp");
+    assert.doesNotMatch(
+      read("scripts/production-foundation-drill.sh"),
+      /logs --no-color/u,
+    );
   });
 });

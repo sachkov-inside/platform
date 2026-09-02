@@ -15,8 +15,10 @@ node scripts/production-secrets.mjs encrypt \
 ```
 
 Materialize one generation into the host tmpfs-backed `/run` path. The command verifies two age
-recipients before decrypting, rejects loose key permissions, writes only each service's declared
-subset with mode `0400`, and atomically moves `current` after every file is durable.
+recipients before decrypting, requires root plus the root-owned tmpfs path
+`/run/inside/secrets`, rejects loose key permissions and reused generation names, writes only each
+service's declared subset with mode `0400`, and atomically moves `current` after every file is
+durable.
 
 ```bash
 sudo node scripts/production-secrets.mjs materialize \

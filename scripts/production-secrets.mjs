@@ -10,11 +10,14 @@ import {
   readlinkSync,
   renameSync,
   rmSync,
+  statfsSync,
+  statSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -28,6 +31,8 @@ const policyPath = existsSync(repositoryPolicyPath)
   : installedPolicyPath;
 const policy = JSON.parse(readFileSync(policyPath, "utf8"));
 const generationPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/u;
+const productionRuntimeRoot = "/run/inside/secrets";
+const tmpfsMagic = 0x01_02_19_94;
 
 export function validateEncryptedDocument(document) {
   if (!isRecord(document) || !isRecord(document.sops)) {
@@ -143,30 +148,44 @@ function encrypt(options) {
   console.log("production ciphertext written for host and offline recipients");
 }
 
-function materialize(options) {
-  requireOptions(options, ["age-key-file", "encrypted", "generation", "runtime-root"]);
+function materialize(options, fixture = false) {
+  const optionNames = ["age-key-file", "encrypted", "generation", "runtime-root"];
+  if (fixture) optionNames.push("fixture-root");
+  requireOptions(options, optionNames);
   if (!generationPattern.test(options.generation)) {
     throw new Error("Generation must use a bounded safe identifier");
   }
   const runtimeRoot = resolveRuntimeRoot(options["runtime-root"]);
   const encryptedPath = resolve(options.encrypted);
   const keyPath = resolve(options["age-key-file"]);
-  const keyMode = lstatSync(keyPath).mode & 0o777;
+  const key = lstatSync(keyPath);
+  const keyMode = key.mode & 0o777;
   if ((keyMode & 0o077) !== 0) {
     throw new Error("Age identity permissions must be owner-only");
   }
+  if (fixture) {
+    validateFixtureMaterialization(options, runtimeRoot, encryptedPath, keyPath);
+  } else {
+    validateProductionRuntimeRoot(runtimeRoot, true);
+    if (key.uid !== 0) {
+      throw new Error("Production age identity must be root-owned");
+    }
+  }
   validateEncryptedDocument(JSON.parse(readFileSync(encryptedPath, "utf8")));
-  const plaintext = sops(["--decrypt", "--output-type", "json", encryptedPath], {
-    environment: { SOPS_AGE_KEY_FILE: keyPath },
-  });
-  const document = validatePlaintextDocument(JSON.parse(plaintext));
-
   mkdirSync(runtimeRoot, { mode: 0o700, recursive: true });
   chmodSync(runtimeRoot, 0o700);
   const temporary = resolve(runtimeRoot, `.generation-${process.pid}`);
   const generation = resolve(runtimeRoot, options.generation);
   assertChild(runtimeRoot, temporary);
   assertChild(runtimeRoot, generation);
+  if (lstatExists(generation)) {
+    throw new Error("Secret generation already exists and is immutable");
+  }
+  const plaintext = sops(["--decrypt", "--output-type", "json", encryptedPath], {
+    environment: { SOPS_AGE_KEY_FILE: keyPath },
+  });
+  const document = validatePlaintextDocument(JSON.parse(plaintext));
+
   rmSync(temporary, { force: true, recursive: true });
   mkdirSync(temporary, { mode: 0o700 });
   try {
@@ -187,7 +206,6 @@ function materialize(options) {
       }, undefined, 2)}\n`,
       0o400,
     );
-    rmSync(generation, { force: true, recursive: true });
     renameSync(temporary, generation);
     atomicSymlink(runtimeRoot, "current", options.generation);
   } finally {
@@ -196,6 +214,35 @@ function materialize(options) {
   console.log(
     `materialized generation ${options.generation} for ${String(Object.keys(policy.services).length)} services`,
   );
+}
+
+function validateProductionRuntimeRoot(runtimeRoot, create) {
+  if (process.geteuid?.() !== 0) {
+    throw new Error("Production secret lifecycle requires root");
+  }
+  if (runtimeRoot !== productionRuntimeRoot) {
+    throw new Error(`Production runtime root must equal ${productionRuntimeRoot}`);
+  }
+  if (create) mkdirSync(runtimeRoot, { mode: 0o700, recursive: true });
+  const runtime = statSync(runtimeRoot);
+  if (runtime.uid !== 0 || (runtime.mode & 0o077) !== 0) {
+    throw new Error("Production runtime root must be root-only");
+  }
+  if (statfsSync(runtimeRoot).type !== tmpfsMagic) {
+    throw new Error("Production runtime root must be backed by tmpfs");
+  }
+}
+
+function validateFixtureMaterialization(options, runtimeRoot, encryptedPath, keyPath) {
+  const fixtureRoot = resolve(options["fixture-root"]);
+  const temporaryRoot = resolve(tmpdir());
+  assertChild(temporaryRoot, fixtureRoot);
+  if (!/\/inside-secrets-smoke\.[^/]+$/u.test(fixtureRoot)) {
+    throw new Error("Fixture root must be an isolated secrets-smoke directory");
+  }
+  for (const path of [runtimeRoot, encryptedPath, keyPath]) {
+    assertChild(fixtureRoot, path);
+  }
 }
 
 function validate(options) {
@@ -207,6 +254,7 @@ function validate(options) {
 function cleanup(options) {
   requireOptions(options, ["generation", "runtime-root"]);
   const runtimeRoot = resolveRuntimeRoot(options["runtime-root"]);
+  validateProductionRuntimeRoot(runtimeRoot, false);
   let current;
   try {
     current = readlinkSync(resolve(runtimeRoot, "current"));
@@ -272,6 +320,18 @@ function assertChild(root, child) {
 function requireOptions(options, names) {
   const missing = names.filter((name) => options[name] === undefined);
   if (missing.length > 0) throw new Error(`Missing options: ${missing.join(", ")}`);
+  const unknown = Object.keys(options).filter((name) => !names.includes(name));
+  if (unknown.length > 0) throw new Error(`Unknown options: ${unknown.join(", ")}`);
+}
+
+function lstatExists(path) {
+  try {
+    lstatSync(path);
+    return true;
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    throw error;
+  }
 }
 
 function isRecord(value) {
@@ -282,9 +342,12 @@ function run() {
   const { command, options } = parseArguments(process.argv.slice(2));
   if (command === "encrypt") encrypt(options);
   else if (command === "materialize") materialize(options);
+  else if (command === "materialize-fixture") materialize(options, true);
   else if (command === "validate") validate(options);
   else if (command === "cleanup") cleanup(options);
-  else throw new Error("Command must be encrypt, materialize, validate, or cleanup");
+  else throw new Error(
+    "Command must be encrypt, materialize, materialize-fixture, validate, or cleanup",
+  );
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

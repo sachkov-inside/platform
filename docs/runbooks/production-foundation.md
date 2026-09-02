@@ -31,11 +31,19 @@ pnpm foundation:smoke
 pinned migrations twice, proves its OIDC discovery document, backs up both `inside` and `logto`,
 deletes the PostgreSQL volume twice, and verifies latest-state and point-in-time recovery. Its JSON
 evidence is accepted only at RPO <= 3600 seconds and RTO <= 14400 seconds. A failed CI drill keeps
-only bounded redacted diagnostics for seven days.
+only container state and an explicit failure note; raw service logs are excluded from artifacts.
+Diagnostics are retained for seven days.
+
+On x86-64, the same command also starts a privileged, disposable, digest-pinned Ubuntu 24.04
+systemd container and runs the real package/bootstrap path twice. It verifies pinned runtime
+versions, UFW, SSH, system Caddy, Docker, deploy ownership/sudo isolation and production
+root/tmpfs secret materialization. ARM developer machines skip this architecture-specific proof;
+the required `ubuntu-24.04` CI runner always executes it.
 
 The secret half generates distinct disposable host/offline recipients, encrypts one synthetic
-document, materializes root-only per-process files, deletes the host identity and proves recovery
-with the offline identity. Error output is checked for value disclosure.
+document, rejects a persistent runtime root and generation reuse, materializes root-only
+per-process files, deletes the host identity and proves recovery with the offline identity. Error
+output is checked for value disclosure.
 
 ## Bootstrap a clean approved host
 
