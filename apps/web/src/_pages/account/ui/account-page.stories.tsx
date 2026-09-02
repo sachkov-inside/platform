@@ -3,8 +3,6 @@ import { expect, userEvent, within } from "storybook/test";
 
 import type { PrivateMemberProfile } from "@/entities/member-profile";
 import { withMutationFetch } from "@/workshop/mutation-mock";
-import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
-
 import { AccountPageClient } from "./account-page.client";
 
 const activeProfile = {
@@ -68,16 +66,6 @@ export const ActiveMobile: Story = {
     await expect(canvasElement.ownerDocument.documentElement.scrollWidth).toBeLessThanOrEqual(
       canvasElement.ownerDocument.documentElement.clientWidth,
     );
-  },
-};
-
-export const ManagerAccess: Story = {
-  args: { canManageMaterials: true },
-  name: "Manager · authoring access",
-  play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).getByRole("link", { name: "Открыть редактор" }),
-    ).toHaveAttribute("href", authoringMaterialsRootHref);
   },
 };
 

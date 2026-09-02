@@ -4,6 +4,7 @@ import {
   Home,
   LibraryBig,
   Map,
+  PenLine,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
@@ -19,7 +20,7 @@ import {
   useSidebar,
 } from "@/shared/ui/sidebar";
 
-type ApplicationNavigationIcon = "home" | "library" | "map";
+type ApplicationNavigationIcon = "home" | "library" | "map" | "pen";
 
 export interface ApplicationNavigationItem {
   readonly href: Route;
@@ -46,6 +47,7 @@ const iconByName: Readonly<Record<ApplicationNavigationIcon, LucideIcon>> = {
   home: Home,
   library: LibraryBig,
   map: Map,
+  pen: PenLine,
 };
 
 /** Responsive product frame that owns primary navigation and the main landmark. */

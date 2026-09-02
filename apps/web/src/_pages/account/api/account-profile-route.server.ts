@@ -6,8 +6,6 @@ import {
   LogtoSessionUnavailableError,
   readLogtoBffConfig,
 } from "@/shared/auth/index.server";
-import { requestMaterialAuthoringReferences } from "@/shared/api/backend/index.server";
-
 import { getPrivateMemberProfile } from "./get-private-member-profile";
 import { executeCreateMemberProfile } from "./create-member-profile";
 import { executeUpdateMemberProfile } from "./update-member-profile";
@@ -23,10 +21,7 @@ export async function handleAccountProfileRequest(): Promise<Response> {
     });
   }
 
-  const [result, authoringAccess] = await Promise.all([
-    getPrivateMemberProfile(accessToken),
-    requestMaterialAuthoringReferences(accessToken).catch(() => undefined),
-  ]);
+  const result = await getPrivateMemberProfile(accessToken);
   if (result.kind === "unauthorized") {
     return new Response(null, { headers: privateHeaders(), status: 401 });
   }
@@ -40,7 +35,7 @@ export async function handleAccountProfileRequest(): Promise<Response> {
     });
   }
   return Response.json(
-    { canManageMaterials: authoringAccess?.ok === true, state: result.state },
+    { state: result.state },
     { headers: privateHeaders() },
   );
 }

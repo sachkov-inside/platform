@@ -159,7 +159,10 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await page.goto(callbackUrl);
     await expect(page).toHaveURL(/authentication=failed/u);
     const replayStatus = await page.request.get("/auth/status");
-    await expect(replayStatus.json()).resolves.toEqual({ state: "guest" });
+    await expect(replayStatus.json()).resolves.toEqual({
+      canManageMaterials: false,
+      state: "guest",
+    });
 
     const recovery = await browser.newPage({ ignoreHTTPSErrors: true });
     await beginSignIn(recovery, recipient);
@@ -169,11 +172,14 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await recovery.waitForTimeout(61_000);
     await stopService("logto");
     const unavailable = await recovery.request.get("/auth/status");
-    await expect(unavailable.json()).resolves.toEqual({ state: "unavailable" });
+    await expect(unavailable.json()).resolves.toEqual({
+      canManageMaterials: false,
+      state: "unavailable",
+    });
     await startService("logto");
     await waitForEndpoint(`${logtoEndpoint}/oidc/.well-known/openid-configuration`);
     const refreshed = await recovery.request.get("/auth/status");
-    await expect(refreshed.json()).resolves.toEqual({ state: "authenticated" });
+    await expect(refreshed.json()).resolves.toMatchObject({ state: "authenticated" });
 
     const appSession = (await recovery.context().cookies()).find(
       ({ domain, name }) =>

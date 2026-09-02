@@ -400,8 +400,16 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await page.goto("/account");
   await expect(
     page.getByRole("heading", { name: "Редактор Базы знаний" }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "Открыть редактор" }).click();
+  ).toHaveCount(0);
+  await page
+    .getByRole("navigation", {
+      name:
+        testInfo.project.name === "mobile-chromium"
+          ? "Мобильная навигация"
+          : "Основная",
+    })
+    .getByRole("link", { name: "Редактор", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/authoring\/materials$/u);
   await page.getByRole("link", { name: "Темы", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Темы", level: 1 })).toBeVisible();

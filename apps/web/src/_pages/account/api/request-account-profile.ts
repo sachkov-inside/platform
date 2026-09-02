@@ -23,11 +23,14 @@ export async function requestAccountProfile(
   }
   try {
     const payload = await response.json() as unknown;
-    if (typeof payload !== "object" || payload === null || !("canManageMaterials" in payload) || typeof payload.canManageMaterials !== "boolean" || !("state" in payload)) {
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      !("state" in payload)
+    ) {
       throw new TypeError("Account response shape is invalid");
     }
     return {
-      canManageMaterials: payload.canManageMaterials,
       kind: "ready",
       state: parsePrivateProfileState(payload.state),
     };
@@ -38,7 +41,6 @@ export async function requestAccountProfile(
 
 export type AccountProfileResult =
   | {
-      readonly canManageMaterials: boolean;
       readonly kind: "ready";
       readonly state: PrivateMemberProfileState;
     }

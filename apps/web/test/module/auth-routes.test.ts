@@ -28,6 +28,9 @@ const fakes = vi.hoisted(() => ({
   resolveAccount: vi.fn(() =>
     Promise.resolve({ accountId: "72000000-0000-4000-8000-000000000001" }),
   ),
+  requestMaterialAuthoringReferences: vi.fn(() =>
+    Promise.resolve({ ok: true }),
+  ),
 }));
 
 vi.mock("@logto/next/server-actions", () => ({
@@ -79,6 +82,7 @@ vi.mock("@/shared/auth/platform-access-token.server", () => ({
 }));
 
 vi.mock("@/shared/api/backend/index.server", () => ({
+  requestMaterialAuthoringReferences: fakes.requestMaterialAuthoringReferences,
   resolveAccount: fakes.resolveAccount,
 }));
 
@@ -179,8 +183,27 @@ describe("Logto BFF route orchestration", () => {
 
   it("resolves status from Logto token plus existing Account", async () => {
     const response = await authStatus();
-    await expect(response.json()).resolves.toEqual({ state: "authenticated" });
+    await expect(response.json()).resolves.toEqual({
+      canManageMaterials: true,
+      state: "authenticated",
+    });
     expect(fakes.resolveAccount).toHaveBeenCalledWith("platform-access-token");
+    expect(fakes.requestMaterialAuthoringReferences).toHaveBeenCalledWith(
+      "platform-access-token",
+    );
+  });
+
+  it("keeps editor navigation hidden without materials:manage", async () => {
+    fakes.requestMaterialAuthoringReferences.mockResolvedValueOnce({
+      ok: false,
+    });
+
+    const response = await authStatus();
+
+    await expect(response.json()).resolves.toEqual({
+      canManageMaterials: false,
+      state: "authenticated",
+    });
   });
 
   it("clears the Logto cookie when its refresh grant is invalid", async () => {
@@ -192,7 +215,10 @@ describe("Logto BFF route orchestration", () => {
 
     const response = await authStatus();
 
-    await expect(response.json()).resolves.toEqual({ state: "guest" });
+    await expect(response.json()).resolves.toEqual({
+      canManageMaterials: false,
+      state: "guest",
+    });
     expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);
   });
 
@@ -204,7 +230,10 @@ describe("Logto BFF route orchestration", () => {
 
     const response = await authStatus();
 
-    await expect(response.json()).resolves.toEqual({ state: "guest" });
+    await expect(response.json()).resolves.toEqual({
+      canManageMaterials: false,
+      state: "guest",
+    });
     expect(fakes.clearLogtoSessionCookie).not.toHaveBeenCalled();
   });
 

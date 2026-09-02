@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { resolveAccount } from "@/shared/api/backend/index.server";
+import {
+  requestMaterialAuthoringReferences,
+  resolveAccount,
+} from "@/shared/api/backend/index.server";
 import {
   getPlatformAccessToken,
   LogtoSessionUnavailableError,
@@ -15,8 +18,12 @@ export const dynamic = "force-dynamic";
 export async function GET(): Promise<Response> {
   const config = readLogtoBffConfig();
   try {
-    await resolveAccount(await getPlatformAccessToken(config));
-    return statusResponse("authenticated");
+    const accessToken = await getPlatformAccessToken(config);
+    const [, authoringAccess] = await Promise.all([
+      resolveAccount(accessToken),
+      requestMaterialAuthoringReferences(accessToken).catch(() => undefined),
+    ]);
+    return statusResponse("authenticated", authoringAccess?.ok === true);
   } catch (error) {
     if (error instanceof LogtoSessionUnavailableError) {
       return statusResponse("guest");
@@ -42,9 +49,10 @@ function isInvalidGrant(error: unknown): error is Error & {
 
 function statusResponse(
   state: "authenticated" | "guest" | "unavailable",
+  canManageMaterials = false,
 ): NextResponse {
   return NextResponse.json(
-    { state },
+    { canManageMaterials, state },
     { headers: { "cache-control": "no-store, private" } },
   );
 }

@@ -68,6 +68,25 @@ test("guest shell exposes a server-owned sign-in mutation on desktop and mobile"
   await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute("method", "post");
 });
 
+test("manager shell exposes editor navigation on desktop and mobile", async ({
+  page,
+}, testInfo) => {
+  await page.route("**/auth/status", (route) =>
+    route.fulfill({
+      body: JSON.stringify({ canManageMaterials: true, state: "authenticated" }),
+      contentType: "application/json",
+      status: 200,
+    }),
+  );
+  await page.goto("/library");
+
+  const editorLink = getPrimaryNavigation(page, testInfo.project.name).getByRole(
+    "link",
+    { name: "Редактор", exact: true },
+  );
+  await expect(editorLink).toHaveAttribute("href", "/authoring/materials");
+});
+
 test("authoring route owns a dedicated shell outside the public application shell", async ({
   page,
 }, testInfo) => {

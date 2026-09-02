@@ -58,17 +58,13 @@ describe("Member Profile web workflow", () => {
   it("keeps one Account Profile query identity and validates the BFF payload", async () => {
     expect(accountProfileQueryKey()).toEqual(["account", "profile"]);
     const fetch = vi.fn().mockResolvedValue(
-      Response.json(
-        { canManageMaterials: true, state: { kind: "missing" } },
-        { status: 200 },
-      ),
+      Response.json({ state: { kind: "missing" } }, { status: 200 }),
     );
     vi.stubGlobal("fetch", fetch);
     try {
       await expect(
         requestAccountProfile(new AbortController().signal),
       ).resolves.toEqual({
-        canManageMaterials: true,
         kind: "ready",
         state: { kind: "missing" },
       });
