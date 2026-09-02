@@ -129,12 +129,29 @@ test("auth control hydrates without a server-client mismatch", async ({ page }) 
   expect(hydrationErrors).toEqual([]);
 });
 
-test("failed authentication returns a visible recoverable state", async ({ page }) => {
+test("failed authentication returns a visible recoverable state", async ({ page }, testInfo) => {
   await page.goto("/?authentication=failed");
 
-  await expect(page.getByRole("status")).toContainText(
-    "Вход не завершён. Повторите попытку",
-  );
+  const feedback = page.getByRole("status");
+  await expect(feedback).toContainText("Вход не завершён. Повторите попытку");
+
+  if (navigationMode(testInfo.project.name) === "mobile") {
+    const [feedbackBox, navigationBox] = await Promise.all([
+      feedback.boundingBox(),
+      getPrimaryNavigation(page, testInfo.project.name).boundingBox(),
+    ]);
+    expect(feedbackBox).not.toBeNull();
+    expect(navigationBox).not.toBeNull();
+    expect((feedbackBox?.y ?? 0) + (feedbackBox?.height ?? 0)).toBeLessThanOrEqual(
+      navigationBox?.y ?? 0,
+    );
+  }
+
+  const dismiss = page.getByRole("button", { name: "Закрыть уведомление" });
+  await dismiss.focus();
+  await expect(dismiss).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(feedback).toHaveCount(0);
 });
 
 test("incomplete global logout is reported without claiming success", async ({ page }) => {
