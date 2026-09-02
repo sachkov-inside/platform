@@ -143,7 +143,7 @@ async function addFullStackSession(context: BrowserContext) {
   const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
   const session = process.env.FULLSTACK_LOGTO_MEMBER_SESSION;
   if (cookieName === undefined || session === undefined) {
-    throw new Error("Full-stack Logto session fixture is missing");
+    throw new Error("Full-stack member Logto session fixture is missing");
   }
   await context.addCookies([
     {

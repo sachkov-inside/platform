@@ -96,7 +96,7 @@ describe("supported toolchain contract", () => {
 
     assert.match(
       nextConfig,
-      /"img-src 'self' blob: data: https: http:\/\/127\.0\.0\.1:9000/u,
+      /"img-src 'self' data: blob: http:\/\/127\.0\.0\.1:\* http:\/\/localhost:9000 https:\/\/storage\.yandexcloud\.net/u,
     );
   });
 
