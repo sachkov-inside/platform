@@ -1,13 +1,12 @@
 ---
-status: accepted
+status: superseded by ADR-0009
 ---
 
 # One deep Materials module with an internal versioned body schema
 
-ADR 0009 supersedes the original immutable revision lifecycle. The retained decision is the deep
-Materials module, its internal body schema and caller-oriented facets. Current Material lifecycle
-and persistence decisions come from ADR 0009; this ADR must not be used to reintroduce revisions,
-restore, or draft/published pointers.
+ADR 0009 fully restates the retained deep-module, body-schema, interface and composition decisions
+and supersedes this ADR. This document is historical evidence and must not be used as current
+guidance.
 
 Platform exposes one `Materials` capability with two caller-oriented facets:
 `MaterialAuthoring` for the editorial lifecycle and `PublishedMaterialReader` for exact published
