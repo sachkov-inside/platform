@@ -81,12 +81,19 @@ requests, builds the backend and web production targets, and publishes only the 
 tags. Release consumers must use the manifest's `name@sha256:...` identities; the ordinal tags are
 human-readable release names, not moving runtime selectors.
 
-Before the first release, an owner must enable immutable releases in the repository settings. The
-workflow checks this setting both before building and immediately before finalization. It also
-requires each ordinal tag to belong to a published immutable Release with the complete manifest
-and evidence asset set. Those retained Releases must form a contiguous `v1` through `vN-1`
-history; a bare tag, mutable/missing record, duplicate or skipped ordinal fails closed. The workflow
-rechecks the same state and confirms that `main` has not moved before publishing.
+Before the first release, an owner must enable immutable releases in the repository settings and
+bootstrap the `platform-backend` and `platform-web` container packages as public. GitHub creates a
+new container package as private, while package visibility is an owner-managed setting. The
+workflow deliberately does not accept a package-visibility credential: after pushing, it logs out
+of GHCR and requires both exact digests to be anonymously readable before it can finalize a
+release. The owner-approved bootstrap publication and visibility change are one-time setup; after
+that setup, each ordinal release uses the single command below.
+
+The workflow checks release immutability both before building and immediately before finalization.
+It also requires each ordinal tag to belong to a published immutable Release with the complete
+manifest and evidence asset set. Those retained Releases must form a contiguous `v1` through
+`vN-1` history; a bare tag, mutable/missing record, duplicate or skipped ordinal fails closed. The
+workflow rechecks the same state and confirms that `main` has not moved before publishing.
 
 From a clean `main`, publish the next ordinal with exactly one manual command:
 

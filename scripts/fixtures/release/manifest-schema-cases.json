@@ -1,0 +1,35 @@
+{
+  "positiveInput": "scripts/fixtures/release/manifest-input.json",
+  "negative": [
+    {
+      "name": "non-positive ordinal version",
+      "path": ["version"],
+      "value": "v-1"
+    },
+    {
+      "name": "uppercase source SHA",
+      "path": ["source", "sha"],
+      "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "name": "foreign workflow run URL",
+      "path": ["workflow", "runUrl"],
+      "value": "https://github.com/elsewhere/project/actions/runs/3003"
+    },
+    {
+      "name": "negative attestation identity",
+      "path": ["images", "backend", "provenance", "attestation", "url"],
+      "value": "https://github.com/sachkov-inside/platform/attestations/-1"
+    },
+    {
+      "name": "inconsistent vulnerability decision",
+      "path": ["images", "backend", "vulnerabilities", "decision"],
+      "value": "waived"
+    },
+    {
+      "name": "wrong evidence asset name",
+      "path": ["images", "web", "assets", "sbomDocument"],
+      "value": "backend.sbom.spdx.json"
+    }
+  ]
+}

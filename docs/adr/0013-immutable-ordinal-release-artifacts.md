@@ -16,7 +16,9 @@ interface.
 The ordinal is a human-facing release identity, not a dependency version or runtime image selector.
 Backend and web images carry the ordinal tag for discovery, while every runtime consumer must use
 the exact public GHCR digest recorded in the release manifest. No `latest` or other moving tag is
-part of the contract.
+part of the contract. Because GitHub creates new container packages as private, the owner must
+bootstrap both package names and set their visibility to public before the first ordinal release;
+the workflow then proves anonymous access to every candidate digest before finalization.
 
 One captured SHA passes the reusable application CI before either image is built. Each image then
 receives an SPDX SBOM, build provenance and SBOM attestations. The workflow verifies the

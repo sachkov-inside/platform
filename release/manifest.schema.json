@@ -8,26 +8,22 @@
     "version": {
       "$ref": "#/$defs/__schema1"
     },
-    "ordinal": {
+    "source": {
       "$ref": "#/$defs/__schema2"
     },
-    "source": {
+    "workflow": {
       "$ref": "#/$defs/__schema3"
     },
-    "workflow": {
+    "identities": {
       "$ref": "#/$defs/__schema5"
     },
-    "identities": {
-      "$ref": "#/$defs/__schema7"
-    },
     "images": {
-      "$ref": "#/$defs/__schema11"
+      "$ref": "#/$defs/__schema9"
     }
   },
   "required": [
     "schemaVersion",
     "version",
-    "ordinal",
     "source",
     "workflow",
     "identities",
@@ -42,14 +38,9 @@
     },
     "__schema1": {
       "type": "string",
-      "pattern": "^v-?\\d+$"
+      "pattern": "^v[1-9][0-9]*$"
     },
     "__schema2": {
-      "type": "integer",
-      "exclusiveMinimum": 0,
-      "maximum": 9007199254740991
-    },
-    "__schema3": {
       "type": "object",
       "properties": {
         "repository": {
@@ -57,7 +48,18 @@
           "const": "sachkov-inside/platform"
         },
         "sha": {
-          "$ref": "#/$defs/__schema4"
+          "type": "string",
+          "minLength": 40,
+          "maxLength": 40,
+          "format": "lowercase",
+          "allOf": [
+            {
+              "pattern": "^[0-9a-fA-F]*$"
+            },
+            {
+              "pattern": "^[^A-Z]*$"
+            }
+          ]
         }
       },
       "required": [
@@ -66,14 +68,7 @@
       ],
       "additionalProperties": false
     },
-    "__schema4": {
-      "type": "string",
-      "minLength": 40,
-      "maxLength": 40,
-      "format": "hex",
-      "pattern": "^[0-9a-fA-F]*$"
-    },
-    "__schema5": {
+    "__schema3": {
       "type": "object",
       "properties": {
         "actor": {
@@ -81,7 +76,7 @@
           "minLength": 1
         },
         "runUrl": {
-          "$ref": "#/$defs/__schema6"
+          "$ref": "#/$defs/__schema4"
         }
       },
       "required": [
@@ -90,18 +85,18 @@
       ],
       "additionalProperties": false
     },
-    "__schema6": {
+    "__schema4": {
       "type": "string",
-      "format": "uri"
+      "pattern": "^https:\\/\\/github[.]com\\/sachkov-inside\\/platform\\/actions\\/runs\\/[1-9][0-9]*$"
     },
-    "__schema7": {
+    "__schema5": {
       "type": "object",
       "properties": {
         "migrations": {
-          "$ref": "#/$defs/__schema8"
+          "$ref": "#/$defs/__schema6"
         },
         "configuration": {
-          "$ref": "#/$defs/__schema8"
+          "$ref": "#/$defs/__schema6"
         }
       },
       "required": [
@@ -110,17 +105,17 @@
       ],
       "additionalProperties": false
     },
-    "__schema8": {
+    "__schema6": {
       "type": "object",
       "properties": {
         "digest": {
-          "$ref": "#/$defs/__schema9"
+          "$ref": "#/$defs/__schema7"
         },
         "files": {
           "minItems": 1,
           "type": "array",
           "items": {
-            "$ref": "#/$defs/__schema10"
+            "$ref": "#/$defs/__schema8"
           }
         }
       },
@@ -130,15 +125,24 @@
       ],
       "additionalProperties": false
     },
-    "__schema9": {
-      "type": "string",
-      "pattern": "^sha256:[0-9a-fA-F]{64}$"
+    "__schema7": {
+      "allOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-fA-F]{64}$"
+        },
+        {
+          "type": "string",
+          "format": "lowercase",
+          "pattern": "^[^A-Z]*$"
+        }
+      ]
     },
-    "__schema10": {
+    "__schema8": {
       "type": "string",
       "minLength": 1
     },
-    "__schema11": {
+    "__schema9": {
       "type": "object",
       "properties": {
         "backend": {
@@ -148,7 +152,7 @@
               "type": "object",
               "properties": {
                 "digest": {
-                  "$ref": "#/$defs/__schema9"
+                  "$ref": "#/$defs/__schema7"
                 },
                 "name": {
                   "type": "string",
@@ -162,26 +166,77 @@
               "additionalProperties": false
             },
             "provenance": {
-              "$ref": "#/$defs/__schema12"
+              "type": "object",
+              "properties": {
+                "attestation": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "bundleSha256": {
+                  "$ref": "#/$defs/__schema7"
+                }
+              },
+              "required": [
+                "attestation",
+                "bundleSha256"
+              ],
+              "additionalProperties": false
             },
             "sbom": {
-              "$ref": "#/$defs/__schema16"
-            },
-            "sourceSha": {
-              "$ref": "#/$defs/__schema4"
+              "type": "object",
+              "properties": {
+                "attestation": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "bundleSha256": {
+                  "$ref": "#/$defs/__schema7"
+                },
+                "documentSha256": {
+                  "$ref": "#/$defs/__schema7"
+                }
+              },
+              "required": [
+                "attestation",
+                "bundleSha256",
+                "documentSha256"
+              ],
+              "additionalProperties": false
             },
             "vulnerabilities": {
-              "$ref": "#/$defs/__schema17"
+              "$ref": "#/$defs/__schema11"
             },
             "assets": {
-              "$ref": "#/$defs/__schema22"
+              "type": "object",
+              "properties": {
+                "provenanceBundle": {
+                  "type": "string",
+                  "const": "backend.provenance.bundle.json"
+                },
+                "sbomBundle": {
+                  "type": "string",
+                  "const": "backend.sbom.bundle.json"
+                },
+                "sbomDocument": {
+                  "type": "string",
+                  "const": "backend.sbom.spdx.json"
+                },
+                "vulnerabilityReport": {
+                  "type": "string",
+                  "const": "backend.vulnerabilities.json"
+                }
+              },
+              "required": [
+                "provenanceBundle",
+                "sbomBundle",
+                "sbomDocument",
+                "vulnerabilityReport"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [
             "image",
             "provenance",
             "sbom",
-            "sourceSha",
             "vulnerabilities",
             "assets"
           ],
@@ -194,7 +249,7 @@
               "type": "object",
               "properties": {
                 "digest": {
-                  "$ref": "#/$defs/__schema9"
+                  "$ref": "#/$defs/__schema7"
                 },
                 "name": {
                   "type": "string",
@@ -208,26 +263,77 @@
               "additionalProperties": false
             },
             "provenance": {
-              "$ref": "#/$defs/__schema12"
+              "type": "object",
+              "properties": {
+                "attestation": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "bundleSha256": {
+                  "$ref": "#/$defs/__schema7"
+                }
+              },
+              "required": [
+                "attestation",
+                "bundleSha256"
+              ],
+              "additionalProperties": false
             },
             "sbom": {
-              "$ref": "#/$defs/__schema16"
-            },
-            "sourceSha": {
-              "$ref": "#/$defs/__schema4"
+              "type": "object",
+              "properties": {
+                "attestation": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "bundleSha256": {
+                  "$ref": "#/$defs/__schema7"
+                },
+                "documentSha256": {
+                  "$ref": "#/$defs/__schema7"
+                }
+              },
+              "required": [
+                "attestation",
+                "bundleSha256",
+                "documentSha256"
+              ],
+              "additionalProperties": false
             },
             "vulnerabilities": {
-              "$ref": "#/$defs/__schema17"
+              "$ref": "#/$defs/__schema11"
             },
             "assets": {
-              "$ref": "#/$defs/__schema22"
+              "type": "object",
+              "properties": {
+                "provenanceBundle": {
+                  "type": "string",
+                  "const": "web.provenance.bundle.json"
+                },
+                "sbomBundle": {
+                  "type": "string",
+                  "const": "web.sbom.bundle.json"
+                },
+                "sbomDocument": {
+                  "type": "string",
+                  "const": "web.sbom.spdx.json"
+                },
+                "vulnerabilityReport": {
+                  "type": "string",
+                  "const": "web.vulnerabilities.json"
+                }
+              },
+              "required": [
+                "provenanceBundle",
+                "sbomBundle",
+                "sbomDocument",
+                "vulnerabilityReport"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [
             "image",
             "provenance",
             "sbom",
-            "sourceSha",
             "vulnerabilities",
             "assets"
           ],
@@ -240,166 +346,140 @@
       ],
       "additionalProperties": false
     },
-    "__schema12": {
+    "__schema10": {
       "type": "object",
       "properties": {
-        "attestation": {
-          "$ref": "#/$defs/__schema13"
-        },
-        "bundleSha256": {
-          "$ref": "#/$defs/__schema9"
-        }
-      },
-      "required": [
-        "attestation",
-        "bundleSha256"
-      ],
-      "additionalProperties": false
-    },
-    "__schema13": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/__schema14"
-        },
         "url": {
-          "$ref": "#/$defs/__schema15"
+          "type": "string",
+          "pattern": "^https:\\/\\/github[.]com\\/sachkov-inside\\/platform\\/attestations\\/[1-9][0-9]*$"
         }
       },
       "required": [
-        "id",
         "url"
       ],
       "additionalProperties": false
     },
-    "__schema14": {
-      "type": "string",
-      "pattern": "^-?\\d+$"
-    },
-    "__schema15": {
-      "type": "string",
-      "format": "uri"
-    },
-    "__schema16": {
-      "type": "object",
-      "properties": {
-        "attestation": {
-          "$ref": "#/$defs/__schema13"
-        },
-        "bundleSha256": {
-          "$ref": "#/$defs/__schema9"
-        },
-        "documentSha256": {
-          "$ref": "#/$defs/__schema9"
-        }
-      },
-      "required": [
-        "attestation",
-        "bundleSha256",
-        "documentSha256"
-      ],
-      "additionalProperties": false
-    },
-    "__schema17": {
-      "type": "object",
-      "properties": {
-        "critical": {
-          "$ref": "#/$defs/__schema18"
-        },
-        "decision": {
-          "$ref": "#/$defs/__schema19"
-        },
-        "high": {
-          "$ref": "#/$defs/__schema20"
-        },
-        "reportSha256": {
-          "$ref": "#/$defs/__schema9"
-        },
-        "waiver": {
-          "$ref": "#/$defs/__schema21"
-        }
-      },
-      "required": [
-        "critical",
-        "decision",
-        "high",
-        "reportSha256",
-        "waiver"
-      ],
-      "additionalProperties": false
-    },
-    "__schema18": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 9007199254740991
-    },
-    "__schema19": {
-      "type": "string",
-      "enum": [
-        "passed",
-        "waived"
-      ]
-    },
-    "__schema20": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 9007199254740991
-    },
-    "__schema21": {
+    "__schema11": {
       "anyOf": [
         {
           "type": "object",
           "properties": {
-            "actor": {
-              "type": "string",
-              "minLength": 1
+            "critical": {
+              "type": "number",
+              "const": 0
             },
-            "reason": {
+            "decision": {
               "type": "string",
-              "minLength": 20,
-              "maxLength": 1000
+              "const": "passed"
             },
-            "runUrl": {
-              "$ref": "#/$defs/__schema6"
+            "high": {
+              "type": "number",
+              "const": 0
+            },
+            "reportSha256": {
+              "$ref": "#/$defs/__schema7"
+            },
+            "waiver": {
+              "type": "null"
             }
           },
           "required": [
-            "actor",
-            "reason",
-            "runUrl"
+            "critical",
+            "decision",
+            "high",
+            "reportSha256",
+            "waiver"
           ],
           "additionalProperties": false
         },
         {
-          "type": "null"
+          "type": "object",
+          "properties": {
+            "critical": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "decision": {
+              "type": "string",
+              "const": "waived"
+            },
+            "high": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "reportSha256": {
+              "$ref": "#/$defs/__schema7"
+            },
+            "waiver": {
+              "$ref": "#/$defs/__schema12"
+            }
+          },
+          "required": [
+            "critical",
+            "decision",
+            "high",
+            "reportSha256",
+            "waiver"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "critical": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "decision": {
+              "type": "string",
+              "const": "waived"
+            },
+            "high": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "reportSha256": {
+              "$ref": "#/$defs/__schema7"
+            },
+            "waiver": {
+              "$ref": "#/$defs/__schema12"
+            }
+          },
+          "required": [
+            "critical",
+            "decision",
+            "high",
+            "reportSha256",
+            "waiver"
+          ],
+          "additionalProperties": false
         }
       ]
     },
-    "__schema22": {
+    "__schema12": {
       "type": "object",
       "properties": {
-        "provenanceBundle": {
+        "actor": {
           "type": "string",
           "minLength": 1
         },
-        "sbomBundle": {
+        "reason": {
           "type": "string",
-          "minLength": 1
+          "minLength": 20,
+          "maxLength": 1000
         },
-        "sbomDocument": {
-          "type": "string",
-          "minLength": 1
-        },
-        "vulnerabilityReport": {
-          "type": "string",
-          "minLength": 1
+        "runUrl": {
+          "$ref": "#/$defs/__schema4"
         }
       },
       "required": [
-        "provenanceBundle",
-        "sbomBundle",
-        "sbomDocument",
-        "vulnerabilityReport"
+        "actor",
+        "reason",
+        "runUrl"
       ],
       "additionalProperties": false
     }

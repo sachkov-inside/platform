@@ -273,7 +273,6 @@ function sha256(text) {
 
 async function createManifest(input) {
   input = parseSchema(releaseManifestInputSchema, input, "release manifest input");
-  const ordinal = parseOrdinalVersion(input.version);
   const workflow = assertWorkflow(input.workflow);
   const identityInputs = (
     await readJson(input.identityInputsPath, "identity inputs")
@@ -293,7 +292,6 @@ async function createManifest(input) {
   const manifest = {
     schemaVersion: "inside.platform.release-manifest.v1",
     version: input.version,
-    ordinal,
     source: {
       repository: input.repository,
       sha: input.sourceSha,
@@ -395,8 +393,17 @@ async function treeIdentity(patterns, label) {
 }
 
 function withAssetNames(kind, evidence) {
+  const { sourceSha: _sourceSha, ...releasedEvidence } = evidence;
   return {
-    ...evidence,
+    ...releasedEvidence,
+    provenance: {
+      ...releasedEvidence.provenance,
+      attestation: { url: releasedEvidence.provenance.attestation.url },
+    },
+    sbom: {
+      ...releasedEvidence.sbom,
+      attestation: { url: releasedEvidence.sbom.attestation.url },
+    },
     assets: {
       provenanceBundle: `${kind}.provenance.bundle.json`,
       sbomBundle: `${kind}.sbom.bundle.json`,

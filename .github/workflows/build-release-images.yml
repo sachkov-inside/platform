@@ -121,6 +121,7 @@ jobs:
           KIND: ${{ matrix.kind }}
           PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
           SBOM_BUNDLE: ${{ steps.sbom.outputs.bundle-path }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
           cp "$PROVENANCE_BUNDLE" "release-evidence/${KIND}.provenance.bundle.json"
           cp "$SBOM_BUNDLE" "release-evidence/${KIND}.sbom.bundle.json"

@@ -215,7 +215,6 @@ describe("release contract CLI", () => {
     const manifest = JSON.parse(result.stdout);
     assert.equal(manifest.schemaVersion, "inside.platform.release-manifest.v1");
     assert.equal(manifest.version, "v3");
-    assert.equal(manifest.ordinal, 3);
     assert.deepEqual(manifest.source, {
       repository: "sachkov-inside/platform",
       sha: "3333333333333333333333333333333333333333",

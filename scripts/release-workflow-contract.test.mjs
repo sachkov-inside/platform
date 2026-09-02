@@ -75,6 +75,7 @@ describe("ordinal release workflow contract", () => {
     assert.equal(build.match(/gh attestation verify/gu)?.length, 2);
     assert.equal(build.match(/--bundle/gu)?.length, 2);
     assert.equal(build.match(/--source-digest "\$SOURCE_SHA"/gu)?.length, 2);
+    assert.match(build, /SOURCE_SHA: \$\{\{ inputs\.source_sha \}\}/u);
     assert.match(build, /release-contract\.mjs evidence/u);
     assert.match(build, /docker logout ghcr\.io/u);
     assert.match(build, /docker buildx imagetools inspect/u);

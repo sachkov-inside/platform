@@ -15,39 +15,38 @@ export const releaseAssetNames = [
   "web.vulnerabilities.json",
 ];
 
-const lowercaseHex = (value) => value === value.toLowerCase();
 const isAsciiDigits = (value) =>
   value.length > 0 &&
   [...value].every((digit) => digit >= "0" && digit <= "9");
-const isOrdinalVersion = (value) => {
-  if (!value.startsWith("v")) {
-    return false;
-  }
-  const digits = value.slice(1);
-  if (
-    digits.length === 0 ||
-    digits.startsWith("0") ||
-    !isAsciiDigits(digits)
-  ) {
-    return false;
-  }
-  return Number.isSafeInteger(Number(digits));
-};
 const hasGitHubPath = (value, expectedPath) => {
   const url = new URL(value);
   return url.origin === "https://github.com" && url.pathname === expectedPath;
 };
 
 export const ordinalVersionSchema = z
-  .templateLiteral(["v", z.int()])
-  .refine(isOrdinalVersion, "release version must be vN with a positive ordinal");
-export const sourceShaSchema = z
-  .hex()
-  .length(40)
-  .refine(lowercaseHex, "source SHA must be a full lowercase Git commit SHA");
-export const sha256DigestSchema = z
-  .templateLiteral(["sha256:", z.hash("sha256")])
-  .refine(lowercaseHex, "value must be a lowercase sha256 digest");
+  .string()
+  .regex(/^v[1-9][0-9]*$/, "release version must be vN with a positive ordinal")
+  .refine(
+    (value) => Number.isSafeInteger(Number(value.slice(1))),
+    "release ordinal exceeds the safe integer range",
+  );
+export const sourceShaSchema = z.hex().length(40).lowercase();
+export const sha256DigestSchema = z.intersection(
+  z.templateLiteral(["sha256:", z.hash("sha256")]),
+  z.string().lowercase(),
+);
+
+const attestationIdSchema = z.string().regex(/^[1-9][0-9]*$/);
+const attestationUrlSchema = z
+  .url()
+  .regex(
+    /^https:\/\/github[.]com\/sachkov-inside\/platform\/attestations\/[1-9][0-9]*$/,
+  );
+const workflowRunUrlSchema = z
+  .url()
+  .regex(
+    /^https:\/\/github[.]com\/sachkov-inside\/platform\/actions\/runs\/[1-9][0-9]*$/,
+  );
 
 export const imageIdentitySchema = z.strictObject({
   digest: sha256DigestSchema,
@@ -56,8 +55,8 @@ export const imageIdentitySchema = z.strictObject({
 
 export const attestationSchema = z
   .strictObject({
-    id: z.templateLiteral([z.int().nonnegative()]),
-    url: z.url(),
+    id: attestationIdSchema,
+    url: attestationUrlSchema,
   })
   .refine(
     ({ id, url }) =>
@@ -68,18 +67,7 @@ export const attestationSchema = z
 
 export const workflowIdentitySchema = z.strictObject({
   actor: z.string().min(1),
-  runUrl: z
-    .url()
-    .refine(
-      (value) => {
-        const runId = new URL(value).pathname.split("/").at(-1) ?? "";
-        return (
-          isAsciiDigits(runId) &&
-          hasGitHubPath(value, `/${repositoryName}/actions/runs/${runId}`)
-        );
-      },
-      "workflow run URL is invalid",
-    ),
+  runUrl: workflowRunUrlSchema,
 });
 
 export const waiverSchema = z.strictObject({
@@ -97,29 +85,29 @@ const provenanceEvidenceSchema = z.strictObject({
   attestation: attestationSchema,
   bundleSha256: sha256DigestSchema,
 });
-const vulnerabilityEvidenceSchema = z
-  .strictObject({
+const vulnerabilityEvidenceSchema = z.union([
+  z.strictObject({
+    critical: z.literal(0),
+    decision: z.literal("passed"),
+    high: z.literal(0),
+    reportSha256: sha256DigestSchema,
+    waiver: z.null(),
+  }),
+  z.strictObject({
     critical: z.int().min(0),
-    decision: z.enum(["passed", "waived"]),
+    decision: z.literal("waived"),
+    high: z.int().positive(),
+    reportSha256: sha256DigestSchema,
+    waiver: waiverSchema,
+  }),
+  z.strictObject({
+    critical: z.int().positive(),
+    decision: z.literal("waived"),
     high: z.int().min(0),
     reportSha256: sha256DigestSchema,
-    waiver: waiverSchema.nullable(),
-  })
-  .refine(
-    ({ critical, decision, high, waiver }) => {
-      const hasFindings = critical > 0 || high > 0;
-      return hasFindings
-        ? decision === "waived" && waiver !== null
-        : decision === "passed" && waiver === null;
-    },
-    "vulnerability decision is inconsistent with its findings",
-  );
-const evidenceAssetSchema = z.strictObject({
-  provenanceBundle: z.string().min(1),
-  sbomBundle: z.string().min(1),
-  sbomDocument: z.string().min(1),
-  vulnerabilityReport: z.string().min(1),
-});
+    waiver: waiverSchema,
+  }),
+]);
 
 export const normalizedEvidenceSchema = z.strictObject({
   image: imageIdentitySchema,
@@ -129,19 +117,39 @@ export const normalizedEvidenceSchema = z.strictObject({
   vulnerabilities: vulnerabilityEvidenceSchema,
 });
 
-const releasedImageEvidenceSchema = normalizedEvidenceSchema.extend({
-  assets: evidenceAssetSchema,
-});
 const treeIdentitySchema = z.strictObject({
   digest: sha256DigestSchema,
   files: z.array(z.string().min(1)).min(1),
 });
+const releasedAttestationSchema = z.strictObject({ url: attestationUrlSchema });
+const releasedImageEvidenceSchema = (kind, imageName) =>
+  z.strictObject({
+    image: z.strictObject({
+      digest: sha256DigestSchema,
+      name: z.literal(imageName),
+    }),
+    provenance: z.strictObject({
+      attestation: releasedAttestationSchema,
+      bundleSha256: sha256DigestSchema,
+    }),
+    sbom: z.strictObject({
+      attestation: releasedAttestationSchema,
+      bundleSha256: sha256DigestSchema,
+      documentSha256: sha256DigestSchema,
+    }),
+    vulnerabilities: vulnerabilityEvidenceSchema,
+    assets: z.strictObject({
+      provenanceBundle: z.literal(`${kind}.provenance.bundle.json`),
+      sbomBundle: z.literal(`${kind}.sbom.bundle.json`),
+      sbomDocument: z.literal(`${kind}.sbom.spdx.json`),
+      vulnerabilityReport: z.literal(`${kind}.vulnerabilities.json`),
+    }),
+  });
 
 export const releaseManifestSchema = z
   .strictObject({
     schemaVersion: z.literal("inside.platform.release-manifest.v1"),
     version: ordinalVersionSchema,
-    ordinal: z.int().positive(),
     source: z.strictObject({
       repository: z.literal(repositoryName),
       sha: sourceShaSchema,
@@ -152,18 +160,10 @@ export const releaseManifestSchema = z
       configuration: treeIdentitySchema,
     }),
     images: z.strictObject({
-      backend: releasedImageEvidenceSchema.extend({
-        image: imageIdentitySchema.extend({ name: z.literal(backendImageName) }),
-      }),
-      web: releasedImageEvidenceSchema.extend({
-        image: imageIdentitySchema.extend({ name: z.literal(webImageName) }),
-      }),
+      backend: releasedImageEvidenceSchema("backend", backendImageName),
+      web: releasedImageEvidenceSchema("web", webImageName),
     }),
   })
-  .refine(
-    ({ ordinal, version }) => ordinal === Number(version.slice(1)),
-    "manifest ordinal must match its version",
-  )
   .meta({ title: "Inside Platform ordinal release manifest" });
 
 const releasedOrdinalSchema = z.strictObject({

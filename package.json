@@ -55,10 +55,11 @@
   },
   "devDependencies": {
     "@logto/node": "3.1.10",
+    "ajv": "8.20.0",
     "jose": "6.2.10",
+    "oxc-parser": "0.147.0",
     "oxlint": "1.80.0",
     "oxlint-tsgolint": "7.0.2001",
-    "oxc-parser": "0.147.0",
     "proper-lockfile": "4.1.2",
     "typescript": "7.0.2"
   }
