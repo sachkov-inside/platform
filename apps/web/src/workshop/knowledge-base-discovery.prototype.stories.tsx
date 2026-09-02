@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { type ReactNode, useEffect } from "react";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import { KnowledgeBasePrototype } from "@/workshop/knowledge-base-discovery.prototype";
 
@@ -74,6 +74,11 @@ export const FeaturedTopic: Story = {
     const sortControl = canvas.getByRole("combobox", { name: "Сортировка" });
     await userEvent.click(sortControl);
     await userEvent.click(storyBody.getByRole("option", { name: "По названию" }));
+    await waitFor(async () => {
+      await expect(
+        canvasElement.ownerDocument.querySelector('[data-aria-hidden="true"]'),
+      ).toBeNull();
+    });
     await expect(
       canvasElement.querySelector<HTMLElement>("[data-material-id]"),
     ).toHaveAttribute("data-material-id", "material-career-resume");
