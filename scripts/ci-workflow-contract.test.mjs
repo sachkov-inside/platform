@@ -43,14 +43,14 @@ describe("application CI workflow contract", () => {
     assert.doesNotMatch(workflow, /packages:\s*write/u);
   });
 
-  it("pins every action to a full commit SHA", () => {
+  it("pins every action to an exact release version", () => {
     const actionReferences = [
       ...workflow.matchAll(/^\s+-?\s*uses:\s*([^\s#]+)/gmu),
     ].map((match) => match[1]);
 
     assert.ok(actionReferences.length > 0);
     for (const reference of actionReferences) {
-      assert.match(reference, /^[^@\s]+@[0-9a-f]{40}$/u);
+      assert.match(reference, /^[^@\s]+@v\d+\.\d+\.\d+$/u);
     }
     for (const action of [
       "actions/checkout",

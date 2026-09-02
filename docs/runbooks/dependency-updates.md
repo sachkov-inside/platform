@@ -16,8 +16,8 @@ also separate pull requests. No dependency pull request is auto-merged. Every de
 request must pass the strict application `CI Gate`; merge remains owner-controlled.
 
 `@types/node` stays on the same major as `.node-version`. A Node LTS major change updates the
-runtime, declarations, Docker base and CI as one reviewed migration. GitHub Actions stay pinned to
-full commit SHAs and are advanced only by reviewed Dependabot pull requests.
+runtime, declarations, Docker base and CI as one reviewed migration. Application CI actions stay
+pinned to exact release version tags and are advanced only by reviewed Dependabot pull requests.
 
 Repository dependency changes preserve:
 
