@@ -1,0 +1,7 @@
+{
+  "image": {
+    "name": "ghcr.io/sachkov-inside/platform-web",
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "sourceSha": "3333333333333333333333333333333333333333"
+}
