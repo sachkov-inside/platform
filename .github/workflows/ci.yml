@@ -154,41 +154,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  production-foundation:
-    name: Production Foundation
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v7.0.1
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6.0.10
-      - name: Install Node.js
-        uses: actions/setup-node@v7.0.0
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Install pinned SOPS and age
-        run: |
-          python3 infra/production/host/host-foundation.py install-secret-tools \
-            --destination "$RUNNER_TEMP/inside-foundation-tools"
-          echo "$RUNNER_TEMP/inside-foundation-tools" >>"$GITHUB_PATH"
-      - name: Run secret, Logto and recovery proof
-        env:
-          FOUNDATION_DRILL_ARTIFACT_DIR: ci-artifacts/production-foundation
-        run: pnpm foundation:smoke
-      - name: Upload failure diagnostics
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: production-foundation-diagnostics-${{ github.run_attempt }}
-          path: ci-artifacts/production-foundation
-          if-no-files-found: ignore
-          retention-days: 7
-
   ci-gate:
     name: CI Gate
     runs-on: ubuntu-24.04
@@ -199,7 +164,6 @@ jobs:
       - integration
       - compose-development
       - compose-production
-      - production-foundation
     steps:
       - name: Require every CI job
         env:
@@ -207,14 +171,12 @@ jobs:
           INTEGRATION_RESULT: ${{ needs.integration.result }}
           COMPOSE_DEVELOPMENT_RESULT: ${{ needs.compose-development.result }}
           COMPOSE_PRODUCTION_RESULT: ${{ needs.compose-production.result }}
-          PRODUCTION_FOUNDATION_RESULT: ${{ needs.production-foundation.result }}
         run: |
           for result in \
             "$QUALITY_RESULT" \
             "$INTEGRATION_RESULT" \
             "$COMPOSE_DEVELOPMENT_RESULT" \
-            "$COMPOSE_PRODUCTION_RESULT" \
-            "$PRODUCTION_FOUNDATION_RESULT"
+            "$COMPOSE_PRODUCTION_RESULT"
           do
             if [[ "$result" != "success" ]]; then
               echo "A required CI job finished with result: $result" >&2

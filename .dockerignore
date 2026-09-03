@@ -4,12 +4,7 @@
 .env.*
 !.env.example
 config/compose/production/*.env
-config/production/*.json
-infra/production/**/*.age
-infra/production/**/*.decrypted.*
-.production-foundation
-**/__pycache__
-**/*.py[cod]
+config/production/foundation/*.env
 .impeccable
 .inside-harness
 **/.next

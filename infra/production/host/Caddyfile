@@ -2,7 +2,7 @@
 	admin 127.0.0.1:2019
 }
 
-# The application runtime owns public routes. Bootstrap keeps Caddy healthy and
+# The application runtime owns public routes. Provisioning keeps Caddy healthy and
 # private until the versioned runtime installs an explicitly reviewed fragment.
 http://127.0.0.1:2018 {
 	respond /_foundation/health 200

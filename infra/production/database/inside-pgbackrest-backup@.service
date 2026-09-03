@@ -13,5 +13,5 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
-ReadWritePaths=/run/inside /var/lib/inside
+ReadWritePaths=/var/lib/inside
 UMask=0077

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 for variable_name in \
-  LOGTO_DATABASE_OWNER_PASSWORD \
+  LOGTO_DATABASE_PASSWORD \
   PLATFORM_DATABASE_OWNER_PASSWORD \
   PLATFORM_DATABASE_RUNTIME_PASSWORD; do
   if [[ -z "${!variable_name:-}" ]]; then
@@ -13,7 +13,7 @@ done
 
 psql \
   --set=ON_ERROR_STOP=1 \
-  --set=logto_owner_password="$LOGTO_DATABASE_OWNER_PASSWORD" \
+  --set=logto_owner_password="$LOGTO_DATABASE_PASSWORD" \
   --set=platform_owner_password="$PLATFORM_DATABASE_OWNER_PASSWORD" \
   --set=platform_runtime_password="$PLATFORM_DATABASE_RUNTIME_PASSWORD" \
   --username "$POSTGRES_USER" \

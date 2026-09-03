@@ -1,31 +1,28 @@
-# Production secret contract
+# Production secrets preparation
 
-Production ciphertext is repository-owned, but production values and age identities are not. The
-owner-gated cutover creates the real `secrets.production.sops.json` with exactly the logical keys
-from [`secret-policy.json`](secret-policy.json), encrypted to distinct host and offline recovery
-recipients. No private key or decrypted source belongs in Git.
+The repository owns only `.env.example` templates. Real values, encrypted files and age private
+keys stay outside Git. During #244, the owner creates two age recipients: one private identity on
+the host and one on separate encrypted recovery storage.
 
-Create ciphertext without a plaintext file:
+The host identity belongs at `/etc/inside/age/host.txt` with owner `root:root` and mode `0600`.
+Encrypt each completed env file to both public recipients with SOPS and keep the ciphertext in the
+password manager or approved encrypted storage. Decrypt it on the host into
+`/etc/inside/foundation`; every resulting `.env` file must be `root:root` and mode `0600`.
 
-```bash
-node scripts/production-secrets.mjs encrypt \
-  --output config/production/secrets.production.sops.json \
-  --host-recipient age1... \
-  --offline-recipient age1... < /run/inside-secret-input.json
-```
-
-Materialize one generation into the host tmpfs-backed `/run` path. The command verifies two age
-recipients before decrypting, requires root plus the root-owned tmpfs path
-`/run/inside/secrets`, rejects loose key permissions and reused generation names, writes only each
-service's declared subset with mode `0400`, and atomically moves `current` after every file is
-durable.
+Example for one file, after installing an owner-approved SOPS release during #244:
 
 ```bash
-sudo node scripts/production-secrets.mjs materialize \
-  --encrypted config/production/secrets.production.sops.json \
-  --runtime-root /run/inside/secrets \
-  --generation v1 \
-  --age-key-file /etc/inside/age/host.txt
+sops --encrypt \
+  --input-type dotenv \
+  --output-type dotenv \
+  --age 'age1HOST,age1OFFLINE' \
+  postgres.env >postgres.env.sops
+
+sudo env SOPS_AGE_KEY_FILE=/etc/inside/age/host.txt \
+  sops --decrypt --input-type dotenv --output-type dotenv postgres.env.sops \
+  | sudo install -m 600 -o root -g root /dev/stdin \
+      /etc/inside/foundation/postgres.env
 ```
 
-Run `pnpm foundation:secrets:smoke` for a synthetic host/offline encryption and lost-host recovery.
+Repeat for `logto-database.env` and `pgbackrest.env`. `database.env` and `logto.env` contain no
+credentials but use the same root-owned delivery path so Compose has one configuration interface.

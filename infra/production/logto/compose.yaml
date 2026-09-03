@@ -7,8 +7,8 @@ x-logto-runtime: &logto-runtime
   image: inside/logto-production:1.41.0-inside.2
   entrypoint: ["/foundation/entrypoint.sh"]
   env_file:
-    - ${FOUNDATION_PUBLIC_CONFIG_DIR:?FOUNDATION_PUBLIC_CONFIG_DIR is required}/logto.env
-    - ${FOUNDATION_SECRET_CONFIG_DIR:?FOUNDATION_SECRET_CONFIG_DIR is required}/logto.env
+    - ${FOUNDATION_CONFIG_DIR:-/etc/inside/foundation}/logto.env
+    - ${FOUNDATION_CONFIG_DIR:-/etc/inside/foundation}/logto-database.env
   networks: [database, edge, identity]
   volumes:
     - ./entrypoint.sh:/foundation/entrypoint.sh:ro

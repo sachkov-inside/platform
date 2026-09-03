@@ -18,7 +18,6 @@ const requiredJobs = [
   "integration",
   "compose-development",
   "compose-production",
-  "production-foundation",
 ];
 
 describe("application CI workflow contract", () => {
@@ -65,7 +64,7 @@ describe("application CI workflow contract", () => {
     }
   });
 
-  it("runs all five required checks on pinned GitHub-hosted runners", () => {
+  it("runs all four required checks on pinned GitHub-hosted runners", () => {
     for (const job of requiredJobs) {
       const body = jobBlock(job);
       assert.match(body, /^ {4}runs-on: ubuntu-24\.04$/mu);
@@ -131,20 +130,12 @@ describe("application CI workflow contract", () => {
       jobBlock("compose-production"),
       /run: pnpm compose:production:smoke/u,
     );
-    assert.match(
-      jobBlock("production-foundation"),
-      /host-foundation\.py install-secret-tools/u,
-    );
-    assert.match(
-      jobBlock("production-foundation"),
-      /run: pnpm foundation:smoke/u,
-    );
   });
 
   it("uploads only bounded failure diagnostics for seven days", () => {
-    assert.equal(workflow.match(/uses: actions\/upload-artifact@/gu)?.length, 4);
-    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 4);
-    assert.equal(workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length, 5);
+    assert.equal(workflow.match(/uses: actions\/upload-artifact@/gu)?.length, 3);
+    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 3);
+    assert.equal(workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length, 4);
     assert.match(workflow, /docker compose logs --no-color --tail 500/u);
     assert.doesNotMatch(workflow, /\.ci-artifacts/u);
     assert.match(

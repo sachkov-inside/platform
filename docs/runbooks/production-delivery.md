@@ -1,10 +1,11 @@
-# Production delivery baseline
+# Production Compose baseline
 
-The repository contains two deliberately separate production layers. The
-[host and recovery foundation](production-foundation.md) owns the reproducible host, system Caddy,
-restricted deploy identity, secrets, long-lived Logto, PostgreSQL and pgBackRest. The root
-`compose.production.yaml` remains the small application baseline used by the CI/CD course; it is
-not yet wired to that foundation or a finished automated delivery system.
+The repository currently contains a deliberately small single-server production baseline. It is
+the starting point for the CI/CD course, not a finished automated delivery system.
+
+The separate [production VPS preparation kit](production-foundation.md) records the host,
+database, backup and Logto files that will be applied once during #244. It is not run by CI and it
+does not change the current application Compose baseline.
 
 ## What runs
 
@@ -22,10 +23,8 @@ not yet wired to that foundation or a finished automated delivery system.
 The application images are built directly from the checked-out source with Compose. Pull requests
 already pass the application CI contract, but there is no registry input, digest-addressed release,
 GitHub Actions deployment workflow, SSH deployment, release selector or automated rollback yet.
-Compose also uses its temporary default network and database account. These are properties of this
-legacy application smoke only. The long-lived foundation already owns separate Platform runtime,
-Platform migration and Logto authorities; the application runtime task will consume them without
-moving their ownership back into a release.
+Compose also uses its default network and one database account. These missing pieces are
+intentional: the lessons add them one at a time and explain the problem each one solves.
 
 The Material Asset worker remains part of the application and local development stack, but it is
 not started by this temporary production baseline. Orphaned Material Asset cleanup therefore does
@@ -87,16 +86,15 @@ Compose-built images after the run.
 pnpm compose:production:smoke
 ```
 
-## Delivery work that comes later
+## Hardening that comes later
 
 The next delivery stages will extend this baseline with:
 
 - registry publication and immutable image identity;
-- application consumption of the foundation's database roles and explicit networks;
+- separate database migration and runtime roles;
+- explicit network boundaries;
 - the Material Asset background worker;
+- server-side secret delivery;
 - automated deployment, health proof and rollback.
 
-Host convergence, server-side secret delivery, separate Logto/database authority, backup scheduling
-and destructive recovery proof are current contracts, not future hardening. Use the
-[foundation runbook](production-foundation.md) for them. Keeping application activation out of the
-foundation makes the remaining delivery changes visible and testable.
+Keeping these concerns out of the starting point makes every later change visible and testable.
