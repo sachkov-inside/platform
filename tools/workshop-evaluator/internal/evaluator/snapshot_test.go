@@ -41,6 +41,7 @@ func TestRepositorySnapshotUsesExactCommitAndExcludesWorkingTreeChanges(t *testi
 	runGit(t, repositoryDirectory, "add", "tracked.txt", ".gitattributes", "nested/committed.txt")
 	runGit(t, repositoryDirectory, "commit", "-m", "fixture")
 	commitSHA := strings.TrimSpace(runGit(t, repositoryDirectory, "rev-parse", "HEAD"))
+	originalBlob := strings.TrimSpace(runGit(t, repositoryDirectory, "rev-parse", "HEAD:tracked.txt"))
 	hookMarker := filepath.Join(repositoryDirectory, "post-checkout-hook-ran")
 	filterMarker := filepath.Join(repositoryDirectory, "smudge-filter-ran")
 	if runtime.GOOS != "windows" {
@@ -67,6 +68,15 @@ func TestRepositorySnapshotUsesExactCommitAndExcludesWorkingTreeChanges(t *testi
 	if err := os.WriteFile(tracked, []byte("dirty\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	replacementBlob := strings.TrimSpace(runGit(
+		t,
+		repositoryDirectory,
+		"hash-object",
+		"--no-filters",
+		"-w",
+		"tracked.txt",
+	))
+	runGit(t, repositoryDirectory, "replace", originalBlob, replacementBlob)
 	if err := os.WriteFile(
 		filepath.Join(repositoryDirectory, "untracked-secret.txt"),
 		[]byte("secret\n"),

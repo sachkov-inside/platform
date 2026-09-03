@@ -425,6 +425,9 @@ func runFakeTool(tool string, arguments []string) int {
 }
 
 func runFakeGit(arguments []string) int {
+	if len(arguments) > 0 && arguments[0] == "--no-replace-objects" {
+		arguments = arguments[1:]
+	}
 	if len(arguments) >= 2 && arguments[0] == "-c" &&
 		strings.HasPrefix(arguments[1], "core.hooksPath=") {
 		arguments = arguments[2:]
