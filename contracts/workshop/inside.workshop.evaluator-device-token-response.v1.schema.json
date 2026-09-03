@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.evaluator-device-token-response.v1.schema.json",
+  "title": "Inside Workshop evaluator device token response v1",
+  "x-inside-byte-limits": { "document": 65536 },
+  "x-inside-slow-down-step-seconds": 1,
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "status"],
+  "properties": {
+    "schemaVersion": {
+      "const": "inside.workshop.evaluator-device-token-response.v1"
+    },
+    "status": {
+      "enum": ["pending", "slow_down", "authorized", "denied", "expired"]
+    },
+    "reportToken": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueSecret"
+    },
+    "assignmentManifestSha256": {
+      "$comment": "SHA-256 of inside.workshop.canonical-json.v1 encoding of the validated Assignment manifest.",
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/sha256"
+    },
+    "intervalSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "authorized" } },
+        "required": ["status"]
+      },
+      "then": {
+        "required": ["reportToken", "assignmentManifestSha256"]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            { "required": ["reportToken"] },
+            { "required": ["assignmentManifestSha256"] }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "slow_down" } },
+        "required": ["status"]
+      },
+      "else": {
+        "not": { "required": ["intervalSeconds"] }
+      }
+    }
+  ]
+}

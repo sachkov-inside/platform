@@ -1,0 +1,11 @@
+[Unit]
+Description=Six-hour incremental Inside PostgreSQL backup
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:00:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+Unit=inside-pgbackrest-backup@incr.service
+
+[Install]
+WantedBy=timers.target

@@ -4,6 +4,7 @@
 .env.*
 !.env.example
 config/compose/production/*.env
+config/production/foundation/*.env
 .impeccable
 .inside-harness
 **/.next

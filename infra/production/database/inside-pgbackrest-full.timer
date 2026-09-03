@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly full Inside PostgreSQL backup
+
+[Timer]
+OnCalendar=Sun *-*-* 01:00:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+Unit=inside-pgbackrest-backup@full.service
+
+[Install]
+WantedBy=timers.target

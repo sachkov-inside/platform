@@ -350,6 +350,8 @@ trustworthy.
 
 Go becomes an accepted application ADR only after real end-to-end runtime smoke on all three target
 OS/architectures. Cross-build alone does not satisfy the gate.
+The accepted boundary and its scope are recorded in
+[ADR 0014](../adr/0014-pinned-native-go-workshop-evaluator.md).
 
 ## 11. Report ingestion, Attempt and result
 

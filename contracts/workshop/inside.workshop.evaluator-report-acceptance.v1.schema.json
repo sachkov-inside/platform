@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.evaluator-report-acceptance.v1.schema.json",
+  "title": "Inside Workshop evaluator report acceptance v1",
+  "x-inside-byte-limits": { "document": 4096 },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "accepted"],
+  "properties": {
+    "schemaVersion": {
+      "const": "inside.workshop.evaluator-report-acceptance.v1"
+    },
+    "accepted": {
+      "const": true
+    }
+  }
+}

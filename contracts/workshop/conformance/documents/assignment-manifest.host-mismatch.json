@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "inside.workshop.assignment-manifest.v1",
+  "platformOrigin": "http://127.0.0.1:44102",
+  "assignmentId": "assignment-fixture-1",
+  "caseId": "partner-webhooks",
+  "caseVersion": "partner-webhooks-2026-09-03.1",
+  "variantId": "dotnet",
+  "evaluatorVersion": "0.1.0-beta.1",
+  "repositorySlug": "sachkov-inside/assignment-fixture-1",
+  "defaultBranch": "main",
+  "starterArtifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "evaluatorBundle": {
+    "url": "http://127.0.0.1:44102/evaluator.tar.gz",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "maxBytes": 1048576
+  },
+  "scenarios": [
+    { "id": "order-api-responsive", "required": true },
+    { "id": "webhook-retry", "required": true },
+    { "id": "restart-recovery", "required": false }
+  ],
+  "supportedHosts": [{ "os": "linux", "arch": "amd64" }],
+  "evaluationTimeoutSeconds": 300
+}

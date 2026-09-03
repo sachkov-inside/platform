@@ -5,6 +5,10 @@ artifacts, and a deliberately small single-server Compose baseline that still bu
 artifacts from a checkout. Deployment automation will connect the seams later; creating a release
 does not contact the production server.
 
+The separate [production VPS preparation kit](production-foundation.md) records the host,
+database, backup and Logto files that will be applied once during #244. It is not run by CI and it
+does not change the current application Compose baseline.
+
 ## What runs
 
 `compose.production.yaml` starts seven services in order:
@@ -133,7 +137,7 @@ pnpm compose:production:smoke
 
 The next delivery stages will extend this baseline with:
 
-- separate database migration and runtime roles;
+- one shared non-superuser Platform database role for migrations and runtime;
 - explicit network boundaries;
 - the Material Asset background worker;
 - server-side secret delivery;
