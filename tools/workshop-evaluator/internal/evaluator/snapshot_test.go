@@ -31,7 +31,14 @@ func TestRepositorySnapshotUsesExactCommitAndExcludesWorkingTreeChanges(t *testi
 	); err != nil {
 		t.Fatal(err)
 	}
-	runGit(t, repositoryDirectory, "add", "tracked.txt", ".gitattributes")
+	nested := filepath.Join(repositoryDirectory, "nested", "committed.txt")
+	if err := os.Mkdir(filepath.Dir(nested), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(nested, []byte("nested committed\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repositoryDirectory, "add", "tracked.txt", ".gitattributes", "nested/committed.txt")
 	runGit(t, repositoryDirectory, "commit", "-m", "fixture")
 	commitSHA := strings.TrimSpace(runGit(t, repositoryDirectory, "rev-parse", "HEAD"))
 	hookMarker := filepath.Join(repositoryDirectory, "post-checkout-hook-ran")
@@ -84,6 +91,10 @@ func TestRepositorySnapshotUsesExactCommitAndExcludesWorkingTreeChanges(t *testi
 	snapshotContents, err := os.ReadFile(filepath.Join(snapshotDirectory, "tracked.txt"))
 	if err != nil || string(snapshotContents) != "committed\n" {
 		t.Fatalf("snapshot did not preserve committed contents: %q, %v", snapshotContents, err)
+	}
+	nestedContents, err := os.ReadFile(filepath.Join(snapshotDirectory, "nested", "committed.txt"))
+	if err != nil || string(nestedContents) != "nested committed\n" {
+		t.Fatalf("snapshot did not preserve nested contents: %q, %v", nestedContents, err)
 	}
 	if _, err := os.Stat(filepath.Join(snapshotDirectory, "untracked-secret.txt")); !os.IsNotExist(err) {
 		t.Fatalf("snapshot included untracked file: %v", err)

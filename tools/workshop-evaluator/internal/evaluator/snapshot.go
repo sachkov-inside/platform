@@ -123,7 +123,8 @@ func materializeRepositoryTree(
 		repositoryDirectory,
 		"git",
 		"ls-tree",
-		"-rz",
+		"-r",
+		"-z",
 		"--full-tree",
 		commitSHA,
 	)

@@ -454,7 +454,7 @@ func runFakeGit(arguments []string) int {
 		fmt.Fprintln(os.Stdout, "git@github.com:sachkov-inside/assignment-native-smoke.git")
 	case joined == "rev-parse HEAD":
 		fmt.Fprintln(os.Stdout, commitSHA)
-	case joined == "ls-tree -rz --full-tree "+commitSHA:
+	case joined == "ls-tree -r -z --full-tree "+commitSHA:
 		fmt.Fprintf(
 			os.Stdout,
 			"100644 blob %s\t.inside/assignment.json%c"+
