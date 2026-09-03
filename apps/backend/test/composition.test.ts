@@ -29,6 +29,10 @@ import {
 import { MEMBERSHIP_ENTITLEMENTS } from "../src/modules/membership-entitlements/index.js";
 import { PROFILE_AVATAR_MAINTENANCE } from "../src/modules/member-profiles/index.js";
 import { VIDEO_DELETION_MAINTENANCE } from "../src/modules/videos/index.js";
+import {
+  WORKSHOP_MATERIAL_ACCESS,
+  WORKSHOP_MATERIAL_PROTECTION,
+} from "../src/modules/workshop/index.js";
 
 const config = parsePlatformConfig({
   NODE_ENV: "test",
@@ -66,6 +70,8 @@ describe("backend process composition", () => {
     expect(api.get(OperationalReadiness)).toBeInstanceOf(OperationalReadiness);
     expect(api.get(MEMBERSHIP_ENTITLEMENTS)).toBeDefined();
     expect(api.get(PUBLISHED_MATERIAL_READER)).toBeDefined();
+    expect(api.get(WORKSHOP_MATERIAL_ACCESS)).toBeDefined();
+    expect(api.get(WORKSHOP_MATERIAL_PROTECTION)).toBeDefined();
 
     const disconnect = vi.spyOn(prisma, "$disconnect");
     await api.close();

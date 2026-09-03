@@ -19,3 +19,7 @@ export {
 } from "./prisma-client.js";
 export { PrismaClientProvider, PrismaModule } from "./prisma.module.js";
 export { Prisma } from "./generated/client.js";
+export {
+  lockAccountEntitlementChanges,
+  lockMaterialReferenceChanges,
+} from "./transaction-locks.js";

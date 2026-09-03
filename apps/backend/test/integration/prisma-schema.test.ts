@@ -42,8 +42,14 @@ describe("Prisma schema", () => {
       testDatabase.prisma.videoWebhookInbox.count(),
       testDatabase.prisma.videoPlaybackProgress.count(),
       testDatabase.prisma.videoDeletionOperation.count(),
+      testDatabase.prisma.workshopEntitlement.count(),
+      testDatabase.prisma.workshopCase.count(),
+      testDatabase.prisma.workshopCaseVersion.count(),
+      testDatabase.prisma.workshopCaseMaterial.count(),
+      testDatabase.prisma.workshopHintReveal.count(),
+      testDatabase.prisma.workshopSolutionReveal.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 24 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 30 }, () => 0));
   });
 });

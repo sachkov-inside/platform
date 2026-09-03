@@ -52,6 +52,8 @@ export function assemblePreviewMaterial(
         case "entitlement_stale":
         case "membership_expired":
         case "membership_required":
+        case "workshop_access_required":
+        case "workshop_material_locked":
         case "resource_action_invalid":
         case "resource_mismatch":
         case "resource_unpublished":

@@ -18,7 +18,7 @@ export const seriesMembershipWireSchema = z
 const materialMetadataSelectionBaseShape = {
   title: z.string().trim().min(1).max(160).nullable(),
   summary: z.string().trim().min(1).max(500).nullable(),
-  access: z.enum(["free", "membership"]),
+  access: z.enum(["free", "membership", "workshop"]),
   topicId: uuidWireSchema.nullable(),
   formatId: uuidWireSchema.nullable(),
   tagIds: z.array(uuidWireSchema).max(100),

@@ -14,6 +14,7 @@ const lockedMaterialRowsSchema = z.array(
     publication_state: z.enum(["draft", "published", "unpublished"]),
     content_version: z.coerce.number().int().positive(),
     first_published_at: z.coerce.date().nullable(),
+    access: z.enum(["free", "membership", "workshop"]),
     primary_video_id: z.uuid().nullable(),
     published_at: z.coerce.date().nullable(),
     published_by: z.uuid().nullable(),
@@ -21,6 +22,7 @@ const lockedMaterialRowsSchema = z.array(
 );
 
 export interface LockedMaterial {
+  readonly access: "free" | "membership" | "workshop";
   readonly lifecycle: Material;
   readonly primaryVideoId: string | null;
   readonly publishedBy: string | null;
@@ -38,6 +40,7 @@ export async function lockMaterialForLifecycleChange(
         publication_state,
         content_version,
         first_published_at,
+        access,
         primary_video_id,
         published_at,
         published_by
@@ -50,6 +53,7 @@ export async function lockMaterialForLifecycleChange(
   return row === undefined
     ? undefined
     : {
+        access: row.access,
         lifecycle: Material.restore({
           id: materialId(row.id),
           slug: row.slug,
@@ -61,13 +65,4 @@ export async function lockMaterialForLifecycleChange(
         primaryVideoId: row.primary_video_id,
         publishedBy: row.published_by,
       };
-}
-
-export async function lockMaterialReferenceChanges(
-  transaction: MaterialsPrismaTransaction,
-  materialIdValue: MaterialId,
-): Promise<void> {
-  await transaction.$executeRaw(Prisma.sql`
-    select pg_advisory_xact_lock(hashtextextended(${materialIdValue}, 0))
-  `);
 }
