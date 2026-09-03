@@ -9,7 +9,6 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
 const releaseWorkflow = read(".github/workflows/release.yml");
 const ciWorkflow = read(".github/workflows/ci.yml");
-const imageWorkflow = read(".github/workflows/build-release-images.yml");
 const planScript = read("scripts/plan-release.sh");
 const permissionFixture = JSON.parse(
   read("scripts/fixtures/release/workflow-permissions.json"),
@@ -23,7 +22,7 @@ describe("ordinal release workflow contract", () => {
     assert.match(triggers, /^ {2}workflow_dispatch:$/mu);
     assert.match(triggers, /^ {6}version:$/mu);
     assert.match(triggers, /^ {8}required: true$/mu);
-    assert.match(triggers, /^ {6}vulnerability_waiver_reason:$/mu);
+    assert.doesNotMatch(triggers, /vulnerability|waiver/iu);
     assert.doesNotMatch(triggers, /^ {2}(?:push|pull_request|release):/mu);
     assert.match(concurrency, /^ {2}group: platform-release$/mu);
     assert.match(concurrency, /^ {2}cancel-in-progress: false$/mu);
@@ -47,56 +46,43 @@ describe("ordinal release workflow contract", () => {
     assert.match(planScript, /repos\/\$\{GITHUB_REPOSITORY\}\/releases/u);
     assert.match(planScript, /release-contract\.mjs plan/u);
     assert.match(plan, /^ {4}outputs:$/mu);
+    assert.match(plan, /\.imageMatrix release-plan\.json/u);
+    assert.match(plan, /\.manifestAssetName release-plan\.json/u);
     assert.match(ci, /^ {4}uses: \.\/\.github\/workflows\/ci\.yml$/mu);
     assert.match(ci, /source_sha: \$\{\{ needs\.plan\.outputs\.source_sha \}\}/u);
   });
 
-  it("builds both images once, verifies standard attestations and proves public digest access", () => {
-    const triggers = topLevelBlock(imageWorkflow, "on");
-    const build = jobBlock(imageWorkflow, "build-and-verify");
-    const caller = jobBlock(releaseWorkflow, "build-images");
+  it("builds and publishes both images once and proves public digest access", () => {
+    const build = jobBlock(releaseWorkflow, "build-images");
 
-    for (const input of ["source_sha", "version", "vulnerability_waiver_reason"]) {
-      assert.match(triggers, new RegExp(`^ {6}${input}:$`, "mu"));
+    for (const dependency of ["plan", "ci"]) {
+      assert.match(build, new RegExp(`^      - ${dependency}$`, "mu"));
     }
-    assert.match(build, /kind: backend/u);
-    assert.match(build, /target: backend-production/u);
-    assert.match(build, /kind: web/u);
-    assert.match(build, /target: web-production/u);
+    assert.match(
+      build,
+      /include: \$\{\{ fromJSON\(needs\.plan\.outputs\.image_matrix\) \}\}/u,
+    );
+    assert.match(build, /file: \$\{\{ matrix\.dockerfile \}\}/u);
+    assert.match(build, /target: \$\{\{ matrix\.target \}\}/u);
+    assert.match(
+      build,
+      /ref: \$\{\{ needs\.plan\.outputs\.source_sha \}\}/u,
+    );
     assert.match(build, /push: true/u);
-    assert.match(build, /tags: \$\{\{ matrix\.image_name \}\}:\$\{\{ inputs\.version \}\}/u);
+    assert.match(
+      build,
+      /tags: \$\{\{ matrix\.imageName \}\}:\$\{\{ needs\.plan\.outputs\.version \}\}/u,
+    );
     assert.doesNotMatch(build, /:latest/u);
-    assert.match(build, /uses: anchore\/sbom-action@v\d+\.\d+\.\d+/u);
-    assert.match(build, /uses: anchore\/scan-action@v\d+\.\d+\.\d+/u);
-    assert.match(
-      build,
-      /fail-build: \$\{\{ steps\.waiver\.outputs\.enabled != 'true' \}\}/u,
-    );
-    assert.match(build, /release-contract\.mjs waiver --input -/u);
-    assert.match(
-      build,
-      /\{actor: \$actor, reason: \$reason, runUrl: \$runUrl\}/u,
-    );
-    assert.ok(
-      build.indexOf("release-contract.mjs waiver") <
-        build.indexOf("Build and push exact source"),
-    );
-    assert.match(build, /severity-cutoff: high/u);
-    assert.equal(build.match(/uses: actions\/attest@v\d+\.\d+\.\d+/gu)?.length, 2);
-    assert.equal(build.match(/gh attestation verify/gu)?.length, 1);
-    assert.match(build, /https:\/\/slsa\.dev\/provenance\/v1/u);
-    assert.match(build, /https:\/\/spdx\.dev\/Document\/v2\.3/u);
-    assert.match(build, /--source-digest "\$SOURCE_SHA"/u);
-    assert.doesNotMatch(build, /--bundle/u);
-    assert.match(build, /SOURCE_SHA: \$\{\{ inputs\.source_sha \}\}/u);
-    assert.match(build, /vulnerabilityWaiver: \$waiver\[0\]/u);
-    assert.doesNotMatch(build, /release-contract\.mjs image/u);
+    assert.match(build, /provenance: false/u);
+    assert.match(build, /sbom: false/u);
+    assert.doesNotMatch(build, /anchore|actions\/attest|gh attestation|waiver|vulnerabil/iu);
+    assert.match(build, /SOURCE_SHA: \$\{\{ needs\.plan\.outputs\.source_sha \}\}/u);
+    assert.match(build, /sourceSha: \$sourceSha/u);
     assert.match(build, /docker logout ghcr\.io/u);
     assert.match(build, /docker buildx imagetools inspect/u);
-    assert.match(caller, /^ {4}uses: \.\/\.github\/workflows\/build-release-images\.yml$/mu);
-    assert.match(caller, /^ {6}packages: write$/mu);
-    assert.match(caller, /^ {6}attestations: write$/mu);
-    assert.match(caller, /^ {6}id-token: write$/mu);
+    assert.match(build, /^ {6}packages: write$/mu);
+    assert.doesNotMatch(build, /artifact-metadata|attestations|id-token/u);
   });
 
   it("rechecks main and ordinal state before publishing one immutable release record", () => {
@@ -114,28 +100,21 @@ describe("ordinal release workflow contract", () => {
     assert.equal(finalize.match(/release-contract\.mjs manifest/gu)?.length, 1);
     assert.match(finalize, /gh release create/u);
     assert.match(finalize, /--target "\$SOURCE_SHA"/u);
-    assert.match(finalize, /release-manifest\.json/u);
-    assert.match(finalize, /backend\.vulnerabilities\.json/u);
-    assert.match(finalize, /web\.vulnerabilities\.json/u);
-    assert.doesNotMatch(finalize, /\.bundle\.json/u);
+    assert.match(finalize, /MANIFEST_ASSET_NAME/u);
+    assert.doesNotMatch(releaseWorkflow, /ghcr\.io\/sachkov-inside\/platform-/u);
+    assert.doesNotMatch(releaseWorkflow, /release-assets\/release-manifest\.json/u);
+    assert.doesNotMatch(finalize, /sbom|provenance|attest|vulnerabil|waiver/iu);
     assert.doesNotMatch(releaseWorkflow, /--clobber/u);
     assert.doesNotMatch(releaseWorkflow, /secrets\./u);
   });
 
   it("matches the positive permission fixture and rejects over-privileged fixtures", () => {
     assert.match(releaseWorkflow, /^permissions: \{\}$/mu);
-    assert.match(imageWorkflow, /^permissions: \{\}$/mu);
     const actual = {
       release: Object.fromEntries(
         Object.keys(permissionFixture.release).map((job) => [
           job,
           jobPermissions(releaseWorkflow, job),
-        ]),
-      ),
-      image: Object.fromEntries(
-        Object.keys(permissionFixture.image).map((job) => [
-          job,
-          jobPermissions(imageWorkflow, job),
         ]),
       ),
     };
@@ -188,7 +167,7 @@ function jobPermissions(workflow, job) {
 }
 
 function assertPermissionPolicy(actual, fixture) {
-  for (const workflow of ["release", "image"]) {
+  for (const workflow of ["release"]) {
     for (const [job, expected] of Object.entries(fixture[workflow])) {
       if (!isDeepStrictEqual(actual[workflow][job], expected)) {
         throw new Error(`${workflow} ${job} permissions differ from the release policy`);

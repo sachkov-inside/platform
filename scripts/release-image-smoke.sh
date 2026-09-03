@@ -1,16 +1,42 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-backend_image="inside-platform-release-backend-smoke:$$"
-web_image="inside-platform-release-web-smoke:$$"
+backend_image=""
+web_image=""
 
 cleanup() {
-  docker image rm --force "$backend_image" "$web_image" >/dev/null 2>&1 || true
+  if [[ -n "$backend_image" ]]; then
+    docker image rm --force "$backend_image" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$web_image" ]]; then
+    docker image rm --force "$web_image" >/dev/null 2>&1 || true
+  fi
 }
 trap cleanup EXIT
 
-docker build --pull --file apps/backend/Dockerfile --target backend-production --tag "$backend_image" .
-docker build --pull --file apps/web/Dockerfile --target web-production --tag "$web_image" .
+while IFS=$'\t' read -r kind dockerfile target; do
+  smoke_image="inside-platform-release-${kind}-smoke:$$"
+  case "$kind" in
+    backend) backend_image="$smoke_image" ;;
+    web) web_image="$smoke_image" ;;
+    *) echo "unknown release image kind: $kind" >&2; exit 1 ;;
+  esac
+
+  docker build \
+    --pull \
+    --provenance=false \
+    --sbom=false \
+    --file "$dockerfile" \
+    --target "$target" \
+    --tag "$smoke_image" \
+    .
+done < <(
+  node scripts/release-contract.mjs images |
+    jq --raw-output '.[] | [.kind, .dockerfile, .target] | @tsv'
+)
+
+: "${backend_image:?backend release image is missing from the contract}"
+: "${web_image:?web release image is missing from the contract}"
 
 docker run --rm --entrypoint sh "$backend_image" -ec '
   test "$(id -u)" = "1000"

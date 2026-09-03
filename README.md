@@ -109,9 +109,8 @@ is an explicit destructive reset.
 ## Production delivery baseline
 
 The versioned release pipeline builds the exact current `main`, reruns CI, publishes public backend
-and web GHCR images, verifies their standard SBOM/provenance attestations, applies the vulnerability
-gate, and records the next ordinal `vN` in a small immutable manifest. Release consumers identify
-images by digest, never by a moving tag.
+and web GHCR images, and records the next ordinal `vN` in a small immutable manifest. Release
+consumers identify images by digest, never by a moving tag.
 
 The current production Compose file remains the deliberately small runtime baseline before CD. It
 builds API and web from the checked-out source, runs migrations once, uses one database account and
@@ -124,7 +123,7 @@ pnpm compose:production:smoke
 ```
 
 See the [production delivery runbook](docs/runbooks/production-delivery.md) for the topology,
-release command, evidence contract, runtime configuration and remaining deployment boundary.
+release command, manifest contract, runtime configuration and remaining deployment boundary.
 
 For migrations, integration tests, manual database inspection and reset procedures, see the
 [local development runbook](docs/runbooks/local-development.md). Version policy and current

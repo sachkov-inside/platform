@@ -7,12 +7,12 @@
     {
       "version": "v1",
       "immutable": true,
-      "assets": ["release-manifest.json", "backend.vulnerabilities.json", "web.vulnerabilities.json"]
+      "assets": ["release-manifest.json"]
     },
     {
       "version": "v3",
       "immutable": true,
-      "assets": ["release-manifest.json", "backend.vulnerabilities.json", "web.vulnerabilities.json"]
+      "assets": ["release-manifest.json"]
     }
   ]
 }

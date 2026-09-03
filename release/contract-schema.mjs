@@ -3,10 +3,21 @@ import { z } from "zod";
 export const repositoryName = "sachkov-inside/platform";
 export const backendImageName = "ghcr.io/sachkov-inside/platform-backend";
 export const webImageName = "ghcr.io/sachkov-inside/platform-web";
-export const releaseAssetNames = [
-  "release-manifest.json",
-  "backend.vulnerabilities.json",
-  "web.vulnerabilities.json",
+export const releaseManifestAssetName = "release-manifest.json";
+export const releaseAssetNames = [releaseManifestAssetName];
+export const releaseImageMatrix = [
+  {
+    kind: "backend",
+    dockerfile: "apps/backend/Dockerfile",
+    target: "backend-production",
+    imageName: backendImageName,
+  },
+  {
+    kind: "web",
+    dockerfile: "apps/web/Dockerfile",
+    target: "web-production",
+    imageName: webImageName,
+  },
 ];
 
 export const ordinalVersionSchema = z
@@ -22,32 +33,14 @@ export const sha256DigestSchema = z.intersection(
   z.string().lowercase(),
 );
 
-const workflowRunUrlSchema = z
-  .url()
-  .regex(
-    /^https:\/\/github[.]com\/sachkov-inside\/platform\/actions\/runs\/[1-9][0-9]*$/,
-  );
-
 export const imageIdentitySchema = z.strictObject({
   digest: sha256DigestSchema,
   name: z.enum([backendImageName, webImageName]),
 });
 
-export const waiverSchema = z.strictObject({
-  actor: z.string().min(1),
-  reason: z.string().trim().min(20).max(1000),
-  runUrl: workflowRunUrlSchema,
-});
-export const releaseWaiverInputSchema = z.strictObject({
-  actor: waiverSchema.shape.actor,
-  reason: z.string(),
-  runUrl: waiverSchema.shape.runUrl,
-});
-
 export const releaseImageResultSchema = z.strictObject({
   image: imageIdentitySchema,
   sourceSha: sourceShaSchema,
-  vulnerabilityWaiver: waiverSchema.nullable(),
 });
 
 const imageReferenceSchema = (imageName) =>
@@ -72,7 +65,6 @@ export const releaseManifestSchema = z
       backend: imageReferenceSchema(backendImageName),
       web: imageReferenceSchema(webImageName),
     }),
-    vulnerabilityWaiver: waiverSchema.nullable(),
   })
   .meta({ title: "Inside Platform ordinal release manifest" });
 

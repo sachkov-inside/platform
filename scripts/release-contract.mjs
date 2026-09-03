@@ -8,18 +8,26 @@ import {
   ordinalVersionSchema,
   parseSchema,
   releaseAssetNames,
+  releaseImageMatrix,
   releaseImageResultSchema,
+  releaseManifestAssetName,
   releaseManifestInputSchema,
   releaseManifestSchema,
   releasePlanInputSchema,
-  releaseWaiverInputSchema,
-  waiverSchema,
   webImageName,
 } from "../release/contract-schema.mjs";
 
 const [command, inputFlag, inputPath] = process.argv.slice(2);
 
 try {
+  if (command === "images") {
+    if (inputFlag || inputPath) {
+      throw new Error("usage: release-contract.mjs images");
+    }
+    writeResult(releaseImageMatrix);
+    process.exit(0);
+  }
+
   if (inputFlag !== "--input" || !inputPath) {
     throw new Error("usage: release-contract.mjs <command> --input <path>");
   }
@@ -30,8 +38,6 @@ try {
 
   if (command === "plan") {
     writeResult(planRelease(input));
-  } else if (command === "waiver") {
-    writeResult(normalizeWaiver(input));
   } else if (command === "manifest") {
     writeResult(await createManifest(input));
   } else {
@@ -112,18 +118,12 @@ function planRelease(input) {
   }
 
   return {
+    imageMatrix: releaseImageMatrix,
+    manifestAssetName: releaseManifestAssetName,
     ordinal,
     sourceSha: input.sourceSha,
     version: input.requestedVersion,
   };
-}
-
-function normalizeWaiver(input) {
-  input = parseSchema(releaseWaiverInputSchema, input, "vulnerability waiver input");
-  if (input.reason.trim() === "") {
-    return null;
-  }
-  return parseSchema(waiverSchema, input, "vulnerability waiver");
 }
 
 async function createManifest(input) {
@@ -138,15 +138,6 @@ async function createManifest(input) {
     webImageName,
     input.sourceSha,
   );
-  if (
-    !isDeepStrictEqual(
-      backend.vulnerabilityWaiver,
-      web.vulnerabilityWaiver,
-    )
-  ) {
-    throw new Error("image vulnerability waivers do not match");
-  }
-
   return parseSchema(
     releaseManifestSchema,
     {
@@ -160,7 +151,6 @@ async function createManifest(input) {
         backend: `${backend.image.name}@${backend.image.digest}`,
         web: `${web.image.name}@${web.image.digest}`,
       },
-      vulnerabilityWaiver: backend.vulnerabilityWaiver,
     },
     "release manifest",
   );

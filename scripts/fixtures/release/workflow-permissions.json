@@ -3,24 +3,12 @@
     "plan": {"contents": "read"},
     "ci": {"contents": "read"},
     "build-images": {
-      "artifact-metadata": "write",
-      "attestations": "write",
       "contents": "read",
-      "id-token": "write",
       "packages": "write"
     },
     "finalize": {
       "actions": "read",
       "contents": "write"
-    }
-  },
-  "image": {
-    "build-and-verify": {
-      "artifact-metadata": "write",
-      "attestations": "write",
-      "contents": "read",
-      "id-token": "write",
-      "packages": "write"
     }
   },
   "invalid": [
@@ -31,15 +19,12 @@
       "permissions": {"contents": "write"}
     },
     {
-      "name": "image builder has unrelated actions write",
-      "workflow": "image",
-      "job": "build-and-verify",
+      "name": "release image builder has unrelated actions write",
+      "workflow": "release",
+      "job": "build-images",
       "permissions": {
         "actions": "write",
-        "artifact-metadata": "write",
-        "attestations": "write",
         "contents": "read",
-        "id-token": "write",
         "packages": "write"
       }
     },

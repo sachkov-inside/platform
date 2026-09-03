@@ -10,13 +10,28 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("release contract CLI", () => {
   it("accepts the next ordinal release for the captured current main", () => {
-    const result = runReleaseContract(
+    const result = runReleaseContractWithInput(
       "plan",
-      "scripts/fixtures/release/plan-v3.json",
+      readJson("scripts/fixtures/release/plan-v3.json"),
     );
 
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(JSON.parse(result.stdout), {
+      imageMatrix: [
+        {
+          kind: "backend",
+          dockerfile: "apps/backend/Dockerfile",
+          target: "backend-production",
+          imageName: "ghcr.io/sachkov-inside/platform-backend",
+        },
+        {
+          kind: "web",
+          dockerfile: "apps/web/Dockerfile",
+          target: "web-production",
+          imageName: "ghcr.io/sachkov-inside/platform-web",
+        },
+      ],
+      manifestAssetName: "release-manifest.json",
       ordinal: 3,
       sourceSha: "3333333333333333333333333333333333333333",
       version: "v3",
@@ -76,44 +91,7 @@ describe("release contract CLI", () => {
     assert.match(result.stderr, /v1 is not an immutable published release/u);
   });
 
-  it("treats an empty vulnerability waiver reason as no waiver", () => {
-    const result = runReleaseContractWithInput("waiver", {
-      actor: "release-owner",
-      reason: "   ",
-      runUrl: "https://github.com/sachkov-inside/platform/actions/runs/3003",
-    });
-
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(JSON.parse(result.stdout), null);
-  });
-
-  it("validates and normalizes a vulnerability waiver before image publication", () => {
-    const result = runReleaseContractWithInput("waiver", {
-      actor: "release-owner",
-      reason: "  CVE-2026-1000 is not reachable in production entrypoints  ",
-      runUrl: "https://github.com/sachkov-inside/platform/actions/runs/3003",
-    });
-
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(JSON.parse(result.stdout), {
-      actor: "release-owner",
-      reason: "CVE-2026-1000 is not reachable in production entrypoints",
-      runUrl: "https://github.com/sachkov-inside/platform/actions/runs/3003",
-    });
-  });
-
-  it("rejects a non-empty vulnerability waiver without an auditable reason", () => {
-    const result = runReleaseContractWithInput("waiver", {
-      actor: "release-owner",
-      reason: "accept it",
-      runUrl: "https://github.com/sachkov-inside/platform/actions/runs/3003",
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /reason: Too small/u);
-  });
-
-  it("creates a deployable manifest from two verified image results", () => {
+  it("creates a deployable manifest from two published image results", () => {
     const result = runReleaseContract(
       "manifest",
       "scripts/fixtures/release/manifest-input.json",
@@ -132,30 +110,7 @@ describe("release contract CLI", () => {
           "ghcr.io/sachkov-inside/platform-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         web: "ghcr.io/sachkov-inside/platform-web@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       },
-      vulnerabilityWaiver: null,
     });
-  });
-
-  it("records one owner waiver shared by both image scans", () => {
-    const backend = readJson(
-      "scripts/fixtures/release/manifest/backend.image.json",
-    );
-    const web = readJson("scripts/fixtures/release/manifest/web.image.json");
-    const vulnerabilityWaiver = {
-      actor: "release-owner",
-      reason: "CVE-2026-1000 is not reachable in production entrypoints",
-      runUrl: "https://github.com/sachkov-inside/platform/actions/runs/3003",
-    };
-    const result = runManifestWithImages(
-      { ...backend, vulnerabilityWaiver },
-      { ...web, vulnerabilityWaiver },
-    );
-
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(
-      JSON.parse(result.stdout).vulnerabilityWaiver,
-      vulnerabilityWaiver,
-    );
   });
 
   it("rejects an image result from another source commit", () => {
@@ -209,19 +164,16 @@ function runManifestWithImages(backend, web) {
   const input = readJson("scripts/fixtures/release/manifest-input.json");
   writeFileSync(backendPath, JSON.stringify(backend));
   writeFileSync(webPath, JSON.stringify(web));
-  return runTemporaryContract("manifest", {
-    ...input,
-    images: { backend: backendPath, web: webPath },
-  }, directory);
-}
-
-function runTemporaryContract(command, input, existingDirectory) {
-  const directory =
-    existingDirectory ?? mkdtempSync(resolve(tmpdir(), "platform-release-contract-"));
   const inputPath = resolve(directory, "input.json");
-  writeFileSync(inputPath, JSON.stringify(input));
+  writeFileSync(
+    inputPath,
+    JSON.stringify({
+      ...input,
+      images: { backend: backendPath, web: webPath },
+    }),
+  );
   try {
-    return runReleaseContract(command, inputPath);
+    return runReleaseContract("manifest", inputPath);
   } finally {
     rmSync(directory, { force: true, recursive: true });
   }

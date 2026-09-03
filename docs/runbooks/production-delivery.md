@@ -90,10 +90,10 @@ release. The owner-approved bootstrap publication and visibility change are one-
 that setup, each ordinal release uses the single command below.
 
 The workflow checks release immutability both before building and immediately before finalization.
-It also requires each ordinal tag to belong to a published immutable Release with the complete
-manifest and evidence asset set. Those retained Releases must form a contiguous `v1` through
-`vN-1` history; a bare tag, mutable/missing record, duplicate or skipped ordinal fails closed. The
-workflow rechecks the same state and confirms that `main` has not moved before publishing.
+It also requires each ordinal tag to belong to a published immutable Release containing its
+manifest. Those retained Releases must form a contiguous `v1` through `vN-1` history; a bare tag,
+mutable/missing record, duplicate or skipped ordinal fails closed. The workflow rechecks the same
+state and confirms that `main` has not moved before publishing.
 
 From a clean `main`, publish the next ordinal with exactly one manual command:
 
@@ -101,32 +101,15 @@ From a clean `main`, publish the next ordinal with exactly one manual command:
 gh workflow run release.yml --ref main --field version=vN
 ```
 
-High or critical findings fail closed. An owner may make the exception explicit by adding a
-non-empty, auditable reason of at least 20 characters:
+The completed immutable GitHub Release contains only `release-manifest.json`. The manifest binds the
+ordinal version and source SHA to two deployable public GHCR `name@sha256:...` references. The source
+SHA already identifies the checked-in migrations and configuration, so the manifest does not
+duplicate their hashes. The image build job logs out of GHCR and proves both exact digests
+anonymously readable before finalization.
 
-```bash
-gh workflow run release.yml \
-  --ref main \
-  --field version=vN \
-  --field vulnerability_waiver_reason='Owner-approved reason and compensating control'
-```
-
-The completed immutable GitHub Release contains `release-manifest.json` and the vulnerability report
-for each image. The manifest binds the ordinal version and source SHA to two deployable public GHCR
-`name@sha256:...` references and records any applied waiver. The source SHA already identifies the
-checked-in migrations and configuration, so the manifest does not duplicate their hashes.
-
-SPDX SBOM and build provenance are signed GitHub attestations attached to each OCI image rather than
-copies in a repository-specific evidence format. The image workflow scans the same SBOM that it
-attests, verifies both standard attestations against the exact digest, source commit, `main` ref and
-trusted workflow, then logs out of GHCR and proves each digest anonymously readable. A missing or
-invalid attestation stops the image job; finalization consumes only that job's verified image
-results.
-
-The small manifest contract is owned by `release/contract-schema.mjs`; the checked-in
-`release/manifest.schema.json` is generated from it, while ordinal and manifest validation live in
-`scripts/release-contract.mjs`. To exercise the complete local release contract without publishing
-packages, attestations or a GitHub Release, run:
+The small manifest contract is owned by `release/contract-schema.mjs`, while ordinal and manifest
+validation live in `scripts/release-contract.mjs`. To exercise the complete local release contract
+without publishing packages or a GitHub Release, run:
 
 ```bash
 pnpm release:dry-run

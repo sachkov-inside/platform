@@ -41,8 +41,6 @@
     "compose:production:smoke": "bash scripts/production-compose-smoke.sh",
     "release:images:smoke": "bash scripts/release-image-smoke.sh",
     "release:dry-run": "bash scripts/release-dry-run.sh",
-    "release:schema": "node scripts/generate-release-manifest-schema.mjs",
-    "release:schema:check": "node scripts/generate-release-manifest-schema.mjs --check",
     "conformance:telegram-membership": "pnpm --filter @inside/backend conformance:telegram-membership",
     "infra:up": "docker compose up -d --wait postgres object-storage",
     "infra:down": "docker compose down",
@@ -55,7 +53,6 @@
   },
   "devDependencies": {
     "@logto/node": "3.1.10",
-    "ajv": "8.20.0",
     "jose": "6.2.10",
     "oxc-parser": "0.147.0",
     "oxlint": "1.80.0",

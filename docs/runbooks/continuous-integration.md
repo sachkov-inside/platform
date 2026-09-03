@@ -39,8 +39,8 @@ Every Compose job owns an isolated project on its runner and removes containers,
 volumes even after a failed command. The production smoke additionally removes locally built
 images. Pull-request CI does not publish packages, use GHCR permissions, deploy to a server or read
 production configuration. `.github/workflows/release.yml` calls CI with read-only contents access,
-then delegates package publication and attestations to the separately permissioned reusable image
-workflow. Release finalization receives only verified, non-secret evidence artifacts.
+then publishes packages in a separately permissioned matrix job. Release finalization receives only
+non-secret image identity artifacts from the current run.
 
 The executable workflow contract lives in `scripts/ci-workflow-contract.test.mjs` and runs through
 `pnpm test:tooling` and therefore `pnpm check`. It protects triggers, permissions, action pinning,
@@ -49,5 +49,5 @@ commands, job dependencies and artifact retention from configuration drift.
 The release workflow and manifest policy have their own executable contracts in
 `scripts/release-workflow-contract.test.mjs`, `scripts/release-image-contract.test.mjs` and
 `scripts/release-contract.test.mjs`. Positive and negative fixtures cover next/duplicate/stale
-ordinals, bare/mutable/discontinuous retained history, missing or tampered evidence, vulnerability
-waivers, generated manifest schema and least-privilege workflow boundaries.
+ordinals, bare/mutable/discontinuous retained history, mismatched image results and least-privilege
+workflow boundaries.

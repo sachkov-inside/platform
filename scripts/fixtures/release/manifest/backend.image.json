@@ -3,6 +3,5 @@
     "name": "ghcr.io/sachkov-inside/platform-backend",
     "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
-  "sourceSha": "3333333333333333333333333333333333333333",
-  "vulnerabilityWaiver": null
+  "sourceSha": "3333333333333333333333333333333333333333"
 }
