@@ -165,7 +165,7 @@ GitHub numeric identities, not mutable owner/name strings.
 | `Assignment` | Account, case version, variant, starter artifact/digest, GitHub repository ID, default branch, starter commit/tree and lifecycle. One active Assignment per Account/case/variant. |
 | `AttemptDraft` | Short-lived evaluator authorization/report slot bound to Account, Assignment, case/variant/evaluator versions and at most one accepted report. |
 | `Attempt` | Immutable identity binding Assignment, exact commit/tree, source archive digest/key, CaseSpec/evaluator/report versions and accepted report digest. |
-| `AttemptScenarioResult` | One declared scenario ID, required flag, status, duration and bounded diagnostic. Unknown scenarios may be retained as optional evidence but never satisfy required coverage. |
+| `AttemptScenarioResult` | One CaseSpec-declared scenario ID, required flag, status, duration and bounded diagnostic. Declared optional scenarios may be retained but never satisfy required coverage; unknown IDs reject the report. |
 | `AttemptResult` | One terminal `needs_work` or `passed` result derived by Platform for one evaluated Attempt. |
 | `HintReveal` | Account, case version, hint key and first reveal time. |
 | `SolutionReveal` | Account, case version, first reveal time and immutable reason `after_attempt` or `learner_requested`. |
