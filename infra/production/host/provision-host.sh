@@ -18,6 +18,13 @@ if [[ "${ID:-}" != "ubuntu" || "${VERSION_ID:-}" != "24.04" ]]; then
   exit 1
 fi
 
+backup_units=(
+  inside-pgbackrest-backup@.service
+  inside-pgbackrest-diff.timer
+  inside-pgbackrest-full.timer
+  inside-pgbackrest-incr.timer
+)
+
 managed_marker=/etc/inside/host-provisioned
 if [[ ! -f "$managed_marker" ]]; then
   for managed_path in /etc/inside /opt/inside /srv/inside /var/lib/inside; do
@@ -29,11 +36,14 @@ if [[ ! -f "$managed_marker" ]]; then
 
   for managed_file in \
     /etc/caddy/Caddyfile \
-    /etc/systemd/system/inside-pgbackrest-backup@.service \
-    /etc/systemd/system/inside-pgbackrest-diff.timer \
-    /etc/systemd/system/inside-pgbackrest-full.timer \
-    /etc/systemd/system/inside-pgbackrest-incr.timer \
     /usr/local/libexec/inside/database-backup; do
+    if [[ -e "$managed_file" || -L "$managed_file" ]]; then
+      echo "Refusing to overwrite unmanaged file: $managed_file" >&2
+      exit 1
+    fi
+  done
+  for unit in "${backup_units[@]}"; do
+    managed_file="/etc/systemd/system/$unit"
     if [[ -e "$managed_file" || -L "$managed_file" ]]; then
       echo "Refusing to overwrite unmanaged file: $managed_file" >&2
       exit 1
@@ -94,11 +104,7 @@ install -m 644 "$script_dir/Caddyfile" /etc/caddy/Caddyfile
 install -m 755 \
   "$production_dir/database/database-backup" \
   /usr/local/libexec/inside/database-backup
-for unit in \
-  inside-pgbackrest-backup@.service \
-  inside-pgbackrest-diff.timer \
-  inside-pgbackrest-full.timer \
-  inside-pgbackrest-incr.timer; do
+for unit in "${backup_units[@]}"; do
   install -m 644 \
     "$production_dir/database/$unit" \
     "/etc/systemd/system/$unit"

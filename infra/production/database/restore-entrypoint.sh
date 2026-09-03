@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${PGDATA:-}" != "/var/lib/postgresql/18/docker" ]]; then
+if [[ -z "${INSIDE_POSTGRES_DATA_PATH:-}" || "${PGDATA:-}" != "$INSIDE_POSTGRES_DATA_PATH" ]]; then
   echo "Refusing restore outside the pinned PostgreSQL data path" >&2
   exit 64
 fi

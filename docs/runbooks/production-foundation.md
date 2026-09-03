@@ -197,3 +197,26 @@ sudo docker compose \
 (`inside` и `logto`) и WAL archiving. Старый volume остаётся отдельным и удаляется только по
 последующему owner decision. Credentialed recovery proof проводится на реальной подготовленной
 инфраструктуре в #244, а не на каждом pull request.
+
+## Восстановление после потери VPS
+
+Если потерян весь хост, repository pgBackRest в bucket остаётся источником данных. Порядок такой:
+
+1. Переустановить VPS и после явного owner GO выполнить provisioning из проверенного checkout.
+2. Offline age identity расшифровать сохранённые SOPS secrets. Создать identity нового хоста,
+   добавить его recipient и заново зашифровать те же значения для host + offline recipients.
+3. Установить расшифрованные env в `/etc/inside/foundation` с owner `root:root` и mode `0600`.
+   Пароли нельзя генерировать заново до restore: восстановленный PostgreSQL содержит старые роли.
+4. В `compose.env` сразу указать новое имя вида
+   `inside-production-postgres-data-recovery-<UTC timestamp>` и создать этот Docker volume.
+5. Не запускать обычный первичный путь `postgres` + `stanza-create`: stanza уже существует в
+   backup repository. Сначала выполнить `restore` в новый recovery volume командой из раздела выше.
+6. Запустить PostgreSQL с `--force-recreate --wait`, выполнить `pgbackrest check` и проверить базы
+   `inside` и `logto`, роли и WAL archiving.
+7. Запустить Logto, затем application release через #243 и только после health proof вернуть
+   traffic.
+8. Выполнить новый full backup. Повреждённый/старый volume и старые credentials удалять только по
+   отдельному owner decision.
+
+Этот сценарий использует тот же bucket, stanza `production`, Compose network и recovery guard, что
+и обычный restore; отличие только в том, что Docker host и host age identity создаются заново.

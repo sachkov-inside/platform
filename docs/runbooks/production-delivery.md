@@ -137,7 +137,7 @@ pnpm compose:production:smoke
 
 The next delivery stages will extend this baseline with:
 
-- separate database migration and runtime roles;
+- one shared non-superuser Platform database role for migrations and runtime;
 - explicit network boundaries;
 - the Material Asset background worker;
 - server-side secret delivery;
