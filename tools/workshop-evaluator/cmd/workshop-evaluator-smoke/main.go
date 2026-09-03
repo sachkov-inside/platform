@@ -109,7 +109,7 @@ func runSmoke() int {
 	}
 	if err := os.WriteFile(
 		filepath.Join(root, "participant-scenario.txt"),
-		[]byte("participant source is mounted\n"),
+		[]byte("participant-source-is-mounted\n"),
 		0o600,
 	); err != nil {
 		return fail("write participant source fixture", err)
@@ -321,7 +321,11 @@ func syntheticBundle(realCompose bool) ([]byte, error) {
 }
 
 func realComposeBundle() string {
-	if runtime.GOOS == "windows" {
+	return realComposeBundleForOS(runtime.GOOS)
+}
+
+func realComposeBundleForOS(goos string) string {
+	if goos == "windows" {
 		return `services:
   evaluator:
     image: mcr.microsoft.com/windows/nanoserver:ltsc2025@sha256:4249ba8974b8996812967d35c46c4e66afd771f929f96917ef6f7592a55edb12
@@ -330,7 +334,7 @@ func realComposeBundle() string {
       - /S
       - /C
       - >-
-        findstr /x /c:"participant source is mounted" C:\participant\participant-scenario.txt >NUL &&
+        findstr /x /c:participant-source-is-mounted C:\participant\participant-scenario.txt >NUL &&
         (echo {"scenarios":[{"id":"native-process","status":"passed","durationMilliseconds":1},{"id":"bound-report","status":"passed","durationMilliseconds":1}]}) > C:\inside-output\results.json
     volumes:
       - type: bind
@@ -349,7 +353,7 @@ func realComposeBundle() string {
       - sh
       - -ec
       - >-
-        grep -qx 'participant source is mounted' /participant/participant-scenario.txt &&
+        grep -qx participant-source-is-mounted /participant/participant-scenario.txt &&
         printf '%s' '{"scenarios":[{"id":"native-process","status":"passed","durationMilliseconds":1},{"id":"bound-report","status":"passed","durationMilliseconds":1}]}' > /inside-output/results.json
     volumes:
       - type: bind
@@ -480,7 +484,7 @@ func runFakeGit(arguments []string) int {
 			return 1
 		}
 	case joined == "cat-file blob "+participantBlobSHA:
-		fmt.Fprint(os.Stdout, "participant source is mounted\n")
+		fmt.Fprint(os.Stdout, "participant-source-is-mounted\n")
 	case joined == "ls-remote --exit-code origin refs/heads/main":
 		fmt.Fprintf(os.Stdout, "%s\trefs/heads/main\n", commitSHA)
 	default:
@@ -503,7 +507,7 @@ func runFakeDocker(arguments []string) int {
 		outputDirectory := os.Getenv("INSIDE_WORKSHOP_OUTPUT_DIR")
 		repositoryDirectory := os.Getenv("INSIDE_WORKSHOP_REPOSITORY_DIR")
 		participantSource, err := os.ReadFile(filepath.Join(repositoryDirectory, "participant-scenario.txt"))
-		if err != nil || string(participantSource) != "participant source is mounted\n" {
+		if err != nil || string(participantSource) != "participant-source-is-mounted\n" {
 			fmt.Fprintln(os.Stderr, "participant repository is not available to evaluator Compose")
 			return 1
 		}
