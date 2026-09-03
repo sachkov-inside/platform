@@ -15,6 +15,7 @@ import {
   type MembershipEntitlements,
 } from "../membership-entitlements/index.js";
 import { TelegramEvidenceController } from "./adapters/nest/telegram-evidence.controller.js";
+import { AccountTelegramMembershipController } from "./adapters/nest/account-telegram-membership.controller.js";
 import { TelegramLinkController } from "./adapters/nest/telegram-link.controller.js";
 import { assembleTelegramMembership } from "./facets/telegram-membership/assemble-telegram-membership.js";
 import type { TelegramMembership } from "./facets/telegram-membership/telegram-membership.interface.js";
@@ -27,7 +28,11 @@ import {
 
 @Module({
   imports: [AccountsModule, MembershipEntitlementsModule, PrismaModule],
-  controllers: [TelegramLinkController, TelegramEvidenceController],
+  controllers: [
+    AccountTelegramMembershipController,
+    TelegramLinkController,
+    TelegramEvidenceController,
+  ],
   providers: [
     {
       provide: TELEGRAM_LINK_PROVIDER,
@@ -55,7 +60,12 @@ import {
         assembleTelegramMembership({
           botStartUrl: config.telegramMembership.botStartUrl,
           linkLifetimeMs: config.telegramMembership.linkLifetimeMs,
+          membershipAcquisitionUrl:
+            config.contentAccess.membershipAcquisitionUrl,
           membershipEntitlements,
+          ...(config.telegramMembership.supportUrl === undefined
+            ? {}
+            : { membershipSupportUrl: config.telegramMembership.supportUrl }),
           prisma,
           provider,
         }),

@@ -44,17 +44,27 @@ private Account, member-only Member Profile и reading experience. `sachkov.dev`
   form;
 - управляет private Account и отдельным Member Profile;
 - видит Member Profiles других действующих участников;
-- после первого входа получает предложение связать Account с Telegram, но может
-  пропустить шаг и продолжить с бесплатным контентом;
-- может позже связать Telegram из Account;
+- после каждого входа, пока Telegram не связан, один раз за authenticated browser session видит
+  центрированное onboarding-окно; может закрыть его и продолжить с бесплатным контентом;
+- связывает Telegram целиком в onboarding-окне либо позже из Account: Platform выдаёт short-lived
+  bot link, первое действие сразу открывает Telegram, участник отправляет `/start`, а после возврата
+  Platform автоматически подтверждает связь и показывает явный success result;
 - получает доступ на основании внешнего признака активного Membership;
 - имеет один уровень закрытого доступа без тарифной матрицы;
 - после окончания Membership сохраняет Account, Member Profile, историю и статусы
   прочтения, но до возобновления Membership теряет доступ к закрытым материалам и Member Profiles
   других участников.
 
-Account является приватной surface владельца: в ней находятся identity/security state,
-Telegram linking, Membership state и recovery actions. Member Profile — отдельная проекция для
+Account является приватной surface владельца: компактная голубая Telegram-плашка располагается над
+отдельной premium-карточкой `Доступ к Sachkov Inside`. Карточка объясняет ценность подписки и для
+inactive state показывает единый acquisition CTA; coarse состояния остаются независимыми, но не
+выводятся как техническая диагностическая таблица. Linked Telegram не обещает access; Membership
+timestamps, evidence, provider identity и internal identifiers не показываются. Компактное
+onboarding-окно посвящено только подключению Telegram и после успеха показывает результат связи;
+Membership state и acquisition action остаются только в Account и на закрытых материалах. Истёкшую обычную попытку
+можно начать заново, а conflict или recovery с риском silent
+transfer ведут только к owner/support handoff; URL поддержки является optional runtime setting и
+при его отсутствии заменяется безопасным текстом без неработающей ссылки. Member Profile — отдельная проекция для
 других действующих участников. Anonymous visitor, non-member и search crawler её не получают;
 profile не индексируется и никогда не содержит email, Platform или Telegram internal identifiers,
 Telegram username, linking/evidence, security или audit data. Exact поля, avatar, discoverability

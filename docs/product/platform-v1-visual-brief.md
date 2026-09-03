@@ -210,6 +210,12 @@ depth и спокойной density. Надёжный public source URL найт
 hierarchy и отсутствие визуального шума. Health metrics, charts, blurred data bubbles, yellow
 palette и dashboard information architecture являются anti-reference для Platform.
 
+### [3D Icons](https://3dicons.co/explore)
+
+Owner сохранил каталог как reference для будущего использования отдельных декоративных 3D-иконок.
+Он не является утверждённой icon system: перед production adoption отдельно проверяются лицензия,
+визуальная совместимость, вес assets и responsive rendering.
+
 ### Explicit anti-patterns и rejected defaults
 
 - случайная component-library эстетика, которая делает Platform похожей на default demo;

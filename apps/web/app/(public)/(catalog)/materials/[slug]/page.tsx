@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { QueryProvider } from "@/_app";
 import { loadMaterialReader, MaterialReaderPage } from "@/_pages/material-reader.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
@@ -36,12 +35,10 @@ export default async function MaterialRoute({ params, searchParams }: MaterialPa
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const accessToken = await getOptionalPlatformAccessToken();
   return (
-    <QueryProvider>
-      <MaterialReaderPage
-        {...(accessToken === undefined ? {} : { accessToken })}
-        returnTarget={parseMaterialReaderReturnTarget(query.from)}
-        slug={slug}
-      />
-    </QueryProvider>
+    <MaterialReaderPage
+      {...(accessToken === undefined ? {} : { accessToken })}
+      returnTarget={parseMaterialReaderReturnTarget(query.from)}
+      slug={slug}
+    />
   );
 }

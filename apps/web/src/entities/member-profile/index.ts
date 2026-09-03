@@ -2,6 +2,11 @@ export {
   parseMemberProfileProblem,
   type MemberProfileProblem,
 } from "./model/member-profile-problem";
+export {
+  parsePrivateProfile,
+  parsePrivateProfileState,
+  profileIssueMessage,
+} from "./model/member-profile-contract";
 export type {
   MemberProfileAvatar,
   MemberProfileFields,

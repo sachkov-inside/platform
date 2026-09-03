@@ -56,7 +56,7 @@ export function RelatedMaterialsSection({
   return (
     <section
       aria-labelledby="related-materials"
-      className="mt-14 max-w-[68rem] border-t border-border pt-8 sm:mt-16 sm:pt-10"
+      className="mt-14 max-w-[58rem] border-t border-border pt-8 sm:mt-16 sm:pt-10"
       data-related-state="ready"
     >
       <div className="flex items-center gap-3">
@@ -67,7 +67,7 @@ export function RelatedMaterialsSection({
           Похожие материалы
         </h2>
       </div>
-      <ul className="mt-5 grid grid-cols-1 items-stretch gap-4 @min-[42rem]/material-reader:grid-cols-2 @min-[66rem]/material-reader:grid-cols-3" role="list">
+      <ul className="mt-5 grid grid-cols-1 items-stretch gap-4 @min-[42rem]/material-reader:grid-cols-2" role="list">
         {result.items.map((material) => (
           <li className="h-full w-full max-w-[28rem]" key={material.slug}>
             <MaterialCard

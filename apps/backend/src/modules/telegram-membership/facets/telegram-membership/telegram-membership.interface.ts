@@ -29,6 +29,41 @@ export type TelegramLinkResult =
       };
     }>;
 
+export type AccountTelegramLinkState =
+  | Readonly<{ kind: "unlinked" }>
+  | Readonly<{ expiresAt: string; kind: "linking"; linkRef: string }>
+  | Readonly<{ kind: "linked" }>
+  | Readonly<{ kind: "conflict"; supportUrl?: string }>
+  | Readonly<{ kind: "retryable"; reason: "expired" | "replayed" }>
+  | Readonly<{
+      kind: "unavailable";
+      retry:
+        | Readonly<{ kind: "confirm"; linkRef: string }>
+        | Readonly<{ kind: "refresh" }>;
+    }>
+  | Readonly<{
+      kind: "recovery-required";
+      recovery: Readonly<{ kind: "support"; url?: string }>;
+    }>;
+
+export type AccountMembershipState =
+  | Readonly<{ kind: "active" }>
+  | Readonly<{ acquisitionUrl: string; kind: "inactive" }>
+  | Readonly<{ kind: "stale" }>
+  | Readonly<{ kind: "unavailable" }>;
+
+export type AccountTelegramMembershipPresentation = Readonly<{
+  link: AccountTelegramLinkState;
+  membership: AccountMembershipState;
+}>;
+
+export type AccountTelegramMembershipResult =
+  | Readonly<{
+      ok: true;
+      presentation: AccountTelegramMembershipPresentation;
+    }>
+  | Readonly<{ ok: false; error: { readonly code: "unavailable" } }>;
+
 export interface AcceptTelegramEvidenceCommand {
   readonly deliveryId: string;
   readonly evidence: unknown;
@@ -36,6 +71,9 @@ export interface AcceptTelegramEvidenceCommand {
 }
 
 export interface TelegramMembership {
+  readAccountPresentation(query: {
+    readonly accountId: AccountId;
+  }): Promise<AccountTelegramMembershipResult>;
   beginLink(command: {
     readonly accountId: AccountId;
   }): Promise<TelegramLinkResult>;
