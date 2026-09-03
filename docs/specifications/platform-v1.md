@@ -24,6 +24,11 @@ application-level NFR, порядком production foundations и ADR inputs. П
 [MVP brief](../product/platform-mvp-brief.md), а канонические термины — в [`CONTEXT.md`](../../CONTEXT.md).
 Код, tests и возможные application ADR принадлежат этому repository.
 
+[Production Workshop v1](production-workshop-v1.md) является отдельным successor application
+contract под [Platform #258](https://github.com/sachkov-inside/platform/issues/258). Он
+переиспользует Platform v1 foundations, но не расширяет задним числом completion scope этого
+content/Membership документа.
+
 Specification синхронизирует принятую cross-repository
 [Workspace #40](https://github.com/sachkov-inside/workspace/issues/40), отдельную
 [Identity/Membership Specification #65](https://github.com/sachkov-inside/workspace/issues/65) и

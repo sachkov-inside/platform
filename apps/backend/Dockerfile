@@ -51,7 +51,7 @@ RUN pnpm --filter @inside/backend build:production \
     && pnpm --config.inject-workspace-packages=true \
       --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend
 
-FROM node:24.19.0-alpine3.23 AS api-production
+FROM node:24.19.0-alpine3.23 AS backend-production
 
 ENV NODE_ENV=production \
     API_HOST=0.0.0.0 \
@@ -65,3 +65,5 @@ COPY --from=production-build --chown=node:node /workspace/apps/backend/dist ./di
 EXPOSE 3001
 USER node
 CMD ["node", "dist/entrypoints/api.js"]
+
+FROM backend-production AS api-production

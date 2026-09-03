@@ -1,0 +1,18 @@
+{
+  "requestedVersion": "v3",
+  "sourceSha": "3333333333333333333333333333333333333333",
+  "currentMainSha": "4444444444444444444444444444444444444444",
+  "existingTags": ["v1", "v2"],
+  "existingReleases": [
+    {
+      "version": "v1",
+      "immutable": true,
+      "assets": ["release-manifest.json"]
+    },
+    {
+      "version": "v2",
+      "immutable": true,
+      "assets": ["release-manifest.json"]
+    }
+  ]
+}

@@ -1,7 +1,9 @@
-# Production Compose baseline
+# Production delivery
 
-The repository currently contains a deliberately small single-server production baseline. It is
-the starting point for the CI/CD course, not a finished automated delivery system.
+The repository contains two delivery seams: an immutable release pipeline that publishes verified
+artifacts, and a deliberately small single-server Compose baseline that still builds those
+artifacts from a checkout. Deployment automation will connect the seams later; creating a release
+does not contact the production server.
 
 The separate [production VPS preparation kit](production-foundation.md) records the host,
 database, backup and Logto files that will be applied once during #244. It is not run by CI and it
@@ -20,11 +22,12 @@ does not change the current application Compose baseline.
 6. `web` builds the Next.js production target and becomes healthy.
 7. Caddy exposes web over HTTP and HTTPS.
 
-The application images are built directly from the checked-out source with Compose. Pull requests
-already pass the application CI contract, but there is no registry input, digest-addressed release,
-GitHub Actions deployment workflow, SSH deployment, release selector or automated rollback yet.
-Compose also uses its default network and one database account. These missing pieces are
-intentional: the lessons add them one at a time and explain the problem each one solves.
+The application images are built directly from the checked-out source with Compose. The release
+pipeline publishes digest-addressable images, but this temporary runtime baseline does not consume
+them yet. There is no GitHub Actions deployment workflow, SSH deployment, server-side release
+selector or automated rollback. Compose also uses its default network and one database account.
+These missing pieces are intentional: the lessons add them one at a time and explain the problem
+each one solves.
 
 The Material Asset worker remains part of the application and local development stack, but it is
 not started by this temporary production baseline. Orphaned Material Asset cleanup therefore does
@@ -72,8 +75,52 @@ docker compose \
 ```
 
 This manual command is intentionally not the final deployment method. A later CI/CD stage will
-build once on a runner, publish immutable artifacts and make the server run those exact artifacts
-without rebuilding source.
+make the server run an already-published manifest's exact image digests without rebuilding source.
+
+## Publish the next ordinal release
+
+`.github/workflows/release.yml` is the sole release entry point. One manual dispatch captures the
+selected commit, requires it still to be current `main`, runs the same CI contract used by pull
+requests, builds the backend and web production targets, and publishes only the requested `vN`
+tags. Release consumers must use the manifest's `name@sha256:...` identities; the ordinal tags are
+human-readable release names, not moving runtime selectors.
+
+Before the first release, an owner must enable immutable releases in the repository settings and
+bootstrap the `platform-backend` and `platform-web` container packages as public. GitHub creates a
+new container package as private, while package visibility is an owner-managed setting. The
+workflow deliberately does not accept a package-visibility credential: after pushing, it logs out
+of GHCR and requires both exact digests to be anonymously readable before it can finalize a
+release. The owner-approved bootstrap publication and visibility change are one-time setup; after
+that setup, each ordinal release uses the single command below.
+
+The workflow checks release immutability both before building and immediately before finalization.
+It also requires each ordinal tag to belong to a published immutable Release containing its
+manifest. Those retained Releases must form a contiguous `v1` through `vN-1` history; a bare tag,
+mutable/missing record, duplicate or skipped ordinal fails closed. The workflow rechecks the same
+state and confirms that `main` has not moved before publishing.
+
+From a clean `main`, publish the next ordinal with exactly one manual command:
+
+```bash
+gh workflow run release.yml --ref main --field version=vN
+```
+
+The completed immutable GitHub Release contains only `release-manifest.json`. The manifest binds the
+ordinal version and source SHA to two deployable public GHCR `name@sha256:...` references. The source
+SHA already identifies the checked-in migrations and configuration, so the manifest does not
+duplicate their hashes. The image build job logs out of GHCR and proves both exact digests
+anonymously readable before finalization.
+
+The small manifest contract is owned by `release/contract-schema.mjs`, while ordinal and manifest
+validation live in `scripts/release-contract.mjs`. To exercise the complete local release contract
+without publishing packages or a GitHub Release, run:
+
+```bash
+pnpm release:dry-run
+```
+
+The image smoke builds both clean production targets and asserts that their runtime files do not
+depend on the source checkout. It uses temporary local image names and removes them on exit.
 
 ## Local production smoke
 
@@ -90,11 +137,10 @@ pnpm compose:production:smoke
 
 The next delivery stages will extend this baseline with:
 
-- registry publication and immutable image identity;
 - separate database migration and runtime roles;
 - explicit network boundaries;
 - the Material Asset background worker;
 - server-side secret delivery;
-- automated deployment, health proof and rollback.
+- manifest-selected deployment, health proof and rollback.
 
 Keeping these concerns out of the starting point makes every later change visible and testable.
