@@ -1,8 +1,9 @@
 # Workshop Tracks domain specification
 
 Статус: proposed repository-local contract для
-[Platform #269](https://github.com/sachkov-inside/platform/issues/269). Он развивает принятую
-терминологию [Production Workshop v1](./production-workshop-v1.md), но не расширяет первый
+[Platform #269](https://github.com/sachkov-inside/platform/issues/269). Он развивает текущую
+терминологию proposed contract [Production Workshop v1](./production-workshop-v1.md), но не
+расширяет первый
 runtime slice из [#263](https://github.com/sachkov-inside/platform/issues/263).
 
 ## 1. Результат и граница
@@ -11,34 +12,41 @@ Workshop непосредственно содержит несколько те
 вводится, пока продукту не понадобится продаваемый bundle, cohort или edition поверх нескольких
 Tracks.
 
-Track объединяет Production Cases и learning resources вокруг одного результата, например
-надёжной работы с RabbitMQ. Это curated learning context, а не обязательно линейный курс, skill
-tree или access grant.
+Track объединяет Production Cases и learning resources в одной тематической
+learning-practice области, например вокруг надёжной работы с RabbitMQ. Это curated learning
+context, а не обязательно линейный курс, skill tree или access grant.
 
-Этот документ фиксирует доменные отношения и открытые продуктовые решения. Persistence, API,
-routes, UI и implementation tickets появляются только в отдельном owner-approved slice.
+Значения терминов и их доменные отношения принадлежат
+[Platform glossary](../../CONTEXT.md#production-workshop). Этот документ задаёт proposed
+composition constraints, сценарии и открытые продуктовые решения. Persistence, API, routes, UI и
+implementation tickets появляются только в отдельном owner-approved slice.
 
-## 2. Модель отношений
+## 2. Composition constraints
+
+В рамках glossary-модели Track authoring допускает следующую композицию:
 
 ```text
-Workshop
-└── Workshop Track
-    ├── Case Placement ───────────────→ Production Case
-    │   └── case-specific guidance ───→ CaseMaterial
-    └── Track Resource Group
+Workshop Track
+├── Case Placement ───────────────────→ Production Case
+└── Track Resource Group
+    ├── optional preparation context ─→ Case Placement
+    └── source
         ├── explicit Material references
         ├── Series reference
         └── Material Selector ─────────→ Topic / Tags / Format
+
+CaseVersion
+└── case-specific guidance ───────────→ CaseMaterial
 ```
 
-- Workshop Track владеет своей тематикой, learning outcome и authored composition.
-- Case Placement включает Production Case в learning context Track, но не меняет Case и не
-  переносит его lifecycle внутрь Track.
+- Между Workshop и Track нет дополнительного Program layer.
+- Track composition может содержать Case Placements и Track Resource Groups без обязательного
+  total order.
+- Ассоциация Track Resource Group с Case Placement задаёт preparation/reference context; группа
+  остаётся частью Track и не переходит во владение Case.
 - Track Resource Group описывает, зачем ресурсы показаны: `core`, `recommended` или `reference`.
-- CaseMaterial остаётся связью конкретной CaseVersion с prerequisite/reference, hint, solution,
-  walkthrough или alternatives, включая принятую reveal policy.
-- Material, Series, Topic, Tag и Format остаются facts owning Materials Module; Track не копирует
-  их содержимое или taxonomy.
+- Track references не копируют содержимое или taxonomy owning Materials Module и не меняют
+  lifecycle Production Case или CaseMaterial.
 
 ## 3. Источники Track Resource Group
 
@@ -53,8 +61,8 @@ Dynamic Material Selector намеренно меняет результат, к
 prerequisite или как доказательство того, что learner прошёл фиксированный набор content.
 
 Explicit Material и Series references отвечают за authored curation. Selector отвечает за
-discovery. Один Resource Group может сочетать несколько источников только если UI явно сохраняет
-их различимую семантику и не выдаёт dynamic result за зафиксированную программу.
+discovery. Эти source semantics остаются различимыми: dynamic result нельзя выдавать за explicit
+зафиксированную подборку.
 
 ## 4. Порядок и progression
 
@@ -69,11 +77,11 @@ authored expectation, пока отдельное решение не опред
 Если продукту потребуется строгая последовательность, он добавит явную prerequisite/progression
 policy. Она не выводится неявно из `ordinal`, UI layout или taxonomy.
 
-## 5. Граница Track Resource и CaseMaterial
+## 5. Граница Track Resource Group и CaseMaterial
 
-Track Resource отвечает на вопрос: «Что изучать в рамках этой тематической траектории или рядом с
-этим Case?» CaseMaterial отвечает на вопрос: «Какой protected learning resource принадлежит exact
-CaseVersion и когда его можно раскрыть?»
+Track Resource Group отвечает на вопрос: «Что изучать в рамках этой тематической траектории или
+рядом с этим Case?» CaseMaterial отвечает на вопрос: «Какой protected learning resource
+принадлежит exact CaseVersion и когда его можно раскрыть?»
 
 Поэтому:
 
@@ -85,7 +93,7 @@ CaseVersion и когда его можно раскрыть?»
 
 ## 6. Access consequence
 
-Наличие Track, Case Placement или Resource Group не выдаёт доступ. WorkshopEntitlement и
+Наличие Track, Case Placement или Track Resource Group не выдаёт доступ. WorkshopEntitlement и
 ContentAccess остаются отдельными authority. Track composition сообщает, что показать learner;
 ContentAccess решает, можно ли доставить body, asset или video конкретного Material.
 
@@ -103,12 +111,12 @@ ContentAccess решает, можно ли доставить body, asset ил�
 
 Track «RabbitMQ: надёжная доставка» может представить:
 
-1. Core Resource Group со ссылкой на ordered Series «RabbitMQ: основы».
+1. Core Track Resource Group со ссылкой на ordered Series «RabbitMQ: основы».
 2. Case Placement «Надёжный consumer и retry», у которого свои Hint/Solution CaseMaterials.
-3. Recommended Resource Group с live selector `Topic = RabbitMQ` и Tags `retries`, `DLQ`,
+3. Recommended Track Resource Group с live selector `Topic = RabbitMQ` и Tags `retries`, `DLQ`,
    `reliability`.
 4. Case Placement «Transactional Outbox и доставка событий».
-5. Reference Resource Group с несколькими explicit Materials без обязательного порядка.
+5. Reference Track Resource Group с несколькими explicit Materials без обязательного порядка.
 
 Learner может начать с Case или открыть related Materials, если отдельная progression policy не
 установлена. Изменение Tags обновляет только dynamic recommendation result; оно не меняет состав
@@ -132,7 +140,7 @@ explicit core group и не создаёт completion event.
 
 ## 9. Не входит
 
-- изменение accepted first-case journey Production Workshop v1;
+- изменение first-case journey Production Workshop v1;
 - schema, migrations, API, routes или UI;
 - checkout, pricing, bundle, cohort, edition или Track-level purchase;
 - universal curriculum graph, automatic completion и skill tree;

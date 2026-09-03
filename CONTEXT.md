@@ -120,7 +120,8 @@ _Avoid_: Membership course, coding puzzle catalog, skill tree
 
 **Workshop Track**:
 A curated, not necessarily linear thematic part of a Workshop that brings together Production
-Cases and learning resources around one learning outcome. In Russian product language: «Трек».
+Cases and learning resources within one coherent learning-practice area. In Russian product
+language: «Трек».
 _Avoid_: Program, course, branch, skill tree
 
 **Case Placement**:
@@ -129,14 +130,14 @@ learning context without making the Track part of the Case itself.
 _Avoid_: Production Case, Assignment, prerequisite
 
 **Track Resource Group**:
-A named group of core, recommended or reference learning resources within a Workshop Track or
-around a Case Placement. It may curate Materials or Series, or discover related Materials through
-a Material Selector.
+A named group of core, recommended or reference learning resources owned by a Workshop Track. It
+may be associated with a Case Placement for preparation or reference context, and may curate
+Materials or Series or discover related Materials through a Material Selector.
 _Avoid_: CaseMaterial, playlist, prerequisite
 
 **Material Selector**:
-A live taxonomy-based rule that discovers current Materials by Topic, Tags, Format or their
-combination. Its changing result is a recommendation surface, never evidence of a completed
+A live taxonomy-based rule that discovers current Published Materials by Topic, Tags, Format or
+their combination. Its changing result is a recommendation surface, never evidence of a completed
 prerequisite.
 _Avoid_: Material, Series, frozen curriculum
 
