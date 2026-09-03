@@ -7,11 +7,21 @@ import {
 
 describe("real backend connection", () => {
   it("reads health and the OpenAPI contract from the Nest process", async () => {
-    await expect(getBackendHealth()).resolves.toEqual({
-      process: "api",
-      status: "ok",
+    const health = await getBackendHealth();
+    expect(health).toEqual({
       database: "reachable",
+      process: "api",
+      release: {
+        release: "development",
+        sourceSha: "0000000000000000000000000000000000000000",
+      },
+      schema: {
+        identity: health.schema.identity,
+        migrationCount: 20,
+      },
+      status: "ready",
     });
+    expect(health.schema.identity).toMatch(/^sha256:[0-9a-f]{64}$/u);
 
     const response = await fetch(`${readBackendBaseUrl()}/openapi-json`);
     expect(response.status).toBe(200);

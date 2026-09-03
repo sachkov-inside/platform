@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { loadPlatformConfig } from "../src/config/load-platform-config.js";
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
 import { OperationalReadiness } from "../src/infrastructure/operational-readiness.js";
+import { stringMatching } from "./support/matchers.js";
 
 describe("MCP runtime smoke", () => {
   let application: INestApplicationContext | undefined;
@@ -19,9 +20,17 @@ describe("MCP runtime smoke", () => {
     const readiness = application.get(OperationalReadiness);
 
     await expect(readiness.check("mcp")).resolves.toEqual({
-      process: "mcp",
-      status: "ok",
       database: "reachable",
+      process: "mcp",
+      release: {
+        release: "test",
+        sourceSha: "0000000000000000000000000000000000000000",
+      },
+      schema: {
+        identity: stringMatching(/^sha256:[0-9a-f]{64}$/u),
+        migrationCount: 20,
+      },
+      status: "ready",
     });
   });
 });

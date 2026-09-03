@@ -17,12 +17,23 @@ COPY --chown=node:node apps/backend/package.json ./apps/backend/package.json
 COPY --chown=node:node apps/backend/prisma.config.ts ./apps/backend/prisma.config.ts
 COPY --chown=node:node apps/backend/prisma ./apps/backend/prisma
 COPY --chown=node:node apps/web/package.json ./apps/web/package.json
+COPY --chown=node:node packages/runtime-identity/package.json ./packages/runtime-identity/package.json
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 
 FROM dependencies AS development
 
 COPY --chown=node:node . .
+
+FROM dependencies AS release-identity
+
+ARG INSIDE_RELEASE_VERSION
+ARG INSIDE_SOURCE_SHA
+COPY --chown=node:node packages/runtime-identity ./packages/runtime-identity
+RUN node packages/runtime-identity/write-release-identity.mjs \
+      "$INSIDE_RELEASE_VERSION" \
+      "$INSIDE_SOURCE_SHA" \
+      /workspace/release-identity.json
 
 FROM development AS migrations
 CMD ["pnpm", "--filter", "@inside/backend", "db:migrate"]
@@ -58,6 +69,7 @@ ENV NODE_ENV=production \
     API_PORT=3001
 WORKDIR /app
 
+COPY --from=release-identity --chown=root:root --chmod=0444 /workspace/release-identity.json ./release-identity.json
 COPY --from=production-build --chown=node:node /workspace/.production/backend/package.json ./package.json
 COPY --from=production-build --chown=node:node /workspace/.production/backend/node_modules ./node_modules
 COPY --from=production-build --chown=node:node /workspace/apps/backend/dist ./dist

@@ -12,6 +12,14 @@ import {
 } from "@/shared/auth/index.server";
 
 const secret = "logto-bff-test-cookie-secret-32characters";
+const productionRuntimeIdentity = {
+  PLATFORM_RELEASE_VERSION: "v7",
+  PLATFORM_SOURCE_SHA: "7".repeat(40),
+} as const;
+const embeddedRuntimeIdentity = {
+  release: "v7",
+  sourceSha: "7".repeat(40),
+} as const;
 const sdkFake = vi.hoisted<{ nodeClient: unknown }>(() => ({
   nodeClient: undefined,
 }));
@@ -33,6 +41,7 @@ vi.mock("next/headers", () => ({
 describe("Logto BFF configuration", () => {
   it("pins one issuer, callback, audience and secure cookie boundary", () => {
     const config = parseLogtoBffConfig({
+      ...productionRuntimeIdentity,
       NODE_ENV: "production",
       BACKEND_BASE_URL: "https://api-internal.example.test",
       LOGTO_ENDPOINT: "https://identity.example.test",
@@ -41,7 +50,7 @@ describe("Logto BFF configuration", () => {
       LOGTO_APP_SECRET: "inside-web-confidential-secret",
       LOGTO_COOKIE_SECRET: secret,
       WEB_BASE_URL: "https://inside.example.test",
-    });
+    }, embeddedRuntimeIdentity);
 
     expect(config).toEqual({
       endpoint: "https://identity.example.test",
@@ -68,6 +77,7 @@ describe("Logto BFF configuration", () => {
 
   it("permits HTTP only on loopback for the production-mode full-stack harness", () => {
     const production: NodeJS.ProcessEnv = {
+      ...productionRuntimeIdentity,
       NODE_ENV: "production",
       BACKEND_BASE_URL: "http://127.0.0.1:3001",
       LOGTO_ENDPOINT: "https://identity.example.test",
@@ -80,13 +90,13 @@ describe("Logto BFF configuration", () => {
       parseLogtoBffConfig({
         ...production,
         WEB_BASE_URL: "http://127.0.0.1:3000",
-      }).baseUrl,
+      }, embeddedRuntimeIdentity).baseUrl,
     ).toBe("http://127.0.0.1:3000");
     expect(() =>
       parseLogtoBffConfig({
         ...production,
         WEB_BASE_URL: "http://inside.example.test",
-      }),
+      }, embeddedRuntimeIdentity),
     ).toThrow("WEB_BASE_URL must use HTTPS");
   });
 
@@ -132,6 +142,7 @@ describe("Logto BFF configuration", () => {
     });
     sdkFake.nodeClient = { adapter: { requester } };
     const config = parseLogtoBffConfig({
+      ...productionRuntimeIdentity,
       NODE_ENV: "production",
       BACKEND_BASE_URL: "https://api-internal.example.test",
       LOGTO_ENDPOINT: "https://identity.example.test",
@@ -140,7 +151,7 @@ describe("Logto BFF configuration", () => {
       LOGTO_APP_SECRET: "inside-web-confidential-secret",
       LOGTO_COOKIE_SECRET: secret,
       WEB_BASE_URL: "https://inside.example.test",
-    });
+    }, embeddedRuntimeIdentity);
     const client = new AudienceBoundLogtoClient(config);
     const created = await client.createNodeClient();
 

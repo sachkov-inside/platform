@@ -8,8 +8,8 @@ api_base_url="${API_BASE_URL:-http://127.0.0.1:3001}"
 web_base_url="${WEB_BASE_URL:-http://127.0.0.1:3000}"
 mcp_server_url="${MCP_SERVER_URL:-http://127.0.0.1:${MCP_HOST_PORT:-3002}/mcp}"
 
-api_health="$(curl --fail --silent --show-error "$api_base_url/health")"
-if [[ "$api_health" != '{"process":"api","status":"ok","database":"reachable"}' ]]; then
+api_health="$(curl --fail --silent --show-error "$api_base_url/health/ready")"
+if [[ "$api_health" != *'"process":"api"'* || "$api_health" != *'"status":"ready"'* || "$api_health" != *'"database":"reachable"'* || "$api_health" != *'"migrationCount":20'* ]]; then
   echo "Unexpected API health response: $api_health" >&2
   exit 1
 fi
@@ -52,7 +52,7 @@ if [[ "$unauthenticated_status" != "401" ]]; then
 fi
 
 mcp_logs="$(docker compose logs --no-color mcp)"
-if [[ "$mcp_logs" != *'"process":"mcp","status":"ok","database":"reachable"'* ]]; then
+if [[ "$mcp_logs" != *'"process":"mcp","status":"ready","database":"reachable"'* ]]; then
   echo "MCP did not report database-backed readiness" >&2
   printf '%s\n' "$mcp_logs" >&2
   exit 1

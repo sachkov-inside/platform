@@ -12,11 +12,16 @@ provider. Production uses the server-owned `video-deletions-worker.env`, with
 both configured projects. Start only one logical worker deployment; duplicate jobs remain safe,
 but extra processes add unnecessary provider traffic.
 
-The process reports one redacted JSON readiness line:
+The process reports one redacted JSON readiness line whose release and schema identities match the
+selected runtime:
 
 ```json
-{"process":"video-deletions-worker","status":"ready"}
+{"process":"video-deletions-worker","status":"ready","database":"reachable","release":{"release":"vN","sourceSha":"<full-source-sha>"},"schema":{"identity":"sha256:<migration-registry-sha256>","migrationCount":20}}
 ```
+
+It also holds a process-specific PostgreSQL generation lease. Deployment drains and stops the old
+worker before starting the new release; a concurrent generation fails instead of overlapping job
+consumption.
 
 Terminal or exhausted failures report `status=operator_attention` with only the local operation
 ID, typed error category and provider request ID when Kinescope supplied it. Tokens, provider

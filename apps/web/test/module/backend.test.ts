@@ -62,21 +62,27 @@ describe("backend server interface", () => {
 
   it("maps the exact API health response", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    const health = {
+      database: "reachable" as const,
+      process: "api" as const,
+      release: {
+        release: "v7",
+        sourceSha: "7".repeat(40),
+      },
+      schema: {
+        identity: `sha256:${"a".repeat(64)}`,
+        migrationCount: 20,
+      },
+      status: "ready" as const,
+    };
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({ process: "api", status: "ok", database: "reachable" }),
-          { status: 200 },
-        ),
+        new Response(JSON.stringify(health), { status: 200 }),
       ),
     );
 
-    await expect(getBackendHealth()).resolves.toEqual({
-      process: "api",
-      status: "ok",
-      database: "reachable",
-    });
+    await expect(getBackendHealth()).resolves.toEqual(health);
     expect(fetch).toHaveBeenCalledOnce();
   });
 
@@ -87,9 +93,17 @@ describe("backend server interface", () => {
       vi.fn().mockResolvedValue(
         new Response(
           JSON.stringify({
-            process: "api",
-            status: "ok",
             database: "reachable",
+            process: "api",
+            release: {
+              release: "v7",
+              sourceSha: "7".repeat(40),
+            },
+            schema: {
+              identity: `sha256:${"a".repeat(64)}`,
+              migrationCount: 20,
+            },
+            status: "ready",
             undocumented: true,
           }),
           { status: 200 },

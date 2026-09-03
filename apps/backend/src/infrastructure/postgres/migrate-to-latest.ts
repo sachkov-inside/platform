@@ -11,6 +11,12 @@ export interface MigrationOutcome {
   readonly appliedMigrations: readonly string[];
 }
 
+export interface AppliedMigration {
+  readonly checksum: string;
+  readonly name: string;
+  readonly position: number;
+}
+
 export async function runMigrationsToLatest(
   connectionString: string,
   migrations: readonly Migration[],
@@ -51,14 +57,10 @@ export async function runMigrationsToLatest(
         "Migration ledger format mismatch; recreate the pre-Prisma database",
       );
     }
-    const applied = await connection.query<{
-      readonly checksum: string;
-      readonly name: string;
-      readonly position: number;
-    }>(
+    const applied = await connection.query<AppliedMigration>(
       "select name, position, checksum from public.platform_migrations order by position",
     );
-    assertAppliedPrefix(applied.rows, migrations);
+    assertAppliedMigrations(applied.rows, migrations);
     const appliedMigrations: string[] = [];
     for (
       let index = applied.rows.length;
@@ -99,17 +101,18 @@ function assertUniqueMigrationNames(migrations: readonly Migration[]): void {
   }
 }
 
-function assertAppliedPrefix(
-  applied: readonly {
-    readonly checksum: string;
-    readonly name: string;
-    readonly position: number;
-  }[],
+export function assertAppliedMigrations(
+  applied: readonly AppliedMigration[],
   migrations: readonly Migration[],
 ): void {
   for (const [index, row] of applied.entries()) {
     const migration = migrations[index];
-    if (migration === undefined || row.position !== index + 1 || row.name !== migration.name) {
+    if (migration === undefined) {
+      throw new Error(
+        `Migration ledger is not an exact registry prefix at position ${String(index + 1)}`,
+      );
+    }
+    if (row.position !== index + 1 || row.name !== migration.name) {
       throw new Error(
         `Migration ledger is not an exact registry prefix at position ${String(index + 1)}`,
       );
@@ -120,6 +123,17 @@ function assertAppliedPrefix(
   }
 }
 
-function migrationChecksum(statement: string): string {
+export function migrationChecksum(statement: string): string {
   return createHash("sha256").update(statement).digest("hex");
+}
+
+export function migrationRegistryIdentity(
+  migrations: readonly Migration[],
+): string {
+  const registry = migrations.map(({ name, statement }, index) => ({
+    checksum: migrationChecksum(statement),
+    name,
+    position: index + 1,
+  }));
+  return `sha256:${createHash("sha256").update(JSON.stringify(registry)).digest("hex")}`;
 }

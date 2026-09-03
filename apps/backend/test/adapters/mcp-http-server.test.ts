@@ -6,6 +6,7 @@ import {
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { createMcpHttpServer, type McpHttpServer } from "../../src/entrypoints/mcp/mcp-http-server.js";
+import type { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
 import type { Accounts } from "../../src/modules/accounts/index.js";
 import { createLogtoAccessTokenVerifier } from "../../src/modules/accounts/infrastructure/idp/logto/logto-access-token-verifier.js";
 import { stubMaterialAuthoring } from "../fixtures/material-authoring.js";
@@ -36,6 +37,7 @@ describe("MCP Streamable HTTP adapter", () => {
         serverUrl: "http://127.0.0.1:0/mcp",
       },
       identityIssuer: issuer,
+      readiness: fakeReadiness(),
       tokenVerifier: createLogtoAccessTokenVerifier({
         issuer,
         audience,
@@ -114,6 +116,18 @@ describe("MCP Streamable HTTP adapter", () => {
     });
   });
 
+  test("reports release-aware readiness without MCP authentication", async () => {
+    const response = await fetch(new URL("/_health/ready", endpoint));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      process: "mcp",
+      release: { release: "test" },
+      status: "ready",
+    });
+  });
+
   test("rejects an untrusted browser Origin before authentication", async () => {
     const response = await fetch(endpoint, {
       method: "POST",
@@ -154,6 +168,23 @@ function fakeAccounts(): Accounts {
           : { ok: false, error: { code: "account_not_found" } },
       ),
     checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
+  };
+}
+
+function fakeReadiness(): Pick<OperationalReadiness, "check" | "live"> {
+  return {
+    check: () => Promise.resolve({
+      database: "reachable" as const,
+      process: "mcp" as const,
+      release: { release: "test", sourceSha: "0".repeat(40) },
+      schema: { identity: `sha256:${"0".repeat(64)}`, migrationCount: 20 },
+      status: "ready" as const,
+    }),
+    live: () => ({
+      process: "mcp" as const,
+      release: { release: "test", sourceSha: "0".repeat(40) },
+      status: "alive" as const,
+    }),
   };
 }
 

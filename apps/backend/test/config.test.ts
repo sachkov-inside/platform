@@ -4,6 +4,7 @@ import { parseMcpConfig } from "../src/config/mcp-config.js";
 import {
   parsePlatformConfig,
   parsePlatformDatabaseConfig,
+  parsePlatformProcessConfig,
 } from "../src/config/platform-config.js";
 
 describe("process configuration", () => {
@@ -166,6 +167,52 @@ describe("process configuration", () => {
         DATABASE_URL: "postgresql://database.example/inside",
       }),
     ).toEqual({ url: "postgresql://database.example/inside" });
+  });
+
+  it("requires only the configuration owned by each worker process", () => {
+    const database = {
+      NODE_ENV: "production",
+      DATABASE_URL: "postgresql://platform:secret@postgres:5432/inside",
+    };
+
+    expect(() =>
+      parsePlatformProcessConfig(database, "material-assets-worker"),
+    ).toThrow("OBJECT_STORAGE_ACCESS_KEY_ID is required in production mode");
+    expect(() =>
+      parsePlatformProcessConfig({
+        ...database,
+        KINESCOPE_API_BASE_URL: "https://api.kinescope.io",
+        KINESCOPE_CALLBACK_PASSWORD: "worker-callback-password",
+        KINESCOPE_CALLBACK_USERNAME: "worker-callback-user",
+        KINESCOPE_MEMBERSHIP_PROJECT_ID: "worker-membership-project",
+        KINESCOPE_PLAYBACK_JWT_SECRET:
+          "worker-playback-secret-at-least-32-characters",
+        KINESCOPE_PLAYBACK_JWT_TTL_SECONDS: "60",
+        KINESCOPE_PROVIDER_MODE: "real",
+        KINESCOPE_PUBLIC_PROJECT_ID: "worker-public-project",
+        KINESCOPE_UPLOADER_BASE_URL: "https://uploader.kinescope.io",
+        KINESCOPE_WEBHOOK_PASSWORD: "worker-webhook-password",
+        KINESCOPE_WEBHOOK_USERNAME: "worker-webhook-user",
+      }, "video-deletions-worker"),
+    ).toThrow("KINESCOPE_API_TOKEN is required in production mode");
+    expect(
+      parsePlatformProcessConfig(
+        {
+          ...database,
+          OBJECT_STORAGE_ACCESS_KEY_ID: "worker-access-key",
+          OBJECT_STORAGE_ENDPOINT: "https://storage.example.test",
+          OBJECT_STORAGE_PROTECTED_BUCKET: "worker-protected",
+          OBJECT_STORAGE_PUBLIC_BUCKET: "worker-public",
+          OBJECT_STORAGE_QUARANTINE_BUCKET: "worker-quarantine",
+          OBJECT_STORAGE_REGION: "test-region",
+          OBJECT_STORAGE_SECRET_ACCESS_KEY: "worker-secret-key",
+          OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS: "60",
+          MATERIAL_ASSET_ORPHAN_GRACE_SECONDS: "86400",
+          PROFILE_AVATAR_ORPHAN_GRACE_SECONDS: "86400",
+        },
+        "material-assets-worker",
+      ).database,
+    ).toEqual({ url: database.DATABASE_URL });
   });
 
   it("rejects invalid database and listen values", () => {

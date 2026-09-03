@@ -191,7 +191,7 @@ Inspect the running host fallback or Compose stack:
 The API health response is:
 
 ```json
-{"process":"api","status":"ok","database":"reachable"}
+{"process":"api","status":"ready","database":"reachable","release":{"release":"development","sourceSha":"0000000000000000000000000000000000000000"},"schema":{"identity":"sha256:<migration-registry-sha256>","migrationCount":20}}
 ```
 
 `pnpm smoke:health` verifies Nest composition and the documented `tsx watch` API entrypoint.

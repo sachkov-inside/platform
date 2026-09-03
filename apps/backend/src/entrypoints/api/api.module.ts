@@ -6,6 +6,7 @@ import type { PlatformConfig } from "../../config/platform-config.js";
 import { HttpCachePolicyInterceptor } from "../../infrastructure/http/http-cache-policy.js";
 import { ProblemDetailsFilter } from "../../infrastructure/http/problem-details.filter.js";
 import { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
+import { RuntimeIdentityModule } from "../../infrastructure/runtime-identity.js";
 import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import {
   DiscoverPublishedMaterialsController,
@@ -86,6 +87,7 @@ export class ApiModule {
       module: ApiModule,
       imports: [
         PlatformConfigModule.forRoot(config),
+        RuntimeIdentityModule,
         PrismaModule,
         AccountsModule,
         MemberProfilesModule,

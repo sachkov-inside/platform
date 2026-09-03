@@ -1,133 +1,162 @@
-name: ${PLATFORM_COMPOSE_PROJECT:-inside-platform-production}
+name: ${PLATFORM_COMPOSE_PROJECT:?PLATFORM_COMPOSE_PROJECT is required}
+
+x-backend-runtime: &backend-runtime
+  image: ${PLATFORM_BACKEND_IMAGE_REPOSITORY:?backend repository is required}@sha256:${PLATFORM_BACKEND_IMAGE_DIGEST:?backend sha256 digest is required}
+  pull_policy: never
+  init: true
+  security_opt: [no-new-privileges:true]
+
+x-worker-healthcheck: &worker-healthcheck
+  test:
+    - CMD
+    - node
+    - dist/infrastructure/worker-healthcheck.js
+  interval: 5s
+  timeout: 3s
+  retries: 12
+  start_period: 10s
 
 services:
-  postgres:
-    image: postgres:18.4-alpine3.23
-    env_file:
-      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/postgres.env
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-    restart: unless-stopped
-    volumes:
-      - postgres-data:/var/lib/postgresql
-
   migrations:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: api-production
+    <<: *backend-runtime
     command: ["node", "dist/migrations/migrate.js"]
     env_file:
-      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/migrations.env
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/migrations.env
+    networks: [database]
     restart: "no"
 
   api:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: api-production
+    <<: *backend-runtime
+    command: ["node", "dist/entrypoints/api.js"]
     env_file:
-      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/api.env
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/api.env
     depends_on:
       migrations:
         condition: service_completed_successfully
     healthcheck:
       test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
-        ]
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3001/health/ready').then(async response=>{const report=await response.json();if(!response.ok||report.release?.release!==process.env.PLATFORM_RELEASE_VERSION||report.release?.sourceSha!==process.env.PLATFORM_SOURCE_SHA)process.exit(1)}).catch(()=>process.exit(1))
       interval: 5s
       timeout: 5s
       retries: 12
-    init: true
+      start_period: 10s
+    networks: [edge, application, database]
+    ports:
+      - "127.0.0.1:${PLATFORM_API_LOOPBACK_PORT:?PLATFORM_API_LOOPBACK_PORT is required}:3001"
     restart: unless-stopped
-    stop_grace_period: 10s
+    stop_grace_period: 15s
+
+  mcp:
+    <<: *backend-runtime
+    command: ["node", "dist/entrypoints/mcp.js"]
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/mcp.env
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          const host=new URL(process.env.MCP_SERVER_URL).host;fetch('http://127.0.0.1:3002/_health/ready',{headers:{host}}).then(async response=>{const report=await response.json();if(!response.ok||report.release?.release!==process.env.PLATFORM_RELEASE_VERSION||report.release?.sourceSha!==process.env.PLATFORM_SOURCE_SHA)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks: [edge, application, database]
+    ports:
+      - "127.0.0.1:${PLATFORM_MCP_LOOPBACK_PORT:?PLATFORM_MCP_LOOPBACK_PORT is required}:3002"
+    restart: unless-stopped
+    stop_grace_period: 15s
+
+  material-assets-worker:
+    <<: *backend-runtime
+    command: ["node", "dist/entrypoints/material-assets-worker.js"]
+    env_file:
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/material-assets-worker.env
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    healthcheck: *worker-healthcheck
+    networks: [edge, application, database]
+    restart: unless-stopped
+    stop_grace_period: 20s
+    tmpfs: [/tmp]
 
   profile-avatars-worker:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: api-production
+    <<: *backend-runtime
     command: ["node", "dist/entrypoints/profile-avatars-worker.js"]
     env_file:
-      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/profile-avatars-worker.env
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/profile-avatars-worker.env
     depends_on:
       migrations:
         condition: service_completed_successfully
-    init: true
+    healthcheck: *worker-healthcheck
+    networks: [edge, application, database]
     restart: unless-stopped
-    stop_grace_period: 10s
+    stop_grace_period: 20s
+    tmpfs: [/tmp]
 
   video-deletions-worker:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: api-production
+    <<: *backend-runtime
     command: ["node", "dist/entrypoints/video-deletions-worker.js"]
     env_file:
-      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/video-deletions-worker.env
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/video-deletions-worker.env
     depends_on:
       migrations:
         condition: service_completed_successfully
-    init: true
+    healthcheck: *worker-healthcheck
+    networks: [edge, application, database]
     restart: unless-stopped
-    stop_grace_period: 10s
+    stop_grace_period: 20s
+    tmpfs: [/tmp]
 
   web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      target: web-production
+    image: ${PLATFORM_WEB_IMAGE_REPOSITORY:?web repository is required}@sha256:${PLATFORM_WEB_IMAGE_DIGEST:?web sha256 digest is required}
+    pull_policy: never
     env_file:
-      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/web.env
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/web.env
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
       test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
-        ]
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/_health/ready').then(async response=>{const report=await response.json();if(!response.ok||report.release?.release!==process.env.PLATFORM_RELEASE_VERSION||report.release?.sourceSha!==process.env.PLATFORM_SOURCE_SHA)process.exit(1)}).catch(()=>process.exit(1))
       interval: 5s
       timeout: 5s
       retries: 18
+      start_period: 10s
     init: true
-    restart: unless-stopped
-    stop_grace_period: 10s
-
-  caddy:
-    image: caddy:2.11.4-alpine
-    env_file:
-      - ${PLATFORM_CONFIG_DIR:-./config/compose/production}/caddy.env
-    depends_on:
-      web:
-        condition: service_healthy
+    networks: [edge, application]
     ports:
-      - "${PLATFORM_HTTP_PORT:-80}:80"
-      - "${PLATFORM_HTTPS_PORT:-443}:443"
+      - "127.0.0.1:${PLATFORM_WEB_LOOPBACK_PORT:?PLATFORM_WEB_LOOPBACK_PORT is required}:3000"
     restart: unless-stopped
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 15s
 
-volumes:
-  postgres-data:
-  caddy-data:
-  caddy-config:
+networks:
+  edge:
+    name: ${PLATFORM_EDGE_NETWORK:?PLATFORM_EDGE_NETWORK is required}
+  application:
+    internal: true
+    name: ${PLATFORM_APPLICATION_NETWORK:?PLATFORM_APPLICATION_NETWORK is required}
+  database:
+    external: true
+    name: ${FOUNDATION_DATABASE_NETWORK:?FOUNDATION_DATABASE_NETWORK is required}

@@ -1,23 +1,62 @@
+import { pathToFileURL } from "node:url";
+
 import { PgBoss } from "pg-boss";
 
 import { loadRepositoryEnvironment } from "../config/load-repository-environment.js";
-import { parsePlatformDatabaseConfig } from "../config/platform-config.js";
+import {
+  parsePlatformDatabaseConfig,
+  parsePlatformMode,
+} from "../config/platform-config.js";
+import { parseRuntimeIdentity } from "../infrastructure/runtime-identity.js";
 import { migrateToLatest } from "./index.js";
 
-async function main(): Promise<void> {
-  loadRepositoryEnvironment();
-  const databaseConfig = parsePlatformDatabaseConfig(process.env);
-  const outcome = await migrateToLatest(databaseConfig.url);
+export interface RuntimeMigrationOutcome {
+  readonly appliedMigrations: readonly string[];
+  readonly jobSchemaVersion: number;
+}
+
+export async function migrateRuntimeDatabase(
+  databaseUrl: string,
+  options: { readonly afterPlatformMigrations?: () => void | Promise<void> } = {},
+): Promise<RuntimeMigrationOutcome> {
+  const outcome = await migrateToLatest(databaseUrl);
+  await options.afterPlatformMigrations?.();
   const jobs = new PgBoss({
-    connectionString: databaseConfig.url,
+    connectionString: databaseUrl,
     schema: "pgboss",
     schedule: false,
     supervise: false,
   });
-  await jobs.start();
-  const jobSchemaVersion = await jobs.schemaVersion();
-  await jobs.stop({ close: true, graceful: true });
-  process.stdout.write(`${JSON.stringify({ ...outcome, jobSchemaVersion })}\n`);
+  let started = false;
+  try {
+    await jobs.start();
+    started = true;
+    const jobSchemaVersion = await jobs.schemaVersion();
+    if (jobSchemaVersion === null) {
+      throw new Error("PgBoss schema version is unavailable after startup");
+    }
+    return { ...outcome, jobSchemaVersion };
+  } finally {
+    if (started) {
+      await jobs.stop({ close: true, graceful: true });
+    }
+  }
 }
 
-void main();
+async function main(): Promise<void> {
+  loadRepositoryEnvironment();
+  const databaseConfig = parsePlatformDatabaseConfig(process.env);
+  const runtimeIdentity = parseRuntimeIdentity(
+    process.env,
+    parsePlatformMode(process.env.NODE_ENV),
+  );
+  const outcome = await migrateRuntimeDatabase(databaseConfig.url);
+  process.stdout.write(`${JSON.stringify({ ...outcome, release: runtimeIdentity })}\n`);
+}
+
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  void main();
+}
