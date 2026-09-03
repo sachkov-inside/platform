@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -7,6 +8,7 @@ const workflow = readFileSync(
   fileURLToPath(new URL("../.github/workflows/workshop-evaluator.yml", import.meta.url)),
   "utf8",
 );
+const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const caseSpecSchema = JSON.parse(
   readFileSync(
     fileURLToPath(
@@ -59,4 +61,19 @@ test("Workshop evaluator artifacts are pinned and checksum-addressed", () => {
   assert.match(workflow, /actions\/upload-artifact@v7\.0\.1/u);
   assert.doesNotMatch(workflow, /@[vV](?:latest|\d+)\s*$/mu);
   assert.doesNotMatch(workflow, /auto.?update/iu);
+});
+
+test("generated Workshop schemas retain LF on Windows checkouts", () => {
+  const attributes = execFileSync(
+    "git",
+    [
+      "check-attr",
+      "eol",
+      "--",
+      "tools/workshop-evaluator/internal/contracts/schemas_gen.go",
+    ],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  );
+
+  assert.match(attributes, /: eol: lf\n$/u);
 });
