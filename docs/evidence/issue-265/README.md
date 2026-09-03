@@ -1,6 +1,6 @@
 # Issue 265 — Workshop evaluator macOS arm64 smoke
 
-Captured from clean implementation commit `ef4268c715dc98ed737b15650b12eeeed298d2a7` on 2026-09-03
+Captured from clean implementation commit `58453948099e309d9dbb9baeecc0dea5be99723e` on 2026-09-03
 after the shared contract and Go race checks passed. The evidence-only commit containing this record
 does not change the tested evaluator source.
 
