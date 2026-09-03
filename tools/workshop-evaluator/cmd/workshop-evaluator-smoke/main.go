@@ -334,7 +334,7 @@ func realComposeBundleForOS(goos string) string {
       - /S
       - /C
       - >-
-        findstr /x /c:participant-source-is-mounted C:\participant\participant-scenario.txt >NUL &&
+        copy /Y C:\participant\participant-scenario.txt C:\inside-output\participant-scenario.txt >NUL &&
         (echo {"scenarios":[{"id":"native-process","status":"passed","durationMilliseconds":1},{"id":"bound-report","status":"passed","durationMilliseconds":1}]}) > C:\inside-output\results.json
     volumes:
       - type: bind

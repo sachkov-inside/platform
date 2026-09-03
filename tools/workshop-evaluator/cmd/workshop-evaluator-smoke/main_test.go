@@ -5,14 +5,17 @@ import (
 	"testing"
 )
 
-func TestWindowsRealComposeAvoidsQuotedFindstrPhrase(t *testing.T) {
+func TestWindowsRealComposeCopiesSnapshotProbeToOutput(t *testing.T) {
 	t.Parallel()
 
 	compose := realComposeBundleForOS("windows")
-	if strings.Contains(compose, `/c:"`) {
-		t.Fatal("Windows Compose command must not pass a quoted phrase through cmd /C")
+	if strings.Contains(compose, "findstr") {
+		t.Fatal("Windows Compose command must not parse snapshot contents through cmd")
 	}
-	if !strings.Contains(compose, `/c:participant-source-is-mounted`) {
-		t.Fatal("Windows Compose command must check the unquoted mount sentinel")
+	if !strings.Contains(
+		compose,
+		`copy /Y C:\participant\participant-scenario.txt C:\inside-output\participant-scenario.txt >NUL`,
+	) {
+		t.Fatal("Windows Compose command must copy the snapshot probe into evaluator output")
 	}
 }
