@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.evaluator-device-authorization-response.v1.schema.json",
+  "title": "Inside Workshop evaluator device authorization response v1",
+  "x-inside-byte-limits": { "document": 65536 },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "deviceCode",
+    "userCode",
+    "verificationUrl",
+    "expiresInSeconds",
+    "intervalSeconds"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "inside.workshop.evaluator-device-authorization-response.v1"
+    },
+    "deviceCode": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueSecret"
+    },
+    "userCode": {
+      "type": "string",
+      "pattern": "^[A-Z0-9-]{1,64}$"
+    },
+    "verificationUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "expiresInSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 600
+    },
+    "intervalSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30
+    }
+  }
+}

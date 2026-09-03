@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.case-spec.v1.schema.json",
+  "title": "Inside Workshop CaseSpec v1",
+  "x-inside-byte-limits": {
+    "document": 1048576
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "caseId",
+    "caseVersion",
+    "evaluatorVersion",
+    "title",
+    "learningFacts",
+    "brief",
+    "variants",
+    "scenarios",
+    "observableThresholds",
+    "supportedHosts",
+    "materials",
+    "revealPolicy"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "inside.workshop.case-spec.v1"
+    },
+    "caseId": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueId"
+    },
+    "caseVersion": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueVersion"
+    },
+    "evaluatorVersion": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueVersion"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "learningFacts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "brief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "constraints"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "constraints": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      }
+    },
+    "variants": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "displayName",
+          "runtime",
+          "starterArtifactSha256",
+          "evaluatorBundleSha256"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueId"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "runtime": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "starterArtifactSha256": {
+            "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/sha256"
+          },
+          "evaluatorBundleSha256": {
+            "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/sha256"
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "required"],
+        "properties": {
+          "id": {
+            "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueId"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "required": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "observableThresholds": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "operator", "value", "unit"],
+        "properties": {
+          "id": {
+            "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueId"
+          },
+          "operator": {
+            "enum": ["eq", "gte", "lte"]
+          },
+          "value": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          }
+        }
+      }
+    },
+    "supportedHosts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/supportedHost"
+      }
+    },
+    "materials": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["materialId", "role", "order", "releasePolicy"],
+        "properties": {
+          "materialId": {
+            "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueId"
+          },
+          "role": {
+            "enum": ["prerequisite", "reference", "hint", "solution", "alternative"]
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "releasePolicy": {
+            "enum": ["always", "after_attempt", "after_attempt_or_warned_early_reveal"]
+          }
+        }
+      }
+    },
+    "revealPolicy": {
+      "const": "after_attempt_or_warned_early_reveal"
+    }
+  },
+  "$defs": {
+    "supportedHost": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["os", "arch"],
+          "properties": {
+            "os": { "const": "darwin" },
+            "arch": { "const": "arm64" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["os", "arch"],
+          "properties": {
+            "os": { "const": "linux" },
+            "arch": { "const": "amd64" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["os", "arch"],
+          "properties": {
+            "os": { "const": "windows" },
+            "arch": { "const": "amd64" }
+          }
+        }
+      ]
+    }
+  }
+}

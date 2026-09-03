@@ -1,0 +1,109 @@
+name: Workshop evaluator artifacts
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/workshop-evaluator.yml
+      - contracts/workshop/**
+      - tools/workshop-evaluator/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-artifact:
+    name: Native artifact (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: darwin-arm64
+            runner: macos-15
+            goos: darwin
+            goarch: arm64
+            extension: ""
+            real_compose: false
+          - target: linux-amd64
+            runner: ubuntu-24.04
+            goos: linux
+            goarch: amd64
+            extension: ""
+            real_compose: true
+          - target: windows-amd64
+            runner: windows-2025
+            goos: windows
+            goarch: amd64
+            extension: .exe
+            real_compose: true
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: tools/workshop-evaluator/go.mod
+          cache-dependency-path: tools/workshop-evaluator/go.sum
+      - name: Start Docker on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Start-Service docker
+          docker info
+          docker compose version
+      - name: Verify native host and embedded contracts
+        shell: bash
+        working-directory: tools/workshop-evaluator
+        run: |
+          actual_target="$(go env GOOS)-$(go env GOARCH)"
+          test "$actual_target" = "${{ matrix.target }}"
+          go run ./internal/contracts/generate \
+            -contracts ../../contracts/workshop \
+            -output internal/contracts/schemas_gen.go \
+            -check
+      - name: Run unit, integration and race checks
+        shell: bash
+        working-directory: tools/workshop-evaluator
+        run: go test -race ./...
+      - name: Build and execute native artifact
+        shell: bash
+        working-directory: tools/workshop-evaluator
+        run: |
+          mkdir -p dist
+          artifact="dist/workshop-evaluator${{ matrix.extension }}"
+          smoke="dist/workshop-evaluator-smoke${{ matrix.extension }}"
+          checksum="${artifact}.sha256"
+          go build -trimpath -o "$artifact" ./cmd/workshop-evaluator
+          go build -trimpath -o "$smoke" ./cmd/workshop-evaluator-smoke
+          evaluator_version="$("./$artifact" --version)"
+          test -n "$evaluator_version"
+          smoke_arguments=()
+          if [[ "${{ matrix.real_compose }}" == "true" ]]; then
+            smoke_arguments+=(--real-compose)
+          fi
+          "./$smoke" --binary "./$artifact" --version "$evaluator_version" "${smoke_arguments[@]}"
+          go run ./cmd/workshop-evaluator-checksum --file "$artifact" --output "$checksum"
+          go run ./cmd/workshop-evaluator-checksum --file "$artifact" --verify "$checksum"
+          cp wrappers/run-workshop-evaluator.sh dist/
+          cp wrappers/run-workshop-evaluator.ps1 dist/
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            pwsh -File dist/run-workshop-evaluator.ps1 --version
+          else
+            dist/run-workshop-evaluator.sh --version
+          fi
+          ./package-native-artifact.sh "${{ matrix.target }}" "$PWD/dist"
+      - name: Publish native artifact and exact checksum
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: workshop-evaluator-${{ matrix.target }}-${{ github.sha }}
+          path: |
+            tools/workshop-evaluator/dist/workshop-evaluator-${{ matrix.target }}.tar.gz
+            tools/workshop-evaluator/dist/workshop-evaluator-${{ matrix.target }}.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 14

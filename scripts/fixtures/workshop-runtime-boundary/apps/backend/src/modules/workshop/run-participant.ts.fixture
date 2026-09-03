@@ -1,0 +1,3 @@
+import { spawn } from "node:child_process";
+
+spawn("docker", ["compose", "up", "workshop-evaluator"]);

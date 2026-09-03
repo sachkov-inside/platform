@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "inside.workshop.case-spec.v1",
+  "caseId": "partner-webhooks",
+  "caseVersion": "partner-webhooks-2026-09-03.1",
+  "evaluatorVersion": "0.1.0-beta.1",
+  "title": "Partner Webhooks",
+  "learningFacts": [
+    "A durable delivery path stays responsive while a partner endpoint is unavailable.",
+    "Retries, concurrency and tenant isolation are observable rather than inferred from structure."
+  ],
+  "brief": {
+    "summary": "Deliver partner webhooks without coupling order acceptance to partner availability.",
+    "constraints": [
+      "Do not prescribe an outbox, queue or worker layout.",
+      "Keep secrets and sensitive payloads out of logs."
+    ]
+  },
+  "variants": [
+    {
+      "id": "dotnet",
+      "displayName": ".NET 10 / ASP.NET Core 10",
+      "runtime": "dotnet-10",
+      "starterArtifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evaluatorBundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "order-api-responsive",
+      "title": "Order acceptance remains responsive",
+      "required": true
+    },
+    {
+      "id": "order-api-responsive",
+      "title": "Duplicate scenario identifier",
+      "required": false
+    }
+  ],
+  "observableThresholds": [
+    {
+      "id": "order-response-time",
+      "operator": "lte",
+      "value": 250,
+      "unit": "milliseconds"
+    }
+  ],
+  "supportedHosts": [
+    { "os": "darwin", "arch": "arm64" },
+    { "os": "linux", "arch": "amd64" },
+    { "os": "windows", "arch": "amd64" }
+  ],
+  "materials": [
+    {
+      "materialId": "reliable-webhook-delivery",
+      "role": "reference",
+      "order": 0,
+      "releasePolicy": "always"
+    }
+  ],
+  "revealPolicy": "after_attempt_or_warned_early_reveal"
+}
