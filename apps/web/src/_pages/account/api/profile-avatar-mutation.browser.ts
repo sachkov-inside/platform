@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { PrivateMemberProfile } from "@/entities/member-profile";
 
-import { parsePrivateProfile } from "./member-profile-contract";
+import { parsePrivateProfile } from "@/entities/member-profile";
 
 export interface ProfileAvatarCrop {
   readonly centerX: number;

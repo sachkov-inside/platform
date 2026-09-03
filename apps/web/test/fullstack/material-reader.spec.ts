@@ -319,7 +319,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
 test("renders a locked teaser with the configured CTA and fails closed on invalid proof", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const response = await page.goto(
     "/materials/developer-pipeline-bez-poteri-konteksta",
   );
@@ -342,6 +342,24 @@ test("renders a locked teaser with the configured CTA and fails closed on invali
       "https://t.me/tribute",
   );
   await expect(page.getByText("Закрытое содержимое для участников")).toHaveCount(0);
+
+  const relatedCards = page
+    .locator('[data-related-state="ready"]')
+    .getByRole("article");
+  await expect(relatedCards).toHaveCount(6);
+  const firstRelatedCard = await relatedCards.nth(0).boundingBox();
+  const secondRelatedCard = await relatedCards.nth(1).boundingBox();
+  const thirdRelatedCard = await relatedCards.nth(2).boundingBox();
+  expect(firstRelatedCard).not.toBeNull();
+  expect(secondRelatedCard).not.toBeNull();
+  expect(thirdRelatedCard).not.toBeNull();
+  if (testInfo.project.name === "mobile-chromium") {
+    expect(secondRelatedCard?.y).toBeGreaterThan(firstRelatedCard?.y ?? 0);
+  } else {
+    expect(secondRelatedCard?.x).toBeGreaterThan(firstRelatedCard?.x ?? 0);
+    expect(Math.abs((secondRelatedCard?.y ?? 0) - (firstRelatedCard?.y ?? 0))).toBeLessThan(8);
+    expect(thirdRelatedCard?.y).toBeGreaterThan(firstRelatedCard?.y ?? 0);
+  }
 
   const invalidProof = await request.get(
     `${process.env.FULLSTACK_API_BASE_URL ?? "http://127.0.0.1:3001"}/materials/developer-pipeline-bez-poteri-konteksta`,

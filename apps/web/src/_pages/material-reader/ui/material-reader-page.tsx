@@ -29,14 +29,14 @@ export async function MaterialReaderPage({
   if (result.kind === "access") {
     const sourceHref = currentMaterialHref(slug, returnTarget);
     return (
-      <>
+      <div className="@container/material-reader">
         <MaterialReaderAccess
           cta={result.cta}
           material={result.material}
           returnTarget={returnTarget}
         />
         <RelatedMaterialsSection result={related} sourceHref={sourceHref} />
-      </>
+      </div>
     );
   }
   if (result.kind === "unavailable") {

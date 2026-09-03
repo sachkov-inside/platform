@@ -13,7 +13,7 @@ import type { CreateMemberProfileResult } from "../model/create-member-profile";
 import {
   parsePrivateProfile,
   profileIssueMessage,
-} from "./member-profile-contract";
+} from "@/entities/member-profile";
 
 const textField = z.string().refine((value) => !hasRejectedControlCharacters(value));
 const formSchema = z

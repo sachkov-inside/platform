@@ -8,9 +8,7 @@ import {
 
 import type { PrivateMemberProfileResult } from "@/entities/member-profile";
 import { parseMemberProfileProblem } from "@/entities/member-profile";
-import {
-  parsePrivateProfileState,
-} from "./member-profile-contract";
+import { parsePrivateProfileState } from "@/entities/member-profile";
 
 export async function getPrivateMemberProfile(
   accessToken: string,

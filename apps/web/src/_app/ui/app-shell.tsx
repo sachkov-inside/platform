@@ -8,6 +8,7 @@ import {
   type ApplicationNavigationItem,
 } from "@/widgets/application-shell";
 import { DesktopAuthControl, MobileAuthControl } from "@/widgets/auth-control";
+import { AccountTelegramOnboarding } from "@/features/account-access";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import { useAuthStatus } from "./auth-status-control.client";
 
@@ -42,6 +43,10 @@ export function AppShell({ children }: AppShellProps) {
       navigationItems={navigationItems}
     >
       {children}
+      <AccountTelegramOnboarding
+        authenticated={authStatus.state === "authenticated"}
+        authResolved={authStatus.resolved}
+      />
     </ApplicationShell>
   );
 }

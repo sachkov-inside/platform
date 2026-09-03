@@ -53,6 +53,19 @@ describe("TelegramMembership", () => {
   test("binds begin and final confirmation to one authenticated Account without granting access", async () => {
     ({ clock, entitlements, membership, provider } = fixture(database));
 
+    await expect(
+      membership.readAccountPresentation({ accountId: firstAccountId }),
+    ).resolves.toEqual({
+      ok: true,
+      presentation: {
+        link: { kind: "unlinked" },
+        membership: {
+          acquisitionUrl: "https://t.me/tribute/inside",
+          kind: "inactive",
+        },
+      },
+    });
+
     const begun = await membership.beginLink({ accountId: firstAccountId });
     expect(begun).toMatchObject({
       ok: true,
@@ -74,6 +87,29 @@ describe("TelegramMembership", () => {
     );
     expect(rawToken).toMatch(/^[A-Za-z0-9_-]{43}$/u);
     expect(provider.registerRequests).toHaveLength(1);
+    await expect(
+      membership.beginLink({ accountId: firstAccountId }),
+    ).resolves.toMatchObject({
+      ok: true,
+      state: { linkRef: begun.state.linkRef, status: "pending" },
+    });
+    expect(provider.registerRequests).toHaveLength(1);
+    await expect(
+      membership.readAccountPresentation({ accountId: firstAccountId }),
+    ).resolves.toEqual({
+      ok: true,
+      presentation: {
+        link: {
+          expiresAt: "2030-01-01T00:05:00.000Z",
+          kind: "linking",
+          linkRef: begun.state.linkRef,
+        },
+        membership: {
+          acquisitionUrl: "https://t.me/tribute/inside",
+          kind: "inactive",
+        },
+      },
+    });
     const registration = provider.registerRequests[0];
     expect(registration).toMatchObject({
       expiresAt: new Date("2030-01-01T00:05:00.000Z"),
@@ -122,6 +158,15 @@ describe("TelegramMembership", () => {
     expect(provider.confirmRequests).toHaveLength(1);
     await expect(entitlements.resolveForAccess(firstAccountId)).resolves.toEqual({
       kind: "unavailable",
+    });
+    await expect(
+      membership.readAccountPresentation({ accountId: firstAccountId }),
+    ).resolves.toEqual({
+      ok: true,
+      presentation: {
+        link: { kind: "linked" },
+        membership: { kind: "unavailable" },
+      },
     });
   });
 
@@ -184,6 +229,15 @@ describe("TelegramMembership", () => {
       kind: "active",
       validUntil: "2030-01-01T00:05:00.000Z",
     });
+    await expect(
+      membership.readAccountPresentation({ accountId: firstAccountId }),
+    ).resolves.toEqual({
+      ok: true,
+      presentation: {
+        link: { kind: "linked" },
+        membership: { kind: "active" },
+      },
+    });
 
     clock.set(new Date("2030-01-01T00:01:00.000Z"));
     await expect(
@@ -231,7 +285,7 @@ describe("TelegramMembership", () => {
   });
 
   test("persists typed provider failure states without silent transfer", async () => {
-    ({ membership, provider } = fixture(database));
+    ({ clock, membership, provider } = fixture(database));
     provider.confirmation = { kind: "conflict" };
     const conflict = await membership.beginLink({ accountId: firstAccountId });
     if (!conflict.ok || conflict.state.status !== "pending") {
@@ -243,12 +297,105 @@ describe("TelegramMembership", () => {
         linkRef: conflict.state.linkRef,
       }),
     ).resolves.toMatchObject({ ok: true, state: { status: "conflict" } });
+    await expect(
+      membership.readAccountPresentation({ accountId: firstAccountId }),
+    ).resolves.toEqual({
+      ok: true,
+      presentation: {
+        link: {
+          kind: "conflict",
+          supportUrl: "https://t.me/inside_support",
+        },
+        membership: {
+          acquisitionUrl: "https://t.me/tribute/inside",
+          kind: "inactive",
+        },
+      },
+    });
+    clock.set(new Date("2030-01-01T00:06:00.000Z"));
+    await expect(
+      membership.beginLink({ accountId: firstAccountId }),
+    ).resolves.toMatchObject({ ok: true, state: { status: "conflict" } });
+    expect(provider.registerRequests).toHaveLength(1);
 
     provider.registration = { kind: "unavailable" };
+    const unavailable = await membership.beginLink({ accountId: otherAccountId });
+    expect(unavailable).toMatchObject({
+      ok: true,
+      state: { status: "unavailable" },
+    });
+    if (!unavailable.ok) throw new Error("Expected an unavailable link state");
     await expect(
       membership.beginLink({ accountId: otherAccountId }),
-    ).resolves.toMatchObject({ ok: true, state: { status: "unavailable" } });
+    ).resolves.toMatchObject({
+      ok: true,
+      state: {
+        linkRef: unavailable.state.linkRef,
+        status: "unavailable",
+      },
+    });
+    await expect(
+      membership.readAccountPresentation({ accountId: otherAccountId }),
+    ).resolves.toMatchObject({
+      ok: true,
+      presentation: {
+        link: { kind: "unavailable", retry: { kind: "refresh" } },
+      },
+    });
+    expect(provider.registerRequests).toHaveLength(2);
+
+    clock.set(new Date("2030-01-01T00:12:00.000Z"));
+    await expect(
+      membership.readAccountPresentation({ accountId: otherAccountId }),
+    ).resolves.toMatchObject({
+      ok: true,
+      presentation: { link: { kind: "retryable", reason: "expired" } },
+    });
+    provider.registration = {
+      expiresAt: new Date("2030-01-01T00:17:00.000Z"),
+      kind: "registered",
+      linkTransactionRef: "telegram-link-transaction-b",
+      returnCorrelation: "return-correlation-b",
+    };
+    await expect(
+      membership.beginLink({ accountId: otherAccountId }),
+    ).resolves.toMatchObject({ ok: true, state: { status: "pending" } });
+    expect(provider.registerRequests).toHaveLength(3);
   });
+
+  test.each(["expired", "replayed"] as const)(
+    "presents a provider %s outcome as a safe new attempt, not recovery",
+    async (status) => {
+      ({ membership, provider } = fixture(database));
+      provider.confirmation = { kind: status };
+      const begun = await membership.beginLink({ accountId: firstAccountId });
+      if (!begun.ok || begun.state.status !== "pending") {
+        throw new Error("Expected a pending Telegram link");
+      }
+
+      await membership.confirmLink({
+        accountId: firstAccountId,
+        linkRef: begun.state.linkRef,
+      });
+      await expect(
+        membership.readAccountPresentation({ accountId: firstAccountId }),
+      ).resolves.toMatchObject({
+        ok: true,
+        presentation: { link: { kind: "retryable", reason: status } },
+      });
+
+      provider.registration = {
+        expiresAt: new Date("2030-01-01T00:05:00.000Z"),
+        kind: "registered",
+        linkTransactionRef: "telegram-link-transaction-b",
+        returnCorrelation: "return-correlation-b",
+      };
+      await expect(
+        membership.beginLink({ accountId: firstAccountId }),
+      ).resolves.toMatchObject({ ok: true, state: { status: "pending" } });
+      expect(provider.registerRequests).toHaveLength(2);
+    },
+  );
 
   test("retries a confirmed provider link after a temporary outage", async () => {
     ({ entitlements, membership, provider } = fixture(database));
@@ -280,6 +427,45 @@ describe("TelegramMembership", () => {
     await expect(entitlements.resolveForAccess(firstAccountId)).resolves.toEqual({
       kind: "unavailable",
     });
+  });
+
+  test("keeps concurrent Account link attempts from creating duplicate bindings", async () => {
+    ({ membership, provider } = fixture(database));
+    const attempts = await Promise.all([
+      membership.beginLink({ accountId: firstAccountId }),
+      membership.beginLink({ accountId: firstAccountId }),
+    ]);
+    const linkRefs = attempts.map((attempt) => {
+      if (
+        !attempt.ok ||
+        (attempt.state.status !== "pending" && attempt.state.status !== "unavailable")
+      ) {
+        throw new Error("Expected resumable concurrent Telegram links");
+      }
+      return attempt.state.linkRef;
+    });
+    const confirmations = await Promise.all(
+      linkRefs.map((linkRef) =>
+        membership.confirmLink({ accountId: firstAccountId, linkRef }),
+      ),
+    );
+    const statuses = confirmations.map((confirmation) =>
+      confirmation.ok ? confirmation.state.status : confirmation.error.code,
+    );
+    expect(statuses).toContain("linked");
+    expect(statuses.every((status) => status === "linked" || status === "conflict")).toBe(true);
+    await expect(
+      database.prisma.membershipBinding.count({
+        where: { accountId: firstAccountId },
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      membership.readAccountPresentation({ accountId: firstAccountId }),
+    ).resolves.toMatchObject({
+      ok: true,
+      presentation: { link: { kind: "linked" } },
+    });
+    expect(provider.registerRequests).toHaveLength(1);
   });
 });
 
@@ -349,6 +535,8 @@ function fixture(database: TestDatabase): {
     botStartUrl: "https://t.me/inside_test_bot",
     clock: () => clock.now(),
     linkLifetimeMs: 5 * 60_000,
+    membershipAcquisitionUrl: "https://t.me/tribute/inside",
+    membershipSupportUrl: "https://t.me/inside_support",
   });
   return { clock, entitlements, membership, provider };
 }

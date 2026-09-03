@@ -162,6 +162,7 @@ const telegramMembershipSchema = z
       60,
       600,
     ).transform((seconds) => seconds * 1_000),
+    supportUrl: httpUrlSchema("MEMBERSHIP_SUPPORT_URL").optional(),
   })
   .readonly();
 const kinescopeSchema = z.object({
@@ -378,6 +379,10 @@ export function parsePlatformConfig(
         mode,
         DEFAULT_TELEGRAM_LINK_LIFETIME_SECONDS,
       ),
+      supportUrl: readOptionalRuntimeValue(
+        environment,
+        "MEMBERSHIP_SUPPORT_URL",
+      ),
     },
   });
 
@@ -453,6 +458,14 @@ function parseMode(value: string | undefined): PlatformMode {
     throw new Error("NODE_ENV must be development, test, or production");
   }
   return mode.data;
+}
+
+function readOptionalRuntimeValue(
+  environment: NodeJS.ProcessEnv,
+  name: "MEMBERSHIP_SUPPORT_URL",
+): string | undefined {
+  const value = environment[name]?.trim();
+  return value === undefined || value.length === 0 ? undefined : value;
 }
 
 function readRuntimeValue(

@@ -2,8 +2,12 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { accountId } from "../../../accounts/index.js";
+import {
+  Prisma,
+  type TelegramMembershipPrisma,
+  type TelegramMembershipPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
+import { accountId, type AccountId } from "../../../accounts/index.js";
 import type {
   MembershipEntitlements,
   MembershipEvidenceAcceptance,
@@ -15,6 +19,9 @@ import type {
 } from "../../ports/telegram-link-provider.js";
 import type {
   AcceptTelegramEvidenceCommand,
+  AccountMembershipState,
+  AccountTelegramLinkState,
+  AccountTelegramMembershipResult,
   TelegramLinkResult,
   TelegramLinkState,
   TelegramMembership,
@@ -24,12 +31,17 @@ const principalEnvelopeSchema = z.looseObject({
   principalRef: z.string().min(1).max(256),
 });
 const linkRefSchema = z.uuid();
+const advisoryLockRowsSchema = z
+  .array(z.object({ lock: z.string() }).strict())
+  .length(1);
 
 export interface TelegramMembershipDependencies {
   readonly botStartUrl: string;
   readonly clock?: () => Date;
   readonly linkLifetimeMs: number;
+  readonly membershipAcquisitionUrl: string;
   readonly membershipEntitlements: MembershipEntitlements;
+  readonly membershipSupportUrl?: string;
   readonly prisma: TelegramMembershipPrismaClient;
   readonly provider: TelegramLinkProvider;
 }
@@ -40,6 +52,17 @@ export function assembleTelegramMembership(
   assertDependencies(dependencies);
   const clock = dependencies.clock ?? (() => new Date());
   const membership: TelegramMembership = {
+    async readAccountPresentation(query) {
+      try {
+        return await readAccountPresentation(
+          dependencies,
+          query.accountId,
+          clock(),
+        );
+      } catch {
+        return { ok: false, error: { code: "unavailable" } };
+      }
+    },
     async beginLink(command) {
       try {
         return await beginLink(dependencies, command.accountId, clock());
@@ -75,30 +98,62 @@ async function beginLink(
   account: string,
   now: Date,
 ): Promise<TelegramLinkResult> {
-  const linkRef = randomUUID();
-  const principalRef = randomUUID();
-  const returnCorrelation = randomUUID();
-  const rawToken = randomBytes(32).toString("base64url");
-  const tokenDigest = createHash("sha256")
-    .update(rawToken)
-    .digest("base64url");
-  const expiresAt = new Date(now.getTime() + dependencies.linkLifetimeMs);
+  const claim = await dependencies.prisma.$transaction(async (prisma) => {
+    const lockKey = `telegram-membership-link:${account}`;
+    advisoryLockRowsSchema.parse(
+      await prisma.$queryRaw(Prisma.sql`
+        select
+          pg_advisory_xact_lock(
+            hashtextextended(${lockKey}, 0::bigint)
+          )::text as lock
+      `),
+    );
+    const current = await currentLinkForBegin(prisma, account, now);
+    if (current !== undefined) return { current } as const;
 
-  await dependencies.prisma.telegramLinkTransaction.create({
-    data: {
-      accountId: account,
-      createdAt: now,
-      expiresAt,
-      linkRef,
-      principalRef,
-      providerIdentityRef: null,
-      providerTransactionRef: null,
-      returnCorrelation,
-      status: "registering",
-      tokenDigest,
-      updatedAt: now,
-    },
+    const linkRef = randomUUID();
+    const principalRef = randomUUID();
+    const returnCorrelation = randomUUID();
+    const rawToken = randomBytes(32).toString("base64url");
+    const tokenDigest = createHash("sha256")
+      .update(rawToken)
+      .digest("base64url");
+    const expiresAt = new Date(now.getTime() + dependencies.linkLifetimeMs);
+    await prisma.telegramLinkTransaction.create({
+      data: {
+        accountId: account,
+        createdAt: now,
+        expiresAt,
+        linkRef,
+        principalRef,
+        providerIdentityRef: null,
+        providerTransactionRef: null,
+        returnCorrelation,
+        status: "registering",
+        tokenDigest,
+        updatedAt: now,
+      },
+    });
+    return {
+      created: {
+        expiresAt,
+        linkRef,
+        principalRef,
+        rawToken,
+        returnCorrelation,
+        tokenDigest,
+      },
+    } as const;
   });
+  if ("current" in claim) return success(claim.current);
+  const {
+    expiresAt,
+    linkRef,
+    principalRef,
+    rawToken,
+    returnCorrelation,
+    tokenDigest,
+  } = claim.created;
 
   let registration: TelegramLinkProviderRegistration;
   try {
@@ -139,6 +194,154 @@ async function beginLink(
   });
 }
 
+async function readAccountPresentation(
+  dependencies: TelegramMembershipDependencies,
+  account: AccountId,
+  now: Date,
+): Promise<AccountTelegramMembershipResult> {
+  const [access, linkedTransaction, latestTransaction] = await Promise.all([
+    dependencies.membershipEntitlements.resolveForAccess(account),
+    dependencies.prisma.telegramLinkTransaction.findFirst({
+      where: { accountId: account, status: "linked" },
+      orderBy: [{ updatedAt: "desc" }, { linkRef: "desc" }],
+    }),
+    dependencies.prisma.telegramLinkTransaction.findFirst({
+      where: { accountId: account },
+      orderBy: [{ updatedAt: "desc" }, { linkRef: "desc" }],
+    }),
+  ]);
+
+  return {
+    ok: true,
+    presentation: {
+      link: accountLinkState(
+        linkedTransaction ?? latestTransaction,
+        now,
+        dependencies.membershipSupportUrl,
+      ),
+      membership: accountMembershipState(
+        access,
+        dependencies.membershipAcquisitionUrl,
+      ),
+    },
+  };
+}
+
+type PersistedLink = NonNullable<
+  Awaited<
+    ReturnType<
+      TelegramMembershipPrismaClient["telegramLinkTransaction"]["findFirst"]
+    >
+  >
+>;
+
+function accountLinkState(
+  transaction: PersistedLink | null,
+  now: Date,
+  supportUrl: string | undefined,
+): AccountTelegramLinkState {
+  if (transaction === null) return { kind: "unlinked" };
+  if (transaction.status === "linked") return { kind: "linked" };
+  if (transaction.status === "conflict") {
+    return {
+      kind: "conflict",
+      ...(supportUrl === undefined ? {} : { supportUrl }),
+    };
+  }
+  if (transaction.status === "recovery_required") {
+    return {
+      kind: "recovery-required",
+      recovery: {
+        kind: "support",
+        ...(supportUrl === undefined ? {} : { url: supportUrl }),
+      },
+    };
+  }
+  if (
+    transaction.status === "expired" ||
+    transaction.status === "replayed" ||
+    (transaction.expiresAt <= now &&
+      (transaction.status === "pending" ||
+        transaction.status === "registering" ||
+        transaction.status === "unavailable"))
+  ) {
+    return {
+      kind: "retryable",
+      reason: transaction.status === "replayed" ? "replayed" : "expired",
+    };
+  }
+  if (transaction.status === "pending") {
+    return {
+      expiresAt: transaction.expiresAt.toISOString(),
+      kind: "linking",
+      linkRef: transaction.linkRef,
+    };
+  }
+  if (transaction.status === "registering") {
+    return { kind: "unavailable", retry: { kind: "refresh" } };
+  }
+  return {
+    kind: "unavailable",
+    retry:
+      transaction.providerTransactionRef === null
+        ? { kind: "refresh" }
+        : { kind: "confirm", linkRef: transaction.linkRef },
+  };
+}
+
+function accountMembershipState(
+  state: Awaited<ReturnType<MembershipEntitlements["resolveForAccess"]>>,
+  acquisitionUrl: string,
+): AccountMembershipState {
+  switch (state.kind) {
+    case "active":
+      return { kind: "active" };
+    case "expired":
+    case "required":
+      return { acquisitionUrl, kind: "inactive" };
+    case "stale":
+      return { kind: "stale" };
+    case "unavailable":
+      return { kind: "unavailable" };
+  }
+}
+
+async function currentLinkForBegin(
+  prisma: TelegramMembershipPrisma,
+  account: string,
+  now: Date,
+): Promise<TelegramLinkState | undefined> {
+  const linked = await prisma.telegramLinkTransaction.findFirst({
+    where: { accountId: account, status: "linked" },
+    orderBy: [{ updatedAt: "desc" }, { linkRef: "desc" }],
+  });
+  if (linked !== null) {
+    return linkState(linked.linkRef, linked.expiresAt, "linked");
+  }
+  const latest = await prisma.telegramLinkTransaction.findFirst({
+    where: { accountId: account },
+    orderBy: [{ updatedAt: "desc" }, { linkRef: "desc" }],
+  });
+  if (latest === null) return undefined;
+  if (
+    latest.status === "conflict" ||
+    latest.status === "recovery_required"
+  ) {
+    return linkState(latest.linkRef, latest.expiresAt, publicStatus(latest.status));
+  }
+  if (latest.expiresAt <= now) return undefined;
+  if (latest.status === "pending") {
+    return linkState(latest.linkRef, latest.expiresAt, "pending");
+  }
+  if (latest.status === "registering") {
+    return linkState(latest.linkRef, latest.expiresAt, "unavailable");
+  }
+  if (latest.status === "unavailable") {
+    return linkState(latest.linkRef, latest.expiresAt, "unavailable");
+  }
+  return undefined;
+}
+
 async function confirmLink(
   dependencies: TelegramMembershipDependencies,
   account: string,
@@ -154,7 +357,12 @@ async function confirmLink(
   if (transaction === null) {
     return failure("link_not_found");
   }
-  if (transaction.expiresAt <= now && transaction.status !== "linked") {
+  if (
+    transaction.expiresAt <= now &&
+    transaction.status !== "linked" &&
+    transaction.status !== "conflict" &&
+    transaction.status !== "recovery_required"
+  ) {
     await updateLinkState(dependencies, linkRef, "expired", now);
     return success(linkState(linkRef, transaction.expiresAt, "expired"));
   }
@@ -335,6 +543,11 @@ function assertDependencies(
   dependencies: TelegramMembershipDependencies,
 ): void {
   const startUrl = new URL(dependencies.botStartUrl);
+  const acquisitionUrl = new URL(dependencies.membershipAcquisitionUrl);
+  const supportUrl =
+    dependencies.membershipSupportUrl === undefined
+      ? undefined
+      : new URL(dependencies.membershipSupportUrl);
   if (
     startUrl.protocol !== "https:" ||
     startUrl.hostname !== "t.me" ||
@@ -343,7 +556,9 @@ function assertDependencies(
     startUrl.hash.length > 0 ||
     !Number.isInteger(dependencies.linkLifetimeMs) ||
     dependencies.linkLifetimeMs < 60_000 ||
-    dependencies.linkLifetimeMs > 10 * 60_000
+    dependencies.linkLifetimeMs > 10 * 60_000 ||
+    !["http:", "https:"].includes(acquisitionUrl.protocol) ||
+    (supportUrl !== undefined && !["http:", "https:"].includes(supportUrl.protocol))
   ) {
     throw new TypeError("Telegram Membership dependencies are invalid");
   }

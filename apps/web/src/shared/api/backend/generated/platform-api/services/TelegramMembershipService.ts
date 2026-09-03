@@ -55,4 +55,59 @@ export class TelegramMembershipService {
       },
     });
   }
+  /**
+   * Read Telegram linking and Membership states for the current Account
+   * @returns any
+   * @throws ApiError
+   */
+  public readCurrentAccountTelegramMembership(): CancelablePromise<{
+    link: ({
+      kind: 'unlinked';
+    } | {
+      expiresAt: string;
+      kind: 'linking';
+      linkRef: string;
+    } | {
+      kind: 'linked';
+    } | {
+      kind: 'conflict';
+      supportUrl?: string;
+    } | {
+      kind: 'retryable';
+      reason: 'expired' | 'replayed';
+    } | {
+      kind: 'unavailable';
+      retry: ({
+        kind: 'confirm';
+        linkRef: string;
+      } | {
+        kind: 'refresh';
+      });
+    } | {
+      kind: 'recovery-required';
+      recovery: {
+        kind: 'support';
+        url?: string;
+      };
+    });
+    membership: ({
+      kind: 'active';
+    } | {
+      acquisitionUrl: string;
+      kind: 'inactive';
+    } | {
+      kind: 'stale';
+    } | {
+      kind: 'unavailable';
+    });
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/accounts/current/telegram-membership',
+      errors: {
+        401: `Account proof is missing or invalid`,
+        503: `Account Membership presentation is unavailable`,
+      },
+    });
+  }
 }

@@ -20,6 +20,7 @@ describe("process configuration", () => {
       LOGTO_JWKS_URL: "https://identity.example.test/oidc/jwks",
       IDENTITY_EMAIL_FINGERPRINT_KEY: "test-email-fingerprint-key-32chars",
       MEMBERSHIP_ACQUISITION_URL: "https://t.me/tribute/example",
+      MEMBERSHIP_SUPPORT_URL: "https://t.me/inside_support",
       TELEGRAM_BOT_START_URL: "https://t.me/inside_test_bot",
       TELEGRAM_EVIDENCE_INGRESS_SECRET:
         "test-telegram-evidence-ingress-secret",
@@ -65,6 +66,7 @@ describe("process configuration", () => {
           "https://telegram.example.test/integrations/platform/v1/identity-links",
         linkingSecret: "test-telegram-linking-secret",
         linkLifetimeMs: 420_000,
+        supportUrl: "https://t.me/inside_support",
       },
     });
     expect(Object.isFrozen(config)).toBe(true);
@@ -193,6 +195,12 @@ describe("process configuration", () => {
     ).toThrow(
       "TELEGRAM_LINK_LIFETIME_SECONDS must be an integer between 60 and 600",
     );
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        MEMBERSHIP_SUPPORT_URL: "mailto:owner@example.test",
+      }),
+    ).toThrow("MEMBERSHIP_SUPPORT_URL must use HTTP or HTTPS");
     expect(() =>
       parsePlatformConfig({
         NODE_ENV: "test",
