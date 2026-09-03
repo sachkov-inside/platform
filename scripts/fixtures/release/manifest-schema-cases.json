@@ -12,24 +12,23 @@
       "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     },
     {
-      "name": "foreign workflow run URL",
-      "path": ["workflow", "runUrl"],
-      "value": "https://github.com/elsewhere/project/actions/runs/3003"
+      "name": "moving backend image tag",
+      "path": ["images", "backend"],
+      "value": "ghcr.io/sachkov-inside/platform-backend:latest"
     },
     {
-      "name": "negative attestation identity",
-      "path": ["images", "backend", "provenance", "attestation", "url"],
-      "value": "https://github.com/sachkov-inside/platform/attestations/-1"
+      "name": "wrong web image repository",
+      "path": ["images", "web"],
+      "value": "ghcr.io/elsewhere/web@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     },
     {
-      "name": "inconsistent vulnerability decision",
-      "path": ["images", "backend", "vulnerabilities", "decision"],
-      "value": "waived"
-    },
-    {
-      "name": "wrong evidence asset name",
-      "path": ["images", "web", "assets", "sbomDocument"],
-      "value": "backend.sbom.spdx.json"
+      "name": "unapproved vulnerability waiver",
+      "path": ["vulnerabilityWaiver"],
+      "value": {
+        "actor": "release-owner",
+        "reason": "too short",
+        "runUrl": "https://github.com/sachkov-inside/platform/actions/runs/3003"
+      }
     }
   ]
 }

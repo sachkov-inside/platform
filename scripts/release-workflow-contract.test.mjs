@@ -11,7 +11,7 @@ const releaseWorkflow = read(".github/workflows/release.yml");
 const ciWorkflow = read(".github/workflows/ci.yml");
 const imageWorkflow = read(".github/workflows/build-release-images.yml");
 const planScript = read("scripts/plan-release.sh");
-const reverifyScript = read("scripts/reverify-release-evidence.sh");
+const verifyScript = read("scripts/verify-release-attestations.sh");
 const permissionFixture = JSON.parse(
   read("scripts/fixtures/release/workflow-permissions.json"),
 );
@@ -52,7 +52,7 @@ describe("ordinal release workflow contract", () => {
     assert.match(ci, /source_sha: \$\{\{ needs\.plan\.outputs\.source_sha \}\}/u);
   });
 
-  it("builds both images once, verifies their evidence and proves anonymous digest access", () => {
+  it("builds both images once, verifies standard attestations and proves public digest access", () => {
     const triggers = topLevelBlock(imageWorkflow, "on");
     const build = jobBlock(imageWorkflow, "build-and-verify");
     const caller = jobBlock(releaseWorkflow, "build-images");
@@ -69,14 +69,23 @@ describe("ordinal release workflow contract", () => {
     assert.doesNotMatch(build, /:latest/u);
     assert.match(build, /uses: anchore\/sbom-action@v\d+\.\d+\.\d+/u);
     assert.match(build, /uses: anchore\/scan-action@v\d+\.\d+\.\d+/u);
-    assert.match(build, /fail-build: false/u);
+    assert.match(
+      build,
+      /fail-build: \$\{\{ steps\.waiver\.outputs\.enabled != 'true' \}\}/u,
+    );
+    assert.match(build, /WAIVER_REASON\/\/\[\[:space:\]\]\//u);
     assert.match(build, /severity-cutoff: high/u);
     assert.equal(build.match(/uses: actions\/attest@v\d+\.\d+\.\d+/gu)?.length, 2);
-    assert.equal(build.match(/gh attestation verify/gu)?.length, 2);
-    assert.equal(build.match(/--bundle/gu)?.length, 2);
-    assert.equal(build.match(/--source-digest "\$SOURCE_SHA"/gu)?.length, 2);
+    assert.equal(build.match(/verify-release-attestations\.sh/gu)?.length, 1);
+    assert.match(verifyScript, /^set -euo pipefail$/mu);
+    assert.equal(verifyScript.match(/gh attestation verify/gu)?.length, 1);
+    assert.match(verifyScript, /https:\/\/slsa\.dev\/provenance\/v1/u);
+    assert.match(verifyScript, /https:\/\/spdx\.dev\/Document\/v2\.3/u);
+    assert.match(verifyScript, /--source-digest "\$source_sha"/u);
+    assert.doesNotMatch(verifyScript, /--bundle/u);
     assert.match(build, /SOURCE_SHA: \$\{\{ inputs\.source_sha \}\}/u);
-    assert.match(build, /release-contract\.mjs evidence/u);
+    assert.match(build, /vulnerabilityWaiver: \$waiver/u);
+    assert.doesNotMatch(build, /release-contract\.mjs image/u);
     assert.match(build, /docker logout ghcr\.io/u);
     assert.match(build, /docker buildx imagetools inspect/u);
     assert.match(caller, /^ {4}uses: \.\/\.github\/workflows\/build-release-images\.yml$/mu);
@@ -97,17 +106,15 @@ describe("ordinal release workflow contract", () => {
     assert.match(finalize, /merge-multiple: true/u);
     assert.match(finalize, /bash scripts\/plan-release\.sh/u);
     assert.equal(releaseWorkflow.match(/bash scripts\/plan-release\.sh/gu)?.length, 2);
-    assert.match(finalize, /bash scripts\/reverify-release-evidence\.sh backend/u);
-    assert.match(finalize, /bash scripts\/reverify-release-evidence\.sh web/u);
-    assert.match(reverifyScript, /release-contract\.mjs assets/u);
-    assert.equal(reverifyScript.match(/gh attestation verify/gu)?.length, 2);
-    assert.equal(reverifyScript.match(/--source-digest "\$source_sha"/gu)?.length, 2);
-    assert.match(reverifyScript, /release-contract\.mjs evidence/u);
+    assert.match(finalize, /bash scripts\/verify-release-attestations\.sh/u);
+    assert.match(finalize, /\.images\.backend, \.images\.web/u);
     assert.equal(finalize.match(/release-contract\.mjs manifest/gu)?.length, 1);
-    assert.match(finalize, /release\/identity-inputs\.json/u);
     assert.match(finalize, /gh release create/u);
     assert.match(finalize, /--target "\$SOURCE_SHA"/u);
     assert.match(finalize, /release-manifest\.json/u);
+    assert.match(finalize, /backend\.vulnerabilities\.json/u);
+    assert.match(finalize, /web\.vulnerabilities\.json/u);
+    assert.doesNotMatch(finalize, /\.bundle\.json/u);
     assert.doesNotMatch(releaseWorkflow, /--clobber/u);
     assert.doesNotMatch(releaseWorkflow, /secrets\./u);
   });

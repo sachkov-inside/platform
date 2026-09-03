@@ -7,7 +7,7 @@ status: accepted
 Platform releases use one monotonically increasing ordinal namespace: `v1`, `v2`, and so on. A
 release dispatch captures one full commit SHA and succeeds only when that SHA is still current
 `main`, the requested version is exactly the next ordinal, and all retained ordinal tags map
-one-to-one to published immutable Releases with the complete evidence asset set. Their versions
+one-to-one to published immutable Releases with the complete release asset set. Their versions
 must form a contiguous history. The workflow serializes releases globally and rechecks those
 invariants before creating the GitHub Release. Repository immutable releases must be enabled, so an
 existing release record and its attached evidence cannot be replaced through the normal release
@@ -21,19 +21,21 @@ bootstrap both package names and set their visibility to public before the first
 the workflow then proves anonymous access to every candidate digest before finalization.
 
 One captured SHA passes the reusable application CI before either image is built. Each image then
-receives an SPDX SBOM, build provenance and SBOM attestations. The workflow verifies the
-attestations and the exact attested SBOM, applies a fail-closed high/critical vulnerability policy,
-and proves anonymous digest access. Finalization independently recomputes downloaded asset hashes
-and reruns cryptographic verification of both bundles. A vulnerability exception is allowed only
-with an owner-supplied reason recorded with the actor and workflow run. Missing, inconsistent or
-tampered evidence cannot enter the manifest.
+receives signed GitHub build provenance and SPDX SBOM attestations. The same generated SBOM is
+scanned by the fail-closed high/critical vulnerability policy before it is attested. Both the image
+job and finalization verify the standard attestations against the exact image digest, source commit,
+`main` ref and trusted workflow with `gh attestation verify`; the repository does not define a
+second evidence format. A vulnerability exception is allowed only with an owner-supplied reason
+recorded with the actor and workflow run. Missing or invalid attestations stop the release, and the
+workflow proves anonymous digest access before finalization.
 
 One Zod contract owns the closed manifest shape and external release inputs; the published JSON
-Schema is generated from it. The manifest binds version and source to image digests,
-migration/configuration tree identities, evidence hashes, attestation records and any vulnerability
-waiver. The GitHub Release stores the manifest together with both images' evidence assets. The
-contract and executable policy are versioned with the source repository so future consumers can
-interpret the record without trusting workflow logs.
+Schema is generated from it. The manifest is deliberately small: it binds version and source commit
+to the backend and web `name@sha256:...` references and records an applied vulnerability waiver.
+The source commit already identifies migrations and checked-in configuration, so their hashes are
+not duplicated. SBOM and provenance remain standard attestations attached to each OCI image. The
+immutable GitHub Release stores the manifest and both vulnerability reports; future deployment
+consumes the manifest without parsing workflow-internal evidence.
 
 This decision separates release creation from deployment. Publishing `vN` does not connect to the
 production host and does not authorize a rollout. A later deployment pipeline will select a

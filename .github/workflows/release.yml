@@ -103,18 +103,12 @@ jobs:
           cache: pnpm
       - name: Install release contract dependencies
         run: pnpm install --frozen-lockfile --filter . --prod
-      - name: Download verified image evidence
+      - name: Download verified image data
         uses: actions/download-artifact@v8.0.1
         with:
-          pattern: release-evidence-*
+          pattern: release-image-*
           path: release-assets
           merge-multiple: true
-      - name: Reverify downloaded image evidence
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          bash scripts/reverify-release-evidence.sh backend release-assets
-          bash scripts/reverify-release-evidence.sh web release-assets
       - name: Recheck release state
         env:
           GH_TOKEN: ${{ github.token }}
@@ -124,8 +118,6 @@ jobs:
           bash scripts/plan-release.sh >"$RUNNER_TEMP/release-plan.json"
       - name: Create immutable manifest
         env:
-          RELEASE_ACTOR: ${{ github.actor }}
-          RELEASE_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
           VERSION: ${{ needs.plan.outputs.version }}
         run: |
@@ -133,22 +125,27 @@ jobs:
             --arg version "$VERSION" \
             --arg sourceSha "$SOURCE_SHA" \
             --arg repository "$GITHUB_REPOSITORY" \
-            --arg actor "$RELEASE_ACTOR" \
-            --arg runUrl "$RELEASE_RUN_URL" \
-            --arg identityInputsPath release/identity-inputs.json \
-            --arg backend release-assets/backend.evidence.json \
-            --arg web release-assets/web.evidence.json \
+            --arg backend release-assets/backend.image.json \
+            --arg web release-assets/web.image.json \
             '{
               version: $version,
               sourceSha: $sourceSha,
               repository: $repository,
-              workflow: {actor: $actor, runUrl: $runUrl},
-              identityInputsPath: $identityInputsPath,
               images: {backend: $backend, web: $web}
             }' >"$RUNNER_TEMP/release-manifest-input.json"
           node scripts/release-contract.mjs manifest \
             --input "$RUNNER_TEMP/release-manifest-input.json" \
             >release-assets/release-manifest.json
+      - name: Reverify standard image attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
+        run: |
+          while IFS= read -r image_reference; do
+            bash scripts/verify-release-attestations.sh \
+              "$image_reference" \
+              "$SOURCE_SHA"
+          done < <(jq --raw-output '.images.backend, .images.web' release-assets/release-manifest.json)
       - name: Publish immutable GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -157,8 +154,8 @@ jobs:
         run: |
           jq --raw-output '
             "Source: `" + .source.sha + "`\n\n" +
-            "Backend: `" + .images.backend.image.name + "@" + .images.backend.image.digest + "`\n\n" +
-            "Web: `" + .images.web.image.name + "@" + .images.web.image.digest + "`"
+            "Backend: `" + .images.backend + "`\n\n" +
+            "Web: `" + .images.web + "`"
           ' release-assets/release-manifest.json >"$RUNNER_TEMP/release-notes.md"
           gh release create "$VERSION" \
             --target "$SOURCE_SHA" \
@@ -166,11 +163,5 @@ jobs:
             --notes-file "$RUNNER_TEMP/release-notes.md" \
             --latest \
             release-assets/release-manifest.json \
-            release-assets/backend.provenance.bundle.json \
-            release-assets/backend.sbom.bundle.json \
-            release-assets/backend.sbom.spdx.json \
             release-assets/backend.vulnerabilities.json \
-            release-assets/web.provenance.bundle.json \
-            release-assets/web.sbom.bundle.json \
-            release-assets/web.sbom.spdx.json \
             release-assets/web.vulnerabilities.json

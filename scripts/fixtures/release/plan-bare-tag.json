@@ -7,7 +7,7 @@
     {
       "version": "v1",
       "immutable": true,
-      "assets": ["release-manifest.json", "backend.provenance.bundle.json", "backend.sbom.bundle.json", "backend.sbom.spdx.json", "backend.vulnerabilities.json", "web.provenance.bundle.json", "web.sbom.bundle.json", "web.sbom.spdx.json", "web.vulnerabilities.json"]
+      "assets": ["release-manifest.json", "backend.vulnerabilities.json", "web.vulnerabilities.json"]
     }
   ]
 }

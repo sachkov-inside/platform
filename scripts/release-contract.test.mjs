@@ -31,7 +31,6 @@ describe("release contract CLI", () => {
 
     assert.equal(result.status, 1);
     assert.match(result.stderr, /requested v2, but the next release is v3/u);
-    assert.equal(result.stdout, "");
   });
 
   it("rejects a release after main moved beyond the captured SHA", () => {
@@ -42,7 +41,6 @@ describe("release contract CLI", () => {
 
     assert.equal(result.status, 1);
     assert.match(result.stderr, /captured source SHA is not current main/u);
-    assert.equal(result.stdout, "");
   });
 
   it("rejects ordinal history with a missing retained release", () => {
@@ -53,7 +51,6 @@ describe("release contract CLI", () => {
 
     assert.equal(result.status, 1);
     assert.match(result.stderr, /ordinal history is not contiguous: missing v2/u);
-    assert.equal(result.stdout, "");
   });
 
   it("rejects an ordinal Git tag without a retained immutable release", () => {
@@ -67,7 +64,6 @@ describe("release contract CLI", () => {
       result.stderr,
       /ordinal Git tags must exactly match retained immutable releases/u,
     );
-    assert.equal(result.stdout, "");
   });
 
   it("rejects a retained ordinal release that is not immutable", () => {
@@ -78,171 +74,64 @@ describe("release contract CLI", () => {
 
     assert.equal(result.status, 1);
     assert.match(result.stderr, /v1 is not an immutable published release/u);
-    assert.equal(result.stdout, "");
   });
 
-  it("normalizes verified image evidence with a passing vulnerability decision", () => {
-    const result = runReleaseContract(
-      "evidence",
-      "scripts/fixtures/release/evidence-backend.json",
-    );
-
-    assert.equal(result.status, 0, result.stderr);
-    const evidence = JSON.parse(result.stdout);
-    assert.deepEqual(evidence.image, {
-      digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      name: "ghcr.io/sachkov-inside/platform-backend",
-    });
-    assert.equal(evidence.sourceSha, "3333333333333333333333333333333333333333");
-    assert.match(evidence.sbom.documentSha256, /^sha256:[a-f0-9]{64}$/u);
-    assert.match(evidence.sbom.bundleSha256, /^sha256:[a-f0-9]{64}$/u);
-    assert.match(evidence.provenance.bundleSha256, /^sha256:[a-f0-9]{64}$/u);
-    assert.deepEqual(evidence.vulnerabilities, {
-      critical: 0,
-      decision: "passed",
-      high: 0,
-      reportSha256: evidence.vulnerabilities.reportSha256,
-      waiver: null,
-    });
-    assert.match(evidence.vulnerabilities.reportSha256, /^sha256:[a-f0-9]{64}$/u);
-  });
-
-  it("rejects high or critical vulnerabilities without an owner waiver", () => {
-    const result = runEvidenceWith({
-      vulnerabilityPath:
-        "scripts/fixtures/release/evidence/backend.high-vulnerabilities.json",
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /1 high and 1 critical vulnerabilities require an owner waiver/u);
-    assert.equal(result.stdout, "");
-  });
-
-  it("records the owner, reason and run when vulnerability findings are waived", () => {
-    const waiver = {
-      actor: "release-owner",
-      reason: "CVE-2026-1000 is not reachable in the production entrypoints",
-      runUrl: "https://github.com/sachkov-inside/platform/actions/runs/3003",
-    };
-    const result = runEvidenceWith({
-      vulnerabilityPath:
-        "scripts/fixtures/release/evidence/backend.high-vulnerabilities.json",
-      waiver,
-    });
-
-    assert.equal(result.status, 0, result.stderr);
-    const evidence = JSON.parse(result.stdout);
-    assert.equal(evidence.vulnerabilities.decision, "waived");
-    assert.equal(evidence.vulnerabilities.high, 1);
-    assert.equal(evidence.vulnerabilities.critical, 1);
-    assert.deepEqual(evidence.vulnerabilities.waiver, waiver);
-  });
-
-  it("rejects an SBOM that describes a different image digest", () => {
-    const result = runEvidenceWith({
-      sbomPath: "scripts/fixtures/release/evidence/backend.tampered.spdx.json",
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /SBOM does not describe the exact image digest/u);
-    assert.equal(result.stdout, "");
-  });
-
-  it("rejects attestation identities that fall outside the closed evidence schema", () => {
-    const result = runEvidenceWith({
-      provenanceAttestation: {
-        id: "1001",
-        unexpected: "field",
-        url: "https://github.com/sachkov-inside/platform/attestations/1001",
-      },
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /provenanceAttestation.*Unrecognized key/u);
-    assert.equal(result.stdout, "");
-  });
-
-  it("rejects an attestation URL that does not match its numeric identity", () => {
-    const result = runEvidenceWith({
-      provenanceAttestation: {
-        id: "1001",
-        url: "https://github.com/sachkov-inside/platform/attestations/9999",
-      },
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(
-      result.stderr,
-      /provenanceAttestation: attestation identity is invalid/u,
-    );
-    assert.equal(result.stdout, "");
-  });
-
-  it("accepts release assets that match the normalized evidence hashes", () => {
-    const result = runReleaseContract(
-      "assets",
-      "scripts/fixtures/release/evidence-assets-valid.json",
-    );
-
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(
-      JSON.parse(result.stdout).image.name,
-      "ghcr.io/sachkov-inside/platform-backend",
-    );
-  });
-
-  it("rejects a provenance bundle changed after initial verification", () => {
-    const result = runReleaseContract(
-      "assets",
-      "scripts/fixtures/release/evidence-assets-tampered-provenance.json",
-    );
-
-    assert.equal(result.status, 1);
-    assert.match(
-      result.stderr,
-      /provenance bundle does not match normalized evidence/u,
-    );
-    assert.equal(result.stdout, "");
-  });
-
-  it("creates a manifest that binds images, source and runtime identities", () => {
+  it("creates a deployable manifest from two verified image results", () => {
     const result = runReleaseContract(
       "manifest",
       "scripts/fixtures/release/manifest-input.json",
     );
 
     assert.equal(result.status, 0, result.stderr);
-    const manifest = JSON.parse(result.stdout);
-    assert.equal(manifest.schemaVersion, "inside.platform.release-manifest.v1");
-    assert.equal(manifest.version, "v3");
-    assert.deepEqual(manifest.source, {
-      repository: "sachkov-inside/platform",
-      sha: "3333333333333333333333333333333333333333",
-    });
-    assert.equal(manifest.images.backend.image.name, "ghcr.io/sachkov-inside/platform-backend");
-    assert.equal(manifest.images.web.image.name, "ghcr.io/sachkov-inside/platform-web");
-    assert.match(manifest.identities.migrations.digest, /^sha256:[a-f0-9]{64}$/u);
-    assert.match(manifest.identities.configuration.digest, /^sha256:[a-f0-9]{64}$/u);
-    assert.deepEqual(manifest.images.backend.assets, {
-      provenanceBundle: "backend.provenance.bundle.json",
-      sbomBundle: "backend.sbom.bundle.json",
-      sbomDocument: "backend.sbom.spdx.json",
-      vulnerabilityReport: "backend.vulnerabilities.json",
+    assert.deepEqual(JSON.parse(result.stdout), {
+      schemaVersion: "inside.platform.release-manifest.v1",
+      version: "v3",
+      source: {
+        repository: "sachkov-inside/platform",
+        sha: "3333333333333333333333333333333333333333",
+      },
+      images: {
+        backend:
+          "ghcr.io/sachkov-inside/platform-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        web: "ghcr.io/sachkov-inside/platform-web@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      },
+      vulnerabilityWaiver: null,
     });
   });
 
-  it("rejects evidence fields outside the closed manifest schema", () => {
-    const result = runReleaseContract(
-      "manifest",
-      "scripts/fixtures/release/manifest-invalid-evidence-input.json",
+  it("records one owner waiver shared by both image scans", () => {
+    const backend = readJson(
+      "scripts/fixtures/release/manifest/backend.image.json",
+    );
+    const web = readJson("scripts/fixtures/release/manifest/web.image.json");
+    const vulnerabilityWaiver = {
+      actor: "release-owner",
+      reason: "CVE-2026-1000 is not reachable in production entrypoints",
+      runUrl: "https://github.com/sachkov-inside/platform/actions/runs/3003",
+    };
+    const result = runManifestWithImages(
+      { ...backend, vulnerabilityWaiver },
+      { ...web, vulnerabilityWaiver },
     );
 
-    assert.equal(result.status, 1);
-    assert.match(
-      result.stderr,
-      /platform-backend evidence: Unrecognized key: "unexpected"/u,
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(
+      JSON.parse(result.stdout).vulnerabilityWaiver,
+      vulnerabilityWaiver,
     );
-    assert.equal(result.stdout, "");
+  });
+
+  it("rejects an image result from another source commit", () => {
+    const fixture = readJson(
+      "scripts/fixtures/release/manifest/backend.image.json",
+    );
+    const result = runManifestWithBackend({
+      ...fixture,
+      sourceSha: "4444444444444444444444444444444444444444",
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /result does not bind the release source/u);
   });
 });
 
@@ -257,19 +146,38 @@ function runReleaseContract(command, inputPath) {
   );
 }
 
-function runEvidenceWith(overrides) {
-  const fixture = JSON.parse(
-    readFileSync(
-      resolve(repositoryRoot, "scripts/fixtures/release/evidence-backend.json"),
-      "utf8",
-    ),
+function runManifestWithBackend(backend) {
+  return runManifestWithImages(
+    backend,
+    readJson("scripts/fixtures/release/manifest/web.image.json"),
   );
-  const directory = mkdtempSync(resolve(tmpdir(), "platform-release-contract-"));
-  const inputPath = resolve(directory, "evidence.json");
-  writeFileSync(inputPath, JSON.stringify({ ...fixture, ...overrides }));
+}
+
+function runManifestWithImages(backend, web) {
+  const directory = mkdtempSync(resolve(tmpdir(), "platform-release-manifest-"));
+  const backendPath = resolve(directory, "backend.image.json");
+  const webPath = resolve(directory, "web.image.json");
+  const input = readJson("scripts/fixtures/release/manifest-input.json");
+  writeFileSync(backendPath, JSON.stringify(backend));
+  writeFileSync(webPath, JSON.stringify(web));
+  return runTemporaryContract("manifest", {
+    ...input,
+    images: { backend: backendPath, web: webPath },
+  }, directory);
+}
+
+function runTemporaryContract(command, input, existingDirectory) {
+  const directory =
+    existingDirectory ?? mkdtempSync(resolve(tmpdir(), "platform-release-contract-"));
+  const inputPath = resolve(directory, "input.json");
+  writeFileSync(inputPath, JSON.stringify(input));
   try {
-    return runReleaseContract("evidence", inputPath);
+    return runReleaseContract(command, inputPath);
   } finally {
     rmSync(directory, { force: true, recursive: true });
   }
+}
+
+function readJson(path) {
+  return JSON.parse(readFileSync(resolve(repositoryRoot, path), "utf8"));
 }

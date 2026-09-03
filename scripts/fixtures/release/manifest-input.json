@@ -2,13 +2,8 @@
   "version": "v3",
   "sourceSha": "3333333333333333333333333333333333333333",
   "repository": "sachkov-inside/platform",
-  "workflow": {
-    "actor": "release-owner",
-    "runUrl": "https://github.com/sachkov-inside/platform/actions/runs/3003"
-  },
-  "identityInputsPath": "scripts/fixtures/release/manifest/identity-inputs.json",
   "images": {
-    "backend": "scripts/fixtures/release/manifest/backend.evidence.json",
-    "web": "scripts/fixtures/release/manifest/web.evidence.json"
+    "backend": "scripts/fixtures/release/manifest/backend.image.json",
+    "web": "scripts/fixtures/release/manifest/web.image.json"
   }
 }

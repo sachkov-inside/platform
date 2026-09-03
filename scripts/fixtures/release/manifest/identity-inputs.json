@@ -1,4 +1,0 @@
-{
-  "migrations": ["scripts/fixtures/release/manifest/identity/migration.sql"],
-  "configuration": ["scripts/fixtures/release/manifest/identity/runtime.env.example"]
-}

@@ -109,9 +109,9 @@ is an explicit destructive reset.
 ## Production delivery baseline
 
 The versioned release pipeline builds the exact current `main`, reruns CI, publishes public backend
-and web GHCR images, verifies SBOM/provenance and vulnerability evidence, and records the next
-ordinal `vN` in an immutable manifest. Release consumers identify images by digest, never by a
-moving tag.
+and web GHCR images, verifies their standard SBOM/provenance attestations, applies the vulnerability
+gate, and records the next ordinal `vN` in a small immutable manifest. Release consumers identify
+images by digest, never by a moving tag.
 
 The current production Compose file remains the deliberately small runtime baseline before CD. It
 builds API and web from the checked-out source, runs migrations once, uses one database account and

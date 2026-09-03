@@ -111,17 +111,19 @@ gh workflow run release.yml \
   --field vulnerability_waiver_reason='Owner-approved reason and compensating control'
 ```
 
-The completed immutable GitHub Release contains `release-manifest.json` plus the SBOM,
-vulnerability report, provenance bundle and SBOM attestation bundle for each image. The manifest
-binds the ordinal version and source SHA to both public GHCR digests, migration/configuration tree
-identities, evidence hashes, attestation records and any waiver. The reusable image workflow
-verifies attestations and exact SBOM content before finalization, then logs out of GHCR and proves
-each digest is anonymously readable. Finalization recomputes every downloaded asset hash and
-cryptographically reverifies both attestation bundles before creating the manifest. Missing,
-changed or inconsistent evidence stops the release.
+The completed immutable GitHub Release contains `release-manifest.json` and the vulnerability report
+for each image. The manifest binds the ordinal version and source SHA to two deployable public GHCR
+`name@sha256:...` references and records any applied waiver. The source SHA already identifies the
+checked-in migrations and configuration, so the manifest does not duplicate their hashes.
 
-The manifest contract is owned by `release/contract-schema.mjs`; the checked-in
-`release/manifest.schema.json` is generated from it, and executable semantic policy lives in
+SPDX SBOM and build provenance are signed GitHub attestations attached to each OCI image rather than
+copies in a repository-specific evidence format. The image workflow scans the same SBOM that it
+attests, verifies both standard attestations, logs out of GHCR and proves each digest anonymously
+readable. Finalization verifies the attestations again against the exact digest, source commit,
+`main` ref and trusted workflow. A missing or invalid attestation stops the release.
+
+The small manifest contract is owned by `release/contract-schema.mjs`; the checked-in
+`release/manifest.schema.json` is generated from it, while ordinal and manifest validation live in
 `scripts/release-contract.mjs`. To exercise the complete local release contract without publishing
 packages, attestations or a GitHub Release, run:
 
