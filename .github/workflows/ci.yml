@@ -163,6 +163,7 @@ jobs:
           PRODUCTION_SMOKE_ARTIFACT_DIR: ci-artifacts/compose-production
         run: pnpm compose:production:smoke
       - name: Build and inspect release images
+        if: ${{ github.event_name == 'pull_request' }}
         run: pnpm release:images:smoke
       - name: Upload failure diagnostics
         if: ${{ failure() }}

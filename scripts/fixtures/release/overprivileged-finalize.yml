@@ -1,0 +1,17 @@
+permissions: {}
+jobs:
+  plan:
+    permissions:
+      contents: read
+  ci:
+    permissions:
+      contents: read
+  build-images:
+    permissions:
+      contents: read
+      packages: write
+  finalize:
+    permissions:
+      actions: read
+      contents: write
+      packages: write

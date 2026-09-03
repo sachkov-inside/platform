@@ -19,7 +19,7 @@ Four jobs run independently so a failure identifies its owning verification seam
 | `quality` | frozen install, Chromium and `pnpm check` |
 | `integration` | `pnpm test:integration` with Testcontainers-owned PostgreSQL and MinIO |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
-| `compose-production` | isolated `pnpm compose:production:smoke` and clean `pnpm release:images:smoke` |
+| `compose-production` | isolated `pnpm compose:production:smoke`; pull requests also run clean `pnpm release:images:smoke` |
 
 `CI Gate` depends on all four jobs and succeeds only when every result is `success`. The repository
 ruleset requires this exact check name and strict synchronization with `main`; individual job names
@@ -39,8 +39,10 @@ Every Compose job owns an isolated project on its runner and removes containers,
 volumes even after a failed command. The production smoke additionally removes locally built
 images. Pull-request CI does not publish packages, use GHCR permissions, deploy to a server or read
 production configuration. `.github/workflows/release.yml` calls CI with read-only contents access,
-then publishes packages in a separately permissioned matrix job. Release finalization receives only
-non-secret image identity artifacts from the current run.
+then publishes packages in a separately permissioned matrix job. The reusable release call skips
+the release-image smoke already proved by pull-request CI, so its publish job builds each candidate
+image only once. Release finalization receives only non-secret image identity artifacts from the
+current run.
 
 The executable workflow contract lives in `scripts/ci-workflow-contract.test.mjs` and runs through
 `pnpm test:tooling` and therefore `pnpm check`. It protects triggers, permissions, action pinning,
@@ -48,6 +50,7 @@ commands, job dependencies and artifact retention from configuration drift.
 
 The release workflow and manifest policy have their own executable contracts in
 `scripts/release-workflow-contract.test.mjs`, `scripts/release-image-contract.test.mjs` and
-`scripts/release-contract.test.mjs`. Positive and negative fixtures cover next/duplicate/stale
-ordinals, bare/mutable/discontinuous retained history, mismatched image results and least-privilege
-workflow boundaries.
+`scripts/release-contract.test.mjs`. Fixtures cover next/duplicate/stale ordinals,
+bare/mutable/discontinuous retained history and mismatched image results. The workflow contract
+checks the least-privilege boundary against both the release workflow and one over-privileged
+negative fixture.
