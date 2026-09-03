@@ -34,6 +34,7 @@ const (
 	devicePollSeconds    = 1
 	participantBlobSHA   = "2222222222222222222222222222222222222222"
 	manifestBlobSHA      = "3333333333333333333333333333333333333333"
+	participantResults   = `{"scenarios":[{"id":"native-process","status":"passed","durationMilliseconds":1},{"id":"bound-report","status":"passed","durationMilliseconds":1}]}`
 )
 
 func main() {
@@ -108,8 +109,8 @@ func runSmoke() int {
 		return fail("create manifest directory", err)
 	}
 	if err := os.WriteFile(
-		filepath.Join(root, "participant-scenario.txt"),
-		[]byte("participant-source-is-mounted\n"),
+		filepath.Join(root, "participant-results.json"),
+		[]byte(participantResults),
 		0o600,
 	); err != nil {
 		return fail("write participant source fixture", err)
@@ -334,8 +335,7 @@ func realComposeBundleForOS(goos string) string {
       - /S
       - /C
       - >-
-        copy /Y C:\participant\participant-scenario.txt C:\inside-output\participant-scenario.txt >NUL &&
-        (echo {"scenarios":[{"id":"native-process","status":"passed","durationMilliseconds":1},{"id":"bound-report","status":"passed","durationMilliseconds":1}]}) > C:\inside-output\results.json
+        copy /Y C:\participant\participant-results.json C:\inside-output\results.json >NUL
     volumes:
       - type: bind
         source: ${INSIDE_WORKSHOP_REPOSITORY_DIR}
@@ -353,8 +353,7 @@ func realComposeBundleForOS(goos string) string {
       - sh
       - -ec
       - >-
-        grep -qx participant-source-is-mounted /participant/participant-scenario.txt &&
-        printf '%s' '{"scenarios":[{"id":"native-process","status":"passed","durationMilliseconds":1},{"id":"bound-report","status":"passed","durationMilliseconds":1}]}' > /inside-output/results.json
+        cp /participant/participant-results.json /inside-output/results.json
     volumes:
       - type: bind
         source: ${INSIDE_WORKSHOP_REPOSITORY_DIR}
@@ -465,7 +464,7 @@ func runFakeGit(arguments []string) int {
 		fmt.Fprintf(
 			os.Stdout,
 			"100644 blob %s\t.inside/assignment.json%c"+
-				"100644 blob %s\tparticipant-scenario.txt%c",
+				"100644 blob %s\tparticipant-results.json%c",
 			manifestBlobSHA,
 			0,
 			participantBlobSHA,
@@ -484,7 +483,7 @@ func runFakeGit(arguments []string) int {
 			return 1
 		}
 	case joined == "cat-file blob "+participantBlobSHA:
-		fmt.Fprint(os.Stdout, "participant-source-is-mounted\n")
+		fmt.Fprint(os.Stdout, participantResults)
 	case joined == "ls-remote --exit-code origin refs/heads/main":
 		fmt.Fprintf(os.Stdout, "%s\trefs/heads/main\n", commitSHA)
 	default:
@@ -506,13 +505,16 @@ func runFakeDocker(arguments []string) int {
 	if containsArgument(arguments, "up") {
 		outputDirectory := os.Getenv("INSIDE_WORKSHOP_OUTPUT_DIR")
 		repositoryDirectory := os.Getenv("INSIDE_WORKSHOP_REPOSITORY_DIR")
-		participantSource, err := os.ReadFile(filepath.Join(repositoryDirectory, "participant-scenario.txt"))
-		if err != nil || string(participantSource) != "participant-source-is-mounted\n" {
+		participantSource, err := os.ReadFile(filepath.Join(repositoryDirectory, "participant-results.json"))
+		if err != nil || string(participantSource) != participantResults {
 			fmt.Fprintln(os.Stderr, "participant repository is not available to evaluator Compose")
 			return 1
 		}
-		result := []byte(`{"scenarios":[{"id":"native-process","status":"passed","durationMilliseconds":1},{"id":"bound-report","status":"passed","durationMilliseconds":1}]}`)
-		if err := os.WriteFile(filepath.Join(outputDirectory, "results.json"), result, 0o600); err != nil {
+		if err := os.WriteFile(
+			filepath.Join(outputDirectory, "results.json"),
+			[]byte(participantResults),
+			0o600,
+		); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
