@@ -22,12 +22,12 @@ the workflow then proves anonymous access to every candidate digest before final
 
 One captured SHA passes the reusable application CI before either image is built. Each image then
 receives signed GitHub build provenance and SPDX SBOM attestations. The same generated SBOM is
-scanned by the fail-closed high/critical vulnerability policy before it is attested. Both the image
-job and finalization verify the standard attestations against the exact image digest, source commit,
-`main` ref and trusted workflow with `gh attestation verify`; the repository does not define a
-second evidence format. A vulnerability exception is allowed only with an owner-supplied reason
-recorded with the actor and workflow run. Missing or invalid attestations stop the release, and the
-workflow proves anonymous digest access before finalization.
+scanned by the fail-closed high/critical vulnerability policy before it is attested. The image job
+verifies both standard attestations against the exact image digest, source commit, `main` ref and
+trusted workflow with `gh attestation verify`; the repository does not define a second evidence
+format. A vulnerability exception is allowed only with an owner-supplied reason recorded with the
+actor and workflow run. Missing or invalid attestations stop the image job, and the workflow proves
+anonymous digest access before finalization.
 
 One Zod contract owns the closed manifest shape and external release inputs; the published JSON
 Schema is generated from it. The manifest is deliberately small: it binds version and source commit

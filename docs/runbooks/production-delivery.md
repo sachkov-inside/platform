@@ -118,9 +118,10 @@ checked-in migrations and configuration, so the manifest does not duplicate thei
 
 SPDX SBOM and build provenance are signed GitHub attestations attached to each OCI image rather than
 copies in a repository-specific evidence format. The image workflow scans the same SBOM that it
-attests, verifies both standard attestations, logs out of GHCR and proves each digest anonymously
-readable. Finalization verifies the attestations again against the exact digest, source commit,
-`main` ref and trusted workflow. A missing or invalid attestation stops the release.
+attests, verifies both standard attestations against the exact digest, source commit, `main` ref and
+trusted workflow, then logs out of GHCR and proves each digest anonymously readable. A missing or
+invalid attestation stops the image job; finalization consumes only that job's verified image
+results.
 
 The small manifest contract is owned by `release/contract-schema.mjs`; the checked-in
 `release/manifest.schema.json` is generated from it, while ordinal and manifest validation live in

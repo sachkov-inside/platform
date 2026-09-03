@@ -76,6 +76,43 @@ describe("release contract CLI", () => {
     assert.match(result.stderr, /v1 is not an immutable published release/u);
   });
 
+  it("treats an empty vulnerability waiver reason as no waiver", () => {
+    const result = runReleaseContractWithInput("waiver", {
+      actor: "release-owner",
+      reason: "   ",
+      runUrl: "https://github.com/sachkov-inside/platform/actions/runs/3003",
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout), null);
+  });
+
+  it("validates and normalizes a vulnerability waiver before image publication", () => {
+    const result = runReleaseContractWithInput("waiver", {
+      actor: "release-owner",
+      reason: "  CVE-2026-1000 is not reachable in production entrypoints  ",
+      runUrl: "https://github.com/sachkov-inside/platform/actions/runs/3003",
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      actor: "release-owner",
+      reason: "CVE-2026-1000 is not reachable in production entrypoints",
+      runUrl: "https://github.com/sachkov-inside/platform/actions/runs/3003",
+    });
+  });
+
+  it("rejects a non-empty vulnerability waiver without an auditable reason", () => {
+    const result = runReleaseContractWithInput("waiver", {
+      actor: "release-owner",
+      reason: "accept it",
+      runUrl: "https://github.com/sachkov-inside/platform/actions/runs/3003",
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /reason: Too small/u);
+  });
+
   it("creates a deployable manifest from two verified image results", () => {
     const result = runReleaseContract(
       "manifest",
@@ -142,6 +179,18 @@ function runReleaseContract(command, inputPath) {
     {
       cwd: repositoryRoot,
       encoding: "utf8",
+    },
+  );
+}
+
+function runReleaseContractWithInput(command, input) {
+  return spawnSync(
+    process.execPath,
+    ["scripts/release-contract.mjs", command, "--input", "-"],
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      input: JSON.stringify(input),
     },
   );
 }

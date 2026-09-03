@@ -38,6 +38,11 @@ export const waiverSchema = z.strictObject({
   reason: z.string().trim().min(20).max(1000),
   runUrl: workflowRunUrlSchema,
 });
+export const releaseWaiverInputSchema = z.strictObject({
+  actor: waiverSchema.shape.actor,
+  reason: z.string(),
+  runUrl: waiverSchema.shape.runUrl,
+});
 
 export const releaseImageResultSchema = z.strictObject({
   image: imageIdentitySchema,

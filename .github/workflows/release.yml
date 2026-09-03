@@ -86,7 +86,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       actions: read
-      attestations: read
       contents: write
     steps:
       - name: Check out captured source
@@ -136,16 +135,6 @@ jobs:
           node scripts/release-contract.mjs manifest \
             --input "$RUNNER_TEMP/release-manifest-input.json" \
             >release-assets/release-manifest.json
-      - name: Reverify standard image attestations
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
-        run: |
-          while IFS= read -r image_reference; do
-            bash scripts/verify-release-attestations.sh \
-              "$image_reference" \
-              "$SOURCE_SHA"
-          done < <(jq --raw-output '.images.backend, .images.web' release-assets/release-manifest.json)
       - name: Publish immutable GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

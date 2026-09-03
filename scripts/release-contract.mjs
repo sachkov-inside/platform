@@ -12,6 +12,8 @@ import {
   releaseManifestInputSchema,
   releaseManifestSchema,
   releasePlanInputSchema,
+  releaseWaiverInputSchema,
+  waiverSchema,
   webImageName,
 } from "../release/contract-schema.mjs";
 
@@ -23,11 +25,13 @@ try {
   }
 
   const input = JSON.parse(
-    await readFile(inputPath === "-" ? 0 : inputPath, "utf8"),
+    inputPath === "-" ? await readStandardInput() : await readFile(inputPath, "utf8"),
   );
 
   if (command === "plan") {
     writeResult(planRelease(input));
+  } else if (command === "waiver") {
+    writeResult(normalizeWaiver(input));
   } else if (command === "manifest") {
     writeResult(await createManifest(input));
   } else {
@@ -41,6 +45,15 @@ try {
 
 function writeResult(result) {
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+}
+
+async function readStandardInput() {
+  process.stdin.setEncoding("utf8");
+  let text = "";
+  for await (const chunk of process.stdin) {
+    text += chunk;
+  }
+  return text;
 }
 
 function planRelease(input) {
@@ -103,6 +116,14 @@ function planRelease(input) {
     sourceSha: input.sourceSha,
     version: input.requestedVersion,
   };
+}
+
+function normalizeWaiver(input) {
+  input = parseSchema(releaseWaiverInputSchema, input, "vulnerability waiver input");
+  if (input.reason.trim() === "") {
+    return null;
+  }
+  return parseSchema(waiverSchema, input, "vulnerability waiver");
 }
 
 async function createManifest(input) {
