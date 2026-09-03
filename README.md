@@ -19,6 +19,10 @@ The repository is a pnpm workspace with two applications:
 The process-layout decision is recorded in
 [`ADR 0001`](docs/adr/0001-one-backend-multiple-entrypoints.md).
 
+The separately built, non-service Go Workshop evaluator lives under `tools/workshop-evaluator`.
+Its canonical wire schemas and cross-language conformance corpus live under `contracts/workshop`;
+neither participant code nor evaluator execution enters the Platform API/worker runtime.
+
 The backend also owns the production Telegram Membership consumer. Authenticated Account requests
 begin and confirm a short-lived `/start` link through the provider HTTP adapter; authenticated
 evidence enters a durable inbox and updates `MembershipEntitlements`. Material and profile reads
@@ -59,6 +63,10 @@ pnpm test
 pnpm build
 pnpm check
 pnpm check:full
+
+pnpm workshop:contracts:check
+pnpm workshop:evaluator:test
+pnpm workshop:evaluator:generate
 ```
 
 `pnpm docs:check` validates agent-document pointers and current Materials documentation invariants.
@@ -74,6 +82,9 @@ an installed host toolchain.
 Pull requests into `main` run four parallel application checks and the required aggregate
 `CI Gate`. See the [continuous integration runbook](docs/runbooks/continuous-integration.md) for
 the exact jobs, security boundary, diagnostics, cleanup and future release reuse contract.
+Changes to Workshop schemas or evaluator source additionally build, execute and checksum native
+artifacts on the three beta hosts. The evaluator's own
+[`README`](tools/workshop-evaluator/README.md) documents that bounded workflow.
 
 See the [runtime configuration contract](docs/runbooks/runtime-configuration.md) for the typed
 NestJS and Next.js configuration model, local `.env`, server-owned production env files and Docker

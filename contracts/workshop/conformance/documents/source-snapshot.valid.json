@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "inside.workshop.source-snapshot.v1",
+  "assignmentId": "assignment-fixture-1",
+  "repositoryId": "123456789",
+  "commitSha": "1111111111111111111111111111111111111111",
+  "treeSha": "2222222222222222222222222222222222222222",
+  "archiveSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "compressedBytes": 1048576,
+  "expandedBytes": 4194304,
+  "capturedAt": "2026-09-03T12:01:00Z"
+}
