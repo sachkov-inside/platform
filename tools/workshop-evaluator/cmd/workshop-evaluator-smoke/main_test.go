@@ -5,32 +5,32 @@ import (
 	"testing"
 )
 
-func TestWindowsRealComposeCopiesSnapshotResultToOutput(t *testing.T) {
+func TestWindowsRealComposeStreamsSnapshotResultToOutput(t *testing.T) {
 	t.Parallel()
 
 	compose := realComposeBundleForOS("windows")
-	if strings.Contains(compose, "echo {") {
-		t.Fatal("Windows Compose command must not generate JSON through cmd")
+	if strings.Contains(compose, "copy /Y") {
+		t.Fatal("Windows Compose command must not preserve snapshot file permissions")
 	}
 	if !strings.Contains(
 		compose,
-		`copy /Y C:\participant\participant-results.json C:\inside-output\results.json >NUL`,
+		`type C:\participant\participant-results.json > C:\inside-output\results.json`,
 	) {
-		t.Fatal("Windows Compose command must copy the snapshot result into evaluator output")
+		t.Fatal("Windows Compose command must stream the snapshot result into evaluator output")
 	}
 }
 
-func TestUnixRealComposeCopiesSnapshotResultToOutput(t *testing.T) {
+func TestUnixRealComposeStreamsSnapshotResultToOutput(t *testing.T) {
 	t.Parallel()
 
 	compose := realComposeBundleForOS("linux")
-	if strings.Contains(compose, "printf") {
-		t.Fatal("Unix Compose command must not generate JSON through the shell")
+	if strings.Contains(compose, "cp ") {
+		t.Fatal("Unix Compose command must not preserve snapshot file permissions")
 	}
 	if !strings.Contains(
 		compose,
-		"cp /participant/participant-results.json /inside-output/results.json",
+		"cat /participant/participant-results.json > /inside-output/results.json",
 	) {
-		t.Fatal("Unix Compose command must copy the snapshot result into evaluator output")
+		t.Fatal("Unix Compose command must stream the snapshot result into evaluator output")
 	}
 }

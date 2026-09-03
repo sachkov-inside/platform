@@ -335,7 +335,7 @@ func realComposeBundleForOS(goos string) string {
       - /S
       - /C
       - >-
-        copy /Y C:\participant\participant-results.json C:\inside-output\results.json >NUL
+        type C:\participant\participant-results.json > C:\inside-output\results.json
     volumes:
       - type: bind
         source: ${INSIDE_WORKSHOP_REPOSITORY_DIR}
@@ -353,7 +353,7 @@ func realComposeBundleForOS(goos string) string {
       - sh
       - -ec
       - >-
-        cp /participant/participant-results.json /inside-output/results.json
+        cat /participant/participant-results.json > /inside-output/results.json
     volumes:
       - type: bind
         source: ${INSIDE_WORKSHOP_REPOSITORY_DIR}
