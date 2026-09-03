@@ -1,16 +1,22 @@
-name: ${FOUNDATION_DATABASE_PROJECT:-inside-production-database}
+name: ${FOUNDATION_DATABASE_PROJECT:?FOUNDATION_DATABASE_PROJECT is required}
+
+x-database-image: &database-image
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: inside/postgres-pgbackrest:18.4-2.57.0
 
 x-postgres-environment: &postgres-environment
   env_file:
-    - ${FOUNDATION_CONFIG_DIR:-/etc/inside/foundation}/database.env
-    - ${FOUNDATION_CONFIG_DIR:-/etc/inside/foundation}/postgres.env
-    - ${FOUNDATION_CONFIG_DIR:-/etc/inside/foundation}/logto-database.env
-    - ${FOUNDATION_CONFIG_DIR:-/etc/inside/foundation}/pgbackrest.env
+    - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/database.env
+    - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/postgres.env
+    - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/logto-database.env
+    - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/pgbackrest.env
 
 x-pgbackrest-environment: &pgbackrest-environment
   env_file:
-    - ${FOUNDATION_CONFIG_DIR:-/etc/inside/foundation}/database.env
-    - ${FOUNDATION_CONFIG_DIR:-/etc/inside/foundation}/pgbackrest.env
+    - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/database.env
+    - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/pgbackrest.env
 
 x-database-volumes: &database-volumes
   volumes:
@@ -21,11 +27,7 @@ x-database-volumes: &database-volumes
 
 services:
   postgres:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: inside/postgres-pgbackrest:18.4-2.57.0
-    <<: [*postgres-environment, *database-volumes]
+    <<: [*database-image, *postgres-environment, *database-volumes]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 3s
@@ -36,23 +38,17 @@ services:
     stop_grace_period: 60s
 
   pgbackrest:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: inside/postgres-pgbackrest:18.4-2.57.0
-    <<: [*pgbackrest-environment, *database-volumes]
+    <<: [*database-image, *pgbackrest-environment, *database-volumes]
     entrypoint: ["pgbackrest"]
     networks: [backup-egress, database]
     profiles: [operations]
     user: postgres
 
   restore:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: inside/postgres-pgbackrest:18.4-2.57.0
-    <<: [*pgbackrest-environment, *database-volumes]
+    <<: [*database-image, *pgbackrest-environment, *database-volumes]
     entrypoint: ["inside-pgbackrest-restore"]
+    environment:
+      INSIDE_RESTORE_VOLUME: ${FOUNDATION_POSTGRES_VOLUME:?FOUNDATION_POSTGRES_VOLUME is required}
     networks: [backup-egress, database]
     profiles: [operations]
     user: root
@@ -60,10 +56,11 @@ services:
 networks:
   backup-egress:
   database:
-    name: ${FOUNDATION_DATABASE_NETWORK:-inside-production-database}
+    name: ${FOUNDATION_DATABASE_NETWORK:?FOUNDATION_DATABASE_NETWORK is required}
     internal: true
 
 volumes:
   pgbackrest-spool:
   postgres-data:
+    name: ${FOUNDATION_POSTGRES_VOLUME:?FOUNDATION_POSTGRES_VOLUME is required}
   postgres-run:

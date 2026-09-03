@@ -9,7 +9,8 @@ Encrypt each completed env file to both public recipients with SOPS and keep the
 password manager or approved encrypted storage. Decrypt it on the host into
 `/etc/inside/foundation`; every resulting `.env` file must be `root:root` and mode `0600`.
 
-Example for one file, after installing an owner-approved SOPS release during #244:
+Prepare the completed plaintext in a private directory with mode `0600`. Example for one file,
+after installing an owner-approved SOPS release during #244:
 
 ```bash
 sops --encrypt \
@@ -18,10 +19,13 @@ sops --encrypt \
   --age 'age1HOST,age1OFFLINE' \
   postgres.env >postgres.env.sops
 
-sudo env SOPS_AGE_KEY_FILE=/etc/inside/age/host.txt \
-  sops --decrypt --input-type dotenv --output-type dotenv postgres.env.sops \
-  | sudo install -m 600 -o root -g root /dev/stdin \
-      /etc/inside/foundation/postgres.env
+sudo sh -c '
+  set -eu
+  umask 077
+  SOPS_AGE_KEY_FILE=/etc/inside/age/host.txt \
+    sops --decrypt --input-type dotenv --output-type dotenv postgres.env.sops \
+    > /etc/inside/foundation/postgres.env
+'
 ```
 
 Repeat for `logto-database.env` and `pgbackrest.env`. `database.env` and `logto.env` contain no

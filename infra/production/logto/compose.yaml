@@ -1,4 +1,4 @@
-name: ${FOUNDATION_LOGTO_PROJECT:-inside-production-logto}
+name: ${FOUNDATION_LOGTO_PROJECT:?FOUNDATION_LOGTO_PROJECT is required}
 
 x-logto-runtime: &logto-runtime
   build:
@@ -7,8 +7,8 @@ x-logto-runtime: &logto-runtime
   image: inside/logto-production:1.41.0-inside.2
   entrypoint: ["/foundation/entrypoint.sh"]
   env_file:
-    - ${FOUNDATION_CONFIG_DIR:-/etc/inside/foundation}/logto.env
-    - ${FOUNDATION_CONFIG_DIR:-/etc/inside/foundation}/logto-database.env
+    - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/logto.env
+    - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/logto-database.env
   networks: [database, edge, identity]
   volumes:
     - ./entrypoint.sh:/foundation/entrypoint.sh:ro
@@ -43,14 +43,14 @@ services:
       timeout: 3s
       retries: 40
     ports:
-      - 127.0.0.1:${FOUNDATION_LOGTO_LOOPBACK_PORT:-3301}:3001
+      - 127.0.0.1:${FOUNDATION_LOGTO_LOOPBACK_PORT:?FOUNDATION_LOGTO_LOOPBACK_PORT is required}:3001
     restart: unless-stopped
     stop_grace_period: 30s
 
 networks:
   database:
     external: true
-    name: ${FOUNDATION_DATABASE_NETWORK:-inside-production-database}
+    name: ${FOUNDATION_DATABASE_NETWORK:?FOUNDATION_DATABASE_NETWORK is required}
   edge:
   identity:
     internal: true

@@ -63,6 +63,9 @@ PostgreSQL/Logto и не включает backup timers. Эти решения �
    done
    ```
 
+   `compose.env` — единый источник имён Compose projects, shared database network, loopback port и
+   активного PostgreSQL volume. Остальные `.env` файлы передаются только внутрь контейнеров.
+
 4. Подготовить host/offline age recipients и доставить secrets по
    [инструкции](../../infra/production/secrets/README.md). Файлы `postgres.env`,
    `logto-database.env` и `pgbackrest.env` должны быть заполнены только через защищённый канал.
@@ -70,9 +73,11 @@ PostgreSQL/Logto и не включает backup timers. Эти решения �
 
    ```bash
    sudo docker compose \
+     --env-file /etc/inside/foundation/compose.env \
      --file /opt/inside/foundation/infra/production/database/compose.yaml \
      config --quiet
    sudo docker compose \
+     --env-file /etc/inside/foundation/compose.env \
      --file /opt/inside/foundation/infra/production/logto/compose.yaml \
      config --quiet
    ```
@@ -81,13 +86,16 @@ PostgreSQL/Logto и не включает backup timers. Эти решения �
 
    ```bash
    sudo docker compose \
+     --env-file /etc/inside/foundation/compose.env \
      --file /opt/inside/foundation/infra/production/database/compose.yaml \
      up --detach --build --wait postgres
    sudo docker compose \
+     --env-file /etc/inside/foundation/compose.env \
      --file /opt/inside/foundation/infra/production/database/compose.yaml \
      --profile operations run --rm pgbackrest \
      --stanza=production stanza-create
    sudo docker compose \
+     --env-file /etc/inside/foundation/compose.env \
      --file /opt/inside/foundation/infra/production/database/compose.yaml \
      --profile operations run --rm pgbackrest \
      --stanza=production check
@@ -97,6 +105,7 @@ PostgreSQL/Logto и не включает backup timers. Эти решения �
 
    ```bash
    sudo docker compose \
+     --env-file /etc/inside/foundation/compose.env \
      --file /opt/inside/foundation/infra/production/logto/compose.yaml \
      up --detach --build --wait
    ```
@@ -122,12 +131,39 @@ backup. После этого #243 может доставить application rel
 
 ## Восстановление базы
 
-Restore — ручная аварийная операция, а не CI job. Сначала остановите PostgreSQL, Logto и все
-application writers, сохраните повреждённый volume для диагностики и создайте новый пустой volume.
-Затем выберите target по pgBackRest metadata и выполните restore, например до указанного времени:
+Restore — ручная аварийная операция, а не CI job. Сначала переведите application в maintenance
+через механизм #243 и остановите Logto и PostgreSQL:
 
 ```bash
 sudo docker compose \
+  --env-file /etc/inside/foundation/compose.env \
+  --file /opt/inside/foundation/infra/production/logto/compose.yaml \
+  down
+sudo docker compose \
+  --env-file /etc/inside/foundation/compose.env \
+  --file /opt/inside/foundation/infra/production/database/compose.yaml \
+  stop postgres
+sudo grep '^FOUNDATION_POSTGRES_VOLUME=' /etc/inside/foundation/compose.env
+```
+
+Последняя команда фиксирует имя повреждённого volume в incident notes; не удаляйте его. Создайте
+новое уникальное имя с обязательным recovery prefix и переключите на него `compose.env`:
+
+```bash
+recovery_volume="inside-production-postgres-data-recovery-$(date -u +%Y%m%d%H%M%S)"
+sudo sed -i \
+  "s/^FOUNDATION_POSTGRES_VOLUME=.*/FOUNDATION_POSTGRES_VOLUME=$recovery_volume/" \
+  /etc/inside/foundation/compose.env
+sudo docker volume create "$recovery_volume"
+```
+
+Теперь restore service подключает только новый volume. Его entrypoint откажется работать, если
+имя не начинается с `inside-production-postgres-data-recovery-`. Выберите target по pgBackRest
+metadata и выполните restore, например до указанного времени:
+
+```bash
+sudo docker compose \
+  --env-file /etc/inside/foundation/compose.env \
   --file /opt/inside/foundation/infra/production/database/compose.yaml \
   --profile operations run --rm restore \
   --stanza=production \
@@ -137,7 +173,26 @@ sudo docker compose \
   restore
 ```
 
-Restore entrypoint очищает только точный `PGDATA` нового replacement volume. После запуска нужно
-проверить обе базы (`inside` и `logto`), WAL archiving, выполнить `pgbackrest check` и новый full
-backup, и только затем возвращать трафик. Credentialed recovery proof проводится на реальной
-подготовленной инфраструктуре в #244, а не на каждом pull request.
+Запустите PostgreSQL с тем же `compose.env`, проверьте repository и сделайте новый full backup:
+
+```bash
+sudo docker compose \
+  --env-file /etc/inside/foundation/compose.env \
+  --file /opt/inside/foundation/infra/production/database/compose.yaml \
+  up --detach --wait postgres
+sudo docker compose \
+  --env-file /etc/inside/foundation/compose.env \
+  --file /opt/inside/foundation/infra/production/database/compose.yaml \
+  --profile operations run --rm pgbackrest \
+  --stanza=production check
+sudo systemctl start inside-pgbackrest-backup@full.service
+sudo docker compose \
+  --env-file /etc/inside/foundation/compose.env \
+  --file /opt/inside/foundation/infra/production/logto/compose.yaml \
+  up --detach --wait
+```
+
+До возврата application traffic отдельно проверьте обе базы (`inside` и `logto`) и WAL archiving.
+Старый volume остаётся отдельным и удаляется только по последующему owner decision. Credentialed
+recovery proof проводится на реальной подготовленной инфраструктуре в #244, а не на каждом pull
+request.

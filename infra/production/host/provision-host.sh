@@ -21,8 +21,21 @@ fi
 managed_marker=/etc/inside/host-provisioned
 if [[ ! -f "$managed_marker" ]]; then
   for managed_path in /etc/inside /opt/inside /srv/inside /var/lib/inside; do
-    if [[ -e "$managed_path" ]]; then
+    if [[ -e "$managed_path" || -L "$managed_path" ]]; then
       echo "Refusing to overwrite unmanaged path: $managed_path" >&2
+      exit 1
+    fi
+  done
+
+  for managed_file in \
+    /etc/caddy/Caddyfile \
+    /etc/systemd/system/inside-pgbackrest-backup@.service \
+    /etc/systemd/system/inside-pgbackrest-diff.timer \
+    /etc/systemd/system/inside-pgbackrest-full.timer \
+    /etc/systemd/system/inside-pgbackrest-incr.timer \
+    /usr/local/libexec/inside/database-backup; do
+    if [[ -e "$managed_file" || -L "$managed_file" ]]; then
+      echo "Refusing to overwrite unmanaged file: $managed_file" >&2
       exit 1
     fi
   done
@@ -61,7 +74,6 @@ install -d -m 755 /opt/inside/foundation/infra/production/database
 install -d -m 755 /opt/inside/foundation/infra/production/logto
 install -d -m 755 /srv/inside/runtime/caddy /var/lib/inside
 install -d -m 755 /usr/local/libexec/inside
-install -m 644 /dev/null /srv/inside/runtime/caddy/00-empty.caddy
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 production_dir="$(cd "$script_dir/.." && pwd)"
@@ -94,7 +106,6 @@ done
 
 caddy validate --config /etc/caddy/Caddyfile
 systemctl daemon-reload
-systemctl enable --now docker.service ssh.service caddy.service
 
 ufw default deny incoming
 ufw default allow outgoing
@@ -102,6 +113,10 @@ ufw allow OpenSSH
 ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
+
+systemctl enable docker.service ssh.service caddy.service
+systemctl start docker.service ssh.service
+systemctl restart caddy.service
 
 printf 'state=ready\n' >"$managed_marker"
 chmod 600 "$managed_marker"
