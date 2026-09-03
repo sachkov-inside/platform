@@ -179,7 +179,7 @@ sudo docker compose \
 sudo docker compose \
   --env-file /etc/inside/foundation/compose.env \
   --file /opt/inside/foundation/infra/production/database/compose.yaml \
-  up --detach --wait postgres
+  up --detach --force-recreate --wait postgres
 sudo docker compose \
   --env-file /etc/inside/foundation/compose.env \
   --file /opt/inside/foundation/infra/production/database/compose.yaml \
@@ -192,7 +192,8 @@ sudo docker compose \
   up --detach --wait
 ```
 
-До возврата application traffic отдельно проверьте обе базы (`inside` и `logto`) и WAL archiving.
-Старый volume остаётся отдельным и удаляется только по последующему owner decision. Credentialed
-recovery proof проводится на реальной подготовленной инфраструктуре в #244, а не на каждом pull
-request.
+`--force-recreate` обязателен: старый stopped container всё ещё подключён к повреждённому volume и
+не должен быть запущен повторно. До возврата application traffic отдельно проверьте обе базы
+(`inside` и `logto`) и WAL archiving. Старый volume остаётся отдельным и удаляется только по
+последующему owner decision. Credentialed recovery proof проводится на реальной подготовленной
+инфраструктуре в #244, а не на каждом pull request.
