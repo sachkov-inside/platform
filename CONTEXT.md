@@ -1,8 +1,8 @@
 # Platform
 
-Platform is the canonical home of Inside materials and the place where visitors and Membership
-participants discover and read them. This glossary names the durable content concepts shared by
-product and application work.
+Platform is the canonical home of Inside materials and the application where visitors, Membership
+participants and Workshop learners use Inside products. This glossary names the durable concepts
+shared by product and application work.
 
 ## Language
 
@@ -110,3 +110,45 @@ _Avoid_: Progress, completion percentage
 A coarse resume position for one Account and one local Video identity. Replacement Video therefore
 starts independently, and playback progress never changes ReadingState.
 _Avoid_: Material completion, read status, Kinescope user profile
+
+## Production Workshop
+
+**Workshop**:
+Inside's separate product for practising realistic production engineering situations through
+versioned cases, local work and recorded Attempts.
+_Avoid_: Membership course, coding puzzle catalog, skill tree
+
+**Production Case**:
+A versioned engineering situation with problem context, constraints, executable checks and linked
+learning guidance. In Russian product language: «Кейс».
+_Avoid_: Task, exercise, challenge
+
+**Case Variant**:
+One supported technology-specific form of a Production Case that preserves the same observable
+learning contract while using its own starter baseline and evaluator adapter.
+_Avoid_: Separate Case, generated port, Platform stack
+
+**WorkshopEntitlement**:
+A time-bounded grant from Platform that gives an Account access to a declared Workshop scope and is
+independent of MembershipEntitlement after it is issued.
+_Avoid_: Membership benefit, subscription, permanent purchase
+
+**Assignment**:
+One Account's managed working copy of one Case Variant, including its starter baseline and source
+repository identity.
+_Avoid_: Production Case, repository, checkout
+
+**Attempt**:
+An immutable submission of one Assignment at one exact source revision with accepted evaluation
+evidence. A push or local test run alone is not an Attempt.
+_Avoid_: Commit, run, mutable submission
+
+**AttemptResult**:
+The terminal test-based outcome of one Attempt: `Needs work` or `Passed`. `Passed` means the
+required Workshop checks passed for the bound source revision, not professional certification.
+_Avoid_: MasteryResult, Verified, grade
+
+**SolutionReveal**:
+The irreversible record that an Account may access the exact solution for one Production Case
+version, either after an Attempt or by explicit early study choice.
+_Avoid_: AttemptResult, penalty, completion
