@@ -5,6 +5,9 @@ local Git/host/Docker preconditions, obtains a one-time report token through the
 downloads the exact case evaluator bundle, runs its bounded Compose topology, and submits one
 schema-valid report.
 
+The accepted application boundary is recorded in
+[ADR 0014](../../docs/adr/0014-pinned-native-go-workshop-evaluator.md).
+
 The first beta target matrix is:
 
 - `darwin/arm64`;
