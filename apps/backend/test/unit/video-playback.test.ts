@@ -1,3 +1,4 @@
+import { decodeJwt } from "jose";
 import { describe, expect, test, vi } from "vitest";
 
 import { accountId } from "../../src/modules/accounts/index.js";
@@ -16,6 +17,7 @@ describe("Video playback authorization", () => {
       decidedAt: now.toISOString(),
       effect: "allow",
       reason: "active_membership",
+      validUntil: new Date(now.getTime() + 5 * 60_000).toISOString(),
     });
     const videos = videoDependencies("membership");
     const playback = assembleVideoPlayback({
@@ -77,6 +79,7 @@ describe("Video playback authorization", () => {
       decidedAt: now.toISOString(),
       effect: "allow",
       reason: "active_workshop",
+      validUntil: new Date(now.getTime() + 30_000).toISOString(),
     });
     const playback = assembleVideoPlayback({
       clock: () => now,
@@ -95,6 +98,9 @@ describe("Video playback authorization", () => {
     if (!session.ok || session.value.drmAuthToken === null) {
       throw new Error("Workshop token missing");
     }
+    expect(decodeJwt(session.value.drmAuthToken).exp).toBe(
+      Math.floor(now.getTime() / 1_000) + 30,
+    );
     await expect(
       playback.authorizeProvider({
         providerVideoId: "provider-video",
