@@ -235,10 +235,20 @@ deduplication и migration pipeline не нужны.
 - внутренние и email-уведомления;
 - AI-поиск и отдельный autonomous content generation workflow вне user-delegated MCP Save.
 
+Эта граница описывает исходный content/Membership MVP и не запрещает отдельный successor product
+track. Production Workshop v1 переиспользует Account, Materials и ContentAccess, но не считается
+ретроактивной частью готовности Platform v1. Его первый slice отдельно задан
+[application specification](../specifications/production-workshop-v1.md) и
+[Platform #258](https://github.com/sachkov-inside/platform/issues/258): один Production Case,
+managed GitHub Assignment, локальная test-based evaluation и reveal связанных Materials без AI,
+commercial checkout и публичной сертификации.
+
 ## Связанные application-документы
 
 - [Platform v1 application specification](../specifications/platform-v1.md) владеет modules,
   logical schema, flows, application NFR, production foundation order и ADR inputs.
+- [Production Workshop v1 application specification](../specifications/production-workshop-v1.md)
+  владеет отдельным Workshop track, Assignment/evaluator flow, test-based AttemptResult и reveal.
 - [`CONTEXT.md`](../../CONTEXT.md) задаёт канонические application terms без implementation
   details.
 - [Platform #19](https://github.com/sachkov-inside/platform/issues/19) — root Specification для
