@@ -24,6 +24,11 @@ application-level NFR, порядком production foundations и ADR inputs. П
 [MVP brief](../product/platform-mvp-brief.md), а канонические термины — в [`CONTEXT.md`](../../CONTEXT.md).
 Код, tests и возможные application ADR принадлежат этому repository.
 
+[Production Workshop v1](production-workshop-v1.md) является отдельным successor application
+contract под [Platform #258](https://github.com/sachkov-inside/platform/issues/258). Он
+переиспользует Platform v1 foundations, но не расширяет задним числом completion scope этого
+content/Membership документа.
+
 Specification синхронизирует принятую cross-repository
 [Workspace #40](https://github.com/sachkov-inside/workspace/issues/40), отдельную
 [Identity/Membership Specification #65](https://github.com/sachkov-inside/workspace/issues/65) и
@@ -364,17 +369,24 @@ Published body читается только для current `published` state; d
    и `noindex`; email, AccountId, Logto/Telegram identifiers, permissions, evidence и security/audit
    state не входят в projection.
 8. Manual owner release operation disable/restore скрывает projection и пишет redacted audit без
-   participant report queue или публичной admin surface. Telegram linking, Membership state и
-   recovery presentation остаются в #122 и не смешиваются с этим Profile interface.
+   participant report queue или публичной admin surface. Owner-only Account composition отдельно
+   читает Profile и coarse Telegram/Membership presentation; ни один из contracts не расширяет
+   другой и partial private state не попадает в member projection.
 9. `profile-avatars-worker` через собственную durable `pg-boss` queue после настраиваемого
    ProfileAvatar storage grace удаляет только tracked unreferenced renditions. Cleanup и concurrent avatar change
    сериализуются Account advisory lock; current или cross-Account resource сохраняется.
 
 ### Membership linking и projection
 
-1. После email-code sign-in Platform предлагает skippable linking; signed-in Account начинает
-   short-lived link transaction сразу или позже из Account. Locked Material не создаёт второй
-   linking/recovery flow.
+1. После каждого email-code sign-in, пока Telegram не связан, Platform один раз за authenticated
+   browser session открывает центрированное skippable onboarding-окно поверх текущей public
+   surface. Первый begin CTA сразу открывает short-lived Telegram `/start`; после возврата browser
+   автоматически вызывает confirm. Компактное окно остаётся открытым после успеха, чтобы показать
+   result с галочкой без второго обязательного user action. Membership state и acquisition
+   action в onboarding не выводятся: они остаются в Account и на закрытых материалах. Закрытие
+   сохраняется при navigation и reload текущей session, но logout или подтверждённый guest state
+   сбрасывает его; тот же flow остаётся доступен позже из Account. Locked Material не создаёт
+   второй linking/recovery flow.
 2. Отдельная Telegram application проверяет Telegram identity, uniqueness и Membership в
    каноническом закрытом chat.
 3. При linking Telegram application выполняет initial check, затем durably принимает member-status
@@ -386,6 +398,21 @@ Published body читается только для current `published` state; d
    Telegram или не ждёт reconciliation. Positive MembershipEvidence живёт не более пяти минут;
    принятый Platform новый removal evidence запрещает доступ немедленно, stale projection или
    outage после expiry fails closed.
+6. Private Account показывает Telegram link и Membership двумя независимыми coarse states:
+   `unlinked | linking | linked | retryable | conflict | unavailable | recovery-required` и
+   `active | inactive | stale | unavailable`. Presentation не содержит email, AccountId,
+   Telegram ID/username, provider identity, evidence или Membership timestamps и не является
+   bearer permission: protected operation повторно вызывает `ContentAccess`. Визуально Telegram
+   оформлен компактной голубой status-плашкой над отдельной premium-карточкой
+   `Доступ к Sachkov Inside`; inactive card объясняет ценность и ведёт одним CTA на configured
+   acquisition URL, а stale/unavailable не выводятся как основное техническое сообщение.
+7. Begin-link атомарно резервирует не более одной current attempt на Account и возвращает
+   short-lived bot deep link только создавшему request; reload продолжает ту же попытку без нового
+   provider registration. Обычный expired/replayed outcome разрешает новую попытку. Conflict и
+   recovery с риском silent transfer не дают self-service unlink/relink даже после TTL: Account
+   показывает optional configured HTTP(S) support destination либо безопасный owner-handoff text.
+   Неоднозначный outage во время provider registration сохраняет ту же current attempt до expiry и
+   не повторяет registration автоматически.
 
 ### Assets, downloads и video
 

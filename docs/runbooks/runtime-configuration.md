@@ -86,3 +86,9 @@ these values in `NEXT_PUBLIC_*`, Material JSON, screenshots, issue text or clien
 integration routes are `/integrations/kinescope/v1/webhook` and
 `/integrations/kinescope/v1/authorize`; expose them only through the approved HTTPS domain and copy
 their exact provider-side settings during the credentialed acceptance run.
+
+`MEMBERSHIP_SUPPORT_URL` is an optional backend-owned HTTP(S) destination for Account conflict and
+unsafe Telegram-link recovery. Leave it empty when no approved support channel exists: Account then
+shows owner-handoff copy without rendering a broken link. It is presentation configuration only;
+it never changes link uniqueness, recovery policy or `ContentAccess`. `MEMBERSHIP_ACQUISITION_URL`
+remains the independent destination for obtaining Membership.

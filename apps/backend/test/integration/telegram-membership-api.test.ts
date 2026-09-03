@@ -61,6 +61,8 @@ describe("Telegram Membership API", () => {
         LOGTO_AUDIENCE: audience,
         LOGTO_ISSUER: issuer,
         LOGTO_JWKS_URL: serverUrl(jwksServer, "/jwks"),
+        MEMBERSHIP_ACQUISITION_URL: "https://t.me/tribute/inside",
+        MEMBERSHIP_SUPPORT_URL: "https://t.me/inside_support",
         NODE_ENV: "test",
         TELEGRAM_BOT_START_URL: "https://t.me/inside_test_bot",
         TELEGRAM_EVIDENCE_INGRESS_SECRET: evidenceSecret,
@@ -86,6 +88,32 @@ describe("Telegram Membership API", () => {
       (await establish(ownerToken)).json<unknown>(),
     );
 
+    const unauthenticatedPresentation = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "GET",
+        url: "/accounts/current/telegram-membership",
+      });
+    expect(unauthenticatedPresentation.statusCode).toBe(401);
+
+    const initialPresentation = await authenticated(
+      "GET",
+      "/accounts/current/telegram-membership",
+      ownerToken,
+    );
+    expect(initialPresentation.statusCode).toBe(200);
+    expect(initialPresentation.headers["cache-control"]).toBe(
+      "private, no-store",
+    );
+    expect(initialPresentation.json()).toEqual({
+      link: { kind: "unlinked" },
+      membership: {
+        acquisitionUrl: "https://t.me/tribute/inside",
+        kind: "inactive",
+      },
+    });
+
     const unauthenticated = await app.getHttpAdapter().getInstance().inject({
       method: "POST",
       url: "/accounts/current/telegram-link",
@@ -104,6 +132,15 @@ describe("Telegram Membership API", () => {
       /^https:\/\/t\.me\/inside_test_bot\?start=[A-Za-z0-9_-]{43}$/u,
     );
     expect(provider.registrations).toHaveLength(1);
+    const linkingPresentation = await authenticated(
+      "GET",
+      "/accounts/current/telegram-membership",
+      ownerToken,
+    );
+    expect(linkingPresentation.json()).toMatchObject({
+      link: { kind: "linking", linkRef: pending.linkRef },
+      membership: { kind: "inactive" },
+    });
     expect(provider.registrations[0]?.authorization).toBe(
       `Bearer ${linkingSecret}`,
     );
@@ -131,6 +168,18 @@ describe("Telegram Membership API", () => {
       status: "linked",
     });
     expect(provider.confirmations).toHaveLength(1);
+    const linkedPresentation = await authenticated(
+      "GET",
+      "/accounts/current/telegram-membership",
+      ownerToken,
+    );
+    expect(linkedPresentation.json()).toEqual({
+      link: { kind: "linked" },
+      membership: { kind: "unavailable" },
+    });
+    expect(JSON.stringify(linkedPresentation.json())).not.toMatch(
+      /accountId|checkedAt|evidence|issuer|subject|telegramIdentity|username|validUntil/iu,
+    );
   });
 
   test("authenticates durable evidence ingestion and applies no business state on rejection", async () => {
@@ -225,7 +274,7 @@ describe("Telegram Membership API", () => {
   });
 
   function authenticated(
-    method: "POST",
+    method: "GET" | "POST",
     url: string,
     token: string,
   ) {

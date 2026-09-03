@@ -6,7 +6,7 @@ import type {
   UpdateMemberProfileInput,
   UpdateMemberProfileResult,
 } from "../model/update-member-profile";
-import { parsePrivateProfile } from "./member-profile-contract";
+import { parsePrivateProfile } from "@/entities/member-profile";
 
 const resultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("saved"), profile: z.unknown() }).strict(),

@@ -40,6 +40,56 @@ export const telegramLinkStateSchema = z
     ]),
   })
   .strict();
+const accountLinkRetrySchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("confirm"), linkRef: z.uuid() }).strict(),
+  z.object({ kind: z.literal("refresh") }).strict(),
+]);
+const accountLinkRecoverySchema = z
+  .object({ kind: z.literal("support"), url: z.url().optional() })
+  .strict();
+const accountTelegramLinkStateSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("unlinked") }).strict(),
+  z
+    .object({
+      expiresAt: z.iso.datetime({ offset: true }),
+      kind: z.literal("linking"),
+      linkRef: z.uuid(),
+    })
+    .strict(),
+  z.object({ kind: z.literal("linked") }).strict(),
+  z
+    .object({ kind: z.literal("conflict"), supportUrl: z.url().optional() })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("retryable"),
+      reason: z.enum(["expired", "replayed"]),
+    })
+    .strict(),
+  z
+    .object({ kind: z.literal("unavailable"), retry: accountLinkRetrySchema })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("recovery-required"),
+      recovery: accountLinkRecoverySchema,
+    })
+    .strict(),
+]);
+const accountMembershipStateSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("active") }).strict(),
+  z
+    .object({ acquisitionUrl: z.url(), kind: z.literal("inactive") })
+    .strict(),
+  z.object({ kind: z.literal("stale") }).strict(),
+  z.object({ kind: z.literal("unavailable") }).strict(),
+]);
+export const accountTelegramMembershipPresentationSchema = z
+  .object({
+    link: accountTelegramLinkStateSchema,
+    membership: accountMembershipStateSchema,
+  })
+  .strict();
 export const evidenceAcceptanceSchema = z.discriminatedUnion("outcome", [
   z
     .object({
@@ -95,6 +145,14 @@ export function throwTelegramLinkError(
 ): never {
   const status = telegramLinkFailureStatus(result.error.code);
   throw problem(status, result.error.code, "Telegram link request failed");
+}
+
+export function throwTelegramAccountPresentationError(): never {
+  throw problem(
+    503,
+    "unavailable",
+    "Account Membership presentation is unavailable",
+  );
 }
 
 export function throwEvidenceError(

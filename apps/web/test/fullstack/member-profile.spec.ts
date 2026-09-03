@@ -5,11 +5,109 @@ import { deflateSync } from "node:zlib";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type BrowserContext } from "@playwright/test";
 
+test("shows private Account Telegram and Membership presentation without disclosure", async ({
+  context,
+  page,
+}, testInfo) => {
+  await addFullStackSession(context, "FULLSTACK_LOGTO_SESSION");
+
+  const accountStateResponse = await page.request.get("/api/account");
+  expect(accountStateResponse.status()).toBe(200);
+  const accountState = (await accountStateResponse.json()) as {
+    readonly telegramMembership?: unknown;
+  };
+  expect(accountState.telegramMembership).toEqual({
+    link: { kind: "unlinked" },
+    membership: {
+      acquisitionUrl:
+        process.env.FULLSTACK_MEMBERSHIP_ACQUISITION_URL ?? "https://t.me/tribute",
+      kind: "inactive",
+    },
+  });
+
+  const account = await page.goto("/account");
+  expect(account?.status()).toBe(200);
+  const onboarding = page.getByRole("dialog", { name: "Подключите Telegram" });
+  await expect(onboarding).toBeVisible();
+  const onboardingPanel = onboarding.getByRole("region", {
+    name: "Подключите Telegram",
+  });
+  await expect(onboardingPanel.getByText("Подключите Telegram")).toBeVisible();
+  await expect(
+    onboardingPanel.getByRole("button", { name: "Подключить Telegram" }),
+  ).toBeVisible();
+  await expect(onboardingPanel).not.toContainText(/Доступ|Membership|Получить доступ/u);
+  await expect(onboardingPanel).not.toContainText(
+    /accountId|checkedAt|evidence|issuer|subject|telegramIdentity|username|validUntil/u,
+  );
+  await expect(onboardingPanel).not.toContainText(
+    /\d{1,2}[.:]\d{2}|\d{4}-\d{2}-\d{2}/u,
+  );
+
+  const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-122");
+  const reviewDirectory = resolve(process.cwd(), "../../.impeccable/review");
+  await mkdir(evidenceDirectory, { recursive: true });
+  await mkdir(reviewDirectory, { recursive: true });
+  const viewportName = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
+  await page.screenshot({
+    path: resolve(evidenceDirectory, `onboarding-unlinked-${viewportName}.png`),
+  });
+  await page.screenshot({
+    path: resolve(reviewDirectory, `issue-122-onboarding-unlinked-${viewportName}.png`),
+  });
+
+  const onboardingAccessibility = await new AxeBuilder({ page })
+    .include("dialog[aria-labelledby='telegram-onboarding-heading']")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(
+    onboardingAccessibility.violations.filter(
+      ({ impact }) => impact === "serious" || impact === "critical",
+    ),
+  ).toEqual([]);
+  const onboardingOverflow = await onboarding.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(onboardingOverflow.scrollWidth).toBeLessThanOrEqual(
+    onboardingOverflow.clientWidth,
+  );
+
+  await onboarding
+    .getByRole("button", { name: "Закрыть подключение Telegram" })
+    .click();
+  await expect(onboarding).toHaveCount(0);
+  const accessPanel = page.locator(
+    "section[aria-labelledby='inside-access-heading']",
+  );
+  await accessPanel.screenshot({
+    path: resolve(evidenceDirectory, `account-unlinked-${viewportName}.png`),
+  });
+  await accessPanel.screenshot({
+    path: resolve(reviewDirectory, `issue-122-account-unlinked-${viewportName}.png`),
+  });
+
+  const accessibility = await new AxeBuilder({ page })
+    .include("section[aria-labelledby='inside-access-heading']")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(
+    accessibility.violations.filter(
+      ({ impact }) => impact === "serious" || impact === "critical",
+    ),
+  ).toEqual([]);
+  const overflow = await accessPanel.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+});
+
 test("creates or edits the Account Profile and preserves the member projection", async ({
   context,
   page,
 }, testInfo) => {
-  await addFullStackSession(context);
+  await addFullStackSession(context, "FULLSTACK_LOGTO_MEMBER_SESSION");
 
   const profileStateResponse = await page.request.get("/api/account/profile");
   expect(profileStateResponse.status()).toBe(200);
@@ -19,6 +117,12 @@ test("creates or edits the Account Profile and preserves the member projection",
   const profileKind = profileState.state?.kind;
   const account = await page.goto("/account");
   expect(account?.status()).toBe(200);
+  const onboarding = page.getByRole("dialog", { name: "Подключите Telegram" });
+  await expect(onboarding).toBeVisible();
+  await onboarding
+    .getByRole("button", { name: "Закрыть подключение Telegram" })
+    .click();
+  await expect(onboarding).toHaveCount(0);
   const nameInput = page.getByRole("textbox", { exact: true, name: "Имя" });
   if (profileKind === "missing") {
     await nameInput.fill("Кирилл Сачков");
@@ -139,11 +243,14 @@ test("creates or edits the Account Profile and preserves the member projection",
 
 });
 
-async function addFullStackSession(context: BrowserContext) {
+async function addFullStackSession(
+  context: BrowserContext,
+  sessionName: "FULLSTACK_LOGTO_MEMBER_SESSION" | "FULLSTACK_LOGTO_SESSION",
+) {
   const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const session = process.env.FULLSTACK_LOGTO_MEMBER_SESSION;
+  const session = process.env[sessionName];
   if (cookieName === undefined || session === undefined) {
-    throw new Error("Full-stack member Logto session fixture is missing");
+    throw new Error(`Full-stack Logto session fixture ${sessionName} is missing`);
   }
   await context.addCookies([
     {
