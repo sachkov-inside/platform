@@ -36,6 +36,14 @@ func executeCompose(
 	if err := os.Mkdir(outputDirectory, 0o700); err != nil {
 		return nil, fmt.Errorf("create evaluator output directory: %w", err)
 	}
+	if err := prepareComposeDirectories(
+		ctx,
+		options,
+		repositoryDirectory,
+		outputDirectory,
+	); err != nil {
+		return nil, err
+	}
 	projectName := composeProjectName(manifest.AssignmentID)
 	environment := []string{
 		"INSIDE_WORKSHOP_OUTPUT_DIR=" + outputDirectory,

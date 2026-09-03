@@ -252,9 +252,12 @@ func (command *recordingCommands) Run(
 	environment []string,
 	_ io.Writer,
 	_ io.Writer,
-	_ string,
+	name string,
 	arguments ...string,
 ) error {
+	if name == "icacls.exe" {
+		return nil
+	}
 	if containsArgument(arguments, "down") {
 		command.mutex.Lock()
 		command.cleanupCalls++
