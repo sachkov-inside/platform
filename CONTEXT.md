@@ -125,7 +125,7 @@ _Avoid_: Task, exercise, challenge
 
 **Case Variant**:
 One supported technology-specific form of a Production Case that preserves the same observable
-learning contract while using its own starter baseline and evaluator adapter.
+learning contract while using its own starter baseline and evaluation assets.
 _Avoid_: Separate Case, generated port, Platform stack
 
 **WorkshopEntitlement**:

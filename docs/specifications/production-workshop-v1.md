@@ -42,6 +42,7 @@ cross-repository решения остаются в Workspace. Product brief и 
 - immutable Attempt для exact pushed default-branch HEAD и independently fetched source archive;
 - `Passed` либо `Needs work`, unlimited later Attempts с operational limits;
 - solution reveal после первой genuine Attempt либо explicit early reveal с warning;
+- явный handoff в configured Telegram season/community без Platform comments или chat;
 - desktop/mobile/accessibility/error-state acceptance.
 
 ### Не входит
@@ -65,7 +66,8 @@ cross-repository решения остаются в Workspace. Product brief и 
    подтверждённую связь.
 4. Account выбирает Case Variant и один раз начинает Assignment.
 5. Platform асинхронно создаёт private repository, помещает exact starter baseline, добавляет
-   связанного GitHub user с `push` access и показывает invite/ready state.
+   связанного GitHub user с `push` access и показывает invite/ready state. После диагностируемого
+   failure learner явно повторяет provisioning того же Assignment, а не получает silent duplicate.
 6. Learner принимает invitation, клонирует repository и запускает pinned command для своей OS.
 7. Evaluator проверяет Git/Docker/environment, получает short-lived Platform session через
    device-style flow, запускает required public scenarios и отправляет bounded report.
@@ -78,6 +80,8 @@ cross-repository решения остаются в Workspace. Product brief и 
 12. После любого genuine Attempt exact solution открывается автоматически. Learner также может
     открыть его до Attempt отдельным warned action без штрафа.
 13. Следующий pushed commit и новый report создают новый Attempt; прошлый не переписывается.
+14. Case и Assignment surfaces дают configured handoff в Telegram season/community; Platform не
+    создаёт внутренние comments, chat или обязательный Telegram step.
 
 Ни один шаг не требует branch naming, tags, commit-message convention, ручного ввода SHA или
 GitHub Actions workflow в Assignment repository.
@@ -181,9 +185,10 @@ or authority for `Passed`.
 | Attempt Result | terminal `needs_work` or `passed` |
 | Solution Reveal | `locked → revealed`; never reverses for the same Account/case version |
 
-One Attempt Draft creates at most one Attempt. One `(Assignment, commitSha, reportDigest)` creates at
-most one Attempt under an idempotency constraint. Retrying a source fetch or result transaction
-returns the same identity.
+One Attempt Draft creates at most one Attempt. One `(Assignment, commitSha)` creates at most one
+Attempt under an idempotency constraint; a different report for an already attempted source
+revision requires a new pushed commit. Retrying a source fetch or result transaction returns the
+same identity.
 
 ## 6. Beta access and expiry
 
@@ -289,6 +294,9 @@ Provisioning is a durable `pg-boss` operation in `workshop-operations-worker`:
 Provider timeout is unknown, not success. Retry first reads by stored operation identity and
 repository metadata before creating anything. A partial repository is adopted only if its marker
 matches the Assignment; otherwise the operation stops for owner support rather than guessing.
+`Retry provisioning` is an explicit authenticated mutation on the same Assignment. It is available
+only after a typed `unavailable` outcome, reuses the original idempotency identity and returns to
+`ready` only after the full provider read-back succeeds.
 
 The first credentialed acceptance must prove least privilege in the real organization. The App
 must not obtain administration access to unrelated Platform/Workspace repositories. If GitHub
@@ -310,6 +318,8 @@ Submission always resolves current `main` HEAD through the installation adapter.
 - streamed archive stays within limits and its SHA-256 is computed before persistence.
 
 Mutable repository name/URL and learner-provided branch/SHA are never authority.
+The resolved repository/commit/tree are stored when the learner confirms; a later push does not
+invalidate that submitted revision while its exact archive is being fetched.
 
 ## 10. Evaluator authorization and CLI distribution
 
@@ -370,6 +380,10 @@ Any accepted failed required scenario yields `needs_work`. Schema/binding/stale-
 failures reject or leave the submitted Attempt retryable; they are not converted into
 `needs_work`, because no valid evaluated Attempt exists yet.
 
+A retry with the same draft/idempotency key returns the same Attempt. A newly evaluated report for
+an already attempted commit returns `source_revision_already_attempted`; learner pushes a new commit
+before creating the next Attempt.
+
 The UI always shows case/variant, short SHA, evaluation time, each required scenario, bounded
 diagnostic and trust label «Локальные проверки». It never calls `Passed` verified authorship,
 certification or independent remote verification.
@@ -406,21 +420,21 @@ Production routes are:
 - `/workshop` — access state, one-case catalog and current Assignment/last result;
 - `/workshop/cases/[caseSlug]` — whole problem context, prerequisites, variants and start action;
 - `/workshop/assignments/[assignmentId]` — repository, preflight, current HEAD, report/Attempt,
-  diagnostics, hints and solution state;
+  diagnostics, hints, solution state and optional Telegram handoff;
 - `/account` — compact GitHub link state in the existing private Account surface;
 - `/workshop/evaluator/authorize` — authenticated device-code confirmation;
 - exact Materials continue to use their canonical reader route.
 
 Server-rendered reads use the existing server-only backend transport. Every interactive write uses
-one named mutation through same-origin BFF: link GitHub, start Assignment, approve evaluator,
-confirm Attempt, reveal hint and reveal solution. No universal Workshop proxy or browser-to-Nest
-address is introduced.
+one named mutation through same-origin BFF: link GitHub, start Assignment, retry provisioning,
+approve evaluator, confirm Attempt, reveal hint and reveal solution. No universal Workshop proxy
+or browser-to-Nest address is introduced.
 
 Required presentation states include:
 
 - sign-in required, access required/expired and beta unavailable;
 - GitHub unlinked, authorization pending, linked, conflict and revoked;
-- Assignment provisioning, invitation pending, ready, unavailable and archived;
+- Assignment provisioning, invitation pending, ready, unavailable with explicit retry and archived;
 - unsupported host/tooling, HEAD not pushed, GitHub HEAD differs and provider unavailable;
 - evaluator authorization pending/expired, running guidance and report ready;
 - Attempt submitted/processing, `Needs work`, `Passed` and retryable source failure;
@@ -432,6 +446,8 @@ desktop/mobile review, but this specification introduces no replacement visual d
 ## 14. Concurrency, idempotency and recovery
 
 - At most one active provisioning operation exists per Assignment.
+- Provisioning retry reuses the same Assignment/operation identity and first reads remote state;
+  it never creates a second repository after an ambiguous provider response.
 - At most one non-expired Attempt Draft exists per Assignment/Account at a time; starting another
   explicitly expires the previous draft.
 - A draft accepts one report digest. Exact retry returns the receipt; different bytes are rejected.
@@ -537,12 +553,12 @@ decomposition. Candidate lanes are intentionally vertical:
 
 | Lane | Observable result | Dependencies | Stopping condition |
 |---|---|---|---|
-| A. Workshop access, case publication and protected Materials | Eligible beta Account opens the published Case and only allowed Materials; direct solution URL fails closed | — | owner grant, publish, access/reveal matrix and first responsive case surface pass |
-| B. GitHub link and managed Assignment | Linked Account starts one variant and receives a ready private repository with exact starter baseline | A | credentialed least-privilege proof, idempotent provisioning and failure recovery pass |
-| C. Versioned contracts and Go evaluator | Pinned CLI performs preflight/public scenarios and submits a bound report on three real supported hosts | A | shared corpus plus macOS/Linux/Windows runtime evidence pass; owner may accept Go ADR |
-| D. Partner Webhooks variant parity | C# and Python starter/author solutions pass the same complete observable conformance corpus | C | private case-source release validates both variants and all declared scenarios |
-| E. Exact-source Attempt and result/reveal | Learner confirms current pushed commit, gets `Needs work`/`Passed`, reveals solution and retries | B, C, D | positive/negative Attempt matrix and immutable source retention path pass |
-| F. Aggregate beta acceptance | One beta Account completes the full journey without manual repository repair | A–E | desktop/mobile/a11y evidence, provider smoke, support/metrics read-back and owner acceptance pass |
+| A. Workshop foundation and protected Materials | Enabling: grant, immutable CaseSpec publication mechanics and direct-URL reveal policy work through a synthetic fixture | — | grant/publication idempotency plus ContentAccess/reveal matrix pass; converges in E/F |
+| B. GitHub link and managed Assignment | Enabling: linked Account provisions one fixture Assignment and can explicitly recover a failed operation | A | credentialed least-privilege proof, idempotent provisioning and failure recovery pass; converges in E/F |
+| C. Versioned contracts and Go evaluator | Enabling: pinned CLI performs preflight/public scenarios and submits a bound report on three real supported hosts | — | shared corpus plus macOS/Linux/Windows runtime evidence pass; owner may accept Go ADR; converges in E/F |
+| D. Partner Webhooks variant parity | Enabling: C# and Python starter/author solutions pass the same complete observable conformance corpus | C | private case-source candidate validates both variants and all declared scenarios; converges in E/F |
+| E. Published Case, exact-source Attempt and result/reveal | User-visible: eligible learner opens the real Case, provisions either variant, confirms current pushed commit, gets `Needs work`/`Passed`, reveals solution and retries | A, B, C, D | actual Case publication plus positive/negative Attempt journey and immutable source retention path pass |
+| F. Aggregate beta acceptance | User-visible: one beta Account completes the full journey and optional Telegram handoff without manual repository repair | E | desktop/mobile/a11y evidence, provider smoke, support/metrics read-back and owner acceptance pass |
 
 Enabling lanes B–D name E/F as their convergence. They must not claim the Workshop is delivered
 alone. No horizontal tickets for generic database, generic GitHub wrapper or generic UI system are
