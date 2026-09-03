@@ -1,6 +1,6 @@
 # Issue 265 — Workshop evaluator macOS arm64 smoke
 
-Captured from clean implementation commit `4b1db8edfad469e27f67ae2eb7226792fd7e7515` on 2026-09-03
+Captured from clean implementation commit `b898b0c929b92b92299e495b66e01c9eb213bb62` on 2026-09-03
 after the shared contract and Go race checks passed. The evidence-only commit containing this record
 does not change the tested evaluator source.
 
@@ -24,7 +24,7 @@ Native evaluator smoke passed on darwin/arm64 with one schema-valid report and b
 ```
 
 The tested `workshop-evaluator` was version `0.1.0-beta.1` with SHA-256
-`a73ca502133d3a5af93776106dc2244429562ff2f2a9865cc8d8d69c23d51a88`.
+`c12969dd6329218eaf2738ff951d37197531805a80b91165f2be4b7b4694f8eb`.
 
 The smoke used a digest-pinned synthetic container, read its participant fixture through the
 read-only repository mount, completed the versioned device/report exchange, accepted exactly one
