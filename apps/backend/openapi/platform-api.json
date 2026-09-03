@@ -8083,7 +8083,8 @@
                       "access": {
                         "enum": [
                           "free",
-                          "membership"
+                          "membership",
+                          "workshop"
                         ],
                         "type": "string"
                       },
@@ -9755,7 +9756,8 @@
                         "access": {
                           "enum": [
                             "free",
-                            "membership"
+                            "membership",
+                            "workshop"
                           ],
                           "type": "string"
                         },
@@ -10629,7 +10631,8 @@
                       "access": {
                         "enum": [
                           "free",
-                          "membership"
+                          "membership",
+                          "workshop"
                         ],
                         "type": "string"
                       },
@@ -12070,7 +12073,8 @@
                         "access": {
                           "enum": [
                             "free",
-                            "membership"
+                            "membership",
+                            "workshop"
                           ],
                           "type": "string"
                         },
@@ -14594,7 +14598,8 @@
                   "access": {
                     "enum": [
                       "free",
-                      "membership"
+                      "membership",
+                      "workshop"
                     ],
                     "type": "string"
                   },
@@ -14624,7 +14629,8 @@
                     "access": {
                       "enum": [
                         "free",
-                        "membership"
+                        "membership",
+                        "workshop"
                       ],
                       "type": "string"
                     },
@@ -15064,7 +15070,8 @@
                   "access": {
                     "enum": [
                       "free",
-                      "membership"
+                      "membership",
+                      "workshop"
                     ],
                     "type": "string"
                   },
@@ -15114,7 +15121,8 @@
                         "access": {
                           "enum": [
                             "free",
-                            "membership"
+                            "membership",
+                            "workshop"
                           ],
                           "type": "string"
                         },
@@ -17494,7 +17502,8 @@
                     "access": {
                       "enum": [
                         "free",
-                        "membership"
+                        "membership",
+                        "workshop"
                       ],
                       "type": "string"
                     },
@@ -17962,7 +17971,8 @@
                     "access": {
                       "enum": [
                         "free",
-                        "membership"
+                        "membership",
+                        "workshop"
                       ],
                       "type": "string"
                     },
@@ -19755,7 +19765,8 @@
                           "access": {
                             "enum": [
                               "free",
-                              "membership"
+                              "membership",
+                              "workshop"
                             ],
                             "type": "string"
                           },
@@ -20214,7 +20225,8 @@
                           "access": {
                             "enum": [
                               "free",
-                              "membership"
+                              "membership",
+                              "workshop"
                             ],
                             "type": "string"
                           },
@@ -20801,7 +20813,8 @@
                           "access": {
                             "enum": [
                               "free",
-                              "membership"
+                              "membership",
+                              "workshop"
                             ],
                             "type": "string"
                           },
@@ -21388,7 +21401,8 @@
                           "access": {
                             "enum": [
                               "free",
-                              "membership"
+                              "membership",
+                              "workshop"
                             ],
                             "type": "string"
                           },
@@ -23343,7 +23357,8 @@
                             "access": {
                               "enum": [
                                 "free",
-                                "membership"
+                                "membership",
+                                "workshop"
                               ],
                               "type": "string"
                             },
@@ -23559,7 +23574,8 @@
                             "access": {
                               "enum": [
                                 "free",
-                                "membership"
+                                "membership",
+                                "workshop"
                               ],
                               "type": "string"
                             },

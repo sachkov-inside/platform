@@ -53,7 +53,7 @@ export const MATERIAL_CONTENT = Symbol("MATERIAL_CONTENT");
 const accessFactsRowSchema = z.object({
   id: z.uuid(),
   publicationState: z.enum(["draft", "published", "unpublished"]),
-  access: z.enum(["free", "membership"]),
+  access: z.enum(["free", "membership", "workshop"]),
   contentVersion: z.bigint(),
   primaryVideoId: z.uuid().nullable(),
 });

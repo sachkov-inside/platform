@@ -117,7 +117,9 @@ export function assembleMaterialAssetDelivery(dependencies: {
       }
       const ttlSeconds = signedGetTtlSeconds(
         dependencies.signedGetTtlSeconds,
-        access.reason === "active_membership" ? access.validUntil : undefined,
+        access.reason === "active_membership" || access.reason === "active_workshop"
+          ? access.validUntil
+          : undefined,
       );
       if (ttlSeconds === null) return notFound();
       let location: string;

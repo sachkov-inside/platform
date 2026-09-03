@@ -7,8 +7,8 @@ import type {
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import {
   lockMaterialForLifecycleChange,
-  lockMaterialReferenceChanges,
 } from "../../infrastructure/postgres/material-locks.js";
+import { lockMaterialReferenceChanges } from "../../../../infrastructure/prisma/index.js";
 import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import {
@@ -81,7 +81,7 @@ export function assembleDeleteDraft(
           rollback,
           async () => {
             await lockMaterialSeries(transaction, command.materialId);
-            await lockMaterialReferenceChanges(transaction, command.materialId);
+            await lockMaterialReferenceChanges(transaction, [command.materialId]);
             const material = await lockMaterialForLifecycleChange(
               transaction,
               command.materialId,

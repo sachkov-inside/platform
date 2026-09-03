@@ -69,6 +69,14 @@ const videoTables = [
   "videos",
   "webhook_inbox",
 ] as const;
+const workshopTables = [
+  "case_materials",
+  "case_versions",
+  "cases",
+  "entitlements",
+  "hint_reveals",
+  "solution_reveals",
+] as const;
 
 const legacyMigrations = [
   { name: materialsMigrationName, statement: materialsMigrationStatement },
@@ -145,6 +153,9 @@ describe("Platform migrations", () => {
         "0018_durable_video_upload_attempts",
         "0019_content_collections",
         "0020_safe_video_deletion",
+        "0021_workshop_material_access",
+        "0022_workshop_video_access",
+        "0023_workshop_foundation",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -165,6 +176,7 @@ describe("Platform migrations", () => {
     );
     await expectTables(testDatabase, "assets", assetTables);
     await expectTables(testDatabase, "videos", videoTables);
+    await expectTables(testDatabase, "workshop", workshopTables);
 
     const functions = await testDatabase.prisma.$queryRaw<
       readonly { readonly schema: string }[]
@@ -189,7 +201,8 @@ describe("Platform migrations", () => {
         and source_schema.nspname in (
           'materials',
           'membership_entitlements',
-          'telegram_membership'
+          'telegram_membership',
+          'workshop'
         )
         and source_schema.nspname <> target_schema.nspname
     `);
@@ -212,7 +225,7 @@ describe("Platform migrations", () => {
   test("backfills conservative immutable Video origin from durable upload evidence", async () => {
     const database = await createTestDatabase();
     try {
-      await runMigrationsToLatest(database.url, platformMigrations.slice(0, -1));
+      await runMigrationsToLatest(database.url, platformMigrations.slice(0, -4));
       await database.prisma.$executeRaw(Prisma.sql`
         insert into videos.videos (
           id, material_id, created_by, access, project_id, provider_video_id,
@@ -273,7 +286,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  });
+  }, 15_000);
 
   test("moves the visible published revision into the current Material", async () => {
     const database = await createTestDatabase();
@@ -552,6 +565,9 @@ describe("Platform migrations", () => {
           "0018_durable_video_upload_attempts",
           "0019_content_collections",
           "0020_safe_video_deletion",
+          "0021_workshop_material_access",
+          "0022_workshop_video_access",
+          "0023_workshop_foundation",
         ],
       });
 
@@ -701,11 +717,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 21, repeat('0', 64))
+        values ('9999_unknown', 24, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 21",
+        "Migration ledger is not an exact registry prefix at position 24",
       );
     } finally {
       await database.dispose();
@@ -741,7 +757,8 @@ async function expectTables(
     | "member_profiles"
     | "membership_entitlements"
     | "telegram_membership"
-    | "videos",
+    | "videos"
+    | "workshop",
   expected: readonly string[],
 ): Promise<void> {
   const tables = await database.prisma.$queryRaw<

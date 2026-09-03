@@ -72,6 +72,44 @@ describe("Video playback authorization", () => {
     }));
   });
 
+  test("treats a Workshop video as protected and reauthorizes its provider callback", async () => {
+    const authorize = vi.fn().mockResolvedValue({
+      decidedAt: now.toISOString(),
+      effect: "allow",
+      reason: "active_workshop",
+    });
+    const playback = assembleVideoPlayback({
+      clock: () => now,
+      contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
+      jwtSecret: "test-playback-secret-with-at-least-32-characters",
+      jwtTtlSeconds: 60,
+      videos: videoDependencies("workshop"),
+    });
+
+    const session = await playback.createSession({
+      correlationId: "workshop-playback-request",
+      materialId,
+      subject: { accountId: account, kind: "account" },
+      videoId,
+    });
+    if (!session.ok || session.value.drmAuthToken === null) {
+      throw new Error("Workshop token missing");
+    }
+    await expect(
+      playback.authorizeProvider({
+        providerVideoId: "provider-video",
+        token: session.value.drmAuthToken,
+      }),
+    ).resolves.toBe(true);
+    expect(authorize).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        enforcementPoint: "video_authorization_callback",
+        subject: { accountId: account, kind: "account" },
+      }),
+    );
+  });
+
   test("keeps public anonymous playback tokenless and denies before loading protected facts", async () => {
     const authorize = vi.fn()
       .mockResolvedValueOnce({ decidedAt: now.toISOString(), effect: "allow", reason: "public_resource" })
@@ -136,7 +174,7 @@ describe("Video playback authorization", () => {
   });
 });
 
-function videoDependencies(access: "free" | "membership") {
+function videoDependencies(access: "free" | "membership" | "workshop") {
   return {
     loadPlayback: vi.fn().mockResolvedValue({
       ok: true,

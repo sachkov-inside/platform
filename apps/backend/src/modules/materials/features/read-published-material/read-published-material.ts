@@ -79,6 +79,7 @@ export async function readPublishedMaterial(
       });
       if (access.effect === "deny") {
         if (
+          projection.access === "workshop" ||
           access.reason === "resource_not_found" ||
           access.reason === "resource_unpublished"
         ) {

@@ -1,6 +1,6 @@
 # Production Workshop v1 application specification
 
-Статус: proposed repository-local contract для
+Статус: accepted repository-local contract для
 [Platform #258](https://github.com/sachkov-inside/platform/issues/258), основанный на принятой
 [Workspace specification #98](https://github.com/sachkov-inside/workspace/issues/98) и её
 [tests-only amendment](https://github.com/sachkov-inside/workspace/pull/104).

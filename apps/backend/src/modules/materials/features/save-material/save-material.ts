@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import {
   type MaterialsPrismaTransaction,
+  lockMaterialReferenceChanges,
 } from "../../../../infrastructure/prisma/index.js";
 
 import type {
@@ -34,7 +35,7 @@ import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
 import { requestVideoDeletion } from "../../../videos/index.js";
-import { lockMaterialForLifecycleChange, lockMaterialReferenceChanges } from "../../infrastructure/postgres/material-locks.js";
+import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
 import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
@@ -127,7 +128,7 @@ export function assembleSaveMaterial(
               command.materialId,
               selection.value.toValues().seriesIds,
             );
-            await lockMaterialReferenceChanges(transaction, command.materialId);
+            await lockMaterialReferenceChanges(transaction, [command.materialId]);
             const locked = await lockMaterialForLifecycleChange(
               transaction,
               command.materialId,
@@ -145,6 +146,32 @@ export function assembleSaveMaterial(
               });
             }
             const selectedValues = selection.value.toValues();
+            if (
+              locked.access === "workshop" &&
+              selectedValues.access !== "workshop"
+            ) {
+              const protection =
+                await dependencies.workshopMaterialProtection?.resolve(
+                  command.materialId,
+                ) ?? "unavailable";
+              if (protection === "unavailable") {
+                return rollback({
+                  code: "dependency_unavailable",
+                  retryable: true,
+                });
+              }
+              if (protection === "protected") {
+                return rollback({
+                  code: "invalid_reference",
+                  issues: [
+                    {
+                      code: "workshop_material_access_change_forbidden",
+                      path: "/metadata/access",
+                    },
+                  ],
+                });
+              }
+            }
             const slug =
               locked.lifecycle.slug ??
               (command.publicationState === "published" && selectedValues.title !== null
@@ -319,7 +346,7 @@ async function replacePublishedProjections(
     readonly materialId: string;
     readonly contentVersion: number;
     readonly metadata: {
-      readonly access: "free" | "membership";
+      readonly access: "free" | "membership" | "workshop";
       readonly formatId: string;
       readonly seriesMemberships: readonly {
         readonly seriesId: string;

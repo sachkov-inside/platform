@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 
 import { z } from "zod";
 
-import { Prisma } from "../../../../infrastructure/prisma/index.js";
+import {
+  lockAccountEntitlementChanges,
+  Prisma,
+} from "../../../../infrastructure/prisma/index.js";
 import type {
   MembershipEntitlementsPrismaClient,
   MembershipEntitlementsPrismaTransaction,
@@ -127,6 +130,7 @@ export async function acceptMembershipEvidence(
   const retainUntil = addDays(now, EVIDENCE_RECEIPT_RETENTION_DAYS);
 
   return prisma.$transaction(async (transaction) => {
+    await lockAccountEntitlementChanges(transaction, command.accountId);
     const inserted = await transaction.$executeRaw(Prisma.sql`
       insert into membership_entitlements.evidence_receipts (
         delivery_id,

@@ -4,12 +4,14 @@ import type { MaterialBodyOperations } from "../../domain/material-body/material
 import type { AuthorPolicy } from "../../ports/author-policy.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import type { Videos } from "../../../videos/index.js";
+import type { WorkshopMaterialProtection } from "../../../workshop/index.js";
 
 export interface MaterialAuthoringDependencies {
   readonly prisma: MaterialsPrismaClient;
   readonly materialBodyOperations: MaterialBodyOperations;
   readonly authorPolicy: AuthorPolicy;
   readonly contentAccess: ContentAccess;
+  readonly workshopMaterialProtection?: WorkshopMaterialProtection;
   readonly materialAssets?: Pick<
     MaterialAssets,
     "inspectReferences" | "loadPresentations" | "markUnreferenced"

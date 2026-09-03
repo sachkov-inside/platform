@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["accounts", "assets", "materials", "member_profiles", "membership_entitlements", "telegram_membership", "videos"]
+  schemas  = ["accounts", "assets", "materials", "member_profiles", "membership_entitlements", "telegram_membership", "videos", "workshop"]
 }
 
 model Account {
@@ -152,6 +152,114 @@ model MembershipProjection {
 
   @@map("current_projections")
   @@schema("membership_entitlements")
+}
+
+model WorkshopEntitlement {
+  id                 String   @id @db.Uuid
+  accountId          String   @map("account_id") @db.Uuid
+  workshopScope      String   @map("workshop_scope") @db.VarChar(128)
+  startsAt           DateTime @map("starts_at") @db.Timestamptz
+  validUntil         DateTime @map("valid_until") @db.Timestamptz
+  grantSource        String   @map("grant_source") @db.VarChar(64)
+  grantedBy          String   @map("granted_by") @db.Uuid
+  idempotencyKey     String   @map("idempotency_key") @db.VarChar(200)
+  requestFingerprint String   @map("request_fingerprint") @db.Char(64)
+  createdAt          DateTime @map("created_at") @db.Timestamptz
+
+  @@unique([grantedBy, idempotencyKey], map: "workshop_entitlements_idempotency_unique")
+  @@index([accountId, workshopScope, validUntil(sort: Desc)], map: "workshop_entitlements_access_idx")
+  @@map("entitlements")
+  @@schema("workshop")
+}
+
+model WorkshopCase {
+  id               String               @id @db.Uuid
+  slug             String               @unique(map: "workshop_cases_slug_unique") @db.VarChar(120)
+  workshopScope    String               @map("workshop_scope") @db.VarChar(128)
+  lifecycle        String
+  currentVersionId String?              @unique(map: "workshop_cases_current_version_unique") @map("current_version_id") @db.Uuid
+  createdAt        DateTime             @map("created_at") @db.Timestamptz
+  updatedAt        DateTime             @map("updated_at") @db.Timestamptz
+  currentVersion   WorkshopCaseVersion? @relation("WorkshopCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  versions         WorkshopCaseVersion[] @relation("WorkshopCaseVersions")
+
+  @@map("cases")
+  @@schema("workshop")
+}
+
+model WorkshopCaseVersion {
+  id                     String                 @id @db.Uuid
+  caseId                 String                 @map("case_id") @db.Uuid
+  caseVersion            String                 @map("case_version") @db.VarChar(128)
+  schemaVersion          String                 @map("schema_version") @db.VarChar(128)
+  caseSpec               Json                   @map("case_spec")
+  contentDigest          String                 @map("content_digest") @db.Char(64)
+  sourceRepository       String                 @map("source_repository") @db.VarChar(256)
+  sourceCommit           String                 @map("source_commit") @db.Char(40)
+  artifacts              Json
+  publicationFingerprint String                 @map("publication_fingerprint") @db.Char(64)
+  publishedBy            String                 @map("published_by") @db.Uuid
+  idempotencyKey         String                 @map("idempotency_key") @db.VarChar(200)
+  publishedAt            DateTime               @map("published_at") @db.Timestamptz
+  withdrawnAt            DateTime?              @map("withdrawn_at") @db.Timestamptz
+  workshopCase           WorkshopCase           @relation("WorkshopCaseVersions", fields: [caseId], references: [id], onDelete: Restrict)
+  currentFor             WorkshopCase?          @relation("WorkshopCurrentVersion")
+  materials              WorkshopCaseMaterial[]
+  hintReveals            WorkshopHintReveal[]
+  solutionReveals        WorkshopSolutionReveal[]
+
+  @@unique([caseId, caseVersion], map: "workshop_case_versions_domain_version_unique")
+  @@unique([sourceRepository, sourceCommit, contentDigest], map: "workshop_case_versions_source_unique")
+  @@unique([publishedBy, idempotencyKey], map: "workshop_case_versions_idempotency_unique")
+  @@map("case_versions")
+  @@schema("workshop")
+}
+
+model WorkshopCaseMaterial {
+  caseVersionId String              @map("case_version_id") @db.Uuid
+  materialId    String              @map("material_id") @db.Uuid
+  role          String
+  ordinal       Int
+  releasePolicy String              @map("release_policy")
+  hintKey       String?             @map("hint_key") @db.VarChar(128)
+  caseVersion   WorkshopCaseVersion @relation(fields: [caseVersionId], references: [id], onDelete: Restrict)
+
+  @@id([caseVersionId, materialId], map: "workshop_case_materials_primary")
+  @@unique([caseVersionId, ordinal], map: "workshop_case_materials_ordinal_unique")
+  @@map("case_materials")
+  @@schema("workshop")
+}
+
+model WorkshopHintReveal {
+  id                 String              @id @db.Uuid
+  accountId          String              @map("account_id") @db.Uuid
+  caseVersionId      String              @map("case_version_id") @db.Uuid
+  hintKey            String              @map("hint_key") @db.VarChar(128)
+  idempotencyKey     String              @map("idempotency_key") @db.VarChar(200)
+  requestFingerprint String              @map("request_fingerprint") @db.Char(64)
+  revealedAt         DateTime            @map("revealed_at") @db.Timestamptz
+  caseVersion        WorkshopCaseVersion @relation(fields: [caseVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([accountId, caseVersionId, hintKey], map: "workshop_hint_reveals_identity_unique")
+  @@unique([accountId, idempotencyKey], map: "workshop_hint_reveals_idempotency_unique")
+  @@map("hint_reveals")
+  @@schema("workshop")
+}
+
+model WorkshopSolutionReveal {
+  id                 String              @id @db.Uuid
+  accountId          String              @map("account_id") @db.Uuid
+  caseVersionId      String              @map("case_version_id") @db.Uuid
+  reason             String
+  idempotencyKey     String              @map("idempotency_key") @db.VarChar(200)
+  requestFingerprint String              @map("request_fingerprint") @db.Char(64)
+  revealedAt         DateTime            @map("revealed_at") @db.Timestamptz
+  caseVersion        WorkshopCaseVersion @relation(fields: [caseVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([accountId, caseVersionId], map: "workshop_solution_reveals_identity_unique")
+  @@unique([accountId, idempotencyKey], map: "workshop_solution_reveals_idempotency_unique")
+  @@map("solution_reveals")
+  @@schema("workshop")
 }
 
 model TelegramLinkTransaction {

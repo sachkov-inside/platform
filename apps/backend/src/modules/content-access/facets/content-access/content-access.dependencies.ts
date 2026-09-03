@@ -4,11 +4,12 @@ import type {
   MembershipEntitlements as MembershipEntitlementsModule,
 } from "../../../membership-entitlements/index.js";
 import type { MaterialId } from "../../../materials/index.js";
+import type { WorkshopMaterialAccess } from "../../../workshop/index.js";
 
 export interface MaterialResourceFacts {
   readonly materialId: MaterialId;
   readonly publicationState: "draft" | "published" | "unpublished";
-  readonly access: "free" | "membership";
+  readonly access: "free" | "membership" | "workshop";
   readonly contentVersion: number;
   readonly primaryVideoId: string | null;
 }
@@ -34,7 +35,7 @@ export interface AssetResourceFactsAdapter {
 export interface VideoResourceFacts {
   readonly videoId: string;
   readonly materialId: MaterialId;
-  readonly access: "free" | "membership";
+  readonly access: "free" | "membership" | "workshop";
 }
 
 export interface VideoResourceFactsAdapter {
@@ -58,6 +59,7 @@ export interface ContentAccessDependencies {
   readonly materialResourceFacts: MaterialResourceFactsAdapter;
   readonly accountPermissions: AccountPermissions;
   readonly membershipEntitlements: MembershipEntitlements;
+  readonly workshopMaterialAccess?: WorkshopMaterialAccess;
   readonly clock?: () => Date;
   readonly decisionId?: () => string;
 }

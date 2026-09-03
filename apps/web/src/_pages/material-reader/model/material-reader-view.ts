@@ -5,7 +5,7 @@ export type ReaderText = RenderedText;
 export type ReaderBlock = RenderedBlock;
 
 export interface MaterialReaderMetadata {
-  readonly access: "free" | "membership";
+  readonly access: "free" | "membership" | "workshop";
   readonly contentVersion: number;
   readonly format: { readonly name: string; readonly slug: string };
   readonly materialId: string;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const videoAccessSchema = z.enum(["free", "membership"]);
+export const videoAccessSchema = z.enum(["free", "membership", "workshop"]);
 export const videoOriginSchema = z.enum(["external_attachment", "platform_upload"]);
 export const videoStateSchema = z.enum([
   "uploading",
