@@ -7,6 +7,7 @@ isolated full-stack checks passed.
 | --- | --- | --- |
 | Post-sign-in Telegram onboarding | [`onboarding-unlinked-desktop.png`](./onboarding-unlinked-desktop.png) | [`onboarding-unlinked-mobile.png`](./onboarding-unlinked-mobile.png) |
 | Live authenticated `/account` access block | [`account-unlinked-desktop.png`](./account-unlinked-desktop.png) | [`account-unlinked-mobile.png`](./account-unlinked-mobile.png) |
+| Access-required related materials | [`access-related-desktop.png`](./access-related-desktop.png) | [`access-related-mobile.png`](./access-related-mobile.png) |
 | Linked active / rejoined | [`active-rejoined-desktop.png`](./active-rejoined-desktop.png) | — |
 | Linking | [`linking-desktop.png`](./linking-desktop.png) | — |
 | Conflict → support | [`conflict-desktop.png`](./conflict-desktop.png) | — |
@@ -29,6 +30,8 @@ isolated full-stack checks passed.
   evidence, Membership timestamps or audit/security data.
 - The isolated full-stack smoke exercised the authenticated Web BFF through real Next/Nest HTTP and
   PostgreSQL. The access block has no serious/critical axe findings or horizontal overflow.
+- The access-required reader keeps related Materials in two columns on desktop and one column on
+  mobile; the third desktop card starts the next row.
 - Sixteen Account Storybook cases cover unlinked, linking, linked member/non-member, conflict,
   stale, unavailable, separately typed safe retry and unsafe recovery, page loading/error and
   mobile composition. The interaction journey exercises Begin, immediate bot launch, automatic
