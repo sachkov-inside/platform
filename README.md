@@ -120,21 +120,23 @@ is an explicit destructive reset.
 ## Production delivery baseline
 
 The versioned release pipeline builds the exact current `main`, reruns CI, publishes public backend
-and web GHCR images, and records the next ordinal `vN` in a small immutable manifest. Release
-consumers identify images by digest, never by a moving tag.
+and web GHCR images, and records the next ordinal `vN` in an immutable manifest plus versioned
+runtime bundle. Release consumers identify images and deployment files by digest, never by a moving
+tag or a server checkout.
 
-The current production Compose file remains the deliberately small runtime baseline before CD. It
-builds API and web from the checked-out source, runs migrations once, uses one database account and
-lets Compose create its default network. Caddy is the public entry point. Manifest-selected
-deployment, separate database roles, explicit networks and automated rollback are intentionally
-not implemented yet.
+The manual production workflow queues deploy/rollback commands, rechecks the immutable release and
+streams it through a forced `inside-deploy` SSH command. The host serializes operations, drains old
+workers, runs forward migrations for deploy, proves readiness and read-only smoke, then records the
+exact version/schema state before restoring public Caddy routes. Rollback is manual, changes no
+database state and is available for 24 hours only with exact previous-image schema evidence.
 
 ```bash
 pnpm compose:production:smoke
 ```
 
 See the [production delivery runbook](docs/runbooks/production-delivery.md) for the topology,
-release command, manifest contract, runtime configuration and remaining deployment boundary.
+release/deploy commands, manifest contract, runtime configuration, failure recovery and rollback
+boundary.
 
 For migrations, integration tests, manual database inspection and reset procedures, see the
 [local development runbook](docs/runbooks/local-development.md). Version policy and current

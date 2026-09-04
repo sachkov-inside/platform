@@ -27,16 +27,18 @@ defaults apply only when `NODE_ENV` is `development` or `test`. Missing `NODE_EN
 | `.env` | no | developer-specific local overrides | host processes and Compose host ports |
 | `config/compose/local/*.env` | yes | safe container-only development values | local Compose services |
 | `config/compose/production/*.env.example` | yes | production names and placeholders by owner | server setup reference |
-| `config/compose/production/*.env` | no, server only | production values and secrets by owner | production Compose services |
+| `/etc/inside/runtime/*.env` | no, server only | production values and secrets by owner | production Compose services |
+| `/var/lib/inside/deployments/release-environments/*.env` | no, generated | manifest-selected release and source identity | production Compose services |
 
-The production files are copied manually before the first start, kept outside Git and restricted
-to their owner. `compose.env` configures the Compose project, exact image digests, network names and
-loopback ports. `runtime.env` binds every application process to one release ordinal and source SHA.
+The server-owned production files are copied manually before the first start, kept outside Git and
+restricted to `root:root` mode `0600`. `compose.env` configures only the stable Compose project,
+network names and loopback ports. The deployment state machine derives exact image digests,
+release ordinal and source SHA from the verified manifest and writes a separate generated env file.
 `migrations.env`, `api.env`, `mcp.env`, `material-assets-worker.env`,
 `profile-avatars-worker.env`, `video-deletions-worker.env` and `web.env` are passed only to their
 owning services. PostgreSQL, Logto and Caddy configuration belong to the separate production
-foundation. Later deployment work automates secure application delivery without adding secrets to
-Git or images.
+foundation. Deployment does not rewrite or print server-owned configuration and never adds secrets
+to Git, images, manifests or journals.
 
 Do not add `.env.development` or `.env.test`. Local defaults and explicit test fixtures keep those
 modes deterministic. Do not bake application runtime secrets into a Docker image or pass them as
@@ -53,7 +55,7 @@ load the remaining files:
 
 ```bash
 docker compose \
-  --env-file config/compose/production/compose.env \
+  --env-file /etc/inside/runtime/compose.env \
   --file compose.production.yaml \
   config --quiet
 ```
@@ -72,19 +74,19 @@ during the image build. The web process reads server-only values when its contai
 
 | Group | Examples | Owner |
 | --- | --- | --- |
-| Release identity | `PLATFORM_RELEASE_VERSION`, `PLATFORM_SOURCE_SHA` | `runtime.env` and process startup validation |
+| Release identity | `PLATFORM_RELEASE_VERSION`, `PLATFORM_SOURCE_SHA` | generated manifest environment and process startup validation |
 | API | `DATABASE_URL`, Logto verifier, Telegram, Object Storage and Kinescope values | `PlatformConfig` |
 | MCP | database, MCP endpoint, Logto verifier, content access, Object Storage and Kinescope values | `PlatformConfig` and `McpConfig` |
 | Material/Profile workers | database and Object Storage values | per-process `PlatformConfig` validation |
 | Video deletion worker | database and Kinescope values | per-process `PlatformConfig` validation |
 | Web server/BFF | `BACKEND_BASE_URL`, Logto app and cookie values, `WEB_BASE_URL` | `WebRuntimeConfig` |
 | Database foundation | PostgreSQL, Logto database and pgBackRest values | `config/production/foundation/` |
-| Deployment transport | future SSH host, user, key and known hosts | future protected CI/CD environment |
+| Deployment transport | SSH host, restricted user/key and pinned host keys | protected GitHub Environment `Production` |
 
 When introducing a variable, add it to the owning Zod schema, typed config object, focused parser
 tests, relevant Compose service and tracked example. Do not make an unrelated worker require that
-group. Put the real production value only in the server-owned environment file until deployment
-introduces the encrypted delivery flow.
+group. Put the real production value only in the server-owned environment file; deployment consumes
+that file in place and never transports it through GitHub.
 
 Kinescope defaults to the deterministic `test` adapter only in development/test. Production
 requires `KINESCOPE_PROVIDER_MODE=real`, distinct public and membership project IDs, a server-only

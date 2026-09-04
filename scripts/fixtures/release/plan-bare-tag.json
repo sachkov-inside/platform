@@ -7,7 +7,7 @@
     {
       "version": "v1",
       "immutable": true,
-      "assets": ["release-manifest.json"]
+      "assets": ["release-manifest.json", "production-runtime.tar.gz"]
     }
   ]
 }

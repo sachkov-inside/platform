@@ -1,0 +1,410 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 3 || ! "$1" =~ ^(deploy|rollback)$ || ! "$2" =~ ^v[1-9][0-9]*$ || ! "$3" =~ ^[1-9][0-9]*$ ]]; then
+  echo "usage: deploy-release <deploy|rollback> <vN> <github-run-id>" >&2
+  exit 1
+fi
+operation="$1"
+version="$2"
+github_run_id="$3"
+
+if [[ -n "${INSIDE_DEPLOY_TEST_ROOT:-}" ]]; then
+  if [[ "$EUID" -eq 0 ]]; then
+    echo "Test root is forbidden for a root process" >&2
+    exit 1
+  fi
+  host_root="${INSIDE_DEPLOY_TEST_ROOT%/}"
+else
+  if [[ "$EUID" -ne 0 ]]; then
+    echo "deploy-release must run as root" >&2
+    exit 1
+  fi
+  host_root=""
+  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  export PATH
+fi
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+release_dir="$(cd "$script_dir/../.." && pwd)"
+manifest="$release_dir/release-manifest.json"
+compose_file="$release_dir/runtime/compose.production.yaml"
+config_dir="$host_root/etc/inside/runtime"
+state_dir="$host_root/var/lib/inside/deployments"
+runtime_dir="$host_root/srv/inside/runtime"
+state_file="$state_dir/state.json"
+operation_file="$state_dir/operation.json"
+release_env_dir="$state_dir/release-environments"
+phase=preflight
+completed=false
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
+
+write_private_file_atomically() {
+  local destination="$1"
+  local temporary="${destination}.tmp.$$"
+  cat >"$temporary"
+  chmod 600 "$temporary"
+  mv "$temporary" "$destination"
+}
+
+write_operation() {
+  local status="$1"
+  local operation_phase="$2"
+  jq --null-input \
+    --arg schemaVersion inside.platform.deployment-operation.v1 \
+    --arg status "$status" \
+    --arg operation "$operation" \
+    --arg version "$version" \
+    --arg phase "$operation_phase" \
+    --arg recordedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --argjson githubRunId "$github_run_id" \
+    '{
+      schemaVersion: $schemaVersion,
+      status: $status,
+      operation: $operation,
+      version: $version,
+      phase: $phase,
+      githubRunId: $githubRunId,
+      recordedAt: $recordedAt
+    }' | write_private_file_atomically "$operation_file"
+}
+
+on_exit() {
+  local status=$?
+  trap - EXIT
+  if ((status != 0)) && [[ "$completed" != true ]]; then
+    write_operation failed "$phase" || true
+  fi
+  exit "$status"
+}
+trap on_exit EXIT
+
+fail_if_requested() {
+  local requested_phase="$1"
+  if [[ -n "${INSIDE_DEPLOY_TEST_ROOT:-}" && "${INSIDE_DEPLOY_FAIL_PHASE:-}" == "$requested_phase" ]]; then
+    echo "Injected deployment failure at $requested_phase" >&2
+    return 1
+  fi
+}
+
+now_epoch() {
+  if [[ -n "${INSIDE_DEPLOY_TEST_ROOT:-}" && "${INSIDE_DEPLOY_TEST_NOW_EPOCH:-}" =~ ^[1-9][0-9]*$ ]]; then
+    printf '%s\n' "$INSIDE_DEPLOY_TEST_NOW_EPOCH"
+  else
+    date -u +%s
+  fi
+}
+
+format_epoch() {
+  local epoch="$1"
+  date -u -r "$epoch" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null ||
+    date -u -d "@$epoch" +%Y-%m-%dT%H:%M:%SZ
+}
+
+compose_env_value() {
+  local name="$1"
+  local value
+  value="$(awk -F= -v name="$name" '$1 == name { sub(/^[^=]*=/, ""); print; exit }' "$config_dir/compose.env")"
+  if [[ -z "$value" ]]; then
+    echo "Missing $name in server-owned compose.env" >&2
+    return 1
+  fi
+  printf '%s\n' "$value"
+}
+
+load_release_environment() {
+  local selected_manifest="$1"
+  local backend_image web_image selected_version selected_source selected_schema
+  backend_image="$(jq --raw-output .images.backend "$selected_manifest")"
+  web_image="$(jq --raw-output .images.web "$selected_manifest")"
+  export PLATFORM_BACKEND_IMAGE_REPOSITORY="${backend_image%@sha256:*}"
+  export PLATFORM_BACKEND_IMAGE_DIGEST="${backend_image##*@sha256:}"
+  export PLATFORM_WEB_IMAGE_REPOSITORY="${web_image%@sha256:*}"
+  export PLATFORM_WEB_IMAGE_DIGEST="${web_image##*@sha256:}"
+  selected_version="$(jq --raw-output .version "$selected_manifest")"
+  selected_source="$(jq --raw-output .source.sha "$selected_manifest")"
+  selected_schema="$(jq --raw-output .schema.identity "$selected_manifest")"
+  export PLATFORM_RELEASE_VERSION="$selected_version"
+  export PLATFORM_SOURCE_SHA="$selected_source"
+  export INSIDE_DEPLOY_EXPECTED_SCHEMA="$selected_schema"
+  local selected_env="$release_env_dir/$PLATFORM_RELEASE_VERSION.env"
+  printf 'PLATFORM_RELEASE_VERSION=%s\nPLATFORM_SOURCE_SHA=%s\n' \
+    "$PLATFORM_RELEASE_VERSION" "$PLATFORM_SOURCE_SHA" \
+    | write_private_file_atomically "$selected_env"
+  export PLATFORM_RELEASE_ENV_FILE="$selected_env"
+  export PLATFORM_CONFIG_DIR="$config_dir"
+}
+
+activate_caddy() {
+  local source="$1"
+  local temporary="$runtime_dir/caddy/active.caddy.tmp.$$"
+  install -m 644 "$source" "$temporary"
+  mv "$temporary" "$runtime_dir/caddy/active.caddy"
+  caddy reload --config "$host_root/etc/caddy/Caddyfile" --adapter caddyfile
+}
+
+install -d -m 700 "$state_dir" "$release_env_dir"
+install -d -m 755 "$runtime_dir/caddy"
+write_operation running "$phase"
+
+for name in \
+  compose.env \
+  api.env \
+  material-assets-worker.env \
+  mcp.env \
+  migrations.env \
+  profile-avatars-worker.env \
+  video-deletions-worker.env \
+  web.env; do
+  path="$config_dir/$name"
+  if [[ ! -r "$path" || -L "$path" ]]; then
+    echo "Missing server-owned runtime configuration: $path" >&2
+    exit 1
+  fi
+  if grep -q 'replace-with-' "$path"; then
+    echo "Server-owned runtime configuration still contains a placeholder: $name" >&2
+    exit 1
+  fi
+  if [[ -z "${INSIDE_DEPLOY_TEST_ROOT:-}" ]]; then
+    file_mode="$(stat -c %a "$path")"
+    file_owner="$(stat -c %u "$path")"
+    if [[ "$file_mode" != 600 || "$file_owner" != 0 ]]; then
+      echo "Server-owned runtime configuration must be root-owned mode 0600: $name" >&2
+      exit 1
+    fi
+  fi
+done
+
+manifest_digest="sha256:$(sha256_file "$manifest")"
+bundle_digest="$(jq --raw-output .runtimeBundle.sha256 "$manifest")"
+source_sha="$(jq --raw-output .source.sha "$manifest")"
+schema_identity="$(jq --raw-output .schema.identity "$manifest")"
+backend_image="$(jq --raw-output .images.backend "$manifest")"
+web_image="$(jq --raw-output .images.web "$manifest")"
+
+if [[ -f "$state_file" ]] && ! jq --exit-status '
+  .schemaVersion == "inside.platform.deployment-state.v1" and
+  .status == "succeeded" and
+  (.current.version | test("^v[1-9][0-9]*$")) and
+  (.current.manifestSha256 | test("^sha256:[0-9a-f]{64}$"))
+' "$state_file" >/dev/null; then
+  echo "Deployment state journal is invalid" >&2
+  exit 1
+fi
+
+if [[ "$operation" == deploy && -f "$state_file" && \
+      "$(jq --raw-output .current.version "$state_file")" == "$version" ]]; then
+  if [[ "$(jq --raw-output .current.manifestSha256 "$state_file")" != "$manifest_digest" ]]; then
+    echo "The deployed ordinal has a different immutable manifest" >&2
+    exit 1
+  fi
+  phase=complete
+  write_operation succeeded "$phase"
+  completed=true
+  echo "$version is already deployed; no changes were made."
+  exit 0
+fi
+
+previous_json=null
+rollback_json=null
+rolled_back_from_json=null
+current_epoch="$(now_epoch)"
+if [[ "$operation" == deploy ]]; then
+  target_ordinal="${version#v}"
+  if [[ ! -f "$state_file" ]]; then
+    if [[ "$target_ordinal" -ne 1 || "$(jq --raw-output '.rollback.previous == null' "$manifest")" != true ]]; then
+      echo "The first deployment must be v1 without a previous release" >&2
+      exit 1
+    fi
+  else
+    current_version="$(jq --raw-output .current.version "$state_file")"
+    current_ordinal="${current_version#v}"
+    if [[ "$target_ordinal" -ne $((current_ordinal + 1)) ]]; then
+      echo "A deployment must select the next ordinal after $current_version" >&2
+      exit 1
+    fi
+    previous_json="$(jq --compact-output .current "$state_file")"
+    if ! jq --exit-status \
+      --arg version "$current_version" \
+      --arg sourceSha "$(jq --raw-output .current.sourceSha "$state_file")" \
+      --arg manifestSha256 "$(jq --raw-output .current.manifestSha256 "$state_file")" '
+        .rollback.previous != null and
+        .rollback.previous.version == $version and
+        .rollback.previous.sourceSha == $sourceSha and
+        .rollback.previous.manifestSha256 == $manifestSha256
+      ' "$manifest" >/dev/null; then
+      echo "Candidate manifest does not bind the exact deployed previous release" >&2
+      exit 1
+    fi
+    rollback_json="$(jq --compact-output \
+      '
+        .rollback.previous | {
+          targetVersion: .version,
+          sourceSha,
+          manifestSha256,
+          schemaIdentity,
+          compatible,
+          verifiedByWorkflowRunId
+        }
+      ' "$manifest")"
+  fi
+else
+  if [[ ! -f "$state_file" ]]; then
+    echo "Rollback requires a successful current deployment" >&2
+    exit 1
+  fi
+  if ! jq --exit-status \
+    --arg version "$version" \
+    --arg manifestSha256 "$manifest_digest" \
+    --arg sourceSha "$source_sha" \
+    --arg schemaIdentity "$schema_identity" \
+    --argjson now "$current_epoch" '
+      .rollback != null and
+      .rollback.compatible == true and
+      .rollback.targetVersion == $version and
+      .rollback.manifestSha256 == $manifestSha256 and
+      .rollback.sourceSha == $sourceSha and
+      .rollback.schemaIdentity == $schemaIdentity and
+      .rollback.expiresAtEpochSeconds >= $now and
+      .current.schemaIdentity == $schemaIdentity
+    ' "$state_file" >/dev/null; then
+    echo "Rollback target is unknown, incompatible or expired" >&2
+    exit 1
+  fi
+  rolled_back_from_json="$(jq --compact-output .current "$state_file")"
+fi
+
+fail_if_requested preflight
+load_release_environment "$manifest"
+docker compose --env-file "$config_dir/compose.env" --file "$compose_file" config --quiet
+
+phase=maintenance
+write_operation running "$phase"
+activate_caddy "$release_dir/runtime/caddy/maintenance.caddy"
+
+phase=pull
+write_operation running "$phase"
+docker pull "$backend_image"
+docker pull "$web_image"
+
+phase=workers
+write_operation running "$phase"
+if [[ -f "$state_file" ]]; then
+  old_version="$(jq --raw-output .current.version "$state_file")"
+  old_release_dir="$host_root/srv/inside/releases/$old_version"
+  load_release_environment "$old_release_dir/release-manifest.json"
+  docker compose \
+    --env-file "$config_dir/compose.env" \
+    --file "$old_release_dir/runtime/compose.production.yaml" \
+    stop --timeout 20 \
+    material-assets-worker profile-avatars-worker video-deletions-worker
+fi
+load_release_environment "$manifest"
+
+if [[ "$operation" == deploy ]]; then
+  phase=migrations
+  write_operation running "$phase"
+  fail_if_requested migrations
+  docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
+    run --rm migrations
+fi
+
+phase=start
+write_operation running "$phase"
+docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
+  up --detach --wait --no-deps \
+  api mcp material-assets-worker profile-avatars-worker video-deletions-worker web
+
+phase=readiness
+write_operation running "$phase"
+fail_if_requested readiness
+api_port="$(compose_env_value PLATFORM_API_LOOPBACK_PORT)"
+web_port="$(compose_env_value PLATFORM_WEB_LOOPBACK_PORT)"
+api_readiness="$(curl --fail --silent --show-error "http://127.0.0.1:$api_port/health/ready")"
+web_readiness="$(curl --fail --silent --show-error "http://127.0.0.1:$web_port/_health/ready")"
+for readiness in "$api_readiness" "$web_readiness"; do
+  if ! jq --exit-status \
+    --arg version "$version" \
+    --arg sourceSha "$source_sha" \
+    --arg schemaIdentity "$schema_identity" '
+      .status == "ready" and
+      .release.release == $version and
+      .release.sourceSha == $sourceSha and
+      .schema.identity == $schemaIdentity
+    ' <<<"$readiness" >/dev/null; then
+    echo "Runtime readiness does not match the selected release and schema" >&2
+    exit 1
+  fi
+done
+
+phase=smoke
+write_operation running "$phase"
+fail_if_requested smoke
+curl --fail --silent --show-error "http://127.0.0.1:$web_port/" >/dev/null
+
+phase=routes
+write_operation running "$phase"
+activate_caddy "$release_dir/runtime/caddy/platform.caddy"
+
+successful_epoch="$(now_epoch)"
+deployed_at="$(format_epoch "$successful_epoch")"
+if [[ "$rollback_json" != null ]]; then
+  expires_epoch=$((successful_epoch + 86400))
+  rollback_json="$(jq --compact-output \
+    --arg expiresAt "$(format_epoch "$expires_epoch")" \
+    --argjson expiresAtEpochSeconds "$expires_epoch" '
+      . + {
+        expiresAt: $expiresAt,
+        expiresAtEpochSeconds: $expiresAtEpochSeconds
+      }
+    ' <<<"$rollback_json")"
+fi
+jq --null-input \
+  --arg schemaVersion inside.platform.deployment-state.v1 \
+  --arg operation "$operation" \
+  --arg version "$version" \
+  --arg sourceSha "$source_sha" \
+  --arg backendImage "$backend_image" \
+  --arg webImage "$web_image" \
+  --arg manifestSha256 "$manifest_digest" \
+  --arg bundleSha256 "$bundle_digest" \
+  --arg schemaIdentity "$schema_identity" \
+  --arg deployedAt "$deployed_at" \
+  --argjson deployedAtEpochSeconds "$successful_epoch" \
+  --argjson githubRunId "$github_run_id" \
+  --argjson previous "$previous_json" \
+  --argjson rollback "$rollback_json" \
+  --argjson rolledBackFrom "$rolled_back_from_json" '
+    {
+      schemaVersion: $schemaVersion,
+      status: "succeeded",
+      operation: $operation,
+      current: {
+        version: $version,
+        sourceSha: $sourceSha,
+        backendImage: $backendImage,
+        webImage: $webImage,
+        manifestSha256: $manifestSha256,
+        bundleSha256: $bundleSha256,
+        schemaIdentity: $schemaIdentity,
+        deployedAt: $deployedAt,
+        deployedAtEpochSeconds: $deployedAtEpochSeconds,
+        githubRunId: $githubRunId
+      },
+      previous: $previous,
+      rollback: $rollback,
+      rolledBackFrom: $rolledBackFrom
+    }
+  ' | write_private_file_atomically "$state_file"
+
+phase=complete
+write_operation succeeded "$phase"
+completed=true
+echo "$operation $version completed successfully."

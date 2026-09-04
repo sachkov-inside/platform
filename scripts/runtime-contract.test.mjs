@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import { spawnSync } from "node:child_process";
 
 const manifest = {
-  schemaVersion: "inside.platform.release-manifest.v1",
+  schemaVersion: "inside.platform.release-manifest.v2",
   version: "v3",
   source: {
     repository: "sachkov-inside/platform",
@@ -16,6 +16,13 @@ const manifest = {
     backend: `ghcr.io/sachkov-inside/platform-backend@sha256:${"a".repeat(64)}`,
     web: `ghcr.io/sachkov-inside/platform-web@sha256:${"b".repeat(64)}`,
   },
+  schema: { identity: `sha256:${"c".repeat(64)}` },
+  runtimeBundle: {
+    asset: "production-runtime.tar.gz",
+    sha256: `sha256:${"d".repeat(64)}`,
+  },
+  publication: { workflowRunId: 12345 },
+  rollback: { previous: null },
 };
 
 describe("production runtime manifest contract", () => {

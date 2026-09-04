@@ -1,0 +1,167 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -n "${INSIDE_DEPLOY_TEST_ROOT:-}" ]]; then
+  if [[ "$EUID" -eq 0 ]]; then
+    echo "Test root is forbidden for a root process" >&2
+    exit 1
+  fi
+  host_root="${INSIDE_DEPLOY_TEST_ROOT%/}"
+else
+  if [[ "$EUID" -ne 0 ]]; then
+    echo "inside-deploy must run as root" >&2
+    exit 1
+  fi
+  host_root=""
+  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  export PATH
+fi
+
+host_marker="$host_root/etc/inside/host-provisioned"
+state_dir="$host_root/var/lib/inside/deployments"
+releases_dir="$host_root/srv/inside/releases"
+if [[ "$(cat "$host_marker" 2>/dev/null || true)" != "state=ready" ]]; then
+  echo "Production host is not provisioned and ready" >&2
+  exit 1
+fi
+
+read -r operation version run_id extra <<<"${SSH_ORIGINAL_COMMAND:-}"
+if [[ -n "${extra:-}" || ! "$operation" =~ ^(deploy|rollback)$ || ! "$version" =~ ^v[1-9][0-9]*$ || ! "$run_id" =~ ^[1-9][0-9]*$ ]]; then
+  echo "Rejected restricted command" >&2
+  exit 1
+fi
+
+install -d -m 700 "$state_dir" "$releases_dir"
+lock_dir="$state_dir/operation.lock"
+if ! mkdir "$lock_dir" 2>/dev/null; then
+  lock_pid="$(cat "$lock_dir/pid" 2>/dev/null || true)"
+  if [[ "$lock_pid" =~ ^[1-9][0-9]*$ ]] && kill -0 "$lock_pid" 2>/dev/null; then
+    echo "Another production operation is active" >&2
+    exit 1
+  fi
+  rm -r "$lock_dir"
+  if ! mkdir "$lock_dir" 2>/dev/null; then
+    echo "Another production operation acquired the lock" >&2
+    exit 1
+  fi
+fi
+printf '%s\n' "$$" >"$lock_dir/pid"
+
+incoming_dir="$(mktemp -d "$state_dir/incoming.XXXXXX")"
+cleanup() {
+  local status=$?
+  trap - EXIT
+  if [[ -n "$incoming_dir" && -d "$incoming_dir" ]]; then
+    rm -r "$incoming_dir"
+  fi
+  rm -r "$lock_dir"
+  exit "$status"
+}
+trap cleanup EXIT
+
+dd bs=1048576 count=17 of="$incoming_dir/payload.tar.gz" 2>/dev/null
+if [[ "$(stat -c %s "$incoming_dir/payload.tar.gz" 2>/dev/null || stat -f %z "$incoming_dir/payload.tar.gz")" -gt 16777216 ]]; then
+  echo "Deployment payload exceeds 16 MiB" >&2
+  exit 1
+fi
+payload_entries="$(tar -tzf "$incoming_dir/payload.tar.gz" | LC_ALL=C sort)"
+if [[ "$payload_entries" != $'production-runtime.tar.gz\nrelease-manifest.json' ]]; then
+  echo "Payload must contain only the release manifest and runtime bundle" >&2
+  exit 1
+fi
+tar -C "$incoming_dir" -xzf "$incoming_dir/payload.tar.gz" \
+  release-manifest.json production-runtime.tar.gz
+
+manifest="$incoming_dir/release-manifest.json"
+bundle="$incoming_dir/production-runtime.tar.gz"
+if [[ ! -f "$manifest" || -L "$manifest" || ! -f "$bundle" || -L "$bundle" ]]; then
+  echo "Deployment payload entries must be regular files" >&2
+  exit 1
+fi
+if ! jq --exit-status --arg version "$version" '
+  (keys == ["images", "publication", "rollback", "runtimeBundle", "schema", "schemaVersion", "source", "version"]) and
+  .schemaVersion == "inside.platform.release-manifest.v2" and
+  .version == $version and
+  (.source | keys == ["repository", "sha"]) and
+  .source.repository == "sachkov-inside/platform" and
+  (.source.sha | test("^[0-9a-f]{40}$")) and
+  (.images | keys == ["backend", "web"]) and
+  (.images.backend | test("^ghcr.io/sachkov-inside/platform-backend@sha256:[0-9a-f]{64}$")) and
+  (.images.web | test("^ghcr.io/sachkov-inside/platform-web@sha256:[0-9a-f]{64}$")) and
+  (.schema | keys == ["identity"]) and
+  (.schema.identity | test("^sha256:[0-9a-f]{64}$")) and
+  (.runtimeBundle | keys == ["asset", "sha256"]) and
+  .runtimeBundle.asset == "production-runtime.tar.gz" and
+  (.runtimeBundle.sha256 | test("^sha256:[0-9a-f]{64}$")) and
+  (.publication | keys == ["workflowRunId"]) and
+  (.publication.workflowRunId | type == "number") and
+  .publication.workflowRunId > 0 and
+  (.publication.workflowRunId | floor) == .publication.workflowRunId and
+  (.rollback | keys == ["previous"]) and
+  (
+    .rollback.previous == null or
+    (
+      (.rollback.previous | keys == ["compatible", "manifestSha256", "schemaIdentity", "sourceSha", "verifiedByWorkflowRunId", "version"]) and
+      (.rollback.previous.version | test("^v[1-9][0-9]*$")) and
+      (.rollback.previous.sourceSha | test("^[0-9a-f]{40}$")) and
+      (.rollback.previous.manifestSha256 | test("^sha256:[0-9a-f]{64}$")) and
+      (.rollback.previous.schemaIdentity | test("^sha256:[0-9a-f]{64}$")) and
+      (.rollback.previous.compatible | type == "boolean") and
+      (.rollback.previous.verifiedByWorkflowRunId | type == "number") and
+      .rollback.previous.verifiedByWorkflowRunId > 0 and
+      (.rollback.previous.verifiedByWorkflowRunId | floor) == .rollback.previous.verifiedByWorkflowRunId
+    )
+  )
+' "$manifest" >/dev/null; then
+  echo "Release manifest does not satisfy the production contract" >&2
+  exit 1
+fi
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
+
+expected_bundle_digest="$(jq --raw-output .runtimeBundle.sha256 "$manifest")"
+actual_bundle_digest="sha256:$(sha256_file "$bundle")"
+if [[ "$actual_bundle_digest" != "$expected_bundle_digest" ]]; then
+  echo "Production runtime bundle digest does not match the release manifest" >&2
+  exit 1
+fi
+
+bundle_entries="$(tar -tzf "$bundle" | LC_ALL=C sort)"
+if [[ "$bundle_entries" != $'bin/deploy-release\ncaddy/maintenance.caddy\ncaddy/platform.caddy\ncompose.production.yaml' ]]; then
+  echo "Production runtime bundle contains an unexpected path" >&2
+  exit 1
+fi
+install -d -m 755 "$incoming_dir/runtime"
+tar -C "$incoming_dir/runtime" -xzf "$bundle"
+for path in \
+  bin/deploy-release \
+  caddy/maintenance.caddy \
+  caddy/platform.caddy \
+  compose.production.yaml; do
+  if [[ ! -f "$incoming_dir/runtime/$path" || -L "$incoming_dir/runtime/$path" ]]; then
+    echo "Production runtime bundle entry is not a regular file: $path" >&2
+    exit 1
+  fi
+done
+chmod 755 "$incoming_dir/runtime/bin/deploy-release"
+
+release_dir="$releases_dir/$version"
+if [[ -d "$release_dir" ]]; then
+  if [[ "$(sha256_file "$release_dir/release-manifest.json")" != "$(sha256_file "$manifest")" || \
+        "$(sha256_file "$release_dir/production-runtime.tar.gz")" != "$(sha256_file "$bundle")" ]]; then
+    echo "Refusing to replace an already staged ordinal release" >&2
+    exit 1
+  fi
+else
+  rm "$incoming_dir/payload.tar.gz"
+  mv "$incoming_dir" "$release_dir"
+  incoming_dir=""
+fi
+
+"$release_dir/runtime/bin/deploy-release" "$operation" "$version" "$run_id"

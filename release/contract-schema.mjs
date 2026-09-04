@@ -10,7 +10,11 @@ export const repositoryName = "sachkov-inside/platform";
 export const backendImageName = "ghcr.io/sachkov-inside/platform-backend";
 export const webImageName = "ghcr.io/sachkov-inside/platform-web";
 export const releaseManifestAssetName = "release-manifest.json";
-export const releaseAssetNames = [releaseManifestAssetName];
+export const productionRuntimeBundleAssetName = "production-runtime.tar.gz";
+export const releaseAssetNames = [
+  releaseManifestAssetName,
+  productionRuntimeBundleAssetName,
+];
 export const releaseImageMatrix = [
   {
     kind: "backend",
@@ -52,7 +56,7 @@ const imageReferenceSchema = (imageName) =>
 
 export const releaseManifestSchema = z
   .strictObject({
-    schemaVersion: z.literal("inside.platform.release-manifest.v1"),
+    schemaVersion: z.literal("inside.platform.release-manifest.v2"),
     version: ordinalVersionSchema,
     source: z.strictObject({
       repository: z.literal(repositoryName),
@@ -61,6 +65,29 @@ export const releaseManifestSchema = z
     images: z.strictObject({
       backend: imageReferenceSchema(backendImageName),
       web: imageReferenceSchema(webImageName),
+    }),
+    schema: z.strictObject({
+      identity: sha256IdentitySchema,
+    }),
+    runtimeBundle: z.strictObject({
+      asset: z.literal(productionRuntimeBundleAssetName),
+      sha256: sha256IdentitySchema,
+    }),
+    publication: z.strictObject({
+      workflowRunId: z.number().int().positive(),
+    }),
+    rollback: z.strictObject({
+      previous: z.union([
+        z.null(),
+        z.strictObject({
+          version: ordinalVersionSchema,
+          sourceSha: sourceShaSchema,
+          manifestSha256: sha256IdentitySchema,
+          schemaIdentity: sha256IdentitySchema,
+          compatible: z.boolean(),
+          verifiedByWorkflowRunId: z.number().int().positive(),
+        }),
+      ]),
     }),
   })
   .meta({ title: "Inside Platform ordinal release manifest" });
@@ -86,6 +113,18 @@ export const releaseManifestInputSchema = z.strictObject({
   images: z.strictObject({
     backend: filePathSchema,
     web: filePathSchema,
+  }),
+  schemaIdentity: sha256IdentitySchema,
+  runtimeBundle: filePathSchema,
+  publicationWorkflowRunId: z.number().int().positive(),
+  rollback: z.strictObject({
+    previous: z.union([
+      z.null(),
+      z.strictObject({
+        manifest: filePathSchema,
+        schemaIdentity: sha256IdentitySchema,
+      }),
+    ]),
   }),
 });
 

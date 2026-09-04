@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 
@@ -7,6 +8,7 @@ import {
   backendImageName,
   ordinalVersionSchema,
   parseSchema,
+  productionRuntimeBundleAssetName,
   releaseAssetNames,
   releaseImageMatrix,
   releaseImageResultSchema,
@@ -121,6 +123,7 @@ function planRelease(input) {
     imageMatrix: releaseImageMatrix,
     manifestAssetName: releaseManifestAssetName,
     ordinal,
+    previousVersion: ordinal === 1 ? null : `v${String(ordinal - 1)}`,
     sourceSha: input.sourceSha,
     version: input.requestedVersion,
   };
@@ -138,10 +141,11 @@ async function createManifest(input) {
     webImageName,
     input.sourceSha,
   );
+  const previous = await createPreviousProof(input);
   return parseSchema(
     releaseManifestSchema,
     {
-      schemaVersion: "inside.platform.release-manifest.v1",
+      schemaVersion: "inside.platform.release-manifest.v2",
       version: input.version,
       source: {
         repository: input.repository,
@@ -151,9 +155,67 @@ async function createManifest(input) {
         backend: `${backend.image.name}@${backend.image.digest}`,
         web: `${web.image.name}@${web.image.digest}`,
       },
+      schema: {
+        identity: input.schemaIdentity,
+      },
+      runtimeBundle: {
+        asset: productionRuntimeBundleAssetName,
+        sha256: await sha256File(input.runtimeBundle, "production runtime bundle"),
+      },
+      publication: {
+        workflowRunId: input.publicationWorkflowRunId,
+      },
+      rollback: { previous },
     },
     "release manifest",
   );
+}
+
+async function createPreviousProof(input) {
+  const ordinal = parseOrdinalVersion(input.version);
+  if (input.rollback.previous === null) {
+    if (ordinal !== 1) {
+      throw new Error(`${input.version} must bind the exact previous release`);
+    }
+    return null;
+  }
+  if (ordinal === 1) {
+    throw new Error("v1 cannot declare a previous release");
+  }
+
+  const previousText = await readText(
+    input.rollback.previous.manifest,
+    "previous release manifest",
+  );
+  const previous = parseSchema(
+    releaseManifestSchema,
+    parseJson(previousText, "previous release manifest"),
+    "previous release manifest",
+  );
+  if (parseOrdinalVersion(previous.version) !== ordinal - 1) {
+    throw new Error(
+      `${input.version} must follow ${previous.version} without an ordinal gap`,
+    );
+  }
+  if (input.rollback.previous.schemaIdentity !== previous.schema.identity) {
+    throw new Error("previous backend image does not match its manifest schema identity");
+  }
+  return {
+    version: previous.version,
+    sourceSha: previous.source.sha,
+    manifestSha256: sha256(previousText),
+    schemaIdentity: previous.schema.identity,
+    compatible: input.schemaIdentity === previous.schema.identity,
+    verifiedByWorkflowRunId: input.publicationWorkflowRunId,
+  };
+}
+
+async function sha256File(path, label) {
+  return sha256(await readBytes(path, label));
+}
+
+function sha256(value) {
+  return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }
 
 async function readImageResult(path, imageName, sourceSha) {
@@ -169,13 +231,22 @@ async function readImageResult(path, imageName, sourceSha) {
 }
 
 async function readJson(path, label) {
-  let text;
-  try {
-    text = await readFile(path, "utf8");
-  } catch {
-    throw new Error(`${label} is missing`);
-  }
+  return parseJson(await readText(path, label), label);
+}
 
+async function readText(path, label) {
+  return readFile(path, "utf8").catch(() => {
+    throw new Error(`${label} is missing`);
+  });
+}
+
+async function readBytes(path, label) {
+  return readFile(path).catch(() => {
+    throw new Error(`${label} is missing`);
+  });
+}
+
+function parseJson(text, label) {
   try {
     return JSON.parse(text);
   } catch {

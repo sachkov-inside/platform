@@ -1,9 +1,13 @@
 {
-  "version": "v3",
+  "version": "v1",
   "sourceSha": "3333333333333333333333333333333333333333",
   "repository": "sachkov-inside/platform",
   "images": {
     "backend": "scripts/fixtures/release/manifest/backend.image.json",
     "web": "scripts/fixtures/release/manifest/web.image.json"
-  }
+  },
+  "schemaIdentity": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "runtimeBundle": "scripts/fixtures/release/production-runtime.tar.gz",
+  "publicationWorkflowRunId": 12345,
+  "rollback": { "previous": null }
 }

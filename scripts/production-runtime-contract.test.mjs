@@ -69,10 +69,15 @@ function assertRuntimeContract(files) {
   );
   assert.match(files.compose, /image: \$\{PLATFORM_BACKEND_IMAGE_REPOSITORY:[^}]+\}@sha256:\$\{PLATFORM_BACKEND_IMAGE_DIGEST:/u);
   assert.match(files.compose, /image: \$\{PLATFORM_WEB_IMAGE_REPOSITORY:[^}]+\}@sha256:\$\{PLATFORM_WEB_IMAGE_DIGEST:/u);
-  assert.match(files.composeEnvironment, /PLATFORM_BACKEND_IMAGE_REPOSITORY=ghcr\.io\/sachkov-inside\/platform-backend/u);
-  assert.match(files.composeEnvironment, /PLATFORM_BACKEND_IMAGE_DIGEST=replace-with-64-lowercase-hex-characters/u);
-  assert.match(files.composeEnvironment, /PLATFORM_WEB_IMAGE_REPOSITORY=ghcr\.io\/sachkov-inside\/platform-web/u);
-  assert.match(files.composeEnvironment, /PLATFORM_WEB_IMAGE_DIGEST=replace-with-64-lowercase-hex-characters/u);
+  assert.doesNotMatch(
+    files.composeEnvironment,
+    /PLATFORM_(?:BACKEND|WEB)_IMAGE_(?:REPOSITORY|DIGEST)/u,
+  );
+  assert.equal(
+    files.compose.match(/\$\{PLATFORM_RELEASE_ENV_FILE:[^}]+\}/gu)?.length,
+    7,
+  );
+  assert.doesNotMatch(files.compose, /PLATFORM_CONFIG_DIR:[^}]+\}\/runtime\.env/u);
   assert.doesNotMatch(files.compose, /^ {2}(?:postgres|caddy):$/mu);
   assert.match(files.compose, /database:\n {4}external: true\n {4}name: \$\{FOUNDATION_DATABASE_NETWORK:/u);
   assert.match(files.compose, /application:\n {4}internal: true/u);

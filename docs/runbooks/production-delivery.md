@@ -1,9 +1,10 @@
 # Production delivery
 
 Platform separates immutable release publication from production deployment. The release workflow
-publishes a small manifest and two digest-addressed images. The runtime consumes only those exact
-digests; it does not build from a server checkout and does not select a moving tag. Host transport,
-deployment serialization and rollback automation belong to the later deployment ticket.
+publishes a closed manifest, a versioned runtime bundle and two digest-addressed images. The deploy
+workflow consumes only those exact assets; it does not build from a server checkout or select a
+moving tag. GitHub queues production commands, while the host keeps the final exclusive lock and
+the successful/failed operation journal.
 
 The [production VPS preparation kit](production-foundation.md) owns the long-lived PostgreSQL,
 Logto, backup and system Caddy foundation. This runbook owns the application runtime layered on top
@@ -35,32 +36,23 @@ PostgreSQL is not published. API, MCP and web bind only to `127.0.0.1` on the ho
 every runtime process use the same non-superuser `platform` database credential. The application
 runtime does not create another database role.
 
-## Select and configure a release
+## Server-owned configuration
 
-Download the immutable release's `release-manifest.json`, then validate and inspect it:
-
-```bash
-pnpm runtime:plan --manifest /path/to/release-manifest.json > runtime-plan.json
-```
-
-The command accepts only the closed release-manifest schema and emits the version, source SHA and
-two exact `name@sha256:...` references. Copy the emitted repository and 64-character digest parts
-into `compose.env`, and the two release values into `runtime.env`; never derive them from `main`,
-an ordinal image tag or a local checkout. Compose inserts the literal `@sha256:` separator, so a
-moving tag cannot satisfy its image reference.
-
-Create each ignored server-owned file from its tracked template before first use, replace every
-placeholder, and keep it mode `0600`:
+Create the server-owned files once under `/etc/inside/runtime`, replace every placeholder and keep
+them owned by `root:root` with mode `0600`. Copy all tracked templates except `runtime.env.example`:
 
 ```bash
 for template in config/compose/production/*.env.example; do
-  install -m 600 "$template" "${template%.example}"
+  [[ "$(basename "$template")" == runtime.env.example ]] && continue
+  target="/etc/inside/runtime/$(basename "${template%.example}")"
+  sudo install -m 600 -o root -g root "$template" "$target"
 done
 ```
 
-`compose.env` contains Compose interpolation only: exact backend/web images, project/network names
-and loopback ports. `runtime.env` contains the selected release ordinal and source SHA. The other
-files are delivered only to their named processes:
+`compose.env` contains only the stable Compose project, network names and loopback ports. The deploy
+command generates release identity and exact image variables from the selected manifest under
+`/var/lib/inside/deployments`; it never rewrites `/etc/inside/runtime`. The other server files are
+delivered only to their named processes:
 
 | File | Required configuration |
 |---|---|
@@ -81,46 +73,24 @@ The release ordinal and source SHA are also embedded in each image at build time
 values with that file and exits on any mismatch. The image identity is not read from overridable
 container environment. Runtime secrets are never image build arguments.
 
-## Validate and start
+## Deployment order and state
 
-Pull the exact digests explicitly, then validate Compose without printing expanded secrets:
+The forced SSH command accepts only `deploy vN <run-id>` or `rollback vN <run-id>` and a streamed
+payload containing exactly `release-manifest.json` and `production-runtime.tar.gz`. It verifies the
+closed manifest, bundle digest and paths before staging an ordinal under `/srv/inside/releases`.
+An existing ordinal can be reused only with byte-identical assets.
 
-```bash
-set -a
-. config/compose/production/compose.env
-set +a
-backend_image="${PLATFORM_BACKEND_IMAGE_REPOSITORY}@sha256:${PLATFORM_BACKEND_IMAGE_DIGEST}"
-web_image="${PLATFORM_WEB_IMAGE_REPOSITORY}@sha256:${PLATFORM_WEB_IMAGE_DIGEST}"
-docker pull "$backend_image"
-docker pull "$web_image"
-docker compose \
-  --env-file config/compose/production/compose.env \
-  --file compose.production.yaml \
-  config --quiet
-```
+One deployment executes this order: host/config preflight, maintenance route, exact image pulls,
+old worker drain, migrations, candidate processes, release/schema readiness, read-only web smoke,
+public routes, successful journal write. `rollback` uses the same order without migrations. A
+failure before maintenance leaves the previous route active; a later failure leaves maintenance
+active and records its phase for an exact retry or repair forward.
 
-Before changing a release, stop and drain all old workers. This is a required handoff boundary:
-
-```bash
-docker compose \
-  --env-file config/compose/production/compose.env \
-  --file compose.production.yaml \
-  stop --timeout 20 \
-  material-assets-worker profile-avatars-worker video-deletions-worker
-```
-
-Only after all three old containers have stopped may the candidate stack start:
-
-```bash
-docker compose \
-  --env-file config/compose/production/compose.env \
-  --file compose.production.yaml \
-  up --detach --wait
-```
-
-Compose runs migrations before starting dependent processes. Worker shutdown removes readiness,
-stops `pg-boss` gracefully and releases its process-specific PostgreSQL advisory lease. A concurrent
-generation cannot acquire that lease and exits; it does not create overlapping consumers.
+`/var/lib/inside/deployments/state.json` records current and previous version, source SHA, image and
+bundle digests, schema identity, successful time and GitHub run. `operation.json` records the last
+phase and success/failure without configuration values. The server-owned lock rejects overlapping
+operations even if a caller bypasses the GitHub queue. Worker shutdown removes readiness, drains
+`pg-boss` and releases its process-specific advisory lease before a new generation starts.
 
 ## Readiness and routing
 
@@ -167,6 +137,34 @@ migrations have completed, return to the previous application manifest only when
 compatibility evidence is green. Otherwise keep the database and repair forward. Provider failure
 uses the affected feature's disable/recovery path, not a global application rollback.
 
+The release workflow derives schema identity from the exact candidate backend digest. Starting with
+`v2`, it also reads the exact previous manifest and backend digest. The manifest records compatibility
+only when both images report the same schema identity. This is deliberately conservative: an
+expand-compatible but different schema still requires repair forward until the runtime can prove a
+broader contract. A successful deployment opens its rollback window for 24 hours; `v1`, an unknown
+target, a changed manifest, incompatible evidence or an expired window is rejected.
+
+## Run deployment or rollback
+
+The protected `Production` environment owns `PRODUCTION_SSH_HOST`, `PRODUCTION_SSH_PRIVATE_KEY` and
+`PRODUCTION_SSH_HOST_KEYS`. #244 creates those external settings and the first immutable release.
+To deploy an existing release:
+
+```bash
+gh workflow run deploy.yml --ref main --field operation=deploy --field version=vN
+```
+
+For rollback, `version` is the exact previous target recorded in `state.json`, for example `v1`
+while `v2` is current:
+
+```bash
+gh workflow run deploy.yml --ref main --field operation=rollback --field version=v1
+```
+
+The workflow uses `concurrency.queue: max`, never cancels the active command, and rechecks the
+immutable Release and successful publication run immediately before SSH. A retry uses the same
+operation and version. Do not edit staged release files or either journal by hand.
+
 ## Local production proof
 
 The isolated proof builds candidate images once with embedded synthetic identity, then supplies
@@ -177,18 +175,27 @@ positive/negative route matrix and wrong release/schema failure. A before/after 
 proves that page, route and health smoke creates no application data or provider writes.
 
 ```bash
+node --test \
+  scripts/deployment-workflow-contract.test.mjs \
+  scripts/inside-deploy-gateway.test.mjs \
+  scripts/production-deployment.test.mjs \
+  scripts/production-runtime-bundle.test.mjs \
+  scripts/release-rollback-proof.test.mjs
 pnpm compose:production:smoke
 ```
 
-The proof owns unique Compose projects, networks, ports, volumes and local images and removes them
-on exit. It never uses production credentials or contacts the production host.
+The first command drives `v1 → v2 → retry → rollback` and injected failure phases through a
+temporary host filesystem while replacing only Docker, Caddy and HTTP at their system seams. The
+Compose proof uses real images, PostgreSQL, networks and worker locks. Both own their resources and
+remove them on exit; neither uses production credentials or contacts the production host.
 
 ## Publish the next ordinal release
 
 `.github/workflows/release.yml` remains the sole publication entry point. It captures exact current
 `main`, reuses application CI, embeds the ordinal and source SHA in both images, publishes their
 public GHCR digests, proves anonymous digest access, then creates the immutable GitHub Release with
-only `release-manifest.json`:
+`release-manifest.json` and `production-runtime.tar.gz`. The manifest binds the bundle digest,
+schema identity, successful publication run and exact previous manifest when one exists:
 
 ```bash
 gh workflow run release.yml --ref main --field version=vN

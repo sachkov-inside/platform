@@ -1,0 +1,192 @@
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import {
+  chmodSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { createHash } from "node:crypto";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
+import { describe, it } from "node:test";
+
+describe("inside-deploy forced SSH command", () => {
+  it("stages one verified release and invokes only its bundled command", () => {
+    const fixture = createFixture();
+    try {
+      const result = runGateway(fixture, "deploy v1 101");
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(
+        readFileSync(resolve(fixture.root, "invocation"), "utf8"),
+        "deploy v1 101\n",
+      );
+      assert.equal(
+        readFileSync(
+          resolve(
+            fixture.root,
+            "srv/inside/releases/v1/release-manifest.json",
+          ),
+          "utf8",
+        ),
+        fixture.manifest,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects arbitrary shell commands before reading a payload", () => {
+    const fixture = createFixture();
+    try {
+      const result = runGateway(fixture, "bash -i", "");
+
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /restricted command/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects a runtime bundle changed after manifest creation", () => {
+    const fixture = createFixture();
+    try {
+      writeFileSync(fixture.bundle, "tampered bundle");
+      createEnvelope(fixture);
+      const result = runGateway(fixture, "deploy v1 102");
+
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /bundle digest/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects a second command while the server lock is held", () => {
+    const fixture = createFixture();
+    try {
+      const lock = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.lock",
+      );
+      mkdirSync(lock, { recursive: true });
+      writeFileSync(resolve(lock, "pid"), `${String(process.pid)}\n`);
+
+      const result = runGateway(fixture, "deploy v1 103");
+
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /operation is active/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+});
+
+function createFixture() {
+  const directory = mkdtempSync(resolve(tmpdir(), "inside-deploy-gateway-"));
+  const root = resolve(directory, "host");
+  const payload = resolve(directory, "payload.tar.gz");
+  const bundle = resolve(directory, "production-runtime.tar.gz");
+  mkdirSync(resolve(root, "etc/inside"), { recursive: true });
+  writeFileSync(resolve(root, "etc/inside/host-provisioned"), "state=ready\n");
+
+  const bundleRoot = resolve(directory, "bundle");
+  mkdirSync(resolve(bundleRoot, "bin"), { recursive: true });
+  mkdirSync(resolve(bundleRoot, "caddy"), { recursive: true });
+  writeFileSync(
+    resolve(bundleRoot, "bin/deploy-release"),
+    '#!/usr/bin/env bash\nset -euo pipefail\nprintf "%s %s %s\\n" "$1" "$2" "$3" >"$INSIDE_DEPLOY_TEST_ROOT/invocation"\n',
+  );
+  chmodSync(resolve(bundleRoot, "bin/deploy-release"), 0o755);
+  writeFileSync(resolve(bundleRoot, "caddy/maintenance.caddy"), "maintenance\n");
+  writeFileSync(resolve(bundleRoot, "caddy/platform.caddy"), "platform\n");
+  writeFileSync(resolve(bundleRoot, "compose.production.yaml"), "services: {}\n");
+  const bundleResult = spawnSync(
+    "tar",
+    [
+      "-C",
+      bundleRoot,
+      "-czf",
+      bundle,
+      "bin/deploy-release",
+      "caddy/maintenance.caddy",
+      "caddy/platform.caddy",
+      "compose.production.yaml",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(bundleResult.status, 0, bundleResult.stderr);
+
+  const manifest = `${JSON.stringify({
+    schemaVersion: "inside.platform.release-manifest.v2",
+    version: "v1",
+    source: {
+      repository: "sachkov-inside/platform",
+      sha: "1".repeat(40),
+    },
+    images: {
+      backend: `ghcr.io/sachkov-inside/platform-backend@sha256:${"a".repeat(64)}`,
+      web: `ghcr.io/sachkov-inside/platform-web@sha256:${"b".repeat(64)}`,
+    },
+    schema: { identity: `sha256:${"c".repeat(64)}` },
+    runtimeBundle: {
+      asset: "production-runtime.tar.gz",
+      sha256: sha256(readFileSync(bundle)),
+    },
+    publication: { workflowRunId: 100 },
+    rollback: { previous: null },
+  }, null, 2)}\n`;
+  const fixture = {
+    bundle,
+    cleanup: () => rmSync(directory, { force: true, recursive: true }),
+    directory,
+    manifest,
+    payload,
+    root,
+  };
+  createEnvelope(fixture);
+  return fixture;
+}
+
+function createEnvelope(fixture) {
+  const envelopeRoot = resolve(fixture.directory, "envelope");
+  rmSync(envelopeRoot, { force: true, recursive: true });
+  mkdirSync(envelopeRoot);
+  writeFileSync(resolve(envelopeRoot, "release-manifest.json"), fixture.manifest);
+  writeFileSync(
+    resolve(envelopeRoot, "production-runtime.tar.gz"),
+    readFileSync(fixture.bundle),
+  );
+  const result = spawnSync(
+    "tar",
+    [
+      "-C",
+      envelopeRoot,
+      "-czf",
+      fixture.payload,
+      "release-manifest.json",
+      "production-runtime.tar.gz",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr);
+}
+
+function runGateway(fixture, command, input = readFileSync(fixture.payload)) {
+  return spawnSync("bash", ["infra/production/host/inside-deploy"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      INSIDE_DEPLOY_TEST_ROOT: fixture.root,
+      SSH_ORIGINAL_COMMAND: command,
+    },
+    input,
+  });
+}
+
+function sha256(value) {
+  return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}

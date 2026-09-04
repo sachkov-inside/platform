@@ -1,0 +1,141 @@
+name: Deploy production release
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Deploy the selected release or roll back to it
+        required: true
+        type: choice
+        options:
+          - deploy
+          - rollback
+      version:
+        description: Existing immutable ordinal release (vN)
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: platform-production-deployment
+  queue: max
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: Production
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Verify and download the selected release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPERATION: ${{ inputs.operation }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$OPERATION" == deploy || "$OPERATION" == rollback ]]
+          [[ "$VERSION" =~ ^v[1-9][0-9]*$ ]]
+          release_dir="$RUNNER_TEMP/production-release"
+          mkdir -m 700 "$release_dir"
+          gh release view "$VERSION" \
+            --json assets,isImmutable,tagName,targetCommitish \
+            | jq '{
+                assets: [.assets[].name] | sort,
+                isImmutable,
+                tagName,
+                targetCommitish
+              }' >"$release_dir/release.json"
+          jq --exit-status --arg version "$VERSION" '
+            .isImmutable == true and
+            .tagName == $version and
+            (.assets | index("release-manifest.json") != null) and
+            (.assets | index("production-runtime.tar.gz") != null)
+          ' "$release_dir/release.json" >/dev/null
+          gh release download "$VERSION" \
+            --pattern release-manifest.json \
+            --pattern production-runtime.tar.gz \
+            --dir "$release_dir"
+          jq --exit-status \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg version "$VERSION" '
+              .schemaVersion == "inside.platform.release-manifest.v2" and
+              .version == $version and
+              .source.repository == $repository and
+              (.source.sha | test("^[0-9a-f]{40}$")) and
+              .runtimeBundle.asset == "production-runtime.tar.gz" and
+              (.runtimeBundle.sha256 | test("^sha256:[0-9a-f]{64}$")) and
+              (.publication.workflowRunId | type == "number")
+            ' "$release_dir/release-manifest.json" >/dev/null
+          expected_bundle_sha="$(jq --raw-output '.runtimeBundle.sha256' "$release_dir/release-manifest.json")"
+          actual_bundle_sha="sha256:$(sha256sum "$release_dir/production-runtime.tar.gz" | cut -d' ' -f1)"
+          [[ "$actual_bundle_sha" == "$expected_bundle_sha" ]]
+          source_sha="$(jq --raw-output '.source.sha' "$release_dir/release-manifest.json")"
+          [[ "$(jq --raw-output '.targetCommitish' "$release_dir/release.json")" == "$source_sha" ]]
+          publish_run_id="$(jq --raw-output '.publication.workflowRunId' "$release_dir/release-manifest.json")"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$publish_run_id" \
+            >"$release_dir/publication-run.json"
+          jq --exit-status --arg source_sha "$source_sha" '
+            .conclusion == "success" and
+            .event == "workflow_dispatch" and
+            .head_sha == $source_sha and
+            .path == ".github/workflows/release.yml"
+          ' "$release_dir/publication-run.json" >/dev/null
+          echo "RELEASE_DIR=$release_dir" >>"$GITHUB_ENV"
+
+      - name: Install the restricted SSH identity
+        env:
+          PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+          SSH_HOST_KEYS: ${{ secrets.PRODUCTION_SSH_HOST_KEYS }}
+        run: |
+          set -euo pipefail
+          install -m 600 /dev/null "$RUNNER_TEMP/inside-deploy-key"
+          printf '%s\n' "$PRIVATE_KEY" >"$RUNNER_TEMP/inside-deploy-key"
+          install -m 600 /dev/null "$RUNNER_TEMP/inside-known-hosts"
+          printf '%s\n' "$SSH_HOST_KEYS" >"$RUNNER_TEMP/inside-known-hosts"
+
+      - name: Recheck the selected release after waiting in the queue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          gh release view "$VERSION" \
+            --json assets,isImmutable,tagName,targetCommitish \
+            | jq '{
+                assets: [.assets[].name] | sort,
+                isImmutable,
+                tagName,
+                targetCommitish
+              }' >"$RUNNER_TEMP/rechecked-release.json"
+          cmp "$RELEASE_DIR/release.json" "$RUNNER_TEMP/rechecked-release.json"
+          publish_run_id="$(jq --raw-output '.publication.workflowRunId' "$RELEASE_DIR/release-manifest.json")"
+          source_sha="$(jq --raw-output '.source.sha' "$RELEASE_DIR/release-manifest.json")"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$publish_run_id" \
+            >"$RUNNER_TEMP/rechecked-publication-run.json"
+          jq --exit-status --arg source_sha "$source_sha" '
+            .conclusion == "success" and
+            .event == "workflow_dispatch" and
+            .head_sha == $source_sha and
+            .path == ".github/workflows/release.yml"
+          ' "$RUNNER_TEMP/rechecked-publication-run.json" >/dev/null
+
+      - name: Run the restricted server operation
+        env:
+          OPERATION: ${{ inputs.operation }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          tar -C "$RELEASE_DIR" -czf - \
+            release-manifest.json production-runtime.tar.gz |
+            ssh \
+              -i "$RUNNER_TEMP/inside-deploy-key" \
+              -o BatchMode=yes \
+              -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=yes \
+              -o "UserKnownHostsFile=$RUNNER_TEMP/inside-known-hosts" \
+              "inside-deploy@${{ secrets.PRODUCTION_SSH_HOST }}" \
+              "$OPERATION $VERSION $GITHUB_RUN_ID"

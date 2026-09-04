@@ -33,6 +33,7 @@ describe("release contract CLI", () => {
       ],
       manifestAssetName: "release-manifest.json",
       ordinal: 3,
+      previousVersion: "v2",
       sourceSha: "3333333333333333333333333333333333333333",
       version: "v3",
     });
@@ -99,8 +100,8 @@ describe("release contract CLI", () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(JSON.parse(result.stdout), {
-      schemaVersion: "inside.platform.release-manifest.v1",
-      version: "v3",
+      schemaVersion: "inside.platform.release-manifest.v2",
+      version: "v1",
       source: {
         repository: "sachkov-inside/platform",
         sha: "3333333333333333333333333333333333333333",
@@ -110,6 +111,17 @@ describe("release contract CLI", () => {
           "ghcr.io/sachkov-inside/platform-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         web: "ghcr.io/sachkov-inside/platform-web@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       },
+      schema: {
+        identity:
+          "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      },
+      runtimeBundle: {
+        asset: "production-runtime.tar.gz",
+        sha256:
+          "sha256:1410351722bc79029b917fbd7b55af8d9ae82588d063f924610cc3432ac80c6a",
+      },
+      publication: { workflowRunId: 12345 },
+      rollback: { previous: null },
     });
   });
 
