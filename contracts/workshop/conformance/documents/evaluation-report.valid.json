@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "inside.workshop.evaluation-report.v1",
+  "reportVersion": "1",
+  "assignmentId": "assignment-fixture-1",
+  "caseId": "partner-webhooks",
+  "caseVersion": "partner-webhooks-2026-09-03.1",
+  "variantId": "dotnet",
+  "evaluatorVersion": "0.1.0-beta.1",
+  "commitSha": "1111111111111111111111111111111111111111",
+  "environment": {
+    "os": "darwin",
+    "arch": "arm64",
+    "dockerVersion": "29.0.0",
+    "composeVersion": "2.40.0"
+  },
+  "startedAt": "2026-09-03T12:00:00Z",
+  "finishedAt": "2026-09-03T12:00:05Z",
+  "scenarios": [
+    {
+      "id": "order-api-responsive",
+      "status": "passed",
+      "durationMilliseconds": 1200
+    },
+    {
+      "id": "webhook-retry",
+      "status": "passed",
+      "durationMilliseconds": 3100
+    },
+    {
+      "id": "restart-recovery",
+      "status": "failed",
+      "durationMilliseconds": 700,
+      "diagnostic": {
+        "code": "scenario_failed",
+        "message": "The declared scenario did not pass."
+      }
+    }
+  ]
+}

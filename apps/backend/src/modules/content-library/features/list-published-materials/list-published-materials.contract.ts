@@ -6,7 +6,7 @@ export interface PublishedMaterialCatalogItemDto {
   readonly slug: string;
   readonly title: string;
   readonly summary: string;
-  readonly access: "free" | "membership";
+  readonly access: "free" | "membership" | "workshop";
   readonly availability: "available" | "locked" | "unavailable";
   readonly publishedAt: string;
   readonly topic: {

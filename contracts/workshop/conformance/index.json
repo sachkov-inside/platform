@@ -1,0 +1,144 @@
+{
+  "cases": [
+    {
+      "name": "valid case specification",
+      "target": "case-spec",
+      "document": "documents/case-spec.valid.json",
+      "valid": true
+    },
+    {
+      "name": "valid assignment manifest",
+      "target": "assignment-manifest",
+      "document": "documents/assignment-manifest.valid.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "valid": true
+    },
+    {
+      "name": "valid evaluation report",
+      "target": "evaluation-report",
+      "document": "documents/evaluation-report.valid.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "assignmentManifest": "documents/assignment-manifest.valid.json",
+      "valid": true
+    },
+    {
+      "name": "valid source snapshot",
+      "target": "source-snapshot",
+      "document": "documents/source-snapshot.valid.json",
+      "valid": true
+    },
+    {
+      "name": "duplicate CaseSpec scenario fails closed",
+      "target": "case-spec",
+      "document": "documents/case-spec.duplicate-scenario.json",
+      "valid": false,
+      "expectedCode": "schema_invalid"
+    },
+    {
+      "name": "duplicate Assignment manifest scenario fails closed",
+      "target": "assignment-manifest",
+      "document": "documents/assignment-manifest.duplicate-scenario.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "valid": false,
+      "expectedCode": "schema_invalid"
+    },
+    {
+      "name": "Assignment manifest host matrix mismatch fails closed",
+      "target": "assignment-manifest",
+      "document": "documents/assignment-manifest.host-mismatch.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "valid": false,
+      "expectedCode": "binding_mismatch"
+    },
+    {
+      "name": "unknown scenario fails closed",
+      "target": "evaluation-report",
+      "document": "documents/evaluation-report.unknown-scenario.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "assignmentManifest": "documents/assignment-manifest.valid.json",
+      "valid": false,
+      "expectedCode": "unknown_scenario"
+    },
+    {
+      "name": "duplicate scenario fails closed",
+      "target": "evaluation-report",
+      "document": "documents/evaluation-report.duplicate-scenario.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "assignmentManifest": "documents/assignment-manifest.valid.json",
+      "valid": false,
+      "expectedCode": "duplicate_scenario"
+    },
+    {
+      "name": "forbidden platform status fails closed",
+      "target": "evaluation-report",
+      "document": "documents/evaluation-report.forbidden-platform-status.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "assignmentManifest": "documents/assignment-manifest.valid.json",
+      "valid": false,
+      "expectedCode": "schema_invalid"
+    },
+    {
+      "name": "oversize diagnostic fails closed",
+      "target": "evaluation-report",
+      "document": "documents/evaluation-report.oversize-diagnostic.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "assignmentManifest": "documents/assignment-manifest.valid.json",
+      "valid": false,
+      "expectedCode": "diagnostics_oversize"
+    },
+    {
+      "name": "arbitrary diagnostic message fails closed",
+      "target": "evaluation-report",
+      "document": "documents/evaluation-report.arbitrary-diagnostic.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "assignmentManifest": "documents/assignment-manifest.valid.json",
+      "valid": false,
+      "expectedCode": "schema_invalid"
+    },
+    {
+      "name": "raw case specification bytes exceed the limit",
+      "target": "case-spec",
+      "document": "documents/case-spec.valid.json",
+      "trailingWhitespaceBytes": 1048576,
+      "valid": false,
+      "expectedCode": "case_spec_oversize"
+    },
+    {
+      "name": "raw evaluation report bytes exceed the limit",
+      "target": "evaluation-report",
+      "document": "documents/evaluation-report.valid.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "assignmentManifest": "documents/assignment-manifest.valid.json",
+      "trailingWhitespaceBytes": 262144,
+      "valid": false,
+      "expectedCode": "report_oversize"
+    },
+    {
+      "name": "incompatible case version fails closed",
+      "target": "evaluation-report",
+      "document": "documents/evaluation-report.incompatible-case-version.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "assignmentManifest": "documents/assignment-manifest.valid.json",
+      "valid": false,
+      "expectedCode": "incompatible_version"
+    },
+    {
+      "name": "incompatible evaluator version fails closed",
+      "target": "evaluation-report",
+      "document": "documents/evaluation-report.incompatible-evaluator-version.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "assignmentManifest": "documents/assignment-manifest.valid.json",
+      "valid": false,
+      "expectedCode": "incompatible_version"
+    },
+    {
+      "name": "missing required scenario fails closed",
+      "target": "evaluation-report",
+      "document": "documents/evaluation-report.missing-required-scenario.json",
+      "caseSpec": "documents/case-spec.valid.json",
+      "assignmentManifest": "documents/assignment-manifest.valid.json",
+      "valid": false,
+      "expectedCode": "missing_required_scenario"
+    }
+  ]
+}

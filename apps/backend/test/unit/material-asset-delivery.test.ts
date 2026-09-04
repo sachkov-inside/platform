@@ -118,61 +118,86 @@ describe("Material asset delivery", () => {
     expect(signGet).toHaveBeenCalledTimes(1);
   });
 
-  test("bounds a member redirect by entitlement validity and fails closed near expiry", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-01T12:00:00.000Z"));
-    try {
-      const signGet = vi.fn<ObjectStorage["signGet"]>().mockResolvedValue("https://storage/signed");
-      const values = {
-        contentType: "application/pdf",
-        filename: "plan.pdf",
-        kind: "file" as const,
-        object: { protectedKey: "protected/file", publicKey: "public/file" },
-        size: 3,
-      };
-      const memberDecision = (validUntil: string) => accessDecision({
-        checkedContentVersion: 2,
-        decidedAt: new Date().toISOString(),
-        decisionId: validUntil,
-        effect: "allow",
-        policyVersion: "content-access-v1",
-        reason: "active_membership",
-        validUntil,
-      });
-      const dependencies = {
-        assets: assetsFor(values),
-        materialContent: currentReference(),
-        objectStorage: storage({ signGet }),
-        signedGetTtlSeconds: 60,
-      };
+  test.each(["active_membership", "active_workshop"] as const)(
+    "bounds an %s redirect by entitlement validity and fails closed near expiry",
+    async (reason) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-01T12:00:00.000Z"));
+      try {
+        const signGet = vi
+          .fn<ObjectStorage["signGet"]>()
+          .mockResolvedValue("https://storage/signed");
+        const values = {
+          contentType: "application/pdf",
+          filename: "plan.pdf",
+          kind: "file" as const,
+          object: {
+            protectedKey: "protected/file",
+            publicKey: "public/file",
+          },
+          size: 3,
+        };
+        const protectedDecision = (validUntil: string) =>
+          accessDecision({
+            checkedContentVersion: 2,
+            decidedAt: new Date().toISOString(),
+            decisionId: validUntil,
+            effect: "allow",
+            policyVersion: "content-access-v1",
+            reason,
+            validUntil,
+          });
+        const dependencies = {
+          assets: assetsFor(values),
+          materialContent: currentReference(),
+          objectStorage: storage({ signGet }),
+          signedGetTtlSeconds: 60,
+        };
 
-      await expect(assembleMaterialAssetDelivery({
-        ...dependencies,
-        contentAccess: memberDecision("2026-09-01T12:00:31.000Z"),
-      }).deliver({
-        assetId,
-        contentVersion,
-        materialId,
-        preview: false,
-        subject: { kind: "account", accountId: checkedAccountId("30000000-0000-4000-8000-000000000001") },
-      })).resolves.toMatchObject({ ok: true, value: { kind: "redirect" } });
-      expect(signGet).toHaveBeenLastCalledWith(expect.objectContaining({ ttlSeconds: 30 }));
+        await expect(
+          assembleMaterialAssetDelivery({
+            ...dependencies,
+            contentAccess: protectedDecision("2026-09-01T12:00:31.000Z"),
+          }).deliver({
+            assetId,
+            contentVersion,
+            materialId,
+            preview: false,
+            subject: {
+              kind: "account",
+              accountId: checkedAccountId(
+                "30000000-0000-4000-8000-000000000001",
+              ),
+            },
+          }),
+        ).resolves.toMatchObject({ ok: true, value: { kind: "redirect" } });
+        expect(signGet).toHaveBeenLastCalledWith(
+          expect.objectContaining({ ttlSeconds: 30 }),
+        );
 
-      await expect(assembleMaterialAssetDelivery({
-        ...dependencies,
-        contentAccess: memberDecision("2026-09-01T12:00:01.500Z"),
-      }).deliver({
-        assetId,
-        contentVersion,
-        materialId,
-        preview: false,
-        subject: { kind: "account", accountId: checkedAccountId("30000000-0000-4000-8000-000000000001") },
-      })).resolves.toEqual({ error: { code: "asset_not_found" }, ok: false });
-      expect(signGet).toHaveBeenCalledTimes(1);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+        await expect(
+          assembleMaterialAssetDelivery({
+            ...dependencies,
+            contentAccess: protectedDecision("2026-09-01T12:00:01.500Z"),
+          }).deliver({
+            assetId,
+            contentVersion,
+            materialId,
+            preview: false,
+            subject: {
+              kind: "account",
+              accountId: checkedAccountId(
+                "30000000-0000-4000-8000-000000000001",
+              ),
+            },
+          }),
+        ).resolves.toEqual({ error: { code: "asset_not_found" }, ok: false });
+        expect(signGet).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
 
   test("maps object storage read and signing outages to dependency unavailable", async () => {
     const values = {

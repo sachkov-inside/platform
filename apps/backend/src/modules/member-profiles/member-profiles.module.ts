@@ -6,8 +6,11 @@ import {
 } from "../../infrastructure/prisma/index.js";
 import { AccountsModule } from "../accounts/index.js";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../../config/platform-config.js";
-import { AssetsModule, OBJECT_STORAGE } from "../assets/index.js";
-import type { ObjectStorage } from "../../infrastructure/object-storage/index.js";
+import {
+  OBJECT_STORAGE,
+  ObjectStorageModule,
+  type ObjectStorage,
+} from "../../infrastructure/object-storage/index.js";
 import {
   MEMBERSHIP_ENTITLEMENTS,
   MembershipEntitlementsModule,
@@ -21,7 +24,7 @@ import type { MemberProfiles } from "./facets/member-profiles/member-profiles.in
 import { MEMBER_PROFILES } from "./member-profiles.token.js";
 
 @Module({
-  imports: [PrismaModule, AccountsModule, MembershipEntitlementsModule, AssetsModule],
+  imports: [PrismaModule, AccountsModule, MembershipEntitlementsModule, ObjectStorageModule],
   controllers: [
     MemberProfileController,
     PrivateAccountProfileController,

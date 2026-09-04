@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.evaluator-device-token-request.v1.schema.json",
+  "title": "Inside Workshop evaluator device token request v1",
+  "x-inside-byte-limits": { "document": 1024 },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "deviceCode"],
+  "properties": {
+    "schemaVersion": {
+      "const": "inside.workshop.evaluator-device-token-request.v1"
+    },
+    "deviceCode": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueSecret"
+    }
+  }
+}

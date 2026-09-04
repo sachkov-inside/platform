@@ -4,8 +4,11 @@ import {
   PrismaClientProvider,
   PrismaModule,
 } from "../../infrastructure/prisma/index.js";
-import type { ObjectStorage } from "../../infrastructure/object-storage/index.js";
-import { AssetsModule, OBJECT_STORAGE } from "../assets/index.js";
+import {
+  OBJECT_STORAGE,
+  ObjectStorageModule,
+  type ObjectStorage,
+} from "../../infrastructure/object-storage/index.js";
 import {
   assembleProfileAvatarMaintenance,
   PROFILE_AVATAR_MAINTENANCE,
@@ -13,7 +16,7 @@ import {
 } from "./features/cleanup-profile-avatar-orphans/cleanup-profile-avatar-orphans.js";
 
 @Module({
-  imports: [PrismaModule, AssetsModule],
+  imports: [PrismaModule, ObjectStorageModule],
   providers: [
     {
       provide: PROFILE_AVATAR_MAINTENANCE,

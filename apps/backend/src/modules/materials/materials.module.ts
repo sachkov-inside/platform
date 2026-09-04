@@ -25,8 +25,12 @@ import {
   MembershipEntitlementsModule,
   type MembershipEntitlements,
 } from "../membership-entitlements/index.js";
-import { AssetsModule, MATERIAL_ASSETS, OBJECT_STORAGE, type MaterialAssets } from "../assets/index.js";
-import type { ObjectStorage } from "../../infrastructure/object-storage/index.js";
+import { AssetsModule, MATERIAL_ASSETS, type MaterialAssets } from "../assets/index.js";
+import {
+  OBJECT_STORAGE,
+  ObjectStorageModule,
+  type ObjectStorage,
+} from "../../infrastructure/object-storage/index.js";
 import { VIDEOS, VideosModule, type Videos } from "../videos/index.js";
 import { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
 import { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
@@ -61,26 +65,43 @@ import {
   type VideoPlayback,
 } from "./facets/video-playback/video-playback.js";
 import { MaterialContentModule } from "./material-content.module.js";
+import {
+  WORKSHOP_MATERIAL_ACCESS,
+  WORKSHOP_MATERIAL_PROTECTION,
+  WorkshopModule,
+  type WorkshopMaterialAccess,
+  type WorkshopMaterialProtection,
+} from "../workshop/index.js";
 
 @Module({
   imports: [
     PrismaModule,
+    ObjectStorageModule,
     AccountsModule,
     AssetsModule,
     MaterialContentModule,
     MembershipEntitlementsModule,
     VideosModule,
+    WorkshopModule,
   ],
   providers: [
     {
       provide: MATERIAL_AUTHORING,
-      inject: [PrismaClientProvider, ACCOUNTS, CONTENT_ACCESS, MATERIAL_ASSETS, VIDEOS],
+      inject: [
+        PrismaClientProvider,
+        ACCOUNTS,
+        CONTENT_ACCESS,
+        MATERIAL_ASSETS,
+        VIDEOS,
+        WORKSHOP_MATERIAL_PROTECTION,
+      ],
       useFactory: (
         prisma: PrismaClientProvider,
         accounts: Accounts,
         contentAccess: ContentAccess,
         materialAssets: MaterialAssets,
         videos: Videos,
+        workshopMaterialProtection: WorkshopMaterialProtection,
       ): MaterialAuthoring => {
         const accountPermissions = assembleCurrentAccountPermissions(accounts);
         const authorPolicy: AuthorPolicy = {
@@ -93,6 +114,7 @@ import { MaterialContentModule } from "./material-content.module.js";
           contentAccess,
           materialAssets,
           videos,
+          workshopMaterialProtection,
           materialBodyOperations,
         });
       },
@@ -130,13 +152,21 @@ import { MaterialContentModule } from "./material-content.module.js";
     },
     {
       provide: CONTENT_ACCESS,
-      inject: [MATERIAL_CONTENT, MATERIAL_ASSETS, VIDEOS, ACCOUNTS, MEMBERSHIP_ENTITLEMENTS],
+      inject: [
+        MATERIAL_CONTENT,
+        MATERIAL_ASSETS,
+        VIDEOS,
+        ACCOUNTS,
+        MEMBERSHIP_ENTITLEMENTS,
+        WORKSHOP_MATERIAL_ACCESS,
+      ],
       useFactory: (
         materialContent: MaterialContent,
         materialAssets: MaterialAssets,
         videos: Videos,
         accounts: Accounts,
         membershipEntitlements: MembershipEntitlements,
+        workshopMaterialAccess: WorkshopMaterialAccess,
       ): ContentAccess =>
         assembleContentAccess({
           assetResourceFacts: assembleAssetResourceFacts(materialAssets),
@@ -144,6 +174,7 @@ import { MaterialContentModule } from "./material-content.module.js";
           materialResourceFacts: assembleMaterialResourceFacts(materialContent),
           accountPermissions: assembleCurrentAccountPermissions(accounts),
           membershipEntitlements,
+          workshopMaterialAccess,
         }),
     },
     {

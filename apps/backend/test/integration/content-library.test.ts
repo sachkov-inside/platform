@@ -1,11 +1,22 @@
+import { createHash } from "node:crypto";
+
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
-import { anonymousSubject } from "../../src/modules/content-access/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import {
+  anonymousSubject,
+  assembleContentAccess,
+} from "../../src/modules/content-access/index.js";
+import { accountId } from "../../src/modules/accounts/index.js";
+import {
+  assembleMaterials,
+  materialId,
+} from "../../src/modules/materials/index.js";
+import { assembleWorkshop } from "../../src/modules/workshop/index.js";
+import { assembleWorkshopMaterialCatalog } from "../../src/modules/workshop/adapters/materials/workshop-material-catalog.js";
 import { selectPublishedMaterialProjectionPage } from "../../src/modules/materials/infrastructure/postgres/published-material-reader/published-material-projection.js";
 import {
   createMigratedTestDatabase,
@@ -83,6 +94,262 @@ describe("ListPublishedMaterials", () => {
     ).toBe(true);
     expect(JSON.stringify([firstPage, secondPage])).not.toContain("schemaVersion");
     expect(JSON.stringify([firstPage, secondPage])).not.toContain("blocks");
+  });
+
+  test("keeps a published Workshop Material out of Library and search while its direct slug fails closed", async () => {
+    const {
+      authoring,
+      contentAccess,
+      materialContent,
+      publishedMaterialReader,
+    } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === actorId },
+    });
+    const metadata = {
+      title: "Synthetic Workshop delivery retries",
+      summary: "A fixture that must stay outside the public catalog.",
+      access: "workshop" as const,
+      topicId: careerTopicId,
+      formatId: videoFormatId,
+      tagIds: [],
+      seriesIds: [],
+    };
+    const body = {
+      schemaVersion: 1 as const,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            attrs: { nodeId: "74000000-0000-4000-8000-000000000099" },
+            content: [{ type: "text", text: "Protected Workshop hint body" }],
+          },
+        ],
+      },
+    };
+    const created = await authoring.createDraft({
+      actor: actorId,
+      idempotencyKey: "create-synthetic-workshop-material",
+      metadata,
+      body,
+    });
+    if (!created.ok) throw new Error(`Workshop draft failed: ${created.error.code}`);
+    const published = await authoring.saveMaterial({
+      actor: actorId,
+      idempotencyKey: "publish-synthetic-workshop-material",
+      materialId: created.value.materialId,
+      expectedContentVersion: created.value.contentVersion,
+      publicationState: "published",
+      metadata,
+      body,
+      primaryVideoId: null,
+      deleteVideoId: null,
+    });
+    if (!published.ok) throw new Error(`Workshop publish failed: ${published.error.code}`);
+
+    const caseSpec = { fixture: "material-protection" };
+    let nextWorkshopId = 500;
+    let workshopNow = new Date("2030-01-01T00:00:00.000Z");
+    const realMaterialCatalog = assembleWorkshopMaterialCatalog(materialContent);
+    let catalogReadCount = 0;
+    let signalLockedRevalidation!: () => void;
+    const lockedRevalidation = new Promise<void>((resolve) => {
+      signalLockedRevalidation = resolve;
+    });
+    let releaseLockedRevalidation!: () => void;
+    const lockedRevalidationReleased = new Promise<void>((resolve) => {
+      releaseLockedRevalidation = resolve;
+    });
+    const workshop = assembleWorkshop({
+      prisma: testDatabase.prisma,
+      membershipEntitlements: {
+        resolveForAccess: () =>
+          Promise.resolve({
+            kind: "active",
+            validUntil: "2030-01-01T00:05:00.000Z",
+          }),
+      },
+      ownerPolicy: { canManageWorkshop: () => Promise.resolve(true) },
+      materialCatalog: {
+        async findMany(materialIds) {
+          catalogReadCount += 1;
+          if (catalogReadCount === 2) {
+            signalLockedRevalidation();
+            await lockedRevalidationReleased;
+          }
+          return realMaterialCatalog.findMany(materialIds);
+        },
+      },
+      sourceArchives: {
+        store: (input) => {
+          const digest = createHash("sha256").update(input.body).digest("hex");
+          return Promise.resolve({
+            ok: true,
+            value: {
+              key: `workshop/source-archives/${digest}`,
+              digest,
+              byteSize: input.body.byteLength,
+              retentionTime: input.retentionTime,
+            },
+          });
+        },
+      },
+      clock: () => workshopNow,
+      id: () =>
+        `74000000-0000-4000-8000-${String(nextWorkshopId++).padStart(12, "0")}`,
+    });
+    const protectedAuthoring = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === actorId },
+      workshopMaterialProtection: workshop.materialProtection,
+    }).authoring;
+    const publication = workshop.publishCase({
+      actorAccountId: accountId(actorId),
+      caseSlug: "material-protection",
+      workshopScope: "production-workshop-v1",
+      caseVersion: "fixture-v1",
+      schemaVersion: "inside.workshop.case-spec.synthetic-v1",
+      sourceRepository: "synthetic/workshop-foundation",
+      sourceCommit: "6666666666666666666666666666666666666666",
+      caseSpec,
+      contentDigest: createHash("sha256")
+        .update(JSON.stringify(caseSpec))
+        .digest("hex"),
+      artifacts: [
+        {
+          name: "starter",
+          body: new TextEncoder().encode("synthetic material protection"),
+          contentType: "application/gzip",
+          retentionTime: "2031-01-01T00:00:00.000Z",
+        },
+      ],
+      materials: [
+        {
+          materialId: created.value.materialId,
+          role: "prerequisite",
+          ordinal: 1,
+          releasePolicy: { kind: "immediate" },
+        },
+      ],
+      idempotencyKey: "publish-material-protection",
+    });
+    await lockedRevalidation;
+    const concurrentAccessDowngrade = protectedAuthoring.saveMaterial({
+      actor: actorId,
+      idempotencyKey: "reject-workshop-access-downgrade",
+      materialId: created.value.materialId,
+      expectedContentVersion: published.value.contentVersion,
+      publicationState: "published",
+      metadata: { ...metadata, access: "free" },
+      body,
+      primaryVideoId: null,
+      deleteVideoId: null,
+    });
+    try {
+      await waitForAdvisoryLockWaiter(testDatabase);
+    } finally {
+      releaseLockedRevalidation();
+    }
+    await expect(publication).resolves.toMatchObject({ ok: true });
+    await expect(concurrentAccessDowngrade).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "invalid_reference",
+        issues: [
+          {
+            code: "workshop_material_access_change_forbidden",
+            path: "/metadata/access",
+          },
+        ],
+      },
+    });
+
+    await expect(
+      workshop.grantEntitlement({
+        actorAccountId: accountId(actorId),
+        targetAccountId: accountId(actorId),
+        workshopScope: "production-workshop-v1",
+        startsAt: workshopNow.toISOString(),
+        validUntil: "2030-01-02T00:00:00.000Z",
+        grantSource: "owner_beta",
+        idempotencyKey: "grant-material-protection-reader",
+      }),
+    ).resolves.toMatchObject({ ok: true });
+
+    const workshopMaterialId = materialId(created.value.materialId);
+    const materialFacts = {
+      materialId: workshopMaterialId,
+      publicationState: "published" as const,
+      access: "workshop" as const,
+      contentVersion: published.value.contentVersion,
+      primaryVideoId: null,
+    };
+    const workshopContentAccess = assembleContentAccess({
+      materialResourceFacts: {
+        findMany: (materialIds) =>
+          Promise.resolve(
+            materialIds.includes(workshopMaterialId)
+              ? [materialFacts]
+              : [],
+          ),
+        findOne: (materialId) =>
+          Promise.resolve(
+            materialId === workshopMaterialId ? materialFacts : null,
+          ),
+      },
+      accountPermissions: {
+        hasMaterialsManage: () => Promise.resolve(false),
+      },
+      membershipEntitlements: {
+        resolveForAccess: () => Promise.resolve({ kind: "required" }),
+      },
+      workshopMaterialAccess: workshop.materialAccess,
+      clock: () => workshopNow,
+    });
+    const protectedMaterials = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => false },
+      contentAccess: workshopContentAccess,
+      workshopMaterialProtection: workshop.materialProtection,
+    });
+    await expect(
+      protectedMaterials.publishedMaterialReader.read({
+        subject: { kind: "account", accountId: accountId(actorId) },
+        slug: "synthetic-workshop-delivery-retries",
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { kind: "available" } });
+
+    await expect(
+      listPublishedMaterials(publishedMaterialReader, contentAccess, {
+        subject: anonymousSubject,
+        first: 12,
+        q: "Synthetic Workshop delivery retries",
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: { items: [], totalCount: 0 },
+    });
+    await expect(
+      publishedMaterialReader.read({
+        subject: anonymousSubject,
+        slug: "synthetic-workshop-delivery-retries",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "material_not_found" },
+    });
+
+    workshopNow = new Date("2030-01-02T00:00:00.000Z");
+    await expect(
+      protectedMaterials.publishedMaterialReader.read({
+        subject: { kind: "account", accountId: accountId(actorId) },
+        slug: "synthetic-workshop-delivery-retries",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "material_not_found" },
+    });
   });
 
   test("ranks title, summary and public metadata for RU/EN search", async () => {
@@ -575,4 +842,22 @@ async function seedSearchPerformanceCorpus(
   await testDatabase.prisma.$executeRaw(Prisma.sql`
     analyze materials.published_materials
   `);
+}
+
+async function waitForAdvisoryLockWaiter(
+  testDatabase: TestDatabase,
+): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const rows = await testDatabase.prisma.$queryRaw<
+      readonly { count: bigint }[]
+    >(Prisma.sql`
+      select count(*) as count
+      from pg_stat_activity
+      where datname = current_database()
+        and wait_event = 'advisory'
+    `);
+    if (Number(rows[0]?.count ?? 0) > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("Material change did not wait on the publication lock");
 }

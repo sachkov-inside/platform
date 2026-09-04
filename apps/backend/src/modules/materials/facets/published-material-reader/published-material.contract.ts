@@ -4,7 +4,7 @@ export interface PublishedMaterialProjectionDto {
   readonly slug: string;
   readonly title: string;
   readonly summary: string;
-  readonly access: "free" | "membership";
+  readonly access: "free" | "membership" | "workshop";
   readonly publishedAt: string;
   readonly primaryVideoId: string | null;
   readonly topic: {

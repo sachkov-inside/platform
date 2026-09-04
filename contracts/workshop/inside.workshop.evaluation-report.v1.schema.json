@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.evaluation-report.v1.schema.json",
+  "title": "Inside Workshop evaluation report v1",
+  "x-inside-byte-limits": {
+    "document": 262144,
+    "diagnosticMessage": 2048,
+    "diagnosticsTotal": 131072
+  },
+  "x-inside-diagnostic-messages": {
+    "scenario_failed": "The declared scenario did not pass.",
+    "compose_failed": "The evaluator topology exited before all scenarios completed.",
+    "evaluation_timeout": "The evaluator reached its bounded execution timeout.",
+    "evaluation_interrupted": "The evaluator was interrupted before completion.",
+    "invalid_result": "The evaluator produced an invalid structured result."
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "reportVersion",
+    "assignmentId",
+    "caseId",
+    "caseVersion",
+    "variantId",
+    "evaluatorVersion",
+    "commitSha",
+    "environment",
+    "startedAt",
+    "finishedAt",
+    "scenarios"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "inside.workshop.evaluation-report.v1"
+    },
+    "reportVersion": {
+      "const": "1"
+    },
+    "assignmentId": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueId"
+    },
+    "caseId": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueId"
+    },
+    "caseVersion": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueVersion"
+    },
+    "variantId": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueId"
+    },
+    "evaluatorVersion": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueVersion"
+    },
+    "commitSha": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/gitSha"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "arch", "dockerVersion", "composeVersion"],
+      "properties": {
+        "os": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "arch": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "dockerVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "composeVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "startedAt": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/timestamp"
+    },
+    "finishedAt": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/timestamp"
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "durationMilliseconds"],
+        "properties": {
+          "id": {
+            "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueId"
+          },
+          "status": {
+            "enum": ["passed", "failed"]
+          },
+          "durationMilliseconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "diagnostic": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "enum": [
+                  "scenario_failed",
+                  "compose_failed",
+                  "evaluation_timeout",
+                  "evaluation_interrupted",
+                  "invalid_result"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "status": { "const": "failed" } },
+              "required": ["status"]
+            },
+            "then": {
+              "properties": { "diagnostic": true },
+              "required": ["diagnostic"]
+            }
+          },
+          {
+            "if": {
+              "properties": { "status": { "const": "passed" } },
+              "required": ["status"]
+            },
+            "then": {
+              "not": { "required": ["diagnostic"] }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

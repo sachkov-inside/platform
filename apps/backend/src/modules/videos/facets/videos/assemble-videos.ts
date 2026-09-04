@@ -25,6 +25,7 @@ import {
   type InitVideoUploadResult,
   type VideoDto,
   type VideoError,
+  type VideoAccess,
   type VideoResult,
   type Videos,
   type VideoState,
@@ -85,7 +86,10 @@ export function assembleVideos(dependencies: {
       const parsed = initInput.safeParse(input);
       if (!parsed.success) return invalidRequest();
       if (!(await managerAllowed(parsed.data.actor))) return forbidden();
-      const projectId = dependencies.projects[parsed.data.access];
+      const projectId = projectForAccess(
+        dependencies.projects,
+        parsed.data.access,
+      );
       const attempts = await Promise.all([
         dependencies.prisma.videoUploadAttempt.findFirst({
           where: {
@@ -207,7 +211,7 @@ export function assembleVideos(dependencies: {
       const parsed = attachInput.safeParse(input);
       if (!parsed.success) return invalidRequest();
       if (!(await managerAllowed(parsed.data.actor))) return forbidden();
-      const projectId = dependencies.projects[parsed.data.access];
+      const projectId = projectForAccess(dependencies.projects, parsed.data.access);
       try {
         const reconciliationCutoff = now();
         const remote = await dependencies.provider.find({ id: parsed.data.providerVideoId, projectId });
@@ -354,7 +358,7 @@ export function assembleVideos(dependencies: {
       try {
         const video = await dependencies.prisma.video.findUnique({ where: { id: parsed.data.videoId } });
         if (video === null) return videoNotFound();
-        if (videoMaterialIdSchema.parse(video.materialId) !== parsed.data.materialId || video.access !== parsed.data.access || video.projectId !== dependencies.projects[parsed.data.access]) {
+        if (videoMaterialIdSchema.parse(video.materialId) !== parsed.data.materialId || video.access !== parsed.data.access || video.projectId !== projectForAccess(dependencies.projects, parsed.data.access)) {
           return providerMismatch();
         }
         return video.state === "ready" ? { ok: true, value: undefined } : videoNotReady();
@@ -633,6 +637,13 @@ export function assembleVideos(dependencies: {
       data: { reconciledAt: now() },
     });
   }
+}
+
+function projectForAccess(
+  projects: Readonly<Record<"free" | "membership", string>>,
+  access: VideoAccess,
+): string {
+  return access === "free" ? projects.free : projects.membership;
 }
 
 function providerLifecycle(remote: ProviderVideo): {

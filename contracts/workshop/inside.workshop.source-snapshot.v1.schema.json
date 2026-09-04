@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.source-snapshot.v1.schema.json",
+  "title": "Inside Workshop source snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "assignmentId",
+    "repositoryId",
+    "commitSha",
+    "treeSha",
+    "archiveSha256",
+    "compressedBytes",
+    "expandedBytes",
+    "capturedAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "inside.workshop.source-snapshot.v1"
+    },
+    "assignmentId": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueId"
+    },
+    "repositoryId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "commitSha": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/gitSha"
+    },
+    "treeSha": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/gitSha"
+    },
+    "archiveSha256": {
+	  "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/sha256"
+    },
+    "compressedBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 52428800
+    },
+    "expandedBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 209715200
+    },
+    "capturedAt": {
+	  "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/timestamp"
+    }
+  }
+}

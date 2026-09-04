@@ -115,8 +115,31 @@ _Avoid_: Material completion, read status, Kinescope user profile
 
 **Workshop**:
 Inside's separate product for practising realistic production engineering situations through
-versioned cases, local work and recorded Attempts.
+thematic Workshop Tracks, versioned cases, local work and recorded Attempts.
 _Avoid_: Membership course, coding puzzle catalog, skill tree
+
+**Workshop Track**:
+A curated, not necessarily linear thematic part of a Workshop that brings together Production
+Cases and learning resources within one coherent learning-practice area. In Russian product
+language: «Трек».
+_Avoid_: Program, course, branch, skill tree
+
+**Case Placement**:
+The inclusion of a Production Case in a Workshop Track. It expresses where the Case belongs in the
+learning context without making the Track part of the Case itself.
+_Avoid_: Production Case, Assignment, prerequisite
+
+**Track Resource Group**:
+A named group of core, recommended or reference learning resources owned by a Workshop Track. It
+may be associated with a Case Placement for preparation or reference context, and may curate
+Materials or Series or discover related Materials through a Material Selector.
+_Avoid_: CaseMaterial, playlist, prerequisite
+
+**Material Selector**:
+A live taxonomy-based rule that discovers current Published Materials by Topic, Tags, Format or
+their combination. Its changing result is a recommendation surface, never evidence of a completed
+prerequisite.
+_Avoid_: Material, Series, frozen curriculum
 
 **Production Case**:
 A versioned engineering situation with problem context, constraints, executable checks and linked

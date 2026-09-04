@@ -19,7 +19,7 @@ const projectionSchema = z.object({
   slug: z.string(),
   title: z.string(),
   summary: z.string(),
-  access: z.enum(["free", "membership"]),
+  access: z.enum(["free", "membership", "workshop"]),
   publishedAt: z.iso.datetime({ offset: true }),
   primaryVideoId: z.uuid().nullable(),
   topic: z.object({ id: z.string(), name: z.string(), slug: z.string() }),

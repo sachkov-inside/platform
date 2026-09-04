@@ -67,7 +67,7 @@ const publishedMaterialProjectionRowSchema = z.object({
   slug: z.string(),
   title: z.string(),
   summary: z.string(),
-  access: z.enum(["free", "membership"]),
+  access: z.enum(["free", "membership", "workshop"]),
   published_at: z.date(),
   primary_video_id: z.uuid().nullable(),
   topic_id: z.uuid(),
@@ -236,7 +236,7 @@ function searchProjectionQuery(
 function projectionFiltersSql(
   values: PublishedMaterialProjectionSearchValues,
 ): Prisma.Sql {
-  const conditions: Prisma.Sql[] = [Prisma.sql`true`];
+  const conditions: Prisma.Sql[] = [Prisma.sql`publication.access <> 'workshop'`];
   if (values.q !== undefined) {
     conditions.push(
       Prisma.sql`publication.search_vector @@ ${textSearchQuerySql(values.q)}`,
@@ -368,6 +368,7 @@ async function selectProjectionMetadata(
               from materials.published_materials as publication
               join materials.topics as topic on topic.id = publication.topic_id
               where topic.archived_at is null
+                and publication.access <> 'workshop'
               group by topic.id, topic.name, topic.slug, topic.summary
             ) as option
           ),
@@ -389,6 +390,7 @@ async function selectProjectionMetadata(
               select format.id, format.name, format.slug, count(*)::integer as count
               from materials.published_materials as publication
               join materials.formats as format on format.id = publication.format_id
+              where publication.access <> 'workshop'
               group by format.id, format.name, format.slug
             ) as option
           ),
@@ -411,7 +413,10 @@ async function selectProjectionMetadata(
                 count(*)::integer as count
               from materials.published_material_series_memberships as membership
               join materials.series as series on series.id = membership.series_id
+              join materials.published_materials as publication
+                on publication.material_id = membership.material_id
               where series.archived_at is null
+                and publication.access <> 'workshop'
               group by series.id, series.name, series.slug, series.summary
             ) as option
           ),
@@ -511,7 +516,10 @@ export async function selectPublishedMaterialProjectionsByTopic(
       ? Promise.resolve([])
       : prisma.$queryRaw(
           projectionQuery({
-            where: Prisma.sql`where topic.slug = ${slug}`,
+            where: Prisma.sql`
+              where topic.slug = ${slug}
+                and publication.access <> 'workshop'
+            `,
             limit: Prisma.sql`limit ${first + 1}`,
           }),
         ),
@@ -525,7 +533,10 @@ export async function selectPublishedMaterialProjectionsByTopic(
         (
           select count(*)::integer
           from materials.published_material_series_memberships as total_membership
+          join materials.published_materials as total_publication
+            on total_publication.material_id = total_membership.material_id
           where total_membership.series_id = series.id
+            and total_publication.access <> 'workshop'
         ) as total_material_count
       from materials.published_material_series_memberships as membership
       join materials.published_materials as publication
@@ -534,6 +545,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
       join materials.series as series on series.id = membership.series_id
       where topic.slug = ${slug}
         and series.archived_at is null
+        and publication.access <> 'workshop'
       group by series.id, series.name, series.slug, series.summary
       order by series.name, series.id
     `),
@@ -577,7 +589,10 @@ export async function selectPublishedMaterialProjectionsBySeries(
           join materials.series as selected_series
             on selected_series.id = selected_membership.series_id
         `,
-        where: Prisma.sql`where selected_series.slug = ${slug}`,
+        where: Prisma.sql`
+          where selected_series.slug = ${slug}
+            and publication.access <> 'workshop'
+        `,
         order: Prisma.sql`
           order by selected_membership.ordinal, publication.material_id
         `,
@@ -596,6 +611,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
       join materials.topics as topic on topic.id = publication.topic_id
       where series.slug = ${slug}
         and topic.archived_at is null
+        and publication.access <> 'workshop'
       order by topic.name, topic.id
     `),
   ]);
@@ -618,7 +634,7 @@ export async function selectRelatedPublishedMaterialProjections(
   first: number,
 ): Promise<PublishedMaterialDiscoveryPage | undefined> {
   const source = await selectPublishedMaterialProjectionBySlug(prisma, slug);
-  if (source === undefined) {
+  if (source === undefined || source.access === "workshop") {
     return undefined;
   }
   const rows = publishedMaterialProjectionRowSchema.array().parse(
@@ -631,6 +647,7 @@ export async function selectRelatedPublishedMaterialProjections(
         `,
         where: Prisma.sql`
           where publication.material_id <> ${source.materialId}::uuid
+            and publication.access <> 'workshop'
             and (
               related_pin.target_material_id is not null
               or publication.topic_id = ${source.topic.id}::uuid

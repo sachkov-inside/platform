@@ -17,11 +17,11 @@ export class MaterialVideoAuthoringService {
   }: {
     materialId: string,
     requestBody: {
-      access: 'free' | 'membership';
+      access: 'free' | 'membership' | 'workshop';
       providerVideoId: string;
     },
   }): CancelablePromise<{
-    access: 'free' | 'membership';
+    access: 'free' | 'membership' | 'workshop';
     failureCode?: string;
     materialId: string;
     origin: 'external_attachment' | 'platform_upload';
@@ -52,7 +52,7 @@ export class MaterialVideoAuthoringService {
     materialId: string,
     idempotencyKey: string,
     requestBody: {
-      access: 'free' | 'membership';
+      access: 'free' | 'membership' | 'workshop';
       byteSize: number;
       filename: string;
       title: string;
@@ -60,7 +60,7 @@ export class MaterialVideoAuthoringService {
   }): CancelablePromise<{
     uploadEndpoint: string;
     video: {
-      access: 'free' | 'membership';
+      access: 'free' | 'membership' | 'workshop';
       failureCode?: string;
       materialId: string;
       origin: 'external_attachment' | 'platform_upload';
@@ -92,7 +92,7 @@ export class MaterialVideoAuthoringService {
   }: {
     videoId: string,
   }): CancelablePromise<{
-    access: 'free' | 'membership';
+    access: 'free' | 'membership' | 'workshop';
     failureCode?: string;
     materialId: string;
     origin: 'external_attachment' | 'platform_upload';
@@ -118,7 +118,7 @@ export class MaterialVideoAuthoringService {
   }: {
     videoId: string,
   }): CancelablePromise<{
-    access: 'free' | 'membership';
+    access: 'free' | 'membership' | 'workshop';
     failureCode?: string;
     materialId: string;
     origin: 'external_attachment' | 'platform_upload';

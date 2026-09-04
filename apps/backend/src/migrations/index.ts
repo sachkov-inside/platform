@@ -82,6 +82,18 @@ import {
   name as safeVideoDeletionMigrationName,
   statement as safeVideoDeletionMigrationStatement,
 } from "../modules/videos/infrastructure/postgres/migrations/0020-safe-video-deletion.js";
+import {
+  name as workshopMaterialAccessMigrationName,
+  statement as workshopMaterialAccessMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0021-workshop-material-access.js";
+import {
+  name as workshopVideoAccessMigrationName,
+  statement as workshopVideoAccessMigrationStatement,
+} from "../modules/videos/infrastructure/postgres/migrations/0022-workshop-video-access.js";
+import {
+  name as workshopFoundationMigrationName,
+  statement as workshopFoundationMigrationStatement,
+} from "../modules/workshop/infrastructure/postgres/migrations/0023-workshop-foundation.js";
 
 export const platformMigrations = [
   {
@@ -157,6 +169,18 @@ export const platformMigrations = [
   {
     name: safeVideoDeletionMigrationName,
     statement: safeVideoDeletionMigrationStatement,
+  },
+  {
+    name: workshopMaterialAccessMigrationName,
+    statement: workshopMaterialAccessMigrationStatement,
+  },
+  {
+    name: workshopVideoAccessMigrationName,
+    statement: workshopVideoAccessMigrationStatement,
+  },
+  {
+    name: workshopFoundationMigrationName,
+    statement: workshopFoundationMigrationStatement,
   },
 ] as const;
 

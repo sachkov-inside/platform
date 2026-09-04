@@ -197,7 +197,7 @@ export class MaterialAuthoringService {
         schemaVersion: 1;
       };
       metadata: {
-        access: 'free' | 'membership';
+        access: 'free' | 'membership' | 'workshop';
         formatId: string | null;
         seriesIds: Array<string>;
         summary: string | null;
@@ -279,7 +279,7 @@ export class MaterialAuthoringService {
     } | null;
     materialId: string;
     metadata: {
-      access: 'free' | 'membership';
+      access: 'free' | 'membership' | 'workshop';
       formatId: string | null;
       seriesMemberships: Array<{
         ordinal: number;
@@ -330,7 +330,7 @@ export class MaterialAuthoringService {
       deleteVideoId: string | null;
       expectedContentVersion: number;
       metadata: {
-        access: 'free' | 'membership';
+        access: 'free' | 'membership' | 'workshop';
         formatId: string | null;
         seriesIds: Array<string>;
         summary: string | null;
@@ -423,7 +423,7 @@ export class MaterialAuthoringService {
     contentVersion: number;
     materialId: string;
     metadata: {
-      access: 'free' | 'membership';
+      access: 'free' | 'membership' | 'workshop';
       formatId: string | null;
       seriesMemberships: Array<{
         ordinal: number;

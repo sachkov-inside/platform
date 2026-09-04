@@ -108,7 +108,13 @@ export function assembleVideoPlayback(dependencies: {
         }
       }
       const issuedAt = Math.floor(clock().getTime() / 1000);
-      const drmAuthToken = loaded.value.access === "membership"
+      const expiresAt = decision.reason === "active_membership" || decision.reason === "active_workshop"
+        ? Math.min(
+            issuedAt + dependencies.jwtTtlSeconds,
+            Math.floor(Date.parse(decision.validUntil) / 1_000),
+          )
+        : issuedAt + dependencies.jwtTtlSeconds;
+      const drmAuthToken = loaded.value.access !== "free"
         ? await new SignJWT({ pid: loaded.value.providerVideoId, vid: loaded.value.videoId })
             .setProtectedHeader({ alg: "HS256", typ: "JWT" })
             .setIssuer(issuer)
@@ -116,7 +122,7 @@ export function assembleVideoPlayback(dependencies: {
             .setSubject(input.subject.kind === "account" ? input.subject.accountId : "")
             .setJti(randomUUID())
             .setIssuedAt(issuedAt)
-            .setExpirationTime(issuedAt + dependencies.jwtTtlSeconds)
+            .setExpirationTime(expiresAt)
             .sign(secret)
         : null;
       return {
@@ -145,7 +151,7 @@ export function assembleVideoPlayback(dependencies: {
           return false;
         }
         const playback = await dependencies.videos.loadPlayback(localVideoId);
-        if (!playback.ok || playback.value === null || playback.value.providerVideoId !== input.providerVideoId || playback.value.access !== "membership") {
+        if (!playback.ok || playback.value === null || playback.value.providerVideoId !== input.providerVideoId || playback.value.access === "free") {
           return false;
         }
         const decision = await dependencies.contentAccess.authorize({

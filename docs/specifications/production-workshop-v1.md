@@ -1,6 +1,6 @@
 # Production Workshop v1 application specification
 
-Статус: proposed repository-local contract для
+Статус: accepted repository-local contract для
 [Platform #258](https://github.com/sachkov-inside/platform/issues/258), основанный на принятой
 [Workspace specification #98](https://github.com/sachkov-inside/workspace/issues/98) и её
 [tests-only amendment](https://github.com/sachkov-inside/workspace/pull/104).
@@ -350,6 +350,8 @@ trustworthy.
 
 Go becomes an accepted application ADR only after real end-to-end runtime smoke on all three target
 OS/architectures. Cross-build alone does not satisfy the gate.
+The accepted boundary and its scope are recorded in
+[ADR 0014](../adr/0014-pinned-native-go-workshop-evaluator.md).
 
 ## 11. Report ingestion, Attempt and result
 

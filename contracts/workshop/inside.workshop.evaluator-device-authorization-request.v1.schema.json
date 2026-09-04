@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.evaluator-device-authorization-request.v1.schema.json",
+  "title": "Inside Workshop evaluator device authorization request v1",
+  "x-inside-byte-limits": { "document": 4096 },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "assignmentId", "caseVersion", "evaluatorVersion"],
+  "properties": {
+    "schemaVersion": {
+      "const": "inside.workshop.evaluator-device-authorization-request.v1"
+    },
+    "assignmentId": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueId"
+    },
+    "caseVersion": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueVersion"
+    },
+    "evaluatorVersion": {
+      "$ref": "https://inside.sachkov.dev/contracts/workshop/inside.workshop.primitives.v1.schema.json#/$defs/opaqueVersion"
+    }
+  }
+}

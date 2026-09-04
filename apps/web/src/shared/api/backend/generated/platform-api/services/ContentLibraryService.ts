@@ -52,7 +52,7 @@ export class ContentLibraryService {
       }>;
     };
     items: Array<{
-      access: 'free' | 'membership';
+      access: 'free' | 'membership' | 'workshop';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       format: {
@@ -119,7 +119,7 @@ export class ContentLibraryService {
   }): CancelablePromise<{
     hasNext: boolean;
     items: Array<{
-      access: 'free' | 'membership';
+      access: 'free' | 'membership' | 'workshop';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       format: {
@@ -199,7 +199,7 @@ export class ContentLibraryService {
   }): CancelablePromise<{
     hasNext: boolean;
     items: Array<{
-      access: 'free' | 'membership';
+      access: 'free' | 'membership' | 'workshop';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       format: {
@@ -279,7 +279,7 @@ export class ContentLibraryService {
   }): CancelablePromise<{
     hasNext: boolean;
     items: Array<{
-      access: 'free' | 'membership';
+      access: 'free' | 'membership' | 'workshop';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       format: {

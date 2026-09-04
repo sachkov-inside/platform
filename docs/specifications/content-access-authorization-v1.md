@@ -4,7 +4,8 @@
 [#50](https://github.com/sachkov-inside/platform/issues/50), уточнённый решением
 [#132](https://github.com/sachkov-inside/platform/issues/132) о едином mutable `Material` и
 owner decision в [#120](https://github.com/sachkov-inside/platform/issues/120) не создавать
-persistent authorization audit в v1.
+persistent authorization audit в v1, и расширенный
+[#263](https://github.com/sachkov-inside/platform/issues/263) для Workshop Materials.
 
 ## Решение
 
@@ -110,7 +111,8 @@ caller не передаёт.
 | Web page и REST | Реальные entrypoints используют Published Material reader. | Они передают trusted Account либо anonymous; route-local policy запрещена. |
 | MCP | Materials tools ещё отсутствуют. | Первый adapter использует user-delegated owner Account и ту же permission; service identity не создаётся. |
 | MaterialAsset | Production upload/read/download adapters реализованы в #180. | Version-bound route передаёт `assetId` в exact Asset/Action allow, сверяет `checkedContentVersion` и current body reference до private locator; Membership presign ограничен `validUntil`. |
-| Video | Owning module и delivery adapter отсутствуют. | Vocabulary зарезервирован для conformance, production adapter появляется только с реальным consumer. |
+| Video | Owning module и delivery adapter существуют. | Token issue и provider callback повторно используют exact ContentAccess decision; protected credential ограничен validity решения. |
+| Workshop Material | Workshop публикует immutable CaseMaterial links и bounded entitlement/reveal state. | Для normal delivery ContentAccess вызывает только узкий `WorkshopMaterialAccess.resolve(accountId, materialId)`; Library/search и generic acquisition teaser отсутствуют. |
 
 ## Subject и authorization facts
 
@@ -139,7 +141,7 @@ practice/progress и Telegram presentation data не участвуют в autho
 Owning resource adapter разрешает opaque IDs в минимальные internal facts:
 
 - owning Material, его `draft | published | unpublished` state и current `contentVersion`;
-- `free | membership` requirement;
+- `free | membership | workshop` requirement;
 - attachment relationship и вид Asset/Video, когда такие modules реально появятся.
 
 Caller не передаёт slug, access class, publication state, content version, storage key, signed URL,
@@ -170,6 +172,8 @@ type DenyReason =
   | "authentication_required"
   | "membership_required"
   | "membership_expired"
+  | "workshop_access_required"
+  | "workshop_material_locked"
   | "entitlement_stale"
   | "permission_required"
   | "resource_unpublished"
@@ -190,7 +194,7 @@ type AccessDecision = Readonly<{
     }>
   | Readonly<{
       effect: "allow";
-      reason: "active_membership";
+      reason: "active_membership" | "active_workshop";
       validUntil: Instant;
       checkedContentVersion: ContentVersion;
     }>
@@ -199,10 +203,11 @@ type AccessDecision = Readonly<{
 ```
 
 `public_resource` и `materials_manager` не получают fabricated expiry. Permission проверяется
-заново на следующей operation. Только `active_membership` содержит `validUntil`, не позже current
-entitlement. Derived delivery credential обязан быть привязан к exact Account/resource/action и
-жить не дольше `min(entitlement.validUntil, adapterDeliveryCap)`; permission-based credential
-получает только короткий adapter-owned cap и не превращает permission decision в reusable lease.
+заново на следующей operation. `active_membership` и `active_workshop` содержат `validUntil`, не
+позже соответствующего current entitlement. Derived delivery credential обязан быть привязан к
+exact Account/resource/action и жить не дольше `min(decision.validUntil, adapterDeliveryCap)`;
+permission-based credential получает только короткий adapter-owned cap и не превращает permission
+decision в reusable lease.
 
 Deterministic reason precedence:
 
@@ -214,7 +219,12 @@ Deterministic reason precedence:
 5. Current `materials:manage`: `materials_manager`, включая current saved preview и обычное чтение
    published membership-материала без Membership.
 6. Preview без permission: `permission_required`.
-7. Closed normal delivery: resolve current Membership; active даёт `active_membership`, absence —
+7. Workshop normal delivery: вызвать `WorkshopMaterialAccess` без permission или Membership
+   fallback; доступный Material даёт `active_workshop`, закрытый reveal —
+   `workshop_material_locked`, отсутствие current Workshop grant/material binding —
+   `workshop_access_required`. Concrete facet сворачивает unreadable Workshop projection в
+   `unavailable`; thrown coordination failure даёт `dependency_unavailable`.
+8. Membership normal delivery: resolve current Membership; active даёт `active_membership`, absence —
    `membership_required`, confirmed expiry/removal — `membership_expired`, stale positive после
    `validUntil` без принятого нового evidence — `entitlement_stale`, unreadable local projection —
    `dependency_unavailable`.
@@ -227,14 +237,24 @@ Deterministic reason precedence:
 | Draft `preview` | authentication required | permission required | permission required | permission required | materials manager |
 | Draft normal delivery | unpublished | unpublished | unpublished | unpublished | unpublished |
 
+Workshop normal delivery имеет отдельную matrix и не использует Membership/permission fallback:
+
+| Subject / Workshop state | Нет current grant | Current grant, reveal locked | Current grant, immediate/revealed |
+|---|---|---|---|
+| Anonymous | authentication required | authentication required | authentication required |
+| Account, включая member/manager | workshop access required | workshop material locked | active workshop |
+
 Active Membership не даёт preview, authoring или publish. Permission не создаёт fake
-`MembershipEntitlement`. Profile и activity facts не меняют ни одну строку matrix.
+`MembershipEntitlement` или Workshop grant. Profile и activity facts не меняют ни одну строку
+matrix.
 
 `checkAvailabilityMany` coarse-проецирует те же current facts:
 
 - allow → `available`;
 - любой известный published membership-resource без доказанного allow, включая dependency outage,
   → `locked`;
+- published Workshop resource с current grant, но ещё не выполненной reveal policy → `locked`;
+- Workshop resource без current grant или при unreadable Workshop facet → `unavailable`;
 - invalid/unpublished/unknown resource → `unavailable`.
 
 Availability не возвращает reason, decision ID или validity и не разрешает body, private locator,
@@ -242,6 +262,8 @@ redirect, signed URL или playback token. Любая последующая de
 Public reader маппит deny известного published membership-материала в индексируемый teaser со
 статусом `locked` и успешным page response; draft/unpublished/unknown остаются `404`, outage —
 тот же fail-closed `locked`. UI не получает internal Membership reason или resource oracle.
+Workshop Materials полностью исключены из Library/search. Direct reader не показывает generic
+acquisition teaser: любой deny маскируется как `404`; allow загружает body тем же conditional path.
 
 Safe public projection содержит author-controlled `title`, `description`, `cover`, author,
 taxonomy и `publishedAt`. Library и внутренний search показывают такие published membership-
@@ -360,13 +382,15 @@ apps/backend/src/modules/
   content-access/            # batch orchestration + policy
   membership-entitlements/  # bounded projection + monotonic evidence application
   materials/                 # resource facts adapter + reader/preview consumers
+  workshop/                  # bounded Workshop grants + Case/reveal policy facet
 ```
 
 `ContentAccess` объявляет access-oriented `MaterialResourceFacts` port; Materials реализует его
 поверх своей persistence и возвращает только minimal policy facts без protected body. Port
 поддерживает bulk facts для availability и single facts для authorize. `ContentAccess` не читает
 Materials tables напрямую, а Materials transport не импортирует policy implementation.
-Asset/Video ports появляются только вместе с owning real consumers.
+Asset/Video ports существуют вместе с owning real consumers. Для Workshop policy ContentAccess
+зависит только от `WorkshopMaterialAccess`, а не от Workshop tables или full application API.
 
 V1 не создаёт generic RBAC/ABAC DSL, `Account × Material` matrix, `content_grants`, exported SQL
 predicate, generic repository/UoW или speculative service Account. Future tier/purchase/manual

@@ -30,7 +30,7 @@ export class PublishedMaterialsService {
       videoId: string;
     } | null;
     projection: {
-      access: 'free' | 'membership';
+      access: 'free' | 'membership' | 'workshop';
       contentVersion: number;
       format: {
         id: string;
@@ -72,7 +72,7 @@ export class PublishedMaterialsService {
     cacheScope: 'public' | 'private-no-store';
     kind: 'teaser';
     projection: {
-      access: 'free' | 'membership';
+      access: 'free' | 'membership' | 'workshop';
       contentVersion: number;
       format: {
         id: string;

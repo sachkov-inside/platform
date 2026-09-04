@@ -13,7 +13,7 @@ export const publishedMaterialProjectionHttpSchema = z
     slug: z.string(),
     title: z.string(),
     summary: z.string(),
-    access: z.enum(["free", "membership"]),
+    access: z.enum(["free", "membership", "workshop"]),
     publishedAt: z.iso.datetime({ offset: true }),
     primaryVideoId: z.uuid().nullable(),
     topic: referenceSchema,
