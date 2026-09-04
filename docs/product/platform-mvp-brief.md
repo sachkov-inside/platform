@@ -236,7 +236,7 @@ deduplication и migration pipeline не нужны.
 - AI-поиск и отдельный autonomous content generation workflow вне user-delegated MCP Save.
 
 Эта граница описывает исходный content/Membership MVP. Workshop переиспользует Account, Materials
-и ContentAccess и входит в текущую подписку через отдельный WorkshopEntitlement, но не считается
+и ContentAccess и входит в текущий commercial bundle через отдельный WorkshopEntitlement, но не считается
 ретроактивной частью готовности Platform v1. Его первый Kafka slice отдельно задан
 [application specification](../specifications/workshop-tracks.md) и
 [Platform #274](https://github.com/sachkov-inside/platform/issues/274): публичный Track plan,

@@ -30,7 +30,7 @@ implementation tickets #279–#282 и не угадываются здесь з�
 - один active `WorkshopEntitlement`, открывающий весь protected Workshop;
 - public metadata и полный план опубликованного Track;
 - `TrackItem` со ссылкой на Material, Laboratory либо Production Case;
-- per-item access mode `public` или `workshop`;
+- canonical `public` или `workshop` availability для referenced resources;
 - versioned Git authoring для Track, Laboratory и Production Case;
 - ссылки на canonical Platform Materials без копирования body;
 - manual Laboratory progress и optional learner notes;
@@ -87,11 +87,12 @@ Track может быть переиспользован будущим bundle/e
 - positive unique ordinal;
 - ровно один typed target: Material, Laboratory либо Production Case;
 - короткое authored rationale «зачем этот элемент здесь»;
-- access mode `public` или `workshop`;
-- optional presentation metadata.
+- optional presentation metadata;
+- projected canonical availability typed target.
 
 Ordinal задаёт только presentation order. Отсутствие completion предыдущего item не блокирует
-прямой переход. UI не может выводить access или completion из соседства карточек.
+прямой переход. UI не может выводить access или completion из соседства карточек. TrackItem не
+переопределяет access: один target имеет одинаковую доступность во всех Tracks.
 
 Один target может встречаться в нескольких Tracks. TrackItem не копирует target content и не
 меняет его lifecycle.
@@ -124,6 +125,10 @@ Track authoring хранит stable Material identity. Publication разреш�
 - bounded troubleshooting и agent prompts;
 - optional completion summary;
 - source commit и publication provenance.
+
+Stable Laboratory также объявляет canonical access mode `public` или `workshop`. Изменение access
+policy применяется ко всем TrackItems, которые на неё ссылаются, и проходит отдельную validation;
+Track composition не хранит override.
 
 Lifecycle version: `draft → published → withdrawn`. Withdrawn version нельзя начать заново, но
 existing Account progress остаётся читаемым.
@@ -158,8 +163,8 @@ Notes имеют bounded length, не исполняются и не попад�
 ### 3.7 ProductionCase и CaseVariant
 
 Production Case задаёт versioned business context, constraints, expected design artifact,
-observable implementation requirements и author analysis. Он не обязан иметь executable checks
-до отдельного evaluation decision.
+observable implementation requirements, author analysis и canonical access mode `public` либо
+`workshop`. Он не обязан иметь executable checks до отдельного evaluation decision.
 
 Case Variant сохраняет общий business/learning contract, но владеет stack-specific starter,
 toolchain и idiomatic author solution. Первый Kafka Case планирует C#/.NET и Python. Ни один variant
@@ -180,7 +185,7 @@ Owner release operation принимает exact commit и выполняет:
 2. validate stable identities, lifecycle и supported schema versions;
 3. resolve internal Track/Laboratory/Case references;
 4. verify referenced Materials через Materials Module;
-5. verify access compatibility;
+5. verify canonical target availability and requested presentation expectations;
 6. persist immutable source snapshot/provenance;
 7. atomically move all requested current pointers либо fail without partial publish.
 
@@ -198,6 +203,10 @@ Subscription evidence создаёт, продлевает и завершает
 Один grant не вычисляется route-local проверкой другого. Такой contract сохраняет возможность
 будущего отдельного Workshop grant, не создавая отдельный текущий продукт.
 
+Будущий Workshop-only offer требует отдельного `ContentAccess`-решения для закрытых Materials,
+которые включены в Track. До такого решения один WorkshopEntitlement не обещает доступ к
+Membership Materials вне текущего subscription bundle.
+
 Workshop access matrix:
 
 | Subject | Track outline | Public item | Workshop item | Durable lab progress |
@@ -208,8 +217,8 @@ Workshop access matrix:
 | Account с expired WorkshopEntitlement | allow | allow | deny | historical state readable, protected body deny |
 
 Material delivery дополнительно требует allow от `ContentAccess`; Workshop composition не может
-ослабить его решение. Laboratory/Case pages, APIs, downloads и assets используют тот же declared
-access mode и не доверяют UI lock state.
+ослабить его решение. Laboratory/Case pages, APIs, downloads и assets используют canonical access
+mode owning target и не доверяют UI lock state.
 
 ## 6. Presentation contract
 
@@ -224,8 +233,9 @@ learning outcomes и полный ordered outline.
 - manual Laboratory state, если он существует;
 - unavailable/withdrawn состояние без исчезновения объяснения.
 
-Free item использует единый reusable visual marker. Закрытая карточка не имитирует бесплатный
-preview body. Recommended order не изображается как технически locked progression.
+Public target использует единый reusable visual marker во всех его TrackItems. Закрытая карточка
+не имитирует бесплатный preview body. Recommended order не изображается как технически locked
+progression.
 
 Первая composition выбирается в prototype #273 после завершения visual foundation #271 / PR #272.
 Production pages поставляет #281.
@@ -268,7 +278,7 @@ fictional domain и constraints принадлежат #277.
 
 - Duplicate/non-positive ordinal, missing target или несколько targets отклоняют Track source.
 - Missing/unpublished Material, Laboratory или Case отклоняет atomic publication.
-- Public TrackItem не повышает protected Material до public.
+- TrackItem не повышает protected target до public и не понижает public target до protected.
 - Anonymous progress mutation отклоняется без создания скрытого Account state.
 - Manual complete не создаёт AttemptResult и не называется mastery.
 - Retired Track/withdrawn Laboratory не открывают новые starts, но не удаляют historical state.

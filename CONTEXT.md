@@ -94,8 +94,9 @@ A time-limited statement about an Account's Membership in the canonical closed T
 _Avoid_: MembershipEntitlement, Tribute subscription
 
 **MembershipEntitlement**:
-Platform's time-bounded conclusion that an Account currently has Inside Membership access.
-_Avoid_: Subscription, Telegram membership status
+Platform's time-bounded conclusion that an Account may access Membership-scoped surfaces,
+including protected Library content and Member Profiles. It does not authorize Workshop content.
+_Avoid_: Subscription, Telegram membership status, WorkshopEntitlement
 
 **ContentAccess**:
 Platform's authority for the availability and protected delivery of a Material or its linked
@@ -126,7 +127,8 @@ _Avoid_: Program, course, Learning Branch, Topic, skill tree
 
 **Track Item**:
 One ordered placement in a Workshop Track that references exactly one Material, Laboratory or
-Production Case and declares `public` or `workshop` access. It does not own target content.
+Production Case and presents the target's canonical availability. It neither owns target content
+nor changes access policy.
 _Avoid_: Lesson, Case Placement, copied Material, prerequisite gate
 
 **Laboratory**:
