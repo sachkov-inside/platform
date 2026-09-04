@@ -1,5 +1,6 @@
 import type { Route } from "next";
 
+import { internalRoute } from "./internal-route";
 import { readCanonicalLibraryRouteHref } from "./library-route";
 
 export type MaterialReaderReturnKind =
@@ -157,15 +158,4 @@ function assertSlug(slug: string): void {
   if (!slugPattern.test(slug)) {
     throw new TypeError("Expected a canonical slug");
   }
-}
-
-function isInternalRoute(value: string): value is Route {
-  return value.startsWith("/") && !value.startsWith("//");
-}
-
-function internalRoute(value: string): Route {
-  if (!isInternalRoute(value)) {
-    throw new TypeError("Expected an internal application route");
-  }
-  return value;
 }

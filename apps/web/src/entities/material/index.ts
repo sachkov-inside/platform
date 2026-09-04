@@ -1,4 +1,7 @@
-export type { MaterialPreview } from "./model/material-preview";
+export {
+  materialPreviewHasVideo,
+  type MaterialPreview,
+} from "./model/material-preview";
 export {
   contentCoverSchema,
   contentCoverUrl,

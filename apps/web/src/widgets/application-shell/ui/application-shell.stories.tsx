@@ -10,7 +10,11 @@ import {
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
-  { href: "/map", icon: "map", label: "Карта" },
+] satisfies readonly ApplicationNavigationItem[];
+
+const mobileNavigationItems = [
+  ...navigationItems,
+  { href: "/account", icon: "profile", label: "Профиль" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const meta = {
@@ -18,13 +22,14 @@ const meta = {
     accountLabel: "Кирилл",
     children: null,
     currentPath: "/",
+    mobileNavigationItems,
     navigationItems,
     sidebarDefaultPinned: true,
   },
   argTypes: {
     currentPath: {
       control: "select",
-      options: ["/", "/library", "/map"],
+      options: ["/", "/library", "/topics/platform", "/materials/example"],
     },
   },
   component: ApplicationShell,
@@ -162,6 +167,7 @@ export const SidebarCompact: Story = {
 export const MobileBottomNavigation: Story = {
   name: "Mobile bottom navigation",
   args: {
+    currentPath: "/materials/example",
     sidebarDefaultPinned: false,
   },
   globals: {
@@ -178,6 +184,9 @@ export const MobileBottomNavigation: Story = {
     const navigationLinks = within(mobileNavigation).getAllByRole("link");
 
     await expect(navigationLinks).toHaveLength(3);
+    await expect(
+      within(mobileNavigation).getByRole("link", { name: "База знаний" }),
+    ).toHaveAttribute("aria-current", "page");
     await expect(mobileNavigation.getBoundingClientRect().height).toBeLessThanOrEqual(64);
     await expect(
       navigationLinks.every((link) => link.getBoundingClientRect().height >= 44),
@@ -196,29 +205,15 @@ function HomeShellFixture() {
           Главная
         </h1>
         <p className="mt-4 max-w-[66ch] text-pretty text-base leading-7 text-muted-foreground sm:text-lg">
-          Рабочая точка входа в материалы, темы и активные плейлисты Inside.
+          Новые видео, плейлисты, практические гайды и заметки Inside.
         </p>
       </header>
-
-      <section className="mt-12 border-y border-border py-6" aria-labelledby="continue-heading">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <h2 className="text-xl font-semibold tracking-[-0.025em]" id="continue-heading">
-              Продолжить
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">Последний открытый материал</p>
-          </div>
-          <a className="text-sm font-semibold underline decoration-accent decoration-2 underline-offset-4" href="#material">
-            Надёжные фоновые задачи →
-          </a>
-        </div>
-      </section>
 
       <div className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.6fr)]">
         <section aria-labelledby="new-heading">
           <div className="flex items-baseline justify-between gap-4">
             <h2 className="text-2xl font-semibold tracking-[-0.03em]" id="new-heading">
-              Новые материалы
+              Новые видео
             </h2>
             <Link className="text-sm text-muted-foreground underline underline-offset-4" href="/library">
               Вся база знаний

@@ -1,15 +1,6 @@
 import type { Route } from "next";
 
-function isInternalRoute(value: string): value is Route {
-  return value.startsWith("/") && !value.startsWith("//");
-}
-
-function internalRoute(value: string): Route {
-  if (!isInternalRoute(value)) {
-    throw new TypeError("Expected an internal application route");
-  }
-  return value;
-}
+import { internalRoute } from "./internal-route";
 
 export const authoringMaterialsRootHref = internalRoute("/authoring/materials");
 

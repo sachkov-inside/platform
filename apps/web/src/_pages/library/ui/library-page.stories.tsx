@@ -22,7 +22,13 @@ import {
 } from "@/widgets/application-shell";
 
 const navigationItems = [
+  { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
+] satisfies readonly ApplicationNavigationItem[];
+
+const mobileNavigationItems = [
+  ...navigationItems,
+  { href: "/account", icon: "profile", label: "Профиль" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const catalogItems = [
@@ -262,6 +268,7 @@ function ProductionShell({ children }: { readonly children: React.ReactNode }) {
     <ApplicationShell
       accountLabel="Гость"
       currentPath="/library"
+      mobileNavigationItems={mobileNavigationItems}
       navigationItems={navigationItems}
       sidebarDefaultPinned
     >

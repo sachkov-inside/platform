@@ -16,7 +16,13 @@ import {
 } from "./library-discovery-view";
 
 const navigationItems = [
+  { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
+] satisfies readonly ApplicationNavigationItem[];
+
+const mobileNavigationItems = [
+  ...navigationItems,
+  { href: "/account", icon: "profile", label: "Профиль" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const materials = [
@@ -83,7 +89,8 @@ function ProductionShell({ children }: { readonly children: React.ReactNode }) {
   return (
     <ApplicationShell
       accountLabel="Гость"
-      currentPath="/library"
+      currentPath="/topics/platform"
+      mobileNavigationItems={mobileNavigationItems}
       navigationItems={navigationItems}
       sidebarDefaultPinned
     >

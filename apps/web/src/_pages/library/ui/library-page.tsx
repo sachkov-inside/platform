@@ -19,6 +19,7 @@ import {
   formatMaterialCount,
 } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
+import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import { PublicProductHeader } from "@/widgets/application-shell";
 
 export function LibraryPage({
@@ -101,9 +102,7 @@ export function LibraryLoading() {
       <LibraryHeader />
       <div>
         <section aria-labelledby="library-loading-heading" className="mt-11">
-          <h2 className="text-2xl font-semibold tracking-[-0.04em] md:text-3xl" id="library-loading-heading">
-            Материалы
-          </h2>
+          <PublicSectionHeading id="library-loading-heading" title="Материалы" />
           <ul
             aria-hidden="true"
             className="mt-4 grid grid-cols-1 items-start gap-3 @min-[44rem]/library:grid-cols-2"
@@ -242,12 +241,14 @@ function CollectionHeading({
   readonly title: string;
 }) {
   return (
-    <div className="mt-11 flex items-end justify-between gap-4">
-      <h2 className="text-2xl font-semibold tracking-[-0.04em] md:text-3xl" id={id}>
-        {title}
-      </h2>
-      <span className="text-sm font-semibold text-[#5f5e59]">{count}</span>
-    </div>
+    <PublicSectionHeading
+      aside={
+        <span className="text-sm font-semibold text-[#5f5e59]">{count}</span>
+      }
+      className="mt-11"
+      id={id}
+      title={title}
+    />
   );
 }
 
@@ -262,14 +263,16 @@ export function LibraryCatalog({
 }) {
   return (
     <section aria-labelledby="materials-heading" data-library-state="ready">
-      <div className="mt-11 flex items-end justify-between gap-4">
-        <h2 className="text-2xl font-semibold tracking-[-0.04em] md:text-3xl" id="materials-heading">
-          Материалы
-        </h2>
-        <p className="text-sm font-semibold text-[#5f5e59]">
-          {formatFoundMaterialCount(totalCount)}
-        </p>
-      </div>
+      <PublicSectionHeading
+        aside={
+          <p className="text-sm font-semibold text-[#5f5e59]">
+            {formatFoundMaterialCount(totalCount)}
+          </p>
+        }
+        className="mt-11"
+        id="materials-heading"
+        title="Материалы"
+      />
       <MaterialCatalogGrid className="mt-4" items={items} returnHref={returnHref} />
     </section>
   );

@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
 
 import { ContentCoverImage, type ContentCover } from "@/entities/material";
+import type { ContentCoverOwnerKind } from "@/shared/content-cover-owner";
 import { Button, buttonVariants } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -24,7 +25,7 @@ export function ContentCoverEditor({
   readonly initialCover: ContentCover | null;
   readonly onChange?: (cover: ContentCover | null) => void;
   readonly ownerId: string;
-  readonly ownerKind: "material" | "series" | "topic";
+  readonly ownerKind: ContentCoverOwnerKind;
   readonly ownerLabel?: string;
 }) {
   const inputId = useId();

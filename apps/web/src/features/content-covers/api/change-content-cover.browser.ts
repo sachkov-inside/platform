@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { contentCoverSchema, type ContentCover } from "@/entities/material";
+import type { ContentCoverOwnerKind } from "@/shared/content-cover-owner";
 
 const responseSchema = z
   .object({ cover: contentCoverSchema.nullable() })
@@ -15,7 +16,7 @@ export async function uploadContentCover(input: {
   readonly currentCover: ContentCover | null;
   readonly file: File;
   readonly ownerId: string;
-  readonly ownerKind: "material" | "series" | "topic";
+  readonly ownerKind: ContentCoverOwnerKind;
 }): Promise<ContentCoverChangeResult> {
   const body = new FormData();
   body.set("checksumSha256", await sha256(input.file));
@@ -33,7 +34,7 @@ export async function uploadContentCover(input: {
 export async function removeContentCover(input: {
   readonly currentCover: ContentCover;
   readonly ownerId: string;
-  readonly ownerKind: "material" | "series" | "topic";
+  readonly ownerKind: ContentCoverOwnerKind;
 }): Promise<ContentCoverChangeResult> {
   return parseChangeResponse(
     await fetch(

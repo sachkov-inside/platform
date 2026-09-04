@@ -1,5 +1,7 @@
 import type { Route } from "next";
 
+import { internalRoute } from "./internal-route";
+
 const MAX_QUERY_LENGTH = 120;
 
 export type LibraryRouteFormat = "guide" | "note" | "video";
@@ -76,13 +78,4 @@ function normalizeLibrarySort(
   return value === "newest" || value === "relevance" || value === "title"
     ? value
     : defaultLibraryRouteSort(q);
-}
-
-function isInternalRoute(value: string): value is Route {
-  return value.startsWith("/") && !value.startsWith("//");
-}
-
-function internalRoute(value: string): Route {
-  if (!isInternalRoute(value)) throw new TypeError("Expected an internal route");
-  return value;
 }

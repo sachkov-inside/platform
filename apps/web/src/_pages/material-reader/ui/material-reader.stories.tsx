@@ -25,7 +25,11 @@ import { MaterialReaderView } from "./material-reader-view";
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
-  { href: "/map", icon: "map", label: "Карта" },
+] satisfies readonly ApplicationNavigationItem[];
+
+const mobileNavigationItems = [
+  ...navigationItems,
+  { href: "/account", icon: "profile", label: "Профиль" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const material = {
@@ -208,6 +212,7 @@ function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
     <ApplicationShell
       accountLabel="Кирилл"
       currentPath={`/materials/${material.slug}`}
+      mobileNavigationItems={mobileNavigationItems}
       navigationItems={navigationItems}
       sidebarDefaultPinned
     >

@@ -9,6 +9,7 @@ import {
 } from "@/features/library-discovery";
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
+import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import { PublicProductHeader } from "@/widgets/application-shell";
 import type { HomeResult, HomeView } from "../model/home-view";
 
@@ -197,21 +198,20 @@ function SectionHeading({
   readonly title: string;
 }) {
   return (
-    <div className="mt-11 flex items-end justify-between gap-4">
-      <h2
-        className="text-2xl font-semibold tracking-[-0.04em] md:text-3xl"
-        id={id}
-      >
-        {title}
-      </h2>
-      <Link
-        aria-label={action}
-        className="shrink-0 text-sm font-semibold text-[#b83a1d] no-underline"
-        href={href}
-      >
-        {action}
-      </Link>
-    </div>
+    <PublicSectionHeading
+      aside={
+        <Link
+          aria-label={action}
+          className="shrink-0 text-sm font-semibold text-[#b83a1d] no-underline"
+          href={href}
+        >
+          {action}
+        </Link>
+      }
+      className="mt-11"
+      id={id}
+      title={title}
+    />
   );
 }
 

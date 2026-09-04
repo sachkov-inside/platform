@@ -7,7 +7,10 @@ import {
   collectionDiscoveryHref,
   materialReaderHref,
 } from "@/shared/routing/material-reader";
-import type { MaterialPreview } from "../model/material-preview";
+import {
+  materialPreviewHasVideo,
+  type MaterialPreview,
+} from "../model/material-preview";
 import { materialTaxonomyLabel } from "../model/material-taxonomy-label";
 import { ContentCoverImage } from "./content-cover-image.client";
 
@@ -157,7 +160,7 @@ function MaterialRow({
   readonly returnHref?: Route;
 }) {
   const Heading = headingLevel;
-  const isVideo = materialKind(material) === "video";
+  const isVideo = materialPreviewHasVideo(material);
   return (
     <article
       className="group/row relative grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl bg-white p-3 shadow-[0_1rem_2.5rem_-2rem_rgb(20_21_24/0.35)] transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none"
@@ -240,14 +243,6 @@ function AccessCover({
       </span>
     </span>
   );
-}
-
-function materialKind(material: MaterialPreview): "material" | "video" {
-  return material.formatSlug === "video" ||
-    material.primaryVideoDurationSeconds !== undefined ||
-    material.preview !== undefined
-    ? "video"
-    : "material";
 }
 
 function materialDuration(material: MaterialPreview): string | undefined {

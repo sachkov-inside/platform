@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import {
   ContentCoverImage,
+  materialPreviewHasVideo,
   type ContentCover,
   type MaterialPreview,
 } from "@/entities/material";
@@ -109,7 +110,13 @@ export function PlaylistCard({
                   alt=""
                   className="aspect-[4/3] min-h-0 rounded-2xl"
                   cover={material?.cover ?? (index === 0 ? playlist.cover ?? null : null)}
-                  fallbackKind={materialKind(material)}
+                  fallbackKind={
+                    material === undefined
+                      ? "playlist"
+                      : materialPreviewHasVideo(material)
+                        ? "video"
+                        : "material"
+                  }
                   fallbackSeed={material?.slug ?? `${playlist.slug}-${String(index)}`}
                   sizes="10rem"
                 />
@@ -127,17 +134,6 @@ export function PlaylistCard({
       </span>
     </Link>
   );
-}
-
-function materialKind(
-  material: MaterialPreview | undefined,
-): "material" | "playlist" | "video" {
-  if (material === undefined) return "playlist";
-  return material.formatSlug === "video" ||
-    material.primaryVideoDurationSeconds !== undefined ||
-    material.preview !== undefined
-    ? "video"
-    : "material";
 }
 
 export function formatMaterialCount(count: number): string {

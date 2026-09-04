@@ -40,5 +40,6 @@ dedicated freshly migrated and seeded PostgreSQL evidence database on 2026-09-04
 - Fallback artwork is expected for seeded entities without an author-uploaded Content Cover.
 - The deterministic Kinescope adapter proves local duration and lifecycle wiring. Credentialed
   production Kinescope evidence remains owned by issue #184.
-- Verification: `pnpm check` stages (with e2e run on an isolated port), full 52-scenario production
-  smoke, and the focused clean-data evidence smoke all pass on desktop and mobile.
+- Verification: `pnpm check` stages (with e2e run on an isolated port), 51 production smoke
+  scenarios passed with one desktop-only scenario intentionally skipped on mobile, and the focused
+  clean-data evidence smoke passed on desktop and mobile.

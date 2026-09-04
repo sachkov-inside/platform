@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 
 import { MaterialCard } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
+import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import {
   formatFoundMaterialCount,
   formatLoadedMaterialCount,
@@ -61,14 +62,15 @@ export function InfiniteMaterialCatalog({
 
   return (
     <section aria-labelledby="materials-heading" className="mt-11" data-library-state="ready">
-      <div className="flex items-end justify-between gap-4">
-        <h2 className="text-2xl font-semibold tracking-[-0.04em] md:text-3xl" id="materials-heading">
-          Материалы
-        </h2>
-        <p className="text-sm font-semibold text-[#5f5e59]">
-          {formatFoundMaterialCount(totalCount)} · {formatLoadedMaterialCount(materialCount)}
-        </p>
-      </div>
+      <PublicSectionHeading
+        aside={
+          <p className="text-sm font-semibold text-[#5f5e59]">
+            {formatFoundMaterialCount(totalCount)} · {formatLoadedMaterialCount(materialCount)}
+          </p>
+        }
+        id="materials-heading"
+        title="Материалы"
+      />
       {pages.map((page, pageIndex) => (
         <MaterialCatalogGrid
           className="mt-4"

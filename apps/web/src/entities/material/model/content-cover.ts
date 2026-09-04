@@ -1,14 +1,6 @@
 import { z } from "zod";
 
-export interface ContentCover {
-  readonly coverId: string;
-  readonly renditions: readonly {
-    readonly height: number;
-    readonly width: number;
-  }[];
-}
-
-export const contentCoverSchema: z.ZodType<ContentCover> = z
+export const contentCoverSchema = z
   .object({
     coverId: z.uuid(),
     renditions: z.array(
@@ -21,6 +13,8 @@ export const contentCoverSchema: z.ZodType<ContentCover> = z
     ),
   })
   .strict();
+
+export type ContentCover = z.infer<typeof contentCoverSchema>;
 
 export function contentCoverUrl(coverId: string, width: number): string {
   return `/api/content-covers/${encodeURIComponent(coverId)}/${String(width)}`;

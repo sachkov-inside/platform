@@ -14,9 +14,9 @@ import {
   type AuthenticatedMutationFailure,
 } from "@/shared/auth/index.server";
 import { MAX_CONTENT_COVER_MUTATION_BYTES } from "@/shared/api/mutation-limits";
+import { contentCoverOwnerKindSchema } from "@/shared/content-cover-owner";
 
 const coverIdSchema = z.uuid();
-const ownerKindSchema = z.enum(["material", "series", "topic"]);
 const coverWidthSchema = z
   .string()
   .regex(/^[1-9][0-9]{0,3}$/u)
@@ -132,7 +132,7 @@ const streamingMutationOptions = {
 } as const;
 
 function parseOwner(ownerKind: string, ownerId: string) {
-  const kind = ownerKindSchema.safeParse(ownerKind);
+  const kind = contentCoverOwnerKindSchema.safeParse(ownerKind);
   const id = coverIdSchema.safeParse(ownerId);
   return kind.success && id.success ? { id: id.data, kind: kind.data } : undefined;
 }

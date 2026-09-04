@@ -19,10 +19,12 @@ import type {
 import {
   ContentCoverImage,
   MaterialCard,
+  materialPreviewHasVideo,
 } from "@/entities/material";
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
+import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import {
   collectionDiscoveryHref,
   libraryMaterialReaderReturnTarget,
@@ -137,9 +139,7 @@ function DiscoveryHero({
                   className="aspect-[4/3] min-h-0 rounded-2xl"
                   cover={material?.cover ?? null}
                   fallbackKind={
-                    material?.formatSlug === "video" ||
-                    material?.primaryVideoDurationSeconds !== undefined ||
-                    material?.preview !== undefined
+                    material !== undefined && materialPreviewHasVideo(material)
                       ? "video"
                       : "material"
                   }
@@ -217,37 +217,39 @@ function SeriesMaterials({
 
   return (
     <section aria-labelledby="series-materials">
-      <div className="mt-11 flex flex-wrap items-end justify-between gap-3">
-        <div className="flex items-end gap-4">
-          <h2 className="text-2xl font-semibold tracking-[-0.04em] md:text-3xl" id="series-materials">
-            Маршрут
-          </h2>
-          <p className="pb-1 text-sm font-semibold text-[#5f5e59]">
-            {result.items.length}
-          </p>
-        </div>
-        {topics.length > 0 ? (
-          <nav aria-label="Темы плейлиста">
-            <ul className="flex flex-wrap gap-2" role="list">
-              {topics.map((topic) => (
-                <li key={topic.slug}>
-                  <Link
-                    className="inline-flex min-h-9 items-center rounded-full bg-[#f3f1ed] px-3 text-sm font-semibold text-[#5f5e59] no-underline hover:text-[#202124] focus-visible:outline-ring"
-                    href={collectionDiscoveryHref(
-                      "topic",
-                      topic.slug,
-                      currentHref,
-                    )}
-                    prefetch={false}
-                  >
-                    {topic.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        ) : null}
-      </div>
+      <PublicSectionHeading
+        aside={
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <p className="text-sm font-semibold text-[#5f5e59]">
+              {result.items.length}
+            </p>
+            {topics.length > 0 ? (
+              <nav aria-label="Темы плейлиста">
+                <ul className="flex flex-wrap gap-2" role="list">
+                  {topics.map((topic) => (
+                    <li key={topic.slug}>
+                      <Link
+                        className="inline-flex min-h-9 items-center rounded-full bg-[#f3f1ed] px-3 text-sm font-semibold text-[#5f5e59] no-underline hover:text-[#202124] focus-visible:outline-ring"
+                        href={collectionDiscoveryHref(
+                          "topic",
+                          topic.slug,
+                          currentHref,
+                        )}
+                        prefetch={false}
+                      >
+                        {topic.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ) : null}
+          </div>
+        }
+        className="mt-11 flex-wrap"
+        id="series-materials"
+        title="Маршрут"
+      />
       <ol className="mt-4 grid gap-3" data-series-order>
         {result.items.map((material, index) => {
           const ordinal =
@@ -350,12 +352,14 @@ function DiscoverySectionHeading({
   readonly title: string;
 }) {
   return (
-    <div className="mt-11 flex items-end justify-between gap-4">
-      <h2 className="text-2xl font-semibold tracking-[-0.04em] md:text-3xl" id={id}>
-        {title}
-      </h2>
-      <span className="text-sm font-semibold text-[#5f5e59]">{count}</span>
-    </div>
+    <PublicSectionHeading
+      aside={
+        <span className="text-sm font-semibold text-[#5f5e59]">{count}</span>
+      }
+      className="mt-11"
+      id={id}
+      title={title}
+    />
   );
 }
 

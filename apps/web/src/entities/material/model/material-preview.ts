@@ -24,3 +24,11 @@ export interface MaterialPreview {
   readonly topic: string;
   readonly topicSlug: string;
 }
+
+export function materialPreviewHasVideo(material: MaterialPreview): boolean {
+  return (
+    material.formatSlug === "video" ||
+    material.primaryVideoDurationSeconds !== undefined ||
+    material.preview !== undefined
+  );
+}

@@ -529,6 +529,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   );
   await expect(page.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
   await expect(page).toHaveTitle("Platform — тема · Inside");
+  await expectLibraryNavigationActive(page, testInfo);
   await expect(page.locator('[data-access-cover="locked"]')).toBeVisible();
   const topicMaterialHref = await page
     .locator("[data-material-grid]")
@@ -569,6 +570,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
   ).toBeVisible();
   await expect(page).toHaveTitle("Создание Platform Inside — плейлист · Inside");
+  await expectLibraryNavigationActive(page, testInfo);
   await expect(
     page.locator("[data-series-order] [data-series-ordinal]").evaluateAll((items) =>
       items.map((item) => item.getAttribute("data-series-ordinal")),
@@ -617,11 +619,21 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(page.locator("[data-related-state]")).toHaveCount(0);
 
   await expect(page).toHaveTitle("Как устроен Inside Platform · Inside");
+  await expectLibraryNavigationActive(page, testInfo);
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "reader");
 
 });
+
+async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
+  if (testInfo.project.name !== "mobile-chromium") return;
+  await expect(
+    page
+      .getByRole("navigation", { name: "Мобильная навигация" })
+      .getByRole("link", { name: "База знаний" }),
+  ).toHaveAttribute("aria-current", "page");
+}
 
 async function expectNoSeriousAccessibilityFindings(page: Page) {
   const accessibility = await new AxeBuilder({ page })
