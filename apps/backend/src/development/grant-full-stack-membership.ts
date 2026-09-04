@@ -2,6 +2,7 @@ import { loadPlatformConfig } from "../config/load-platform-config.js";
 import { createPrismaClient } from "../infrastructure/prisma/index.js";
 import { accountId } from "../modules/accounts/index.js";
 import { assembleMembershipEntitlements } from "../modules/membership-entitlements/index.js";
+import { assembleWorkshopEntitlements } from "../modules/workshop/index.js";
 
 const FULL_STACK_MEMBERSHIP_LIFETIME_MS = minutesInMilliseconds(5);
 
@@ -26,7 +27,10 @@ async function main(): Promise<void> {
     const validUntil = new Date(
       checkedAt.getTime() + FULL_STACK_MEMBERSHIP_LIFETIME_MS,
     );
-    const result = await assembleMembershipEntitlements({ prisma }).acceptEvidence({
+    const result = await assembleMembershipEntitlements({
+      prisma,
+      workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
+    }).acceptEvidence({
       accountId: accountId(member.id),
       deliveryId: `full-stack-${checkedAt.toISOString()}`,
       evidence: {

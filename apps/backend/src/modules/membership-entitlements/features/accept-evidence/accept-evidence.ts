@@ -21,6 +21,7 @@ import type {
   MembershipEvidenceAcceptance,
   MembershipEvidenceFailureCode,
 } from "../../facets/membership-entitlements/membership-entitlements.interface.js";
+import type { WorkshopEntitlements } from "../../../workshop/index.js";
 
 const EVIDENCE_RECEIPT_RETENTION_DAYS = 30;
 
@@ -104,6 +105,10 @@ type ObservedEvidenceApplication =
 
 export async function acceptMembershipEvidence(
   prisma: MembershipEntitlementsPrismaClient,
+  workshopEntitlements: Pick<
+    WorkshopEntitlements,
+    "applyAcceptedMembershipEvidence"
+  >,
   command: AcceptMembershipEvidenceCommand,
   now: Date,
 ): Promise<MembershipEvidenceAcceptance> {
@@ -221,6 +226,7 @@ export async function acceptMembershipEvidence(
 
     const applied = await applyObservedEvidence(
       transaction,
+      workshopEntitlements,
       checkedCommand,
       validation.value,
       evidenceFingerprint,
@@ -281,6 +287,10 @@ async function checkAccountBinding(
 
 async function applyObservedEvidence(
   transaction: MembershipEntitlementsPrismaTransaction,
+  workshopEntitlements: Pick<
+    WorkshopEntitlements,
+    "applyAcceptedMembershipEvidence"
+  >,
   command: CheckedEvidenceCommand,
   evidence: ObservedMembershipEvidence,
   evidenceFingerprint: string,
@@ -312,6 +322,14 @@ async function applyObservedEvidence(
     on conflict do nothing
   `);
   if (inserted === 1) {
+    await applyWorkshopEvidence(
+      workshopEntitlements,
+      transaction,
+      command,
+      evidence,
+      evidenceFingerprint,
+      now,
+    );
     return appliedResult(evidence);
   }
 
@@ -323,6 +341,14 @@ async function applyObservedEvidence(
     data: projection,
   });
   if (updated.count === 1) {
+    await applyWorkshopEvidence(
+      workshopEntitlements,
+      transaction,
+      command,
+      evidence,
+      evidenceFingerprint,
+      now,
+    );
     return appliedResult(evidence);
   }
 
@@ -333,15 +359,48 @@ async function applyObservedEvidence(
     throw new Error("Membership projection conflict without an Account row");
   }
   if (current.evidenceVersion === BigInt(evidence.evidenceVersion)) {
-    return current.evidenceFingerprint === evidenceFingerprint
-      ? {
-          ok: true,
-          outcome: "duplicate",
-          evidenceVersion: evidence.evidenceVersion,
-        }
-      : failure("replayed_evidence");
+    if (current.evidenceFingerprint !== evidenceFingerprint) {
+      return failure("replayed_evidence");
+    }
+    await applyWorkshopEvidence(
+      workshopEntitlements,
+      transaction,
+      command,
+      evidence,
+      evidenceFingerprint,
+      now,
+    );
+    return {
+      ok: true,
+      outcome: "duplicate",
+      evidenceVersion: evidence.evidenceVersion,
+    };
   }
   return failure("replayed_evidence");
+}
+
+function applyWorkshopEvidence(
+  workshopEntitlements: Pick<
+    WorkshopEntitlements,
+    "applyAcceptedMembershipEvidence"
+  >,
+  transaction: MembershipEntitlementsPrismaTransaction,
+  command: CheckedEvidenceCommand,
+  evidence: ObservedMembershipEvidence,
+  evidenceFingerprint: string,
+  now: Date,
+): Promise<void> {
+  return workshopEntitlements.applyAcceptedMembershipEvidence(transaction, {
+    accountId: command.accountId,
+    principalRef: evidence.principalRef,
+    decision: evidence.decision,
+    evidenceRef: evidence.evidenceRef,
+    evidenceVersion: evidence.evidenceVersion,
+    evidenceFingerprint,
+    checkedAt: new Date(evidence.checkedAt),
+    validUntil: new Date(evidence.validUntil),
+    acceptedAt: now,
+  });
 }
 
 function projectionData(
