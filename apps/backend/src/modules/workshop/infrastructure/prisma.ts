@@ -16,3 +16,8 @@ export type WorkshopPrisma = Pick<
 export type WorkshopPrismaTransaction = WorkshopPrisma;
 export type WorkshopPrismaClient = WorkshopPrisma &
   TransactionClient<WorkshopPrismaTransaction>;
+
+export type WorkshopEntitlementsPrisma = Pick<
+  PlatformPrisma,
+  "workshopMembershipEntitlementProjection"
+>;

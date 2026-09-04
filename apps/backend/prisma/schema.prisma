@@ -172,6 +172,21 @@ model WorkshopEntitlement {
   @@schema("workshop")
 }
 
+model WorkshopMembershipEntitlementProjection {
+  accountId           String   @id @map("account_id") @db.Uuid
+  principalRef        String   @unique(map: "workshop_membership_entitlement_principal_unique") @map("principal_ref") @db.VarChar(256)
+  decision            String
+  evidenceRef         String   @map("evidence_ref") @db.VarChar(256)
+  evidenceVersion     BigInt   @map("evidence_version") @db.BigInt
+  evidenceFingerprint String   @map("evidence_fingerprint") @db.Char(64)
+  checkedAt           DateTime @map("checked_at") @db.Timestamptz
+  validUntil          DateTime @map("valid_until") @db.Timestamptz
+  updatedAt           DateTime @map("updated_at") @db.Timestamptz
+
+  @@map("membership_entitlement_projections")
+  @@schema("workshop")
+}
+
 model WorkshopCase {
   id               String               @id @db.Uuid
   slug             String               @unique(map: "workshop_cases_slug_unique") @db.VarChar(120)

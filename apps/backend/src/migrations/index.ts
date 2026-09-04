@@ -94,6 +94,10 @@ import {
   name as workshopFoundationMigrationName,
   statement as workshopFoundationMigrationStatement,
 } from "../modules/workshop/infrastructure/postgres/migrations/0023-workshop-foundation.js";
+import {
+  name as workshopMembershipEntitlementProjectionMigrationName,
+  statement as workshopMembershipEntitlementProjectionMigrationStatement,
+} from "../modules/workshop/infrastructure/postgres/migrations/0024-membership-entitlement-projection.js";
 
 export const platformMigrations = [
   {
@@ -181,6 +185,10 @@ export const platformMigrations = [
   {
     name: workshopFoundationMigrationName,
     statement: workshopFoundationMigrationStatement,
+  },
+  {
+    name: workshopMembershipEntitlementProjectionMigrationName,
+    statement: workshopMembershipEntitlementProjectionMigrationStatement,
   },
 ] as const;
 
