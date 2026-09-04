@@ -45,7 +45,7 @@ export function TopicCard({
       href={collectionDiscoveryHref("topic", topic.slug, returnHref)}
       prefetch={false}
     >
-      <span className="relative block">
+      <span className="block">
         <ContentCoverImage
           alt=""
           className={cn(
@@ -57,12 +57,6 @@ export function TopicCard({
           fallbackSeed={topic.slug}
           sizes="(min-width: 1024px) 16rem, 50vw"
         />
-        <span className={cn(
-          "absolute rounded-full bg-white/80 font-bold text-foreground backdrop-blur-sm",
-          compact ? "right-2 top-2 px-2 py-0.5 text-[0.6rem]" : "right-3 top-3 px-2.5 py-1 text-[0.625rem]",
-        )}>
-          {topic.count}
-        </span>
       </span>
       <strong className={cn(
         "block tracking-[-0.02em]",

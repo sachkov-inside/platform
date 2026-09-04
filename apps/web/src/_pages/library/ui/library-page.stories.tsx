@@ -339,6 +339,11 @@ export const ReadyDesktop: Story = {
       "/topics/product-engineering?from=%2Flibrary",
     );
     await expect(canvas.queryByText("Бесплатно")).not.toBeInTheDocument();
+    const topicCard = canvasElement.querySelector<HTMLElement>("[data-topic-card]");
+    if (topicCard === null) {
+      throw new Error("Topic card is missing");
+    }
+    await expect(within(topicCard).queryByText("1", { exact: true })).not.toBeInTheDocument();
     await expect(
       canvasElement.querySelectorAll('[data-access-cover="locked"]'),
     ).toHaveLength(2);
