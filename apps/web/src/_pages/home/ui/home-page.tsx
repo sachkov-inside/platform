@@ -53,7 +53,7 @@ function TopicSection({ topics }: { readonly topics: HomeView["topics"] }) {
         <EmptyCollection label="Тем пока нет." />
       ) : (
         <ul
-          className="public-horizontal-rail -mx-4 mt-5 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0"
+          className="public-horizontal-rail -mx-4 mt-4 flex gap-3 overflow-x-auto px-4 pt-1 sm:mx-0 sm:px-0"
           role="list"
         >
           {topics.map((topic) => (

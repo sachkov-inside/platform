@@ -33,6 +33,20 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
     .getByRole("article");
   await expect(videoCards).toHaveCount(3);
   await expect(videoCards.nth(0)).toContainText(/\d+:\d{2}/u);
+  if (testInfo.project.name === "desktop-chromium") {
+    const topicCard = page.locator("[data-topic-card]").first();
+    const topicCover = topicCard.locator(".public-cover-grid");
+    const topicRail = topicCard.locator("xpath=ancestor::ul");
+    await topicCard.hover();
+    await page.waitForTimeout(250);
+    const [coverBox, railBox] = await Promise.all([
+      topicCover.boundingBox(),
+      topicRail.boundingBox(),
+    ]);
+    expect(coverBox).not.toBeNull();
+    expect(railBox).not.toBeNull();
+    expect(coverBox?.y).toBeGreaterThanOrEqual(railBox?.y ?? Number.POSITIVE_INFINITY);
+  }
   if (testInfo.project.name === "mobile-chromium") {
     const [first, second] = await Promise.all([
       videoCards.nth(0).boundingBox(),
