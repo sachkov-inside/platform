@@ -25,3 +25,27 @@ export const videoSchema = authoringVideoSchema.extend({
 
 export type MaterialAuthoringVideo = z.infer<typeof authoringVideoSchema>;
 export type MaterialVideo = z.infer<typeof videoSchema>;
+
+export interface VideoPlaybackProgress {
+  readonly resumeSeconds: number | null;
+  readonly watched: boolean;
+}
+
+export function resolveVideoPlaybackProgress(
+  savedPositionSeconds: number | null,
+  durationSeconds: number,
+): VideoPlaybackProgress {
+  const watched = savedPositionSeconds !== null &&
+    isVideoWatchedPosition(savedPositionSeconds, durationSeconds);
+  return {
+    resumeSeconds: watched ? 0 : savedPositionSeconds,
+    watched,
+  };
+}
+
+export function isVideoWatchedPosition(
+  positionSeconds: number,
+  durationSeconds: number,
+): boolean {
+  return positionSeconds >= Math.max(1, durationSeconds - 5);
+}

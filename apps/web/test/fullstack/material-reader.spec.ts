@@ -369,6 +369,31 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   expect(browserErrors).toEqual([]);
 });
 
+test("marks an anonymous video as watched without shifting the action", async ({ page }) => {
+  await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
+  const markWatched = page.getByRole("button", { name: "Отметить просмотренным" });
+  await expect(markWatched).toBeEnabled();
+  const initialBox = await markWatched.boundingBox();
+  expect(initialBox).not.toBeNull();
+
+  await markWatched.click();
+  const watched = page.getByRole("button", { name: "Просмотрено" });
+  await expect(watched).toHaveAttribute("aria-pressed", "true");
+  const watchedBox = await watched.boundingBox();
+  expect(watchedBox).not.toBeNull();
+  expect(watchedBox?.width).toBe(initialBox?.width);
+  expect(watchedBox?.height).toBe(initialBox?.height);
+  await expect.poll(() => page.evaluate(() => (
+    Object.keys(localStorage).some((key) => key.startsWith("inside.video-progress.v1:"))
+  ))).toBe(true);
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Просмотрено" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+
 test("renders a locked teaser with the configured CTA and fails closed on invalid proof", async ({
   page,
   request,
@@ -427,6 +452,23 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
       sameSite: "Lax",
     },
   ]);
+
+  await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
+  const markWatched = page.getByRole("button", { name: "Отметить просмотренным" });
+  await expect(markWatched).toBeEnabled();
+  await markWatched.click();
+  await expect(page.getByRole("button", { name: "Просмотрено" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.reload();
+  const watched = page.getByRole("button", { name: "Просмотрено" });
+  await expect(watched).toBeEnabled();
+  await watched.click();
+  await expect(page.getByRole("button", { name: "Отметить просмотренным" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
 
   const reader = await page.goto("/materials/developer-pipeline-bez-poteri-konteksta");
   expect(reader?.status()).toBe(200);

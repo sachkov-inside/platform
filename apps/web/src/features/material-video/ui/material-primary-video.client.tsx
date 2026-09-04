@@ -12,6 +12,10 @@ import {
   createMaterialVideoPlaybackSession,
   saveMaterialVideoProgress,
 } from "../api/video-playback.browser";
+import {
+  isVideoWatchedPosition,
+  resolveVideoPlaybackProgress,
+} from "../model/video";
 
 interface MaterialPrimaryVideoProps {
   readonly className?: string;
@@ -30,6 +34,7 @@ export type PlayerPhase = "idle" | "loading" | "playing" | "error";
 export function MaterialPrimaryVideo({ className, materialId, video }: MaterialPrimaryVideoProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const playerRef = useRef<{ destroy(): Promise<void> } | null>(null);
+  const progressInteractionRef = useRef(false);
   const progressContextRef = useRef<{
     readonly durationSeconds: number;
     readonly scope: "account" | "anonymous";
@@ -40,13 +45,42 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
     const positionSeconds = readAnonymousProgress(video.videoId);
     return video.durationSeconds !== undefined &&
       positionSeconds !== null &&
-      isWatchedPosition(positionSeconds, video.durationSeconds);
+      isVideoWatchedPosition(positionSeconds, video.durationSeconds);
   }, () => false);
   const [watchedOverride, setWatchedOverride] = useState<boolean | null>(null);
   const watched = watchedOverride ?? anonymousWatched;
   const [watchedPending, setWatchedPending] = useState(false);
   const { mutateAsync: createPlaybackSession } = useMutation({ mutationFn: createMaterialVideoPlaybackSession });
   const { mutate: persistAccountProgress, mutateAsync: persistAccountProgressAsync } = useMutation({ mutationFn: saveMaterialVideoProgress });
+
+  useEffect(() => {
+    const durationSeconds = video.durationSeconds;
+    if (video.state !== "ready" || durationSeconds === undefined) return;
+    let active = true;
+    const initializeProgress = async () => {
+      const session = await createPlaybackSession({ materialId, videoId: video.videoId });
+      if (
+        !active ||
+        progressInteractionRef.current ||
+        session === null ||
+        session.videoId !== video.videoId
+      ) return;
+      const positionSeconds = session.progressScope === "anonymous"
+        ? readAnonymousProgress(video.videoId) ?? session.resumeSeconds
+        : session.resumeSeconds;
+      progressContextRef.current = {
+        durationSeconds,
+        scope: session.progressScope,
+      };
+      setWatchedOverride(
+        positionSeconds !== null && isVideoWatchedPosition(positionSeconds, durationSeconds),
+      );
+    };
+    void initializeProgress().catch(() => {
+      // The explicit action can retry when progress initialization is unavailable.
+    });
+    return () => { active = false; };
+  }, [createPlaybackSession, materialId, video.durationSeconds, video.state, video.videoId]);
 
   useEffect(() => () => {
     void playerRef.current?.destroy();
@@ -76,7 +110,7 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
       if (session.drmAuthToken !== null) {
         source.searchParams.set("drmauthtoken", session.drmAuthToken);
       }
-      const resumeSeconds = session.progressScope === "anonymous"
+      const savedPositionSeconds = session.progressScope === "anonymous"
         ? readAnonymousProgress(video.videoId) ?? session.resumeSeconds
         : session.resumeSeconds;
       const iframeApi = await import("@kinescope/player-iframe-api-loader");
@@ -98,16 +132,18 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
       iframe?.setAttribute("allow", "autoplay; fullscreen; picture-in-picture; encrypted-media");
       iframe?.setAttribute("allowfullscreen", "true");
       iframe?.setAttribute("title", video.title);
+      const duration = Math.max(1, Math.round(await player.getDuration()));
+      const playbackProgress = resolveVideoPlaybackProgress(savedPositionSeconds, duration);
+      const resumeSeconds = playbackProgress.resumeSeconds;
       if (resumeSeconds !== null && resumeSeconds > 5) {
         await player.seekTo(resumeSeconds);
       }
-      const duration = Math.max(1, Math.round(await player.getDuration()));
       setMeasuredDuration(duration);
       progressContextRef.current = {
         durationSeconds: duration,
         scope: session.progressScope,
       };
-      setWatchedOverride(resumeSeconds !== null && isWatchedPosition(resumeSeconds, duration));
+      setWatchedOverride(playbackProgress.watched);
       let lastPersisted = resumeSeconds ?? 0;
       let currentTime = resumeSeconds ?? 0;
       const persist = (position: number) => {
@@ -141,6 +177,7 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
 
   const toggleWatched = async () => {
     if (watchedPending) return;
+    progressInteractionRef.current = true;
     setWatchedPending(true);
     try {
       let context = progressContextRef.current;
@@ -254,7 +291,7 @@ export function MaterialVideoPlayerView({
         </div>
         <Button
           aria-pressed={watched}
-          className="min-h-10 rounded-full"
+          className="min-h-10 w-[13.5rem] shrink-0 justify-center rounded-full"
           disabled={watchedDisabled || onToggleWatched === undefined}
           onClick={onToggleWatched}
           type="button"
@@ -316,8 +353,4 @@ function writeAnonymousProgress(videoId: string, positionSeconds: number, durati
   } catch {
     // Resume is best-effort when storage is unavailable.
   }
-}
-
-function isWatchedPosition(positionSeconds: number, durationSeconds: number): boolean {
-  return positionSeconds >= Math.max(1, durationSeconds - 5);
 }
