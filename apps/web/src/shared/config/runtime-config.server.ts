@@ -1,5 +1,9 @@
 import "server-only";
 
+import {
+  resolveRuntimeIdentity,
+  runtimeIdentitySchema,
+} from "@inside/runtime-identity";
 import { z } from "zod";
 
 const localDefaults = {
@@ -42,6 +46,7 @@ const webRuntimeConfigSchema = z
       value.replace(/\/$/u, ""),
     ),
     identity: identitySchema,
+    runtime: runtimeIdentitySchema,
   })
   .readonly();
 
@@ -50,6 +55,7 @@ export type WebRuntimeConfig = z.infer<typeof webRuntimeConfigSchema>;
 
 export function parseWebRuntimeConfig(
   environment: NodeJS.ProcessEnv,
+  embeddedIdentity?: WebRuntimeConfig["runtime"],
 ): WebRuntimeConfig {
   const mode = parseMode(environment.NODE_ENV);
   const config = webRuntimeConfigSchema.safeParse({
@@ -63,6 +69,11 @@ export function parseWebRuntimeConfig(
       cookieSecret: readValue(environment, "LOGTO_COOKIE_SECRET", mode),
       baseUrl: readValue(environment, "WEB_BASE_URL", mode),
     },
+    runtime: resolveRuntimeIdentity({
+      ...(embeddedIdentity === undefined ? {} : { embeddedIdentity }),
+      environment,
+      mode,
+    }),
   });
 
   if (!config.success) {

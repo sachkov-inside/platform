@@ -170,12 +170,16 @@ function violationsFor(source, specifier) {
     specifier.startsWith("@prisma/client/") ||
     specifier.startsWith("@prisma/adapter-");
   const importsPg = specifier === "pg" || specifier.startsWith("pg/");
+  const ownsPostgresLifecycle = [
+    "src/infrastructure/postgres/migrate-to-latest.ts",
+    "src/infrastructure/worker-healthcheck.ts",
+    "src/infrastructure/worker-runtime.ts",
+  ].includes(sourcePath);
   const importsDeletedGeneratedPersistence =
     importedPath?.includes("/infrastructure/postgres/generated/") === true;
   if (
     (importsPrismaPackage && !sourcePath.startsWith("src/infrastructure/prisma/")) ||
-    (importsPg &&
-      sourcePath !== "src/infrastructure/postgres/migrate-to-latest.ts") ||
+    (importsPg && !ownsPostgresLifecycle) ||
     importsDeletedGeneratedPersistence
   ) {
     violations.push("raw persistence imports require an approved postgres owner path");
@@ -209,6 +213,12 @@ function databaseReferenceViolations(sourceFile, program) {
       `${sourcePath}: database table references must use statically declared identifiers (${operation})`,
   );
   return [...violations, ...references.flatMap((reference) => {
+    if (
+      sourcePath === "src/infrastructure/operational-readiness.ts" &&
+      reference === "public.platform_migrations"
+    ) {
+      return [];
+    }
     if (expectedSchema === undefined) {
       return [
         `${sourcePath}: application schema references must stay inside the owning Module (${reference})`,

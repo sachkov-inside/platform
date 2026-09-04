@@ -17,8 +17,11 @@ export type ResolvedLogtoBffConfig = LogtoNextConfig & {
 
 export function parseLogtoBffConfig(
   environment: NodeJS.ProcessEnv,
+  embeddedIdentity?: Parameters<typeof parseWebRuntimeConfig>[1],
 ): ResolvedLogtoBffConfig {
-  return resolveLogtoBffConfig(parseWebRuntimeConfig(environment));
+  return resolveLogtoBffConfig(
+    parseWebRuntimeConfig(environment, embeddedIdentity),
+  );
 }
 
 export function readLogtoBffConfig(): ResolvedLogtoBffConfig {

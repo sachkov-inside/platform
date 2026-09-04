@@ -9,6 +9,8 @@ import {
   PrismaClientProvider,
   PrismaModule,
 } from "../../infrastructure/prisma/index.js";
+import { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
+import { RuntimeIdentityModule } from "../../infrastructure/runtime-identity.js";
 import { MaterialContentModule } from "../../modules/materials/index.js";
 import {
   assembleVideoDeletionMaintenance,
@@ -23,11 +25,12 @@ export class VideoDeletionsWorkerModule {
     return {
       module: VideoDeletionsWorkerModule,
       imports: [
-        PlatformConfigModule.forRoot(config),
+        PlatformConfigModule.forRoot(config, "video-deletions-worker"),
+        RuntimeIdentityModule,
         PrismaModule,
         MaterialContentModule,
       ],
-      providers: [{
+      providers: [OperationalReadiness, {
         provide: VIDEO_DELETION_MAINTENANCE,
         inject: [PrismaClientProvider, PLATFORM_CONFIG],
         useFactory: (

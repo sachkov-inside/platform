@@ -30,11 +30,13 @@ defaults apply only when `NODE_ENV` is `development` or `test`. Missing `NODE_EN
 | `config/compose/production/*.env` | no, server only | production values and secrets by owner | production Compose services |
 
 The production files are copied manually before the first start, kept outside Git and restricted
-to their owner. `compose.env` configures the Compose project and published ports. `postgres.env`,
-`migrations.env`, `api.env`, `profile-avatars-worker.env`, `video-deletions-worker.env`, `web.env`
-and `caddy.env` are
-passed only to their owning services. CI/CD lessons will later automate their secure delivery
-without adding secrets to Git or images.
+to their owner. `compose.env` configures the Compose project, exact image digests, network names and
+loopback ports. `runtime.env` binds every application process to one release ordinal and source SHA.
+`migrations.env`, `api.env`, `mcp.env`, `material-assets-worker.env`,
+`profile-avatars-worker.env`, `video-deletions-worker.env` and `web.env` are passed only to their
+owning services. PostgreSQL, Logto and Caddy configuration belong to the separate production
+foundation. Later deployment work automates secure application delivery without adding secrets to
+Git or images.
 
 Do not add `.env.development` or `.env.test`. Local defaults and explicit test fixtures keep those
 modes deterministic. Do not bake application runtime secrets into a Docker image or pass them as
@@ -56,11 +58,13 @@ docker compose \
   config --quiet
 ```
 
-Compose resolves project and host-port interpolation before containers start. NestJS and Next.js
-then validate the values loaded from their env files, including URL protocols, secret lengths,
-port ranges and production-only HTTPS requirements.
+Compose resolves project, network, exact digest and host-port interpolation before containers
+start. NestJS and Next.js then validate the values loaded from their env files, including URL
+protocols, secret lengths, port ranges, production-only HTTPS requirements and release identity.
 
-The application Dockerfiles accept no runtime values as build arguments. Next.js has no
+The application Dockerfiles accept only `INSIDE_RELEASE_VERSION` and `INSIDE_SOURCE_SHA` as
+non-secret artifact identity build arguments. Runtime must independently supply the same values as
+`PLATFORM_RELEASE_VERSION` and `PLATFORM_SOURCE_SHA`; a mismatch stops startup. Next.js has no
 `NEXT_PUBLIC_*` runtime configuration because those values would be frozen into browser assets
 during the image build. The web process reads server-only values when its container starts.
 
@@ -68,15 +72,19 @@ during the image build. The web process reads server-only values when its contai
 
 | Group | Examples | Owner |
 | --- | --- | --- |
-| Backend application | `DATABASE_URL`, Logto verifier, Telegram, Object Storage and Kinescope values | `PlatformConfig` |
+| Release identity | `PLATFORM_RELEASE_VERSION`, `PLATFORM_SOURCE_SHA` | `runtime.env` and process startup validation |
+| API | `DATABASE_URL`, Logto verifier, Telegram, Object Storage and Kinescope values | `PlatformConfig` |
+| MCP | database, MCP endpoint, Logto verifier, content access, Object Storage and Kinescope values | `PlatformConfig` and `McpConfig` |
+| Material/Profile workers | database and Object Storage values | per-process `PlatformConfig` validation |
+| Video deletion worker | database and Kinescope values | per-process `PlatformConfig` validation |
 | Web server/BFF | `BACKEND_BASE_URL`, Logto app and cookie values, `WEB_BASE_URL` | `WebRuntimeConfig` |
-| Database container | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | `postgres.env` |
+| Database foundation | PostgreSQL, Logto database and pgBackRest values | `config/production/foundation/` |
 | Deployment transport | future SSH host, user, key and known hosts | future protected CI/CD environment |
 
 When introducing a variable, add it to the owning Zod schema, typed config object, focused parser
-tests, relevant Compose service and tracked example. Put its real production value only in the
-server-owned environment file until a later lesson introduces a secret manager or encrypted
-configuration flow.
+tests, relevant Compose service and tracked example. Do not make an unrelated worker require that
+group. Put the real production value only in the server-owned environment file until deployment
+introduces the encrypted delivery flow.
 
 Kinescope defaults to the deterministic `test` adapter only in development/test. Production
 requires `KINESCOPE_PROVIDER_MODE=real`, distinct public and membership project IDs, a server-only

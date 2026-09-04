@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  ordinalReleaseSchema,
+  sha256IdentitySchema,
+  sourceShaSchema as runtimeSourceShaSchema,
+} from "../packages/runtime-identity/index.mjs";
+
 export const repositoryName = "sachkov-inside/platform";
 export const backendImageName = "ghcr.io/sachkov-inside/platform-backend";
 export const webImageName = "ghcr.io/sachkov-inside/platform-web";
@@ -20,18 +26,9 @@ export const releaseImageMatrix = [
   },
 ];
 
-export const ordinalVersionSchema = z
-  .string()
-  .regex(/^v[1-9][0-9]*$/, "release version must be vN with a positive ordinal")
-  .refine(
-    (value) => Number.isSafeInteger(Number(value.slice(1))),
-    "release ordinal exceeds the safe integer range",
-  );
-export const sourceShaSchema = z.hex().length(40).lowercase();
-export const sha256DigestSchema = z.intersection(
-  z.templateLiteral(["sha256:", z.hash("sha256")]),
-  z.string().lowercase(),
-);
+export const ordinalVersionSchema = ordinalReleaseSchema;
+export const sourceShaSchema = runtimeSourceShaSchema;
+export const sha256DigestSchema = sha256IdentitySchema;
 
 export const imageIdentitySchema = z.strictObject({
   digest: sha256DigestSchema,

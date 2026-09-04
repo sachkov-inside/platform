@@ -1,8 +1,12 @@
 import "server-only";
 
+import {
+  runtimeIdentitySchema,
+  sha256IdentitySchema,
+} from "@inside/runtime-identity";
 import { z } from "zod";
 
-import { readWebRuntimeConfig } from "@/shared/config/index.server";
+import { readWebRuntimeConfig } from "@/shared/config/runtime-config.server";
 
 import {
   AccountsService,
@@ -48,7 +52,12 @@ const backendHealthSchema = z
   .object({
     database: z.literal("reachable"),
     process: z.literal("api"),
-    status: z.literal("ok"),
+    release: runtimeIdentitySchema,
+    schema: z.object({
+      identity: sha256IdentitySchema,
+      migrationCount: z.number().int().nonnegative(),
+    }).strict(),
+    status: z.literal("ready"),
   })
   .strict();
 const backendHealthUnavailableProblemSchema = z
@@ -88,7 +97,10 @@ export function readBackendBaseUrl(): string {
 export async function executeGeneratedRequest<T>(
   invoke: (request: BackendHttpRequest) => CancelablePromise<T>,
   successStatus: number,
-  options: { readonly accessToken?: string; readonly signal?: AbortSignal } = {},
+  options: {
+    readonly accessToken?: string;
+    readonly signal?: AbortSignal;
+  } = {},
 ): Promise<BackendTransportResult> {
   const request = new BackendHttpRequest(
     createBackendConfig(options.accessToken),
@@ -122,6 +134,13 @@ function requestBackendHealth(): Promise<BackendTransportResult> {
   );
 }
 
+function requestBackendReadiness(): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new OperationsService(request).getApiReadiness(),
+    200,
+  );
+}
+
 function requestAccountEstablishment(
   accessToken: string,
 ): Promise<BackendTransportResult> {
@@ -142,7 +161,9 @@ function requestCurrentAccount(
   );
 }
 
-function createBackendConfig(accessToken: string | undefined): OpenAPIConfig {
+function createBackendConfig(
+  accessToken: string | undefined,
+): OpenAPIConfig {
   return {
     BASE: readBackendBaseUrl(),
     CREDENTIALS: "omit",
@@ -291,7 +312,14 @@ function transportString(value: unknown): string {
 }
 
 export async function getBackendHealth(): Promise<BackendHealth> {
-  const result = await requestBackendHealth();
+  return parseBackendReadiness(await requestBackendHealth());
+}
+
+export async function getBackendReadiness(): Promise<BackendHealth> {
+  return parseBackendReadiness(await requestBackendReadiness());
+}
+
+function parseBackendReadiness(result: BackendTransportResult): BackendHealth {
   if (!result.ok) {
     const parsed = backendHealthUnavailableProblemSchema.safeParse(result.problem);
     throw new BackendConnectionError(

@@ -12,6 +12,9 @@ import type { FastifyRequest } from "fastify";
 import { map, type Observable, tap } from "rxjs";
 
 const CACHE_POLICY_METADATA = Symbol("http-cache-policy");
+export const PRIVATE_NO_STORE_HEADERS = {
+  "cache-control": "private, no-store",
+} as const;
 
 type HttpCachePolicy =
   | "private-no-store"
@@ -21,8 +24,8 @@ type HttpCachePolicy =
   | "published-material-response";
 
 const cacheControlByPolicy = {
-  "asset-delivery": "private, no-store",
-  "private-no-store": "private, no-store",
+  "asset-delivery": PRIVATE_NO_STORE_HEADERS["cache-control"],
+  "private-no-store": PRIVATE_NO_STORE_HEADERS["cache-control"],
   "public-catalog": "public, max-age=30, stale-while-revalidate=60",
 } as const;
 

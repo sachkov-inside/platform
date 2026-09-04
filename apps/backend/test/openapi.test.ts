@@ -25,6 +25,8 @@ describe("OpenAPI contract", () => {
     const document = createApiOpenApiDocument(app);
     const expectedOperations = [
       ["/health", "get", "getApiHealth"],
+      ["/health/live", "get", "getApiLiveness"],
+      ["/health/ready", "get", "getApiReadiness"],
       ["/library/materials", "get", "listPublishedMaterials"],
       ["/materials/{slug}", "get", "readPublishedMaterial"],
       ["/authoring/materials", "post", "createMaterialDraft"],
@@ -75,6 +77,19 @@ describe("OpenAPI contract", () => {
     expect(hasResponseSchema(health, "503", "application/problem+json")).toBe(true);
     expect(health.parameters).toEqual([]);
     expect(health.security).toBeUndefined();
+
+    const liveness = operation(document, "/health/live", "get");
+    expect(liveness).toMatchObject({ operationId: "getApiLiveness" });
+    expect(hasResponseSchema(liveness, "200", "application/json")).toBe(true);
+    expect(liveness.parameters).toEqual([]);
+    expect(liveness.security).toBeUndefined();
+
+    const readiness = operation(document, "/health/ready", "get");
+    expect(readiness).toMatchObject({ operationId: "getApiReadiness" });
+    expect(hasResponseSchema(readiness, "200", "application/json")).toBe(true);
+    expect(hasResponseSchema(readiness, "503", "application/problem+json")).toBe(true);
+    expect(readiness.parameters).toEqual([]);
+    expect(readiness.security).toBeUndefined();
 
     const library = operation(document, "/library/materials", "get");
     expect(library).toMatchObject({ operationId: "listPublishedMaterials" });

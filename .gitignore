@@ -16,6 +16,7 @@ dist/
 node_modules/
 *.tsbuildinfo
 apps/backend/src/infrastructure/prisma/generated/
+apps/web/release-identity.json
 
 *storybook.log
 storybook-static

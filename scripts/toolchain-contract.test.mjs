@@ -136,53 +136,40 @@ describe("supported toolchain contract", () => {
   });
 
   it("uses explicit container version tags", () => {
-    for (const path of ["compose.yaml", "compose.production.yaml"]) {
-      const imageLines = read(path)
-        .split("\n")
-        .filter((line) => /^\s*image:/u.test(line));
-      assert.ok(imageLines.length > 0, `${path} must declare at least one image`);
-      assert.ok(
-        imageLines.every((line) => {
-          const image = line.trim();
-          return /:[A-Za-z0-9][^\s@]*$/u.test(image) && !/:latest$/u.test(image);
-        }),
-        `${path} contains an image without an explicit version tag`,
-      );
-    }
+    const localImageLines = read("compose.yaml")
+      .split("\n")
+      .filter((line) => /^\s*image:/u.test(line));
+    assert.ok(localImageLines.length > 0);
+    assert.ok(localImageLines.every((line) => {
+      const image = line.trim();
+      return /:[A-Za-z0-9][^\s@]*$/u.test(image) && !/:latest$/u.test(image);
+    }));
+    assert.match(read("compose.production.yaml"), /PLATFORM_BACKEND_IMAGE_DIGEST/u);
+    assert.match(read("compose.production.yaml"), /PLATFORM_WEB_IMAGE_DIGEST/u);
   });
 
-  it("keeps the production baseline buildable from the checked-out source", () => {
+  it("keeps production runtime independent from the checked-out source", () => {
     const productionCompose = read("compose.production.yaml");
 
-    for (const service of ["migrations", "api", "web"]) {
-      assert.match(
-        productionCompose,
-        new RegExp(`  ${service}:\\n(?:    .*\\n)*?    build:\\n`, "u"),
-      );
-    }
-    assert.doesNotMatch(productionCompose, /PLATFORM_(?:API|WEB|MIGRATION)_IMAGE/u);
-    assert.doesNotMatch(productionCompose, /@sha256:/u);
+    assert.doesNotMatch(productionCompose, /^\s+build:/mu);
+    assert.match(productionCompose, /PLATFORM_BACKEND_IMAGE_DIGEST/u);
+    assert.match(productionCompose, /PLATFORM_WEB_IMAGE_DIGEST/u);
   });
 
-  it("keeps the production teaching baseline intentionally small", () => {
+  it("runs every current production process with explicit networks", () => {
     const productionCompose = read("compose.production.yaml");
 
-    assert.doesNotMatch(productionCompose, /^ {2}database-roles:/mu);
-    assert.doesNotMatch(productionCompose, /^ {2}database-access:/mu);
-    assert.doesNotMatch(productionCompose, /^ {2}material-assets-worker:/mu);
-    assert.doesNotMatch(productionCompose, /^networks:/mu);
-    const avatarWorker = productionCompose.match(
-      /\n {2}profile-avatars-worker:\n([\s\S]*?)(?=\n {2}[a-z][a-z0-9-]*:\n|$)/u,
-    );
-    assert.ok(avatarWorker, "production must run Profile Avatar cleanup");
-    assert.match(avatarWorker[1], /dockerfile: apps\/backend\/Dockerfile/u);
-    assert.match(avatarWorker[1], /target: api-production/u);
-    assert.match(avatarWorker[1], /profile-avatars-worker\.env/u);
-    const videoDeletionWorker = productionCompose.match(
-      /\n {2}video-deletions-worker:\n([\s\S]*?)(?=\n {2}[a-z][a-z0-9-]*:\n|$)/u,
-    );
-    assert.ok(videoDeletionWorker, "production must run Video deletion processing");
-    assert.match(videoDeletionWorker[1], /video-deletions-worker\.env/u);
+    for (const service of [
+      "migrations",
+      "api",
+      "mcp",
+      "material-assets-worker",
+      "profile-avatars-worker",
+      "video-deletions-worker",
+      "web",
+    ]) assert.match(productionCompose, new RegExp(`^  ${service}:$`, "mu"));
+    assert.match(productionCompose, /^networks:$/mu);
+    assert.match(productionCompose, /FOUNDATION_DATABASE_NETWORK/u);
   });
 
   it("keeps runtime configuration in service-owned env files", () => {
@@ -207,13 +194,14 @@ describe("supported toolchain contract", () => {
       "config/compose/local/web.env",
       "config/compose/local/storybook.env",
       "config/compose/production/compose.env.example",
-      "config/compose/production/postgres.env.example",
+      "config/compose/production/runtime.env.example",
       "config/compose/production/migrations.env.example",
       "config/compose/production/api.env.example",
+      "config/compose/production/mcp.env.example",
+      "config/compose/production/material-assets-worker.env.example",
       "config/compose/production/profile-avatars-worker.env.example",
       "config/compose/production/video-deletions-worker.env.example",
       "config/compose/production/web.env.example",
-      "config/compose/production/caddy.env.example",
     ]) {
       assert.ok(read(path).trim().length > 0, `${path} must not be empty`);
     }
@@ -232,35 +220,59 @@ describe("supported toolchain contract", () => {
     assert.match(smoke, /project_name="inside-platform-production-smoke-\$\$"/u);
     assert.match(smoke, /down --rmi local --volumes --remove-orphans/u);
     assert.match(smoke, /local test_status=\$\?/u);
+    assert.match(smoke, /^PGBACKREST_ARCHIVE_ASYNC=n$/mu);
     assert.doesNotMatch(smoke, /down --rmi local --volumes --remove-orphans \|\| true/u);
   });
 
-  it("checks Profile Avatar worker readiness without a pipefail-sensitive grep", () => {
+  it("checks every worker readiness without a pipefail-sensitive grep", () => {
     const smoke = read("scripts/production-compose-smoke.sh");
 
     assert.doesNotMatch(smoke, /\|\s*rg(?:\s|$)/u);
+    assert.match(smoke, /for worker in material-assets-worker profile-avatars-worker video-deletions-worker/u);
+    assert.match(smoke, /running:healthy:0/u);
+    assert.match(smoke, /did not report release\/schema readiness/u);
+  });
+
+  it("proves an in-flight PgBoss job completes during worker drain", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
+
+    assert.match(smoke, /wait_for_pgboss_job_state "\$drain_job_id" active/u);
+    assert.match(smoke, /docker kill --signal TERM "\$old_worker_container"/u);
+    assert.match(smoke, /exited before its in-flight PgBoss job could drain/u);
+    assert.match(smoke, /pg_terminate_backend\(\$\{worker_drain_lock_backend_pid\}\)/u);
+    assert.match(smoke, /wait_for_pgboss_job_state "\$drain_job_id" completed/u);
+  });
+
+  it("runs fresh, upgrade, and N-1 migration compatibility fixtures", () => {
+    const smoke = read("scripts/production-compose-smoke.sh");
+
+    assert.match(smoke, /inside_fresh/u);
+    assert.match(smoke, /platformMigrations\.slice\(0, -1\)/u);
     assert.match(
       smoke,
-      /\[\[ "\$avatar_worker_logs" != \*'"process":"profile-avatars-worker","status":"ready"'\* \]\]/u,
+      /fixtures\/production-runtime\/n-minus-one-compatibility\.mjs/u,
     );
+    assert.doesNotMatch(smoke, /down.?migrat/iu);
+  });
+
+  it("keeps the migration entrypoint mode-aware for local and production runs", () => {
+    const migrationEntrypoint = read("apps/backend/src/migrations/migrate.ts");
+
     assert.match(
-      smoke,
-      /\[\[ "\$video_deletion_worker_logs" != \*'"process":"video-deletions-worker","status":"ready"'\* \]\]/u,
+      migrationEntrypoint,
+      /parseRuntimeIdentity\(\s*process\.env,\s*parsePlatformMode\(process\.env\.NODE_ENV\)/u,
+    );
+    assert.doesNotMatch(
+      migrationEntrypoint,
+      /parseRuntimeIdentity\(process\.env,\s*"production"\)/u,
     );
   });
 
-  it("derives the production migration expectation from the registered source files", () => {
+  it("proves trusted TLS and rejects a wrong hostname", () => {
     const smoke = read("scripts/production-compose-smoke.sh");
 
-    assert.match(smoke, /expected_migration_count=/u);
-    assert.match(smoke, /infrastructure\/postgres\/migrations/u);
-    assert.doesNotMatch(smoke, /migration_count" != "\d+"/u);
-  });
-
-  it("retries transient TLS failures in the production smoke", () => {
-    const smoke = read("scripts/production-compose-smoke.sh");
-
-    assert.equal(smoke.match(/--retry-all-errors/gu)?.length, 2);
+    assert.match(smoke, /caddy-root\.crt/u);
+    assert.match(smoke, /TLS unexpectedly accepted the wrong hostname/u);
   });
 
   it("keeps Profile Avatar cleanup grace in service-owned env files", () => {

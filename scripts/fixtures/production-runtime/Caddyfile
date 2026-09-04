@@ -1,0 +1,5 @@
+{
+	local_certs
+}
+
+import /etc/caddy/platform.caddy

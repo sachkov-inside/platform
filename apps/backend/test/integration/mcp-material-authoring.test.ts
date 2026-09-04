@@ -13,6 +13,7 @@ import { z } from "zod";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createMcpApplication } from "../../src/entrypoints/create-mcp-application.js";
 import { createMcpHttpServer, type McpHttpServer } from "../../src/entrypoints/mcp/mcp-http-server.js";
+import { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
 import {
   ACCOUNTS,
   bootstrapOwnerAccount,
@@ -102,6 +103,7 @@ describe("delegated Material authoring over MCP", () => {
         serverUrl: "http://127.0.0.1:0/mcp",
       },
       identityIssuer: issuer,
+      readiness: application.get(OperationalReadiness),
       tokenVerifier: application.get<LogtoAccessTokenVerifier>(
         LOGTO_ACCESS_TOKEN_VERIFIER,
       ),

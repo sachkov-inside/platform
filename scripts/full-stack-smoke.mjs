@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -30,8 +30,23 @@ const mcpServerUrl = `http://127.0.0.1:${mcpPort}/mcp`;
 const fullStackAccessTokenTtlSeconds = 300;
 const childEnvironment = { ...process.env };
 childEnvironment.NODE_ENV ??= "development";
+Object.assign(childEnvironment, {
+  PLATFORM_RELEASE_VERSION: "v1",
+  PLATFORM_SOURCE_SHA: "1".repeat(40),
+});
 const fullStackIdentity = await startFullStackIdentity();
 Object.assign(childEnvironment, fullStackIdentity.environment);
+const webReleaseIdentityPath = resolve(
+  repositoryRoot,
+  "apps/web/release-identity.json",
+);
+if (existsSync(webReleaseIdentityPath)) {
+  throw new Error(`Refusing to replace ${webReleaseIdentityPath}`);
+}
+writeFileSync(webReleaseIdentityPath, `${JSON.stringify({
+  release: "v1",
+  sourceSha: "1".repeat(40),
+})}\n`, { mode: 0o444 });
 const processes = [];
 const activeProcesses = new Set();
 let cleanupPromise;
@@ -137,6 +152,7 @@ try {
 } finally {
   await cleanup();
   await fullStackIdentity.close();
+  rmSync(webReleaseIdentityPath, { force: true });
 }
 
 if (interruptedSignal !== undefined) {
@@ -224,8 +240,14 @@ function assertHealth(value) {
     typeof value !== "object" ||
     value === null ||
     value.process !== "api" ||
-    value.status !== "ok" ||
-    value.database !== "reachable"
+    value.status !== "ready" ||
+    value.database !== "reachable" ||
+    typeof value.release !== "object" ||
+    value.release === null ||
+    value.release.release !== "development" ||
+    typeof value.schema !== "object" ||
+    value.schema === null ||
+    !Number.isInteger(value.schema.migrationCount)
   ) {
     throw new Error(`Unexpected API health response: ${JSON.stringify(value)}`);
   }

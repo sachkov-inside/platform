@@ -97,6 +97,9 @@ jobs:
           file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target }}
           push: true
+          build-args: |
+            INSIDE_RELEASE_VERSION=${{ needs.plan.outputs.version }}
+            INSIDE_SOURCE_SHA=${{ needs.plan.outputs.source_sha }}
           tags: ${{ matrix.imageName }}:${{ needs.plan.outputs.version }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}

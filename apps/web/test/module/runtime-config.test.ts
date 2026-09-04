@@ -21,15 +21,26 @@ describe("Web runtime configuration", () => {
         cookieSecret: "inside-local-logto-cookie-secret-key",
         baseUrl: "http://127.0.0.1:3000",
       },
+      runtime: {
+        release: "development",
+        sourceSha: "0".repeat(40),
+      },
     });
   });
 
   it("parses and freezes one complete production config", () => {
-    const config = parseWebRuntimeConfig(productionEnvironment());
+    const config = parseWebRuntimeConfig(productionEnvironment(), {
+      release: "v7",
+      sourceSha: "7".repeat(40),
+    });
 
     expect(config.mode).toBe("production");
     expect(config.backendBaseUrl).toBe("http://api:3001");
     expect(config.identity.baseUrl).toBe("https://inside.example.test");
+    expect(config.runtime).toEqual({
+      release: "v7",
+      sourceSha: "7".repeat(40),
+    });
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.identity)).toBe(true);
   });
@@ -45,13 +56,13 @@ describe("Web runtime configuration", () => {
       parseWebRuntimeConfig({
         ...productionEnvironment(),
         BACKEND_BASE_URL: "file:///tmp/platform-api",
-      }),
+      }, { release: "v7", sourceSha: "7".repeat(40) }),
     ).toThrow("BACKEND_BASE_URL must use HTTP or HTTPS");
     expect(() =>
       parseWebRuntimeConfig({
         ...productionEnvironment(),
         WEB_BASE_URL: "http://inside.example.test",
-      }),
+      }, { release: "v7", sourceSha: "7".repeat(40) }),
     ).toThrow("WEB_BASE_URL must use HTTPS");
   });
 
@@ -82,5 +93,7 @@ function productionEnvironment(): NodeJS.ProcessEnv {
     LOGTO_APP_SECRET: "inside-web-confidential-secret",
     LOGTO_COOKIE_SECRET: "inside-web-cookie-secret-32-characters",
     WEB_BASE_URL: "https://inside.example.test",
+    PLATFORM_RELEASE_VERSION: "v7",
+    PLATFORM_SOURCE_SHA: "7".repeat(40),
   };
 }
