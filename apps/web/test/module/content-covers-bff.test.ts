@@ -88,6 +88,13 @@ describe("Content covers BFF", () => {
       "1",
     );
     expect(malformed.status).toBe(404);
+
+    const malformedWidth = await proxyContentCoverDelivery(
+      new Request(`https://inside.example.test/api/content-covers/${coverId}/wide`),
+      coverId,
+      "wide",
+    );
+    expect(malformedWidth.status).toBe(404);
     expect(fakes.requestDelivery).toHaveBeenCalledTimes(1);
   });
 

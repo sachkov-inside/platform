@@ -47,6 +47,10 @@ import {
 
 const uuidSchema = z.uuid();
 const checksumSchema = z.hash("sha256");
+const multipartExpectedCoverIdSchema = z.union([
+  z.uuid(),
+  z.literal("null"),
+]);
 const changeResponseSchema = z
   .object({ cover: contentCoverProjectionHttpSchema.nullable() })
   .strict();
@@ -83,23 +87,20 @@ export class AuthoringContentCoverController {
           maximum: MATERIAL_ASSET_LIMITS.imageBytes,
         },
         checksumSha256: toOpenApiSchema(checksumSchema),
-        expectedCoverId: {
-          type: "string",
-          description: "Current cover UUID or the literal null",
-        },
+        expectedCoverId: toOpenApiSchema(multipartExpectedCoverIdSchema),
         file: { type: "string", format: "binary" },
       },
     },
   })
   @ApiOkResponse({ schema: toOpenApiSchema(changeResponseSchema) })
   @ApiMaterialAuthoringErrors(401, 500)
-  @ApiResponse({ status: 400, content: problemDetailsContent(coverProblemSchema(400)) })
-  @ApiResponse({ status: 403, content: problemDetailsContent(coverProblemSchema(403)) })
-  @ApiResponse({ status: 404, content: problemDetailsContent(coverProblemSchema(404)) })
-  @ApiResponse({ status: 409, content: problemDetailsContent(coverProblemSchema(409)) })
-  @ApiResponse({ status: 413, content: problemDetailsContent(coverProblemSchema(413)) })
-  @ApiResponse({ status: 422, content: problemDetailsContent(coverProblemSchema(422)) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(coverProblemSchema(503)) })
+  @ApiResponse({ status: 400, content: problemDetailsContent(coverProblemSchema(400, "invalid_cover", ["Cover owner is malformed"])) })
+  @ApiResponse({ status: 403, content: problemDetailsContent(coverProblemSchema(403, "forbidden", ["Content cover change is forbidden"])) })
+  @ApiResponse({ status: 404, content: problemDetailsContent(coverProblemSchema(404, "owner_not_found", ["Content cover owner was not found"])) })
+  @ApiResponse({ status: 409, content: problemDetailsContent(coverConflictProblemSchema()) })
+  @ApiResponse({ status: 413, content: problemDetailsContent(coverProblemSchema(413, "invalid_cover", ["Cover exceeds the size limit"])) })
+  @ApiResponse({ status: 422, content: problemDetailsContent(coverProblemSchema(422, "invalid_cover", ["Cover form is malformed", "Cover metadata is malformed", "Cover image is not accepted"])) })
+  @ApiResponse({ status: 503, content: problemDetailsContent(coverProblemSchema(503, "dependency_unavailable", ["Content cover dependency is unavailable"])) })
   async upload(
     @CurrentAccount() account: AuthenticatedAccount,
     @Param("ownerKind") rawOwnerKind: string,
@@ -172,11 +173,11 @@ export class AuthoringContentCoverController {
   @ApiBody({ schema: toOpenApiSchema(removeBodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(changeResponseSchema) })
   @ApiMaterialAuthoringErrors(401, 500)
-  @ApiResponse({ status: 400, content: problemDetailsContent(coverProblemSchema(400)) })
-  @ApiResponse({ status: 403, content: problemDetailsContent(coverProblemSchema(403)) })
-  @ApiResponse({ status: 404, content: problemDetailsContent(coverProblemSchema(404)) })
-  @ApiResponse({ status: 409, content: problemDetailsContent(coverProblemSchema(409)) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(coverProblemSchema(503)) })
+  @ApiResponse({ status: 400, content: problemDetailsContent(coverProblemSchema(400, "invalid_cover", ["Cover removal is malformed"])) })
+  @ApiResponse({ status: 403, content: problemDetailsContent(coverProblemSchema(403, "forbidden", ["Content cover change is forbidden"])) })
+  @ApiResponse({ status: 404, content: problemDetailsContent(coverProblemSchema(404, "owner_not_found", ["Content cover owner was not found"])) })
+  @ApiResponse({ status: 409, content: problemDetailsContent(coverConflictProblemSchema()) })
+  @ApiResponse({ status: 503, content: problemDetailsContent(coverProblemSchema(503, "dependency_unavailable", ["Content cover dependency is unavailable"])) })
   async remove(
     @CurrentAccount() account: AuthenticatedAccount,
     @Param("ownerKind") rawOwnerKind: string,
@@ -224,8 +225,8 @@ export class ContentCoverDeliveryController {
     description: "Public immutable cover bytes",
     schema: { format: "binary", type: "string" },
   })
-  @ApiResponse({ status: 404, content: problemDetailsContent(coverProblemSchema(404)) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(coverProblemSchema(503)) })
+  @ApiResponse({ status: 404, content: problemDetailsContent(coverProblemSchema(404, "cover_not_found", ["Content cover not found"])) })
+  @ApiResponse({ status: 503, content: problemDetailsContent(coverProblemSchema(503, "dependency_unavailable", ["Content cover dependency unavailable"])) })
   async read(
     @Param("coverId") coverId: string,
     @Param("width") rawWidth: string,
@@ -303,20 +304,39 @@ function coverProblem(status: number, code: string, title: string): HttpExceptio
       code,
       status,
       title,
-      type: `urn:inside:problem:${code.replaceAll("_", "-")}`,
+      type: coverProblemType(code),
     },
     status,
   );
 }
 
-function coverProblemSchema(status: number) {
+function coverConflictProblemSchema() {
   return z
     .object({
-      code: z.string(),
-      currentCoverId: z.uuid().nullable().optional(),
-      status: z.literal(status),
-      title: z.string(),
-      type: z.string(),
+      code: z.literal("conflict"),
+      currentCoverId: z.uuid().nullable(),
+      status: z.literal(409),
+      title: z.literal("Content cover changed concurrently"),
+      type: z.literal("urn:inside:problem:content-cover-conflict"),
     })
-    .loose();
+    .strict();
+}
+
+function coverProblemSchema<const Status extends number, const Code extends string>(
+  status: Status,
+  code: Code,
+  titles: readonly [string, ...string[]],
+) {
+  return z
+    .object({
+      code: z.literal(code),
+      status: z.literal(status),
+      title: z.enum(titles),
+      type: z.literal(coverProblemType(code)),
+    })
+    .strict();
+}
+
+function coverProblemType(code: string): string {
+  return `urn:inside:problem:${code.replaceAll("_", "-")}`;
 }

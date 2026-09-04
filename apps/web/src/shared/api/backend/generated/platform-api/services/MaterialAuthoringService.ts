@@ -214,10 +214,7 @@ export class MaterialAuthoringService {
     formData: {
       checksumSha256: string;
       declaredSize: number;
-      /**
-       * Current cover UUID or the literal null
-       */
-      expectedCoverId: string;
+      expectedCoverId: (string | 'null');
       file: Blob;
     },
   }): CancelablePromise<{

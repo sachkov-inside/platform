@@ -19,9 +19,9 @@ import { contentCoverOwnerKindSchema } from "@/shared/content-cover-owner";
 const coverIdSchema = z.uuid();
 const coverWidthSchema = z
   .string()
-  .regex(/^[1-9][0-9]{0,3}$/u)
-  .transform(Number)
-  .pipe(z.number().int().positive().max(9_999));
+  .trim()
+  .nonempty()
+  .pipe(z.coerce.number<string>().int().positive().max(9_999));
 const removalBodySchema = z
   .object({ expectedCoverId: z.uuid().nullable() })
   .strict();
