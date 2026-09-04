@@ -78,7 +78,7 @@ const defaultQuery = {
   after: null,
   formatSlugs: [],
   q: "",
-  sort: "relevance",
+  sort: "newest",
 } as const satisfies LibrarySearchQuery;
 
 const catalogFacets = {
@@ -315,26 +315,32 @@ export const ReadyDesktop: Story = {
     const grid = canvasElement.querySelector<HTMLElement>("[data-material-grid]");
 
     await expect(cards).toHaveLength(3);
+    for (const name of ["Все форматы", "Гайды", "Видео", "Заметки"]) {
+      await expect(canvas.getByRole("radio", { name: new RegExp(name, "u") })).toBeVisible();
+    }
     if (firstCard === undefined) {
       throw new Error("First Material card is missing");
     }
     await expect(within(firstCard).getAllByRole("link")).toHaveLength(3);
     await expect(
       within(firstCard).getByRole("link", { name: catalogItems[0].title }),
-    ).toHaveAttribute("href", "/materials/platform-delivery");
+    ).toHaveAttribute("href", "/materials/platform-delivery?from=%2Flibrary");
     await expect(
       within(firstCard).getByRole("link", { name: "Product engineering" }),
-    ).toHaveAttribute("href", "/topics/product-engineering");
+    ).toHaveAttribute(
+      "href",
+      "/topics/product-engineering?from=%2Flibrary",
+    );
     await expect(
       within(firstCard).getByRole("link", {
         name: "Создание Platform Inside № 5",
       }),
-    ).toHaveAttribute("href", "/series/platform-inside");
+    ).toHaveAttribute("href", "/series/platform-inside?from=%2Flibrary");
     await expect(canvas.getByText("Бесплатно")).toBeInTheDocument();
     await expect(canvas.getAllByText("Для участников")).toHaveLength(2);
     await expect(
       canvas.getByRole("link", { name: catalogItems[1].title }),
-    ).toHaveAttribute("href", "/materials/public-agent-skills");
+    ).toHaveAttribute("href", "/materials/public-agent-skills?from=%2Flibrary");
     if (grid === null) {
       throw new Error("Material grid is missing");
     }
@@ -401,7 +407,7 @@ export const SearchResultsDesktop: Story = {
     await expect(canvas.getByLabelText("Поиск по базе знаний")).toHaveValue(
       "developer pipeline",
     );
-    await expect(canvas.getByRole("checkbox", { name: /Гайд/u })).not.toBeChecked();
+    await expect(canvas.getByRole("radio", { name: /Гайды/u })).not.toBeChecked();
     await expect(canvas.getByText("1 материал найден")).toBeInTheDocument();
   },
 };

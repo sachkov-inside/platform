@@ -251,8 +251,8 @@ export class ContentLibraryService {
       url: '/library/home',
       errors: {
         401: `Optional Account proof is invalid`,
-        500: `Account resolution failed`,
-        503: `Account proof dependency is unavailable`,
+        500: `Home catalog or Account resolution failed internally`,
+        503: `Home catalog or Account dependency is unavailable`,
       },
     });
   }

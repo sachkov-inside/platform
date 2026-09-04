@@ -471,6 +471,77 @@ describe("ListPublishedMaterials", () => {
     );
   });
 
+  test("searches current Topic and Series descriptions after publication", async () => {
+    const { authoring, contentAccess, publishedMaterialReader } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === actorId },
+    });
+    await expect(
+      authoring.updateContentCollection({
+        actor: actorId,
+        collectionId: careerTopicId,
+        expectedVersion: 1,
+        kind: "topic",
+        name: "Карьера",
+        summary: "Current orbital taxonomy signal.",
+      }),
+    ).resolves.toMatchObject({ ok: true });
+    await expect(
+      authoring.updateContentCollection({
+        actor: actorId,
+        collectionId: careerSeriesId,
+        expectedVersion: 1,
+        kind: "series",
+        name: "Карьерный путь",
+        summary: "Current cohort sequence signal.",
+      }),
+    ).resolves.toMatchObject({ ok: true });
+
+    const topic = await listPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      emptyCatalogVideos,
+      {
+        subject: anonymousSubject,
+        first: 12,
+        q: "orbital taxonomy signal",
+        topicSlugs: [],
+        formatSlugs: [],
+        seriesSlugs: [],
+        sort: "relevance",
+      },
+    );
+    expect(topic.ok).toBe(true);
+    if (!topic.ok) throw new Error(topic.error.code);
+    expect(topic.value.items.map(({ topic }) => topic.slug)).toEqual([
+      "career",
+      "career",
+    ]);
+    expect(topic.value.totalCount).toBe(2);
+
+    const series = await listPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      emptyCatalogVideos,
+      {
+        subject: anonymousSubject,
+        first: 12,
+        q: "cohort sequence signal",
+        topicSlugs: [],
+        formatSlugs: [],
+        seriesSlugs: [],
+        sort: "relevance",
+      },
+    );
+    expect(series).toMatchObject({
+      ok: true,
+      value: {
+        facets: { series: [expect.objectContaining({ slug: "career-path" })] },
+        totalCount: 3,
+      },
+    });
+  });
+
   test("binds stable cursors to the normalized facet and sort state", async () => {
     const { contentAccess, publishedMaterialReader } = assembleMaterials({
       prisma: testDatabase.prisma,

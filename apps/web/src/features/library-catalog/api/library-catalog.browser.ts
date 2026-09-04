@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { materialPreviewSchema } from "@/entities/material";
+import {
+  contentCoverSchema,
+  materialPreviewSchema,
+} from "@/entities/material";
 import { createLibraryCatalogQueryOptions } from "../model/library-catalog-query";
 import type { LibraryCatalogPage } from "../model/library-view";
 import {
@@ -11,21 +14,7 @@ import {
 const catalogFacetSchema = z
   .object({
     count: z.number().int().nonnegative(),
-    cover: z
-      .object({
-        coverId: z.uuid(),
-        renditions: z.array(
-          z
-            .object({
-              height: z.number().int().positive(),
-              width: z.number().int().positive(),
-            })
-            .strict(),
-        ),
-      })
-      .strict()
-      .nullable()
-      .optional(),
+    cover: contentCoverSchema.nullable().optional(),
     id: z.string(),
     name: z.string(),
     previewItems: z.array(materialPreviewSchema).optional(),

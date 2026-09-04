@@ -144,8 +144,6 @@ export { MaterialAssetMaintenanceModule } from "./material-asset-maintenance.mod
 export { assembleMaterialAuthoringMcpServer } from "./adapters/mcp/material-authoring-mcp.js";
 export {
   assembleContentCovers,
-  loadContentCoverProjections,
-  CONTENT_COVERS,
   type ChangeContentCoverCommand,
   type ChangeContentCoverResult,
   type ContentCoverOwner,

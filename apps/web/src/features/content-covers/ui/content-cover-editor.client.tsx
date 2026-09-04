@@ -53,6 +53,7 @@ export function ContentCoverEditor({
   return (
     <section
       aria-label={`Обложка: ${ownerLabel ?? ownerId}`}
+      aria-busy={pending}
       className="rounded-xl border border-border bg-background p-3"
     >
       <h3 className="text-sm font-semibold" id={`${inputId}-heading`}>Обложка</h3>
@@ -72,7 +73,7 @@ export function ContentCoverEditor({
               htmlFor={inputId}
             >
               {pending ? <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" /> : <ImagePlus aria-hidden="true" />}
-              {cover === null ? "Загрузить" : "Заменить"}
+              {pending ? "Обрабатываем…" : cover === null ? "Загрузить" : "Заменить"}
             </label>
             {cover === null ? null : (
               <Button disabled={disabled || pending} onClick={() => { remove.mutate(); }} size="sm" type="button" variant="ghost">

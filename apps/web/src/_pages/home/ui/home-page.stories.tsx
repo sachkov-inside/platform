@@ -92,6 +92,19 @@ export const RealDataReady: Story = {
     await expect(canvas.getByRole("heading", { name: "Добро пожаловать" })).toBeVisible();
     await expect(canvas.getByRole("heading", { name: "Видео" })).toBeVisible();
     await expect(canvas.queryByText(/продолжить/iu)).not.toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Все видео" })).toHaveAttribute(
+      "href",
+      "/library?format=video",
+    );
+    await expect(canvas.getByRole("link", { name: "Все гайды" })).toHaveAttribute(
+      "href",
+      "/library?format=guide",
+    );
+    await expect(canvas.getByRole("link", { name: "Все заметки" })).toHaveAttribute(
+      "href",
+      "/library?format=note",
+    );
+    await expect(canvas.getByRole("list", { name: "Лента заметок" })).toBeVisible();
   },
 };
 

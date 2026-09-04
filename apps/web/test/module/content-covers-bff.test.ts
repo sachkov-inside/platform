@@ -22,18 +22,33 @@ vi.mock("@/shared/api/backend/index.server", async (importOriginal) => {
   };
 });
 
-vi.mock("@/shared/auth/index.server", () => ({
+vi.mock("@/shared/auth/platform-access-token.server", () => ({
   getPlatformAccessToken: fakes.getAccessToken,
-  isSameOriginMutation: (request: Request, baseUrl: string) =>
-    request.headers.get("origin") === new URL(baseUrl).origin,
   LogtoSessionUnavailableError: fakes.SessionUnavailableError,
+}));
+
+vi.mock("@/shared/auth/logto-bff-config.server", () => ({
   readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
 }));
 
+vi.mock("@/shared/auth/same-origin-mutation.server", () => ({
+  isSameOriginMutation: (request: Request, baseUrl: string) =>
+    request.headers.get("origin") === new URL(baseUrl).origin,
+}));
+
+vi.mock("@/shared/auth/index.server", async () => {
+  const handler = await import(
+    "@/shared/auth/authenticated-mutation-handler.server"
+  );
+  return { handleAuthenticatedMutation: handler.handleAuthenticatedMutation };
+});
+
 import {
   proxyContentCoverDelivery,
-  proxyContentCoverMutation,
+  proxyContentCoverRemoval,
+  proxyContentCoverUpload,
 } from "@/features/content-covers/api/content-cover-bff.server";
+import { MAX_CONTENT_COVER_MUTATION_BYTES } from "@/shared/api/mutation-limits";
 
 const coverId = "10000000-0000-4000-8000-000000000001";
 const ownerId = "20000000-0000-4000-8000-000000000001";
@@ -77,7 +92,7 @@ describe("Content covers BFF", () => {
   });
 
   it("rejects cross-origin authoring before identity or backend work", async () => {
-    const response = await proxyContentCoverMutation(
+    const response = await proxyContentCoverRemoval(
       removalRequest("https://attacker.example.test"),
       "material",
       ownerId,
@@ -106,7 +121,7 @@ describe("Content covers BFF", () => {
       },
     );
 
-    const response = await proxyContentCoverMutation(
+    const response = await proxyContentCoverUpload(
       request,
       "material",
       ownerId,
@@ -122,10 +137,28 @@ describe("Content covers BFF", () => {
     );
   });
 
+  it("rejects an oversized upload before identity or backend work", async () => {
+    const request = uploadRequest();
+    request.headers.set(
+      "content-length",
+      String(MAX_CONTENT_COVER_MUTATION_BYTES + 1),
+    );
+
+    const response = await proxyContentCoverUpload(
+      request,
+      "material",
+      ownerId,
+    );
+
+    expect(response.status).toBe(413);
+    expect(fakes.getAccessToken).not.toHaveBeenCalled();
+    expect(fakes.requestUpload).not.toHaveBeenCalled();
+  });
+
   it("validates and forwards removal concurrency state", async () => {
     fakes.requestRemoval.mockResolvedValue(Response.json({ cover: null }));
 
-    const response = await proxyContentCoverMutation(
+    const response = await proxyContentCoverRemoval(
       removalRequest("https://inside.example.test"),
       "topic",
       ownerId,
@@ -141,7 +174,44 @@ describe("Content covers BFF", () => {
       }),
     );
   });
+
+  it("rejects a removal body outside the strict concurrency contract", async () => {
+    const response = await proxyContentCoverRemoval(
+      new Request(
+        `https://inside.example.test/api/authoring/content-covers/topic/${ownerId}`,
+        {
+          body: JSON.stringify({ expectedCoverId: coverId, unexpected: true }),
+          headers: {
+            "content-type": "application/json",
+            origin: "https://inside.example.test",
+          },
+          method: "DELETE",
+        },
+      ),
+      "topic",
+      ownerId,
+    );
+
+    expect(response.status).toBe(400);
+    expect(fakes.requestRemoval).not.toHaveBeenCalled();
+  });
 });
+
+function uploadRequest(): Request {
+  const form = new FormData();
+  form.set("declaredSize", "3");
+  form.set("checksumSha256", "a".repeat(64));
+  form.set("expectedCoverId", "null");
+  form.set("file", new Blob([new Uint8Array([1, 2, 3])]), "cover.png");
+  return new Request(
+    `https://inside.example.test/api/authoring/content-covers/material/${ownerId}`,
+    {
+      body: form,
+      headers: { origin: "https://inside.example.test" },
+      method: "PUT",
+    },
+  );
+}
 
 function removalRequest(origin: string): Request {
   return new Request(

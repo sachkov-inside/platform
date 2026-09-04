@@ -1,5 +1,7 @@
 import type { Route } from "next";
 
+import { readCanonicalLibraryRouteHref } from "./library-route";
+
 export type MaterialReaderReturnKind =
   | "home"
   | "library"
@@ -48,6 +50,22 @@ export function materialReaderHref(slug: string, returnHref?: Route): Route {
   );
 }
 
+export function collectionDiscoveryHref(
+  kind: "series" | "topic",
+  slug: string,
+  returnHref?: Route,
+): Route {
+  assertSlug(slug);
+  const pathname = `/${kind === "series" ? "series" : "topics"}/${slug}`;
+  if (returnHref === undefined) return internalRoute(pathname);
+  if (readReturnTarget(returnHref) === undefined) {
+    throw new TypeError("Expected a supported discovery return route");
+  }
+  return internalRoute(
+    `${pathname}?${new URLSearchParams({ from: returnHref }).toString()}`,
+  );
+}
+
 export function parseMaterialReaderReturnTarget(
   value: unknown,
 ): MaterialReaderReturnTarget {
@@ -56,6 +74,7 @@ export function parseMaterialReaderReturnTarget(
 
 function readReturnTarget(
   value: unknown,
+  depth = 0,
 ): MaterialReaderReturnTarget | undefined {
   if (
     typeof value !== "string" ||
@@ -73,8 +92,11 @@ function readReturnTarget(
   }
   if (url.origin !== applicationOrigin || url.hash.length > 0) return undefined;
 
-  if (url.pathname === "/library" && url.search.length === 0) {
-    return libraryMaterialReaderReturnTarget;
+  if (url.pathname === "/library") {
+    const href = readCanonicalLibraryRouteHref(url);
+    return href === undefined
+      ? undefined
+      : { ...libraryMaterialReaderReturnTarget, href };
   }
   if (url.pathname === "/" && url.search.length === 0) {
     return {
@@ -97,7 +119,17 @@ function readReturnTarget(
   }
 
   const routeKind = match[1];
-  if (url.search.length > 0) return undefined;
+  if (url.search.length > 0) {
+    const from = singleSearchValue(url.searchParams, "from");
+    if (
+      depth >= 3 ||
+      from === undefined ||
+      [...url.searchParams.keys()].some((key) => key !== "from") ||
+      readReturnTarget(from, depth + 1) === undefined
+    ) {
+      return undefined;
+    }
+  }
 
   const href = internalRoute(`${url.pathname}${url.search}`);
   if (routeKind === "series") {
@@ -107,6 +139,18 @@ function readReturnTarget(
     return { href, kind: "topic", label: "Назад к теме" };
   }
   return undefined;
+}
+
+function singleSearchValue(
+  search: URLSearchParams,
+  name: string,
+): string | undefined {
+  const values = search.getAll(name);
+  return values.length === 0
+    ? undefined
+    : values.length === 1
+      ? values[0]
+      : undefined;
 }
 
 function assertSlug(slug: string): void {

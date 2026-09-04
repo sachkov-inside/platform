@@ -10,6 +10,7 @@ import {
   Tags,
   Unlock,
 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
 import type {
@@ -25,8 +26,10 @@ import {
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import {
+  collectionDiscoveryHref,
+  libraryMaterialReaderReturnTarget,
   materialReaderHref,
-  materialReaderOriginHref,
+  type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
@@ -37,11 +40,18 @@ type ResolvedDiscoveryResult = Exclude<
 
 export function LibraryDiscoveryView({
   result,
+  returnTarget = libraryMaterialReaderReturnTarget,
 }: {
   readonly result: ResolvedDiscoveryResult;
+  readonly returnTarget?: MaterialReaderReturnTarget;
 }) {
   const isSeries = result.discoveryKind === "series";
   const Icon = isSeries ? ListVideo : Tags;
+  const currentHref = collectionDiscoveryHref(
+    result.discoveryKind,
+    result.reference.slug,
+    returnTarget.href,
+  );
 
   return (
     <div
@@ -52,6 +62,7 @@ export function LibraryDiscoveryView({
       <DiscoveryBreadcrumb
         kind={result.discoveryKind}
         name={result.reference.name}
+        returnTarget={returnTarget}
       />
       <header className="relative mt-6 isolate overflow-clip rounded-2xl bg-secondary px-5 py-7 shadow-card sm:mt-8 sm:px-8 sm:py-9">
         <ContentCoverImage
@@ -84,17 +95,19 @@ export function LibraryDiscoveryView({
       {result.kind === "empty" ? (
         <DiscoveryEmpty kind={result.discoveryKind} />
       ) : isSeries ? (
-        <SeriesMaterials result={result} />
+        <SeriesMaterials currentHref={currentHref} result={result} />
       ) : (
-        <TopicMaterials result={result} />
+        <TopicMaterials currentHref={currentHref} result={result} />
       )}
     </div>
   );
 }
 
 function TopicMaterials({
+  currentHref,
   result,
 }: {
+  readonly currentHref: Route;
   readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
 }) {
   return (
@@ -108,6 +121,7 @@ function TopicMaterials({
             {result.relatedSeries.map((playlist) => (
               <PlaylistCard
                 key={playlist.slug}
+                returnHref={currentHref}
                 playlist={{
                   countLabel: `${formatMaterialCount(playlist.matchingMaterialCount)} в теме · ${formatMaterialCount(playlist.totalMaterialCount)} всего`,
                   cover: playlist.cover,
@@ -126,6 +140,7 @@ function TopicMaterials({
       </section>
       <TopicMaterialCatalog
         key={result.reference.slug}
+        returnHref={currentHref}
         topicSlug={result.reference.slug}
       />
     </>
@@ -133,8 +148,10 @@ function TopicMaterials({
 }
 
 function SeriesMaterials({
+  currentHref,
   result,
 }: {
+  readonly currentHref: Route;
   readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
 }) {
   const topics = result.topics;
@@ -157,7 +174,11 @@ function SeriesMaterials({
                 <li key={topic.slug}>
                   <Link
                     className="inline-flex min-h-9 items-center rounded-lg bg-muted px-3 text-sm font-semibold no-underline hover:bg-secondary focus-visible:outline-ring"
-                    href={`/topics/${topic.slug}`}
+                    href={collectionDiscoveryHref(
+                      "topic",
+                      topic.slug,
+                      currentHref,
+                    )}
                     prefetch={false}
                   >
                     {topic.name}
@@ -187,10 +208,7 @@ function SeriesMaterials({
               </div>
               <SeriesMaterialRow
                 material={material}
-                returnHref={materialReaderOriginHref(
-                  "series",
-                  result.reference.slug,
-                )}
+                returnHref={currentHref}
               />
             </li>
           );
@@ -206,7 +224,7 @@ function SeriesMaterialRow({
   returnHref,
 }: {
   readonly material: MaterialPreview;
-  readonly returnHref: ReturnType<typeof materialReaderOriginHref>;
+  readonly returnHref: Route;
 }) {
   const available = material.availability === "available";
   const AccessIcon = available ? Unlock : LockKeyhole;
@@ -281,9 +299,11 @@ function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
 function DiscoveryBreadcrumb({
   kind,
   name,
+  returnTarget,
 }: {
   readonly kind: LibraryDiscoveryKind;
   readonly name: string;
+  readonly returnTarget: MaterialReaderReturnTarget;
 }) {
   return (
     <nav aria-label="Хлебные крошки">
@@ -291,9 +311,10 @@ function DiscoveryBreadcrumb({
         <li>
           <Link
             className="inline-flex min-h-10 items-center rounded-lg px-2 no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
-            href="/library"
+            href={returnTarget.href}
           >
-            База знаний
+            <ArrowLeft aria-hidden="true" className="size-4" />
+            {returnTarget.label}
           </Link>
         </li>
         <li aria-hidden="true">/</li>

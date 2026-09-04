@@ -18,6 +18,7 @@ export async function refreshPublishedMaterialSearchProjections(
     set public_search_text = concat_ws(
       ' ',
       topic.name,
+      topic.summary,
       format.name,
       coalesce(
         (
@@ -30,7 +31,10 @@ export async function refreshPublishedMaterialSearchProjections(
       ),
       coalesce(
         (
-          select string_agg(series.name, ' ' order by series.name)
+          select string_agg(
+            concat_ws(' ', series.name, series.summary),
+            ' ' order by series.name
+          )
           from materials.published_material_series_memberships as membership
           join materials.series as series on series.id = membership.series_id
           where membership.material_id = publication.material_id

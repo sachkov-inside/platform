@@ -8,6 +8,7 @@ import {
 
 import {
   InfiniteMaterialCatalog,
+  libraryHref,
   libraryCatalogQueryOptions,
   parseLibrarySearchParams,
   serializeLibrarySearchQuery,
@@ -130,6 +131,7 @@ export function LibraryCatalogQueryView({
   }
 
   const items = catalog.readyPages.flatMap((page) => page.items);
+  const returnHref = libraryHref(catalog.requestQuery);
 
   return (
     <LibraryPage
@@ -140,6 +142,7 @@ export function LibraryCatalogQueryView({
           isFetchingNextPage={catalog.query.isFetchingNextPage}
           onLoadNextPage={catalog.loadNextPage}
           pages={catalog.readyPages}
+          returnHref={returnHref}
           totalCount={firstPage.totalCount}
         />
       }
@@ -148,6 +151,7 @@ export function LibraryCatalogQueryView({
       }
       onQueryChange={catalog.changeQuery}
       query={catalog.searchQuery}
+      returnHref={returnHref}
       result={{
         facets: firstPage.facets,
         kind: "ready",

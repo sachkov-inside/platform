@@ -118,7 +118,8 @@ export const TopicDesktop: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
     await expect(canvasElement.querySelector("[data-playlist-card]")).toHaveAttribute(
-      "href", "/series/platform-inside",
+      "href",
+      "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
     );
   },
 };

@@ -22,32 +22,34 @@ export async function uploadContentCover(input: {
   body.set("declaredSize", String(input.file.size));
   body.set("expectedCoverId", input.currentCover?.coverId ?? "null");
   body.set("file", input.file);
-  return requestChange(
-    `/api/authoring/content-covers/${input.ownerKind}/${encodeURIComponent(input.ownerId)}`,
-    { body, method: "PUT" },
+  return parseChangeResponse(
+    await fetch(
+      `/api/authoring/content-covers/${input.ownerKind}/${encodeURIComponent(input.ownerId)}`,
+      { body, method: "PUT" },
+    ),
   );
 }
 
-export function removeContentCover(input: {
+export async function removeContentCover(input: {
   readonly currentCover: ContentCover;
   readonly ownerId: string;
   readonly ownerKind: "material" | "series" | "topic";
 }): Promise<ContentCoverChangeResult> {
-  return requestChange(
-    `/api/authoring/content-covers/${input.ownerKind}/${encodeURIComponent(input.ownerId)}`,
-    {
-      body: JSON.stringify({ expectedCoverId: input.currentCover.coverId }),
-      headers: { "Content-Type": "application/json" },
-      method: "DELETE",
-    },
+  return parseChangeResponse(
+    await fetch(
+      `/api/authoring/content-covers/${input.ownerKind}/${encodeURIComponent(input.ownerId)}`,
+      {
+        body: JSON.stringify({ expectedCoverId: input.currentCover.coverId }),
+        headers: { "Content-Type": "application/json" },
+        method: "DELETE",
+      },
+    ),
   );
 }
 
-async function requestChange(
-  path: string,
-  init: RequestInit,
+async function parseChangeResponse(
+  response: Response,
 ): Promise<ContentCoverChangeResult> {
-  const response = await fetch(path, init);
   if (response.status === 409) return { kind: "conflict" };
   if (!response.ok) return { kind: "error" };
   const parsed = responseSchema.safeParse(await response.json());

@@ -1,4 +1,7 @@
-import { proxyContentCoverMutation } from "@/features/content-covers.server";
+import {
+  proxyContentCoverRemoval,
+  proxyContentCoverUpload,
+} from "@/features/content-covers.server";
 
 interface CoverRouteContext {
   readonly params: Promise<{
@@ -12,7 +15,7 @@ export async function PUT(
   context: CoverRouteContext,
 ): Promise<Response> {
   const { ownerId, ownerKind } = await context.params;
-  return proxyContentCoverMutation(request, ownerKind, ownerId);
+  return proxyContentCoverUpload(request, ownerKind, ownerId);
 }
 
 export async function DELETE(
@@ -20,5 +23,5 @@ export async function DELETE(
   context: CoverRouteContext,
 ): Promise<Response> {
   const { ownerId, ownerKind } = await context.params;
-  return proxyContentCoverMutation(request, ownerKind, ownerId);
+  return proxyContentCoverRemoval(request, ownerKind, ownerId);
 }

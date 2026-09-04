@@ -17,6 +17,7 @@ export type {
 export {
   changeLibraryQuery,
   hasActiveLibrarySearch,
+  libraryHref,
   parseLibrarySearchParams,
   serializeLibrarySearchQuery,
   withoutLibraryCursor,

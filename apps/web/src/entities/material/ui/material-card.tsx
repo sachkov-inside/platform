@@ -8,7 +8,10 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 
-import { materialReaderHref } from "@/shared/routing/material-reader";
+import {
+  collectionDiscoveryHref,
+  materialReaderHref,
+} from "@/shared/routing/material-reader";
 import { cn } from "@/shared/lib/utils";
 import type { MaterialPreview } from "../model/material-preview";
 import { materialTaxonomyLabel } from "../model/material-taxonomy-label";
@@ -19,7 +22,7 @@ export interface MaterialCardProps {
   readonly headingLevel?: "h2" | "h3";
   readonly material: MaterialPreview;
   readonly returnHref?: Route;
-  readonly variant?: "compact" | "default";
+  readonly variant?: "compact" | "default" | "feed";
 }
 
 /** Safe published Material summary with media only when the presentation contract provides it. */
@@ -30,17 +33,22 @@ export function MaterialCard({
   variant = "default",
 }: MaterialCardProps) {
   const hasArtwork =
-    material.cover != null ||
-    material.preview !== undefined ||
-    material.primaryVideoDurationSeconds !== undefined;
+    variant !== "feed" &&
+    (material.cover != null ||
+      material.preview !== undefined ||
+      material.primaryVideoDurationSeconds !== undefined);
   const Heading = headingLevel;
   const titleId = `material-${material.slug}-title`;
 
   return (
     <article
-      className="@container/material-card h-full w-full max-w-[28rem]"
+      className={cn(
+        "@container/material-card h-full w-full",
+        variant === "feed" ? "max-w-[48rem]" : "max-w-[28rem]",
+      )}
       data-material-id={material.slug}
       data-material-slug={material.slug}
+      data-material-variant={variant}
     >
       <div
         className="group/card relative grid h-full overflow-hidden rounded-2xl bg-card no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-within:shadow-card-hover active:translate-y-0 active:shadow-card motion-reduce:transform-none motion-reduce:transition-none"
@@ -51,7 +59,11 @@ export function MaterialCard({
         <div
           className={cn(
             "flex h-full min-w-0 flex-col",
-            variant === "compact" ? "p-3 sm:p-4" : "p-4",
+            variant === "compact"
+              ? "p-3 sm:p-4"
+              : variant === "feed"
+                ? "p-5 sm:p-6"
+                : "p-4",
             hasArtwork && variant === "default" && "min-h-[12.5rem]",
           )}
         >
@@ -63,9 +75,12 @@ export function MaterialCard({
             />
           </div>
           <div className={cn("mt-3", variant === "compact" && "hidden sm:block")}>
-            <MaterialTaxonomy material={material} />
+            <MaterialTaxonomy
+              material={material}
+              {...(returnHref === undefined ? {} : { returnHref })}
+            />
           </div>
-          <Heading className={cn("mt-3 font-bold tracking-[-0.03em]", variant === "compact" ? "line-clamp-2 text-sm leading-5 sm:text-lg sm:leading-6" : "line-clamp-3 text-xl leading-[1.2]")}>
+          <Heading className={cn("mt-3 font-bold tracking-[-0.03em]", variant === "compact" ? "line-clamp-2 text-sm leading-5 sm:text-lg sm:leading-6" : variant === "feed" ? "text-lg leading-6 sm:text-xl" : "line-clamp-3 text-xl leading-[1.2]")}>
             <Link
               className="no-underline after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:underline group-hover/card:decoration-accent group-hover/card:underline-offset-4"
               href={materialReaderHref(material.slug, returnHref)}
@@ -77,10 +92,13 @@ export function MaterialCard({
           </Heading>
           {variant === "compact" ? null : (
             <>
-              <p className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground">
+              <p className={cn("mt-2 text-sm leading-5 text-muted-foreground", variant === "feed" ? "line-clamp-3 max-w-[64ch]" : "line-clamp-2")}>
                 {material.summary}
               </p>
-              <MaterialPlaylists material={material} />
+              <MaterialPlaylists
+                material={material}
+                {...(returnHref === undefined ? {} : { returnHref })}
+              />
             </>
           )}
         </div>
@@ -91,15 +109,17 @@ export function MaterialCard({
 
 function MaterialTaxonomy({
   material,
+  returnHref,
 }: {
   readonly material: MaterialPreview;
+  readonly returnHref?: Route;
 }) {
   return (
     <ul aria-label="Контекст материала" className="flex flex-wrap gap-1.5" role="list">
       <li>
         <Link
           className="relative z-10 inline-flex min-h-7 items-center rounded-lg bg-accent/10 px-2.5 py-1 text-xs font-medium leading-4 text-foreground no-underline hover:bg-accent/20 focus-visible:outline-ring"
-          href={`/topics/${material.topicSlug}`}
+          href={collectionDiscoveryHref("topic", material.topicSlug, returnHref)}
           prefetch={false}
         >
           {materialTaxonomyLabel(material.topic)}
@@ -138,8 +158,10 @@ function MaterialFormat({
 
 function MaterialPlaylists({
   material,
+  returnHref,
 }: {
   readonly material: MaterialPreview;
+  readonly returnHref?: Route;
 }) {
   if (material.seriesMemberships.length === 0) {
     return null;
@@ -155,7 +177,7 @@ function MaterialPlaylists({
         <li key={`${membership.name}-${String(membership.ordinal)}`}>
           <Link
             className="relative z-10 grid min-h-9 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-lg px-1.5 py-2 no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
-            href={`/series/${membership.slug}`}
+            href={collectionDiscoveryHref("series", membership.slug, returnHref)}
             prefetch={false}
           >
             <ListVideo aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-accent" />

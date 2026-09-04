@@ -127,6 +127,9 @@ describe("ContentCovers", () => {
     expect(delivered.contentLength).toBeGreaterThan(0);
     expect(delivered.contentType).toBe("image/webp");
     expect(signed).toEqual([]);
+    await expect(
+      covers.deliver({ coverId: uploaded.value.cover.coverId, width: 777 }),
+    ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
 
     const replacement = await covers.change({
       actor,
@@ -209,6 +212,44 @@ describe("ContentCovers", () => {
     ).resolves.toMatchObject({
       ok: true,
       value: { reference: { cover: result.value.cover } },
+    });
+  });
+
+  test("fails a storage outage closed without publishing a processing cover", async () => {
+    const covers = assembleContentCovers({
+      authorPolicy: { canManage: (accountId) => accountId === actor },
+      objectStorage: {
+        ...objectStorage,
+        putImmutable: () =>
+          Promise.resolve({
+            error: { code: "object_already_exists" as const },
+            ok: false as const,
+          }),
+      },
+      prisma: database.prisma,
+    });
+
+    await expect(
+      covers.change({
+        actor,
+        expectedCoverId: null,
+        kind: "upload",
+        owner: { id: materialId, kind: "material" },
+        ...(await coverUpload("#cc0000")),
+      }),
+    ).resolves.toEqual({
+      error: { code: "dependency_unavailable", retryable: true },
+      ok: false,
+    });
+    await expect(
+      database.prisma.contentCover.findFirstOrThrow({
+        orderBy: { createdAt: "desc" },
+        where: { materialId, state: "failed" },
+      }),
+    ).resolves.toMatchObject({
+      currentlyReferenced: false,
+      failureCode: "storage_failure",
+      state: "failed",
     });
   });
 });

@@ -1,11 +1,21 @@
 import { Controller, Get, Inject } from "@nestjs/common";
-import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  ApiInternalServerErrorResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiServiceUnavailableResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 import { z } from "zod";
 
 import { ViewerAwareCatalogCache } from "../../../../infrastructure/http/http-cache-policy.js";
-import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
+import {
+  problemDetailsOneOfContent,
+  toOpenApiSchema,
+} from "../../../../infrastructure/http/zod-openapi.js";
 import {
   accountId,
+  accountProblemSchema,
   OptionalAccountEndpoint,
   OptionalCurrentAccount,
   type AuthenticatedAccount,
@@ -17,6 +27,7 @@ import {
 } from "../../../content-access/index.js";
 import {
   PUBLISHED_MATERIAL_READER,
+  publishedMaterialProblemHttpSchema,
   type PublishedMaterialReader,
 } from "../../../materials/index.js";
 import { VIDEOS, type Videos } from "../../../videos/index.js";
@@ -60,6 +71,20 @@ export class ReadHomeContentController {
     summary: "Read the bounded real-data Home projection",
   })
   @ApiOkResponse({ schema: toOpenApiSchema(homeContentHttpSchema) })
+  @ApiInternalServerErrorResponse({
+    description: "Home catalog or Account resolution failed internally",
+    content: problemDetailsOneOfContent(
+      publishedMaterialProblemHttpSchema,
+      accountProblemSchema,
+    ),
+  })
+  @ApiServiceUnavailableResponse({
+    description: "Home catalog or Account dependency is unavailable",
+    content: problemDetailsOneOfContent(
+      publishedMaterialProblemHttpSchema,
+      accountProblemSchema,
+    ),
+  })
   async read(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
   ) {

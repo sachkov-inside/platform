@@ -1,4 +1,5 @@
 import { ArrowUpRight } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
 import {
@@ -6,6 +7,7 @@ import {
   type ContentCover,
   type MaterialPreview,
 } from "@/entities/material";
+import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 
 export interface TopicCardPresentation {
   readonly cover?: ContentCover | null | undefined;
@@ -24,12 +26,18 @@ export interface PlaylistCardPresentation {
   readonly summary: string;
 }
 
-export function TopicCard({ topic }: { readonly topic: TopicCardPresentation }) {
+export function TopicCard({
+  returnHref,
+  topic,
+}: {
+  readonly returnHref?: Route;
+  readonly topic: TopicCardPresentation;
+}) {
   return (
     <Link
       className="group/topic relative isolate min-h-64 overflow-clip rounded-2xl bg-sidebar text-sidebar-foreground no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-sidebar-ring motion-reduce:transform-none motion-reduce:transition-none"
       data-topic-card
-      href={`/topics/${topic.slug}`}
+      href={collectionDiscoveryHref("topic", topic.slug, returnHref)}
       prefetch={false}
     >
       <ContentCoverImage
@@ -63,14 +71,16 @@ export function TopicCard({ topic }: { readonly topic: TopicCardPresentation }) 
 
 export function PlaylistCard({
   playlist,
+  returnHref,
 }: {
   readonly playlist: PlaylistCardPresentation;
+  readonly returnHref?: Route;
 }) {
   return (
     <Link
       className="group/playlist grid min-h-32 overflow-clip rounded-2xl bg-secondary text-foreground no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none @min-[34rem]/playlist-surface:grid-cols-[9rem_minmax(0,1fr)]"
       data-playlist-card
-      href={`/series/${playlist.slug}`}
+      href={collectionDiscoveryHref("series", playlist.slug, returnHref)}
       prefetch={false}
     >
       <ContentCoverImage

@@ -1,4 +1,5 @@
 import { ArrowRight, DatabaseZap, UserRound } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
 import { MaterialCard } from "@/entities/material";
@@ -7,6 +8,7 @@ import {
   formatMaterialCount,
 } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
+import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import type { HomeResult, HomeView } from "../model/home-view";
 
 export function HomePage({ result }: { readonly result: HomeResult }) {
@@ -43,10 +45,10 @@ function HomeReady({ home }: { readonly home: HomeView }) {
       </header>
 
       <TopicRail topics={home.topics} />
-      <MaterialSection items={home.videos} title="Видео" variant="video" />
+      <MaterialSection formatSlug="video" items={home.videos} title="Видео" variant="video" />
       <PlaylistSection playlists={home.playlists} />
-      <MaterialSection items={home.guides} title="Гайды" />
-      <MaterialSection items={home.notes} title="Заметки" />
+      <MaterialSection formatSlug="guide" items={home.guides} title="Гайды" />
+      <NoteFeed items={home.notes} />
     </div>
   );
 }
@@ -61,7 +63,7 @@ function TopicRail({ topics }: { readonly topics: HomeView["topics"] }) {
       <ul className="-mx-5 mt-3 flex snap-x gap-2 overflow-x-auto px-5 pb-2 [scrollbar-width:none] sm:-mx-8 sm:px-8 md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden" role="list">
         {topics.map((topic) => (
           <li className="shrink-0 snap-start" key={topic.slug}>
-            <Link className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-semibold no-underline shadow-sm hover:border-accent/50 hover:bg-accent/10 focus-visible:outline-ring" href={`/topics/${topic.slug}`} prefetch={false}>
+            <Link className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-semibold no-underline shadow-sm hover:border-accent/50 hover:bg-accent/10 focus-visible:outline-ring" href={collectionDiscoveryHref("topic", topic.slug, "/")} prefetch={false}>
               {topic.name}
               <span className="text-xs font-normal text-muted-foreground">{topic.count}</span>
             </Link>
@@ -73,17 +75,24 @@ function TopicRail({ topics }: { readonly topics: HomeView["topics"] }) {
 }
 
 function MaterialSection({
+  formatSlug,
   items,
   title,
   variant = "default",
 }: {
+  readonly formatSlug: "guide" | "video";
   readonly items: HomeView["videos"];
   readonly title: string;
   readonly variant?: "default" | "video";
 }) {
   return (
     <section aria-labelledby={`home-${title}`} className="mt-10 sm:mt-12">
-      <SectionHeading id={`home-${title}`} title={title} />
+      <SectionHeading
+        href={`/library?format=${formatSlug}`}
+        id={`home-${title}`}
+        linkLabel={`Все ${title.toLocaleLowerCase("ru-RU")}`}
+        title={title}
+      />
       {items.length === 0 ? (
         <p className="mt-4 rounded-2xl bg-muted px-5 py-7 text-sm text-muted-foreground">
           В этом разделе пока нет опубликованных материалов.
@@ -109,7 +118,12 @@ function MaterialSection({
 function PlaylistSection({ playlists }: { readonly playlists: HomeView["playlists"] }) {
   return (
     <section aria-labelledby="home-playlists" className="mt-10 sm:mt-12">
-      <SectionHeading id="home-playlists" title="Плейлисты" />
+      <SectionHeading
+        href="/library"
+        id="home-playlists"
+        linkLabel="Все плейлисты"
+        title="Плейлисты"
+      />
       {playlists.length === 0 ? (
         <p className="mt-4 rounded-2xl bg-muted px-5 py-7 text-sm text-muted-foreground">
           Плейлистов пока нет.
@@ -119,6 +133,7 @@ function PlaylistSection({ playlists }: { readonly playlists: HomeView["playlist
           {playlists.map((playlist) => (
             <PlaylistCard
               key={playlist.slug}
+              returnHref="/"
               playlist={{
                 countLabel: formatMaterialCount(playlist.count),
                 cover: playlist.cover,
@@ -135,13 +150,54 @@ function PlaylistSection({ playlists }: { readonly playlists: HomeView["playlist
   );
 }
 
-function SectionHeading({ id, title }: { readonly id: string; readonly title: string }) {
+function NoteFeed({ items }: { readonly items: HomeView["notes"] }) {
+  return (
+    <section aria-labelledby="home-notes" className="mt-10 sm:mt-12">
+      <SectionHeading
+        href="/library?format=note"
+        id="home-notes"
+        linkLabel="Все заметки"
+        title="Заметки"
+      />
+      {items.length === 0 ? (
+        <p className="mt-4 rounded-2xl bg-muted px-5 py-7 text-sm text-muted-foreground">
+          В этом разделе пока нет опубликованных материалов.
+        </p>
+      ) : (
+        <ul aria-label="Лента заметок" className="mt-4 grid max-w-[48rem] gap-3" role="list">
+          {items.map((material) => (
+            <li key={material.slug}>
+              <MaterialCard
+                headingLevel="h3"
+                material={material}
+                returnHref="/"
+                variant="feed"
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function SectionHeading({
+  href,
+  id,
+  linkLabel,
+  title,
+}: {
+  readonly href: Route;
+  readonly id: string;
+  readonly linkLabel: string;
+  readonly title: string;
+}) {
   return (
     <div className="flex items-center justify-between gap-4">
       <h2 className="text-xl font-semibold tracking-[-0.03em] sm:text-2xl" id={id}>
         {title}
       </h2>
-      <Link className="text-sm font-semibold text-muted-foreground no-underline hover:text-foreground" href="/library">
+      <Link aria-label={linkLabel} className="text-sm font-semibold text-muted-foreground no-underline hover:text-foreground" href={href}>
         Смотреть все
       </Link>
     </div>

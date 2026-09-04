@@ -1,12 +1,14 @@
 "use client";
 
 import { DatabaseZap, RefreshCw } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
 import {
   CatalogControls,
   MaterialCatalogGrid,
   formatFoundMaterialCount,
+  libraryHref,
   parseLibrarySearchParams,
   type LibraryCatalogPage,
   type LibrarySearchQuery,
@@ -24,6 +26,7 @@ export function LibraryPage({
   onQueryChange,
   onRetry,
   query,
+  returnHref,
   result,
 }: {
   readonly catalog?: React.ReactNode;
@@ -31,8 +34,10 @@ export function LibraryPage({
   readonly onQueryChange: (query: LibrarySearchQuery) => void;
   readonly onRetry?: () => void;
   readonly query: LibrarySearchQuery;
+  readonly returnHref?: Route;
   readonly result: LibraryCatalogPage;
 }) {
+  const effectiveReturnHref = returnHref ?? libraryHref(query);
   const facets =
     result.kind === "ready"
       ? result.facets
@@ -45,7 +50,10 @@ export function LibraryPage({
       <LibraryHeader />
       <div className="px-5 pb-7 sm:px-8 sm:pb-10 md:px-0 md:pb-0">
         {result.kind === "ready" ? (
-          <LibraryCollections facets={result.facets} />
+          <LibraryCollections
+            facets={result.facets}
+            returnHref={effectiveReturnHref}
+          />
         ) : null}
         <CatalogControls
           facets={facets}
@@ -64,6 +72,7 @@ export function LibraryPage({
             : catalog ?? (
                 <LibraryCatalog
                   items={result.items}
+                  returnHref={effectiveReturnHref}
                   totalCount={result.totalCount}
                 />
               )
@@ -156,8 +165,10 @@ function LibraryHeader() {
 
 function LibraryCollections({
   facets,
+  returnHref,
 }: {
   readonly facets: Extract<LibraryCatalogPage, { readonly kind: "ready" }>["facets"];
+  readonly returnHref: Route;
 }) {
   return (
     <>
@@ -172,6 +183,7 @@ function LibraryCollections({
             {facets.topics.map((topic) => (
               <TopicCard
                 key={topic.slug}
+                returnHref={returnHref}
                 topic={{
                   count: topic.count,
                   cover: topic.cover,
@@ -196,6 +208,7 @@ function LibraryCollections({
             {facets.series.map((playlist) => (
               <PlaylistCard
                 key={playlist.slug}
+                returnHref={returnHref}
                 playlist={{
                   countLabel: formatMaterialCount(playlist.count),
                   cover: playlist.cover,
@@ -223,9 +236,11 @@ function CollectionEmpty({ label }: { readonly label: string }) {
 
 export function LibraryCatalog({
   items,
+  returnHref = "/library",
   totalCount,
 }: {
   readonly items: Extract<LibraryCatalogPage, { readonly kind: "ready" }>["items"];
+  readonly returnHref?: Route;
   readonly totalCount: number;
 }) {
   return (
@@ -240,7 +255,7 @@ export function LibraryCatalog({
           </p>
         </div>
       </div>
-      <MaterialCatalogGrid className="mt-4" items={items} />
+      <MaterialCatalogGrid className="mt-4" items={items} returnHref={returnHref} />
     </section>
   );
 }

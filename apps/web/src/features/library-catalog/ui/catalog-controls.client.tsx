@@ -2,7 +2,6 @@
 
 import { Search } from "lucide-react";
 
-import { materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import {
   Select,
@@ -20,7 +19,6 @@ import {
 
 export function CatalogControls({
   facets,
-  hiddenFacets: _hiddenFacets = [],
   isRefreshing,
   onQueryChange,
   query,
@@ -31,7 +29,6 @@ export function CatalogControls({
     readonly series: readonly LibraryCatalogFacet[];
     readonly topics: readonly LibraryCatalogFacet[];
   };
-  readonly hiddenFacets?: readonly ("format" | "series" | "topic")[];
   readonly isRefreshing: boolean;
   readonly onQueryChange: (query: LibrarySearchQuery) => void;
   readonly query: LibrarySearchQuery;
@@ -99,17 +96,13 @@ export function CatalogControls({
         {isRefreshing ? "Обновляем материалы…" : "Фильтры применяются сразу"}
       </p>
 
-      {facets.formats.length > 0 ? (
-        <div className="mt-3">
-          <CatalogFilterFieldset
-            legend="Формат"
-            onQueryChange={onQueryChange}
-            options={facets.formats}
-            query={query}
-            selected={query.formatSlugs}
-          />
-        </div>
-      ) : null}
+      <div className="mt-3">
+        <CatalogFormatFieldset
+          facets={facets.formats}
+          onQueryChange={onQueryChange}
+          query={query}
+        />
+      </div>
 
       {query.q.length > 0 || activeFilterCount > 0 ? (
         <div className="mt-3 flex justify-end">
@@ -129,47 +122,54 @@ export function CatalogControls({
   );
 }
 
-function CatalogFilterFieldset({
-  legend,
+function CatalogFormatFieldset({
+  facets,
   onQueryChange,
-  options,
   query,
-  selected,
 }: {
-  readonly legend: string;
+  readonly facets: readonly LibraryCatalogFacet[];
   readonly onQueryChange: (query: LibrarySearchQuery) => void;
-  readonly options: readonly LibraryCatalogFacet[];
   readonly query: LibrarySearchQuery;
-  readonly selected: readonly string[];
 }) {
+  const counts = new Map(facets.map((facet) => [facet.slug, facet.count]));
+  const options = [
+    { label: "Все форматы", slug: null },
+    { label: "Гайды", slug: "guide" },
+    { label: "Видео", slug: "video" },
+    { label: "Заметки", slug: "note" },
+  ] as const;
   return (
     <fieldset className="min-w-0 border-0 p-0">
       <legend className="mb-2 text-xs font-medium text-muted-foreground">
-        {legend}
+        Формат
       </legend>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => (
-          <label className="cursor-pointer" key={option.id}>
+          <label className="cursor-pointer" key={option.slug ?? "all"}>
             <input
-              checked={selected.includes(option.slug)}
+              checked={
+                option.slug === null
+                  ? query.formatSlugs.length === 0
+                  : query.formatSlugs[0] === option.slug
+              }
               className="peer sr-only"
               name="format"
               onChange={(event) => {
-                const values = event.currentTarget.checked
-                  ? [...selected, option.slug]
-                  : selected.filter((slug) => slug !== option.slug);
-                onQueryChange(
-                  changeLibraryQuery(query, { formatSlugs: values }),
-                );
+                if (!event.currentTarget.checked) return;
+                onQueryChange(changeLibraryQuery(query, {
+                  formatSlugs: option.slug === null ? [] : [option.slug],
+                }));
               }}
-              type="checkbox"
-              value={option.slug}
+              type="radio"
+              value={option.slug ?? ""}
             />
             <span className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:border-muted-foreground/45 hover:bg-muted/80 peer-checked:border-accent/55 peer-checked:bg-accent/12 peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
-              {materialTaxonomyLabel(option.name)}
-              <span className="text-xs text-muted-foreground">
-                {option.count}
-              </span>
+              {option.label}
+              {option.slug !== null && counts.has(option.slug) ? (
+                <span className="text-xs text-muted-foreground">
+                  {counts.get(option.slug)}
+                </span>
+              ) : null}
             </span>
           </label>
         ))}

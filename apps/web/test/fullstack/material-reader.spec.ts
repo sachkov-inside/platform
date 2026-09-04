@@ -41,6 +41,11 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
     expect(second).not.toBeNull();
     expect(Math.abs((first?.y ?? 0) - (second?.y ?? 0))).toBeLessThan(8);
     expect(second?.x).toBeGreaterThan(first?.x ?? 0);
+    const scrollbarWidths = await page.evaluate(() => ({
+      body: getComputedStyle(document.body).scrollbarWidth,
+      html: getComputedStyle(document.documentElement).scrollbarWidth,
+    }));
+    expect(scrollbarWidths).toEqual({ body: "none", html: "none" });
   }
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
@@ -85,7 +90,10 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   );
   await expect(
     page.getByRole("link", { exact: true, name: "Developer Pipeline без потери контекста" }),
-  ).toHaveAttribute("href", "/materials/developer-pipeline-bez-poteri-konteksta");
+  ).toHaveAttribute(
+    "href",
+    "/materials/developer-pipeline-bez-poteri-konteksta?from=%2Flibrary",
+  );
   await expect(page).toHaveTitle("База знаний · Inside");
   await captureIssue195Evidence(page, testInfo, "library");
   await captureIssue271Evidence(page, testInfo, "library");
@@ -171,8 +179,8 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
       response.url().includes("format=guide") &&
       response.status() === 200,
   );
-  const formatFilter = page.getByRole("checkbox", {
-    name: /^Гайд \d+$/u,
+  const formatFilter = page.getByRole("radio", {
+    name: /^Гайды \d+$/u,
   });
   await formatFilter.focus();
   await page.keyboard.press("Space");
@@ -514,7 +522,11 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await topicLink.focus();
   await expect(topicLink).toBeFocused();
   await topicLink.press("Enter");
-  await expect(page).toHaveURL(/\/topics\/platform$/u);
+  await expect(page).toHaveURL(/\/topics\/platform\?from=%2Flibrary$/u);
+  await expect(page.getByRole("link", { name: "Назад в Базу знаний" })).toHaveAttribute(
+    "href",
+    "/library",
+  );
   await expect(page.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
   await expect(page).toHaveTitle("Platform — тема · Inside");
   await expect(page.getByText("Для участников")).toBeVisible();
@@ -529,20 +541,30 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     new URL(topicMaterialHref ?? "", "http://127.0.0.1:3000").searchParams.get(
       "from",
     ),
-  ).toBe("/topics/platform");
+  ).toBe("/topics/platform?from=%2Flibrary");
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue93Evidence(page, testInfo, "topic");
   await captureIssue195Evidence(page, testInfo, "topic");
   await captureIssue271Evidence(page, testInfo, "topic");
 
-  const seriesLink = page.locator(
-    '[data-playlist-card][href="/series/platform-inside"]',
+  const seriesLink = page.locator('[data-playlist-card]').filter({
+    hasText: "Создание Platform Inside",
+  });
+  await expect(seriesLink).toHaveAttribute(
+    "href",
+    "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
   );
   await seriesLink.focus();
   await expect(seriesLink).toBeFocused();
   await seriesLink.press("Enter");
-  await expect(page).toHaveURL(/\/series\/platform-inside$/u);
+  await expect(page).toHaveURL(
+    /\/series\/platform-inside\?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary$/u,
+  );
+  await expect(page.getByRole("link", { name: "Назад к теме" })).toHaveAttribute(
+    "href",
+    "/topics/platform?from=%2Flibrary",
+  );
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
   ).toBeVisible();
@@ -572,7 +594,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .click();
   await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform\?/u);
   expect(new URL(page.url()).searchParams.get("from")).toBe(
-    "/series/platform-inside",
+    "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
   );
   const playlistBackLinks = page.getByRole("link", {
     name: "Назад к плейлисту",
@@ -580,7 +602,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(playlistBackLinks).toHaveCount(2);
   await expect(playlistBackLinks.first()).toHaveAttribute(
     "href",
-    "/series/platform-inside",
+    "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
   );
   await expect(
     page.getByRole("link", { name: "Platform", exact: true }),

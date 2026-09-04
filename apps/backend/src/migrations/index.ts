@@ -102,6 +102,10 @@ import {
   name as videoDurationMigrationName,
   statement as videoDurationMigrationStatement,
 } from "../modules/videos/infrastructure/postgres/migrations/0025-video-duration.js";
+import {
+  name as currentCollectionSearchMigrationName,
+  statement as currentCollectionSearchMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0026-current-collection-search.js";
 
 export const platformMigrations = [
   {
@@ -197,6 +201,10 @@ export const platformMigrations = [
   {
     name: videoDurationMigrationName,
     statement: videoDurationMigrationStatement,
+  },
+  {
+    name: currentCollectionSearchMigrationName,
+    statement: currentCollectionSearchMigrationStatement,
   },
 ] as const;
 
