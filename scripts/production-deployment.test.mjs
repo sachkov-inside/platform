@@ -15,6 +15,8 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, it } from "node:test";
 
+import { writeTrustedReleaseEvidence } from "./github-release-evidence.test-support.mjs";
+
 describe("production deployment state machine", () => {
   it("deploys v1, repeats as a no-op, deploys v2 and rolls back to v1", () => {
     const fixture = createHostFixture();
@@ -295,6 +297,39 @@ describe("production deployment state machine", () => {
     }
   });
 
+  it("rejects a different command without overwriting an unfinished recovery", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 216);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 217, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        }).status,
+        0,
+      );
+      const operationPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const recoveryJournal = readFileSync(operationPath, "utf8");
+
+      const stale = runGateway(fixture, "deploy", "v1", 218);
+      assert.notEqual(stale.status, 0);
+      assert.match(stale.stderr, /unfinished deployment operation/u);
+      assert.equal(readFileSync(operationPath, "utf8"), recoveryJournal);
+
+      assert.equal(
+        runGateway(fixture, "deploy", "v2", 219, {
+          INSIDE_DEPLOY_TEST_CURRENT_SCHEMA_MISMATCH: "true",
+        }).status,
+        0,
+      );
+      assert.equal(readState(fixture).current.version, "v2");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("rejects stale, incompatible and expired rollback selections", () => {
     const stale = createHostFixture();
     try {
@@ -463,6 +498,18 @@ fi
       compatible,
       verifiedByWorkflowRunId: 92,
     },
+  });
+  writeTrustedReleaseEvidence(root, {
+    manifest: v1Manifest,
+    publicationRunId: 91,
+    sourceSha: "1".repeat(40),
+    version: "v1",
+  });
+  writeTrustedReleaseEvidence(root, {
+    manifest: v2Manifest,
+    publicationRunId: 92,
+    sourceSha: "2".repeat(40),
+    version: "v2",
   });
 
   const fixture = {

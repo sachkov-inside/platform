@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -13,9 +14,24 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, it } from "node:test";
 
+import { writeTrustedReleaseEvidence } from "./github-release-evidence.test-support.mjs";
+
 const gateway = readFileSync("infra/production/host/inside-deploy", "utf8");
 
 describe("inside-deploy forced SSH command", () => {
+  it("binds executable payloads to the fixed public GitHub release authority", () => {
+    assert.match(
+      gateway,
+      /https:\/\/api\.github\.com\/repos\/sachkov-inside\/platform\/releases\/tags\/\$version/u,
+    );
+    assert.match(
+      gateway,
+      /https:\/\/api\.github\.com\/repos\/sachkov-inside\/platform\/actions\/runs\/\$publication_run_id/u,
+    );
+    assert.match(gateway, /cmp -s "\$manifest" "\$trusted_manifest"/u);
+    assert.match(gateway, /--proto-redir '=https'/u);
+  });
+
   it("stages one verified release and invokes only its bundled command", () => {
     const fixture = createFixture();
     try {
@@ -62,6 +78,73 @@ describe("inside-deploy forced SSH command", () => {
 
       assert.notEqual(result.status, 0);
       assert.match(result.stderr, /bundle digest/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects a self-consistent bundle that is not the immutable GitHub release", () => {
+    const fixture = createFixture();
+    try {
+      writeFileSync(
+        resolve(fixture.bundleRoot, "bin/deploy-release"),
+        '#!/usr/bin/env bash\nset -euo pipefail\nprintf "arbitrary root code\\n" >"$INSIDE_DEPLOY_TEST_ROOT/untrusted-execution"\n',
+      );
+      const forgedBundleResult = spawnSync(
+        "tar",
+        [
+          "-C",
+          fixture.bundleRoot,
+          "-czf",
+          fixture.bundle,
+          "bin/deploy-release",
+          "caddy/maintenance.caddy",
+          "caddy/platform.caddy",
+          "compose.production.yaml",
+        ],
+        { encoding: "utf8" },
+      );
+      assert.equal(forgedBundleResult.status, 0, forgedBundleResult.stderr);
+      const forgedManifest = JSON.parse(fixture.manifest);
+      forgedManifest.source.sha = "9".repeat(40);
+      forgedManifest.runtimeBundle.sha256 = sha256(readFileSync(fixture.bundle));
+      fixture.manifest = `${JSON.stringify(forgedManifest, null, 2)}\n`;
+      createEnvelope(fixture);
+
+      const result = runGateway(fixture, "deploy v1 103");
+
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /immutable GitHub release/u);
+      assert.equal(
+        existsSync(resolve(fixture.root, "untrusted-execution")),
+        false,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects release evidence without a successful publication workflow", () => {
+    const fixture = createFixture();
+    try {
+      writeFileSync(
+        resolve(
+          fixture.root,
+          "etc/inside/test-release-trust/v1/publication-run.json",
+        ),
+        `${JSON.stringify({
+          conclusion: "failure",
+          event: "workflow_dispatch",
+          head_sha: "1".repeat(40),
+          id: 100,
+          path: ".github/workflows/release.yml",
+        })}\n`,
+      );
+
+      const result = runGateway(fixture, "deploy v1 104");
+
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /publication workflow is not verified/u);
     } finally {
       fixture.cleanup();
     }
@@ -170,9 +253,16 @@ fi
     publication: { workflowRunId: 100 },
     rollback: { previous: null },
   }, null, 2)}\n`;
+  writeTrustedReleaseEvidence(root, {
+    manifest,
+    publicationRunId: 100,
+    sourceSha: "1".repeat(40),
+    version: "v1",
+  });
   const fixture = {
     bin,
     bundle,
+    bundleRoot,
     cleanup: () => rmSync(directory, { force: true, recursive: true }),
     directory,
     manifest,

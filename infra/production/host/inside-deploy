@@ -118,6 +118,95 @@ sha256_file() {
   fi
 }
 
+github_get() {
+  local url="$1"
+  local destination="$2"
+  local accept="${3:-application/vnd.github+json}"
+  curl \
+    --fail \
+    --silent \
+    --show-error \
+    --location \
+    --connect-timeout 10 \
+    --max-time 60 \
+    --retry 2 \
+    --retry-delay 1 \
+    --proto '=https' \
+    --proto-redir '=https' \
+    --header "Accept: $accept" \
+    --header 'X-GitHub-Api-Version: 2022-11-28' \
+    --user-agent inside-production-deployer \
+    --output "$destination" \
+    "$url"
+  chmod 600 "$destination"
+}
+
+install_test_release_evidence() {
+  local name="$1"
+  local destination="$2"
+  local source="$host_root/etc/inside/test-release-trust/$version/$name"
+  if [[ ! -f "$source" || -L "$source" ]]; then
+    echo "Trusted test release evidence is missing: $name" >&2
+    exit 1
+  fi
+  install -m 600 "$source" "$destination"
+}
+
+trusted_release="$incoming_dir/github-release.json"
+trusted_manifest="$incoming_dir/github-release-manifest.json"
+trusted_publication="$incoming_dir/github-publication-run.json"
+manifest_download_url="https://github.com/sachkov-inside/platform/releases/download/$version/release-manifest.json"
+bundle_download_url="https://github.com/sachkov-inside/platform/releases/download/$version/production-runtime.tar.gz"
+if [[ -n "${INSIDE_DEPLOY_TEST_ROOT:-}" ]]; then
+  install_test_release_evidence github-release.json "$trusted_release"
+  install_test_release_evidence release-manifest.json "$trusted_manifest"
+else
+  github_get \
+    "https://api.github.com/repos/sachkov-inside/platform/releases/tags/$version" \
+    "$trusted_release"
+  github_get "$manifest_download_url" "$trusted_manifest" application/octet-stream
+fi
+source_sha="$(jq --raw-output .source.sha "$manifest")"
+if ! jq --exit-status \
+  --arg version "$version" \
+  --arg sourceSha "$source_sha" \
+  --arg manifestUrl "$manifest_download_url" \
+  --arg bundleUrl "$bundle_download_url" '
+    .immutable == true and
+    .draft == false and
+    .prerelease == false and
+    .tag_name == $version and
+    .target_commitish == $sourceSha and
+    ([.assets[] | select(.name == "release-manifest.json")] | length) == 1 and
+    ([.assets[] | select(.name == "production-runtime.tar.gz")] | length) == 1 and
+    ([.assets[] | select(.name == "release-manifest.json")][0].browser_download_url) == $manifestUrl and
+    ([.assets[] | select(.name == "production-runtime.tar.gz")][0].browser_download_url) == $bundleUrl
+  ' "$trusted_release" >/dev/null ||
+  ! cmp -s "$manifest" "$trusted_manifest"; then
+  echo "Deployment payload does not match the selected immutable GitHub release" >&2
+  exit 1
+fi
+publication_run_id="$(jq --raw-output .publication.workflowRunId "$trusted_manifest")"
+if [[ -n "${INSIDE_DEPLOY_TEST_ROOT:-}" ]]; then
+  install_test_release_evidence publication-run.json "$trusted_publication"
+else
+  github_get \
+    "https://api.github.com/repos/sachkov-inside/platform/actions/runs/$publication_run_id" \
+    "$trusted_publication"
+fi
+if ! jq --exit-status \
+  --arg sourceSha "$source_sha" \
+  --argjson publicationRunId "$publication_run_id" '
+  .id == $publicationRunId and
+  .conclusion == "success" and
+  .event == "workflow_dispatch" and
+  .head_sha == $sourceSha and
+  .path == ".github/workflows/release.yml"
+' "$trusted_publication" >/dev/null; then
+  echo "Immutable release publication workflow is not verified" >&2
+  exit 1
+fi
+
 expected_bundle_digest="$(jq --raw-output .runtimeBundle.sha256 "$manifest")"
 actual_bundle_digest="sha256:$(sha256_file "$bundle")"
 if [[ "$actual_bundle_digest" != "$expected_bundle_digest" ]]; then

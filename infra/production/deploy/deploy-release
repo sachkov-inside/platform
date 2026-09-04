@@ -38,6 +38,7 @@ operation_file="$state_dir/operation.json"
 release_env_dir="$state_dir/release-environments"
 phase=preflight
 completed=false
+operation_started=false
 recovery_phase=
 
 sha256_file() {
@@ -83,7 +84,7 @@ write_operation() {
 on_exit() {
   local status=$?
   trap - EXIT
-  if ((status != 0)) && [[ "$completed" != true ]]; then
+  if ((status != 0)) && [[ "$completed" != true && "$operation_started" == true ]]; then
     write_operation failed "$phase" || true
   fi
   exit "$status"
@@ -209,8 +210,42 @@ verify_candidate_schema_for_retry() {
 install -d -m 700 "$state_dir" "$release_env_dir"
 install -d -m 755 "$runtime_dir/caddy"
 last_operation_json=null
-if [[ -f "$operation_file" ]] && jq --exit-status . "$operation_file" >/dev/null 2>&1; then
+if [[ -f "$operation_file" ]]; then
+  if ! jq --exit-status '
+    (keys == ["githubRunId", "operation", "phase", "recordedAt", "recoveryPhase", "schemaVersion", "status", "version"]) and
+    .schemaVersion == "inside.platform.deployment-operation.v1" and
+    (.status == "running" or .status == "failed" or .status == "succeeded") and
+    (.operation == "deploy" or .operation == "rollback") and
+    (.version | test("^v[1-9][0-9]*$")) and
+    (.phase | test("^(preflight|maintenance|pull|schema|workers|migrations|start|readiness|smoke|routes|journal|complete)$")) and
+    (
+      .recoveryPhase == null or
+      (.recoveryPhase | test("^(preflight|maintenance|pull|schema|workers|migrations|start|readiness|smoke|routes|journal)$"))
+    ) and
+    (.githubRunId | type == "number") and
+    .githubRunId > 0 and
+    (.githubRunId | floor) == .githubRunId and
+    (.recordedAt | type == "string") and
+    (.recordedAt | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")) and
+    (
+      (.status == "succeeded" and .phase == "complete") or
+      (.status != "succeeded" and .phase != "complete")
+    )
+  ' "$operation_file" >/dev/null; then
+    echo "Deployment operation journal is invalid" >&2
+    exit 1
+  fi
   last_operation_json="$(jq --compact-output . "$operation_file")"
+fi
+if jq --exit-status \
+  --arg operation "$operation" \
+  --arg version "$version" '
+    (.status == "failed" or .status == "running") and
+    (.recoveryPhase // .phase) != "preflight" and
+    (.operation != $operation or .version != $version)
+  ' <<<"$last_operation_json" >/dev/null 2>&1; then
+  echo "An unfinished deployment operation must be retried with the same operation and version" >&2
+  exit 1
 fi
 recovery_phase="$(jq --raw-output \
   --arg operation "$operation" \
@@ -225,6 +260,7 @@ recovery_phase="$(jq --raw-output \
     then (.recoveryPhase // .phase) else empty end
   ' <<<"$last_operation_json" 2>/dev/null || true)"
 write_operation running "$phase"
+operation_started=true
 
 for name in \
   compose.env \

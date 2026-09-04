@@ -78,7 +78,10 @@ container environment. Runtime secrets are never image build arguments.
 The forced SSH command accepts only `deploy vN <run-id>` or `rollback vN <run-id>` and a streamed
 payload containing exactly `release-manifest.json` and `production-runtime.tar.gz`. It verifies the
 closed manifest, bundle digest and paths before staging an ordinal under `/srv/inside/releases`.
-An existing ordinal can be reused only with byte-identical assets.
+The host also reads the selected Release from the fixed public GitHub repository over HTTPS,
+requires it to be immutable, compares the manifest byte-for-byte and verifies the recorded release
+workflow run. GitHub unavailability fails preflight; the SSH key alone cannot supply executable
+code. An existing ordinal can be reused only with byte-identical assets.
 
 One deployment executes this order: host/config and current-schema preflight, maintenance route,
 exact image pulls, candidate compatibility check, old worker drain, migrations, candidate
@@ -87,7 +90,7 @@ processes, release/schema readiness, read-only web smoke, public routes, success
 pulling disabled and rejects database drift while the old route is still public. The runtime schema
 identity covers both the Platform migration registry and the PgBoss-managed schema version. A later
 failure leaves maintenance active and records its phase for an exact retry or repair forward. The
-operation journal retains the last schema-changing recovery phase across retry attempts and accepts
+operation journal retains the last unsafe recovery phase across retry attempts and accepts
 both `failed` and abruptly interrupted `running` records only for the same operation and version.
 The already local candidate must then prove a compatible intermediate or exact target schema before
 maintenance. For the first deployment, an initial preflight asks the already running foundation
@@ -181,7 +184,9 @@ gh workflow run deploy.yml --ref main --field operation=rollback --field version
 
 The workflow uses `concurrency.queue: max`, never cancels the active command, and rechecks the
 immutable Release and successful publication run immediately before SSH. A retry uses the same
-operation and version. Do not edit staged release files or either journal by hand.
+operation and version. If an unfinished operation has passed preflight, the host rejects a different
+operation/version without replacing its recovery journal. Do not edit staged release files or
+either journal by hand.
 
 ## Local production proof
 
