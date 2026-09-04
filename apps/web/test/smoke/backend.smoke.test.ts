@@ -8,6 +8,7 @@ import {
 describe("real backend connection", () => {
   it("reads health and the OpenAPI contract from the Nest process", async () => {
     const health = await getBackendHealth();
+    expect(health.schema.migrationCount).toBeGreaterThan(0);
     expect(health).toEqual({
       database: "reachable",
       process: "api",
@@ -17,7 +18,7 @@ describe("real backend connection", () => {
       },
       schema: {
         identity: health.schema.identity,
-        migrationCount: 20,
+        migrationCount: health.schema.migrationCount,
       },
       status: "ready",
     });

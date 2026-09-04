@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { loadPlatformConfig } from "../src/config/load-platform-config.js";
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
 import { OperationalReadiness } from "../src/infrastructure/operational-readiness.js";
+import { platformMigrations } from "../src/migrations/index.js";
 import { stringMatching } from "./support/matchers.js";
 
 describe("MCP runtime smoke", () => {
@@ -28,7 +29,7 @@ describe("MCP runtime smoke", () => {
       },
       schema: {
         identity: stringMatching(/^sha256:[0-9a-f]{64}$/u),
-        migrationCount: 20,
+        migrationCount: platformMigrations.length,
       },
       status: "ready",
     });

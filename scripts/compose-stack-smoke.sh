@@ -9,7 +9,7 @@ web_base_url="${WEB_BASE_URL:-http://127.0.0.1:3000}"
 mcp_server_url="${MCP_SERVER_URL:-http://127.0.0.1:${MCP_HOST_PORT:-3002}/mcp}"
 
 api_health="$(curl --fail --silent --show-error "$api_base_url/health/ready")"
-if [[ "$api_health" != *'"process":"api"'* || "$api_health" != *'"status":"ready"'* || "$api_health" != *'"database":"reachable"'* || "$api_health" != *'"migrationCount":20'* ]]; then
+if [[ "$api_health" != *'"process":"api"'* || "$api_health" != *'"status":"ready"'* || "$api_health" != *'"database":"reachable"'* || "$api_health" != *'"identity":"sha256:'* || "$api_health" != *'"migrationCount":'* ]]; then
   echo "Unexpected API health response: $api_health" >&2
   exit 1
 fi

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
 import { acquireWorkerGenerationLease } from "../../src/infrastructure/worker-runtime.js";
+import { platformMigrations } from "../../src/migrations/index.js";
 import { migrateRuntimeDatabase } from "../../src/migrations/migrate.js";
 import {
   createMigratedTestDatabase,
@@ -29,15 +30,15 @@ describe("production runtime readiness", () => {
       database: "reachable",
       process: "api",
       release: { release: "v7", sourceSha: "7".repeat(40) },
-      schema: { migrationCount: 20 },
+      schema: { migrationCount: platformMigrations.length },
       status: "ready",
     });
 
     await database.prisma.$executeRaw(
-      Prisma.sql`delete from public.platform_migrations where position = 20`,
+      Prisma.sql`delete from public.platform_migrations where position = ${platformMigrations.length}`,
     );
     await expect(readiness.check("api")).rejects.toThrow(
-      "Expected 20 Platform migrations, received 19",
+      `Expected ${platformMigrations.length} Platform migrations, received ${platformMigrations.length - 1}`,
     );
   });
 

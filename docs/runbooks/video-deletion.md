@@ -15,8 +15,8 @@ but extra processes add unnecessary provider traffic.
 The process reports one redacted JSON readiness line whose release and schema identities match the
 selected runtime:
 
-```json
-{"process":"video-deletions-worker","status":"ready","database":"reachable","release":{"release":"vN","sourceSha":"<full-source-sha>"},"schema":{"identity":"sha256:<migration-registry-sha256>","migrationCount":20}}
+```text
+{"process":"video-deletions-worker","status":"ready","database":"reachable","release":{"release":"vN","sourceSha":"<full-source-sha>"},"schema":{"identity":"sha256:<migration-registry-sha256>","migrationCount":<migration-count>}}
 ```
 
 It also holds a process-specific PostgreSQL generation lease. Deployment drains and stops the old

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { loadPlatformConfig } from "../src/config/load-platform-config.js";
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
+import { platformMigrations } from "../src/migrations/index.js";
 import { stringMatching } from "./support/matchers.js";
 
 describe("API health smoke", () => {
@@ -33,7 +34,7 @@ describe("API health smoke", () => {
       },
       schema: {
         identity: stringMatching(/^sha256:[0-9a-f]{64}$/u),
-        migrationCount: 20,
+        migrationCount: platformMigrations.length,
       },
       status: "ready",
     });

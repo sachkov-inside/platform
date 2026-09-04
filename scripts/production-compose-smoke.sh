@@ -260,9 +260,25 @@ application_data_digest() {
     --schema membership_entitlements \
     --schema telegram_membership \
     --schema videos \
+    --schema workshop \
     | sed '/^\\restrict /d; /^\\unrestrict /d' \
     | shasum -a 256 \
     | cut -d ' ' -f 1
+}
+
+read_schema_marker() {
+  node -e '
+    const value = JSON.parse(process.argv[1]);
+    if (
+      typeof value.schema?.identity !== "string" ||
+      !/^sha256:[0-9a-f]{64}$/u.test(value.schema.identity) ||
+      !Number.isInteger(value.schema.migrationCount) ||
+      value.schema.migrationCount < 1
+    ) {
+      process.exit(1);
+    }
+    process.stdout.write(`${value.schema.identity}:${value.schema.migrationCount}`);
+  ' "$1"
 }
 
 assert_public_status() {
@@ -442,17 +458,17 @@ for worker in material-assets-worker profile-avatars-worker video-deletions-work
 done
 
 api_health="$(curl --fail --silent "http://127.0.0.1:${PLATFORM_API_LOOPBACK_PORT}/health/ready")"
-if [[ "$api_health" != *'"release":"v1"'* || "$api_health" != *'"migrationCount":20'* ]]; then
+if ! api_schema_marker="$(read_schema_marker "$api_health")" || [[ "$api_health" != *'"release":"v1"'* || "$api_health" != *'"status":"ready"'* ]]; then
   echo "API readiness did not report the expected release and schema: $api_health" >&2
   exit 1
 fi
 mcp_health="$("${application_compose[@]}" exec -T mcp node -e "fetch('http://127.0.0.1:3002/_health/ready',{headers:{host:'inside.sachkov.dev'}}).then(async response=>{process.stdout.write(await response.text());if(!response.ok)process.exit(1)})")"
-if [[ "$mcp_health" != *'"release":"v1"'* || "$mcp_health" != *'"migrationCount":20'* ]]; then
+if ! mcp_schema_marker="$(read_schema_marker "$mcp_health")" || [[ "$mcp_health" != *'"release":"v1"'* || "$mcp_health" != *'"status":"ready"'* || "$mcp_schema_marker" != "$api_schema_marker" ]]; then
   echo "MCP readiness did not report the expected release and schema: $mcp_health" >&2
   exit 1
 fi
 web_health="$(curl --fail --silent "http://127.0.0.1:${PLATFORM_WEB_LOOPBACK_PORT}/_health/ready")"
-if [[ "$web_health" != *'"release":"v1"'* || "$web_health" != *'"api":"ready"'* ]]; then
+if ! web_schema_marker="$(read_schema_marker "$web_health")" || [[ "$web_health" != *'"release":"v1"'* || "$web_health" != *'"api":"ready"'* || "$web_schema_marker" != "$api_schema_marker" ]]; then
   echo "Web readiness did not report the expected release and API: $web_health" >&2
   exit 1
 fi
@@ -518,7 +534,7 @@ restored_readiness="$(curl \
   --retry-delay "$readiness_http_retry_delay_seconds" \
   --silent \
   "http://127.0.0.1:${PLATFORM_API_LOOPBACK_PORT}/health/ready")"
-if [[ "$restored_readiness" != *'"release":"v1"'* || "$restored_readiness" != *'"migrationCount":20'* ]]; then
+if ! restored_schema_marker="$(read_schema_marker "$restored_readiness")" || [[ "$restored_readiness" != *'"release":"v1"'* || "$restored_schema_marker" != "$api_schema_marker" ]]; then
   echo "API readiness did not recover with the expected body: $restored_readiness" >&2
   exit 1
 fi
