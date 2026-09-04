@@ -6,6 +6,7 @@ import {
   type PlatformConfig,
 } from "../config/platform-config.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
+import { listenForProcessShutdown } from "../infrastructure/process-shutdown.js";
 import {
   ACCOUNTS,
   LOGTO_ACCESS_TOKEN_VERIFIER,
@@ -28,12 +29,13 @@ async function bootstrap(): Promise<void> {
   const application = await createMcpApplication();
   const config = application.get<PlatformConfig>(PLATFORM_CONFIG);
   const mcpConfig = parseMcpConfig(process.env, config.mode);
-  const shutdown = listenForShutdownSignal();
+  const shutdown = listenForProcessShutdown();
   const server = createMcpHttpServer({
     accounts: application.get<Accounts>(ACCOUNTS),
     authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
     config: mcpConfig,
     identityIssuer: config.identity.issuer,
+    readiness: application.get(OperationalReadiness),
     tokenVerifier: application.get<LogtoAccessTokenVerifier>(
       LOGTO_ACCESS_TOKEN_VERIFIER,
     ),
@@ -41,8 +43,9 @@ async function bootstrap(): Promise<void> {
   });
 
   try {
-    const readiness = application.get(OperationalReadiness);
-    console.info(JSON.stringify(await readiness.check("mcp")));
+    console.info(
+      JSON.stringify(await application.get(OperationalReadiness).check("mcp")),
+    );
     const endpoint = await server.listen();
     console.info(`MCP listening on ${endpoint.href}`);
     await shutdown.received;
@@ -51,27 +54,4 @@ async function bootstrap(): Promise<void> {
     await server.close();
     await application.close();
   }
-}
-
-function listenForShutdownSignal(): {
-  readonly received: Promise<void>;
-  dispose(): void;
-} {
-  let resolveSignal: (() => void) | undefined;
-  const received = new Promise<void>((resolve) => {
-    resolveSignal = resolve;
-  });
-  const dispose = (): void => {
-    process.off("SIGINT", onSignal);
-    process.off("SIGTERM", onSignal);
-  };
-  const onSignal = (): void => {
-    dispose();
-    resolveSignal?.();
-  };
-
-  process.once("SIGINT", onSignal);
-  process.once("SIGTERM", onSignal);
-
-  return { received, dispose };
 }

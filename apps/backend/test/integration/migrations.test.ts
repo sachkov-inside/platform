@@ -77,6 +77,7 @@ const workshopTables = [
   "cases",
   "entitlements",
   "hint_reveals",
+  "membership_entitlement_projections",
   "solution_reveals",
 ] as const;
 
@@ -158,9 +159,10 @@ describe("Platform migrations", () => {
         "0021_workshop_material_access",
         "0022_workshop_video_access",
         "0023_workshop_foundation",
-        "0024_content_covers",
-        "0025_video_duration",
-        "0026_current_collection_search",
+        "0024_workshop_membership_entitlement_projection",
+        "0025_content_covers",
+        "0026_video_duration",
+        "0027_current_collection_search",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -244,6 +246,74 @@ describe("Platform migrations", () => {
       { column_name: "duration_seconds", table_name: "videos", table_schema: "videos" },
     ]);
   });
+
+  test("backfills Workshop entitlement from the current Membership projection", async () => {
+    const database = await createTestDatabase();
+    try {
+      const migrationIndex = platformMigrations.findIndex(
+        ({ name }) => name === "0024_workshop_membership_entitlement_projection",
+      );
+      expect(migrationIndex).toBeGreaterThan(0);
+      await runMigrationsToLatest(
+        database.url,
+        platformMigrations.slice(0, migrationIndex),
+      );
+      await database.prisma.$executeRaw(Prisma.sql`
+        insert into membership_entitlements.account_bindings (
+          account_id,
+          principal_ref,
+          linked_at
+        ) values (
+          '8a000000-0000-4000-8000-000000000001',
+          'workshop-migration-principal',
+          '2030-05-01T00:00:00Z'
+        );
+
+        insert into membership_entitlements.current_projections (
+          account_id,
+          principal_ref,
+          decision,
+          evidence_ref,
+          evidence_version,
+          evidence_fingerprint,
+          checked_at,
+          valid_until,
+          updated_at
+        ) values (
+          '8a000000-0000-4000-8000-000000000001',
+          'workshop-migration-principal',
+          'member',
+          'workshop-migration-evidence',
+          7,
+          repeat('a', 64),
+          '2030-05-01T00:00:00Z',
+          '2030-05-01T00:05:00Z',
+          '2030-05-01T00:00:00Z'
+        );
+      `);
+
+      await expect(
+        runMigrationsToLatest(
+          database.url,
+          platformMigrations.slice(0, migrationIndex + 1),
+        ),
+      ).resolves.toEqual({
+        appliedMigrations: ["0024_workshop_membership_entitlement_projection"],
+      });
+      await expect(
+        database.prisma.workshopMembershipEntitlementProjection.findUniqueOrThrow({
+          where: { accountId: "8a000000-0000-4000-8000-000000000001" },
+        }),
+      ).resolves.toMatchObject({
+        principalRef: "workshop-migration-principal",
+        decision: "member",
+        evidenceVersion: 7n,
+        validUntil: new Date("2030-05-01T00:05:00Z"),
+      });
+    } finally {
+      await database.dispose();
+    }
+  }, 15_000);
 
   test("backfills conservative immutable Video origin from durable upload evidence", async () => {
     const database = await createTestDatabase();
@@ -599,9 +669,10 @@ describe("Platform migrations", () => {
           "0021_workshop_material_access",
           "0022_workshop_video_access",
           "0023_workshop_foundation",
-          "0024_content_covers",
-          "0025_video_duration",
-          "0026_current_collection_search",
+          "0024_workshop_membership_entitlement_projection",
+          "0025_content_covers",
+          "0026_video_duration",
+          "0027_current_collection_search",
         ],
       });
 
@@ -751,11 +822,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 27, repeat('0', 64))
+        values ('9999_unknown', 28, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 27",
+        "Migration ledger is not an exact registry prefix at position 28",
       );
     } finally {
       await database.dispose();

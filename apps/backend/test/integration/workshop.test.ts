@@ -10,7 +10,10 @@ import {
 } from "../../src/modules/content-access/index.js";
 import { materialId } from "../../src/modules/materials/index.js";
 import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshop } from "../../src/modules/workshop/index.js";
+import {
+  assembleWorkshop,
+  assembleWorkshopEntitlements,
+} from "../../src/modules/workshop/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -53,6 +56,10 @@ describe("Workshop foundation", () => {
     const now = new Date("2030-02-01T00:00:00.000Z");
     const membershipEntitlements = assembleMembershipEntitlements({
       prisma: database.prisma,
+      workshopEntitlements: assembleWorkshopEntitlements({
+        prisma: database.prisma,
+        clock: () => now,
+      }),
       clock: () => now,
     });
     await expect(
@@ -146,6 +153,10 @@ describe("Workshop foundation", () => {
     let now = new Date("2030-01-01T00:00:00.000Z");
     const membershipEntitlements = assembleMembershipEntitlements({
       prisma: database.prisma,
+      workshopEntitlements: assembleWorkshopEntitlements({
+        prisma: database.prisma,
+        clock: () => now,
+      }),
       clock: () => now,
     });
     let ownerAllowed = true;
@@ -480,6 +491,10 @@ describe("Workshop foundation", () => {
     let nextId = 300;
     const membershipEntitlements = assembleMembershipEntitlements({
       prisma: database.prisma,
+      workshopEntitlements: assembleWorkshopEntitlements({
+        prisma: database.prisma,
+        clock: () => now,
+      }),
       clock: () => now,
     });
     const workshop = assembleWorkshop({

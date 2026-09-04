@@ -1,4 +1,4 @@
-export const name = "0025_video_duration";
+export const name = "0026_video_duration";
 
 export const statement = `
 alter table videos.videos

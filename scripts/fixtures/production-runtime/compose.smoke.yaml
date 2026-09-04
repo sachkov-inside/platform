@@ -1,0 +1,59 @@
+services:
+  migrations:
+    image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
+
+  api:
+    image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
+
+  mcp:
+    image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
+
+  material-assets-worker:
+    image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
+    healthcheck:
+      interval: 1s
+      retries: 3
+      start_period: 2s
+
+  profile-avatars-worker:
+    image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
+    healthcheck:
+      interval: 1s
+      retries: 3
+      start_period: 2s
+
+  video-deletions-worker:
+    image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
+    healthcheck:
+      interval: 1s
+      retries: 3
+      start_period: 2s
+
+  web:
+    image: ${PRODUCTION_SMOKE_WEB_IMAGE:?candidate web image ID is required}
+
+  caddy-smoke:
+    image: caddy:2.11.4-alpine
+    depends_on:
+      api:
+        condition: service_healthy
+      mcp:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    environment:
+      PLATFORM_API_UPSTREAM: api:3001
+      PLATFORM_MCP_UPSTREAM: mcp:3002
+      PLATFORM_WEB_UPSTREAM: web:3000
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--output-document=-", "http://127.0.0.1:2019/config/"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    networks: [edge]
+    ports:
+      - "127.0.0.1:${PRODUCTION_SMOKE_HTTP_PORT:?PRODUCTION_SMOKE_HTTP_PORT is required}:80"
+      - "127.0.0.1:${PRODUCTION_SMOKE_HTTPS_PORT:?PRODUCTION_SMOKE_HTTPS_PORT is required}:443"
+    volumes:
+      - ./scripts/fixtures/production-runtime/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./infra/production/runtime/platform.caddy:/etc/caddy/platform.caddy:ro

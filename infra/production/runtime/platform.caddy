@@ -1,0 +1,26 @@
+inside.sachkov.dev {
+	route {
+		@private_health path /health /health/* /_health/*
+		respond @private_health 404
+
+		@telegram_evidence path /integrations/telegram/v1/membership-evidence
+		reverse_proxy @telegram_evidence {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
+		@kinescope_webhook path /integrations/kinescope/v1/webhook
+		reverse_proxy @kinescope_webhook {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
+		@kinescope_authorize path /integrations/kinescope/v1/authorize
+		reverse_proxy @kinescope_authorize {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
+		@mcp path /mcp
+		reverse_proxy @mcp {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
+
+		@mcp_metadata path /.well-known/oauth-protected-resource/mcp
+		reverse_proxy @mcp_metadata {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
+
+		@unknown_integration path /integrations/*
+		respond @unknown_integration 404
+
+		reverse_proxy {$PLATFORM_WEB_UPSTREAM:127.0.0.1:13000}
+	}
+}

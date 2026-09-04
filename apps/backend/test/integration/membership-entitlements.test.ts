@@ -16,6 +16,7 @@ import {
   type MembershipEntitlements,
   type MembershipEvidenceSource,
 } from "../../src/modules/membership-entitlements/index.js";
+import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -58,12 +59,17 @@ describe("MembershipEntitlements", () => {
     testDatabase = await createMigratedTestDatabase();
     membershipEntitlements = assembleMembershipEntitlements({
       prisma: testDatabase.prisma,
+      workshopEntitlements: assembleWorkshopEntitlements({
+        prisma: testDatabase.prisma,
+        clock: () => currentTime,
+      }),
       clock: () => currentTime,
     });
   });
 
   beforeEach(async () => {
     currentTime = new Date(corpus.clock);
+    await testDatabase.prisma.workshopMembershipEntitlementProjection.deleteMany();
     await testDatabase.prisma.membershipEvidenceReceipt.deleteMany();
     await testDatabase.prisma.membershipProjection.deleteMany();
     await testDatabase.prisma.membershipBinding.deleteMany();

@@ -31,7 +31,7 @@ Four jobs run independently so a failure identifies its owning verification seam
 | `quality` | frozen install, Chromium and `pnpm check` |
 | `integration` | `pnpm test:integration` with Testcontainers-owned PostgreSQL and MinIO |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
-| `compose-production` | isolated `pnpm compose:production:smoke`; pull requests also run clean `pnpm release:images:smoke` |
+| `compose-production` | isolated seven-process digest-selected runtime proof; pull requests also run clean `pnpm release:images:smoke` |
 
 `CI Gate` depends on all four jobs and succeeds only when every result is `success`. The repository
 ruleset requires this exact check name and strict synchronization with `main`; individual job names
@@ -49,7 +49,10 @@ retained for seven days; successful runs store none of them.
 
 Every Compose job owns an isolated project on its runner and removes containers, networks and
 volumes even after a failed command. The production smoke additionally removes locally built
-images. Pull-request CI does not publish packages, use GHCR permissions, deploy to a server or read
+images. It embeds a synthetic release identity, supplies the exact local image IDs to production
+Compose, and proves fresh/upgrade/N-1 migrations, `pg-boss` resume, release/schema readiness,
+worker drain/no-overlap, TLS and positive/negative routes without application or provider writes.
+Pull-request CI does not publish packages, use GHCR permissions, deploy to a server or read
 production configuration. `.github/workflows/release.yml` calls CI with read-only contents access,
 then publishes packages in a separately permissioned matrix job. The reusable release call skips
 the release-image smoke already proved by pull-request CI, so its publish job builds each candidate

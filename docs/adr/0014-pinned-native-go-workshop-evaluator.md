@@ -1,8 +1,13 @@
 ---
-status: accepted
+status: superseded by ADR-0015
 ---
 
 # Run the Workshop evaluator as a pinned native Go CLI
+
+[ADR 0015](0015-defer-kafka-case-evaluation-until-casespec.md) supersedes this decision for current
+Workshop delivery. This document is historical evidence for the implemented Partner Webhooks
+case-first foundation; it must not be used to select the evaluator for the Kafka Track before
+CaseSpec-driven research #278.
 
 Platform keeps its TypeScript/Next/Nest control plane, while Workshop evaluation runs in a
 separately built, Platform-owned native Go CLI on the learner-controlled machine. The evaluator is

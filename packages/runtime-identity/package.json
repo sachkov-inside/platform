@@ -1,0 +1,19 @@
+{
+  "name": "@inside/runtime-identity",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.mts",
+      "import": "./index.mjs"
+    }
+  },
+  "files": [
+    "index.d.mts",
+    "index.mjs"
+  ],
+  "dependencies": {
+    "zod": "4.4.3"
+  }
+}

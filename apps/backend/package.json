@@ -37,6 +37,7 @@
     "smoke:health": "vitest run --config vitest.smoke.config.mts"
   },
   "dependencies": {
+    "@inside/runtime-identity": "workspace:*",
     "@aws-sdk/client-s3": "3.1121.0",
     "@aws-sdk/s3-request-presigner": "3.1121.0",
     "@fastify/multipart": "10.1.1",

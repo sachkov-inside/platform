@@ -1,4 +1,4 @@
-export const name = "0026_current_collection_search";
+export const name = "0027_current_collection_search";
 
 export const statement = `
 update materials.published_materials as publication

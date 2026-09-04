@@ -1,6 +1,6 @@
 # Sachkov Inside — brief первой версии платформы
 
-Статус: подтверждённые owner decisions по 2026-08-27. Документ фиксирует продуктовую границу
+Статус: подтверждённые owner decisions по 2026-09-04. Документ фиксирует продуктовую границу
 первой версии будущего Inside-приложения. Он является входом в отдельные bootstrap, technical
 discovery и delivery, но не выбирает stack, архитектуру или repository layout.
 
@@ -237,20 +237,23 @@ deduplication и migration pipeline не нужны.
 - внутренние и email-уведомления;
 - AI-поиск и отдельный autonomous content generation workflow вне user-delegated MCP Save.
 
-Эта граница описывает исходный content/Membership MVP и не запрещает отдельный successor product
-track. Production Workshop v1 переиспользует Account, Materials и ContentAccess, но не считается
-ретроактивной частью готовности Platform v1. Его первый slice отдельно задан
-[application specification](../specifications/production-workshop-v1.md) и
-[Platform #258](https://github.com/sachkov-inside/platform/issues/258): один Production Case,
-managed GitHub Assignment, локальная test-based evaluation и reveal связанных Materials без AI,
-commercial checkout и публичной сертификации.
+Эта граница описывает исходный content/Membership MVP. Workshop переиспользует Account, Materials
+и ContentAccess и входит в текущий commercial bundle через отдельный WorkshopEntitlement, но не считается
+ретроактивной частью готовности Platform v1. Его первый Kafka slice отдельно задан
+[application specification](../specifications/workshop-tracks.md) и
+[Platform #274](https://github.com/sachkov-inside/platform/issues/274): публичный Track plan,
+бесплатная Laboratory, связанные Materials и Production Case. Submission/evaluation выбирается
+после готового CaseSpec, а не наследуется автоматически от прежнего Partner Webhooks flow.
 
 ## Связанные application-документы
 
 - [Platform v1 application specification](../specifications/platform-v1.md) владеет modules,
   logical schema, flows, application NFR, production foundation order и ADR inputs.
-- [Production Workshop v1 application specification](../specifications/production-workshop-v1.md)
-  владеет отдельным Workshop track, Assignment/evaluator flow, test-based AttemptResult и reveal.
+- [Workshop Tracks and Laboratories application specification](../specifications/workshop-tracks.md)
+  владеет Track/Laboratory model, access, progress и первым Kafka slice.
+- [Superseded case-first foundation](../specifications/production-workshop-v1.md) сохраняет ссылки
+  на уже реализованные Workshop/Assignment/evaluator foundations без объявления их текущим
+  product contract.
 - [`CONTEXT.md`](../../CONTEXT.md) задаёт канонические application terms без implementation
   details.
 - [Platform #19](https://github.com/sachkov-inside/platform/issues/19) — root Specification для

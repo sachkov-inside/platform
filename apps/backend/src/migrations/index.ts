@@ -95,17 +95,21 @@ import {
   statement as workshopFoundationMigrationStatement,
 } from "../modules/workshop/infrastructure/postgres/migrations/0023-workshop-foundation.js";
 import {
+  name as workshopMembershipEntitlementProjectionMigrationName,
+  statement as workshopMembershipEntitlementProjectionMigrationStatement,
+} from "../modules/workshop/infrastructure/postgres/migrations/0024-membership-entitlement-projection.js";
+import {
   name as contentCoversMigrationName,
   statement as contentCoversMigrationStatement,
-} from "../modules/materials/infrastructure/postgres/migrations/0024-content-covers.js";
+} from "../modules/materials/infrastructure/postgres/migrations/0025-content-covers.js";
 import {
   name as videoDurationMigrationName,
   statement as videoDurationMigrationStatement,
-} from "../modules/videos/infrastructure/postgres/migrations/0025-video-duration.js";
+} from "../modules/videos/infrastructure/postgres/migrations/0026-video-duration.js";
 import {
   name as currentCollectionSearchMigrationName,
   statement as currentCollectionSearchMigrationStatement,
-} from "../modules/materials/infrastructure/postgres/migrations/0026-current-collection-search.js";
+} from "../modules/materials/infrastructure/postgres/migrations/0027-current-collection-search.js";
 
 export const platformMigrations = [
   {
@@ -193,6 +197,10 @@ export const platformMigrations = [
   {
     name: workshopFoundationMigrationName,
     statement: workshopFoundationMigrationStatement,
+  },
+  {
+    name: workshopMembershipEntitlementProjectionMigrationName,
+    statement: workshopMembershipEntitlementProjectionMigrationStatement,
   },
   {
     name: contentCoversMigrationName,

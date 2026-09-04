@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { platformMigrations } from "../src/migrations/index.js";
+import { stringMatching } from "./support/matchers.js";
+
 const backendRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("API development process", () => {
@@ -50,9 +53,17 @@ describe("API development process", () => {
 
     expect(response.status, output.join("")).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      process: "api",
-      status: "ok",
       database: "reachable",
+      process: "api",
+      release: {
+        release: "development",
+        sourceSha: "0000000000000000000000000000000000000000",
+      },
+      schema: {
+        identity: stringMatching(/^sha256:[0-9a-f]{64}$/u),
+        migrationCount: platformMigrations.length,
+      },
+      status: "ready",
     });
   });
 });

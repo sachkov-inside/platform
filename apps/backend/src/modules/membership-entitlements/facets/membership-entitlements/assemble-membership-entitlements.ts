@@ -10,9 +10,14 @@ import type {
   MembershipPrincipalBinding,
 } from "./membership-entitlements.interface.js";
 import type { AccountId } from "../../../accounts/index.js";
+import type { WorkshopEntitlements } from "../../../workshop/index.js";
 
 export interface MembershipEntitlementsDependencies {
   readonly prisma: MembershipEntitlementsPrismaClient;
+  readonly workshopEntitlements: Pick<
+    WorkshopEntitlements,
+    "applyAcceptedMembershipEvidence"
+  >;
   readonly clock?: () => Date;
 }
 
@@ -51,6 +56,7 @@ export function assembleMembershipEntitlements(
       try {
         return await acceptMembershipEvidence(
           dependencies.prisma,
+          dependencies.workshopEntitlements,
           command,
           clock(),
         );

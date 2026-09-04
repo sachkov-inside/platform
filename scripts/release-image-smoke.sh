@@ -26,6 +26,8 @@ while IFS=$'\t' read -r kind dockerfile target; do
     --pull \
     --provenance=false \
     --sbom=false \
+    --build-arg INSIDE_RELEASE_VERSION=v1 \
+    --build-arg INSIDE_SOURCE_SHA=1111111111111111111111111111111111111111 \
     --file "$dockerfile" \
     --target "$target" \
     --tag "$smoke_image" \
@@ -53,6 +55,10 @@ docker run --rm --entrypoint sh "$backend_image" -ec '
   test ! -e /workspace
   test ! -d /app/src
   test ! -e /app/pnpm-lock.yaml
+  test -z "${INSIDE_IMAGE_RELEASE_VERSION:-}"
+  test -z "${INSIDE_IMAGE_SOURCE_SHA:-}"
+  test "$(cat release-identity.json)" = "{\"release\":\"v1\",\"sourceSha\":\"1111111111111111111111111111111111111111\"}"
+  test ! -w release-identity.json
 '
 
 docker run --rm --entrypoint sh "$web_image" -ec '
@@ -62,4 +68,8 @@ docker run --rm --entrypoint sh "$web_image" -ec '
   test ! -e /workspace
   test ! -d /app/src
   test ! -e /app/pnpm-lock.yaml
+  test -z "${INSIDE_IMAGE_RELEASE_VERSION:-}"
+  test -z "${INSIDE_IMAGE_SOURCE_SHA:-}"
+  test "$(cat apps/web/release-identity.json)" = "{\"release\":\"v1\",\"sourceSha\":\"1111111111111111111111111111111111111111\"}"
+  test ! -w apps/web/release-identity.json
 '

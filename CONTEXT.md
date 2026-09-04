@@ -107,8 +107,9 @@ A time-limited statement about an Account's Membership in the canonical closed T
 _Avoid_: MembershipEntitlement, Tribute subscription
 
 **MembershipEntitlement**:
-Platform's time-bounded conclusion that an Account currently has Inside Membership access.
-_Avoid_: Subscription, Telegram membership status
+Platform's time-bounded conclusion that an Account may access Membership-scoped surfaces,
+including protected Library content and Member Profiles. It does not authorize Workshop content.
+_Avoid_: Subscription, Telegram membership status, WorkshopEntitlement
 
 **ContentAccess**:
 Platform's authority for the availability and protected delivery of a Material or its linked
@@ -127,37 +128,42 @@ _Avoid_: Material completion, read status, Kinescope user profile
 ## Production Workshop
 
 **Workshop**:
-Inside's separate product for practising realistic production engineering situations through
-thematic Workshop Tracks, versioned cases, local work and recorded Attempts.
-_Avoid_: Membership course, coding puzzle catalog, skill tree
+Inside's practical learning area for active subscribers: thematic Workshop Tracks combine
+Materials, local Laboratories and Production Cases. Access remains a separate authority so a
+future standalone Workshop grant stays possible.
+_Avoid_: Separate current subscription, Material Series, coding puzzle catalog
 
 **Workshop Track**:
-A curated, not necessarily linear thematic part of a Workshop that brings together Production
-Cases and learning resources within one coherent learning-practice area. In Russian product
-language: «Трек».
-_Avoid_: Program, course, branch, skill tree
+A versioned authored thematic path through ordered Track Items. Its order recommends the next
+learning step but never creates an implicit unlock rule. In Russian product language: «Трек».
+_Avoid_: Program, course, Learning Branch, Topic, skill tree
 
-**Case Placement**:
-The inclusion of a Production Case in a Workshop Track. It expresses where the Case belongs in the
-learning context without making the Track part of the Case itself.
-_Avoid_: Production Case, Assignment, prerequisite
+**Track Item**:
+One ordered placement in a Workshop Track that references exactly one Material, Laboratory or
+Production Case and presents the target's canonical availability. It neither owns target content
+nor changes access policy.
+_Avoid_: Lesson, Case Placement, copied Material, prerequisite gate
 
-**Track Resource Group**:
-A named group of core, recommended or reference learning resources owned by a Workshop Track. It
-may be associated with a Case Placement for preparation or reference context, and may curate
-Materials or Series or discover related Materials through a Material Selector.
-_Avoid_: CaseMaterial, playlist, prerequisite
+**Laboratory**:
+A versioned guided local experiment in which a learner builds or changes an environment, predicts
+behaviour, observes the real system and may record a conclusion.
+_Avoid_: Material format, Production Case, hosted sandbox, quiz
 
-**Material Selector**:
-A live taxonomy-based rule that discovers current Published Materials by Topic, Tags, Format or
-their combination. Its changing result is a recommendation surface, never evidence of a completed
-prerequisite.
-_Avoid_: Material, Series, frozen curriculum
+**Laboratory Step**:
+One ordered experiment with a goal, learner action and observable checkpoint. Prediction,
+observation and conclusion prompts are optional and do not gate the next step.
+_Avoid_: Test scenario, required reflection, quiz question
+
+**Laboratory Progress**:
+An Account's private manual resume state for one exact Laboratory version. It may contain bounded
+step notes and is not evaluation evidence or verified mastery.
+_Avoid_: Attempt, grade, completion certificate
 
 **Production Case**:
-A versioned engineering situation with problem context, constraints, executable checks and linked
-learning guidance. In Russian product language: «Кейс».
-_Avoid_: Task, exercise, challenge
+A versioned business engineering problem in which a learner designs and implements a change under
+explicit context and constraints. Submission and evaluation are separate policy. In Russian
+product language: «Кейс».
+_Avoid_: Coding exercise, homework, quiz
 
 **Case Variant**:
 One supported technology-specific form of a Production Case that preserves the same observable
@@ -165,9 +171,22 @@ learning contract while using its own starter baseline and evaluation assets.
 _Avoid_: Separate Case, generated port, Platform stack
 
 **WorkshopEntitlement**:
-A time-bounded grant from Platform that gives an Account access to a declared Workshop scope and is
-independent of MembershipEntitlement after it is issued.
-_Avoid_: Membership benefit, subscription, permanent purchase
+A time-bounded Platform grant for protected Workshop content. In the first Kafka slice it is
+projected from the same accepted MembershipEvidence that keeps MembershipEntitlement current, but
+remains a separate authority.
+_Avoid_: MembershipEntitlement, route-local membership check, permanent purchase
+
+**WorkshopResource**:
+A published Workshop Track outline, Laboratory or Production Case body or artifact governed by
+Workshop publication state and canonical access mode. A referenced Material remains a
+ContentAccess Resource.
+_Avoid_: Material Resource, URL, Track Item, Git source file
+
+**WorkshopAccess**:
+Platform's authority for deciding an Account's or visitor's Workshop action on a WorkshopResource.
+It consumes public access mode or WorkshopEntitlement without weakening ContentAccess for
+referenced Materials.
+_Avoid_: ContentAccess, UI lock state, route-local entitlement check
 
 **Assignment**:
 One Account's managed working copy of one Case Variant, including its starter baseline and source
@@ -188,3 +207,6 @@ _Avoid_: MasteryResult, Verified, grade
 The irreversible record that an Account may access the exact solution for one Production Case
 version, either after an Attempt or by explicit early study choice.
 _Avoid_: AttemptResult, penalty, completion
+
+`Assignment`, `Attempt`, `AttemptResult` and `SolutionReveal` describe implemented case-first
+foundations. They are not the current Kafka evaluation contract until #278 accepts their reuse.

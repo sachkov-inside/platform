@@ -2,6 +2,7 @@ export {
   BackendConnectionError,
   establishAccount,
   getBackendHealth,
+  getBackendReadiness,
   readBackendBaseUrl,
   resolveAccount,
   type AuthenticatedAccount,

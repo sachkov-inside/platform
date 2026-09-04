@@ -14,6 +14,8 @@ import {
 } from "@modelcontextprotocol/server";
 
 import type { McpConfig } from "../../config/mcp-config.js";
+import { PRIVATE_NO_STORE_HEADERS } from "../../infrastructure/http/http-cache-policy.js";
+import type { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import {
   assembleDelegatedAccountTokenVerifier,
   type Accounts,
@@ -34,6 +36,7 @@ export function createMcpHttpServer(dependencies: {
   readonly authoring: MaterialAuthoring;
   readonly config: McpConfig;
   readonly identityIssuer: string;
+  readonly readiness: Pick<OperationalReadiness, "check" | "live">;
   readonly tokenVerifier: LogtoAccessTokenVerifier;
   readonly onError?: (error: Error) => void;
 }): McpHttpServer {
@@ -61,6 +64,16 @@ export function createMcpHttpServer(dependencies: {
   const fetchHandler = {
     async fetch(request: Request): Promise<Response> {
       const url = new URL(request.url);
+      if (url.pathname === "/_health/live") {
+        return healthResponse(request, () =>
+          Promise.resolve(dependencies.readiness.live("mcp")),
+        );
+      }
+      if (url.pathname === "/_health/ready") {
+        return healthResponse(request, () =>
+          dependencies.readiness.check("mcp"),
+        );
+      }
       if (url.pathname === new URL(metadataUrl).pathname) {
         return resourceMetadataResponse(request, metadata);
       }
@@ -79,7 +92,12 @@ export function createMcpHttpServer(dependencies: {
       ? {}
       : { onerror: dependencies.onError },
   );
-  const allowedHostnames = [configuredUrl.hostname];
+  const allowedHostnames = [
+    configuredUrl.hostname,
+    "127.0.0.1",
+    "localhost",
+    "::1",
+  ];
   const validateHost = hostHeaderValidation(allowedHostnames);
   const validateOrigin = originValidation(allowedHostnames);
   const server = createServer((request, response) => {
@@ -103,6 +121,31 @@ export function createMcpHttpServer(dependencies: {
       await Promise.all([handler.close(), stopListening]);
     },
   };
+}
+
+async function healthResponse(
+  request: Request,
+  report: () => Promise<unknown>,
+): Promise<Response> {
+  if (request.method !== "GET") {
+    return new Response("Method not allowed", {
+      status: 405,
+      headers: { ...PRIVATE_NO_STORE_HEADERS, allow: "GET" },
+    });
+  }
+  try {
+    return Response.json(await report(), {
+      headers: PRIVATE_NO_STORE_HEADERS,
+    });
+  } catch {
+    return Response.json(
+      { code: "dependency_unavailable", status: 503 },
+      {
+        status: 503,
+        headers: PRIVATE_NO_STORE_HEADERS,
+      },
+    );
+  }
 }
 
 function authenticatedAccountId(extra: Record<string, unknown> | undefined): string {

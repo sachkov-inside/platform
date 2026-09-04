@@ -9,6 +9,8 @@ const runtimeNames = new Set([
   "LOGTO_APP_ID",
   "LOGTO_APP_SECRET",
   "LOGTO_COOKIE_SECRET",
+  "PLATFORM_RELEASE_VERSION",
+  "PLATFORM_SOURCE_SHA",
   "WEB_BASE_URL",
 ]);
 const environment = Object.fromEntries(

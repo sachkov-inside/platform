@@ -208,14 +208,97 @@ const platformDatabaseConfigSchema = z
 
 export type PlatformMode = z.infer<typeof platformModeSchema>;
 export type PlatformConfig = z.infer<typeof platformConfigSchema>;
+export type BackendProcess =
+  | "api"
+  | "material-assets-worker"
+  | "mcp"
+  | "profile-avatars-worker"
+  | "video-deletions-worker";
 export type PlatformDatabaseConfig = z.infer<
   typeof platformDatabaseConfigSchema
 >;
 
+const unusedProductionGroups = {
+  api: {
+    API_HOST: "127.0.0.1",
+    API_PORT: "3001",
+  },
+  contentAccess: {
+    MEMBERSHIP_ACQUISITION_URL: "https://unused.invalid/membership",
+  },
+  identity: {
+    IDENTITY_EMAIL_FINGERPRINT_KEY: "unused-email-fingerprint-key-32-chars",
+    LOGTO_AUDIENCE: "https://unused.invalid/api",
+    LOGTO_ISSUER: "https://unused.invalid/oidc",
+    LOGTO_JWKS_URL: "https://unused.invalid/oidc/jwks",
+  },
+  kinescope: {
+    KINESCOPE_API_BASE_URL: "https://api.kinescope.io",
+    KINESCOPE_API_TOKEN: "unused-kinescope-api-token",
+    KINESCOPE_CALLBACK_PASSWORD: "unused-callback-password",
+    KINESCOPE_CALLBACK_USERNAME: "unused-callback-user",
+    KINESCOPE_MEMBERSHIP_PROJECT_ID: "unused-membership-project",
+    KINESCOPE_PLAYBACK_JWT_SECRET: "unused-playback-secret-at-least-32-characters",
+    KINESCOPE_PLAYBACK_JWT_TTL_SECONDS: "60",
+    KINESCOPE_PROVIDER_MODE: "real",
+    KINESCOPE_PUBLIC_PROJECT_ID: "unused-public-project",
+    KINESCOPE_UPLOADER_BASE_URL: "https://uploader.kinescope.io",
+    KINESCOPE_WEBHOOK_PASSWORD: "unused-webhook-password",
+    KINESCOPE_WEBHOOK_USERNAME: "unused-webhook-user",
+  },
+  objectStorage: {
+    MATERIAL_ASSET_ORPHAN_GRACE_SECONDS: "86400",
+    OBJECT_STORAGE_ACCESS_KEY_ID: "unused-access-key",
+    OBJECT_STORAGE_ENDPOINT: "https://unused.invalid",
+    OBJECT_STORAGE_FORCE_PATH_STYLE: "false",
+    OBJECT_STORAGE_PROTECTED_BUCKET: "unused-protected",
+    OBJECT_STORAGE_PUBLIC_BUCKET: "unused-public",
+    OBJECT_STORAGE_QUARANTINE_BUCKET: "unused-quarantine",
+    OBJECT_STORAGE_REGION: "unused-region",
+    OBJECT_STORAGE_SECRET_ACCESS_KEY: "unused-secret-key",
+    OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS: "60",
+    PROFILE_AVATAR_ORPHAN_GRACE_SECONDS: "86400",
+  },
+  telegramMembership: {
+    TELEGRAM_BOT_START_URL: "https://t.me/unused_bot",
+    TELEGRAM_EVIDENCE_INGRESS_SECRET: "unused-evidence-secret",
+    TELEGRAM_LINKING_ENDPOINT:
+      "https://unused.invalid/integrations/platform/v1/identity-links",
+    TELEGRAM_LINKING_SECRET: "unused-linking-secret",
+    TELEGRAM_LINK_LIFETIME_SECONDS: "300",
+  },
+} as const;
+
+const requiredGroupsByProcess = {
+  api: new Set(Object.keys(unusedProductionGroups)),
+  "material-assets-worker": new Set(["objectStorage"]),
+  mcp: new Set(["contentAccess", "identity", "kinescope", "objectStorage"]),
+  "profile-avatars-worker": new Set(["objectStorage"]),
+  "video-deletions-worker": new Set(["kinescope"]),
+} satisfies Record<BackendProcess, ReadonlySet<string>>;
+
+export function parsePlatformProcessConfig(
+  environment: NodeJS.ProcessEnv,
+  process: BackendProcess,
+): PlatformConfig {
+  if (parsePlatformMode(environment.NODE_ENV) !== "production") {
+    return parsePlatformConfig(environment);
+  }
+  const effectiveEnvironment = { ...environment };
+  for (const [group, values] of Object.entries(unusedProductionGroups)) {
+    if (!requiredGroupsByProcess[process].has(group)) {
+      for (const [name, value] of Object.entries(values)) {
+        effectiveEnvironment[name] ??= value;
+      }
+    }
+  }
+  return parsePlatformConfig(effectiveEnvironment);
+}
+
 export function parsePlatformConfig(
   environment: NodeJS.ProcessEnv,
 ): PlatformConfig {
-  const mode = parseMode(environment.NODE_ENV);
+  const mode = parsePlatformMode(environment.NODE_ENV);
   const config = platformConfigSchema.safeParse({
     mode,
     database: parsePlatformDatabaseConfig(environment, mode),
@@ -436,7 +519,7 @@ export function parsePlatformConfig(
 
 export function parsePlatformDatabaseConfig(
   environment: NodeJS.ProcessEnv,
-  mode: PlatformMode = parseMode(environment.NODE_ENV),
+  mode: PlatformMode = parsePlatformMode(environment.NODE_ENV),
 ): PlatformDatabaseConfig {
   const config = platformDatabaseConfigSchema.safeParse({
     url: readRuntimeValue(
@@ -452,7 +535,7 @@ export function parsePlatformDatabaseConfig(
   return config.data;
 }
 
-function parseMode(value: string | undefined): PlatformMode {
+export function parsePlatformMode(value: string | undefined): PlatformMode {
   const mode = platformModeSchema.safeParse(value ?? "production");
   if (!mode.success) {
     throw new Error("NODE_ENV must be development, test, or production");

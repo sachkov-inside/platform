@@ -1,52 +1,56 @@
 # Production delivery
 
-The repository contains two delivery seams: an immutable release pipeline that publishes verified
-artifacts, and a deliberately small single-server Compose baseline that still builds those
-artifacts from a checkout. Deployment automation will connect the seams later; creating a release
-does not contact the production server.
+Platform separates immutable release publication from production deployment. The release workflow
+publishes a small manifest and two digest-addressed images. The runtime consumes only those exact
+digests; it does not build from a server checkout and does not select a moving tag. Host transport,
+deployment serialization and rollback automation belong to the later deployment ticket.
 
-The separate [production VPS preparation kit](production-foundation.md) records the host,
-database, backup and Logto files that will be applied once during #244. It is not run by CI and it
-does not change the current application Compose baseline.
+The [production VPS preparation kit](production-foundation.md) owns the long-lived PostgreSQL,
+Logto, backup and system Caddy foundation. This runbook owns the application runtime layered on top
+of that foundation. Running its local smoke does not contact or mutate production.
 
-## What runs
+## Runtime topology
 
-`compose.production.yaml` starts seven services in order:
+`compose.production.yaml` contains exactly seven application processes:
 
-1. PostgreSQL becomes healthy.
-2. `migrations` builds the backend production target and applies the schema once.
-3. `api` builds the same backend production target and becomes healthy.
-4. `profile-avatars-worker` builds the backend target and starts bounded orphan cleanup.
-5. `video-deletions-worker` builds the backend target and processes explicit, reference-safe
-   Kinescope deletion requests.
-6. `web` builds the Next.js production target and becomes healthy.
-7. Caddy exposes web over HTTP and HTTPS.
+1. `migrations` applies the append-only Platform registry and converges the `pg-boss` schema.
+2. `api` serves application HTTP and private operational health.
+3. `mcp` serves Streamable HTTP MCP and private operational health.
+4. `material-assets-worker` consumes Material Asset cleanup jobs.
+5. `profile-avatars-worker` consumes Profile Avatar cleanup jobs.
+6. `video-deletions-worker` consumes explicit Kinescope deletion jobs.
+7. `web` serves the Next.js application and verifies API readiness.
 
-The application images are built directly from the checked-out source with Compose. The release
-pipeline publishes digest-addressable images, but this temporary runtime baseline does not consume
-them yet. There is no GitHub Actions deployment workflow, SSH deployment, server-side release
-selector or automated rollback. Compose also uses its default network and one database account.
-These missing pieces are intentional: the lessons add them one at a time and explain the problem
-each one solves.
+All seven use the backend or web image digest selected from one `release-manifest.json`. The backend
+image is multi-command: its command selects migrations, API, MCP or one worker. PostgreSQL and Caddy
+are deliberately absent from application Compose because the foundation owns their lifecycle.
 
-The Material Asset worker remains part of the application and local development stack, but it is
-not started by this temporary production baseline. Orphaned Material Asset cleanup therefore does
-not run here until the worker is added back during production hardening.
+The stack connects three explicit networks:
 
-Profile Avatar cleanup is part of the feature's safe storage lifecycle, so its dedicated worker is
-present even in this small baseline. Configure its retention window with
-`PROFILE_AVATAR_ORPHAN_GRACE_SECONDS`.
+- `edge` joins the loopback application listeners to the system Caddy;
+- internal `application` carries web-to-API traffic;
+- external `database` resolves to `FOUNDATION_DATABASE_NETWORK` from the foundation stack.
 
-Explicit owned Video deletion is also part of the safe provider lifecycle, so its dedicated worker
-ships with the Kinescope deletion capability. See the [Video deletion runbook](video-deletion.md).
+PostgreSQL is not published. API, MCP and web bind only to `127.0.0.1` on the host. Migrations and
+every runtime process use the same non-superuser `platform` database credential. The application
+runtime does not create another database role.
 
-## Runtime configuration
+## Select and configure a release
 
-Create the ignored server-owned env files from the tracked templates and replace every placeholder.
-Each service receives only its own runtime configuration and secrets.
-The API and Video deletion worker files own the Kinescope values needed by their processes; the
-browser and web container do not receive them. Production startup rejects the test adapter and
-equal public/member project IDs.
+Download the immutable release's `release-manifest.json`, then validate and inspect it:
+
+```bash
+pnpm runtime:plan --manifest /path/to/release-manifest.json > runtime-plan.json
+```
+
+The command accepts only the closed release-manifest schema and emits the version, source SHA and
+two exact `name@sha256:...` references. Copy the emitted repository and 64-character digest parts
+into `compose.env`, and the two release values into `runtime.env`; never derive them from `main`,
+an ordinal image tag or a local checkout. Compose inserts the literal `@sha256:` separator, so a
+moving tag cannot satisfy its image reference.
+
+Create each ignored server-owned file from its tracked template before first use, replace every
+placeholder, and keep it mode `0600`:
 
 ```bash
 for template in config/compose/production/*.env.example; do
@@ -54,93 +58,145 @@ for template in config/compose/production/*.env.example; do
 done
 ```
 
-`compose.env` controls Compose itself: project name and published ports. The other files are passed
-to their named containers through `env_file`. Validate the result without printing the expanded
-configuration:
+`compose.env` contains Compose interpolation only: exact backend/web images, project/network names
+and loopback ports. `runtime.env` contains the selected release ordinal and source SHA. The other
+files are delivered only to their named processes:
+
+| File | Required configuration |
+|---|---|
+| `migrations.env` | shared `platform` database URL |
+| `api.env` | database, Logto verifier, Telegram, Object Storage and Kinescope |
+| `mcp.env` | database, MCP listener/public URL, Logto verifier, content access, storage and Kinescope |
+| `material-assets-worker.env` | database and Object Storage |
+| `profile-avatars-worker.env` | database and Object Storage |
+| `video-deletions-worker.env` | database and Kinescope |
+| `web.env` | internal API URL and Logto BFF |
+
+Each process validates only the groups it owns. Missing owned values stop startup. Provider
+reachability is not a global readiness dependency: an external outage degrades its affected flow
+without taking unrelated reads or pages out of service.
+
+The release ordinal and source SHA are also embedded in each image at build time as a read-only
+`release-identity.json` beside that image's application entrypoint. Startup compares the runtime
+values with that file and exits on any mismatch. The image identity is not read from overridable
+container environment. Runtime secrets are never image build arguments.
+
+## Validate and start
+
+Pull the exact digests explicitly, then validate Compose without printing expanded secrets:
 
 ```bash
+set -a
+. config/compose/production/compose.env
+set +a
+backend_image="${PLATFORM_BACKEND_IMAGE_REPOSITORY}@sha256:${PLATFORM_BACKEND_IMAGE_DIGEST}"
+web_image="${PLATFORM_WEB_IMAGE_REPOSITORY}@sha256:${PLATFORM_WEB_IMAGE_DIGEST}"
+docker pull "$backend_image"
+docker pull "$web_image"
 docker compose \
   --env-file config/compose/production/compose.env \
   --file compose.production.yaml \
   config --quiet
 ```
 
-Start the stack and build the application images from the current checkout:
+Before changing a release, stop and drain all old workers. This is a required handoff boundary:
 
 ```bash
 docker compose \
   --env-file config/compose/production/compose.env \
   --file compose.production.yaml \
-  up --detach --build --wait
+  stop --timeout 20 \
+  material-assets-worker profile-avatars-worker video-deletions-worker
 ```
 
-This manual command is intentionally not the final deployment method. A later CI/CD stage will
-make the server run an already-published manifest's exact image digests without rebuilding source.
-
-## Publish the next ordinal release
-
-`.github/workflows/release.yml` is the sole release entry point. One manual dispatch captures the
-selected commit, requires it still to be current `main`, runs the same CI contract used by pull
-requests, builds the backend and web production targets, and publishes only the requested `vN`
-tags. Release consumers must use the manifest's `name@sha256:...` identities; the ordinal tags are
-human-readable release names, not moving runtime selectors.
-
-Before the first release, an owner must enable immutable releases in the repository settings and
-bootstrap the `platform-backend` and `platform-web` container packages as public. GitHub creates a
-new container package as private, while package visibility is an owner-managed setting. The
-workflow deliberately does not accept a package-visibility credential: after pushing, it logs out
-of GHCR and requires both exact digests to be anonymously readable before it can finalize a
-release. The owner-approved bootstrap publication and visibility change are one-time setup; after
-that setup, each ordinal release uses the single command below.
-
-The workflow checks release immutability both before building and immediately before finalization.
-It also requires each ordinal tag to belong to a published immutable Release containing its
-manifest. Those retained Releases must form a contiguous `v1` through `vN-1` history; a bare tag,
-mutable/missing record, duplicate or skipped ordinal fails closed. The workflow rechecks the same
-state and confirms that `main` has not moved before publishing.
-
-From a clean `main`, publish the next ordinal with exactly one manual command:
+Only after all three old containers have stopped may the candidate stack start:
 
 ```bash
-gh workflow run release.yml --ref main --field version=vN
+docker compose \
+  --env-file config/compose/production/compose.env \
+  --file compose.production.yaml \
+  up --detach --wait
 ```
 
-The completed immutable GitHub Release contains only `release-manifest.json`. The manifest binds the
-ordinal version and source SHA to two deployable public GHCR `name@sha256:...` references. The source
-SHA already identifies the checked-in migrations and configuration, so the manifest does not
-duplicate their hashes. The image build job logs out of GHCR and proves both exact digests
-anonymously readable before finalization.
+Compose runs migrations before starting dependent processes. Worker shutdown removes readiness,
+stops `pg-boss` gracefully and releases its process-specific PostgreSQL advisory lease. A concurrent
+generation cannot acquire that lease and exits; it does not create overlapping consumers.
 
-The small manifest contract is owned by `release/contract-schema.mjs`, while ordinal and manifest
-validation live in `scripts/release-contract.mjs`. To exercise the complete local release contract
-without publishing packages or a GitHub Release, run:
+## Readiness and routing
+
+API and MCP expose separate liveness and readiness endpoints on their private listeners. Web
+exposes the same under `/_health`. Liveness proves the process and release identity. Readiness also
+proves the exact ordered/checksummed Platform migration registry; web requires the same ready API
+release. Worker Compose healthchecks validate an equivalent private tmpfs marker and re-query the
+current database schema on every probe.
+
+Useful loopback checks on the host are:
 
 ```bash
-pnpm release:dry-run
+curl --fail --silent http://127.0.0.1:13001/health/live
+curl --fail --silent http://127.0.0.1:13001/health/ready
+curl --fail --silent http://127.0.0.1:13000/_health/ready
 ```
 
-The image smoke builds both clean production targets and asserts that their runtime files do not
-depend on the source checkout. It uses temporary local image names and removes them on exit.
+Every successful report includes the selected `release`, full `sourceSha` and expected schema
+identity. A missing, edited, reordered or newer-than-runtime Platform migration makes readiness fail
+closed. The migration job separately converges the library-owned `pg-boss` schema.
 
-## Local production smoke
+The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes only:
 
-The isolated smoke uses synthetic runtime values, builds the current production targets, applies
-all migrations, verifies the Profile Avatar and Video deletion worker readiness logs and API
-health, and checks the home and Library pages through Caddy. It removes its containers, volumes and
-Compose-built images after the run.
+- web at `inside.sachkov.dev`;
+- `/integrations/telegram/v1/membership-evidence`;
+- `/integrations/kinescope/v1/webhook`;
+- `/integrations/kinescope/v1/authorize`;
+- `/mcp` and `/.well-known/oauth-protected-resource/mcp`.
+
+Unknown `/integrations/*` paths and `/health`, `/health/*`, `/_health/*` return 404 at the public
+edge. PostgreSQL and direct service ports remain private. A wrong TLS hostname must fail certificate
+validation.
+
+## Migrations, failure and rollback
+
+Schema evolution is forward-only: expand, deploy/backfill while N-1 remains compatible, then remove
+old shape in a later release. The test matrix proves a fresh database, upgrade from the previous
+schema prefix, a frozen N-1 application query contract against the candidate schema and resume when
+execution stops after Platform migrations but before `pg-boss` finishes. Re-running migrations is
+the repair path.
+
+Never run an automatic down migration or database restore after a failed application deploy. If
+migrations have completed, return to the previous application manifest only when its recorded N-1
+compatibility evidence is green. Otherwise keep the database and repair forward. Provider failure
+uses the affected feature's disable/recovery path, not a global application rollback.
+
+## Local production proof
+
+The isolated proof builds candidate images once with embedded synthetic identity, then supplies
+their exact local image IDs to production Compose. It uses the real foundation PostgreSQL topology
+and proves fresh/upgrade/N-1 migrations, `pg-boss` resume, seven-process readiness, no worker
+overlap, completion of a controlled in-flight job during graceful drain, trusted TLS, the
+positive/negative route matrix and wrong release/schema failure. A before/after database digest
+proves that page, route and health smoke creates no application data or provider writes.
 
 ```bash
 pnpm compose:production:smoke
 ```
 
-## Hardening that comes later
+The proof owns unique Compose projects, networks, ports, volumes and local images and removes them
+on exit. It never uses production credentials or contacts the production host.
 
-The next delivery stages will extend this baseline with:
+## Publish the next ordinal release
 
-- one shared non-superuser Platform database role for migrations and runtime;
-- explicit network boundaries;
-- the Material Asset background worker;
-- server-side secret delivery;
-- manifest-selected deployment, health proof and rollback.
+`.github/workflows/release.yml` remains the sole publication entry point. It captures exact current
+`main`, reuses application CI, embeds the ordinal and source SHA in both images, publishes their
+public GHCR digests, proves anonymous digest access, then creates the immutable GitHub Release with
+only `release-manifest.json`:
 
-Keeping these concerns out of the starting point makes every later change visible and testable.
+```bash
+gh workflow run release.yml --ref main --field version=vN
+```
+
+Publishing is not deployment and does not authorize production mutation. The complete local
+publication proof remains:
+
+```bash
+pnpm release:dry-run
+```

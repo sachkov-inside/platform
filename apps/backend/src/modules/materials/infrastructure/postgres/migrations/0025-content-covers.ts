@@ -1,4 +1,4 @@
-export const name = "0024_content_covers";
+export const name = "0025_content_covers";
 
 export const statement = `
 create table materials.content_covers (
