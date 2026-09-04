@@ -158,8 +158,9 @@ learning contract while using its own starter baseline and evaluation assets.
 _Avoid_: Separate Case, generated port, Platform stack
 
 **WorkshopEntitlement**:
-A time-bounded Platform grant for protected Workshop content. One active Inside subscription
-currently creates and renews it alongside, but separately from, MembershipEntitlement.
+A time-bounded Platform grant for protected Workshop content. In the first Kafka slice it is
+projected from the same accepted MembershipEvidence that keeps MembershipEntitlement current, but
+remains a separate authority.
 _Avoid_: MembershipEntitlement, route-local membership check, permanent purchase
 
 **WorkshopResource**:

@@ -213,9 +213,10 @@ route-level fallback.
 - `MembershipEntitlement` для Library/Materials;
 - `WorkshopEntitlement` для protected Workshop content.
 
-Subscription evidence создаёт, продлевает и завершает оба bounded grants через их owning modules.
-Один grant не вычисляется route-local проверкой другого. Такой contract сохраняет возможность
-будущего отдельного Workshop grant, не создавая отдельный текущий продукт.
+Одно accepted `MembershipEvidence` создаёт, продлевает и завершает оба bounded grants через их
+owning modules. Platform не вводит subscription/billing entity и не вычисляет один grant
+route-local проверкой другого. Такой contract сохраняет возможность будущего отдельного Workshop
+grant, не создавая отдельный текущий продукт.
 
 Будущий Workshop-only offer требует отдельного `ContentAccess`-решения для закрытых Materials,
 которые включены в Track. До такого решения один WorkshopEntitlement не обещает доступ к

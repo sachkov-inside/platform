@@ -5,8 +5,10 @@ local Git/host/Docker preconditions, obtains a one-time report token through the
 downloads the exact case evaluator bundle, runs its bounded Compose topology, and submits one
 schema-valid report.
 
-The accepted application boundary is recorded in
-[ADR 0014](../../docs/adr/0014-pinned-native-go-workshop-evaluator.md).
+The historical Partner Webhooks boundary is recorded in
+[ADR 0014](../../docs/adr/0014-pinned-native-go-workshop-evaluator.md). The current
+[ADR 0015](../../docs/adr/0015-defer-kafka-case-evaluation-until-casespec.md) does not select this
+CLI for the Kafka Track until CaseSpec-driven research explicitly accepts its reuse.
 
 The first beta target matrix is:
 
