@@ -344,6 +344,7 @@ describe("production deployment state machine", () => {
         version: "v1",
         phase: "readiness",
         recoveryPhase: "preflight",
+        repairForward: null,
         githubRunId: 220,
         recordedAt: "2026-09-04T20:00:00Z",
       }, null, 2)}\n`;
@@ -351,6 +352,67 @@ describe("production deployment state machine", () => {
       writeFileSync(operationPath, impossibleJournal);
 
       const result = runGateway(fixture, "deploy", "v2", 221);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /operation journal is invalid/u);
+      assert.equal(readFileSync(operationPath, "utf8"), impossibleJournal);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("survives two consecutive preflight failures before an exact retry", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 232);
+      for (const runId of [233, 234]) {
+        assert.notEqual(
+          runGateway(fixture, "deploy", "v2", runId, {
+            INSIDE_DEPLOY_FAIL_PHASE: "preflight",
+          }).status,
+          0,
+        );
+        const operation = JSON.parse(
+          readFileSync(
+            resolve(
+              fixture.root,
+              "var/lib/inside/deployments/operation.json",
+            ),
+            "utf8",
+          ),
+        );
+        assert.equal(operation.phase, "preflight");
+        assert.equal(operation.recoveryPhase, null);
+      }
+
+      assertGatewaySuccess(fixture, "deploy", "v2", 235);
+      assert.equal(readState(fixture).current.version, "v2");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects a rollback journal that claims a migration phase", () => {
+    const fixture = createHostFixture();
+    try {
+      const operationPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const impossibleJournal = `${JSON.stringify({
+        schemaVersion: "inside.platform.deployment-operation.v1",
+        status: "failed",
+        operation: "rollback",
+        version: "v1",
+        phase: "migrations",
+        recoveryPhase: "migrations",
+        repairForward: null,
+        githubRunId: 236,
+        recordedAt: "2026-09-04T20:00:00Z",
+      }, null, 2)}\n`;
+      mkdirSync(resolve(operationPath, ".."), { recursive: true });
+      writeFileSync(operationPath, impossibleJournal);
+
+      const result = runGateway(fixture, "rollback", "v1", 237);
       assert.notEqual(result.status, 0);
       assert.match(result.stderr, /operation journal is invalid/u);
       assert.equal(readFileSync(operationPath, "utf8"), impossibleJournal);
@@ -375,8 +437,21 @@ describe("production deployment state machine", () => {
       const failedJournal = readFileSync(operationPath, "utf8");
       const repairLogStart = readExternalLog(fixture).length;
 
-      assert.equal(
+      assert.notEqual(
         runGateway(fixture, "deploy", "v2", 223, {
+          INSIDE_DEPLOY_FAIL_PHASE: "maintenance",
+          INSIDE_DEPLOY_TEST_NONEMPTY_DATABASE: "true",
+        }).status,
+        0,
+      );
+      const repairOperation = JSON.parse(readFileSync(operationPath, "utf8"));
+      assert.deepEqual(repairOperation.repairForward, {
+        version: "v1",
+        githubRunId: 222,
+        recoveryPhase: "readiness",
+      });
+      assert.equal(
+        runGateway(fixture, "deploy", "v2", 224, {
           INSIDE_DEPLOY_TEST_NONEMPTY_DATABASE: "true",
         }).status,
         0,
@@ -495,6 +570,68 @@ describe("production deployment state machine", () => {
       );
       assert.ok(failedWorkersStop >= 0);
       assert.ok(repairStart > failedWorkersStop);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("retries a repair candidate after that candidate changed the schema", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 238);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 239, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        }).status,
+        0,
+      );
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v3", 240, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+          INSIDE_DEPLOY_TEST_CURRENT_SCHEMA_MISMATCH: "true",
+        }).status,
+        0,
+      );
+      const repairOperation = JSON.parse(
+        readFileSync(
+          resolve(
+            fixture.root,
+            "var/lib/inside/deployments/operation.json",
+          ),
+          "utf8",
+        ),
+      );
+      assert.deepEqual(repairOperation.repairForward, {
+        version: "v2",
+        githubRunId: 239,
+        recoveryPhase: "readiness",
+      });
+      const retryLogStart = readExternalLog(fixture).length;
+
+      assert.equal(
+        runGateway(fixture, "deploy", "v3", 241, {
+          INSIDE_DEPLOY_TEST_CURRENT_SCHEMA_MISMATCH: "true",
+        }).status,
+        0,
+      );
+      assert.equal(readState(fixture).current.version, "v3");
+      const retryLog = readExternalLog(fixture).slice(retryLogStart);
+      assert.match(
+        retryLog,
+        /releases\/v3\/runtime\/compose\.production\.yaml.*--verify-schema-identity/u,
+      );
+      assert.doesNotMatch(
+        retryLog,
+        /releases\/v2\/runtime\/compose\.production\.yaml.*--verify-schema-identity/u,
+      );
+      const repairWorkersStop = retryLog.indexOf(
+        "/releases/v3/runtime/compose.production.yaml stop --timeout 20",
+      );
+      const repairMigrations = retryLog.indexOf(
+        "/releases/v3/runtime/compose.production.yaml run --rm migrations",
+      );
+      assert.ok(repairWorkersStop >= 0);
+      assert.ok(repairMigrations > repairWorkersStop);
     } finally {
       fixture.cleanup();
     }

@@ -39,8 +39,10 @@ next ordinal. That release must bind the exact failed manifest. The
 failed image first proves the live schema, its workers are stopped, and the new image proves that it
 can migrate the live schema forward after the normal maintenance and pull steps. The superseded
 operation journal is retained under `operation-history`; repair forward does not create a rollback
-target for an application version that never deployed successfully. Success is recorded only after
-readiness, read-only smoke and the positive route reload.
+target for an application version that never deployed successfully. The new operation journal
+retains a closed `repairForward` link to that archived version, run and recovery phase, so an exact
+retry reconstructs the same ordinal and schema context. Success is recorded only after readiness,
+read-only smoke and the positive route reload.
 
 The executable proof is intentionally layered. A disposable host filesystem drives the real SSH
 gateway, archive validation, journal and deployment state machine through `v1`, no-op, `v2`,

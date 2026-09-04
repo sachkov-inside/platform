@@ -105,8 +105,11 @@ phase, retained recovery phase and `running`/`failed`/`succeeded` status without
 values. The server-owned kernel `flock` rejects
 overlapping operations even if a caller bypasses the GitHub queue and releases automatically if
 its process exits. A repair-forward transition preserves the superseded failed journal as a
-root-owned file under `operation-history/`; conflicting history fails closed. Worker shutdown removes readiness, drains
-`pg-boss` and releases its process-specific advisory lease before a new generation starts.
+root-owned file under `operation-history/`; conflicting history fails closed. Worker shutdown
+removes readiness, drains `pg-boss` and releases its process-specific advisory lease before a new
+generation starts.
+The replacement `operation.json` retains the exact failed version, run and recovery phase under
+`repairForward`, allowing the repair candidate itself to be retried after an early or late failure.
 
 ## Readiness and routing
 
@@ -160,7 +163,9 @@ image proves an exact live schema after completed migrations, or a compatible pr
 execution was interrupted. The new candidate then follows the normal maintenance, pull,
 compatibility, worker drain and forward-migration sequence. Its successful state keeps the last
 successful application as `previous`, preserves the failed operation in `operation-history/`, and
-does not offer rollback to the failed application version.
+does not offer rollback to the failed application version. If the repair candidate also fails, its
+exact retry uses the linked failed-release schema before its own migrations, or its own compatible
+or exact schema proof after migrations may have started.
 
 The release workflow derives schema identity from the exact candidate backend digest. Starting with
 `v2`, it also reads the exact previous manifest and backend digest. The manifest records compatibility
