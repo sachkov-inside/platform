@@ -40,6 +40,7 @@ release_env_dir="$state_dir/release-environments"
 phase=preflight
 completed=false
 operation_started=false
+defer_operation_start=false
 recovery_phase=
 repair_forward=false
 repair_forward_initial=false
@@ -391,8 +392,12 @@ if [[ "$recovery_phase" == preflight ]]; then
   recovery_phase=
 fi
 if [[ "$repair_forward" != true ]]; then
-  write_operation running "$phase"
-  operation_started=true
+  if [[ "$operation" == rollback && "$recovery_phase" == journal ]]; then
+    defer_operation_start=true
+  else
+    write_operation running "$phase"
+    operation_started=true
+  fi
 fi
 
 for name in \
@@ -602,6 +607,10 @@ else
   rolled_back_from_json="$(jq --compact-output .current "$state_file")"
 fi
 
+if [[ "$defer_operation_start" == true && "$is_noop" != true ]]; then
+  write_operation running "$phase"
+  operation_started=true
+fi
 fail_if_requested preflight
 load_release_environment "$manifest"
 compose_config="$(docker compose \

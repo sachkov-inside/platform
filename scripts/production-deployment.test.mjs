@@ -703,9 +703,17 @@ describe("production deployment state machine", () => {
       assert.equal(operation.version, "v1");
       assert.equal(operation.phase, "journal");
       assert.equal(operation.recoveryPhase, "journal");
+      const interruptedJournal = readFileSync(operationPath, "utf8");
+
+      const failedRetry = runGateway(fixture, "rollback", "v1", 249, {
+        INSIDE_DEPLOY_FAIL_PHASE: "preflight",
+      });
+      assert.notEqual(failedRetry.status, 0);
+      assert.match(failedRetry.stderr, /Injected deployment failure at preflight/u);
+      assert.equal(readFileSync(operationPath, "utf8"), interruptedJournal);
 
       const retryLogStart = readExternalLog(fixture).length;
-      assertGatewaySuccess(fixture, "rollback", "v1", 249);
+      assertGatewaySuccess(fixture, "rollback", "v1", 250);
       state = readState(fixture);
       assert.equal(state.current.version, "v1");
       assert.equal(state.current.githubRunId, 248);
@@ -719,7 +727,7 @@ describe("production deployment state machine", () => {
         retryLog,
         /docker pull|caddy reload| up --detach| run --rm migrations/u,
       );
-      const repeated = runGateway(fixture, "rollback", "v1", 250);
+      const repeated = runGateway(fixture, "rollback", "v1", 251);
       assert.notEqual(repeated.status, 0);
       assert.match(repeated.stderr, /unknown, incompatible or expired/u);
     } finally {
