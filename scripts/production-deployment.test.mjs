@@ -330,6 +330,212 @@ describe("production deployment state machine", () => {
     }
   });
 
+  it("rejects an impossible recovery phase without overwriting the journal", () => {
+    const fixture = createHostFixture();
+    try {
+      const operationPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const impossibleJournal = `${JSON.stringify({
+        schemaVersion: "inside.platform.deployment-operation.v1",
+        status: "failed",
+        operation: "deploy",
+        version: "v1",
+        phase: "readiness",
+        recoveryPhase: "preflight",
+        githubRunId: 220,
+        recordedAt: "2026-09-04T20:00:00Z",
+      }, null, 2)}\n`;
+      mkdirSync(resolve(operationPath, ".."), { recursive: true });
+      writeFileSync(operationPath, impossibleJournal);
+
+      const result = runGateway(fixture, "deploy", "v2", 221);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /operation journal is invalid/u);
+      assert.equal(readFileSync(operationPath, "utf8"), impossibleJournal);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("repairs the first deployment forward after its migrations completed", () => {
+    const fixture = createHostFixture({ compatible: false });
+    try {
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v1", 222, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        }).status,
+        0,
+      );
+      const operationPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const failedJournal = readFileSync(operationPath, "utf8");
+      const repairLogStart = readExternalLog(fixture).length;
+
+      assert.equal(
+        runGateway(fixture, "deploy", "v2", 223, {
+          INSIDE_DEPLOY_TEST_NONEMPTY_DATABASE: "true",
+        }).status,
+        0,
+      );
+      const state = readState(fixture);
+      assert.equal(state.current.version, "v2");
+      assert.equal(state.previous, null);
+      assert.equal(state.rollback, null);
+      assert.equal(
+        readFileSync(
+          resolve(
+            fixture.root,
+            "var/lib/inside/deployments/operation-history/deploy-v1-run-222.json",
+          ),
+          "utf8",
+        ),
+        failedJournal,
+      );
+      const repairLog = readExternalLog(fixture).slice(repairLogStart);
+      assert.match(repairLog, /releases\/v1\/runtime\/compose\.production\.yaml.*--verify-schema-identity/u);
+      assert.match(repairLog, /releases\/v2\/runtime\/compose\.production\.yaml.*--verify-schema-compatible/u);
+      const failedSchemaProof = repairLog.indexOf(
+        "/releases/v1/runtime/compose.production.yaml run --pull never --rm --no-deps migrations node dist/migrations/migrate.js --verify-schema-identity",
+      );
+      const maintenance = repairLog.indexOf("caddy reload");
+      const targetPull = repairLog.indexOf(
+        "docker pull ghcr.io/sachkov-inside/platform-backend@sha256:dddd",
+      );
+      const targetCompatibility = repairLog.indexOf(
+        "/releases/v2/runtime/compose.production.yaml run --pull never --rm --no-deps migrations node dist/migrations/migrate.js --verify-schema-compatible",
+      );
+      assert.ok(failedSchemaProof >= 0);
+      assert.ok(maintenance > failedSchemaProof);
+      assert.ok(targetPull > maintenance);
+      assert.ok(targetCompatibility > targetPull);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("repairs forward from a compatible partial migration ledger", () => {
+    const fixture = createHostFixture();
+    try {
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v1", 230, {
+          INSIDE_DEPLOY_FAIL_PHASE: "migrations",
+        }).status,
+        0,
+      );
+      const repairLogStart = readExternalLog(fixture).length;
+
+      assert.equal(
+        runGateway(fixture, "deploy", "v2", 231, {
+          INSIDE_DEPLOY_TEST_NONEMPTY_DATABASE: "true",
+        }).status,
+        0,
+      );
+      assert.equal(readState(fixture).current.version, "v2");
+      const repairLog = readExternalLog(fixture).slice(repairLogStart);
+      assert.match(
+        repairLog,
+        /releases\/v1\/runtime\/compose\.production\.yaml.*--verify-schema-compatible/u,
+      );
+      assert.doesNotMatch(
+        repairLog,
+        /releases\/v1\/runtime\/compose\.production\.yaml.*--verify-schema-identity/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("repairs forward to the ordinal after a failed upgrade", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 224);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 225, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        }).status,
+        0,
+      );
+      const operationPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const failedJournal = readFileSync(operationPath, "utf8");
+      const repairLogStart = readExternalLog(fixture).length;
+
+      assert.equal(
+        runGateway(fixture, "deploy", "v3", 226, {
+          INSIDE_DEPLOY_TEST_CURRENT_SCHEMA_MISMATCH: "true",
+        }).status,
+        0,
+      );
+      const state = readState(fixture);
+      assert.equal(state.current.version, "v3");
+      assert.equal(state.previous.version, "v1");
+      assert.equal(state.rollback, null);
+      assert.equal(
+        readFileSync(
+          resolve(
+            fixture.root,
+            "var/lib/inside/deployments/operation-history/deploy-v2-run-225.json",
+          ),
+          "utf8",
+        ),
+        failedJournal,
+      );
+      const repairLog = readExternalLog(fixture).slice(repairLogStart);
+      const failedWorkersStop = repairLog.indexOf(
+        "/releases/v2/runtime/compose.production.yaml stop --timeout 20",
+      );
+      const repairStart = repairLog.indexOf(
+        "/releases/v3/runtime/compose.production.yaml up --detach",
+      );
+      assert.ok(failedWorkersStop >= 0);
+      assert.ok(repairStart > failedWorkersStop);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects repair forward when the live schema does not match the failed release", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 227);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 228, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        }).status,
+        0,
+      );
+      const operationPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const failedJournal = readFileSync(operationPath, "utf8");
+
+      const result = runGateway(fixture, "deploy", "v3", 229, {
+        INSIDE_DEPLOY_TEST_FAILED_SCHEMA_MISMATCH: "true",
+      });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /Failed release schema mismatch/u);
+      assert.equal(readFileSync(operationPath, "utf8"), failedJournal);
+      assert.equal(
+        existsSync(
+          resolve(
+            fixture.root,
+            "var/lib/inside/deployments/operation-history/deploy-v2-run-228.json",
+          ),
+        ),
+        false,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("rejects stale, incompatible and expired rollback selections", () => {
     const stale = createHostFixture();
     try {
@@ -445,6 +651,10 @@ if [[ "\${INSIDE_DEPLOY_TEST_CURRENT_SCHEMA_MISMATCH:-}" == true && "$*" == *"/r
   echo "Current release schema mismatch" >&2
   exit 1
 fi
+if [[ "\${INSIDE_DEPLOY_TEST_FAILED_SCHEMA_MISMATCH:-}" == true && "$*" == *"/releases/v2/"* && "$*" == *"--verify-schema-identity"* ]]; then
+  echo "Failed release schema mismatch" >&2
+  exit 1
+fi
 `,
   );
   writeExecutable(
@@ -499,6 +709,22 @@ fi
       verifiedByWorkflowRunId: 92,
     },
   });
+  const v2ManifestDigest = sha256(v2Manifest);
+  const v3Manifest = releaseManifest({
+    bundleDigest,
+    runId: 93,
+    schemaIdentity,
+    sourceSha: "3".repeat(40),
+    version: "v3",
+    previous: {
+      version: "v2",
+      sourceSha: "2".repeat(40),
+      manifestSha256: v2ManifestDigest,
+      schemaIdentity,
+      compatible,
+      verifiedByWorkflowRunId: 93,
+    },
+  });
   writeTrustedReleaseEvidence(root, {
     manifest: v1Manifest,
     publicationRunId: 91,
@@ -511,16 +737,22 @@ fi
     sourceSha: "2".repeat(40),
     version: "v2",
   });
+  writeTrustedReleaseEvidence(root, {
+    manifest: v3Manifest,
+    publicationRunId: 93,
+    sourceSha: "3".repeat(40),
+    version: "v3",
+  });
 
   const fixture = {
     bin,
     bundle,
     cleanup: () => rmSync(directory, { force: true, recursive: true }),
     directory,
-    manifests: { v1: v1Manifest, v2: v2Manifest },
+    manifests: { v1: v1Manifest, v2: v2Manifest, v3: v3Manifest },
     root,
   };
-  for (const version of ["v1", "v2"]) {
+  for (const version of ["v1", "v2", "v3"]) {
     createEnvelope(fixture, version);
   }
   return fixture;
@@ -534,13 +766,19 @@ function releaseManifest({
   sourceSha,
   version,
 }) {
+  const imageDigests = {
+    v1: ["a", "b"],
+    v2: ["d", "e"],
+    v3: ["f", "0"],
+  }[version];
+  assert.ok(imageDigests, `missing image fixture for ${version}`);
   return `${JSON.stringify({
     schemaVersion: "inside.platform.release-manifest.v2",
     version,
     source: { repository: "sachkov-inside/platform", sha: sourceSha },
     images: {
-      backend: `ghcr.io/sachkov-inside/platform-backend@sha256:${(version === "v1" ? "a" : "d").repeat(64)}`,
-      web: `ghcr.io/sachkov-inside/platform-web@sha256:${(version === "v1" ? "b" : "e").repeat(64)}`,
+      backend: `ghcr.io/sachkov-inside/platform-backend@sha256:${imageDigests[0].repeat(64)}`,
+      web: `ghcr.io/sachkov-inside/platform-web@sha256:${imageDigests[1].repeat(64)}`,
     },
     schema: { identity: schemaIdentity },
     runtimeBundle: {

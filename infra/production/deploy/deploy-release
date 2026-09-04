@@ -35,11 +35,16 @@ state_dir="$host_root/var/lib/inside/deployments"
 runtime_dir="$host_root/srv/inside/runtime"
 state_file="$state_dir/state.json"
 operation_file="$state_dir/operation.json"
+operation_history_dir="$state_dir/operation-history"
 release_env_dir="$state_dir/release-environments"
 phase=preflight
 completed=false
 operation_started=false
 recovery_phase=
+repair_forward=false
+repair_forward_phase=
+repair_forward_version=
+repair_forward_manifest=
 
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -191,15 +196,10 @@ assert_empty_initial_database() {
 verify_candidate_schema_for_retry() {
   case "$recovery_phase" in
     migrations)
-      docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
-        run --pull never --rm --no-deps migrations \
-        node dist/migrations/migrate.js --verify-schema-compatible >/dev/null
+      verify_schema_compatible "$compose_file"
       ;;
     start | readiness | smoke | routes | journal)
-      docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
-        run --pull never --rm --no-deps migrations \
-        node dist/migrations/migrate.js \
-        --verify-schema-identity "$schema_identity" >/dev/null
+      verify_schema_identity "$compose_file" "$schema_identity"
       ;;
     *)
       return 1
@@ -207,7 +207,40 @@ verify_candidate_schema_for_retry() {
   esac
 }
 
-install -d -m 700 "$state_dir" "$release_env_dir"
+verify_schema_compatible() {
+  local selected_compose_file="$1"
+  docker compose --env-file "$config_dir/compose.env" --file "$selected_compose_file" \
+    run --pull never --rm --no-deps migrations \
+    node dist/migrations/migrate.js --verify-schema-compatible >/dev/null
+}
+
+verify_schema_identity() {
+  local selected_compose_file="$1"
+  local expected_identity="$2"
+  docker compose --env-file "$config_dir/compose.env" --file "$selected_compose_file" \
+    run --pull never --rm --no-deps migrations \
+    node dist/migrations/migrate.js \
+    --verify-schema-identity "$expected_identity" >/dev/null
+}
+
+archive_repair_forward_operation() {
+  local archived_operation
+  archived_operation="$operation_history_dir/deploy-$repair_forward_version-run-$(
+    jq --raw-output .githubRunId <<<"$last_operation_json"
+  ).json"
+  if [[ -e "$archived_operation" ]]; then
+    if [[ ! -f "$archived_operation" || -L "$archived_operation" ]] ||
+      ! cmp -s "$operation_file" "$archived_operation"; then
+      echo "Repair-forward operation history conflicts with the active journal" >&2
+      exit 1
+    fi
+    return
+  fi
+  install -m 600 "$operation_file" "$archived_operation.tmp.$$"
+  mv "$archived_operation.tmp.$$" "$archived_operation"
+}
+
+install -d -m 700 "$state_dir" "$operation_history_dir" "$release_env_dir"
 install -d -m 755 "$runtime_dir/caddy"
 last_operation_json=null
 if [[ -f "$operation_file" ]]; then
@@ -220,7 +253,7 @@ if [[ -f "$operation_file" ]]; then
     (.phase | test("^(preflight|maintenance|pull|schema|workers|migrations|start|readiness|smoke|routes|journal|complete)$")) and
     (
       .recoveryPhase == null or
-      (.recoveryPhase | test("^(preflight|maintenance|pull|schema|workers|migrations|start|readiness|smoke|routes|journal)$"))
+      (.recoveryPhase | test("^(maintenance|pull|schema|workers|migrations|start|readiness|smoke|routes|journal)$"))
     ) and
     (.githubRunId | type == "number") and
     .githubRunId > 0 and
@@ -228,8 +261,14 @@ if [[ -f "$operation_file" ]]; then
     (.recordedAt | type == "string") and
     (.recordedAt | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")) and
     (
-      (.status == "succeeded" and .phase == "complete") or
-      (.status != "succeeded" and .phase != "complete")
+      (
+        .status == "succeeded" and
+        .phase == "complete" and
+        .recoveryPhase == null
+      ) or (
+        .status != "succeeded" and
+        .phase != "complete"
+      )
     )
   ' "$operation_file" >/dev/null; then
     echo "Deployment operation journal is invalid" >&2
@@ -237,15 +276,34 @@ if [[ -f "$operation_file" ]]; then
   fi
   last_operation_json="$(jq --compact-output . "$operation_file")"
 fi
+active_recovery_phase="$(jq --raw-output '
+  if (.status == "failed" or .status == "running")
+  then (.recoveryPhase // .phase)
+  else empty
+  end
+' <<<"$last_operation_json" 2>/dev/null || true)"
 if jq --exit-status \
   --arg operation "$operation" \
   --arg version "$version" '
     (.status == "failed" or .status == "running") and
-    (.recoveryPhase // .phase) != "preflight" and
     (.operation != $operation or .version != $version)
   ' <<<"$last_operation_json" >/dev/null 2>&1; then
-  echo "An unfinished deployment operation must be retried with the same operation and version" >&2
-  exit 1
+  active_operation="$(jq --raw-output .operation <<<"$last_operation_json")"
+  active_version="$(jq --raw-output .version <<<"$last_operation_json")"
+  active_ordinal="${active_version#v}"
+  requested_ordinal="${version#v}"
+  if [[ "$active_recovery_phase" == preflight ]]; then
+    : # Preflight has not changed the host and may be safely replaced.
+  elif [[ "$operation" == deploy && "$active_operation" == deploy &&
+          "$active_recovery_phase" =~ ^(migrations|start|readiness|smoke|routes|journal)$ &&
+          "$requested_ordinal" -eq $((active_ordinal + 1)) ]]; then
+    repair_forward=true
+    repair_forward_phase="$active_recovery_phase"
+    repair_forward_version="$active_version"
+  else
+    echo "An unfinished deployment operation must be retried with the same operation and version, or repaired by its next ordinal" >&2
+    exit 1
+  fi
 fi
 recovery_phase="$(jq --raw-output \
   --arg operation "$operation" \
@@ -259,8 +317,10 @@ recovery_phase="$(jq --raw-output \
          index($phase) != null)
     then (.recoveryPhase // .phase) else empty end
   ' <<<"$last_operation_json" 2>/dev/null || true)"
-write_operation running "$phase"
-operation_started=true
+if [[ "$repair_forward" != true ]]; then
+  write_operation running "$phase"
+  operation_started=true
+fi
 
 for name in \
   compose.env \
@@ -323,7 +383,49 @@ rolled_back_from_json=null
 current_epoch="$(now_epoch)"
 if [[ "$operation" == deploy ]]; then
   target_ordinal="${version#v}"
-  if [[ ! -f "$state_file" ]]; then
+  if [[ "$repair_forward" == true ]]; then
+    repair_forward_ordinal="${repair_forward_version#v}"
+    repair_forward_release_dir="$host_root/srv/inside/releases/$repair_forward_version"
+    repair_forward_manifest="$repair_forward_release_dir/release-manifest.json"
+    if [[ ! -f "$repair_forward_manifest" || -L "$repair_forward_manifest" ]] ||
+      ! jq --exit-status --arg version "$repair_forward_version" '
+        .schemaVersion == "inside.platform.release-manifest.v2" and
+        .version == $version
+      ' "$repair_forward_manifest" >/dev/null; then
+      echo "The failed release manifest required for repair forward is invalid" >&2
+      exit 1
+    fi
+    if [[ -f "$state_file" ]]; then
+      current_version="$(jq --raw-output .current.version "$state_file")"
+      current_ordinal="${current_version#v}"
+      if [[ "$repair_forward_ordinal" -ne $((current_ordinal + 1)) ]]; then
+        echo "Repair forward must follow the failed ordinal after $current_version" >&2
+        exit 1
+      fi
+      previous_json="$(jq --compact-output .current "$state_file")"
+    elif [[ "$repair_forward_ordinal" -ne 1 ]]; then
+      echo "Repair forward without successful state must replace failed v1" >&2
+      exit 1
+    fi
+    repair_forward_source_sha="$(jq --raw-output .source.sha "$repair_forward_manifest")"
+    repair_forward_schema_identity="$(jq --raw-output .schema.identity "$repair_forward_manifest")"
+    repair_forward_manifest_digest="sha256:$(sha256_file "$repair_forward_manifest")"
+    if ! jq --exit-status \
+      --arg version "$repair_forward_version" \
+      --arg sourceSha "$repair_forward_source_sha" \
+      --arg manifestSha256 "$repair_forward_manifest_digest" \
+      --arg schemaIdentity "$repair_forward_schema_identity" '
+        .rollback.previous != null and
+        .rollback.previous.version == $version and
+        .rollback.previous.sourceSha == $sourceSha and
+        .rollback.previous.manifestSha256 == $manifestSha256 and
+        .rollback.previous.schemaIdentity == $schemaIdentity and
+        .rollback.previous.verifiedByWorkflowRunId == .publication.workflowRunId
+      ' "$manifest" >/dev/null; then
+      echo "Repair-forward manifest does not bind the exact failed release" >&2
+      exit 1
+    fi
+  elif [[ ! -f "$state_file" ]]; then
     if [[ "$target_ordinal" -ne 1 || "$(jq --raw-output '.rollback.previous == null' "$manifest")" != true ]]; then
       echo "The first deployment must be v1 without a previous release" >&2
       exit 1
@@ -393,7 +495,26 @@ compose_config="$(docker compose \
   --file "$compose_file" \
   config --format json)"
 
-if [[ ! -f "$state_file" ]]; then
+if [[ "$repair_forward" == true ]]; then
+  repair_forward_compose_file="$repair_forward_release_dir/runtime/compose.production.yaml"
+  load_release_environment "$repair_forward_manifest"
+  case "$repair_forward_phase" in
+    migrations)
+      verify_schema_compatible "$repair_forward_compose_file"
+      ;;
+    start | readiness | smoke | routes | journal)
+      verify_schema_identity "$repair_forward_compose_file" "$repair_forward_schema_identity"
+      ;;
+    *)
+      echo "The failed deployment phase cannot be repaired forward" >&2
+      exit 1
+      ;;
+  esac
+  load_release_environment "$manifest"
+  archive_repair_forward_operation
+  write_operation running "$phase"
+  operation_started=true
+elif [[ ! -f "$state_file" ]]; then
   if ! verify_candidate_schema_for_retry; then
     assert_empty_initial_database
   fi
@@ -421,6 +542,7 @@ fi
 
 if [[ "$is_noop" == true ]]; then
   phase=complete
+  recovery_phase=
   write_operation succeeded "$phase"
   completed=true
   echo "$version is already deployed; no changes were made."
@@ -447,6 +569,14 @@ docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
 phase=workers
 write_operation running "$phase"
 fail_if_requested workers
+if [[ "$repair_forward" == true ]]; then
+  load_release_environment "$repair_forward_manifest"
+  docker compose \
+    --env-file "$config_dir/compose.env" \
+    --file "$repair_forward_compose_file" \
+    stop --timeout 20 \
+    material-assets-worker profile-avatars-worker video-deletions-worker
+fi
 if [[ -f "$state_file" ]]; then
   old_version="$(jq --raw-output .current.version "$state_file")"
   old_release_dir="$host_root/srv/inside/releases/$old_version"
@@ -567,6 +697,7 @@ jq --null-input \
   ' | write_private_file_atomically "$state_file"
 
 phase=complete
+recovery_phase=
 write_operation succeeded "$phase"
 completed=true
 echo "$operation $version completed successfully."

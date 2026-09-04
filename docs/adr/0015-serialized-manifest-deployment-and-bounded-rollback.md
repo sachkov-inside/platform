@@ -33,16 +33,22 @@ migrations change. A retry after migrations may use a same-operation recovery ph
 failed or still-running operation journal and the already local candidate image to prove a
 compatible intermediate or exact target schema. This also covers the first deployment and an
 abrupt process or host interruption that cannot run an exit trap. Unrelated drift still fails
-before maintenance. Success is recorded only after readiness, read-only smoke and the positive
-route reload.
+before maintenance. If the immutable candidate cannot be repaired by an exact retry after its
+migrations may have changed the database, the only alternative is a deployment of its immediate
+next ordinal. That release must bind the exact failed manifest. The
+failed image first proves the live schema, its workers are stopped, and the new image proves that it
+can migrate the live schema forward after the normal maintenance and pull steps. The superseded
+operation journal is retained under `operation-history`; repair forward does not create a rollback
+target for an application version that never deployed successfully. Success is recorded only after
+readiness, read-only smoke and the positive route reload.
 
 The executable proof is intentionally layered. A disposable host filesystem drives the real SSH
 gateway, archive validation, journal and deployment state machine through `v1`, no-op, `v2`,
-rollback and controlled failures at every state transition; deterministic stand-ins expose the
-Docker, Caddy and HTTP calls for ordering assertions. The isolated production Compose smoke then
-runs the same bundle's actual images, PostgreSQL, migrations, PgBoss workers, readiness and Caddy
-data plane. Keeping fault injection out of the real data-plane probe makes failures reproducible
-without weakening either boundary.
+rollback, `v1 → v2` and `v2 → v3` repair-forward paths, and controlled failures at every state
+transition; deterministic stand-ins expose the Docker, Caddy and HTTP calls for ordering
+assertions. The isolated production Compose smoke then runs the same bundle's actual images,
+PostgreSQL, migrations, PgBoss workers, readiness and Caddy data plane. Keeping fault injection out
+of the real data-plane probe makes failures reproducible without weakening either boundary.
 
 Database evolution remains forward-only. Starting at `v2`, release publication compares schema
 identity from the exact candidate and previous backend digests and binds the exact previous

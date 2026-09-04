@@ -91,18 +91,21 @@ pulling disabled and rejects database drift while the old route is still public.
 identity covers both the Platform migration registry and the PgBoss-managed schema version. A later
 failure leaves maintenance active and records its phase for an exact retry or repair forward. The
 operation journal retains the last unsafe recovery phase across retry attempts and accepts
-both `failed` and abruptly interrupted `running` records only for the same operation and version.
-The already local candidate must then prove a compatible intermediate or exact target schema before
-maintenance. For the first deployment, an initial preflight asks the already running foundation
-PostgreSQL container to prove that the application database has no user tables before the route
-changes; a same-release retry after migrations uses the candidate schema proof instead.
+both `failed` and abruptly interrupted `running` records for an exact retry. After migrations may
+have changed the database, it also accepts only the immediate next ordinal as repair forward. The
+next manifest must bind the exact failed release; the failed local
+image proves the live schema before the old journal is archived or maintenance is changed. For the
+first deployment, an initial preflight asks the already running foundation PostgreSQL container to
+prove that the application database has no user tables before the route changes; a same-release
+retry after migrations uses the candidate schema proof instead.
 
 `/var/lib/inside/deployments/state.json` records current and previous version, source SHA, image and
 bundle digests, schema identity, successful time and GitHub run. `operation.json` records the last
 phase, retained recovery phase and `running`/`failed`/`succeeded` status without configuration
 values. The server-owned kernel `flock` rejects
 overlapping operations even if a caller bypasses the GitHub queue and releases automatically if
-its process exits. Worker shutdown removes readiness, drains
+its process exits. A repair-forward transition preserves the superseded failed journal as a
+root-owned file under `operation-history/`; conflicting history fails closed. Worker shutdown removes readiness, drains
 `pg-boss` and releases its process-specific advisory lease before a new generation starts.
 
 ## Readiness and routing
@@ -150,6 +153,15 @@ migrations have completed, return to the previous application manifest only when
 compatibility evidence is green. Otherwise keep the database and repair forward. Provider failure
 uses the affected feature's disable/recovery path, not a global application rollback.
 
+Repair forward publishes and deploys the immediate ordinal after the failed release. The new
+manifest must bind that failed release, and the last successful state must either be absent before a
+failed `v1` or immediately precede the failed ordinal. Before accepting the transition, the failed
+image proves an exact live schema after completed migrations, or a compatible prefix if migration
+execution was interrupted. The new candidate then follows the normal maintenance, pull,
+compatibility, worker drain and forward-migration sequence. Its successful state keeps the last
+successful application as `previous`, preserves the failed operation in `operation-history/`, and
+does not offer rollback to the failed application version.
+
 The release workflow derives schema identity from the exact candidate backend digest. Starting with
 `v2`, it also reads the exact previous manifest and backend digest. The manifest records compatibility
 only when both images report the same schema identity. This is deliberately conservative: an
@@ -184,9 +196,11 @@ gh workflow run deploy.yml --ref main --field operation=rollback --field version
 
 The workflow uses `concurrency.queue: max`, never cancels the active command, and rechecks the
 immutable Release and successful publication run immediately before SSH. A retry uses the same
-operation and version. If an unfinished operation has passed preflight, the host rejects a different
-operation/version without replacing its recovery journal. Do not edit staged release files or
-either journal by hand.
+operation and version. If that immutable release cannot pass after migrations changed the schema,
+publish its immediate next ordinal and run `deploy` for that version; the host performs the
+repair-forward checks above. Any other operation/version is rejected without replacing the
+recovery journal. Do not edit staged release files, `state.json`, `operation.json` or
+`operation-history/` by hand.
 
 ## Local production proof
 
