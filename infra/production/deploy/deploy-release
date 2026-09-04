@@ -456,7 +456,9 @@ rolled_back_from_json=null
 current_epoch="$(now_epoch)"
 if [[ "$operation" == deploy ]]; then
   target_ordinal="${version#v}"
-  if [[ "$repair_forward" == true ]]; then
+  if [[ "$is_noop" == true ]]; then
+    : # The exact state was committed before its operation journal closed.
+  elif [[ "$repair_forward" == true ]]; then
     repair_forward_ordinal="${repair_forward_version#v}"
     repair_forward_release_dir="$host_root/srv/inside/releases/$repair_forward_version"
     repair_forward_manifest="$repair_forward_release_dir/release-manifest.json"
@@ -568,7 +570,10 @@ compose_config="$(docker compose \
   --file "$compose_file" \
   config --format json)"
 
-if [[ "$repair_forward" == true ]]; then
+if [[ "$repair_forward" == true && "$is_noop" == true ]]; then
+  archive_repair_forward_operation
+fi
+if [[ "$repair_forward" == true && "$is_noop" != true ]]; then
   repair_forward_compose_file="$repair_forward_release_dir/runtime/compose.production.yaml"
   if [[ "$repair_forward_initial" == true ||
         ! "$recovery_phase" =~ ^(migrations|start|readiness|smoke|routes|journal)$ ]]; then
@@ -782,6 +787,11 @@ jq --null-input \
       rolledBackFrom: $rolledBackFrom
     }
   ' | write_private_file_atomically "$state_file"
+
+if [[ -n "${INSIDE_DEPLOY_TEST_ROOT:-}" &&
+      "${INSIDE_DEPLOY_TEST_INTERRUPT_AFTER_STATE:-}" == true ]]; then
+  kill -KILL "$$"
+fi
 
 phase=complete
 recovery_phase=

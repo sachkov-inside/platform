@@ -637,6 +637,46 @@ describe("production deployment state machine", () => {
     }
   });
 
+  it("closes a repair operation interrupted after successful state was written", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 242);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 243, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        }).status,
+        0,
+      );
+      const interrupted = runGateway(fixture, "deploy", "v3", 244, {
+        INSIDE_DEPLOY_TEST_CURRENT_SCHEMA_MISMATCH: "true",
+        INSIDE_DEPLOY_TEST_INTERRUPT_AFTER_STATE: "true",
+      });
+      assert.notEqual(interrupted.status, 0);
+      assert.equal(readState(fixture).current.version, "v3");
+      const operationPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      let operation = JSON.parse(readFileSync(operationPath, "utf8"));
+      assert.equal(operation.status, "running");
+      assert.equal(operation.phase, "journal");
+      assert.deepEqual(operation.repairForward, {
+        version: "v2",
+        githubRunId: 243,
+        recoveryPhase: "readiness",
+      });
+
+      assertGatewaySuccess(fixture, "deploy", "v3", 245);
+      operation = JSON.parse(readFileSync(operationPath, "utf8"));
+      assert.equal(operation.status, "succeeded");
+      assert.equal(operation.phase, "complete");
+      assert.equal(operation.recoveryPhase, null);
+      assert.equal(readState(fixture).current.version, "v3");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("rejects repair forward when the live schema does not match the failed release", () => {
     const fixture = createHostFixture();
     try {

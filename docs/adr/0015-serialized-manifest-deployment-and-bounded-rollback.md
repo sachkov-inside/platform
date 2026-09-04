@@ -41,8 +41,10 @@ can migrate the live schema forward after the normal maintenance and pull steps.
 operation journal is retained under `operation-history`; repair forward does not create a rollback
 target for an application version that never deployed successfully. The new operation journal
 retains a closed `repairForward` link to that archived version, run and recovery phase, so an exact
-retry reconstructs the same ordinal and schema context. Success is recorded only after readiness,
-read-only smoke and the positive route reload.
+retry reconstructs the same ordinal and schema context. If the successful state was atomically
+written immediately before an interruption, the exact retry validates that state, live schema and
+history as a no-op and closes the unfinished operation journal. Success is recorded only after
+readiness, read-only smoke and the positive route reload.
 
 The executable proof is intentionally layered. A disposable host filesystem drives the real SSH
 gateway, archive validation, journal and deployment state machine through `v1`, no-op, `v2`,

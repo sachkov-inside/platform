@@ -165,7 +165,9 @@ compatibility, worker drain and forward-migration sequence. Its successful state
 successful application as `previous`, preserves the failed operation in `operation-history/`, and
 does not offer rollback to the failed application version. If the repair candidate also fails, its
 exact retry uses the linked failed-release schema before its own migrations, or its own compatible
-or exact schema proof after migrations may have started.
+or exact schema proof after migrations may have started. If `state.json` was successfully written
+before a host interruption left `operation.json` unfinished, the exact version and manifest are a
+no-op after live-schema and history validation; the retry only closes the operation journal.
 
 The release workflow derives schema identity from the exact candidate backend digest. Starting with
 `v2`, it also reads the exact previous manifest and backend digest. The manifest records compatibility
