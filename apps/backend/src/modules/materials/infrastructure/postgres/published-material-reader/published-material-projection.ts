@@ -5,10 +5,8 @@ import {
 import { z } from "zod";
 
 import type { PublishedMaterialProjectionDto } from "../../../facets/published-material-reader/published-material.contract.js";
-import {
-  loadContentCoverProjections,
-  type ContentCoverProjection,
-} from "../../../facets/content-covers/content-covers.js";
+import type { ContentCoverProjection } from "../../../facets/content-covers/content-covers.js";
+import { loadContentCoverProjections } from "../content-cover-projections.js";
 import type {
   PublishedMaterialProjectionCursor,
   PublishedMaterialProjectionPageDto,

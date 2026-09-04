@@ -6,7 +6,7 @@ import {
   contentCoverSchema,
   publishedMaterialProjectionSchema,
   toMaterialPreview,
-} from "@/entities/material";
+} from "@/entities/material.model";
 import {
   BackendConnectionError,
   requestHomeContent,

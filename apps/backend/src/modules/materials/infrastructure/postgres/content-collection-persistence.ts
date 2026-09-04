@@ -3,10 +3,8 @@ import type {
   ContentCollectionDto,
   ContentCollectionKind,
 } from "../../facets/material-authoring/content-collection.contract.js";
-import {
-  loadContentCoverProjections,
-  type ContentCoverProjection,
-} from "../../facets/content-covers/content-covers.js";
+import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
+import { loadContentCoverProjections } from "./content-cover-projections.js";
 
 interface ContentCollectionRecord {
   readonly archivedAt: Date | null;

@@ -66,7 +66,7 @@ export function ApplicationShell({
 }: ApplicationShellProps) {
   return (
     <ShellFrame>
-      <div className="flex min-h-svh items-start bg-white pb-28 text-[#202124] md:h-svh md:min-h-0 md:overflow-hidden md:pb-0">
+      <div className="flex min-h-svh items-start bg-white pb-28 text-foreground md:h-svh md:min-h-0 md:overflow-hidden md:pb-0">
         <Sidebar defaultPinned={sidebarDefaultPinned}>
           <SidebarBody>
             <SidebarContents
@@ -90,7 +90,7 @@ export function ApplicationShell({
 
 function ShellFrame({ children }: { readonly children: ReactNode }) {
   return (
-    <div className="min-h-svh bg-white text-[#202124]" data-public-shell>
+    <div className="min-h-svh bg-white text-foreground" data-public-shell>
       <a
         className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] focus:translate-y-0 motion-reduce:transition-none"
         href="#content"
@@ -222,7 +222,7 @@ function MobileBottomNavigation({
   return (
     <nav
       aria-label="Мобильная навигация"
-      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2 rounded-[1.6rem] border border-black/8 bg-white/88 p-1.5 text-[#202124] shadow-[0_1.5rem_4rem_-1.25rem_rgb(20_21_24/0.6)] backdrop-blur-xl md:hidden"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2 rounded-[1.6rem] border border-black/8 bg-white/88 p-1.5 text-foreground shadow-floating-nav backdrop-blur-xl md:hidden"
     >
       <div
         className="flex items-center justify-center gap-1"
@@ -235,16 +235,16 @@ function MobileBottomNavigation({
             <Link
               aria-current={current ? "page" : undefined}
               className={cn(
-                "flex min-h-12 items-center justify-center gap-2 rounded-[1.15rem] px-3 text-xs font-semibold leading-none text-[#5f5e59] no-underline",
-                "transition-[background,color,padding] duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] active:bg-[#f3f1ed] focus-visible:outline-ring motion-reduce:transition-none",
-                current && "bg-[#202124] px-5 text-white",
+                "flex min-h-12 items-center justify-center gap-2 rounded-[1.15rem] px-3 text-xs font-semibold leading-none text-muted-foreground no-underline",
+                "transition-[background,color,padding] duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] active:bg-muted focus-visible:outline-ring motion-reduce:transition-none",
+                current && "bg-primary px-5 text-white",
               )}
               href={item.href}
               key={item.href}
             >
               <Icon
                 aria-hidden="true"
-                className={cn("size-5", current && "text-[#ef6b3c]")}
+                className={cn("size-5", current && "text-accent-bright")}
               />
               {current ? <span>{item.label}</span> : <span className="sr-only">{item.label}</span>}
             </Link>
@@ -261,7 +261,7 @@ export function PublicProductHeader() {
   return (
     <header className="md:hidden">
       <p className="text-lg font-extrabold tracking-[-0.035em]">
-        Sachkov <span className="text-[#c7461e]">Inside</span>
+        Sachkov <span className="text-accent">Inside</span>
       </p>
     </header>
   );

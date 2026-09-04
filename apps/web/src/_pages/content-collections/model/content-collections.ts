@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { contentCoverSchema } from "@/entities/material";
+import { contentCoverSchema } from "@/entities/material.model";
 
 export type ContentCollectionKind = "series" | "topic";
 

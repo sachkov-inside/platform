@@ -10,7 +10,7 @@ import {
 import {
   publishedMaterialProjectionSchema,
   toMaterialPreview,
-} from "@/entities/material";
+} from "@/entities/material.model";
 import {
   BackendConnectionError,
   requestPublishedMaterialCatalog,

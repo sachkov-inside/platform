@@ -92,8 +92,8 @@ function DiscoveryHero({
       className={cn(
         "mt-5 overflow-hidden rounded-[2rem] p-6 md:p-10",
         isSeries
-          ? "bg-[#202124] text-white"
-          : cn(discoveryToneClass(result.reference.slug), "text-[#202124]"),
+          ? "bg-primary text-white"
+          : cn(discoveryToneClass(result.reference.slug), "text-foreground"),
       )}
     >
       <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
@@ -101,7 +101,7 @@ function DiscoveryHero({
           <p
             className={cn(
               "text-xs font-bold uppercase tracking-[0.14em]",
-              isSeries ? "text-white/65" : "text-[#4d4e51]",
+              isSeries ? "text-white/65" : "text-body-muted",
             )}
           >
             {isSeries ? (
@@ -122,7 +122,7 @@ function DiscoveryHero({
             <p
               className={cn(
                 "mt-4 max-w-2xl text-base leading-7 md:text-lg",
-                isSeries ? "text-white/65" : "text-[#4d4e51]",
+                isSeries ? "text-white/65" : "text-body-muted",
               )}
             >
               {result.reference.summary}
@@ -133,25 +133,43 @@ function DiscoveryHero({
           <div className="grid w-full max-w-xl grid-cols-3 gap-2 md:w-[24rem]">
             {Array.from({ length: 3 }, (_, index) => {
               const material = result.items[index];
+              const collectionCover = index === 0
+                ? result.reference.cover ?? null
+                : null;
               return (
                 <ContentCoverImage
                   alt=""
                   className="aspect-[4/3] min-h-0 rounded-2xl"
-                  cover={material?.cover ?? null}
+                  cover={collectionCover ?? material?.cover ?? null}
                   fallbackKind={
-                    material !== undefined && materialPreviewHasVideo(material)
+                    collectionCover !== null
+                      ? "playlist"
+                      : material !== undefined && materialPreviewHasVideo(material)
                       ? "video"
                       : "material"
                   }
-                  fallbackSeed={material?.slug ?? `${result.reference.slug}-${String(index)}`}
+                  fallbackSeed={
+                    collectionCover === null
+                      ? material?.slug ?? `${result.reference.slug}-${String(index)}`
+                      : result.reference.slug
+                  }
                   key={material?.slug ?? index}
                   sizes="10rem"
                 />
               );
             })}
           </div>
+        ) : result.reference.cover !== null && result.reference.cover !== undefined ? (
+          <ContentCoverImage
+            alt=""
+            className="size-24 shrink-0 rotate-[-5deg] rounded-[1.6rem] shadow-xl md:size-32"
+            cover={result.reference.cover}
+            fallbackKind={isSeries ? "playlist" : "topic"}
+            fallbackSeed={result.reference.slug}
+            sizes="8rem"
+          />
         ) : (
-          <span className="grid size-24 shrink-0 rotate-[-5deg] place-items-center rounded-[1.6rem] border border-white/45 bg-white/75 text-[#202124] shadow-xl backdrop-blur-sm md:size-32">
+          <span className="grid size-24 shrink-0 rotate-[-5deg] place-items-center rounded-[1.6rem] border border-white/45 bg-white/75 text-foreground shadow-xl backdrop-blur-sm md:size-32">
             <Icon aria-hidden="true" className="size-12 md:size-16" strokeWidth={1.6} />
           </span>
         )}
@@ -220,7 +238,7 @@ function SeriesMaterials({
       <PublicSectionHeading
         aside={
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <p className="text-sm font-semibold text-[#5f5e59]">
+            <p className="text-sm font-semibold text-muted-foreground">
               {result.items.length}
             </p>
             {topics.length > 0 ? (
@@ -229,7 +247,7 @@ function SeriesMaterials({
                   {topics.map((topic) => (
                     <li key={topic.slug}>
                       <Link
-                        className="inline-flex min-h-9 items-center rounded-full bg-[#f3f1ed] px-3 text-sm font-semibold text-[#5f5e59] no-underline hover:text-[#202124] focus-visible:outline-ring"
+                        className="inline-flex min-h-9 items-center rounded-full bg-muted px-3 text-sm font-semibold text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
                         href={collectionDiscoveryHref(
                           "topic",
                           topic.slug,
@@ -262,8 +280,8 @@ function SeriesMaterials({
               data-series-ordinal={ordinal}
               key={material.slug}
             >
-              <div className="flex min-h-11 items-center font-semibold text-[#5f5e59]">
-                <span className="grid size-8 place-items-center rounded-full bg-[#f3f1ed] text-xs font-bold">
+              <div className="flex min-h-11 items-center font-semibold text-muted-foreground">
+                <span className="grid size-8 place-items-center rounded-full bg-muted text-xs font-bold">
                   {ordinal}
                 </span>
               </div>
@@ -325,10 +343,10 @@ function DiscoveryBreadcrumb({
 }) {
   return (
     <nav aria-label="Хлебные крошки" className="mt-7">
-      <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-[#5f5e59]">
+      <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <li>
           <Link
-            className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#f3f1ed] px-4 font-semibold no-underline hover:text-[#202124] focus-visible:outline-ring"
+            className="inline-flex min-h-10 items-center gap-2 rounded-full bg-muted px-4 font-semibold no-underline hover:text-foreground focus-visible:outline-ring"
             href={returnTarget.href}
           >
             <ArrowLeft aria-hidden="true" className="size-4" />
@@ -354,7 +372,7 @@ function DiscoverySectionHeading({
   return (
     <PublicSectionHeading
       aside={
-        <span className="text-sm font-semibold text-[#5f5e59]">{count}</span>
+        <span className="text-sm font-semibold text-muted-foreground">{count}</span>
       }
       className="mt-11"
       id={id}
@@ -365,11 +383,11 @@ function DiscoverySectionHeading({
 
 function discoveryToneClass(seed: string): string {
   const tones = [
-    "bg-[#dce9ff]",
-    "bg-[#ffdcd2]",
-    "bg-[#e9e1ff]",
-    "bg-[#dcefe5]",
-    "bg-[#eee8dc]",
+    "bg-cover-blue",
+    "bg-cover-coral",
+    "bg-cover-lavender",
+    "bg-cover-mint",
+    "bg-cover-sand",
   ] as const;
   const value = Array.from(seed).reduce(
     (hash, character) => (hash * 31 + (character.codePointAt(0) ?? 0)) >>> 0,

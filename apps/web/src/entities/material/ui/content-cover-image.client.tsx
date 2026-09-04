@@ -51,12 +51,13 @@ export function ContentCoverImage({
         fallbackToneClass(fallbackSeed),
         className,
       )}
+      data-content-cover-id={cover?.coverId}
     >
       {fallbackKind === "video" ? (
         <>
           <span
             aria-hidden="true"
-            className="absolute inset-0 bg-[radial-gradient(circle_at_72%_25%,rgb(255_255_255/0.45),transparent_32%)]"
+            className="public-video-cover-highlight absolute inset-0"
           />
           <FallbackIcon
             aria-hidden="true"
@@ -67,7 +68,7 @@ export function ContentCoverImage({
       ) : (
         <span
           aria-hidden="true"
-          className="relative m-auto grid size-20 rotate-[-5deg] place-items-center rounded-[1.4rem] border border-white/35 bg-white/78 text-[#202124] shadow-[0_1.5rem_3rem_-1.5rem_rgb(20_21_24/0.65)] backdrop-blur-sm"
+          className="relative m-auto grid size-20 rotate-[-5deg] place-items-center rounded-[1.4rem] border border-white/35 bg-white/78 text-foreground shadow-cover backdrop-blur-sm"
         >
           <FallbackIcon className="size-10" strokeWidth={1.7} />
         </span>
@@ -109,12 +110,12 @@ const fallbackIconByKind: Readonly<Record<ContentCoverFallbackKind, LucideIcon>>
 
 function fallbackToneClass(seed: string): string {
   const tones = [
-    "bg-[#dce9ff] text-[#205aa7]",
-    "bg-[#ffdcd2] text-[#b83a25]",
-    "bg-[#25272d] text-white",
-    "bg-[#e9e1ff] text-[#5d43a4]",
-    "bg-[#dcefe5] text-[#267057]",
-    "bg-[#eee8dc] text-[#86663e]",
+    "bg-cover-blue text-cover-blue-foreground",
+    "bg-cover-coral text-cover-coral-foreground",
+    "bg-cover-ink text-white",
+    "bg-cover-lavender text-cover-lavender-foreground",
+    "bg-cover-mint text-cover-mint-foreground",
+    "bg-cover-sand text-cover-sand-foreground",
   ] as const;
   const value = Array.from(seed).reduce(
     (hash, character) => (hash * 31 + (character.codePointAt(0) ?? 0)) >>> 0,

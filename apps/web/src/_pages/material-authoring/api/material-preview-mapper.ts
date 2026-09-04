@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import { renderedMaterialBodySchema } from "@/entities/material";
+import { renderedMaterialBodySchema } from "@/entities/material.model";
 import type { MaterialPreviewPresentation } from "@/widgets/material-authoring/model";
 
 import type { MaterialAuthoringReferences } from "@/features/material-authoring-references.server";

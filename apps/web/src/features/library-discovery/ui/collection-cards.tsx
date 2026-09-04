@@ -51,14 +51,14 @@ export function TopicCard({
           fallbackSeed={topic.slug}
           sizes="(min-width: 1024px) 16rem, 50vw"
         />
-        <span className="absolute right-3 top-3 rounded-full bg-white/75 px-2.5 py-1 text-[0.625rem] font-bold text-[#202124] backdrop-blur-sm">
+        <span className="absolute right-3 top-3 rounded-full bg-white/75 px-2.5 py-1 text-[0.625rem] font-bold text-foreground backdrop-blur-sm">
           {topic.count}
         </span>
       </span>
       <strong className="mt-3 block text-[0.9375rem] leading-5 tracking-[-0.02em] md:text-lg md:leading-6">
         {topic.name}
       </strong>
-      <span className="mt-1 block text-xs font-medium text-[#5f5e59]">
+      <span className="mt-1 block text-xs font-medium text-muted-foreground">
         {formatMaterialCount(topic.count)}
       </span>
     </Link>
@@ -77,7 +77,7 @@ export function PlaylistCard({
   return (
     <Link
       aria-label={`Открыть плейлист ${playlist.name}`}
-      className="group/playlist block min-w-0 overflow-hidden rounded-[2rem] bg-[#202124] p-5 text-left text-white no-underline transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
+      className="group/playlist block min-w-0 overflow-hidden rounded-[2rem] bg-primary p-5 text-left text-white no-underline transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
       data-playlist-card
       href={collectionDiscoveryHref("series", playlist.slug, returnHref)}
       prefetch={false}
@@ -88,7 +88,7 @@ export function PlaylistCard({
         </span>
         <span
           aria-hidden="true"
-          className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-[#202124]"
+          className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-foreground"
         >
           <ArrowRight className="size-4 transition-transform group-hover/playlist:translate-x-0.5 motion-reduce:transform-none" />
         </span>
@@ -102,28 +102,40 @@ export function PlaylistCard({
       <span className="mt-6 grid grid-cols-3 gap-2" aria-hidden="true">
         {Array.from({ length: 3 }, (_, index) => {
           const material = previews[index];
-          const locked = material?.availability !== undefined && material.availability !== "available";
+          const collectionCover = index === 0
+            ? playlist.cover ?? null
+            : null;
+          const locked =
+            collectionCover === null &&
+            material?.availability !== undefined &&
+            material.availability !== "available";
           return (
             <span className="relative block overflow-hidden rounded-2xl" key={material?.slug ?? `${playlist.slug}-${String(index)}`}>
               <span className={locked ? "block scale-[1.04] blur-[4px]" : "block"}>
                 <ContentCoverImage
                   alt=""
                   className="aspect-[4/3] min-h-0 rounded-2xl"
-                  cover={material?.cover ?? (index === 0 ? playlist.cover ?? null : null)}
+                  cover={collectionCover ?? material?.cover ?? null}
                   fallbackKind={
-                    material === undefined
+                    collectionCover !== null
+                      ? "playlist"
+                      : material === undefined
                       ? "playlist"
                       : materialPreviewHasVideo(material)
                         ? "video"
                         : "material"
                   }
-                  fallbackSeed={material?.slug ?? `${playlist.slug}-${String(index)}`}
+                  fallbackSeed={
+                    collectionCover === null
+                      ? material?.slug ?? `${playlist.slug}-${String(index)}`
+                      : playlist.slug
+                  }
                   sizes="10rem"
                 />
               </span>
               {locked ? (
                 <span className="absolute inset-0 grid place-items-center bg-white/20">
-                  <span className="grid size-8 place-items-center rounded-full bg-white/92 text-[#c7461e] shadow-xl backdrop-blur-xl">
+                  <span className="grid size-8 place-items-center rounded-full bg-white/92 text-accent shadow-xl backdrop-blur-xl">
                     <LockKeyhole className="size-4" />
                   </span>
                 </span>

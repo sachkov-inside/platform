@@ -64,7 +64,7 @@ export function InfiniteMaterialCatalog({
     <section aria-labelledby="materials-heading" className="mt-11" data-library-state="ready">
       <PublicSectionHeading
         aside={
-          <p className="text-sm font-semibold text-[#5f5e59]">
+          <p className="text-sm font-semibold text-muted-foreground">
             {formatFoundMaterialCount(totalCount)} · {formatLoadedMaterialCount(materialCount)}
           </p>
         }

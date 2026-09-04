@@ -110,7 +110,7 @@ export function LibraryLoading() {
           >
             {[0, 1, 2].map((item) => (
               <li className="w-full" key={item}>
-                <div className="h-28 animate-pulse rounded-2xl bg-[#f3f1ed] motion-reduce:animate-none" />
+                <div className="h-28 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
               </li>
             ))}
           </ul>
@@ -243,7 +243,7 @@ function CollectionHeading({
   return (
     <PublicSectionHeading
       aside={
-        <span className="text-sm font-semibold text-[#5f5e59]">{count}</span>
+        <span className="text-sm font-semibold text-muted-foreground">{count}</span>
       }
       className="mt-11"
       id={id}
@@ -265,7 +265,7 @@ export function LibraryCatalog({
     <section aria-labelledby="materials-heading" data-library-state="ready">
       <PublicSectionHeading
         aside={
-          <p className="text-sm font-semibold text-[#5f5e59]">
+          <p className="text-sm font-semibold text-muted-foreground">
             {formatFoundMaterialCount(totalCount)}
           </p>
         }

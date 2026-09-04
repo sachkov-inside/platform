@@ -6,16 +6,25 @@ import type { ObjectStorage } from "../../../../infrastructure/object-storage/in
 import {
   Prisma,
   type MaterialsPrismaClient,
-  type MaterialsPrisma,
   type MaterialsPrismaTransaction,
 } from "../../../../infrastructure/prisma/index.js";
 import { processMaterialAssetBytes } from "../../../assets/index.js";
 import type { AuthorPolicy } from "../../ports/author-policy.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 
+export const contentCoverOwnerKindSchema = z.enum([
+  "material",
+  "series",
+  "topic",
+]);
+
+export type ContentCoverOwnerKind = z.infer<
+  typeof contentCoverOwnerKindSchema
+>;
+
 export type ContentCoverOwner = Readonly<{
   id: string;
-  kind: "material" | "series" | "topic";
+  kind: ContentCoverOwnerKind;
 }>;
 
 export interface ContentCoverProjection {
@@ -84,35 +93,11 @@ export interface ContentCovers {
 
 export const CONTENT_COVERS = Symbol("CONTENT_COVERS");
 
-export async function loadContentCoverProjections(
-  prisma: MaterialsPrisma,
-  coverIds: readonly string[],
-): Promise<ReadonlyMap<string, ContentCoverProjection>> {
-  if (coverIds.length === 0) return new Map();
-  const covers = await prisma.contentCover.findMany({
-    where: {
-      id: { in: [...new Set(coverIds)] },
-      currentlyReferenced: true,
-      state: "ready",
-    },
-    include: { renditions: { orderBy: { width: "asc" } } },
-  });
-  return new Map(
-    covers.map((cover) => [
-      cover.id,
-      {
-        coverId: cover.id,
-        renditions: cover.renditions.map(({ height, width }) => ({ height, width })),
-      },
-    ]),
-  );
-}
-
 const commonCommandSchema = z.object({
   actor: z.uuid(),
   expectedCoverId: z.uuid().nullable(),
   owner: z
-    .object({ id: z.uuid(), kind: z.enum(["material", "series", "topic"]) })
+    .object({ id: z.uuid(), kind: contentCoverOwnerKindSchema })
     .strict(),
 });
 const commandSchema = z.discriminatedUnion("kind", [

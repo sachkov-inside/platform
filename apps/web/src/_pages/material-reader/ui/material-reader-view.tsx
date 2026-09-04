@@ -51,7 +51,7 @@ export function MaterialReaderView({
             <ContentCoverImage
               alt=""
               className="order-1 aspect-square min-h-[15rem] rounded-[1.75rem] md:order-2"
-              cover={null}
+              cover={material.cover}
               fallbackKind="material"
               fallbackSeed={material.slug}
               sizes="30rem"
@@ -66,7 +66,7 @@ export function MaterialReaderView({
         </div>
         <ReaderOutline items={outline} />
         <article
-          className="mx-auto mt-10 min-w-0 max-w-[43rem] text-pretty text-[1.0625rem] leading-8 text-[#696a6e] md:mt-16"
+          className="mx-auto mt-10 min-w-0 max-w-[43rem] text-pretty text-[1.0625rem] leading-8 text-reader-foreground md:mt-16"
           data-reader-body
         >
           <ReaderBlocks blocks={body} contentVersion={material.contentVersion} materialId={material.materialId} path={[]} />
@@ -87,11 +87,11 @@ function MaterialHeader({ material }: { readonly material: MaterialReaderMetadat
 
   return (
     <header className="order-2 flex min-w-0 max-w-[56rem] flex-col md:order-1 md:py-6">
-      <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-[#b83a1d]">
+      <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-action">
         <span>{materialTaxonomyLabel(material.format.name)}</span>
         <span aria-hidden="true">·</span>
         <Link
-          className="no-underline hover:text-[#202124] focus-visible:outline-ring"
+          className="no-underline hover:text-foreground focus-visible:outline-ring"
           href={`/topics/${material.topic.slug}`}
           prefetch={false}
         >
@@ -101,11 +101,11 @@ function MaterialHeader({ material }: { readonly material: MaterialReaderMetadat
       <h1 className="mt-3 max-w-[22ch] text-balance text-[2.3rem] font-semibold leading-[1.02] tracking-[-0.055em] md:text-[3.75rem]">
         {material.title}
       </h1>
-      <p className="mt-5 max-w-[65ch] text-pretty text-lg leading-8 text-[#5f5e59]">
+      <p className="mt-5 max-w-[65ch] text-pretty text-lg leading-8 text-muted-foreground">
         {material.summary}
       </p>
       <MaterialContext material={material} />
-      <time className="mt-5 text-xs font-semibold text-[#5f5e59]" dateTime={material.publishedAt}>
+      <time className="mt-5 text-xs font-semibold text-muted-foreground" dateTime={material.publishedAt}>
         Опубликовано {publicationDate}
       </time>
     </header>
@@ -123,7 +123,7 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
         <ul aria-label="Теги материала" className="flex flex-wrap gap-2" role="list">
           {material.tags.map((tag) => (
             <li key={tag.name}>
-              <span className="inline-flex min-h-8 items-center rounded-full bg-[#f3f1ed] px-3 py-1.5 text-xs font-semibold text-[#5f5e59]">
+              <span className="inline-flex min-h-8 items-center rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
                 #{tag.name}
               </span>
             </li>
@@ -135,7 +135,7 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
           {material.seriesMemberships.map(({ ordinal, series }) => (
             <li key={series.slug}>
               <Link
-                className="inline-flex min-h-8 items-center rounded-full bg-[#f3f1ed] px-3 text-sm font-semibold text-[#5f5e59] no-underline hover:text-[#202124] focus-visible:outline-ring"
+                className="inline-flex min-h-8 items-center rounded-full bg-muted px-3 text-sm font-semibold text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
                 href={`/series/${series.slug}`}
                 prefetch={false}
               >
@@ -188,13 +188,13 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
 
   return (
     <div className="mx-auto mt-10 max-w-[43rem] md:mt-16">
-      <details className="group rounded-[1.25rem] bg-[#f3f1ed] p-4">
+      <details className="group rounded-[1.25rem] bg-muted p-4">
         <summary
           aria-label={`Содержание: ${String(items.length)}`}
           className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
         >
           <span className="inline-flex items-center gap-2">
-            <List aria-hidden="true" className="size-4 text-[#b83a1d]" />
+            <List aria-hidden="true" className="size-4 text-action" />
             Содержание · {items.length}
           </span>
           <span aria-hidden="true" className="text-xs text-muted-foreground">
@@ -248,7 +248,7 @@ function ReaderBlockView({
       const Heading = `h${String(block.level)}` as "h2" | "h3" | "h4";
       return (
         <Heading
-          className="mt-12 scroll-mt-24 text-balance text-3xl font-semibold leading-tight tracking-[-0.04em] text-[#202124] first:mt-0"
+          className="mt-12 scroll-mt-24 text-balance text-3xl font-semibold leading-tight tracking-[-0.04em] text-foreground first:mt-0"
           id={headingId(path)}
         >
           <ReaderInline content={block.content} />

@@ -36,6 +36,10 @@ const material = {
   materialId: "02000000-0000-4000-8000-000000000010",
   contentVersion: 7,
   access: "free",
+  cover: {
+    coverId: "02000000-0000-4000-8000-000000000011",
+    renditions: [{ height: 540, width: 960 }],
+  },
   format: { name: "Гайд", slug: "guide" },
   publishedAt: "2026-08-25T05:00:00.000Z",
   seriesMemberships: [
@@ -223,8 +227,13 @@ function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
 
 function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
   switch (mode) {
-    case "desktop":
     case "mobile":
+      return <MaterialReaderView
+        body={body}
+        material={material}
+        primaryVideo={null}
+      />;
+    case "desktop":
       return <MaterialReaderView
         body={body}
         material={material}
@@ -318,6 +327,11 @@ export const Mobile: Story = {
     ).toBeInTheDocument();
     await expect(canvas.getByRole("navigation", { name: "Мобильная навигация" })).toBeInTheDocument();
     await expect(canvas.getByLabelText("Содержание: 2")).toBeInTheDocument();
+    await expect(
+      canvasElement.querySelector(
+        '[data-content-cover-id="02000000-0000-4000-8000-000000000011"]',
+      ),
+    ).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" })).toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: /Чек-лист проверки repository-owned skill/u })).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(1);
@@ -407,6 +421,11 @@ export const AccessRequired: Story = {
     );
     await expect(membershipLink).toHaveAttribute("target", "_blank");
     await expect(membershipLink).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(
+      canvasElement.querySelector(
+        '[data-content-cover-id="02000000-0000-4000-8000-000000000011"]',
+      ),
+    ).toBeInTheDocument();
     await expect(canvas.queryByText("Хороший skill начинается")).not.toBeInTheDocument();
   },
 };

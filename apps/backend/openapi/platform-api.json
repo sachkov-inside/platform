@@ -7595,7 +7595,8 @@
                 "material",
                 "series",
                 "topic"
-              ]
+              ],
+              "type": "string"
             }
           }
         ],
@@ -8091,7 +8092,8 @@
                 "material",
                 "series",
                 "topic"
-              ]
+              ],
+              "type": "string"
             }
           }
         ],
@@ -19865,6 +19867,9 @@
             "description": ""
           }
         },
+        "security": [
+          {}
+        ],
         "summary": "Read one current public responsive cover rendition",
         "tags": [
           "Content covers"

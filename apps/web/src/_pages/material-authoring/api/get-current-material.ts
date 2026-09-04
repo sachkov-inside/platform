@@ -15,7 +15,7 @@ import {
 
 import { getMaterialAuthoringReferences } from "@/features/material-authoring-references.server";
 import { authoringVideoSchema } from "@/features/material-video/model/video";
-import { contentCoverSchema } from "@/entities/material";
+import { contentCoverSchema } from "@/entities/material.model";
 
 const seriesMembershipSchema = z
   .object({ ordinal: z.number().int().positive(), seriesId: z.uuid() })

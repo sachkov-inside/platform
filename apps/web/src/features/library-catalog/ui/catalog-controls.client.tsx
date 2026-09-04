@@ -49,13 +49,13 @@ export function CatalogControls({
         <label className="sr-only" htmlFor="library-search">
           Поиск по Базе знаний
         </label>
-        <div className="relative flex min-h-14 items-center gap-3 rounded-2xl bg-[#f3f1ed] px-4">
+        <div className="relative flex min-h-14 items-center gap-3 rounded-2xl bg-muted px-4">
             <Search
               aria-hidden="true"
-              className="size-5 shrink-0 text-[#5f5e59]"
+              className="size-5 shrink-0 text-muted-foreground"
             />
             <input
-              className="min-w-0 flex-1 bg-transparent text-base text-[#202124] outline-none placeholder:text-[#5f5e59] focus-visible:outline-none"
+              className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:outline-none"
               id="library-search"
               maxLength={120}
               name="q"
@@ -69,7 +69,7 @@ export function CatalogControls({
             {query.q.length > 0 ? (
               <button
                 aria-label="Очистить поиск"
-                className="grid size-8 shrink-0 place-items-center rounded-full bg-white text-[#5f5e59]"
+                className="grid size-8 shrink-0 place-items-center rounded-full bg-white text-muted-foreground"
                 onClick={() => {
                   onQueryChange(changeLibraryQuery(query, { q: "" }));
                 }}
@@ -107,7 +107,7 @@ export function CatalogControls({
           >
             <SelectTrigger
               aria-labelledby="library-sort-label"
-              className="min-h-10 w-auto max-w-[10.5rem] rounded-full border-0 bg-[#f3f1ed] px-4 text-sm font-semibold text-[#5f5e59] shadow-none"
+              className="min-h-10 w-auto max-w-[10.5rem] rounded-full border-0 bg-muted px-4 text-sm font-semibold text-muted-foreground shadow-none"
             >
               <SelectValue />
             </SelectTrigger>
@@ -118,7 +118,7 @@ export function CatalogControls({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex min-w-0 items-center justify-end gap-3 text-xs font-semibold text-[#5f5e59]">
+        <div className="flex min-w-0 items-center justify-end gap-3 text-xs font-semibold text-muted-foreground">
           <p aria-live="polite">
             {isRefreshing
               ? "Обновляем…"
@@ -128,7 +128,7 @@ export function CatalogControls({
           </p>
           {query.q.length > 0 || activeFilterCount > 0 ? (
             <Button
-              className="h-auto min-h-0 shrink-0 p-0 text-xs font-semibold text-[#b83a1d] hover:bg-transparent hover:text-[#8f2c16]"
+              className="h-auto min-h-0 shrink-0 p-0 text-xs font-semibold text-action hover:bg-transparent hover:text-action-hover"
               onClick={() => {
                 onQueryChange(resetQuery);
               }}
@@ -183,7 +183,7 @@ function CatalogFormatFieldset({
               type="radio"
               value={option.slug ?? ""}
             />
-            <span className="inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[#f3f1ed] px-4 text-sm font-semibold text-[#5f5e59] transition-colors hover:text-[#202124] peer-checked:bg-[#202124] peer-checked:text-white peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
+            <span className="inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-muted px-4 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-white peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
               {option.label}
               {option.slug !== null && counts.has(option.slug) ? (
                 <span className="text-xs">

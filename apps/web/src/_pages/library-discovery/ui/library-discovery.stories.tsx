@@ -61,10 +61,22 @@ const topicResult = {
   hasNext: false,
   items: materials,
   kind: "ready",
-  reference: { name: "Platform", slug: "platform", summary: "Архитектура, продукт и поставка Platform." },
+  reference: {
+    cover: {
+      coverId: "02000000-0000-4000-8000-000000000061",
+      renditions: [{ height: 540, width: 960 }],
+    },
+    name: "Platform",
+    slug: "platform",
+    summary: "Архитектура, продукт и поставка Platform.",
+  },
   relatedSeries: [
     {
       id: "series-platform-inside",
+      cover: {
+        coverId: "02000000-0000-4000-8000-000000000062",
+        renditions: [{ height: 540, width: 960 }],
+      },
       matchingMaterialCount: 2,
       name: "Создание Platform Inside",
       slug: "platform-inside",
@@ -80,7 +92,15 @@ const seriesResult = {
   hasNext: false,
   items: materials,
   kind: "ready",
-  reference: { name: "Создание Platform Inside", slug: "platform-inside", summary: "Последовательный путь создания Platform." },
+  reference: {
+    cover: {
+      coverId: "02000000-0000-4000-8000-000000000063",
+      renditions: [{ height: 540, width: 960 }],
+    },
+    name: "Создание Platform Inside",
+    slug: "platform-inside",
+    summary: "Последовательный путь создания Platform.",
+  },
   relatedSeries: [],
   topics: [{ id: "topic-platform", name: "Platform", slug: "platform" }],
 } as const satisfies LibraryDiscoveryResult;
@@ -128,6 +148,14 @@ export const TopicDesktop: Story = {
       "href",
       "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
     );
+    for (const coverId of [
+      "02000000-0000-4000-8000-000000000061",
+      "02000000-0000-4000-8000-000000000062",
+    ]) {
+      await expect(
+        canvasElement.querySelector(`[data-content-cover-id="${coverId}"]`),
+      ).toBeInTheDocument();
+    }
   },
 };
 
@@ -163,6 +191,11 @@ export const SeriesDesktop: Story = {
     ]);
     await expect(
       canvasElement.querySelector('[data-access-cover="locked"]'),
+    ).toBeInTheDocument();
+    await expect(
+      canvasElement.querySelector(
+        '[data-content-cover-id="02000000-0000-4000-8000-000000000063"]',
+      ),
     ).toBeInTheDocument();
   },
 };

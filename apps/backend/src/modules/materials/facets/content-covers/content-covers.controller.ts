@@ -19,6 +19,7 @@ import {
   ApiParam,
   ApiProduces,
   ApiResponse,
+  ApiSecurity,
   ApiTags,
 } from "@nestjs/swagger";
 import type { MultipartFile } from "@fastify/multipart";
@@ -39,13 +40,13 @@ import {
 import { contentCoverProjectionHttpSchema } from "../../adapters/nest/content-cover-http.js";
 import {
   CONTENT_COVERS,
+  contentCoverOwnerKindSchema,
   type ChangeContentCoverResult,
   type ContentCovers,
 } from "./content-covers.js";
 
 const uuidSchema = z.uuid();
 const checksumSchema = z.hash("sha256");
-const ownerKindSchema = z.enum(["material", "series", "topic"]);
 const changeResponseSchema = z
   .object({ cover: contentCoverProjectionHttpSchema.nullable() })
   .strict();
@@ -65,7 +66,10 @@ export class AuthoringContentCoverController {
     operationId: "uploadContentCover",
     summary: "Upload or replace one author-owned Material, Topic, or Series cover",
   })
-  @ApiParam({ name: "ownerKind", schema: { enum: ["material", "series", "topic"] } })
+  @ApiParam({
+    name: "ownerKind",
+    schema: toOpenApiSchema(contentCoverOwnerKindSchema),
+  })
   @ApiParam({ name: "ownerId", schema: { format: "uuid", type: "string" } })
   @ApiConsumes("multipart/form-data")
   @ApiBody({
@@ -102,7 +106,7 @@ export class AuthoringContentCoverController {
     @Param("ownerId") ownerId: string,
     @Req() request: FastifyRequest,
   ) {
-    const ownerKind = ownerKindSchema.safeParse(rawOwnerKind);
+    const ownerKind = contentCoverOwnerKindSchema.safeParse(rawOwnerKind);
     if (!ownerKind.success || !uuidSchema.safeParse(ownerId).success) {
       throw coverProblem(400, "invalid_cover", "Cover owner is malformed");
     }
@@ -160,7 +164,10 @@ export class AuthoringContentCoverController {
     operationId: "removeContentCover",
     summary: "Remove one current author-owned cover",
   })
-  @ApiParam({ name: "ownerKind", schema: { enum: ["material", "series", "topic"] } })
+  @ApiParam({
+    name: "ownerKind",
+    schema: toOpenApiSchema(contentCoverOwnerKindSchema),
+  })
   @ApiParam({ name: "ownerId", schema: { format: "uuid", type: "string" } })
   @ApiBody({ schema: toOpenApiSchema(removeBodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(changeResponseSchema) })
@@ -176,7 +183,7 @@ export class AuthoringContentCoverController {
     @Param("ownerId") ownerId: string,
     @Body() input: unknown,
   ) {
-    const ownerKind = ownerKindSchema.safeParse(rawOwnerKind);
+    const ownerKind = contentCoverOwnerKindSchema.safeParse(rawOwnerKind);
     const body = removeBodySchema.safeParse(input);
     if (
       !ownerKind.success ||
@@ -205,6 +212,7 @@ export class ContentCoverDeliveryController {
 
   @Get(":coverId/:width")
   @AssetDeliveryCache()
+  @ApiSecurity({})
   @ApiOperation({
     operationId: "readContentCover",
     summary: "Read one current public responsive cover rendition",

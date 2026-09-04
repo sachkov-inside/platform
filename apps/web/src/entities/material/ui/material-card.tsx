@@ -46,7 +46,7 @@ export function MaterialCard({
   if (variant === "feed") {
     return (
       <article
-        className="group/card relative w-full max-w-[48rem] rounded-[1.75rem] border border-black/6 bg-white p-5 shadow-[0_1.2rem_3rem_-2.3rem_rgb(20_22_26/0.35)] md:p-7"
+        className="group/card relative w-full max-w-[48rem] rounded-[1.75rem] border border-black/6 bg-white p-5 shadow-note md:p-7"
         data-material-id={material.slug}
         data-material-slug={material.slug}
         data-material-variant={variant}
@@ -54,28 +54,28 @@ export function MaterialCard({
         <div className="flex items-center gap-3">
           <span
             aria-hidden="true"
-            className="grid size-9 shrink-0 place-items-center rounded-full bg-[#202124] text-xs font-bold text-white ring-4 ring-[#f3f1ed]"
+            className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-white ring-4 ring-muted"
           >
             S
           </span>
           <p className="text-sm">
             <strong>Sachkov Inside</strong>
-            <span className="text-[#5f5e59]"> · {material.topic}</span>
+            <span className="text-muted-foreground"> · {material.topic}</span>
           </p>
         </div>
         <Heading className="mt-4 text-xl font-semibold leading-6 tracking-[-0.03em]">
           <Link
-            className="no-underline after:absolute after:inset-0 after:rounded-[1.75rem] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:text-[#b83a1d]"
+            className="no-underline after:absolute after:inset-0 after:rounded-[1.75rem] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:text-action"
             href={readerHref}
             prefetch={false}
           >
             {material.title}
           </Link>
         </Heading>
-        <p className="mt-2 text-[1.0625rem] leading-7 tracking-[-0.015em] text-[#4d4e51] md:text-xl md:leading-8">
+        <p className="mt-2 text-[1.0625rem] leading-7 tracking-[-0.015em] text-body-muted md:text-xl md:leading-8">
           {material.summary}
         </p>
-        <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#b83a1d]">
+        <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-action">
           Читать заметку
           <ChevronRight aria-hidden="true" className="size-4" />
         </span>
@@ -114,7 +114,7 @@ export function MaterialCard({
         ) : null}
       </AccessCover>
       {isCompact ? null : (
-        <span className="mt-3 block text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-[#66655f]">
+        <span className="mt-3 block text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-eyebrow">
           {material.topic}
         </span>
       )}
@@ -135,11 +135,11 @@ export function MaterialCard({
         </Link>
       </Heading>
       {isCompact ? (
-        <span className="mt-1 block text-xs font-medium text-[#5f5e59] md:text-sm">
+        <span className="mt-1 block text-xs font-medium text-muted-foreground md:text-sm">
           {material.topic}
         </span>
       ) : duration === undefined ? null : (
-        <span className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-[#5f5e59]">
+        <span className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
           <Clock3 aria-hidden="true" className="size-3.5" />
           {duration}
         </span>
@@ -163,7 +163,7 @@ function MaterialRow({
   const isVideo = materialPreviewHasVideo(material);
   return (
     <article
-      className="group/row relative grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl bg-white p-3 shadow-[0_1rem_2.5rem_-2rem_rgb(20_21_24/0.35)] transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none"
+      className="group/row relative grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl bg-white p-3 shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none"
       data-material-id={material.slug}
       data-material-slug={material.slug}
       data-material-variant="row"
@@ -179,11 +179,11 @@ function MaterialRow({
         />
       </AccessCover>
       <span className="min-w-0">
-        <span className="flex min-w-0 items-center gap-1 text-xs font-semibold text-[#5f5e59]">
+        <span className="flex min-w-0 items-center gap-1 text-xs font-semibold text-muted-foreground">
           <span>{materialTaxonomyLabel(material.format)}</span>
           <span aria-hidden="true">·</span>
           <Link
-            className="relative z-10 truncate no-underline hover:text-[#202124]"
+            className="relative z-10 truncate no-underline hover:text-foreground"
             href={collectionDiscoveryHref("topic", material.topicSlug, returnHref)}
             prefetch={false}
           >
@@ -200,7 +200,7 @@ function MaterialRow({
           </Link>
         </Heading>
       </span>
-      <ChevronRight aria-hidden="true" className="size-4 text-[#5f5e59]" />
+      <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
     </article>
   );
 }
@@ -229,11 +229,11 @@ function AccessCover({
       <span className="absolute inset-0 grid place-items-center bg-white/20">
         <span
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-full bg-white/92 font-semibold text-[#202124] shadow-xl backdrop-blur-xl",
+            "inline-flex items-center gap-1.5 rounded-full bg-white/92 font-semibold text-foreground shadow-xl backdrop-blur-xl",
             compact ? "size-8 justify-center p-0" : "px-3 py-2 text-xs",
           )}
         >
-          <LockKeyhole aria-hidden="true" className="size-4 text-[#c7461e]" />
+          <LockKeyhole aria-hidden="true" className="size-4 text-accent" />
           {compact ? (
             <span className="sr-only">{materialAccessLabel(material)}</span>
           ) : (

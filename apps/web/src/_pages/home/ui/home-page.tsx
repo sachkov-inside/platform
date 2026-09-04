@@ -52,14 +52,14 @@ function TopicRail({ topics }: { readonly topics: HomeView["topics"] }) {
       className="public-horizontal-rail -mx-4 mt-7 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0"
     >
       <Link
-        className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-[#202124] px-4 text-sm font-semibold text-white no-underline"
+        className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-primary px-4 text-sm font-semibold text-white no-underline"
         href="/library"
       >
         Все темы
       </Link>
       {topics.map((topic) => (
         <Link
-          className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-[#f3f1ed] px-4 text-sm font-semibold text-[#5f5e59] no-underline hover:text-[#202124] focus-visible:outline-ring"
+          className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-muted px-4 text-sm font-semibold text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
           href={collectionDiscoveryHref("topic", topic.slug, "/")}
           key={topic.slug}
           prefetch={false}
@@ -202,7 +202,7 @@ function SectionHeading({
       aside={
         <Link
           aria-label={action}
-          className="shrink-0 text-sm font-semibold text-[#b83a1d] no-underline"
+          className="shrink-0 text-sm font-semibold text-action no-underline"
           href={href}
         >
           {action}
@@ -217,7 +217,7 @@ function SectionHeading({
 
 function EmptyCollection({ label }: { readonly label: string }) {
   return (
-    <p className="mt-5 rounded-[1.5rem] bg-[#f3f1ed] px-5 py-7 text-sm text-[#5f5e59]">
+    <p className="mt-5 rounded-[1.5rem] bg-muted px-5 py-7 text-sm text-muted-foreground">
       {label}
     </p>
   );
@@ -227,12 +227,12 @@ function HomeUnavailable() {
   return (
     <>
       <PublicProductHeader />
-      <section className="mt-9 rounded-[2rem] bg-[#f3f1ed] px-6 py-9" data-home-state="unavailable">
-        <DatabaseZap aria-hidden="true" className="size-7 text-[#c7461e]" />
+      <section className="mt-9 rounded-[2rem] bg-muted px-6 py-9" data-home-state="unavailable">
+        <DatabaseZap aria-hidden="true" className="size-7 text-accent" />
         <h1 className="mt-5 text-3xl font-semibold tracking-[-0.035em]">
           Главная временно недоступна
         </h1>
-        <p className="mt-3 text-[#5f5e59]">
+        <p className="mt-3 text-muted-foreground">
           Откройте Базу знаний или попробуйте ещё раз.
         </p>
         <Button asChild className="mt-6">
