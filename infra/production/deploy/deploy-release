@@ -41,6 +41,7 @@ phase=preflight
 completed=false
 operation_started=false
 defer_operation_start=false
+accepted_rollback_recovery=false
 recovery_phase=
 repair_forward=false
 repair_forward_initial=false
@@ -391,6 +392,9 @@ recovery_phase="$(jq --raw-output \
 if [[ "$recovery_phase" == preflight ]]; then
   recovery_phase=
 fi
+if [[ "$operation" == rollback && -n "$recovery_phase" ]]; then
+  accepted_rollback_recovery=true
+fi
 if [[ "$repair_forward" != true ]]; then
   if [[ "$operation" == rollback && "$recovery_phase" == journal ]]; then
     defer_operation_start=true
@@ -591,6 +595,7 @@ else
     --arg manifestSha256 "$manifest_digest" \
     --arg sourceSha "$source_sha" \
     --arg schemaIdentity "$schema_identity" \
+    --argjson acceptedRecovery "$accepted_rollback_recovery" \
     --argjson now "$current_epoch" '
       .rollback != null and
       .rollback.compatible == true and
@@ -598,7 +603,7 @@ else
       .rollback.manifestSha256 == $manifestSha256 and
       .rollback.sourceSha == $sourceSha and
       .rollback.schemaIdentity == $schemaIdentity and
-      .rollback.expiresAtEpochSeconds >= $now and
+      ($acceptedRecovery or .rollback.expiresAtEpochSeconds >= $now) and
       .current.schemaIdentity == $schemaIdentity
     ' "$state_file" >/dev/null; then
     echo "Rollback target is unknown, incompatible or expired" >&2

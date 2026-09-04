@@ -817,6 +817,50 @@ describe("production deployment state machine", () => {
       expired.cleanup();
     }
   });
+
+  it("finishes an accepted rollback after its selection window expires", () => {
+    const fixture = createHostFixture();
+    try {
+      assert.equal(
+        runGateway(fixture, "deploy", "v1", 310, {
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+        }).status,
+        0,
+      );
+      assert.equal(
+        runGateway(fixture, "deploy", "v2", 311, {
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+        }).status,
+        0,
+      );
+      const accepted = runGateway(fixture, "rollback", "v1", 312, {
+        INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "86599",
+      });
+      assert.notEqual(accepted.status, 0);
+      assert.equal(readState(fixture).current.version, "v2");
+      const operation = JSON.parse(
+        readFileSync(
+          resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
+          "utf8",
+        ),
+      );
+      assert.equal(operation.status, "failed");
+      assert.equal(operation.operation, "rollback");
+      assert.equal(operation.version, "v1");
+      assert.equal(operation.recoveryPhase, "readiness");
+
+      assert.equal(
+        runGateway(fixture, "rollback", "v1", 313, {
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "86601",
+        }).status,
+        0,
+      );
+      assert.equal(readState(fixture).current.version, "v1");
+    } finally {
+      fixture.cleanup();
+    }
+  });
 });
 
 function createHostFixture({ compatible = true } = {}) {

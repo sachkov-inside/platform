@@ -58,9 +58,12 @@ Database evolution remains forward-only. Starting at `v2`, release publication c
 identity from the exact candidate and previous backend digests and binds the exact previous
 manifest. Manual rollback is available for 24 hours after successful deployment only when those
 identities match. It changes application images and processes without migrations, down migration
-or database restore. Different schema identity, unknown state, changed assets or an expired window
-requires repair forward. This conservative equality rule can be broadened only by a later decision
-with executable evidence for the exact previous application against the candidate schema.
+or database restore. Different schema identity, unknown state, changed assets or a new selection
+after the window expires requires repair forward. An eligible rollback that already passed preflight
+and entered a mutating phase keeps its exact retry path after the deadline; otherwise a transient
+failure could strand maintenance permanently. This conservative equality rule can be broadened only
+by a later decision with executable evidence for the exact previous application against the
+candidate schema.
 
 The repository Zod schema is the canonical release-manifest contract wherever repository code can
 run. Two deliberately smaller bootstrap predicates repeat its closed shape: the no-checkout GitHub

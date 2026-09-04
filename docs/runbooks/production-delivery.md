@@ -174,7 +174,9 @@ The release workflow derives schema identity from the exact candidate backend di
 only when both images report the same schema identity. This is deliberately conservative: an
 expand-compatible but different schema still requires repair forward until the runtime can prove a
 broader contract. A successful deployment opens its rollback window for 24 hours; `v1`, an unknown
-target, a changed manifest, incompatible evidence or an expired window is rejected.
+target, a changed manifest, incompatible evidence or a new selection after the window expires is
+rejected. Once an eligible rollback has passed preflight and entered a mutating phase, its exact
+unfinished operation remains retryable after the deadline so maintenance cannot become permanent.
 
 Before maintenance, the deployed backend image runs
 `node dist/migrations/migrate.js --verify-schema-identity <sha256:identity>` against the
