@@ -8,6 +8,7 @@ import {
   type ContentCover,
   type MaterialPreview,
 } from "@/entities/material";
+import { cn } from "@/shared/lib/utils";
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 
 export interface TopicCardPresentation {
@@ -28,9 +29,11 @@ export interface PlaylistCardPresentation {
 }
 
 export function TopicCard({
+  compact = false,
   returnHref,
   topic,
 }: {
+  readonly compact?: boolean;
   readonly returnHref?: Route;
   readonly topic: TopicCardPresentation;
 }) {
@@ -45,22 +48,33 @@ export function TopicCard({
       <span className="relative block">
         <ContentCoverImage
           alt=""
-          className="aspect-square min-h-0 rounded-[1.5rem] transition-transform duration-200 group-hover/topic:-translate-y-1 motion-reduce:transform-none motion-reduce:transition-none"
+          className={cn(
+            "aspect-square min-h-0 transition-transform duration-200 group-hover/topic:-translate-y-1 motion-reduce:transform-none motion-reduce:transition-none",
+            compact ? "rounded-[1.15rem]" : "rounded-[1.35rem]",
+          )}
           cover={topic.cover ?? null}
           fallbackKind="topic"
           fallbackSeed={topic.slug}
           sizes="(min-width: 1024px) 16rem, 50vw"
         />
-        <span className="absolute right-3 top-3 rounded-full bg-white/75 px-2.5 py-1 text-[0.625rem] font-bold text-foreground backdrop-blur-sm">
+        <span className={cn(
+          "absolute rounded-full bg-white/80 font-bold text-foreground backdrop-blur-sm",
+          compact ? "right-2 top-2 px-2 py-0.5 text-[0.6rem]" : "right-3 top-3 px-2.5 py-1 text-[0.625rem]",
+        )}>
           {topic.count}
         </span>
       </span>
-      <strong className="mt-3 block text-[0.9375rem] leading-5 tracking-[-0.02em] md:text-lg md:leading-6">
+      <strong className={cn(
+        "block tracking-[-0.02em]",
+        compact ? "mt-2 text-sm leading-5" : "mt-3 text-[0.9375rem] leading-5 md:text-base md:leading-6",
+      )}>
         {topic.name}
       </strong>
-      <span className="mt-1 block text-xs font-medium text-muted-foreground">
-        {formatMaterialCount(topic.count)}
-      </span>
+      {compact ? null : (
+        <span className="mt-1 block text-xs font-medium text-muted-foreground">
+          {formatMaterialCount(topic.count)}
+        </span>
+      )}
     </Link>
   );
 }

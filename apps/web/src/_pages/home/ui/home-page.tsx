@@ -5,9 +5,9 @@ import Link from "next/link";
 import { MaterialCard } from "@/entities/material";
 import {
   PlaylistCard,
+  TopicCard,
   formatMaterialCount,
 } from "@/features/library-discovery";
-import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import { PublicProductHeader } from "@/widgets/application-shell";
@@ -25,7 +25,7 @@ function HomeReady({ home }: { readonly home: HomeView }) {
     <div className="@container/home min-w-0">
       <PublicProductHeader />
       <h1 className="sr-only">Главная</h1>
-      <TopicRail topics={home.topics} />
+      <TopicSection topics={home.topics} />
       <MaterialSection
         formatSlug="video"
         id="home-videos"
@@ -45,29 +45,35 @@ function HomeReady({ home }: { readonly home: HomeView }) {
   );
 }
 
-function TopicRail({ topics }: { readonly topics: HomeView["topics"] }) {
+function TopicSection({ topics }: { readonly topics: HomeView["topics"] }) {
   return (
-    <nav
-      aria-label="Темы"
-      className="public-horizontal-rail -mx-4 mt-7 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0"
-    >
-      <Link
-        className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-primary px-4 text-sm font-semibold text-white no-underline"
-        href="/library"
-      >
-        Все темы
-      </Link>
-      {topics.map((topic) => (
-        <Link
-          className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-muted px-4 text-sm font-semibold text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
-          href={collectionDiscoveryHref("topic", topic.slug, "/")}
-          key={topic.slug}
-          prefetch={false}
+    <section aria-labelledby="home-topics">
+      <SectionHeading action="Все темы" href="/library" id="home-topics" title="Темы" />
+      {topics.length === 0 ? (
+        <EmptyCollection label="Тем пока нет." />
+      ) : (
+        <ul
+          className="public-horizontal-rail -mx-4 mt-5 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0"
+          role="list"
         >
-          {topic.name}
-        </Link>
-      ))}
-    </nav>
+          {topics.map((topic) => (
+            <li className="w-[8.5rem] shrink-0 md:w-36" key={topic.slug}>
+              <TopicCard
+                compact
+                returnHref="/"
+                topic={{
+                  count: topic.count,
+                  cover: topic.cover,
+                  name: topic.name,
+                  slug: topic.slug,
+                  summary: topic.summary ?? "",
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -99,7 +105,7 @@ function MaterialSection({
           className={
             variant === "video"
               ? "mt-5 grid grid-cols-2 items-start gap-x-3 gap-y-7 md:grid-cols-3 md:gap-x-5"
-              : "mt-5 grid grid-cols-2 gap-x-3 gap-y-7 md:grid-cols-3 md:gap-x-5 md:gap-y-9"
+              : "mt-5 grid grid-cols-2 gap-x-3 gap-y-7 @min-[48rem]/home:grid-cols-5 @min-[48rem]/home:gap-x-4 @min-[48rem]/home:gap-y-9"
           }
           data-video-grid={variant === "video" ? true : undefined}
           role="list"

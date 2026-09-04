@@ -21,6 +21,7 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
     (headings) => headings.map((heading) => heading.textContent?.trim()),
   );
   expect(sectionOrder).toEqual([
+    "Темы",
     "Новые видео",
     "Плейлисты",
     "Свежие гайды",
@@ -31,6 +32,7 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
     .locator("xpath=ancestor::section")
     .getByRole("article");
   await expect(videoCards).toHaveCount(3);
+  await expect(videoCards.nth(0)).toContainText(/\d+:\d{2}/u);
   if (testInfo.project.name === "mobile-chromium") {
     const [first, second] = await Promise.all([
       videoCards.nth(0).boundingBox(),
@@ -112,7 +114,7 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
     page.getByRole("link", { exact: true, name: "Как устроен Inside Platform" }),
   ).toBeVisible();
   const catalogStatus = page.getByText(
-    /^\d+ материал(?:а|ов)? найдено · \d+ материал(?:а|ов)? загружено$/u,
+    /^\d+ материал(?:а|ов)? найден(?:о)? · \d+ материал(?:а|ов)? загружен(?:о)?$/u,
   );
   await expect(catalogStatus).toBeVisible();
   const counts = (await catalogStatus.innerText()).match(/\d+/gu);

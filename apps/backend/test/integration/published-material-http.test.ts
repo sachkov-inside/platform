@@ -192,7 +192,10 @@ describe("published Material HTTP contract", () => {
         readonly slug: string;
       }[];
       readonly topics: readonly { readonly slug: string }[];
-      readonly videos: readonly { readonly slug: string }[];
+      readonly videos: readonly {
+        readonly primaryVideoDurationSeconds?: number;
+        readonly slug: string;
+      }[];
     }>();
     expect(home.topics.map(({ slug }) => slug)).toContain("platform");
     expect(home.playlists.map(({ slug }) => slug)).toContain("platform-inside");
@@ -200,6 +203,9 @@ describe("published Material HTTP contract", () => {
     expect(home.videos.map(({ slug }) => slug)).toContain(
       "video-pro-developer-pipeline",
     );
+    expect(
+      home.videos.find(({ slug }) => slug === "video-pro-developer-pipeline"),
+    ).toMatchObject({ primaryVideoDurationSeconds: 628 });
     expect(home.guides.map(({ slug }) => slug)).toContain(
       "kak-ustroen-inside-platform",
     );

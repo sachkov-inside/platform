@@ -163,7 +163,7 @@ function MaterialRow({
   const isVideo = materialPreviewHasVideo(material);
   return (
     <article
-      className="group/row relative grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl bg-white p-3 shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none"
+      className="group/row relative grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none"
       data-material-id={material.slug}
       data-material-slug={material.slug}
       data-material-variant="row"

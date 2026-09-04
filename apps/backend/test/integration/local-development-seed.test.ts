@@ -52,6 +52,16 @@ describe("local development seed", () => {
     ]);
     expect(typeof catalog.value.nextCursor).toBe("string");
     expect(await testDatabase.prisma.publishedMaterial.count()).toBe(18);
+    await expect(
+      testDatabase.prisma.video.findMany({
+        orderBy: { providerVideoId: "asc" },
+        select: { durationSeconds: true, providerVideoId: true, state: true },
+      }),
+    ).resolves.toEqual([
+      { durationSeconds: 481, providerVideoId: "local-home-deep-modules", state: "ready" },
+      { durationSeconds: 628, providerVideoId: "local-home-developer-pipeline", state: "ready" },
+      { durationSeconds: 754, providerVideoId: "local-home-product-context", state: "ready" },
+    ]);
 
     await expect(
       publishedMaterialReader.read({

@@ -92,6 +92,10 @@ export const RealDataReady: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Главная" })).toBeInTheDocument();
     await expect(canvas.getByRole("heading", { name: "Новые видео" })).toBeVisible();
+    await expect(canvas.getByText("12:34")).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Открыть тему Platform" })).toHaveAttribute(
+      "data-topic-card",
+    );
     await expect(canvas.queryByText(/продолжить/iu)).not.toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "Все видео" })).toHaveAttribute(
       "href",

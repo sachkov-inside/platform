@@ -178,7 +178,7 @@ function LibraryCollections({
         {facets.topics.length === 0 ? (
           <CollectionEmpty label="Тем пока нет" />
         ) : (
-          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-7 @min-[48rem]/library:grid-cols-3 @min-[68rem]/library:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-7 @min-[48rem]/library:grid-cols-5 @min-[68rem]/library:grid-cols-6">
             {facets.topics.map((topic) => (
               <TopicCard
                 key={topic.slug}

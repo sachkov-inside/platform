@@ -38,6 +38,7 @@ function MaterialVideoStateBoard({ mode }: { readonly mode: VideoStoryMode }) {
       <div className="mx-auto max-w-5xl p-5 sm:p-8">
         <MaterialVideoPlayerView
           onLoad={actions.onLoad}
+          onToggleWatched={fn()}
           phase="error"
           title="Разбор проверки skill contract"
           videoId="03000000-0000-4000-8000-000000000001"
@@ -222,7 +223,7 @@ export const PlayerErrorAndRetry: Story = {
   name: "Player · error and retry",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Player сейчас недоступен. Можно безопасно повторить.")).toBeVisible();
+    await expect(canvas.getByText("Видео сейчас недоступно. Можно безопасно повторить.")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Повторить" })).toBeEnabled();
   },
 };

@@ -238,6 +238,7 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
         body={body}
         material={material}
         primaryVideo={{
+          durationSeconds: 754,
           state: "ready",
           title: "Разбор проверки skill contract",
           videoId: "03000000-0000-4000-8000-000000000001",
@@ -333,6 +334,12 @@ export const Mobile: Story = {
       ),
     ).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" })).toBeInTheDocument();
+    const media = canvasElement.querySelector("[data-reader-hero-media]");
+    const heading = canvas.getByRole("heading", { name: "Публичные skills для agent-first setup", level: 1 });
+    if (media === null) throw new Error("Reader hero media is missing");
+    await expect(
+      Boolean(media.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING),
+    ).toBe(true);
     await expect(canvas.getByRole("link", { name: /Чек-лист проверки repository-owned skill/u })).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(1);
   },
@@ -354,7 +361,8 @@ export const Desktop: Story = {
       if (block === null) throw new Error(`Reader ${kind} block is missing`);
       await expect(Number.parseFloat(getComputedStyle(block).marginTop)).toBeGreaterThanOrEqual(32);
     }
-    await expect(canvas.getByRole("button", { name: "Загрузить player" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Загрузить видео" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Отметить просмотренным" })).toBeEnabled();
     await expect(canvasElement.querySelector("iframe")).toBeNull();
   },
 };
@@ -364,7 +372,7 @@ export const VideoProcessing: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Видео обрабатывается" })).toBeVisible();
-    await expect(canvas.getByText("Можно продолжить чтение и вернуться к player позже.")).toBeVisible();
+    await expect(canvas.getByText("Можно продолжить чтение и вернуться к видео позже.")).toBeVisible();
   },
 };
 

@@ -268,7 +268,7 @@ function SeriesMaterials({
         id="series-materials"
         title="Маршрут"
       />
-      <ol className="mt-4 grid gap-3" data-series-order>
+      <ol className="mt-4 grid gap-4" data-series-order>
         {result.items.map((material, index) => {
           const ordinal =
             material.seriesMemberships.find(
@@ -281,7 +281,7 @@ function SeriesMaterials({
               key={material.slug}
             >
               <div className="flex min-h-11 items-center font-semibold text-muted-foreground">
-                <span className="grid size-8 place-items-center rounded-full bg-muted text-xs font-bold">
+                <span className="grid size-8 place-items-center rounded-full bg-primary text-xs font-bold text-white">
                   {ordinal}
                 </span>
               </div>

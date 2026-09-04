@@ -45,32 +45,34 @@ export function MaterialReaderView({
     <div className="@container/material-reader" data-material-id={material.materialId} data-material-reader-state="available">
       <ReaderBackAction sticky target={returnTarget} />
       <div className="mt-5 min-w-0 md:mt-10">
-        <div className="grid gap-6 md:grid-cols-[1fr_0.95fr] md:items-stretch">
-          <MaterialHeader material={material} />
+        <div className="mx-auto max-w-[64rem]" data-reader-hero-media>
           {primaryVideo === null ? (
             <ContentCoverImage
               alt=""
-              className="order-1 aspect-square min-h-[15rem] rounded-[1.75rem] md:order-2"
+              className="aspect-video min-h-0 w-full rounded-[1.5rem] md:rounded-[2rem]"
               cover={material.cover}
               fallbackKind="material"
               fallbackSeed={material.slug}
-              sizes="30rem"
+              sizes="(min-width: 1024px) 64rem, 100vw"
             />
           ) : (
             <MaterialPrimaryVideo
-              className="order-1 m-0 min-w-0 self-center md:order-2 sm:m-0 [&>div:first-child]:hidden"
+              className="m-0 max-w-none sm:m-0"
               materialId={material.materialId}
               video={primaryVideo}
             />
           )}
         </div>
-        <ReaderOutline items={outline} />
-        <article
-          className="mx-auto mt-10 min-w-0 max-w-[43rem] text-pretty text-[1.0625rem] leading-8 text-reader-foreground md:mt-16"
-          data-reader-body
-        >
-          <ReaderBlocks blocks={body} contentVersion={material.contentVersion} materialId={material.materialId} path={[]} />
-        </article>
+        <div className="mx-auto mt-8 min-w-0 max-w-[43rem] md:mt-12">
+          <MaterialHeader material={material} />
+          <ReaderOutline items={outline} />
+          <article
+            className="mt-10 min-w-0 text-pretty text-[1.0625rem] leading-8 text-reader-foreground md:mt-12"
+            data-reader-body
+          >
+            <ReaderBlocks blocks={body} contentVersion={material.contentVersion} materialId={material.materialId} path={[]} />
+          </article>
+        </div>
       </div>
       <ReaderBackAction className="mt-16" target={returnTarget} />
     </div>
@@ -86,7 +88,7 @@ function MaterialHeader({ material }: { readonly material: MaterialReaderMetadat
   }).format(new Date(material.publishedAt));
 
   return (
-    <header className="order-2 flex min-w-0 max-w-[56rem] flex-col md:order-1 md:py-6">
+    <header className="flex min-w-0 flex-col">
       <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-action">
         <span>{materialTaxonomyLabel(material.format.name)}</span>
         <span aria-hidden="true">·</span>
@@ -98,7 +100,7 @@ function MaterialHeader({ material }: { readonly material: MaterialReaderMetadat
           {material.topic.name}
         </Link>
       </div>
-      <h1 className="mt-3 max-w-[22ch] text-balance text-[2.3rem] font-semibold leading-[1.02] tracking-[-0.055em] md:text-[3.75rem]">
+      <h1 className="mt-3 max-w-[22ch] text-balance text-[2.3rem] font-semibold leading-[1.02] tracking-[-0.055em] md:text-[3.5rem]">
         {material.title}
       </h1>
       <p className="mt-5 max-w-[65ch] text-pretty text-lg leading-8 text-muted-foreground">
@@ -187,21 +189,24 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
   ));
 
   return (
-    <div className="mx-auto mt-10 max-w-[43rem] md:mt-16">
-      <details className="group rounded-[1.25rem] bg-muted p-4">
+    <div className="mt-8 border-y border-black/8 py-2">
+      <details className="group">
         <summary
           aria-label={`Содержание: ${String(items.length)}`}
-          className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
+          className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-1 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
         >
           <span className="inline-flex items-center gap-2">
             <List aria-hidden="true" className="size-4 text-action" />
             Содержание · {items.length}
           </span>
-          <span aria-hidden="true" className="text-xs text-muted-foreground">
+          <span aria-hidden="true" className="text-xs text-muted-foreground group-open:hidden">
             Открыть
           </span>
+          <span aria-hidden="true" className="hidden text-xs text-muted-foreground group-open:inline">
+            Скрыть
+          </span>
         </summary>
-        <nav aria-label="В этом материале" className="mt-4 border-t border-black/8 pt-4">
+        <nav aria-label="В этом материале" className="border-t border-black/8 pb-2 pt-3">
           <ul className="grid gap-2" role="list">{links}</ul>
         </nav>
       </details>

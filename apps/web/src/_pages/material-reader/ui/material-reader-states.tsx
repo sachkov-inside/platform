@@ -75,8 +75,16 @@ export function MaterialReaderAccess({
       data-material-reader-state="access-required"
     >
       <ReaderBackAction target={returnTarget} />
-      <div className="mt-7 grid gap-6 md:mt-10 md:grid-cols-[1fr_0.95fr] md:items-stretch">
-        <header className="order-2 max-w-[48rem] md:order-1 md:py-6">
+      <div className="mx-auto mt-7 max-w-[60rem] md:mt-10">
+        <ContentCoverImage
+          alt=""
+          className="aspect-video min-h-0 w-full rounded-[1.5rem] md:rounded-[2rem]"
+          cover={material.cover}
+          fallbackKind="material"
+          fallbackSeed={material.slug}
+          sizes="(min-width: 1024px) 60rem, 100vw"
+        />
+        <header className="mx-auto mt-8 max-w-[43rem] md:mt-12">
           <div className="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-[0.14em] text-action">
             <span>{materialTaxonomyLabel(material.format.name)}</span>
             <span aria-hidden="true">·</span>
@@ -95,17 +103,9 @@ export function MaterialReaderAccess({
             {material.summary}
           </p>
         </header>
-        <ContentCoverImage
-          alt=""
-          className="order-1 aspect-square min-h-[15rem] rounded-[1.75rem] md:order-2"
-          cover={material.cover}
-          fallbackKind="material"
-          fallbackSeed={material.slug}
-          sizes="30rem"
-        />
       </div>
       <section
-        className="relative mx-auto mt-12 max-w-[43rem] overflow-hidden rounded-[2rem] border border-black/6 bg-muted p-6 md:p-9"
+        className="relative mx-auto mt-10 max-w-[43rem] overflow-hidden rounded-[2rem] border border-black/6 bg-muted p-6 md:mt-12 md:p-9"
         aria-labelledby="access-heading"
       >
         <div aria-hidden="true" className="select-none space-y-5 blur-[7px] opacity-45">
