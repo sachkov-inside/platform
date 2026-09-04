@@ -162,6 +162,18 @@ A time-bounded Platform grant for protected Workshop content. One active Inside 
 currently creates and renews it alongside, but separately from, MembershipEntitlement.
 _Avoid_: MembershipEntitlement, route-local membership check, permanent purchase
 
+**WorkshopResource**:
+A published Workshop Track outline, Laboratory or Production Case body or artifact governed by
+Workshop publication state and canonical access mode. A referenced Material remains a
+ContentAccess Resource.
+_Avoid_: Material Resource, URL, Track Item, Git source file
+
+**WorkshopAccess**:
+Platform's authority for deciding an Account's or visitor's Workshop action on a WorkshopResource.
+It consumes public access mode or WorkshopEntitlement without weakening ContentAccess for
+referenced Materials.
+_Avoid_: ContentAccess, UI lock state, route-local entitlement check
+
 **Assignment**:
 One Account's managed working copy of one Case Variant, including its starter baseline and source
 repository identity.

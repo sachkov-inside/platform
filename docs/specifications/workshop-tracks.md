@@ -194,6 +194,10 @@ access и не делает draft публичным.
 
 ## 5. Access
 
+`ContentAccess` remains the sole delivery authority for Materials. `WorkshopAccess` owns Track
+outline, Laboratory and Production Case delivery. A Track read composes their typed decisions but
+does not invent a third route-level fallback.
+
 Одна active Inside subscription поддерживает две отдельные Platform authorities:
 
 - `MembershipEntitlement` для Library/Materials;
