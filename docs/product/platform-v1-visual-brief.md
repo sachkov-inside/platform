@@ -85,9 +85,14 @@ owner review.
 | H1 против H3 | Owner выбрал вариант `1` из представленных hypotheses без отдельного rationale | H1 выше H3 как текущий starting point; приписывать owner конкретную причину нельзя |
 | H2 против H3 | Owner не дал предпочтения и попросил не превращать approximate direction в точную final reference | Pairwise outcome — tie; оба остаются optional lenses для real surfaces, но их не нужно отдельно прототипировать |
 | Exact reference против adaptable direction | Реализовывать поэтапно под owner control, не считать reference точной спецификацией | Ни один mockup/source не получает pixel authority; решения подтверждаются на rendered surfaces |
+| Integrated mobile-first prototype | Owner 2026-09-04 выбрал visual language объединённого Home/Library/Topic/Playlist/Reader prototype как главный | `Mobile-first Platform/Prototype` становится canonical visual baseline для этих public surfaces; fixture behaviour не заменяет product contract |
 
 Итоговый rank для текущего handoff: `H1 > H2 = H3`. Это starting taste signal для первой
 production baseline, но не final visual selection и не требование создать несколько concepts.
+
+Решение 2026-09-04 supersede-ит ограничение строки `Exact reference против adaptable direction`
+для public surfaces, перечисленных в integrated mobile-first prototype. Baseline задаёт точную
+визуальную композицию и responsive language, но не переносит fixture-only поведение в product.
 
 ## 3. Preference axes
 
@@ -345,6 +350,30 @@ owning surface reviews.
 
 Chapters, video timecode, closed access и authoring composition остаются открытыми до своих owning
 surface reviews.
+
+### Integrated mobile-first public baseline
+
+Owner review 2026-09-04 выбрал Storybook proof `Pages/Mobile-first Platform/Prototype` как
+canonical visual baseline для public Home, Library, Topic, Playlist and Reader. Versioned sources:
+
+- `apps/web/src/workshop/mobile-first-platform.prototype.tsx`;
+- `apps/web/src/workshop/mobile-first-platform.prototype.css`;
+- `apps/web/src/workshop/mobile-first-platform.prototype.stories.tsx`.
+
+Baseline authority включает composition, hierarchy, typography, spacing, colour, cover geometry,
+card presentation, desktop Sidebar, mobile floating navigation и responsive behaviour на
+`390 × 844` и `1440 × 1024`. Production routes и production Storybook stories используют одну
+production-owned implementation этих решений; story fixtures поставляют только representative
+presentation state.
+
+Prototype fixtures, button-owned navigation, hardcoded audience decisions, personalised
+`Продолжить`/history и порядок секций, который расходится с issue #271, не являются product
+authority. Production сохраняет реальные RSC/TanStack Query/BFF seams, ContentAccess outcomes и
+порядок Home `Видео → Плейлисты → Гайды → Заметки`.
+
+Workshop baseline остаётся versioned comparison source до owner visual GO на exact production
+routes. После GO его удаление не должно менять rendered result; production stories становятся
+единственным executable visual contract.
 
 ## 7. Alive, not animated
 
