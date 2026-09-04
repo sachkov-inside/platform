@@ -16,20 +16,51 @@ import {
   releaseManifestInputSchema,
   releaseManifestSchema,
   releasePlanInputSchema,
+  sourceShaSchema,
   webImageName,
 } from "../release/contract-schema.mjs";
 
-const [command, inputFlag, inputPath] = process.argv.slice(2);
+const [command, ...arguments_] = process.argv.slice(2);
 
 try {
   if (command === "images") {
-    if (inputFlag || inputPath) {
+    if (arguments_.length > 0) {
       throw new Error("usage: release-contract.mjs images");
     }
     writeResult(releaseImageMatrix);
     process.exit(0);
   }
 
+  if (command === "image-reference") {
+    const [inputFlag, inputPath, kindFlag, kind, sourceFlag, sourceSha] = arguments_;
+    if (
+      inputFlag !== "--input" ||
+      !inputPath ||
+      kindFlag !== "--kind" ||
+      (kind !== "backend" && kind !== "web") ||
+      sourceFlag !== "--source-sha" ||
+      !sourceSha ||
+      arguments_.length !== 6
+    ) {
+      throw new Error(
+        "usage: release-contract.mjs image-reference --input <path> --kind <backend|web> --source-sha <sha>",
+      );
+    }
+    const input = parseJson(
+      inputPath === "-" ? await readStandardInput() : await readFile(inputPath, "utf8"),
+      `${kind} image result`,
+    );
+    const expectedImageName = kind === "backend" ? backendImageName : webImageName;
+    const image = bindImageResult(
+      input,
+      expectedImageName,
+      parseSchema(sourceShaSchema, sourceSha, "release source SHA"),
+    );
+    process.stdout.write(`${image.image.name}@${image.image.digest}\n`);
+    process.exit(0);
+  }
+
+  const [inputFlag, inputPath] = arguments_;
   if (inputFlag !== "--input" || !inputPath) {
     throw new Error("usage: release-contract.mjs <command> --input <path>");
   }
@@ -219,13 +250,21 @@ function sha256(value) {
 }
 
 async function readImageResult(path, imageName, sourceSha) {
+  return bindImageResult(
+    await readJson(path, `${imageName} result`),
+    imageName,
+    sourceSha,
+  );
+}
+
+function bindImageResult(input, imageName, sourceSha) {
   const image = parseSchema(
     releaseImageResultSchema,
-    await readJson(path, `${imageName} result`),
+    input,
     `${imageName} result`,
   );
   if (image.image.name !== imageName || image.sourceSha !== sourceSha) {
-    throw new Error(`${imageName} result does not bind the release source`);
+    throw new Error(`${imageName} result does not bind the expected image and release source`);
   }
   return image;
 }

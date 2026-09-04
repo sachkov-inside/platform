@@ -172,7 +172,6 @@ function violationsFor(source, specifier) {
   const importsPg = specifier === "pg" || specifier.startsWith("pg/");
   const ownsPostgresLifecycle = [
     "src/infrastructure/postgres/migrate-to-latest.ts",
-    "src/infrastructure/worker-healthcheck.ts",
     "src/infrastructure/worker-runtime.ts",
   ].includes(sourcePath);
   const importsDeletedGeneratedPersistence =
@@ -213,12 +212,6 @@ function databaseReferenceViolations(sourceFile, program) {
       `${sourcePath}: database table references must use statically declared identifiers (${operation})`,
   );
   return [...violations, ...references.flatMap((reference) => {
-    if (
-      sourcePath === "src/infrastructure/operational-readiness.ts" &&
-      reference === "public.platform_migrations"
-    ) {
-      return [];
-    }
     if (expectedSchema === undefined) {
       return [
         `${sourcePath}: application schema references must stay inside the owning Module (${reference})`,

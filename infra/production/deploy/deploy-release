@@ -38,6 +38,7 @@ operation_file="$state_dir/operation.json"
 release_env_dir="$state_dir/release-environments"
 phase=preflight
 completed=false
+recovery_phase=
 
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -64,6 +65,7 @@ write_operation() {
     --arg operation "$operation" \
     --arg version "$version" \
     --arg phase "$operation_phase" \
+    --arg recoveryPhase "$recovery_phase" \
     --arg recordedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --argjson githubRunId "$github_run_id" \
     '{
@@ -72,6 +74,7 @@ write_operation() {
       operation: $operation,
       version: $version,
       phase: $phase,
+      recoveryPhase: (if $recoveryPhase == "" then null else $recoveryPhase end),
       githubRunId: $githubRunId,
       recordedAt: $recordedAt
     }' | write_private_file_atomically "$operation_file"
@@ -184,12 +187,43 @@ assert_empty_initial_database() {
   fi
 }
 
+verify_candidate_schema_for_retry() {
+  case "$recovery_phase" in
+    migrations)
+      docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
+        run --pull never --rm --no-deps migrations \
+        node dist/migrations/migrate.js --verify-schema-compatible >/dev/null
+      ;;
+    start | readiness | smoke | routes | journal)
+      docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
+        run --pull never --rm --no-deps migrations \
+        node dist/migrations/migrate.js \
+        --verify-schema-identity "$schema_identity" >/dev/null
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 install -d -m 700 "$state_dir" "$release_env_dir"
 install -d -m 755 "$runtime_dir/caddy"
 last_operation_json=null
 if [[ -f "$operation_file" ]] && jq --exit-status . "$operation_file" >/dev/null 2>&1; then
   last_operation_json="$(jq --compact-output . "$operation_file")"
 fi
+recovery_phase="$(jq --raw-output \
+  --arg operation "$operation" \
+  --arg version "$version" '
+    if .schemaVersion == "inside.platform.deployment-operation.v1" and
+       (.status == "failed" or .status == "running") and
+       .operation == $operation and
+       .version == $version and
+       ((.recoveryPhase // .phase) as $phase |
+         ["preflight", "maintenance", "pull", "schema", "workers", "migrations", "start", "readiness", "smoke", "routes", "journal"] |
+         index($phase) != null)
+    then (.recoveryPhase // .phase) else empty end
+  ' <<<"$last_operation_json" 2>/dev/null || true)"
 write_operation running "$phase"
 
 for name in \
@@ -324,7 +358,9 @@ compose_config="$(docker compose \
   config --format json)"
 
 if [[ ! -f "$state_file" ]]; then
-  assert_empty_initial_database
+  if ! verify_candidate_schema_for_retry; then
+    assert_empty_initial_database
+  fi
 else
   current_version="$(jq --raw-output .current.version "$state_file")"
   current_schema_identity="$(jq --raw-output .current.schemaIdentity "$state_file")"
@@ -338,32 +374,11 @@ else
       node dist/migrations/migrate.js \
       --verify-schema-identity "$current_schema_identity" 2>&1
   )"; then
-    retry_phase="$(jq --raw-output \
-      --arg operation "$operation" \
-      --arg version "$version" '
-        if .status == "failed" and
-           .operation == $operation and
-           .version == $version
-        then .phase else empty end
-      ' <<<"$last_operation_json" 2>/dev/null || true)"
     load_release_environment "$manifest"
-    case "$retry_phase" in
-      migrations)
-        docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
-          run --pull never --rm --no-deps migrations \
-          node dist/migrations/migrate.js --verify-schema-compatible >/dev/null
-        ;;
-      start | readiness | smoke | routes | journal)
-        docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
-          run --pull never --rm --no-deps migrations \
-          node dist/migrations/migrate.js \
-          --verify-schema-identity "$schema_identity" >/dev/null
-        ;;
-      *)
-        printf '%s\n' "$current_schema_error" >&2
-        exit 1
-        ;;
-    esac
+    if ! verify_candidate_schema_for_retry; then
+      printf '%s\n' "$current_schema_error" >&2
+      exit 1
+    fi
   fi
   load_release_environment "$manifest"
 fi
@@ -410,6 +425,7 @@ load_release_environment "$manifest"
 
 if [[ "$operation" == deploy ]]; then
   phase=migrations
+  recovery_phase="$phase"
   write_operation running "$phase"
   fail_if_requested migrations
   docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
@@ -417,6 +433,7 @@ if [[ "$operation" == deploy ]]; then
 fi
 
 phase=start
+recovery_phase="$phase"
 write_operation running "$phase"
 fail_if_requested start
 docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
@@ -424,6 +441,7 @@ docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
   api mcp material-assets-worker profile-avatars-worker video-deletions-worker web
 
 phase=readiness
+recovery_phase="$phase"
 write_operation running "$phase"
 fail_if_requested readiness
 api_port="$(published_loopback_port api 3001)"
@@ -446,11 +464,13 @@ for readiness in "$api_readiness" "$web_readiness"; do
 done
 
 phase=smoke
+recovery_phase="$phase"
 write_operation running "$phase"
 fail_if_requested smoke
 curl --fail --silent --show-error "http://127.0.0.1:$web_port/" >/dev/null
 
 phase=routes
+recovery_phase="$phase"
 write_operation running "$phase"
 fail_if_requested routes
 activate_caddy "$release_dir/runtime/caddy/platform.caddy"
@@ -469,6 +489,7 @@ if [[ "$rollback_json" != null ]]; then
     ' <<<"$rollback_json")"
 fi
 phase=journal
+recovery_phase="$phase"
 write_operation running "$phase"
 fail_if_requested journal
 jq --null-input \

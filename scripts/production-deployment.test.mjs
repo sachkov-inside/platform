@@ -203,6 +203,98 @@ describe("production deployment state machine", () => {
     }
   });
 
+  it("resumes the first deployment after migrations made the database non-empty", () => {
+    const fixture = createHostFixture();
+    try {
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v1", 208, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        }).status,
+        0,
+      );
+
+      assert.equal(
+        runGateway(fixture, "deploy", "v1", 209, {
+          INSIDE_DEPLOY_TEST_NONEMPTY_DATABASE: "true",
+        }).status,
+        0,
+      );
+      assert.equal(readState(fixture).current.version, "v1");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("resumes a first-deploy migration from a compatible partial ledger", () => {
+    const fixture = createHostFixture();
+    try {
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v1", 210, {
+          INSIDE_DEPLOY_FAIL_PHASE: "migrations",
+        }).status,
+        0,
+      );
+      const retryLogStart = readExternalLog(fixture).length;
+
+      assert.equal(
+        runGateway(fixture, "deploy", "v1", 211, {
+          INSIDE_DEPLOY_TEST_NONEMPTY_DATABASE: "true",
+        }).status,
+        0,
+      );
+      const retryLog = readExternalLog(fixture).slice(retryLogStart);
+      assert.match(retryLog, /--verify-schema-compatible/u);
+      assert.equal(readState(fixture).current.version, "v1");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("resumes a schema-changing deployment left running by an abrupt interruption", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 212);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 213, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        }).status,
+        0,
+      );
+      const operationPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const interruptedOperation = JSON.parse(
+        readFileSync(operationPath, "utf8"),
+      );
+      writeFileSync(
+        operationPath,
+        `${JSON.stringify({ ...interruptedOperation, status: "running" }, null, 2)}\n`,
+      );
+
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 214, {
+          INSIDE_DEPLOY_FAIL_PHASE: "preflight",
+        }).status,
+        0,
+      );
+      assert.equal(
+        JSON.parse(readFileSync(operationPath, "utf8")).recoveryPhase,
+        "readiness",
+      );
+
+      assert.equal(
+        runGateway(fixture, "deploy", "v2", 215, {
+          INSIDE_DEPLOY_TEST_CURRENT_SCHEMA_MISMATCH: "true",
+        }).status,
+        0,
+      );
+      assert.equal(readState(fixture).current.version, "v2");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("rejects stale, incompatible and expired rollback selections", () => {
     const stale = createHostFixture();
     try {

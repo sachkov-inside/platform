@@ -63,7 +63,13 @@ describe("ordinal release workflow contract", () => {
 
     assert.equal(releaseWorkflow.match(/bash scripts\/plan-release\.sh/gu)?.length, 2);
     assert.match(finalize, /build-production-runtime-bundle\.sh/u);
+    assert.match(finalize, /release-contract\.mjs image-reference/u);
     assert.match(finalize, /release-schema-identity\.sh/u);
+    assert.ok(
+      finalize.indexOf("release-contract.mjs image-reference") <
+        finalize.indexOf("release-schema-identity.sh"),
+      "the image artifact must be fully validated before its image is executed",
+    );
     assert.match(finalize, /PREVIOUS_VERSION/u);
     assert.match(finalize, /gh release download "\$PREVIOUS_VERSION"/u);
     assert.match(finalize, /GITHUB_RUN_ID/u);

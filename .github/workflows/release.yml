@@ -183,11 +183,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PREVIOUS_VERSION: ${{ needs.plan.outputs.previous_version }}
+          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
         run: |
           set -euo pipefail
           bash scripts/build-production-runtime-bundle.sh \
             release-assets/production-runtime.tar.gz
-          backend_image="$(jq --raw-output '.image.name + "@" + .image.digest' release-assets/backend.image.json)"
+          backend_image="$(node scripts/release-contract.mjs image-reference \
+            --input release-assets/backend.image.json \
+            --kind backend \
+            --source-sha "$SOURCE_SHA")"
           bash scripts/release-schema-identity.sh "$backend_image" \
             >"$RUNNER_TEMP/candidate-schema-identity"
           jq --null-input '{previous: null}' >"$RUNNER_TEMP/rollback-input.json"

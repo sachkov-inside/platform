@@ -9,6 +9,17 @@ const workflow = readFileSync(
   resolve(repositoryRoot, ".github/workflows/deploy.yml"),
   "utf8",
 );
+const unsafeWorkflows = [
+  "unsafe-checkout.yml",
+  "unsafe-permissions.yml",
+  "unsafe-ssh.yml",
+].map((name) => [
+  name,
+  readFileSync(
+    resolve(repositoryRoot, "scripts/fixtures/deployment", name),
+    "utf8",
+  ),
+]);
 
 describe("production deployment workflow", () => {
   it("queues manual deploy and rollback commands without rebuilding a release", () => {
@@ -41,4 +52,32 @@ describe("production deployment workflow", () => {
     assert.match(workflow, /"\$OPERATION \$VERSION \$GITHUB_RUN_ID"/u);
     assert.doesNotMatch(workflow, /ssh root@|StrictHostKeyChecking=accept-new/u);
   });
+
+  it("keeps the deployment execution boundary closed", () => {
+    assertDeploymentSafety(workflow);
+  });
+
+  for (const [name, unsafeWorkflow] of unsafeWorkflows) {
+    it(`rejects the unsafe deployment fixture ${name}`, () => {
+      assert.throws(() => assertDeploymentSafety(unsafeWorkflow));
+    });
+  }
 });
+
+function assertDeploymentSafety(candidate) {
+  assert.match(candidate, /^permissions: \{\}$/mu);
+  assert.match(candidate, /^ {6}actions: read$/mu);
+  assert.match(candidate, /^ {6}contents: read$/mu);
+  assert.doesNotMatch(candidate, /^ {6}(?:actions|contents|packages): write$/mu);
+  assert.doesNotMatch(candidate, /actions\/checkout|docker build|pnpm|npm |yarn /u);
+  assert.match(candidate, /StrictHostKeyChecking=yes/u);
+  assert.match(candidate, /BatchMode=yes/u);
+  assert.match(
+    candidate,
+    /inside-deploy@\$\{\{ secrets\.PRODUCTION_SSH_HOST \}\}/u,
+  );
+  assert.doesNotMatch(
+    candidate,
+    /ssh root@|StrictHostKeyChecking=accept-new|StrictHostKeyChecking=no/u,
+  );
+}

@@ -25,10 +25,12 @@ immutable image without pulling to prove that the live database still has the ex
 runtime schema identity. That identity covers both the Platform migration registry and the
 PgBoss-managed schema version. Maintenance then precedes exact image pulls as the fixed deployment
 sequence requires; the candidate image performs a read-only compatibility check before workers or
-migrations change. A retry after migrations may use the failed-operation journal and the already
-local candidate image to prove a compatible intermediate or exact target schema. Unrelated drift
-still fails before maintenance. Success is recorded only after readiness, read-only smoke and the
-positive route reload.
+migrations change. A retry after migrations may use a same-operation recovery phase retained in a
+failed or still-running operation journal and the already local candidate image to prove a
+compatible intermediate or exact target schema. This also covers the first deployment and an
+abrupt process or host interruption that cannot run an exit trap. Unrelated drift still fails
+before maintenance. Success is recorded only after readiness, read-only smoke and the positive
+route reload.
 
 The executable proof is intentionally layered. A disposable host filesystem drives the real SSH
 gateway, archive validation, journal and deployment state machine through `v1`, no-op, `v2`,

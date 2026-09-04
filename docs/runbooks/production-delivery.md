@@ -86,13 +86,18 @@ processes, release/schema readiness, read-only web smoke, public routes, success
 `rollback` uses the same order without migrations. Preflight uses the already deployed image with
 pulling disabled and rejects database drift while the old route is still public. The runtime schema
 identity covers both the Platform migration registry and the PgBoss-managed schema version. A later
-failure leaves maintenance active and records its phase for an exact retry or repair forward.
-For the first deployment, preflight asks the already running foundation PostgreSQL container to
-prove that the application database has no user tables before the route changes.
+failure leaves maintenance active and records its phase for an exact retry or repair forward. The
+operation journal retains the last schema-changing recovery phase across retry attempts and accepts
+both `failed` and abruptly interrupted `running` records only for the same operation and version.
+The already local candidate must then prove a compatible intermediate or exact target schema before
+maintenance. For the first deployment, an initial preflight asks the already running foundation
+PostgreSQL container to prove that the application database has no user tables before the route
+changes; a same-release retry after migrations uses the candidate schema proof instead.
 
 `/var/lib/inside/deployments/state.json` records current and previous version, source SHA, image and
 bundle digests, schema identity, successful time and GitHub run. `operation.json` records the last
-phase and success/failure without configuration values. The server-owned kernel `flock` rejects
+phase, retained recovery phase and `running`/`failed`/`succeeded` status without configuration
+values. The server-owned kernel `flock` rejects
 overlapping operations even if a caller bypasses the GitHub queue and releases automatically if
 its process exits. Worker shutdown removes readiness, drains
 `pg-boss` and releases its process-specific advisory lease before a new generation starts.
@@ -206,7 +211,9 @@ remove them on exit; neither uses production credentials or contacts the product
 
 `.github/workflows/release.yml` remains the sole publication entry point. It captures exact current
 `main`, reuses application CI, embeds the ordinal and source SHA in both images, publishes their
-public GHCR digests, proves anonymous digest access, then creates the immutable GitHub Release with
+public GHCR digests, proves anonymous digest access, validates the downloaded image result against
+the canonical contract and captured source before executing that exact backend image, then creates
+the immutable GitHub Release with
 `release-manifest.json` and `production-runtime.tar.gz`. The manifest binds the bundle digest,
 schema identity, successful publication run and exact previous manifest when one exists:
 
