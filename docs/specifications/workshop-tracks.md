@@ -30,7 +30,8 @@ implementation tickets #279–#282 и не угадываются здесь з�
 - один active `WorkshopEntitlement`, открывающий весь protected Workshop;
 - public metadata и полный план опубликованного Track;
 - `TrackItem` со ссылкой на Material, Laboratory либо Production Case;
-- canonical `public` или `workshop` availability для referenced resources;
+- target-owned access: `free | membership` для Materials и `public | workshop` для Laboratories и
+  Production Cases;
 - versioned Git authoring для Track, Laboratory и Production Case;
 - ссылки на canonical Platform Materials без копирования body;
 - manual Laboratory progress и optional learner notes;
@@ -88,7 +89,13 @@ Track может быть переиспользован будущим bundle/e
 - ровно один typed target: Material, Laboratory либо Production Case;
 - короткое authored rationale «зачем этот элемент здесь»;
 - optional presentation metadata;
-- projected canonical availability typed target.
+- read-model projection `public | included` из canonical policy typed target.
+
+Authoring source называет stable target identity. При публикации Track snapshot сохраняет stable
+Material identity, но фиксирует exact current published LaboratoryVersion или
+ProductionCaseVersion. Новая Laboratory/Case version не меняет существующий Track snapshot:
+автор публикует новую Track version, если хочет включить обновление. Material остаётся mutable
+Platform content и читается по своей current published revision согласно Materials contract.
 
 Ordinal задаёт только presentation order. Отсутствие completion предыдущего item не блокирует
 прямой переход. UI не может выводить access или completion из соседства карточек. TrackItem не
@@ -105,8 +112,10 @@ publication. Автор либо agent создаёт Material через admin/
 Track authoring хранит stable Material identity. Publication разрешает ссылку только на
 существующий Published Material:
 
-- `public` TrackItem требует, чтобы сам Material был internet-public;
-- `workshop` TrackItem не расширяет Material access и не обходит `ContentAccess`;
+- `free` Material отображается как public/free TrackItem;
+- `membership` Material отображается как included TrackItem и требует allow от `ContentAccess`;
+- legacy `workshop` CaseMaterial из #263 не становится обычным Track Material target до отдельного
+  reuse decision;
 - несовместимая access policy делает Track publication fail-closed;
 - dynamic Topic/Tag recommendations могут отображаться отдельно, но не становятся TrackItems или
   prerequisites.
@@ -195,8 +204,9 @@ access и не делает draft публичным.
 ## 5. Access
 
 `ContentAccess` remains the sole delivery authority for Materials. `WorkshopAccess` owns Track
-outline, Laboratory and Production Case delivery. A Track read composes their typed decisions but
-does not invent a third route-level fallback.
+outline, Laboratory and Production Case delivery. A Track read composes their typed decisions into
+the presentation vocabulary `public | included | unavailable`, but does not invent a third
+route-level fallback.
 
 Одна active Inside subscription поддерживает две отдельные Platform authorities:
 
@@ -213,7 +223,7 @@ Membership Materials вне текущего subscription bundle.
 
 Workshop access matrix:
 
-| Subject | Track outline | Public item | Workshop item | Durable lab progress |
+| Subject | Track outline | Public target | Protected Workshop target | Durable lab progress |
 |---|---:|---:|---:|---:|
 | Anonymous | allow | allow | deny | deny |
 | Account без WorkshopEntitlement | allow | allow | deny | allow только после sign-in для public Laboratory |
@@ -232,7 +242,7 @@ learning outcomes и полный ordered outline.
 Каждый item различимо показывает:
 
 - тип: Material, Laboratory или Production Case;
-- public/free либо included in Workshop;
+- public/free либо included in the current subscription;
 - recommended current/next presentation;
 - manual Laboratory state, если он существует;
 - unavailable/withdrawn состояние без исчезновения объяснения.
