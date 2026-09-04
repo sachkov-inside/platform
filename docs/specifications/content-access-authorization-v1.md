@@ -7,6 +7,12 @@ owner decision в [#120](https://github.com/sachkov-inside/platform/issues/120) 
 persistent authorization audit в v1, и расширенный
 [#263](https://github.com/sachkov-inside/platform/issues/263) для Workshop Materials.
 
+Workshop-specific extension #263 остаётся implemented case-first foundation. Для нового Kafka
+Track обычные Material targets используют только `free | membership`; legacy `workshop`
+requirement и `WorkshopMaterialAccess` применяются только к явно связанным CaseMaterials до
+reuse/supersede decision #278. Laboratory и Production Case delivery принадлежат отдельному
+`WorkshopAccess` из [Workshop specification](workshop-tracks.md), а не этому Module.
+
 ## Решение
 
 Platform создаёт один глубокий module `ContentAccess`. Он разделяет:
@@ -112,7 +118,7 @@ caller не передаёт.
 | MCP | Materials tools ещё отсутствуют. | Первый adapter использует user-delegated owner Account и ту же permission; service identity не создаётся. |
 | MaterialAsset | Production upload/read/download adapters реализованы в #180. | Version-bound route передаёт `assetId` в exact Asset/Action allow, сверяет `checkedContentVersion` и current body reference до private locator; Membership presign ограничен `validUntil`. |
 | Video | Owning module и delivery adapter существуют. | Token issue и provider callback повторно используют exact ContentAccess decision; protected credential ограничен validity решения. |
-| Workshop Material | Workshop публикует immutable CaseMaterial links и bounded entitlement/reveal state. | Для normal delivery ContentAccess вызывает только узкий `WorkshopMaterialAccess.resolve(accountId, materialId)`; Library/search и generic acquisition teaser отсутствуют. |
+| Legacy CaseMaterial | Case-first foundation #263 публикует immutable CaseMaterial links и bounded entitlement/reveal state. | Для normal delivery ContentAccess вызывает только узкий `WorkshopMaterialAccess.resolve(accountId, materialId)`; новый Track не использует эту связь для обычных Materials до #278. |
 
 ## Subject и authorization facts
 
@@ -141,7 +147,8 @@ practice/progress и Telegram presentation data не участвуют в autho
 Owning resource adapter разрешает opaque IDs в минимальные internal facts:
 
 - owning Material, его `draft | published | unpublished` state и current `contentVersion`;
-- `free | membership | workshop` requirement;
+- `free | membership` requirement для обычного Material; legacy `workshop` только для CaseMaterial,
+  явно связанного foundation #263;
 - attachment relationship и вид Asset/Video, когда такие modules реально появятся.
 
 Caller не передаёт slug, access class, publication state, content version, storage key, signed URL,
@@ -219,7 +226,7 @@ Deterministic reason precedence:
 5. Current `materials:manage`: `materials_manager`, включая current saved preview и обычное чтение
    published membership-материала без Membership.
 6. Preview без permission: `permission_required`.
-7. Workshop normal delivery: вызвать `WorkshopMaterialAccess` без permission или Membership
+7. Legacy CaseMaterial normal delivery: вызвать `WorkshopMaterialAccess` без permission или Membership
    fallback; доступный Material даёт `active_workshop`, закрытый reveal —
    `workshop_material_locked`, отсутствие current Workshop grant/material binding —
    `workshop_access_required`. Concrete facet сворачивает unreadable Workshop projection в
@@ -237,7 +244,7 @@ Deterministic reason precedence:
 | Draft `preview` | authentication required | permission required | permission required | permission required | materials manager |
 | Draft normal delivery | unpublished | unpublished | unpublished | unpublished | unpublished |
 
-Workshop normal delivery имеет отдельную matrix и не использует Membership/permission fallback:
+Legacy CaseMaterial delivery имеет отдельную matrix и не использует Membership/permission fallback:
 
 | Subject / Workshop state | Нет current grant | Current grant, reveal locked | Current grant, immediate/revealed |
 |---|---|---|---|
@@ -253,8 +260,8 @@ matrix.
 - allow → `available`;
 - любой известный published membership-resource без доказанного allow, включая dependency outage,
   → `locked`;
-- published Workshop resource с current grant, но ещё не выполненной reveal policy → `locked`;
-- Workshop resource без current grant или при unreadable Workshop facet → `unavailable`;
+- published legacy CaseMaterial с current grant, но ещё не выполненной reveal policy → `locked`;
+- legacy CaseMaterial без current grant или при unreadable Workshop facet → `unavailable`;
 - invalid/unpublished/unknown resource → `unavailable`.
 
 Availability не возвращает reason, decision ID или validity и не разрешает body, private locator,
@@ -262,7 +269,7 @@ redirect, signed URL или playback token. Любая последующая de
 Public reader маппит deny известного published membership-материала в индексируемый teaser со
 статусом `locked` и успешным page response; draft/unpublished/unknown остаются `404`, outage —
 тот же fail-closed `locked`. UI не получает internal Membership reason или resource oracle.
-Workshop Materials полностью исключены из Library/search. Direct reader не показывает generic
+Legacy CaseMaterials полностью исключены из Library/search. Direct reader не показывает generic
 acquisition teaser: любой deny маскируется как `404`; allow загружает body тем же conditional path.
 
 Safe public projection содержит author-controlled `title`, `description`, `cover`, author,
@@ -382,15 +389,16 @@ apps/backend/src/modules/
   content-access/            # batch orchestration + policy
   membership-entitlements/  # bounded projection + monotonic evidence application
   materials/                 # resource facts adapter + reader/preview consumers
-  workshop/                  # bounded Workshop grants + Case/reveal policy facet
+  workshop/                  # grants + legacy CaseMaterial/reveal facet; WorkshopAccess owner
 ```
 
 `ContentAccess` объявляет access-oriented `MaterialResourceFacts` port; Materials реализует его
 поверх своей persistence и возвращает только minimal policy facts без protected body. Port
 поддерживает bulk facts для availability и single facts для authorize. `ContentAccess` не читает
 Materials tables напрямую, а Materials transport не импортирует policy implementation.
-Asset/Video ports существуют вместе с owning real consumers. Для Workshop policy ContentAccess
-зависит только от `WorkshopMaterialAccess`, а не от Workshop tables или full application API.
+Asset/Video ports существуют вместе с owning real consumers. Для legacy CaseMaterial policy
+ContentAccess зависит только от `WorkshopMaterialAccess`, а не от Workshop tables или full
+application API. Новый `WorkshopAccess` не входит в ContentAccess и не доставляет Material body.
 
 V1 не создаёт generic RBAC/ABAC DSL, `Account × Material` matrix, `content_grants`, exported SQL
 predicate, generic repository/UoW или speculative service Account. Future tier/purchase/manual
