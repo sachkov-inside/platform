@@ -13,6 +13,8 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, it } from "node:test";
 
+const gateway = readFileSync("infra/production/host/inside-deploy", "utf8");
+
 describe("inside-deploy forced SSH command", () => {
   it("stages one verified release and invokes only its bundled command", () => {
     const fixture = createFixture();
@@ -66,14 +68,15 @@ describe("inside-deploy forced SSH command", () => {
   });
 
   it("rejects a second command while the server lock is held", () => {
+    assert.match(gateway, /flock --exclusive --nonblock/u);
     const fixture = createFixture();
     try {
-      const lock = resolve(
+      const lockMarker = resolve(
         fixture.root,
-        "var/lib/inside/deployments/operation.lock",
+        "var/lib/inside/deployments/operation.lock.held",
       );
-      mkdirSync(lock, { recursive: true });
-      writeFileSync(resolve(lock, "pid"), `${String(process.pid)}\n`);
+      mkdirSync(resolve(lockMarker, ".."), { recursive: true });
+      writeFileSync(lockMarker, "held\n");
 
       const result = runGateway(fixture, "deploy v1 103");
 
@@ -83,15 +86,43 @@ describe("inside-deploy forced SSH command", () => {
       fixture.cleanup();
     }
   });
+
+  it("rejects a payload above the byte limit without truncating it first", () => {
+    assert.match(gateway, /head -c 16777217/u);
+    const fixture = createFixture();
+    try {
+      const result = runGateway(
+        fixture,
+        "deploy v1 104",
+        Buffer.alloc(16 * 1024 * 1024 + 1),
+      );
+
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /exceeds 16 MiB/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
 });
 
 function createFixture() {
   const directory = mkdtempSync(resolve(tmpdir(), "inside-deploy-gateway-"));
   const root = resolve(directory, "host");
+  const bin = resolve(directory, "bin");
   const payload = resolve(directory, "payload.tar.gz");
   const bundle = resolve(directory, "production-runtime.tar.gz");
+  mkdirSync(bin);
   mkdirSync(resolve(root, "etc/inside"), { recursive: true });
   writeFileSync(resolve(root, "etc/inside/host-provisioned"), "state=ready\n");
+  writeExecutable(
+    resolve(bin, "flock"),
+    `#!/usr/bin/env bash
+set -euo pipefail
+if [[ -f "$INSIDE_DEPLOY_TEST_ROOT/var/lib/inside/deployments/operation.lock.held" ]]; then
+  exit 1
+fi
+`,
+  );
 
   const bundleRoot = resolve(directory, "bundle");
   mkdirSync(resolve(bundleRoot, "bin"), { recursive: true });
@@ -140,6 +171,7 @@ function createFixture() {
     rollback: { previous: null },
   }, null, 2)}\n`;
   const fixture = {
+    bin,
     bundle,
     cleanup: () => rmSync(directory, { force: true, recursive: true }),
     directory,
@@ -181,10 +213,16 @@ function runGateway(fixture, command, input = readFileSync(fixture.payload)) {
     env: {
       ...process.env,
       INSIDE_DEPLOY_TEST_ROOT: fixture.root,
+      PATH: `${fixture.bin}:${process.env.PATH}`,
       SSH_ORIGINAL_COMMAND: command,
     },
     input,
   });
+}
+
+function writeExecutable(path, content) {
+  writeFileSync(path, content);
+  chmodSync(path, 0o755);
 }
 
 function sha256(value) {

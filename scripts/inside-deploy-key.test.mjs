@@ -69,6 +69,7 @@ describe("restricted production deployment key", () => {
 
   it("provisions only the forced command through sudo", () => {
     assert.match(provision, /apt-get install --yes[\s\S]*?jq/u);
+    assert.match(provision, /apt-get install --yes[\s\S]*?util-linux/u);
     assert.match(
       provision,
       /install -m 755[\s\S]*?inside-deploy[\s\S]*?\/usr\/local\/libexec\/inside\/inside-deploy/u,

@@ -32,20 +32,14 @@ if [[ -n "${extra:-}" || ! "$operation" =~ ^(deploy|rollback)$ || ! "$version" =
 fi
 
 install -d -m 700 "$state_dir" "$releases_dir"
-lock_dir="$state_dir/operation.lock"
-if ! mkdir "$lock_dir" 2>/dev/null; then
-  lock_pid="$(cat "$lock_dir/pid" 2>/dev/null || true)"
-  if [[ "$lock_pid" =~ ^[1-9][0-9]*$ ]] && kill -0 "$lock_pid" 2>/dev/null; then
-    echo "Another production operation is active" >&2
-    exit 1
-  fi
-  rm -r "$lock_dir"
-  if ! mkdir "$lock_dir" 2>/dev/null; then
-    echo "Another production operation acquired the lock" >&2
-    exit 1
-  fi
+lock_file="$state_dir/operation.lock"
+: >>"$lock_file"
+chmod 600 "$lock_file"
+exec 9<>"$lock_file"
+if ! flock --exclusive --nonblock 9; then
+  echo "Another production operation is active" >&2
+  exit 1
 fi
-printf '%s\n' "$$" >"$lock_dir/pid"
 
 incoming_dir="$(mktemp -d "$state_dir/incoming.XXXXXX")"
 cleanup() {
@@ -54,12 +48,11 @@ cleanup() {
   if [[ -n "$incoming_dir" && -d "$incoming_dir" ]]; then
     rm -r "$incoming_dir"
   fi
-  rm -r "$lock_dir"
   exit "$status"
 }
 trap cleanup EXIT
 
-dd bs=1048576 count=17 of="$incoming_dir/payload.tar.gz" 2>/dev/null
+head -c 16777217 >"$incoming_dir/payload.tar.gz"
 if [[ "$(stat -c %s "$incoming_dir/payload.tar.gz" 2>/dev/null || stat -f %z "$incoming_dir/payload.tar.gz")" -gt 16777216 ]]; then
   echo "Deployment payload exceeds 16 MiB" >&2
   exit 1

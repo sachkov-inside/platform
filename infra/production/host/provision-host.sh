@@ -75,6 +75,7 @@ apt-get install --yes \
   jq \
   openssh-server \
   sudo \
+  util-linux \
   ufw
 
 if ! id inside-deploy >/dev/null 2>&1; then

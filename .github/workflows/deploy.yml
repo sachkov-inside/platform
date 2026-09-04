@@ -68,7 +68,9 @@ jobs:
               (.source.sha | test("^[0-9a-f]{40}$")) and
               .runtimeBundle.asset == "production-runtime.tar.gz" and
               (.runtimeBundle.sha256 | test("^sha256:[0-9a-f]{64}$")) and
-              (.publication.workflowRunId | type == "number")
+              (.publication.workflowRunId | type == "number") and
+              .publication.workflowRunId > 0 and
+              (.publication.workflowRunId | floor) == .publication.workflowRunId
             ' "$release_dir/release-manifest.json" >/dev/null
           expected_bundle_sha="$(jq --raw-output '.runtimeBundle.sha256' "$release_dir/release-manifest.json")"
           actual_bundle_sha="sha256:$(sha256sum "$release_dir/production-runtime.tar.gz" | cut -d' ' -f1)"

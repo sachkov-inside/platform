@@ -8,6 +8,7 @@ fi
 operation="$1"
 version="$2"
 github_run_id="$3"
+readonly rollback_window_seconds=86400
 
 if [[ -n "${INSIDE_DEPLOY_TEST_ROOT:-}" ]]; then
   if [[ "$EUID" -eq 0 ]]; then
@@ -108,15 +109,24 @@ format_epoch() {
     date -u -d "@$epoch" +%Y-%m-%dT%H:%M:%SZ
 }
 
-compose_env_value() {
-  local name="$1"
-  local value
-  value="$(awk -F= -v name="$name" '$1 == name { sub(/^[^=]*=/, ""); print; exit }' "$config_dir/compose.env")"
-  if [[ -z "$value" ]]; then
-    echo "Missing $name in server-owned compose.env" >&2
-    return 1
-  fi
-  printf '%s\n' "$value"
+published_loopback_port() {
+  local service="$1"
+  local target_port="$2"
+  jq --exit-status --raw-output \
+    --arg service "$service" \
+    --argjson targetPort "$target_port" '
+      [
+        .services[$service].ports[] |
+        select(
+          .host_ip == "127.0.0.1" and
+          .target == $targetPort and
+          .protocol == "tcp"
+        ) |
+        (.published | if type == "number" then . else tonumber end) |
+        select(. >= 1 and . <= 65535)
+      ] |
+      if length == 1 then .[0] else error("expected one loopback port") end
+    ' <<<"$compose_config"
 }
 
 load_release_environment() {
@@ -283,16 +293,19 @@ fi
 
 fail_if_requested preflight
 load_release_environment "$manifest"
-docker compose --env-file "$config_dir/compose.env" --file "$compose_file" config --quiet
+compose_config="$(docker compose \
+  --env-file "$config_dir/compose.env" \
+  --file "$compose_file" \
+  config --format json)"
+docker pull "$backend_image"
+docker pull "$web_image"
+docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
+  run --rm --no-deps migrations \
+  node dist/migrations/migrate.js --verify-ledger >/dev/null
 
 phase=maintenance
 write_operation running "$phase"
 activate_caddy "$release_dir/runtime/caddy/maintenance.caddy"
-
-phase=pull
-write_operation running "$phase"
-docker pull "$backend_image"
-docker pull "$web_image"
 
 phase=workers
 write_operation running "$phase"
@@ -325,8 +338,8 @@ docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
 phase=readiness
 write_operation running "$phase"
 fail_if_requested readiness
-api_port="$(compose_env_value PLATFORM_API_LOOPBACK_PORT)"
-web_port="$(compose_env_value PLATFORM_WEB_LOOPBACK_PORT)"
+api_port="$(published_loopback_port api 3001)"
+web_port="$(published_loopback_port web 3000)"
 api_readiness="$(curl --fail --silent --show-error "http://127.0.0.1:$api_port/health/ready")"
 web_readiness="$(curl --fail --silent --show-error "http://127.0.0.1:$web_port/_health/ready")"
 for readiness in "$api_readiness" "$web_readiness"; do
@@ -356,7 +369,7 @@ activate_caddy "$release_dir/runtime/caddy/platform.caddy"
 successful_epoch="$(now_epoch)"
 deployed_at="$(format_epoch "$successful_epoch")"
 if [[ "$rollback_json" != null ]]; then
-  expires_epoch=$((successful_epoch + 86400))
+  expires_epoch=$((successful_epoch + rollback_window_seconds))
   rollback_json="$(jq --compact-output \
     --arg expiresAt "$(format_epoch "$expires_epoch")" \
     --argjson expiresAtEpochSeconds "$expires_epoch" '

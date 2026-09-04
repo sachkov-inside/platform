@@ -20,9 +20,10 @@ sudo access; its only sudo target is the root-owned gateway.
 Server configuration and secrets remain root-owned under `/etc/inside/runtime`. Deployment derives
 release identity and image variables from the manifest under `/var/lib/inside/deployments` and never
 rewrites the server-owned files. A no-secret journal records the successful current/previous
-identity and the last operation phase. Failure before maintenance preserves the old public route;
-failure after it preserves maintenance and an exact retry path. Success is recorded only after
-readiness, read-only smoke and the positive route reload.
+identity and the last operation phase. Preflight pulls the exact immutable images and runs their
+read-only migration-ledger check before maintenance, so a missing image or schema drift preserves
+the old public route. Failure after maintenance preserves maintenance and an exact retry path.
+Success is recorded only after readiness, read-only smoke and the positive route reload.
 
 Database evolution remains forward-only. Starting at `v2`, release publication compares schema
 identity from the exact candidate and previous backend digests and binds the exact previous

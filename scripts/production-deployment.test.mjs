@@ -26,6 +26,15 @@ describe("production deployment state machine", () => {
       assert.equal(state.rollback, null);
 
       const firstExternalLog = readExternalLog(fixture);
+      assert.match(
+        firstExternalLog,
+        /docker compose .* run --rm --no-deps migrations node dist\/migrations\/migrate\.js --verify-ledger/u,
+      );
+      assert.ok(
+        firstExternalLog.indexOf("--verify-ledger") <
+          firstExternalLog.indexOf("caddy reload"),
+        "database schema preflight must finish before maintenance",
+      );
       assertGatewaySuccess(fixture, "deploy", "v1", 102);
       assert.equal(readExternalLog(fixture), firstExternalLog);
 
@@ -96,6 +105,37 @@ describe("production deployment state machine", () => {
       }
     });
   }
+
+  it("rejects a database schema mismatch before enabling maintenance", () => {
+    const fixture = createHostFixture();
+    try {
+      const failed = runGateway(fixture, "deploy", "v1", 203, {
+        INSIDE_DEPLOY_TEST_SCHEMA_MISMATCH: "true",
+      });
+
+      assert.notEqual(failed.status, 0);
+      assert.equal(
+        JSON.parse(
+          readFileSync(
+            resolve(
+              fixture.root,
+              "var/lib/inside/deployments/operation.json",
+            ),
+            "utf8",
+          ),
+        ).phase,
+        "preflight",
+      );
+      assert.equal(
+        existsSync(
+          resolve(fixture.root, "srv/inside/runtime/caddy/active.caddy"),
+        ),
+        false,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
 
   it("rejects stale, incompatible and expired rollback selections", () => {
     const stale = createHostFixture();
@@ -185,8 +225,22 @@ function createHostFixture({ compatible = true } = {}) {
   }
 
   writeExecutable(
+    resolve(bin, "flock"),
+    '#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n',
+  );
+  writeExecutable(
     resolve(bin, "docker"),
-    '#!/usr/bin/env bash\nset -euo pipefail\nprintf "docker %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"\n',
+    `#!/usr/bin/env bash
+set -euo pipefail
+printf "docker %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"
+if [[ "$*" == *"config --format json"* ]]; then
+  printf '{"services":{"api":{"ports":[{"host_ip":"127.0.0.1","target":3001,"published":"13001","protocol":"tcp"}]},"web":{"ports":[{"host_ip":"127.0.0.1","target":3000,"published":"13000","protocol":"tcp"}]}}}\n'
+fi
+if [[ "\${INSIDE_DEPLOY_TEST_SCHEMA_MISMATCH:-}" == true && "$*" == *"--verify-ledger"* ]]; then
+  echo "Migration ledger mismatch" >&2
+  exit 1
+fi
+`,
   );
   writeExecutable(
     resolve(bin, "caddy"),

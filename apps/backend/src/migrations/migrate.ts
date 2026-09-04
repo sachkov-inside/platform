@@ -8,7 +8,8 @@ import {
   parsePlatformMode,
 } from "../config/platform-config.js";
 import { parseRuntimeIdentity } from "../infrastructure/runtime-identity.js";
-import { migrateToLatest } from "./index.js";
+import { verifyMigrationLedger } from "../infrastructure/postgres/migrate-to-latest.js";
+import { migrateToLatest, platformMigrations } from "./index.js";
 
 export interface RuntimeMigrationOutcome {
   readonly appliedMigrations: readonly string[];
@@ -43,6 +44,12 @@ export async function migrateRuntimeDatabase(
   }
 }
 
+export async function verifyRuntimeDatabaseMigrationLedger(
+  databaseUrl: string,
+): Promise<{ readonly appliedMigrations: readonly string[] }> {
+  return verifyMigrationLedger(databaseUrl, platformMigrations);
+}
+
 async function main(): Promise<void> {
   loadRepositoryEnvironment();
   const databaseConfig = parsePlatformDatabaseConfig(process.env);
@@ -50,7 +57,14 @@ async function main(): Promise<void> {
     process.env,
     parsePlatformMode(process.env.NODE_ENV),
   );
-  const outcome = await migrateRuntimeDatabase(databaseConfig.url);
+  const [operation, extra] = process.argv.slice(2);
+  if (extra !== undefined || (operation !== undefined && operation !== "--verify-ledger")) {
+    throw new Error("usage: migrate.js [--verify-ledger]");
+  }
+  const outcome =
+    operation === "--verify-ledger"
+      ? await verifyRuntimeDatabaseMigrationLedger(databaseConfig.url)
+      : await migrateRuntimeDatabase(databaseConfig.url);
   process.stdout.write(`${JSON.stringify({ ...outcome, release: runtimeIdentity })}\n`);
 }
 

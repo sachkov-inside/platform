@@ -412,6 +412,17 @@ export PRODUCTION_SMOKE_BACKEND_IMAGE PRODUCTION_SMOKE_WEB_IMAGE
   inside_fresh
 docker run --rm \
   --network "$foundation_network" \
+  --env-file "$runtime_config_dir/runtime.env" \
+  --env-file "$runtime_config_dir/migrations.env" \
+  --env DATABASE_URL=postgresql://platform:platform-production-smoke-password@postgres:5432/inside_fresh \
+  --entrypoint node \
+  "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
+  dist/migrations/migrate.js \
+  --verify-ledger >/dev/null
+docker run --rm \
+  --network "$foundation_network" \
+  --env-file "$runtime_config_dir/runtime.env" \
+  --env-file "$runtime_config_dir/migrations.env" \
   --env DATABASE_URL=postgresql://platform:platform-production-smoke-password@postgres:5432/inside_fresh \
   --entrypoint node \
   "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
@@ -423,11 +434,21 @@ docker run --rm \
 
 docker run --rm \
   --network "$foundation_network" \
+  --env-file "$runtime_config_dir/runtime.env" \
+  --env-file "$runtime_config_dir/migrations.env" \
   --env DATABASE_URL=postgresql://platform:platform-production-smoke-password@postgres:5432/inside \
   --entrypoint node \
   "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
   --input-type=module \
   --eval "import { runMigrationsToLatest } from './dist/infrastructure/postgres/migrate-to-latest.js'; import { platformMigrations } from './dist/migrations/index.js'; await runMigrationsToLatest(process.env.DATABASE_URL, platformMigrations.slice(0, -1));"
+docker run --rm \
+  --network "$foundation_network" \
+  --env-file "$runtime_config_dir/runtime.env" \
+  --env-file "$runtime_config_dir/migrations.env" \
+  --entrypoint node \
+  "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
+  dist/migrations/migrate.js \
+  --verify-ledger >/dev/null
 
 "${application_compose[@]}" config --quiet
 if "${application_compose[@]}" config --images | grep -Eq ':(latest|v[0-9]+)$'; then

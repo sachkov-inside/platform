@@ -80,16 +80,19 @@ payload containing exactly `release-manifest.json` and `production-runtime.tar.g
 closed manifest, bundle digest and paths before staging an ordinal under `/srv/inside/releases`.
 An existing ordinal can be reused only with byte-identical assets.
 
-One deployment executes this order: host/config preflight, maintenance route, exact image pulls,
-old worker drain, migrations, candidate processes, release/schema readiness, read-only web smoke,
-public routes, successful journal write. `rollback` uses the same order without migrations. A
-failure before maintenance leaves the previous route active; a later failure leaves maintenance
-active and records its phase for an exact retry or repair forward.
+One deployment executes this order: host/config preflight, exact image pulls and a read-only check
+that the live migration ledger is a valid prefix of the candidate image, maintenance route, old
+worker drain, migrations, candidate processes, release/schema readiness, read-only web smoke,
+public routes, successful journal write. `rollback` uses the same order without migrations. Image
+materialization is deliberately part of preflight so an unavailable digest or wrong live ledger is
+rejected before the public route changes. A later failure leaves maintenance active and records its
+phase for an exact retry or repair forward.
 
 `/var/lib/inside/deployments/state.json` records current and previous version, source SHA, image and
 bundle digests, schema identity, successful time and GitHub run. `operation.json` records the last
-phase and success/failure without configuration values. The server-owned lock rejects overlapping
-operations even if a caller bypasses the GitHub queue. Worker shutdown removes readiness, drains
+phase and success/failure without configuration values. The server-owned kernel `flock` rejects
+overlapping operations even if a caller bypasses the GitHub queue and releases automatically if
+its process exits. Worker shutdown removes readiness, drains
 `pg-boss` and releases its process-specific advisory lease before a new generation starts.
 
 ## Readiness and routing
@@ -143,6 +146,11 @@ only when both images report the same schema identity. This is deliberately cons
 expand-compatible but different schema still requires repair forward until the runtime can prove a
 broader contract. A successful deployment opens its rollback window for 24 hours; `v1`, an unknown
 target, a changed manifest, incompatible evidence or an expired window is rejected.
+
+Before maintenance, the selected backend image runs
+`node dist/migrations/migrate.js --verify-ledger` against the server-owned migration connection.
+This command never creates a table or applies a migration: it accepts an absent first-deploy ledger
+or an exact ordered/checksummed prefix and rejects drift, gaps and migrations unknown to the image.
 
 ## Run deployment or rollback
 

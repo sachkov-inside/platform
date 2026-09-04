@@ -4,7 +4,10 @@ import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
 import { acquireWorkerGenerationLease } from "../../src/infrastructure/worker-runtime.js";
 import { platformMigrations } from "../../src/migrations/index.js";
-import { migrateRuntimeDatabase } from "../../src/migrations/migrate.js";
+import {
+  migrateRuntimeDatabase,
+  verifyRuntimeDatabaseMigrationLedger,
+} from "../../src/migrations/migrate.js";
 import {
   createMigratedTestDatabase,
   createTestDatabase,
@@ -59,6 +62,42 @@ describe("production runtime readiness", () => {
       appliedMigrations: [],
     });
     expect(typeof outcome.jobSchemaVersion).toBe("number");
+  });
+
+  test("verifies the current migration ledger without changing the database", async () => {
+    const database = await createTestDatabase();
+    databases.push(database);
+
+    await expect(
+      verifyRuntimeDatabaseMigrationLedger(database.url),
+    ).resolves.toEqual({ appliedMigrations: [] });
+    await migrateRuntimeDatabase(database.url);
+    await expect(
+      verifyRuntimeDatabaseMigrationLedger(database.url),
+    ).resolves.toEqual({
+      appliedMigrations: platformMigrations.map(({ name }) => name),
+    });
+
+    await database.prisma.$executeRaw(Prisma.sql`
+      update public.platform_migrations
+      set checksum = repeat('0', 64)
+      where position = 1
+    `);
+    await expect(
+      verifyRuntimeDatabaseMigrationLedger(database.url),
+    ).rejects.toThrow(`Migration checksum mismatch: ${platformMigrations[0]?.name}`);
+  });
+
+  test("rejects a non-empty database without a migration ledger", async () => {
+    const database = await createTestDatabase();
+    databases.push(database);
+    await database.prisma.$executeRaw(Prisma.sql`
+      create table public.legacy_platform_state (id integer primary key)
+    `);
+
+    await expect(
+      verifyRuntimeDatabaseMigrationLedger(database.url),
+    ).rejects.toThrow("Migration ledger is missing from a non-empty database");
   });
 
   test("prevents two generations of the same worker from overlapping", async () => {

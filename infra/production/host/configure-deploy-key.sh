@@ -28,7 +28,7 @@ if [[ "$(wc -l <"$public_key_file" | tr -d ' ')" -ne 1 ]] ||
 fi
 key_type="$(awk '{print $1}' "$public_key_file")"
 key_body="$(awk '{print $2}' "$public_key_file")"
-if [[ "$key_type" != ssh-ed25519 || ! "$key_body" =~ ^[A-Za-z0-9+/]+={0,3}$ ]]; then
+if [[ "$key_type" != ssh-ed25519 ]]; then
   echo "Expected one valid Ed25519 public key" >&2
   exit 1
 fi
