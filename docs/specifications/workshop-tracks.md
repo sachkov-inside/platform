@@ -309,11 +309,11 @@ fictional domain и constraints принадлежат #277.
 | #276 | Real Kafka Track/Laboratory content specimen | #279 and #273 |
 | #277 | Real notification CaseSpec | #278, #279 and #282 |
 | #278 | Evaluation research and owner decision | refined #282 |
-| #279 | Versioned import/publication/read model | #281 and #282 |
+| #279 | Versioned import/publication/read model | #282 and #281 |
 | #280 | Subscription grants and public access | #281 |
 | #273 | Visual prototype after #271/#272 | #281 |
-| #281 | Production Track/Laboratory UI and progress | #283 |
-| #282 | C#/Python variants and accepted evaluation | #283 |
+| #282 | C#/Python variants, evaluation backend and typed states | #281 |
+| #281 | Full Workshop/Track/Laboratory/Case frontend on real APIs | #283 |
 | #283 | Aggregate end-to-end acceptance | parent #274 completion |
 
 ## 11. Acceptance and stopping condition
