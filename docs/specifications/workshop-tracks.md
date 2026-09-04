@@ -309,7 +309,7 @@ fictional domain и constraints принадлежат #277.
 | #276 | Real Kafka Track/Laboratory content specimen | #279 and #273 |
 | #277 | Real notification CaseSpec | #278, #279 and #282 |
 | #278 | Evaluation research and owner decision | refined #282 |
-| #279 | Versioned import/publication/read model | #282 and #281 |
+| #279 | Versioned import/publication/read model and Laboratory progress backend | #282 and #281 |
 | #280 | Subscription grants and public access | #281 |
 | #273 | Visual prototype after #271/#272 | #281 |
 | #282 | C#/Python variants, evaluation backend and typed states | #281 |
