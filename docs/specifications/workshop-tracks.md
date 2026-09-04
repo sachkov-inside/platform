@@ -1,154 +1,300 @@
-# Workshop Tracks domain specification
+# Workshop Tracks and Laboratories application specification
 
-Статус: proposed repository-local contract для
-[Platform #269](https://github.com/sachkov-inside/platform/issues/269). Он развивает текущую
-терминологию proposed contract [Production Workshop v1](./production-workshop-v1.md), но не
-расширяет первый
-runtime slice из [#263](https://github.com/sachkov-inside/platform/issues/263).
+Статус: accepted repository-local contract для
+[Platform #275](https://github.com/sachkov-inside/platform/issues/275) и первого Kafka Track из
+[#274](https://github.com/sachkov-inside/platform/issues/274). Он реализует подтверждённую shared
+границу [Workspace #108](https://github.com/sachkov-inside/workspace/issues/108).
 
-## 1. Результат и граница
+Дата: 2026-09-04.
 
-Workshop непосредственно содержит несколько тематических Workshop Tracks. Отдельный Program не
-вводится, пока продукту не понадобится продаваемый bundle, cohort или edition поверх нескольких
-Tracks.
+## 1. Результат и authority
 
-Track объединяет Production Cases и learning resources в одной тематической
-learning-practice области, например вокруг надёжной работы с RabbitMQ. Это curated learning
-context, а не обязательно линейный курс, skill tree или access grant.
+Platform представляет Workshop как практическую область активной подписки Inside. В ней
+опубликованные Workshop Tracks соединяют Materials, Laboratories и Production Cases в
+рекомендуемом порядке без обязательного линейного unlock.
 
-Значения терминов и их доменные отношения принадлежат
-[Platform glossary](../../CONTEXT.md#production-workshop). Этот документ задаёт proposed
-composition constraints, сценарии и открытые продуктовые решения. Persistence, API, routes, UI и
-implementation tickets появляются только в отдельном owner-approved slice.
+Этот документ владеет Platform-specific model, authoring/publication boundary, access semantics,
+learner progress и requirements первого Kafka-среза. Shared product promise и cross-repository
+термины принадлежат Workspace. Physical schema, API shapes и component composition появляются в
+implementation tickets #279–#282 и не угадываются здесь заранее.
 
-## 2. Composition constraints
+Прежняя [case-first application specification](./production-workshop-v1.md) больше не является
+текущим продуктовым контрактом. Уже реализованные foundations остаются доступными, но их повторное
+использование требует явного соответствия этой specification.
 
-В рамках glossary-модели Track authoring допускает следующую композицию:
+## 2. Product boundary
+
+### Входит
+
+- Workshop с несколькими тематическими Tracks без дополнительного Program layer;
+- один active `WorkshopEntitlement`, открывающий весь protected Workshop;
+- public metadata и полный план опубликованного Track;
+- `TrackItem` со ссылкой на Material, Laboratory либо Production Case;
+- per-item access mode `public` или `workshop`;
+- versioned Git authoring для Track, Laboratory и Production Case;
+- ссылки на canonical Platform Materials без копирования body;
+- manual Laboratory progress и optional learner notes;
+- первый Kafka Track с одной публичной Laboratory и одним Production Case;
+- будущие C#/.NET и Python variants одного Kafka Case contract.
+
+### Не входит
+
+- отдельный commercial SKU, checkout или Track-level purchase;
+- strict prerequisites, grade, XP, certificate или generic curriculum graph;
+- hosted Kafka sandbox или выполнение participant code в Platform;
+- длинные Projects;
+- окончательная Assignment, submission, Attempt и evaluator model;
+- universal visual authoring builder и двусторонняя Git synchronization.
+
+## 3. Application model
 
 ```text
-Workshop Track
-├── Case Placement ───────────────────→ Production Case
-└── Track Resource Group
-    ├── optional preparation context ─→ Case Placement
-    └── source
-        ├── explicit Material references
-        ├── Series reference
-        └── Material Selector ─────────→ Topic / Tags / Format
+Workshop
+└── WorkshopTrack 1..N
+    └── TrackItem 1..N (ordered)
+        ├── Material target ───────────────→ Materials Module
+        ├── Laboratory target ─────────────→ LaboratoryVersion
+        └── Production Case target ────────→ ProductionCaseVersion
 
-CaseVersion
-└── case-specific guidance ───────────→ CaseMaterial
+Laboratory
+└── LaboratoryVersion 0..N
+    └── LaboratoryStep 1..N (ordered)
+
+Account
+└── LaboratoryProgress 0..N
+    └── LaboratoryStepProgress 0..N
 ```
 
-- Между Workshop и Track нет дополнительного Program layer.
-- Track composition может содержать Case Placements и Track Resource Groups без обязательного
-  total order.
-- Ассоциация Track Resource Group с Case Placement задаёт preparation/reference context; группа
-  остаётся частью Track и не переходит во владение Case.
-- Track Resource Group описывает, зачем ресурсы показаны: `core`, `recommended` или `reference`.
-- Track references не копируют содержимое или taxonomy owning Materials Module и не меняют
-  lifecycle Production Case или CaseMaterial.
+### 3.1 WorkshopTrack
 
-## 3. Источники Track Resource Group
+`WorkshopTrack` имеет stable identity, title, summary, learning outcomes, prerequisites,
+indicative difficulty/duration и 1..N authored `TrackItem`. Published Track имеет ровно одну
+current immutable version; новая смысловая редакция создаёт следующую version.
 
-| Source | Семантика | Порядок | Подходящее применение |
-|---|---|---|---|
-| Explicit Materials | Автор явно выбирает ограниченный набор Materials. | Может быть задан внутри группы. | Core reading, точная подборка перед Case. |
-| Series | Track ссылается на существующую ordered Series («Плейлист»). | Принадлежит Series. | Переиспользуемая последовательность Materials. |
-| Material Selector | Live-выборка current published Materials по Topic, Tags, Format или их комбинации. | Не обещает curriculum order. | Related и recommended Materials. |
+Lifecycle: `draft → published → retired`.
 
-Dynamic Material Selector намеренно меняет результат, когда Material получает другую taxonomy,
-публикуется или исчезает из доступной выборки. Поэтому selector нельзя использовать как строгий
-prerequisite или как доказательство того, что learner прошёл фиксированный набор content.
+- `draft` не виден learner reads;
+- `published` имеет public outline и может открывать targets по их access policy;
+- `retired` не появляется в discovery, но сохраняет historical references и progress.
 
-Explicit Material и Series references отвечают за authored curation. Selector отвечает за
-discovery. Эти source semantics остаются различимыми: dynamic result нельзя выдавать за explicit
-зафиксированную подборку.
+Track может быть переиспользован будущим bundle/edition, но эти entities сейчас не вводятся.
 
-## 4. Порядок и progression
+### 3.2 TrackItem
 
-Track может иметь presentation order для Case Placements и Resource Groups. Explicit Materials
-могут иметь reading order, а Series уже владеет своим порядком. Ни один из этих порядков сам по себе
-не означает unlock condition.
+`TrackItem` принадлежит exact Track version и содержит:
 
-Первый Track slice не выводит completion или Case eligibility из ReadingState, video progress,
-позиции на странице либо наличия Material в selector. Формулировка «нужно изучить» означает
-authored expectation, пока отдельное решение не определит проверяемое completion evidence.
+- stable item identity внутри Track;
+- positive unique ordinal;
+- ровно один typed target: Material, Laboratory либо Production Case;
+- короткое authored rationale «зачем этот элемент здесь»;
+- access mode `public` или `workshop`;
+- optional presentation metadata.
 
-Если продукту потребуется строгая последовательность, он добавит явную prerequisite/progression
-policy. Она не выводится неявно из `ordinal`, UI layout или taxonomy.
+Ordinal задаёт только presentation order. Отсутствие completion предыдущего item не блокирует
+прямой переход. UI не может выводить access или completion из соседства карточек.
 
-## 5. Граница Track Resource Group и CaseMaterial
+Один target может встречаться в нескольких Tracks. TrackItem не копирует target content и не
+меняет его lifecycle.
 
-Track Resource Group отвечает на вопрос: «Что изучать в рамках этой тематической траектории или
-рядом с этим Case?» CaseMaterial отвечает на вопрос: «Какой protected learning resource
-принадлежит exact CaseVersion и когда его можно раскрыть?»
+### 3.3 Material target
 
-Поэтому:
+Materials Module остаётся единственным source of truth для Material body, taxonomy, revision и
+publication. Автор либо agent создаёт Material через admin/MCP Save flow.
 
-- общая база RabbitMQ, reused Series и live related materials принадлежат Track Resource Groups;
-- hint, exact solution, walkthrough и alternatives принадлежат CaseMaterial;
-- prerequisite/reference остаётся CaseMaterial только когда смысл и release lifecycle ресурса
-  действительно привязаны к exact CaseVersion;
-- Track не использует CaseMaterial как скрытый способ построить всю curriculum structure.
+Track authoring хранит stable Material identity. Publication разрешает ссылку только на
+существующий Published Material:
 
-## 6. Access consequence
+- `public` TrackItem требует, чтобы сам Material был internet-public;
+- `workshop` TrackItem не расширяет Material access и не обходит `ContentAccess`;
+- несовместимая access policy делает Track publication fail-closed;
+- dynamic Topic/Tag recommendations могут отображаться отдельно, но не становятся TrackItems или
+  prerequisites.
 
-Наличие Track, Case Placement или Track Resource Group не выдаёт доступ. WorkshopEntitlement и
-ContentAccess остаются отдельными authority. Track composition сообщает, что показать learner;
-ContentAccess решает, можно ли доставить body, asset или video конкретного Material.
+### 3.4 Laboratory и version
 
-Текущий scalar Material access class не решает автоматически, должен ли один и тот же Material
-открываться альтернативно через Membership или Workshop. До отдельного owner decision:
+`Laboratory` имеет stable identity и 0..N immutable versions. Published/startable Laboratory имеет
+ровно одну current published version. Смысловое изменение цели, required environment или шага
+создаёт новую version.
 
-- explicit Workshop-included resource не должен обещать delivery, которого не даёт его current
-  access policy;
-- dynamic selector может находить Material с собственной availability, но Track обязан честно
-  представить locked/unavailable outcome;
-- Track implementation не добавляет route-local Membership или Workshop fallback в обход
-  ContentAccess.
+`LaboratoryVersion` содержит:
 
-## 7. RabbitMQ scenario
+- цель, prerequisites, supported environment и expected time range;
+- safety/setup/cleanup guidance;
+- ordered steps;
+- bounded troubleshooting и agent prompts;
+- optional completion summary;
+- source commit и publication provenance.
 
-Track «RabbitMQ: надёжная доставка» может представить:
+Lifecycle version: `draft → published → withdrawn`. Withdrawn version нельзя начать заново, но
+existing Account progress остаётся читаемым.
 
-1. Core Track Resource Group со ссылкой на ordered Series «RabbitMQ: основы».
-2. Case Placement «Надёжный consumer и retry», у которого свои Hint/Solution CaseMaterials.
-3. Recommended Track Resource Group с live selector `Topic = RabbitMQ` и Tags `retries`, `DLQ`,
-   `reliability`.
-4. Case Placement «Transactional Outbox и доставка событий».
-5. Reference Track Resource Group с несколькими explicit Materials без обязательного порядка.
+### 3.5 LaboratoryStep
 
-Learner может начать с Case или открыть related Materials, если отдельная progression policy не
-установлена. Изменение Tags обновляет только dynamic recommendation result; оно не меняет состав
-explicit core group и не создаёт completion event.
+`LaboratoryStep` принадлежит exact LaboratoryVersion. Он содержит цель, action guidance и
+observable checkpoint. Optional поля `predictionPrompt`, `observationPrompt` и
+`conclusionPrompt` поддерживают цикл «предположил → запустил → наблюдал → сделал вывод», но ни одно
+из них не является required gate.
 
-## 8. Открытые решения до implementation
+Step может содержать commands/config snippets, но guide должен объяснять назначение существенных
+частей. Простое копирование непрозрачного готового environment не удовлетворяет first-lab
+contract.
 
-1. Один WorkshopEntitlement открывает весь Workshop или отдельные Tracks становятся самостоятельным
-   entitlement target.
-2. Может ли один Material открываться по правилу Membership **или** Workshop, и где живёт эта
-   composition policy.
-3. Должна ли published Track structure иметь immutable version и какие ссылки она фиксирует.
-4. Series в Track читается как current composition или snapshot-ится при публикации Track.
-5. Track ссылается на stable Production Case или на exact CaseVersion.
-6. Нужны ли strict prerequisites; если да, какое observable evidence означает завершение Material.
-7. Может ли Production Case входить в несколько Tracks и как learner progress переносится между
-   placements.
-8. Как Case Placements, Resource Groups и dynamic results представлены в первом responsive UI.
+### 3.6 LaboratoryProgress
 
-Эти решения не должны скрыто приниматься схемой данных или generic graph engine.
+`LaboratoryProgress` принадлежит одному Account и exact LaboratoryVersion. Он является private
+resume state, а не evaluation evidence.
 
-## 9. Не входит
+- Account вручную отмечает шаг complete/incomplete;
+- optional prediction, observation и conclusion notes сохраняются отдельно per step;
+- повторная запись одного состояния idempotent;
+- completion всей Laboratory означает только manual completion всех steps;
+- новая LaboratoryVersion не переносит progress автоматически;
+- anonymous visitor проходит public Laboratory без durable progress; sign-in CTA честно объясняет
+  это до потери данных.
 
-- изменение first-case journey Production Workshop v1;
-- schema, migrations, API, routes или UI;
-- checkout, pricing, bundle, cohort, edition или Track-level purchase;
-- universal curriculum graph, automatic completion и skill tree;
-- изменение CaseMaterial reveal policy или ContentAccess delivery matrix из #263.
+Notes имеют bounded length, не исполняются и не попадают в public Track. Их retention/deletion
+следует общему Account data lifecycle.
 
-## 10. Условия готовности implementation slice
+### 3.7 ProductionCase и CaseVariant
 
-Implementation начинается только когда выбран первый user-visible Track scenario и закрыты
-применимые решения из раздела 8. Его issue отдельно определяет observable outcome, access boundary,
-versioning, negative cases и UI evidence; эта proposed specification сама по себе не утверждает,
-что Track уже существует в runtime.
+Production Case задаёт versioned business context, constraints, expected design artifact,
+observable implementation requirements и author analysis. Он не обязан иметь executable checks
+до отдельного evaluation decision.
+
+Case Variant сохраняет общий business/learning contract, но владеет stack-specific starter,
+toolchain и idiomatic author solution. Первый Kafka Case планирует C#/.NET и Python. Ни один variant
+не считается supported без real ecosystem smoke и common behavioural review.
+
+Case-specific hint, solution и alternatives остаются Case resources; общие Kafka Materials
+принадлежат Materials Module и включаются в Track отдельными TrackItems.
+
+## 4. Authoring and publication
+
+Private `sachkov-inside/workshop-cases` является Git authoring source для `TrackSpec`,
+`LaboratorySpec`, `CaseSpec` и stack artifacts. Историческое имя repository не ограничивает его
+только Cases.
+
+Owner release operation принимает exact commit и выполняет:
+
+1. parse versioned schemas;
+2. validate stable identities, lifecycle и supported schema versions;
+3. resolve internal Track/Laboratory/Case references;
+4. verify referenced Materials через Materials Module;
+5. verify access compatibility;
+6. persist immutable source snapshot/provenance;
+7. atomically move all requested current pointers либо fail without partial publish.
+
+Повторная публикация того же exact source commit idempotent. Наличие валидного source не выдаёт
+access и не делает draft публичным.
+
+## 5. Access
+
+Одна active Inside subscription поддерживает две отдельные Platform authorities:
+
+- `MembershipEntitlement` для Library/Materials;
+- `WorkshopEntitlement` для protected Workshop content.
+
+Subscription evidence создаёт, продлевает и завершает оба bounded grants через их owning modules.
+Один grant не вычисляется route-local проверкой другого. Такой contract сохраняет возможность
+будущего отдельного Workshop grant, не создавая отдельный текущий продукт.
+
+Workshop access matrix:
+
+| Subject | Track outline | Public item | Workshop item | Durable lab progress |
+|---|---:|---:|---:|---:|
+| Anonymous | allow | allow | deny | deny |
+| Account без WorkshopEntitlement | allow | allow | deny | allow только после sign-in для public Laboratory |
+| Account с active WorkshopEntitlement | allow | allow | allow | allow |
+| Account с expired WorkshopEntitlement | allow | allow | deny | historical state readable, protected body deny |
+
+Material delivery дополнительно требует allow от `ContentAccess`; Workshop composition не может
+ослабить его решение. Laboratory/Case pages, APIs, downloads и assets используют тот же declared
+access mode и не доверяют UI lock state.
+
+## 6. Presentation contract
+
+Public Workshop page показывает published Tracks. Track page показывает цель, prerequisites,
+learning outcomes и полный ordered outline.
+
+Каждый item различимо показывает:
+
+- тип: Material, Laboratory или Production Case;
+- public/free либо included in Workshop;
+- recommended current/next presentation;
+- manual Laboratory state, если он существует;
+- unavailable/withdrawn состояние без исчезновения объяснения.
+
+Free item использует единый reusable visual marker. Закрытая карточка не имитирует бесплатный
+preview body. Recommended order не изображается как технически locked progression.
+
+Первая composition выбирается в prototype #273 после завершения visual foundation #271 / PR #272.
+Production pages поставляет #281.
+
+## 7. First Kafka Track specimen
+
+Первый Track должен выдержать настоящие данные из #276 и #277:
+
+1. authored Kafka learning outcome и prerequisites;
+2. explicit Material references, добавляемые по мере публикации Materials;
+3. public Laboratory «Kafka: от запуска до сбоев»;
+4. protected Production Case «Надёжная рассылка уведомлений»;
+5. optional dynamic related Materials вне ordered TrackItems.
+
+Laboratory покрывает самостоятельный Docker Compose, topic/partitions, producer/consumer,
+consumer groups, rebalance, offsets, backlog, replay и application-level failure. Replicated
+cluster operations, tuning и capacity planning не входят.
+
+Production Case требует спроектировать и реализовать асинхронную notification feature с provider
+failures, duplicates, retries, poison messages, ordering, compatibility и observability. Exact
+fictional domain и constraints принадлежат #277.
+
+## 8. Deferred evaluation boundary
+
+`Assignment`, `Attempt`, `AttemptResult`, source archive и Go evaluator существуют как foundations
+прежнего case-first slice. Они не являются автоматическим contract первого Kafka Case.
+
+После accepted CaseSpec #277 задача #278 должна определить:
+
+- форму design artifact и границу qualitative judgement;
+- observable behavioural scenarios;
+- source/evidence identity и trust;
+- local, GitHub-based или иной handoff;
+- failure, retry и result language;
+- точный reuse либо retirement существующих foundations.
+
+До этого решения schema Track/Laboratory не получает фиктивный universal submission abstraction.
+
+## 9. Negative cases
+
+- Duplicate/non-positive ordinal, missing target или несколько targets отклоняют Track source.
+- Missing/unpublished Material, Laboratory или Case отклоняет atomic publication.
+- Public TrackItem не повышает protected Material до public.
+- Anonymous progress mutation отклоняется без создания скрытого Account state.
+- Manual complete не создаёт AttemptResult и не называется mastery.
+- Retired Track/withdrawn Laboratory не открывают новые starts, но не удаляют historical state.
+- Expired WorkshopEntitlement не раскрывает protected body через direct API, asset или cached
+  response.
+- Unknown source/schema version fail closed.
+
+## 10. Delivery graph
+
+| Issue | Role | Opens |
+|---|---|---|
+| #275 | This accepted application contract | #279, #280 and revised #273 |
+| #276 | Real Kafka Track/Laboratory content specimen | #279 and #273 |
+| #277 | Real notification CaseSpec | #278, #279 and #282 |
+| #278 | Evaluation research and owner decision | refined #282 |
+| #279 | Versioned import/publication/read model | #281 and #282 |
+| #280 | Subscription grants and public access | #281 |
+| #273 | Visual prototype after #271/#272 | #281 |
+| #281 | Production Track/Laboratory UI and progress | #283 |
+| #282 | C#/Python variants and accepted evaluation | #283 |
+| #283 | Aggregate end-to-end acceptance | parent #274 completion |
+
+## 11. Acceptance and stopping condition
+
+Эта specification готова, когда repository glossary и product brief используют тот же язык,
+conflicting case-first document явно superseded, `pnpm docs:check` проходит, а implementation graph
+содержит owner-approved dependencies.
+
+Issue #275 не меняет runtime. Первый product slice завершён только aggregate acceptance #283.
