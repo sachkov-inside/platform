@@ -44,7 +44,9 @@ export function TopicMaterialCatalog({
       <CatalogControls
         facets={facets}
         isRefreshing={
-          catalog.query.isFetching && !catalog.query.isFetchingNextPage
+          catalog.query.isFetching &&
+          !catalog.query.isPending &&
+          !catalog.query.isFetchingNextPage
         }
         onQueryChange={(next) => {
           catalog.setSearchQuery(withoutLibraryCursor(next));
