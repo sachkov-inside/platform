@@ -2,14 +2,16 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
+import { migrationChecksum } from "../../src/infrastructure/postgres/migrate-to-latest.js";
 import { acquireWorkerGenerationLease } from "../../src/infrastructure/worker-runtime.js";
 import { platformMigrations } from "../../src/migrations/index.js";
 import {
+  expectedPgBossSchemaVersion,
   migrateRuntimeDatabase,
-  verifyRuntimeDatabaseMigrationLedger,
+  runtimeDatabaseSchemaIdentity,
+  verifyRuntimeDatabaseSchema,
 } from "../../src/migrations/migrate.js";
 import {
-  createMigratedTestDatabase,
   createTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
@@ -22,12 +24,17 @@ describe("production runtime readiness", () => {
   });
 
   test("binds readiness to the exact release and complete schema", async () => {
-    const database = await createMigratedTestDatabase();
+    const database = await createTestDatabase();
     databases.push(database);
-    const readiness = new OperationalReadiness(database.prisma, {
-      release: "v7",
-      sourceSha: "7".repeat(40),
-    });
+    await migrateRuntimeDatabase(database.url);
+    const readiness = new OperationalReadiness(
+      database.prisma,
+      {
+        release: "v7",
+        sourceSha: "7".repeat(40),
+      },
+      { database: { url: database.url } },
+    );
 
     await expect(readiness.check("api")).resolves.toMatchObject({
       database: "reachable",
@@ -64,19 +71,61 @@ describe("production runtime readiness", () => {
     expect(typeof outcome.jobSchemaVersion).toBe("number");
   });
 
-  test("verifies the current migration ledger without changing the database", async () => {
+  test("verifies the exact current runtime schema without changing the database", async () => {
     const database = await createTestDatabase();
     databases.push(database);
 
     await expect(
-      verifyRuntimeDatabaseMigrationLedger(database.url),
-    ).resolves.toEqual({ appliedMigrations: [] });
+      verifyRuntimeDatabaseSchema(
+        database.url,
+        runtimeDatabaseSchemaIdentity([], null),
+      ),
+    ).resolves.toMatchObject({ appliedMigrations: [], jobSchemaVersion: null });
     await migrateRuntimeDatabase(database.url);
+    const expectedIdentity = runtimeDatabaseSchemaIdentity(
+      platformMigrations,
+      expectedPgBossSchemaVersion,
+    );
     await expect(
-      verifyRuntimeDatabaseMigrationLedger(database.url),
-    ).resolves.toEqual({
+      verifyRuntimeDatabaseSchema(database.url, expectedIdentity),
+    ).resolves.toMatchObject({
       appliedMigrations: platformMigrations.map(({ name }) => name),
+      identity: expectedIdentity,
+      jobSchemaVersion: expectedPgBossSchemaVersion,
     });
+
+    const finalMigration = platformMigrations.at(-1);
+    if (finalMigration === undefined) {
+      throw new Error("Runtime readiness requires at least one migration");
+    }
+    await database.prisma.$executeRaw(
+      Prisma.sql`delete from public.platform_migrations where position = ${platformMigrations.length}`,
+    );
+    await expect(
+      verifyRuntimeDatabaseSchema(database.url, expectedIdentity),
+    ).rejects.toThrow(
+      "Runtime database schema identity does not match the deployed release",
+    );
+    await database.prisma.$executeRaw(Prisma.sql`
+      insert into public.platform_migrations (name, position, checksum)
+      values (
+        ${finalMigration.name},
+        ${platformMigrations.length},
+        ${migrationChecksum(finalMigration.statement)}
+      )
+    `);
+
+    await database.prisma.$executeRaw(
+      Prisma.sql`update pgboss.version set version = ${expectedPgBossSchemaVersion - 1}`,
+    );
+    await expect(
+      verifyRuntimeDatabaseSchema(database.url, expectedIdentity),
+    ).rejects.toThrow(
+      "Runtime database schema identity does not match the deployed release",
+    );
+    await database.prisma.$executeRaw(
+      Prisma.sql`update pgboss.version set version = ${expectedPgBossSchemaVersion}`,
+    );
 
     await database.prisma.$executeRaw(Prisma.sql`
       update public.platform_migrations
@@ -84,7 +133,7 @@ describe("production runtime readiness", () => {
       where position = 1
     `);
     await expect(
-      verifyRuntimeDatabaseMigrationLedger(database.url),
+      verifyRuntimeDatabaseSchema(database.url, expectedIdentity),
     ).rejects.toThrow(`Migration checksum mismatch: ${platformMigrations[0]?.name}`);
   });
 
@@ -96,7 +145,10 @@ describe("production runtime readiness", () => {
     `);
 
     await expect(
-      verifyRuntimeDatabaseMigrationLedger(database.url),
+      verifyRuntimeDatabaseSchema(
+        database.url,
+        runtimeDatabaseSchemaIdentity([], null),
+      ),
     ).rejects.toThrow("Migration ledger is missing from a non-empty database");
   });
 

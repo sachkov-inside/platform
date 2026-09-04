@@ -160,8 +160,36 @@ activate_caddy() {
   caddy reload --config "$host_root/etc/caddy/Caddyfile" --adapter caddyfile
 }
 
+assert_empty_initial_database() {
+  local database_network postgres_container database_empty
+  database_network="$(jq --exit-status --raw-output '.networks.database.name' <<<"$compose_config")"
+  postgres_container="$(
+    docker ps \
+      --filter "network=$database_network" \
+      --filter label=com.docker.compose.service=postgres \
+      --quiet
+  )"
+  if [[ ! "$postgres_container" =~ ^[0-9a-f]{12,64}$ ]]; then
+    echo "Expected exactly one running foundation PostgreSQL container" >&2
+    exit 1
+  fi
+  database_empty="$(
+    docker exec --env-file "$config_dir/migrations.env" "$postgres_container" \
+      sh -c 'psql "$DATABASE_URL" --tuples-only --no-align --set ON_ERROR_STOP=1 --command "select not exists (select 1 from information_schema.tables where table_schema <> '\''information_schema'\'' and table_schema not like '\''pg_%'\'' and table_type = '\''BASE TABLE'\'');"' \
+      | tr -d '[:space:]'
+  )"
+  if [[ "$database_empty" != t ]]; then
+    echo "The first deployment requires an empty application database" >&2
+    exit 1
+  fi
+}
+
 install -d -m 700 "$state_dir" "$release_env_dir"
 install -d -m 755 "$runtime_dir/caddy"
+last_operation_json=null
+if [[ -f "$operation_file" ]] && jq --exit-status . "$operation_file" >/dev/null 2>&1; then
+  last_operation_json="$(jq --compact-output . "$operation_file")"
+fi
 write_operation running "$phase"
 
 for name in \
@@ -209,17 +237,14 @@ if [[ -f "$state_file" ]] && ! jq --exit-status '
   exit 1
 fi
 
+is_noop=false
 if [[ "$operation" == deploy && -f "$state_file" && \
       "$(jq --raw-output .current.version "$state_file")" == "$version" ]]; then
   if [[ "$(jq --raw-output .current.manifestSha256 "$state_file")" != "$manifest_digest" ]]; then
     echo "The deployed ordinal has a different immutable manifest" >&2
     exit 1
   fi
-  phase=complete
-  write_operation succeeded "$phase"
-  completed=true
-  echo "$version is already deployed; no changes were made."
-  exit 0
+  is_noop=true
 fi
 
 previous_json=null
@@ -233,7 +258,7 @@ if [[ "$operation" == deploy ]]; then
       echo "The first deployment must be v1 without a previous release" >&2
       exit 1
     fi
-  else
+  elif [[ "$is_noop" != true ]]; then
     current_version="$(jq --raw-output .current.version "$state_file")"
     current_ordinal="${current_version#v}"
     if [[ "$target_ordinal" -ne $((current_ordinal + 1)) ]]; then
@@ -297,18 +322,80 @@ compose_config="$(docker compose \
   --env-file "$config_dir/compose.env" \
   --file "$compose_file" \
   config --format json)"
-docker pull "$backend_image"
-docker pull "$web_image"
-docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
-  run --rm --no-deps migrations \
-  node dist/migrations/migrate.js --verify-ledger >/dev/null
+
+if [[ ! -f "$state_file" ]]; then
+  assert_empty_initial_database
+else
+  current_version="$(jq --raw-output .current.version "$state_file")"
+  current_schema_identity="$(jq --raw-output .current.schemaIdentity "$state_file")"
+  current_release_dir="$host_root/srv/inside/releases/$current_version"
+  current_manifest="$current_release_dir/release-manifest.json"
+  current_compose_file="$current_release_dir/runtime/compose.production.yaml"
+  load_release_environment "$current_manifest"
+  if ! current_schema_error="$(
+    docker compose --env-file "$config_dir/compose.env" --file "$current_compose_file" \
+      run --pull never --rm --no-deps migrations \
+      node dist/migrations/migrate.js \
+      --verify-schema-identity "$current_schema_identity" 2>&1
+  )"; then
+    retry_phase="$(jq --raw-output \
+      --arg operation "$operation" \
+      --arg version "$version" '
+        if .status == "failed" and
+           .operation == $operation and
+           .version == $version
+        then .phase else empty end
+      ' <<<"$last_operation_json" 2>/dev/null || true)"
+    load_release_environment "$manifest"
+    case "$retry_phase" in
+      migrations)
+        docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
+          run --pull never --rm --no-deps migrations \
+          node dist/migrations/migrate.js --verify-schema-compatible >/dev/null
+        ;;
+      start | readiness | smoke | routes | journal)
+        docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
+          run --pull never --rm --no-deps migrations \
+          node dist/migrations/migrate.js \
+          --verify-schema-identity "$schema_identity" >/dev/null
+        ;;
+      *)
+        printf '%s\n' "$current_schema_error" >&2
+        exit 1
+        ;;
+    esac
+  fi
+  load_release_environment "$manifest"
+fi
+
+if [[ "$is_noop" == true ]]; then
+  phase=complete
+  write_operation succeeded "$phase"
+  completed=true
+  echo "$version is already deployed; no changes were made."
+  exit 0
+fi
 
 phase=maintenance
 write_operation running "$phase"
+fail_if_requested maintenance
 activate_caddy "$release_dir/runtime/caddy/maintenance.caddy"
+
+phase=pull
+write_operation running "$phase"
+fail_if_requested pull
+docker pull "$backend_image"
+docker pull "$web_image"
+
+phase=schema
+write_operation running "$phase"
+docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
+  run --pull never --rm --no-deps migrations \
+  node dist/migrations/migrate.js --verify-schema-compatible >/dev/null
 
 phase=workers
 write_operation running "$phase"
+fail_if_requested workers
 if [[ -f "$state_file" ]]; then
   old_version="$(jq --raw-output .current.version "$state_file")"
   old_release_dir="$host_root/srv/inside/releases/$old_version"
@@ -331,6 +418,7 @@ fi
 
 phase=start
 write_operation running "$phase"
+fail_if_requested start
 docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
   up --detach --wait --no-deps \
   api mcp material-assets-worker profile-avatars-worker video-deletions-worker web
@@ -364,6 +452,7 @@ curl --fail --silent --show-error "http://127.0.0.1:$web_port/" >/dev/null
 
 phase=routes
 write_operation running "$phase"
+fail_if_requested routes
 activate_caddy "$release_dir/runtime/caddy/platform.caddy"
 
 successful_epoch="$(now_epoch)"
@@ -379,6 +468,9 @@ if [[ "$rollback_json" != null ]]; then
       }
     ' <<<"$rollback_json")"
 fi
+phase=journal
+write_operation running "$phase"
+fail_if_requested journal
 jq --null-input \
   --arg schemaVersion inside.platform.deployment-state.v1 \
   --arg operation "$operation" \

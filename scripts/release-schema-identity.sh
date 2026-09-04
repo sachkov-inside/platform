@@ -20,9 +20,14 @@ image_digest="${image_reference##*@}"
 validate_digest "$image_digest"
 
 identity="$(docker run --rm --entrypoint node "$image_reference" --input-type=module --eval '
-  import { migrationRegistryIdentity } from "./dist/infrastructure/postgres/migrate-to-latest.js";
+  import {
+    expectedPgBossSchemaVersion,
+    runtimeDatabaseSchemaIdentity,
+  } from "./dist/migrations/migrate.js";
   import { platformMigrations } from "./dist/migrations/index.js";
-  process.stdout.write(migrationRegistryIdentity(platformMigrations));
+  process.stdout.write(
+    runtimeDatabaseSchemaIdentity(platformMigrations, expectedPgBossSchemaVersion),
+  );
 ')"
 validate_digest "$identity"
 printf '%s\n' "$identity"

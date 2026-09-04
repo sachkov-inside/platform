@@ -80,13 +80,15 @@ payload containing exactly `release-manifest.json` and `production-runtime.tar.g
 closed manifest, bundle digest and paths before staging an ordinal under `/srv/inside/releases`.
 An existing ordinal can be reused only with byte-identical assets.
 
-One deployment executes this order: host/config preflight, exact image pulls and a read-only check
-that the live migration ledger is a valid prefix of the candidate image, maintenance route, old
-worker drain, migrations, candidate processes, release/schema readiness, read-only web smoke,
-public routes, successful journal write. `rollback` uses the same order without migrations. Image
-materialization is deliberately part of preflight so an unavailable digest or wrong live ledger is
-rejected before the public route changes. A later failure leaves maintenance active and records its
-phase for an exact retry or repair forward.
+One deployment executes this order: host/config and current-schema preflight, maintenance route,
+exact image pulls, candidate compatibility check, old worker drain, migrations, candidate
+processes, release/schema readiness, read-only web smoke, public routes, successful journal write.
+`rollback` uses the same order without migrations. Preflight uses the already deployed image with
+pulling disabled and rejects database drift while the old route is still public. The runtime schema
+identity covers both the Platform migration registry and the PgBoss-managed schema version. A later
+failure leaves maintenance active and records its phase for an exact retry or repair forward.
+For the first deployment, preflight asks the already running foundation PostgreSQL container to
+prove that the application database has no user tables before the route changes.
 
 `/var/lib/inside/deployments/state.json` records current and previous version, source SHA, image and
 bundle digests, schema identity, successful time and GitHub run. `operation.json` records the last
@@ -147,10 +149,13 @@ expand-compatible but different schema still requires repair forward until the r
 broader contract. A successful deployment opens its rollback window for 24 hours; `v1`, an unknown
 target, a changed manifest, incompatible evidence or an expired window is rejected.
 
-Before maintenance, the selected backend image runs
-`node dist/migrations/migrate.js --verify-ledger` against the server-owned migration connection.
-This command never creates a table or applies a migration: it accepts an absent first-deploy ledger
-or an exact ordered/checksummed prefix and rejects drift, gaps and migrations unknown to the image.
+Before maintenance, the deployed backend image runs
+`node dist/migrations/migrate.js --verify-schema-identity <sha256:identity>` against the
+server-owned migration connection, with image pulling disabled. This command never creates a table
+or applies a migration: it requires the exact journaled Platform migration prefix and PgBoss schema
+version. After maintenance and exact image pulls, `--verify-schema-compatible` accepts an empty
+first-deploy database or an ordered, checksum-valid prefix that the candidate can migrate forward.
+Drift, gaps and migrations unknown to the image are rejected.
 
 ## Run deployment or rollback
 

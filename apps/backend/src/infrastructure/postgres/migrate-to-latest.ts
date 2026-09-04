@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { Pool, type PoolClient } from "pg";
+import { z } from "zod";
 
 export interface Migration {
   readonly name: string;
@@ -13,12 +14,31 @@ export interface MigrationOutcome {
 
 export interface MigrationVerification {
   readonly appliedMigrations: readonly string[];
+  readonly jobSchemaVersion: number | null;
 }
 
-export interface AppliedMigration {
-  readonly checksum: string;
-  readonly name: string;
-  readonly position: number;
+const appliedMigrationSchema = z.strictObject({
+  checksum: z.string().length(64),
+  name: z.string().min(1),
+  position: z.number().int().positive(),
+});
+const relationRowSchema = z.strictObject({ relation: z.string().nullable() });
+const relationPresenceRowSchema = z.strictObject({ has_relations: z.boolean() });
+const ledgerColumnRowsSchema = z.array(
+  z.strictObject({ name: z.string().min(1) }),
+);
+const pgBossVersionRowsSchema = z
+  .array(z.strictObject({ version: z.number().int().positive() }))
+  .max(1);
+
+export type AppliedMigration = z.infer<typeof appliedMigrationSchema>;
+
+export function parseAppliedMigrations(value: unknown): AppliedMigration[] {
+  return z.array(appliedMigrationSchema).parse(value);
+}
+
+export function parsePgBossSchemaVersionRows(value: unknown): number | null {
+  return pgBossVersionRowsSchema.parse(value)[0]?.version ?? null;
 }
 
 export async function runMigrationsToLatest(
@@ -40,13 +60,17 @@ export async function runMigrationsToLatest(
         applied_at timestamptz not null default now()
       )
     `);
-      const ledgerColumns = await connection.query<{ readonly name: string }>(`
-      select column_name as name
-      from information_schema.columns
-      where table_schema = 'public'
-        and table_name = 'platform_migrations'
-    `);
-      const ledgerColumnNames = new Set(ledgerColumns.rows.map(({ name }) => name));
+      const ledgerColumns = ledgerColumnRowsSchema.parse(
+        (
+          await connection.query(`
+            select column_name as name
+            from information_schema.columns
+            where table_schema = 'public'
+              and table_name = 'platform_migrations'
+          `)
+        ).rows,
+      );
+      const ledgerColumnNames = new Set(ledgerColumns.map(({ name }) => name));
       if (
         !["name", "position", "checksum", "applied_at"].every((column) =>
           ledgerColumnNames.has(column),
@@ -56,13 +80,17 @@ export async function runMigrationsToLatest(
           "Migration ledger format mismatch; recreate the pre-Prisma database",
         );
       }
-      const applied = await connection.query<AppliedMigration>(
-        "select name, position, checksum from public.platform_migrations order by position",
+      const applied = parseAppliedMigrations(
+        (
+          await connection.query(
+            "select name, position, checksum from public.platform_migrations order by position",
+          )
+        ).rows,
       );
-      assertAppliedMigrations(applied.rows, migrations);
+      assertAppliedMigrations(applied, migrations);
       const appliedMigrations: string[] = [];
       for (
-        let index = applied.rows.length;
+        let index = applied.length;
         index < migrations.length;
         index += 1
       ) {
@@ -88,25 +116,20 @@ export async function runMigrationsToLatest(
   });
 }
 
-export async function verifyMigrationLedger(
+export async function verifyMigrationState(
   connectionString: string,
   migrations: readonly Migration[],
 ): Promise<MigrationVerification> {
   assertUniqueMigrationNames(migrations);
   return withMigrationConnection(connectionString, async (connection) => {
-    const relationResult = await connection.query(
-      "select to_regclass('public.platform_migrations') as relation",
-    );
-    const relationRow: unknown = relationResult.rows[0];
-    if (
-      typeof relationRow !== "object" ||
-      relationRow === null ||
-      !("relation" in relationRow) ||
-      (relationRow.relation !== null && typeof relationRow.relation !== "string")
-    ) {
-      throw new Error("Migration ledger lookup returned an invalid row");
-    }
-    if (relationRow.relation === null) {
+    const relation = relationRowSchema.parse(
+      (
+        await connection.query(
+          "select to_regclass('public.platform_migrations') as relation",
+        )
+      ).rows[0],
+    ).relation;
+    if (relation === null) {
       const tablesResult = await connection.query(`
         select exists (
           select 1
@@ -116,26 +139,40 @@ export async function verifyMigrationLedger(
             and table_type = 'BASE TABLE'
         ) as has_relations
       `);
-      const tablesRow: unknown = tablesResult.rows[0];
-      if (
-        typeof tablesRow !== "object" ||
-        tablesRow === null ||
-        !("has_relations" in tablesRow) ||
-        typeof tablesRow.has_relations !== "boolean"
-      ) {
-        throw new Error("Database relation lookup returned an invalid row");
-      }
+      const tablesRow = relationPresenceRowSchema.parse(tablesResult.rows[0]);
       if (tablesRow.has_relations) {
         throw new Error("Migration ledger is missing from a non-empty database");
       }
-      return { appliedMigrations: [] };
+      return { appliedMigrations: [], jobSchemaVersion: null };
     }
-    const applied = await connection.query<AppliedMigration>(
-      "select name, position, checksum from public.platform_migrations order by position",
+    const applied = parseAppliedMigrations(
+      (
+        await connection.query(
+          "select name, position, checksum from public.platform_migrations order by position",
+        )
+      ).rows,
     );
-    assertAppliedMigrations(applied.rows, migrations);
-    return { appliedMigrations: applied.rows.map(({ name }) => name) };
+    assertAppliedMigrations(applied, migrations);
+    return {
+      appliedMigrations: applied.map(({ name }) => name),
+      jobSchemaVersion: await readPgBossSchemaVersion(connection),
+    };
   });
+}
+
+async function readPgBossSchemaVersion(
+  connection: PoolClient,
+): Promise<number | null> {
+  const relation = relationRowSchema.parse(
+    (await connection.query("select to_regclass('pgboss.version') as relation"))
+      .rows[0],
+  ).relation;
+  if (relation === null) {
+    return null;
+  }
+  return parsePgBossSchemaVersionRows(
+    (await connection.query("select version from pgboss.version")).rows,
+  );
 }
 
 async function withMigrationConnection<T>(

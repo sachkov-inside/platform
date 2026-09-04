@@ -28,15 +28,17 @@ describe("production deployment state machine", () => {
       const firstExternalLog = readExternalLog(fixture);
       assert.match(
         firstExternalLog,
-        /docker compose .* run --rm --no-deps migrations node dist\/migrations\/migrate\.js --verify-ledger/u,
+        /docker compose .* run --pull never --rm --no-deps migrations node dist\/migrations\/migrate\.js --verify-schema-compatible/u,
       );
       assert.ok(
-        firstExternalLog.indexOf("--verify-ledger") <
-          firstExternalLog.indexOf("caddy reload"),
-        "database schema preflight must finish before maintenance",
+        firstExternalLog.indexOf("caddy reload") <
+          firstExternalLog.indexOf("docker pull"),
+        "maintenance must be enabled before exact images are pulled",
       );
       assertGatewaySuccess(fixture, "deploy", "v1", 102);
-      assert.equal(readExternalLog(fixture), firstExternalLog);
+      const noOpLog = readExternalLog(fixture).slice(firstExternalLog.length);
+      assert.match(noOpLog, /--verify-schema-identity/u);
+      assert.doesNotMatch(noOpLog, /docker pull|caddy reload| up --detach| run --rm migrations/u);
 
       assertGatewaySuccess(fixture, "deploy", "v2", 103);
       state = readState(fixture);
@@ -68,11 +70,28 @@ describe("production deployment state machine", () => {
     }
   });
 
-  for (const phase of ["preflight", "migrations", "readiness", "smoke"]) {
+  for (const phase of [
+    "preflight",
+    "maintenance",
+    "pull",
+    "workers",
+    "migrations",
+    "start",
+    "readiness",
+    "smoke",
+    "routes",
+    "journal",
+  ]) {
     it(`records ${phase} failure and safely repeats the same deployment`, () => {
       const fixture = createHostFixture();
       try {
-        const failed = runGateway(fixture, "deploy", "v1", 201, {
+        assertGatewaySuccess(fixture, "deploy", "v1", 200);
+        const activeCaddy = resolve(
+          fixture.root,
+          "srv/inside/runtime/caddy/active.caddy",
+        );
+        const previousRoute = readFileSync(activeCaddy, "utf8");
+        const failed = runGateway(fixture, "deploy", "v2", 201, {
           INSIDE_DEPLOY_FAIL_PHASE: phase,
         });
 
@@ -88,18 +107,18 @@ describe("production deployment state machine", () => {
         );
         assert.equal(operation.status, "failed");
         assert.equal(operation.phase, phase);
-        const activeCaddy = resolve(
-          fixture.root,
-          "srv/inside/runtime/caddy/active.caddy",
-        );
-        if (phase === "preflight") {
-          assert.equal(existsSync(activeCaddy), false);
+        if (
+          phase === "preflight" ||
+          phase === "maintenance" ||
+          phase === "journal"
+        ) {
+          assert.equal(readFileSync(activeCaddy, "utf8"), previousRoute);
         } else {
           assert.match(readFileSync(activeCaddy, "utf8"), /Deployment in progress/u);
         }
 
-        assertGatewaySuccess(fixture, "deploy", "v1", 202);
-        assert.equal(readState(fixture).current.version, "v1");
+        assertGatewaySuccess(fixture, "deploy", "v2", 202);
+        assert.equal(readState(fixture).current.version, "v2");
       } finally {
         fixture.cleanup();
       }
@@ -109,7 +128,13 @@ describe("production deployment state machine", () => {
   it("rejects a database schema mismatch before enabling maintenance", () => {
     const fixture = createHostFixture();
     try {
-      const failed = runGateway(fixture, "deploy", "v1", 203, {
+      assertGatewaySuccess(fixture, "deploy", "v1", 203);
+      const activeCaddy = resolve(
+        fixture.root,
+        "srv/inside/runtime/caddy/active.caddy",
+      );
+      const previousRoute = readFileSync(activeCaddy, "utf8");
+      const failed = runGateway(fixture, "deploy", "v2", 204, {
         INSIDE_DEPLOY_TEST_SCHEMA_MISMATCH: "true",
       });
 
@@ -127,11 +152,52 @@ describe("production deployment state machine", () => {
         "preflight",
       );
       assert.equal(
+        readFileSync(activeCaddy, "utf8"),
+        previousRoute,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects a non-empty first-deploy database before enabling maintenance", () => {
+    const fixture = createHostFixture();
+    try {
+      const failed = runGateway(fixture, "deploy", "v1", 204, {
+        INSIDE_DEPLOY_TEST_NONEMPTY_DATABASE: "true",
+      });
+
+      assert.notEqual(failed.status, 0);
+      assert.match(failed.stderr, /requires an empty application database/u);
+      assert.equal(
         existsSync(
           resolve(fixture.root, "srv/inside/runtime/caddy/active.caddy"),
         ),
         false,
       );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("resumes a release whose migrations completed before a later failure", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 205);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 206, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        }).status,
+        0,
+      );
+
+      assert.equal(
+        runGateway(fixture, "deploy", "v2", 207, {
+          INSIDE_DEPLOY_TEST_CURRENT_SCHEMA_MISMATCH: "true",
+        }).status,
+        0,
+      );
+      assert.equal(readState(fixture).current.version, "v2");
     } finally {
       fixture.cleanup();
     }
@@ -234,10 +300,22 @@ function createHostFixture({ compatible = true } = {}) {
 set -euo pipefail
 printf "docker %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"
 if [[ "$*" == *"config --format json"* ]]; then
-  printf '{"services":{"api":{"ports":[{"host_ip":"127.0.0.1","target":3001,"published":"13001","protocol":"tcp"}]},"web":{"ports":[{"host_ip":"127.0.0.1","target":3000,"published":"13000","protocol":"tcp"}]}}}\n'
+  printf '{"networks":{"database":{"name":"inside-platform-database-test"}},"services":{"api":{"ports":[{"host_ip":"127.0.0.1","target":3001,"published":"13001","protocol":"tcp"}]},"web":{"ports":[{"host_ip":"127.0.0.1","target":3000,"published":"13000","protocol":"tcp"}]}}}\n'
+elif [[ "$*" == *"ps --filter network="*"--filter label=com.docker.compose.service=postgres --quiet"* ]]; then
+  printf '%s\n' '${"f".repeat(64)}'
+elif [[ "$*" == *"exec --env-file "*" psql "* ]]; then
+  if [[ "\${INSIDE_DEPLOY_TEST_NONEMPTY_DATABASE:-}" == true ]]; then
+    printf 'f\n'
+  else
+    printf 't\n'
+  fi
 fi
-if [[ "\${INSIDE_DEPLOY_TEST_SCHEMA_MISMATCH:-}" == true && "$*" == *"--verify-ledger"* ]]; then
+if [[ "\${INSIDE_DEPLOY_TEST_SCHEMA_MISMATCH:-}" == true && "$*" == *"--verify-schema-identity"* ]]; then
   echo "Migration ledger mismatch" >&2
+  exit 1
+fi
+if [[ "\${INSIDE_DEPLOY_TEST_CURRENT_SCHEMA_MISMATCH:-}" == true && "$*" == *"/releases/v1/"* && "$*" == *"--verify-schema-identity"* ]]; then
+  echo "Current release schema mismatch" >&2
   exit 1
 fi
 `,

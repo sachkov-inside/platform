@@ -418,7 +418,7 @@ docker run --rm \
   --entrypoint node \
   "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
   dist/migrations/migrate.js \
-  --verify-ledger >/dev/null
+  --verify-schema-compatible >/dev/null
 docker run --rm \
   --network "$foundation_network" \
   --env-file "$runtime_config_dir/runtime.env" \
@@ -448,7 +448,7 @@ docker run --rm \
   --entrypoint node \
   "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
   dist/migrations/migrate.js \
-  --verify-ledger >/dev/null
+  --verify-schema-compatible >/dev/null
 
 "${application_compose[@]}" config --quiet
 if "${application_compose[@]}" config --images | grep -Eq ':(latest|v[0-9]+)$'; then

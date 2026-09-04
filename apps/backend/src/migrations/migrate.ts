@@ -1,5 +1,6 @@
 import { pathToFileURL } from "node:url";
 
+import { sha256IdentitySchema } from "@inside/runtime-identity";
 import { PgBoss } from "pg-boss";
 
 import { loadRepositoryEnvironment } from "../config/load-repository-environment.js";
@@ -8,8 +9,17 @@ import {
   parsePlatformMode,
 } from "../config/platform-config.js";
 import { parseRuntimeIdentity } from "../infrastructure/runtime-identity.js";
-import { verifyMigrationLedger } from "../infrastructure/postgres/migrate-to-latest.js";
+import { verifyMigrationState } from "../infrastructure/postgres/migrate-to-latest.js";
 import { migrateToLatest, platformMigrations } from "./index.js";
+import {
+  expectedPgBossSchemaVersion,
+  runtimeDatabaseSchemaIdentity,
+} from "./runtime-schema.js";
+
+export {
+  expectedPgBossSchemaVersion,
+  runtimeDatabaseSchemaIdentity,
+} from "./runtime-schema.js";
 
 export interface RuntimeMigrationOutcome {
   readonly appliedMigrations: readonly string[];
@@ -44,10 +54,57 @@ export async function migrateRuntimeDatabase(
   }
 }
 
-export async function verifyRuntimeDatabaseMigrationLedger(
+export interface RuntimeSchemaVerification {
+  readonly appliedMigrations: readonly string[];
+  readonly identity: string;
+  readonly jobSchemaVersion: number | null;
+}
+
+export async function verifyRuntimeDatabaseSchema(
   databaseUrl: string,
-): Promise<{ readonly appliedMigrations: readonly string[] }> {
-  return verifyMigrationLedger(databaseUrl, platformMigrations);
+  expectedIdentity: string,
+): Promise<RuntimeSchemaVerification> {
+  expectedIdentity = sha256IdentitySchema.parse(expectedIdentity);
+  const migrationState = await verifyMigrationState(
+    databaseUrl,
+    platformMigrations,
+  );
+  const { jobSchemaVersion } = migrationState;
+  const identity = runtimeDatabaseSchemaIdentity(
+    platformMigrations.slice(0, migrationState.appliedMigrations.length),
+    jobSchemaVersion,
+  );
+  if (identity !== expectedIdentity) {
+    throw new Error(
+      "Runtime database schema identity does not match the deployed release",
+    );
+  }
+  return { ...migrationState, identity };
+}
+
+export async function verifyRuntimeDatabaseSchemaCompatibility(
+  databaseUrl: string,
+): Promise<RuntimeSchemaVerification> {
+  const migrationState = await verifyMigrationState(
+    databaseUrl,
+    platformMigrations,
+  );
+  const { jobSchemaVersion } = migrationState;
+  if (
+    jobSchemaVersion !== null &&
+    jobSchemaVersion > expectedPgBossSchemaVersion
+  ) {
+    throw new Error(
+      `PgBoss schema ${String(jobSchemaVersion)} is newer than supported schema ${String(expectedPgBossSchemaVersion)}`,
+    );
+  }
+  return {
+    ...migrationState,
+    identity: runtimeDatabaseSchemaIdentity(
+      platformMigrations.slice(0, migrationState.appliedMigrations.length),
+      jobSchemaVersion,
+    ),
+  };
 }
 
 async function main(): Promise<void> {
@@ -57,14 +114,27 @@ async function main(): Promise<void> {
     process.env,
     parsePlatformMode(process.env.NODE_ENV),
   );
-  const [operation, extra] = process.argv.slice(2);
-  if (extra !== undefined || (operation !== undefined && operation !== "--verify-ledger")) {
-    throw new Error("usage: migrate.js [--verify-ledger]");
+  const [operation, expectedIdentity, extra] = process.argv.slice(2);
+  if (
+    extra !== undefined ||
+    (operation !== undefined &&
+      operation !== "--verify-schema-identity" &&
+      operation !== "--verify-schema-compatible") ||
+    (operation === "--verify-schema-identity") !==
+      (expectedIdentity !== undefined) ||
+    (operation === "--verify-schema-compatible" &&
+      expectedIdentity !== undefined)
+  ) {
+    throw new Error(
+      "usage: migrate.js [--verify-schema-identity <sha256:identity>|--verify-schema-compatible]",
+    );
   }
   const outcome =
-    operation === "--verify-ledger"
-      ? await verifyRuntimeDatabaseMigrationLedger(databaseConfig.url)
-      : await migrateRuntimeDatabase(databaseConfig.url);
+    operation === "--verify-schema-identity" && expectedIdentity !== undefined
+      ? await verifyRuntimeDatabaseSchema(databaseConfig.url, expectedIdentity)
+      : operation === "--verify-schema-compatible"
+        ? await verifyRuntimeDatabaseSchemaCompatibility(databaseConfig.url)
+        : await migrateRuntimeDatabase(databaseConfig.url);
   process.stdout.write(`${JSON.stringify({ ...outcome, release: runtimeIdentity })}\n`);
 }
 
