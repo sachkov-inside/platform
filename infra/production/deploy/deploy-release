@@ -448,6 +448,43 @@ if [[ "$operation" == deploy && -f "$state_file" && \
     exit 1
   fi
   is_noop=true
+elif [[ "$operation" == rollback && "$recovery_phase" == journal && -f "$state_file" ]]; then
+  interrupted_run_id="$(jq --raw-output \
+    'select(
+      (.status == "failed" or .status == "running") and
+      .operation == "rollback" and
+      .version == $version and
+      (.recoveryPhase // .phase) == "journal" and
+      .repairForward == null
+    ) | .githubRunId' \
+    --arg version "$version" <<<"$last_operation_json")"
+  if [[ "$interrupted_run_id" =~ ^[1-9][0-9]*$ ]] && jq --exit-status \
+    --arg version "$version" \
+    --arg sourceSha "$source_sha" \
+    --arg backendImage "$backend_image" \
+    --arg webImage "$web_image" \
+    --arg manifestSha256 "$manifest_digest" \
+    --arg bundleSha256 "$bundle_digest" \
+    --arg schemaIdentity "$schema_identity" \
+    --argjson interruptedRunId "$interrupted_run_id" '
+      .operation == "rollback" and
+      .current.version == $version and
+      .current.sourceSha == $sourceSha and
+      .current.backendImage == $backendImage and
+      .current.webImage == $webImage and
+      .current.manifestSha256 == $manifestSha256 and
+      .current.bundleSha256 == $bundleSha256 and
+      .current.schemaIdentity == $schemaIdentity and
+      .current.githubRunId == $interruptedRunId and
+      .previous == null and
+      .rollback == null and
+      .rolledBackFrom != null and
+      (.rolledBackFrom.version | test("^v[1-9][0-9]*$")) and
+      ((.rolledBackFrom.version[1:] | tonumber) == (($version[1:] | tonumber) + 1)) and
+      .rolledBackFrom.schemaIdentity == $schemaIdentity
+    ' "$state_file" >/dev/null; then
+    is_noop=true
+  fi
 fi
 
 previous_json=null
@@ -542,7 +579,9 @@ else
     echo "Rollback requires a successful current deployment" >&2
     exit 1
   fi
-  if ! jq --exit-status \
+  if [[ "$is_noop" == true ]]; then
+    : # The rollback state was committed before its operation journal closed.
+  elif ! jq --exit-status \
     --arg version "$version" \
     --arg manifestSha256 "$manifest_digest" \
     --arg sourceSha "$source_sha" \
@@ -629,7 +668,7 @@ if [[ "$is_noop" == true ]]; then
   recovery_phase=
   write_operation succeeded "$phase"
   completed=true
-  echo "$version is already deployed; no changes were made."
+  echo "$version is already active; no changes were made."
   exit 0
 fi
 

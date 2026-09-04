@@ -677,6 +677,56 @@ describe("production deployment state machine", () => {
     }
   });
 
+  it("closes a rollback interrupted after successful state was written", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 246);
+      assertGatewaySuccess(fixture, "deploy", "v2", 247);
+      const interrupted = runGateway(fixture, "rollback", "v1", 248, {
+        INSIDE_DEPLOY_TEST_INTERRUPT_AFTER_STATE: "true",
+      });
+      assert.notEqual(interrupted.status, 0);
+      let state = readState(fixture);
+      assert.equal(state.operation, "rollback");
+      assert.equal(state.current.version, "v1");
+      assert.equal(state.current.githubRunId, 248);
+      assert.equal(state.rollback, null);
+      assert.equal(state.rolledBackFrom.version, "v2");
+
+      const operationPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      let operation = JSON.parse(readFileSync(operationPath, "utf8"));
+      assert.equal(operation.status, "running");
+      assert.equal(operation.operation, "rollback");
+      assert.equal(operation.version, "v1");
+      assert.equal(operation.phase, "journal");
+      assert.equal(operation.recoveryPhase, "journal");
+
+      const retryLogStart = readExternalLog(fixture).length;
+      assertGatewaySuccess(fixture, "rollback", "v1", 249);
+      state = readState(fixture);
+      assert.equal(state.current.version, "v1");
+      assert.equal(state.current.githubRunId, 248);
+      operation = JSON.parse(readFileSync(operationPath, "utf8"));
+      assert.equal(operation.status, "succeeded");
+      assert.equal(operation.phase, "complete");
+      assert.equal(operation.recoveryPhase, null);
+      const retryLog = readExternalLog(fixture).slice(retryLogStart);
+      assert.match(retryLog, /--verify-schema-identity/u);
+      assert.doesNotMatch(
+        retryLog,
+        /docker pull|caddy reload| up --detach| run --rm migrations/u,
+      );
+      const repeated = runGateway(fixture, "rollback", "v1", 250);
+      assert.notEqual(repeated.status, 0);
+      assert.match(repeated.stderr, /unknown, incompatible or expired/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("rejects repair forward when the live schema does not match the failed release", () => {
     const fixture = createHostFixture();
     try {
