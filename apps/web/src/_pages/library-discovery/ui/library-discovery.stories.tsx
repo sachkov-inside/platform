@@ -104,7 +104,7 @@ const meta = {
   parameters: {
     nextjs: { appDirectory: true },
   },
-  title: "Pages/Library discovery/Production",
+  title: "Pages/Mobile-first Platform/Collections",
 } satisfies Meta<typeof LibraryDiscoveryView>;
 
 export default meta;
@@ -149,13 +149,14 @@ export const SeriesDesktop: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Series · ordered desktop",
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
     const orderedItems = canvasElement.querySelectorAll("[data-series-ordinal]");
     await expect([...orderedItems].map((item) => item.getAttribute("data-series-ordinal"))).toEqual([
       "1",
       "2",
     ]);
-    await expect(canvas.getByText("Для участников")).toBeVisible();
+    await expect(
+      canvasElement.querySelector('[data-access-cover="locked"]'),
+    ).toBeInTheDocument();
   },
 };
 

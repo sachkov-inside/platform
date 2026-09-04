@@ -45,6 +45,29 @@
   color-scheme: light;
 }
 
+[data-public-shell] {
+  --background: #ffffff;
+  --foreground: #202124;
+  --card: #ffffff;
+  --card-foreground: #202124;
+  --popover: #ffffff;
+  --popover-foreground: #202124;
+  --primary: #202124;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f1ed;
+  --secondary-foreground: #202124;
+  --muted: #f3f1ed;
+  --muted-foreground: #5f5e59;
+  --accent: #c7461e;
+  --accent-foreground: #ffffff;
+  --border: rgb(32 33 36 / 8%);
+  --input: rgb(32 33 36 / 8%);
+  --ring: #c7461e;
+  --elevation-card: 0 1rem 2.5rem -2rem rgb(20 21 24 / 35%);
+  --elevation-card-hover: 0 1.25rem 3rem -2rem rgb(20 21 24 / 45%);
+  color-scheme: light;
+}
+
 .dark {
   --background: oklch(0.17 0.012 128);
   --foreground: oklch(0.94 0.008 112);
@@ -119,6 +142,21 @@
 html,
 body {
   min-block-size: 100%;
+}
+
+.public-cover-grid {
+  background-image:
+    linear-gradient(rgb(255 255 255 / 16%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 16%) 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
+}
+
+.public-horizontal-rail {
+  scrollbar-width: none;
+}
+
+.public-horizontal-rail::-webkit-scrollbar {
+  display: none;
 }
 
 body {

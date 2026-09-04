@@ -10,25 +10,24 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
   const documentResponse = await request.get("/");
   const initialHtml = await documentResponse.text();
   expect(documentResponse.status()).toBe(200);
-  expect(initialHtml).toContain("Добро пожаловать");
+  expect(initialHtml).toContain("Новые видео");
   expect(initialHtml).toContain("Видео про Developer Pipeline");
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Добро пожаловать", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Главная", level: 1 })).toBeAttached();
   await expect(page.getByRole("searchbox")).toHaveCount(0);
   await expect(page.getByText(/продолжить/iu)).toHaveCount(0);
   const sectionOrder = await page.locator("main section > h2, main section > div > h2").evaluateAll(
     (headings) => headings.map((heading) => heading.textContent?.trim()),
   );
   expect(sectionOrder).toEqual([
-    "Темы",
-    "Видео",
+    "Новые видео",
     "Плейлисты",
-    "Гайды",
+    "Свежие гайды",
     "Заметки",
   ]);
   const videoCards = page
-    .getByRole("heading", { name: "Видео", level: 2 })
+    .getByRole("heading", { name: "Новые видео", level: 2 })
     .locator("xpath=ancestor::section")
     .getByRole("article");
   await expect(videoCards).toHaveCount(3);
@@ -80,8 +79,8 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   const browserResponse = await page.goto("/library");
   expect(browserResponse?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "База знаний", level: 1 })).toBeVisible();
-  await expect(page.getByText("Для участников")).toBeVisible();
-  await expect(page.getByText("Бесплатно").first()).toBeVisible();
+  await expect(page.locator('[data-access-cover="locked"]')).toHaveCount(1);
+  await expect(page.getByText("Бесплатно")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Темы", level: 2 })).toBeVisible();
   await expect(page.locator("[data-topic-card]")).toContainText("Platform");
   await expect(page.getByRole("heading", { name: "Плейлисты", level: 2 })).toBeVisible();
@@ -165,7 +164,7 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   expect(englishHtml).not.toContain("Закрытое содержимое для участников");
 
   await page.goto(englishUrl);
-  await expect(page.getByLabel("Поиск по базе знаний")).toHaveValue(
+  await expect(page.getByLabel("Поиск по Базе знаний")).toHaveValue(
     "developer pipeline",
   );
   await expect(
@@ -211,7 +210,7 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
     page.getByRole("link", { name: "Архитектурная заметка 07" }),
   ).toBeVisible();
 
-  await page.getByLabel("Поиск по базе знаний").fill("nothing can match 404404");
+  await page.getByLabel("Поиск по Базе знаний").fill("nothing can match 404404");
   await expect(page.getByRole("heading", { name: "Ничего не найдено" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Сбросить поиск и фильтры" }),
@@ -229,7 +228,7 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
 test("server-renders the representative PostgreSQL Material through Nest", async ({
   page,
   request,
-}, testInfo) => {
+}) => {
   const browserErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") {
@@ -316,10 +315,11 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   await page.keyboard.press("Enter");
   await expect(page.getByRole("main")).toBeFocused();
 
-  if (testInfo.project.name === "mobile-chromium") {
-    await page.locator("summary", { hasText: "В этом материале" }).click();
+  const outline = page.getByRole("navigation", { name: "В этом материале" });
+  if (!(await outline.isVisible())) {
+    await page.getByLabel(/Содержание:/u).click();
   }
-  await expect(page.getByRole("navigation", { name: "В этом материале" })).toBeVisible();
+  await expect(outline).toBeVisible();
   await page.getByRole("link", { name: "Проверяемый результат" }).click();
   await page.waitForTimeout(100);
 
@@ -383,7 +383,7 @@ test("renders a locked teaser with the configured CTA and fails closed on invali
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {
-      name: "Материал доступен в Мастерской",
+      name: "Продолжение для участников",
       level: 2,
     }),
   ).toBeVisible();
@@ -441,7 +441,7 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   const membershipCard = page
     .getByRole("article")
     .filter({ hasText: "Developer Pipeline без потери контекста" });
-  await expect(membershipCard.getByText("Доступно")).toBeVisible();
+  await expect(membershipCard.locator("[data-access-cover]")).toHaveCount(0);
 
   const bffResponse = await context.request.get(
     `${process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000"}/api/library/materials`,
@@ -516,7 +516,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .getByRole("article")
     .filter({ hasText: "Developer Pipeline без потери контекста" });
   const topicLink = membershipCard.getByRole("link", {
-    name: "Платформа",
+    name: "Platform",
     exact: true,
   });
   await topicLink.focus();
@@ -529,7 +529,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   );
   await expect(page.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
   await expect(page).toHaveTitle("Platform — тема · Inside");
-  await expect(page.getByText("Для участников")).toBeVisible();
+  await expect(page.locator('[data-access-cover="locked"]')).toBeVisible();
   const topicMaterialHref = await page
     .locator("[data-material-grid]")
     .getByRole("link", {

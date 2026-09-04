@@ -289,7 +289,7 @@ const meta = {
     },
     nextjs: { appDirectory: true },
   },
-  title: "Pages/Library/Production",
+  title: "Pages/Mobile-first Platform/Knowledge Base",
 } satisfies Meta<typeof LibraryPage>;
 
 export default meta;
@@ -321,7 +321,7 @@ export const ReadyDesktop: Story = {
     if (firstCard === undefined) {
       throw new Error("First Material card is missing");
     }
-    await expect(within(firstCard).getAllByRole("link")).toHaveLength(3);
+    await expect(within(firstCard).getAllByRole("link")).toHaveLength(2);
     await expect(
       within(firstCard).getByRole("link", { name: catalogItems[0].title }),
     ).toHaveAttribute("href", "/materials/platform-delivery?from=%2Flibrary");
@@ -331,13 +331,10 @@ export const ReadyDesktop: Story = {
       "href",
       "/topics/product-engineering?from=%2Flibrary",
     );
+    await expect(canvas.queryByText("Бесплатно")).not.toBeInTheDocument();
     await expect(
-      within(firstCard).getByRole("link", {
-        name: "Создание Platform Inside № 5",
-      }),
-    ).toHaveAttribute("href", "/series/platform-inside?from=%2Flibrary");
-    await expect(canvas.getByText("Бесплатно")).toBeInTheDocument();
-    await expect(canvas.getAllByText("Для участников")).toHaveLength(2);
+      canvasElement.querySelectorAll('[data-access-cover="locked"]'),
+    ).toHaveLength(2);
     await expect(
       canvas.getByRole("link", { name: catalogItems[1].title }),
     ).toHaveAttribute("href", "/materials/public-agent-skills?from=%2Flibrary");
@@ -404,7 +401,7 @@ export const SearchResultsDesktop: Story = {
   name: "Search results · desktop",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByLabelText("Поиск по базе знаний")).toHaveValue(
+    await expect(canvas.getByLabelText("Поиск по Базе знаний")).toHaveValue(
       "developer pipeline",
     );
     await expect(canvas.getByRole("radio", { name: /Гайды/u })).not.toBeChecked();

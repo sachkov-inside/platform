@@ -60,12 +60,12 @@ export function InfiniteMaterialCatalog({
   }, [hasNextPage, isFetchNextPageError, isFetchingNextPage, onLoadNextPage]);
 
   return (
-    <section aria-labelledby="materials-heading" className="mt-8 sm:mt-10" data-library-state="ready">
-      <div>
-        <h2 className="text-lg font-semibold tracking-[-0.025em] @min-[30rem]/library:text-xl" id="materials-heading">
+    <section aria-labelledby="materials-heading" className="mt-11" data-library-state="ready">
+      <div className="flex items-end justify-between gap-4">
+        <h2 className="text-2xl font-semibold tracking-[-0.04em] md:text-3xl" id="materials-heading">
           Материалы
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-sm font-semibold text-[#5f5e59]">
           {formatFoundMaterialCount(totalCount)} · {formatLoadedMaterialCount(materialCount)}
         </p>
       </div>
@@ -119,15 +119,16 @@ export function MaterialCatalogGrid({
   return (
     <ul
       {...(label === undefined ? {} : { "aria-label": label })}
-      className={`${className} grid grid-cols-1 items-stretch justify-items-center gap-4 @min-[40rem]/library:grid-cols-2 @min-[68rem]/library:grid-cols-3`}
+      className={`${className} grid grid-cols-1 items-stretch gap-3 @min-[44rem]/library:grid-cols-2`}
       data-material-grid
       role="list"
     >
       {items.map((material) => (
-        <li className="h-full w-full max-w-[28rem]" key={material.slug}>
+        <li className="h-full min-w-0 w-full" key={material.slug}>
           <MaterialCard
             headingLevel="h3"
             material={material}
+            variant="row"
             {...(returnHref === undefined ? {} : { returnHref })}
           />
         </li>

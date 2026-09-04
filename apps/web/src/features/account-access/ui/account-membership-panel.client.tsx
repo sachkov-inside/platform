@@ -293,7 +293,7 @@ function accessView(
         action: (
           <Button
             asChild
-            className="h-11 rounded-xl bg-accent px-5 text-foreground hover:bg-accent/85"
+            className="h-11 rounded-xl bg-[#b83a1d] px-5 text-white hover:bg-[#8f2c16]"
             size="lg"
           >
             <a

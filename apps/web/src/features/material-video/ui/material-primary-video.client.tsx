@@ -6,6 +6,7 @@ import { type Ref, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
 import { Button } from "@/shared/ui/button";
+import { cn } from "@/shared/lib/utils";
 
 import {
   createMaterialVideoPlaybackSession,
@@ -13,6 +14,7 @@ import {
 } from "../api/video-playback.browser";
 
 interface MaterialPrimaryVideoProps {
+  readonly className?: string;
   readonly materialId: string;
   readonly video: {
     readonly failureCode?: string | undefined;
@@ -24,7 +26,7 @@ interface MaterialPrimaryVideoProps {
 
 export type PlayerPhase = "idle" | "loading" | "playing" | "error";
 
-export function MaterialPrimaryVideo({ materialId, video }: MaterialPrimaryVideoProps) {
+export function MaterialPrimaryVideo({ className, materialId, video }: MaterialPrimaryVideoProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const playerRef = useRef<{ destroy(): Promise<void> } | null>(null);
   const [phase, setPhase] = useState<PlayerPhase>("idle");
@@ -36,7 +38,12 @@ export function MaterialPrimaryVideo({ materialId, video }: MaterialPrimaryVideo
   }, []);
 
   if (video.state !== "ready") {
-    return <UnavailableVideoState video={video} />;
+    return (
+      <UnavailableVideoState
+        video={video}
+        {...(className === undefined ? {} : { className })}
+      />
+    );
   }
 
   const loadPlayer = async () => {
@@ -110,6 +117,7 @@ export function MaterialPrimaryVideo({ materialId, video }: MaterialPrimaryVideo
 
   return <MaterialVideoPlayerView
     onLoad={() => { void loadPlayer(); }}
+    {...(className === undefined ? {} : { className })}
     phase={phase}
     sectionRef={sectionRef}
     title={video.title}
@@ -118,6 +126,7 @@ export function MaterialPrimaryVideo({ materialId, video }: MaterialPrimaryVideo
 }
 
 export interface MaterialVideoPlayerViewProps {
+  readonly className?: string;
   readonly onLoad: () => void;
   readonly phase: PlayerPhase;
   readonly sectionRef?: Ref<HTMLElement>;
@@ -127,6 +136,7 @@ export interface MaterialVideoPlayerViewProps {
 
 /** Production player shell shared with Storybook state fixtures. */
 export function MaterialVideoPlayerView({
+  className,
   onLoad,
   phase,
   sectionRef,
@@ -134,7 +144,7 @@ export function MaterialVideoPlayerView({
   videoId,
 }: MaterialVideoPlayerViewProps) {
   return (
-    <section aria-labelledby="primary-video-heading" className="mt-8 max-w-[56rem] sm:mt-10" data-video-id={videoId} ref={sectionRef}>
+    <section aria-labelledby="primary-video-heading" className={cn("mt-8 max-w-[56rem] sm:mt-10", className)} data-video-id={videoId} ref={sectionRef}>
       <div className="mb-3 flex items-baseline justify-between gap-4">
         <h2 className="text-lg font-semibold tracking-[-0.02em]" id="primary-video-heading">
           Видео
@@ -178,10 +188,10 @@ export function MaterialVideoPlayerView({
   );
 }
 
-function UnavailableVideoState({ video }: { readonly video: MaterialPrimaryVideoProps["video"] }) {
+function UnavailableVideoState({ className, video }: { readonly className?: string; readonly video: MaterialPrimaryVideoProps["video"] }) {
   const processing = video.state === "uploading" || video.state === "processing";
   return (
-    <section aria-labelledby="primary-video-heading" className="mt-8 max-w-[56rem] rounded-2xl bg-secondary px-5 py-6 sm:mt-10 sm:px-7" data-video-id={video.videoId}>
+    <section aria-labelledby="primary-video-heading" className={cn("mt-8 max-w-[56rem] rounded-2xl bg-secondary px-5 py-6 sm:mt-10 sm:px-7", className)} data-video-id={video.videoId}>
       <span className="grid size-11 place-items-center rounded-xl bg-background text-accent">
         {processing ? <LoaderCircle aria-hidden="true" className="size-5 animate-spin motion-reduce:animate-none" /> : <VideoOff aria-hidden="true" className="size-5" />}
       </span>

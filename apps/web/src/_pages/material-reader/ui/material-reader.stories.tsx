@@ -297,7 +297,7 @@ const meta = {
     },
     nextjs: { appDirectory: true },
   },
-  title: "Pages/Material/Reader",
+  title: "Pages/Mobile-first Platform/Reader",
 } satisfies Meta<typeof MaterialReaderBoard>;
 
 export default meta;
@@ -312,7 +312,7 @@ export const Mobile: Story = {
       canvas.getByRole("heading", { name: "Публичные skills для agent-first setup", level: 1 }),
     ).toBeInTheDocument();
     await expect(canvas.getByRole("navigation", { name: "Мобильная навигация" })).toBeInTheDocument();
-    await expect(canvas.getByText("В этом материале", { selector: "summary" })).toBeInTheDocument();
+    await expect(canvas.getByLabelText("Содержание: 2")).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" })).toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: /Чек-лист проверки repository-owned skill/u })).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(1);
@@ -393,7 +393,7 @@ export const AccessRequired: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Материал доступен в Мастерской" }),
+      canvas.getByRole("heading", { name: "Продолжение для участников" }),
     ).toBeInTheDocument();
     const membershipLink = canvas.getByRole("link", { name: "Получить доступ" });
     await expect(membershipLink).toHaveAttribute(

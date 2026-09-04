@@ -1,4 +1,4 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowRight, LockKeyhole } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -35,35 +35,30 @@ export function TopicCard({
 }) {
   return (
     <Link
-      className="group/topic relative isolate min-h-64 overflow-clip rounded-2xl bg-sidebar text-sidebar-foreground no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-sidebar-ring motion-reduce:transform-none motion-reduce:transition-none"
+      aria-label={`Открыть тему ${topic.name}`}
+      className="group/topic min-w-0 text-left no-underline"
       data-topic-card
       href={collectionDiscoveryHref("topic", topic.slug, returnHref)}
       prefetch={false}
     >
-      <ContentCoverImage
-        alt=""
-        className="absolute inset-0"
-        cover={topic.cover ?? null}
-        sizes="(min-width: 1024px) 24rem, (min-width: 640px) 50vw, 100vw"
-      />
-      <span className="absolute inset-x-0 bottom-0 z-10 bg-sidebar/95 p-5 sm:p-6">
-        <span className="flex items-start justify-between gap-4">
-          <span className="min-w-0">
-            <span className="block max-w-[24ch] text-xl font-semibold leading-[1.18] tracking-[-0.03em]">
-              {topic.name}
-            </span>
-            <span className="mt-2 block max-w-[50ch] text-sm leading-5 text-sidebar-foreground/70">
-              {topic.summary || "Материалы по теме"}
-            </span>
-          </span>
-          <ArrowUpRight
-            aria-hidden="true"
-            className="size-5 shrink-0 text-sidebar-primary transition-transform group-hover/topic:-translate-y-0.5 group-hover/topic:translate-x-0.5 motion-reduce:transform-none"
-          />
+      <span className="relative block">
+        <ContentCoverImage
+          alt=""
+          className="aspect-square min-h-0 rounded-[1.5rem] transition-transform duration-200 group-hover/topic:-translate-y-1 motion-reduce:transform-none motion-reduce:transition-none"
+          cover={topic.cover ?? null}
+          fallbackKind="topic"
+          fallbackSeed={topic.slug}
+          sizes="(min-width: 1024px) 16rem, 50vw"
+        />
+        <span className="absolute right-3 top-3 rounded-full bg-white/75 px-2.5 py-1 text-[0.625rem] font-bold text-[#202124] backdrop-blur-sm">
+          {topic.count}
         </span>
-        <span className="mt-4 block text-xs text-sidebar-foreground/58">
-          {formatMaterialCount(topic.count)}
-        </span>
+      </span>
+      <strong className="mt-3 block text-[0.9375rem] leading-5 tracking-[-0.02em] md:text-lg md:leading-6">
+        {topic.name}
+      </strong>
+      <span className="mt-1 block text-xs font-medium text-[#5f5e59]">
+        {formatMaterialCount(topic.count)}
       </span>
     </Link>
   );
@@ -76,47 +71,73 @@ export function PlaylistCard({
   readonly playlist: PlaylistCardPresentation;
   readonly returnHref?: Route;
 }) {
+  const previews = playlist.previewItems?.slice(0, 3) ?? [];
+
   return (
     <Link
-      className="group/playlist grid min-h-32 overflow-clip rounded-2xl bg-secondary text-foreground no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none @min-[34rem]/playlist-surface:grid-cols-[9rem_minmax(0,1fr)]"
+      aria-label={`Открыть плейлист ${playlist.name}`}
+      className="group/playlist block min-w-0 overflow-hidden rounded-[2rem] bg-[#202124] p-5 text-left text-white no-underline transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
       data-playlist-card
       href={collectionDiscoveryHref("series", playlist.slug, returnHref)}
       prefetch={false}
     >
-      <ContentCoverImage
-        alt=""
-        className="min-h-32"
-        cover={playlist.cover ?? null}
-        sizes="9rem"
-      />
-      <span className="flex min-w-0 items-center justify-between gap-4 p-5">
-        <span className="min-w-0">
-          <span className="block text-lg font-semibold leading-6 tracking-[-0.025em]">
-            {playlist.name}
-          </span>
-          <span className="mt-2 block text-sm leading-5 text-muted-foreground">
-            {playlist.summary || "Последовательность материалов"}
-          </span>
-          <span className="mt-3 block text-xs text-muted-foreground">
-            {playlist.countLabel}
-          </span>
-          {(playlist.previewItems?.length ?? 0) > 0 ? (
-            <span className="mt-3 grid gap-1 text-xs text-muted-foreground">
-              {playlist.previewItems?.slice(0, 3).map((item) => (
-                <span className="truncate" key={item.slug}>
-                  {item.title}
-                </span>
-              ))}
-            </span>
-          ) : null}
+      <span className="flex items-start justify-between gap-3">
+        <span className="inline-flex rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/75">
+          Плейлист · {playlist.countLabel}
         </span>
-        <ArrowUpRight
+        <span
           aria-hidden="true"
-          className="size-5 shrink-0 text-accent transition-transform group-hover/playlist:-translate-y-0.5 group-hover/playlist:translate-x-0.5 motion-reduce:transform-none"
-        />
+          className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-[#202124]"
+        >
+          <ArrowRight className="size-4 transition-transform group-hover/playlist:translate-x-0.5 motion-reduce:transform-none" />
+        </span>
+      </span>
+      <strong className="mt-4 block text-xl leading-6 tracking-[-0.035em] md:text-2xl md:leading-7">
+        {playlist.name}
+      </strong>
+      <span className="mt-2 block text-sm leading-5 text-white/65">
+        {playlist.summary || "Последовательность материалов"}
+      </span>
+      <span className="mt-6 grid grid-cols-3 gap-2" aria-hidden="true">
+        {Array.from({ length: 3 }, (_, index) => {
+          const material = previews[index];
+          const locked = material?.availability !== undefined && material.availability !== "available";
+          return (
+            <span className="relative block overflow-hidden rounded-2xl" key={material?.slug ?? `${playlist.slug}-${String(index)}`}>
+              <span className={locked ? "block scale-[1.04] blur-[4px]" : "block"}>
+                <ContentCoverImage
+                  alt=""
+                  className="aspect-[4/3] min-h-0 rounded-2xl"
+                  cover={material?.cover ?? (index === 0 ? playlist.cover ?? null : null)}
+                  fallbackKind={materialKind(material)}
+                  fallbackSeed={material?.slug ?? `${playlist.slug}-${String(index)}`}
+                  sizes="10rem"
+                />
+              </span>
+              {locked ? (
+                <span className="absolute inset-0 grid place-items-center bg-white/20">
+                  <span className="grid size-8 place-items-center rounded-full bg-white/92 text-[#c7461e] shadow-xl backdrop-blur-xl">
+                    <LockKeyhole className="size-4" />
+                  </span>
+                </span>
+              ) : null}
+            </span>
+          );
+        })}
       </span>
     </Link>
   );
+}
+
+function materialKind(
+  material: MaterialPreview | undefined,
+): "material" | "playlist" | "video" {
+  if (material === undefined) return "playlist";
+  return material.formatSlug === "video" ||
+    material.primaryVideoDurationSeconds !== undefined ||
+    material.preview !== undefined
+    ? "video"
+    : "material";
 }
 
 export function formatMaterialCount(count: number): string {

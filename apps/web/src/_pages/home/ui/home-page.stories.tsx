@@ -80,6 +80,7 @@ const meta = {
   ],
   parameters: { layout: "fullscreen" },
   tags: ["autodocs"],
+  title: "Pages/Mobile-first Platform/Home",
 } satisfies Meta<typeof HomePage>;
 
 export default meta;
@@ -89,8 +90,8 @@ export const RealDataReady: Story = {
   args: { result: { kind: "ready", value: home } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Добро пожаловать" })).toBeVisible();
-    await expect(canvas.getByRole("heading", { name: "Видео" })).toBeVisible();
+    await expect(canvas.getByRole("heading", { name: "Главная" })).toBeInTheDocument();
+    await expect(canvas.getByRole("heading", { name: "Новые видео" })).toBeVisible();
     await expect(canvas.queryByText(/продолжить/iu)).not.toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "Все видео" })).toHaveAttribute(
       "href",

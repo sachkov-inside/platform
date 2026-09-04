@@ -1,14 +1,12 @@
 import {
   ArrowLeft,
-  BookOpenText,
   LibraryBig,
   ListVideo,
-  LockKeyhole,
   RefreshCw,
   SearchX,
   ShieldAlert,
   Tags,
-  Unlock,
+  type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -20,17 +18,17 @@ import type {
 } from "@/features/library-discovery";
 import {
   ContentCoverImage,
-  materialTaxonomyLabel,
-  type MaterialPreview,
+  MaterialCard,
 } from "@/entities/material";
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
+import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import {
   collectionDiscoveryHref,
   libraryMaterialReaderReturnTarget,
-  materialReaderHref,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
+import { PublicProductHeader } from "@/widgets/application-shell";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
 type ResolvedDiscoveryResult = Exclude<
@@ -59,38 +57,13 @@ export function LibraryDiscoveryView({
       data-discovery-kind={result.discoveryKind}
       data-discovery-state={result.kind}
     >
+      <PublicProductHeader />
       <DiscoveryBreadcrumb
         kind={result.discoveryKind}
         name={result.reference.name}
         returnTarget={returnTarget}
       />
-      <header className="relative mt-6 isolate overflow-clip rounded-2xl bg-secondary px-5 py-7 shadow-card sm:mt-8 sm:px-8 sm:py-9">
-        <ContentCoverImage
-          alt=""
-          className="absolute inset-y-0 right-0 hidden w-[42%] opacity-90 @min-[48rem]/discovery:grid"
-          cover={result.reference.cover ?? null}
-          sizes="36rem"
-        />
-        <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-secondary via-secondary/95 to-secondary/35" />
-        <span
-          aria-hidden="true"
-          className="reader-status-halo absolute -right-12 -top-20 size-56 rounded-full bg-accent/15"
-        />
-        <span className="relative grid size-11 place-items-center rounded-xl bg-background/80 text-accent [&_svg]:size-5">
-          <Icon aria-hidden="true" />
-        </span>
-        <p className="relative mt-5 text-sm font-medium text-muted-foreground">
-          {isSeries ? "Плейлист" : "Тема"}
-        </p>
-        <h1 className="relative mt-2 max-w-[24ch] break-words text-balance text-3xl font-semibold leading-[1.08] tracking-[-0.035em] sm:text-4xl @min-[64rem]/discovery:text-5xl">
-          {result.reference.name}
-        </h1>
-        {result.reference.summary ? (
-          <p className="relative mt-4 max-w-[64ch] text-pretty text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
-            {result.reference.summary}
-          </p>
-        ) : null}
-      </header>
+      <DiscoveryHero Icon={Icon} isSeries={isSeries} result={result} />
 
       {result.kind === "empty" ? (
         <DiscoveryEmpty kind={result.discoveryKind} />
@@ -103,6 +76,90 @@ export function LibraryDiscoveryView({
   );
 }
 
+function DiscoveryHero({
+  Icon,
+  isSeries,
+  result,
+}: {
+  readonly Icon: LucideIcon;
+  readonly isSeries: boolean;
+  readonly result: ResolvedDiscoveryResult;
+}) {
+  return (
+    <header
+      className={cn(
+        "mt-5 overflow-hidden rounded-[2rem] p-6 md:p-10",
+        isSeries
+          ? "bg-[#202124] text-white"
+          : cn(discoveryToneClass(result.reference.slug), "text-[#202124]"),
+      )}
+    >
+      <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
+        <div className="min-w-0">
+          <p
+            className={cn(
+              "text-xs font-bold uppercase tracking-[0.14em]",
+              isSeries ? "text-white/65" : "text-[#4d4e51]",
+            )}
+          >
+            {isSeries ? (
+              <>
+                Плейлист ·{" "}
+                {formatMaterialCount(
+                  result.kind === "ready" ? result.items.length : 0,
+                )}
+              </>
+            ) : (
+              "Тема"
+            )}
+          </p>
+          <h1 className="mt-3 max-w-3xl break-words text-[2.35rem] font-semibold leading-none tracking-[-0.055em] md:text-6xl">
+            {result.reference.name}
+          </h1>
+          {result.reference.summary ? (
+            <p
+              className={cn(
+                "mt-4 max-w-2xl text-base leading-7 md:text-lg",
+                isSeries ? "text-white/65" : "text-[#4d4e51]",
+              )}
+            >
+              {result.reference.summary}
+            </p>
+          ) : null}
+        </div>
+        {isSeries && result.kind === "ready" ? (
+          <div className="grid w-full max-w-xl grid-cols-3 gap-2 md:w-[24rem]">
+            {Array.from({ length: 3 }, (_, index) => {
+              const material = result.items[index];
+              return (
+                <ContentCoverImage
+                  alt=""
+                  className="aspect-[4/3] min-h-0 rounded-2xl"
+                  cover={material?.cover ?? null}
+                  fallbackKind={
+                    material?.formatSlug === "video" ||
+                    material?.primaryVideoDurationSeconds !== undefined ||
+                    material?.preview !== undefined
+                      ? "video"
+                      : "material"
+                  }
+                  fallbackSeed={material?.slug ?? `${result.reference.slug}-${String(index)}`}
+                  key={material?.slug ?? index}
+                  sizes="10rem"
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <span className="grid size-24 shrink-0 rotate-[-5deg] place-items-center rounded-[1.6rem] border border-white/45 bg-white/75 text-[#202124] shadow-xl backdrop-blur-sm md:size-32">
+            <Icon aria-hidden="true" className="size-12 md:size-16" strokeWidth={1.6} />
+          </span>
+        )}
+      </div>
+    </header>
+  );
+}
+
 function TopicMaterials({
   currentHref,
   result,
@@ -112,10 +169,12 @@ function TopicMaterials({
 }) {
   return (
     <>
-      <section aria-labelledby="topic-playlists" className="mt-8 sm:mt-10">
-        <h2 className="text-xl font-semibold tracking-[-0.025em]" id="topic-playlists">
-          Плейлисты
-        </h2>
+      <section aria-labelledby="topic-playlists">
+        <DiscoverySectionHeading
+          count={result.relatedSeries.length}
+          id="topic-playlists"
+          title="Плейлисты"
+        />
         {result.relatedSeries.length > 0 ? (
           <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/discovery:grid-cols-2">
             {result.relatedSeries.map((playlist) => (
@@ -157,14 +216,14 @@ function SeriesMaterials({
   const topics = result.topics;
 
   return (
-    <section aria-labelledby="series-materials" className="mt-8 sm:mt-10">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold tracking-[-0.025em]" id="series-materials">
-            Материалы
+    <section aria-labelledby="series-materials">
+      <div className="mt-11 flex flex-wrap items-end justify-between gap-3">
+        <div className="flex items-end gap-4">
+          <h2 className="text-2xl font-semibold tracking-[-0.04em] md:text-3xl" id="series-materials">
+            Маршрут
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {formatMaterialCount(result.items.length)}
+          <p className="pb-1 text-sm font-semibold text-[#5f5e59]">
+            {result.items.length}
           </p>
         </div>
         {topics.length > 0 ? (
@@ -173,7 +232,7 @@ function SeriesMaterials({
               {topics.map((topic) => (
                 <li key={topic.slug}>
                   <Link
-                    className="inline-flex min-h-9 items-center rounded-lg bg-muted px-3 text-sm font-semibold no-underline hover:bg-secondary focus-visible:outline-ring"
+                    className="inline-flex min-h-9 items-center rounded-full bg-[#f3f1ed] px-3 text-sm font-semibold text-[#5f5e59] no-underline hover:text-[#202124] focus-visible:outline-ring"
                     href={collectionDiscoveryHref(
                       "topic",
                       topic.slug,
@@ -189,7 +248,7 @@ function SeriesMaterials({
           </nav>
         ) : null}
       </div>
-      <ol className="mt-5 grid max-w-[58rem] gap-5" data-series-order>
+      <ol className="mt-4 grid gap-3" data-series-order>
         {result.items.map((material, index) => {
           const ordinal =
             material.seriesMemberships.find(
@@ -197,18 +256,20 @@ function SeriesMaterials({
             )?.ordinal ?? index + 1;
           return (
             <li
-              className="grid items-start gap-2 @min-[38rem]/discovery:grid-cols-[3rem_minmax(0,1fr)]"
+              className="grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3"
               data-series-ordinal={ordinal}
               key={material.slug}
             >
-              <div className="flex min-h-11 items-center font-semibold text-foreground @min-[38rem]/discovery:pt-4">
-                <span className="grid size-9 place-items-center rounded-full bg-accent/10 text-base">
+              <div className="flex min-h-11 items-center font-semibold text-[#5f5e59]">
+                <span className="grid size-8 place-items-center rounded-full bg-[#f3f1ed] text-xs font-bold">
                   {ordinal}
                 </span>
               </div>
-              <SeriesMaterialRow
+              <MaterialCard
+                headingLevel="h3"
                 material={material}
                 returnHref={currentHref}
+                variant="row"
               />
             </li>
           );
@@ -216,51 +277,6 @@ function SeriesMaterials({
       </ol>
       <DiscoveryContinuation result={result} />
     </section>
-  );
-}
-
-function SeriesMaterialRow({
-  material,
-  returnHref,
-}: {
-  readonly material: MaterialPreview;
-  readonly returnHref: Route;
-}) {
-  const available = material.availability === "available";
-  const AccessIcon = available ? Unlock : LockKeyhole;
-  const accessLabel =
-    material.availability === "locked"
-      ? "Для участников"
-      : material.availability === "unavailable"
-        ? "Недоступно"
-        : "Доступно";
-  return (
-    <article className="group/row relative grid min-h-32 gap-4 rounded-2xl bg-card p-5 shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
-      <span className="grid size-11 place-items-center rounded-xl bg-secondary text-accent">
-        <BookOpenText aria-hidden="true" className="size-5" />
-      </span>
-      <span className="min-w-0">
-        <span className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-          <span>{materialTaxonomyLabel(material.format)}</span>
-          <span aria-hidden="true">·</span>
-          <Link className="relative z-10 no-underline hover:text-foreground" href={`/topics/${material.topicSlug}`}>
-            {material.topic}
-          </Link>
-        </span>
-        <h3 className="mt-2 text-lg font-semibold leading-6 tracking-[-0.025em]">
-          <Link className="no-underline after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/row:underline group-hover/row:decoration-accent group-hover/row:underline-offset-4" href={materialReaderHref(material.slug, returnHref)} prefetch={false}>
-            {material.title}
-          </Link>
-        </h3>
-        <p className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground">
-          {material.summary}
-        </p>
-      </span>
-      <span className="inline-flex min-h-8 w-fit shrink-0 items-center gap-1.5 rounded-full bg-secondary px-3 text-xs font-semibold sm:self-start">
-        <AccessIcon aria-hidden="true" className="size-3.5" />
-        {accessLabel}
-      </span>
-    </article>
   );
 }
 
@@ -306,26 +322,56 @@ function DiscoveryBreadcrumb({
   readonly returnTarget: MaterialReaderReturnTarget;
 }) {
   return (
-    <nav aria-label="Хлебные крошки">
-      <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+    <nav aria-label="Хлебные крошки" className="mt-7">
+      <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-[#5f5e59]">
         <li>
           <Link
-            className="inline-flex min-h-10 items-center rounded-lg px-2 no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
+            className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#f3f1ed] px-4 font-semibold no-underline hover:text-[#202124] focus-visible:outline-ring"
             href={returnTarget.href}
           >
             <ArrowLeft aria-hidden="true" className="size-4" />
             {returnTarget.label}
           </Link>
         </li>
-        <li aria-hidden="true">/</li>
-        <li>{kind === "series" ? "Плейлист" : "Тема"}</li>
-        <li aria-hidden="true">/</li>
-        <li aria-current="page" className="max-w-[24ch] truncate text-foreground">
-          {name}
-        </li>
+        <li className="sr-only">{kind === "series" ? "Плейлист" : "Тема"}</li>
+        <li aria-current="page" className="sr-only">{name}</li>
       </ol>
     </nav>
   );
+}
+
+function DiscoverySectionHeading({
+  count,
+  id,
+  title,
+}: {
+  readonly count: number;
+  readonly id: string;
+  readonly title: string;
+}) {
+  return (
+    <div className="mt-11 flex items-end justify-between gap-4">
+      <h2 className="text-2xl font-semibold tracking-[-0.04em] md:text-3xl" id={id}>
+        {title}
+      </h2>
+      <span className="text-sm font-semibold text-[#5f5e59]">{count}</span>
+    </div>
+  );
+}
+
+function discoveryToneClass(seed: string): string {
+  const tones = [
+    "bg-[#dce9ff]",
+    "bg-[#ffdcd2]",
+    "bg-[#e9e1ff]",
+    "bg-[#dcefe5]",
+    "bg-[#eee8dc]",
+  ] as const;
+  const value = Array.from(seed).reduce(
+    (hash, character) => (hash * 31 + (character.codePointAt(0) ?? 0)) >>> 0,
+    0,
+  );
+  return tones[value % tones.length] ?? tones[0];
 }
 
 export function LibraryDiscoveryLoading() {

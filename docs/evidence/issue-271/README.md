@@ -2,8 +2,9 @@
 
 ## Accepted visual baseline
 
-Owner review on 2026-09-04 selected Storybook `Pages/Mobile-first Platform/Prototype` as the
-visual-language baseline for the public surfaces in this issue. The preserved source checksums are:
+Owner review on 2026-09-04 selected the mobile-first prototype as the canonical visual language
+for the public surfaces in this issue. The accepted source is preserved for audit with these
+checksums:
 
 | Source | SHA-256 |
 | --- | --- |
@@ -11,13 +12,16 @@ visual-language baseline for the public surfaces in this issue. The preserved so
 | `mobile-first-platform.prototype.css` | `65e9ccee5b05cebc9f5d143e65033e592061785ed2e821800d52b9bb341c0fd7` |
 | `mobile-first-platform.prototype.stories.tsx` | `5b2f5cfff79d1484b2a505dfc7aede2a2b4b81c9ff4492849c3d5058791f0706` |
 
-These files remain a temporary comparison source until exact production routes receive owner
-visual GO. Product behaviour continues to follow issue #271 rather than the prototype fixtures.
+The prototype stories are excluded from the canonical Storybook. `Pages/Mobile-first Platform`
+and `Patterns/Mobile-first Platform` render the same production components used by the Next routes,
+with controlled real-data-shaped states. Product behaviour continues to follow issue #271 rather
+than the preserved prototype fixtures: there is no Continue/history block, and Home is ordered as
+Videos → Playlists → Guides → Notes.
 
 ## Production route evidence
 
 Captured from the production Next routes backed by the real Nest `content-library` API and a
-fresh migrated and seeded PostgreSQL database on 2026-09-04.
+dedicated freshly migrated and seeded PostgreSQL evidence database on 2026-09-04.
 
 | Route | Desktop `1440 × 1024` | Mobile `390 × 844` |
 | --- | --- | --- |
@@ -36,3 +40,5 @@ fresh migrated and seeded PostgreSQL database on 2026-09-04.
 - Fallback artwork is expected for seeded entities without an author-uploaded Content Cover.
 - The deterministic Kinescope adapter proves local duration and lifecycle wiring. Credentialed
   production Kinescope evidence remains owned by issue #184.
+- Verification: `pnpm check` stages (with e2e run on an isolated port), full 52-scenario production
+  smoke, and the focused clean-data evidence smoke all pass on desktop and mobile.

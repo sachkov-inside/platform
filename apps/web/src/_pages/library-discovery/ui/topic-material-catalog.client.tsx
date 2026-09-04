@@ -53,6 +53,9 @@ export function TopicMaterialCatalog({
         }}
         query={catalog.searchQuery}
         resetQuery={fixedQuery}
+        {...(firstPage?.kind === "ready"
+          ? { totalCount: firstPage.totalCount }
+          : {})}
       />
       {catalog.query.isPending ? (
         <CatalogStatus message="Загружаем материалы темы…" />

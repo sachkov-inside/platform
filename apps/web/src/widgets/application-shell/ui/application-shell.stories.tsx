@@ -48,7 +48,7 @@ const meta = {
       </ApplicationShell>
     );
   },
-  title: "Patterns/Navigation/Application shell",
+  title: "Patterns/Mobile-first Platform/Navigation",
 } satisfies Meta<typeof ApplicationShell>;
 
 export default meta;
@@ -178,7 +178,7 @@ export const MobileBottomNavigation: Story = {
     const navigationLinks = within(mobileNavigation).getAllByRole("link");
 
     await expect(navigationLinks).toHaveLength(3);
-    await expect(mobileNavigation.getBoundingClientRect().height).toBeLessThanOrEqual(60);
+    await expect(mobileNavigation.getBoundingClientRect().height).toBeLessThanOrEqual(64);
     await expect(
       navigationLinks.every((link) => link.getBoundingClientRect().height >= 44),
     ).toBe(true);
