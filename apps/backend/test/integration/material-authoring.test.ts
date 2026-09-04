@@ -71,6 +71,7 @@ describe("MaterialAuthoring", () => {
       value: {
         materialId: created.value.materialId,
         contentVersion: 1,
+        cover: null,
         publicationState: "draft",
         firstPublishedAt: null,
         publishedAt: null,

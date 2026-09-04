@@ -181,6 +181,7 @@ describe("Material Authoring action workflow", () => {
             schemaVersion: 1,
           },
           contentVersion: 7,
+          cover: null,
           firstPublishedAt: "2026-08-30T08:00:00.000Z",
           materialId,
           metadata: {

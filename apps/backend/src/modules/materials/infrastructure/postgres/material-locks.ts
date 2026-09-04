@@ -16,6 +16,7 @@ const lockedMaterialRowsSchema = z.array(
     first_published_at: z.coerce.date().nullable(),
     access: z.enum(["free", "membership", "workshop"]),
     primary_video_id: z.uuid().nullable(),
+    cover_id: z.uuid().nullable(),
     published_at: z.coerce.date().nullable(),
     published_by: z.uuid().nullable(),
   }),
@@ -25,6 +26,7 @@ export interface LockedMaterial {
   readonly access: "free" | "membership" | "workshop";
   readonly lifecycle: Material;
   readonly primaryVideoId: string | null;
+  readonly coverId: string | null;
   readonly publishedBy: string | null;
 }
 
@@ -42,6 +44,7 @@ export async function lockMaterialForLifecycleChange(
         first_published_at,
         access,
         primary_video_id,
+        cover_id,
         published_at,
         published_by
       from materials.materials
@@ -63,6 +66,7 @@ export async function lockMaterialForLifecycleChange(
           publishedAt: row.published_at,
         }),
         primaryVideoId: row.primary_video_id,
+        coverId: row.cover_id,
         publishedBy: row.published_by,
       };
 }

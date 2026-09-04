@@ -239,7 +239,6 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
           material={material}
           primaryVideo={null}
           returnTarget={returnTarget}
-          sourceHref={materialReaderHref(material.slug, returnTarget.href)}
         />
       );
     }

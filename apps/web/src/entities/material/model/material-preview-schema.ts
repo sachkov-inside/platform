@@ -1,12 +1,16 @@
 import { z } from "zod";
 
 import type { MaterialPreview } from "./material-preview";
+import { contentCoverSchema } from "./content-cover";
 
 export const materialPreviewSchema: z.ZodType<MaterialPreview> = z
   .object({
-    access: z.enum(["free", "membership"]),
+    access: z.enum(["free", "membership", "workshop"]),
     availability: z.enum(["available", "locked", "unavailable"]),
+    cover: contentCoverSchema.nullable().optional(),
     format: z.string(),
+    formatSlug: z.string().optional(),
+    primaryVideoDurationSeconds: z.number().int().positive().optional(),
     seriesMemberships: z.array(
       z
         .object({
@@ -27,13 +31,16 @@ export const materialPreviewSchema: z.ZodType<MaterialPreview> = z
 
 export const publishedMaterialProjectionSchema = z
   .object({
-    access: z.enum(["free", "membership"]),
+    access: z.enum(["free", "membership", "workshop"]),
     availability: z.enum(["available", "locked", "unavailable"]),
     contentVersion: z.number().int().positive(),
+    cover: contentCoverSchema.nullable(),
     format: z
       .object({ id: z.string(), name: z.string(), slug: z.string() })
       .strict(),
     materialId: z.string(),
+    primaryVideoDurationSeconds: z.number().int().positive().optional(),
+    primaryVideoId: z.string().nullable(),
     publishedAt: z.iso.datetime({ offset: true }),
     seriesMemberships: z.array(
       z
@@ -61,7 +68,15 @@ export function toMaterialPreview(
   return {
     access: projection.access,
     availability: projection.availability,
+    cover: projection.cover,
     format: projection.format.name,
+    formatSlug: projection.format.slug,
+    ...(projection.primaryVideoDurationSeconds === undefined
+      ? {}
+      : {
+          primaryVideoDurationSeconds:
+            projection.primaryVideoDurationSeconds,
+        }),
     seriesMemberships: projection.seriesMemberships.map(
       ({ ordinal, series }) => ({
         name: series.name,

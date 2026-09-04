@@ -270,6 +270,7 @@ export function assembleSaveMaterial(
                 publishedAt: next.value.publishedAt,
                 publishedBy,
                 primaryVideoId: command.primaryVideoId,
+                coverId: locked.coverId,
                 updatedAt: savedAt,
               },
             });
@@ -293,6 +294,7 @@ export function assembleSaveMaterial(
                 publishedBy,
                 plainText: extraction.value.plainText,
                 primaryVideoId: command.primaryVideoId,
+                coverId: locked.coverId,
               });
             } else {
               await transaction.publishedMaterial.deleteMany({
@@ -362,6 +364,7 @@ async function replacePublishedProjections(
     readonly publishedBy: string;
     readonly plainText: string;
     readonly primaryVideoId: string | null;
+    readonly coverId: string | null;
   },
 ): Promise<void> {
   await transaction.publishedMaterial.upsert({
@@ -379,6 +382,7 @@ async function replacePublishedProjections(
       publishedBy: values.publishedBy,
       publishedAt: values.publishedAt,
       primaryVideoId: values.primaryVideoId,
+      coverId: values.coverId,
     },
     update: {
       contentVersion: BigInt(values.contentVersion),
@@ -392,6 +396,7 @@ async function replacePublishedProjections(
       publishedBy: values.publishedBy,
       publishedAt: values.publishedAt,
       primaryVideoId: values.primaryVideoId,
+      coverId: values.coverId,
     },
   });
   await transaction.publishedMaterialTag.deleteMany({

@@ -11,6 +11,8 @@ import { ACCOUNTS } from "../../src/modules/accounts/index.js";
 import { LOGTO_ACCESS_TOKEN_VERIFIER } from "../../src/modules/accounts/accounts.tokens.js";
 import { PUBLISHED_MATERIAL_READER } from "../../src/modules/materials/index.js";
 import { ListPublishedMaterialsController } from "../../src/modules/content-library/features/list-published-materials/list-published-materials.controller.js";
+import { VIDEOS } from "../../src/modules/videos/index.js";
+import { emptyCatalogVideos } from "../support/catalog-videos.js";
 
 const publishedMaterialReader = {
   listProjections: () => Promise.resolve({
@@ -26,6 +28,7 @@ const publishedMaterialReader = {
   controllers: [ListPublishedMaterialsController],
   providers: [
     { provide: PUBLISHED_MATERIAL_READER, useValue: publishedMaterialReader },
+    { provide: VIDEOS, useValue: emptyCatalogVideos },
     {
       provide: CONTENT_ACCESS,
       useValue: {

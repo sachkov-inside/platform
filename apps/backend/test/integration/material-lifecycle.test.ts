@@ -11,6 +11,7 @@ import {
 } from "../../src/modules/materials/index.js";
 import { materialId } from "../../src/modules/materials/domain/material-identifiers.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
+import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -224,6 +225,7 @@ describe("Material lifecycle", () => {
       await listPublishedMaterials(
         publishedMaterialReader,
         publishedContentAccess,
+        emptyCatalogVideos,
         { subject: { kind: "anonymous" }, first: 24 },
       ),
     ).toMatchObject({

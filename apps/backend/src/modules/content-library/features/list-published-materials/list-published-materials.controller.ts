@@ -38,6 +38,7 @@ import {
   publishedMaterialProblemHttpSchema,
   type PublishedMaterialReader,
 } from "../../../materials/index.js";
+import { VIDEOS, type Videos } from "../../../videos/index.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
 import { publishedCatalogPageHttpSchema } from "../../shared/published-catalog-http.js";
 import { listPublishedMaterials } from "./list-published-materials.js";
@@ -77,6 +78,8 @@ export class ListPublishedMaterialsController {
       ContentAccess,
       "checkAvailabilityMany"
     >,
+    @Inject(VIDEOS)
+    private readonly videos: Pick<Videos, "loadReadyDurations">,
   ) {}
 
   @Get("materials")
@@ -171,6 +174,7 @@ export class ListPublishedMaterialsController {
     const result = await listPublishedMaterials(
       this.publishedMaterialReader,
       this.contentAccess,
+      this.videos,
       {
         subject:
           account === undefined

@@ -4,15 +4,13 @@ const MAX_QUERY_LENGTH = 120;
 const MAX_FACET_VALUES = 20;
 const MAX_CURSOR_LENGTH = 512;
 
-export type LibraryCatalogSort = "newest" | "relevance" | "series" | "title";
+export type LibraryCatalogSort = "newest" | "relevance" | "title";
 
 export interface LibrarySearchQuery {
   readonly after: string | null;
   readonly formatSlugs: readonly string[];
   readonly q: string;
-  readonly seriesSlugs: readonly string[];
   readonly sort: LibraryCatalogSort;
-  readonly topicSlugs: readonly string[];
 }
 
 export interface ParsedLibrarySearchParams {
@@ -26,36 +24,39 @@ type SearchParamsInput =
 
 export function parseLibrarySearchParams(
   input: SearchParamsInput,
+  options: { readonly includeCursor?: boolean } = {},
 ): ParsedLibrarySearchParams {
   const raw = toSearchParams(input);
   const q = normalizeQuery(raw.getAll("q")[0]);
-  const seriesSlugs = normalizeFacetValues(raw.getAll("series"));
   const query = {
     after: normalizeCursor(raw.getAll("after")[0]),
     formatSlugs: normalizeFacetValues(raw.getAll("format")),
     q,
-    seriesSlugs,
-    sort: normalizeSort(raw.getAll("sort")[0], q, seriesSlugs),
-    topicSlugs: normalizeFacetValues(raw.getAll("topic")),
+    sort: normalizeSort(raw.getAll("sort")[0], q),
   } satisfies LibrarySearchQuery;
   return {
     query,
-    wasNormalized: raw.toString() !== serializeLibrarySearchQuery(query),
+    wasNormalized:
+      raw.toString() !==
+      serializeLibrarySearchQuery(query, {
+        includeCursor: options.includeCursor ?? false,
+      }),
   };
 }
 
 export function serializeLibrarySearchQuery(
   query: LibrarySearchQuery,
+  options: { readonly includeCursor?: boolean } = {},
 ): string {
   const search = new URLSearchParams();
   if (query.q.length > 0) search.set("q", query.q);
-  appendValues(search, "topic", query.topicSlugs);
   appendValues(search, "format", query.formatSlugs);
-  appendValues(search, "series", query.seriesSlugs);
-  if (query.sort !== defaultSort(query.q, query.seriesSlugs)) {
+  if (query.sort !== defaultSort(query.q)) {
     search.set("sort", query.sort);
   }
-  if (query.after !== null) search.set("after", query.after);
+  if (options.includeCursor === true && query.after !== null) {
+    search.set("after", query.after);
+  }
   return search.toString();
 }
 
@@ -66,9 +67,8 @@ export function librarySearchQueryIdentity(query: LibrarySearchQuery): string {
 export function hasActiveLibrarySearch(query: LibrarySearchQuery): boolean {
   return (
     query.q.length > 0 ||
-    query.topicSlugs.length > 0 ||
     query.formatSlugs.length > 0 ||
-    query.seriesSlugs.length > 0
+    query.sort !== defaultSort(query.q)
   );
 }
 
@@ -128,18 +128,16 @@ function normalizeCursor(value: string | undefined): string | null {
 function normalizeSort(
   value: string | undefined,
   q: string,
-  seriesSlugs: readonly string[],
 ): LibraryCatalogSort {
   return value === "newest" ||
     value === "relevance" ||
-    value === "title" ||
-    (value === "series" && seriesSlugs.length === 1)
+    value === "title"
     ? value
-    : defaultSort(q, seriesSlugs);
+    : defaultSort(q);
 }
 
-function defaultSort(q: string, seriesSlugs: readonly string[]): LibraryCatalogSort {
-  return q.length === 0 && seriesSlugs.length === 1 ? "series" : "relevance";
+function defaultSort(q: string): LibraryCatalogSort {
+  return q.length === 0 ? "newest" : "relevance";
 }
 
 function appendValues(

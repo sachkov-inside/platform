@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const authoringVideoSchema = z.object({
+  durationSeconds: z.number().int().positive().optional(),
   failureCode: z.string().optional(),
   origin: z.enum(["external_attachment", "platform_upload"]),
   state: z.enum([

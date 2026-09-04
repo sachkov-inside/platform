@@ -14,7 +14,9 @@ const publishedProjection = {
   summary: "Один реальный published Material.",
   access: "membership",
   availability: "locked",
+  cover: null,
   publishedAt: "2026-08-25T05:00:00.000Z",
+  primaryVideoId: null,
   topic: {
     id: "72000000-0000-4000-8000-000000000002",
     name: "Platform",
@@ -64,6 +66,7 @@ describe("Library discovery server adapter", () => {
             items: [publishedProjection],
             kind,
             reference: {
+              cover: null,
               id: "72000000-0000-4000-8000-000000000002",
               name: "Platform",
               slug: "platform",
@@ -82,7 +85,9 @@ describe("Library discovery server adapter", () => {
           {
             access: "membership",
             availability: "locked",
+            cover: null,
             format: "Гайд",
+            formatSlug: "guide",
             seriesMemberships: [
               {
                 name: "Создание Platform Inside",
@@ -99,7 +104,12 @@ describe("Library discovery server adapter", () => {
           },
         ],
         kind: "ready",
-        reference: { name: "Platform", slug: "platform", summary: "Материалы о Platform." },
+        reference: {
+          cover: null,
+          name: "Platform",
+          slug: "platform",
+          summary: "Материалы о Platform.",
+        },
         relatedSeries: [],
         topics: [],
       });
@@ -121,6 +131,7 @@ describe("Library discovery server adapter", () => {
           items: [],
           kind: "related",
           reference: {
+            cover: null,
             id: "72000000-0000-4000-8000-000000000020",
             name: "Как устроен Inside Platform",
             slug: "inside-platform-overview",
@@ -138,6 +149,7 @@ describe("Library discovery server adapter", () => {
       discoveryKind: "related",
       kind: "empty",
       reference: {
+        cover: null,
         name: "Как устроен Inside Platform",
         slug: "inside-platform-overview",
         summary: "Один реальный published Material.",
@@ -157,6 +169,7 @@ describe("Library discovery server adapter", () => {
           items: [],
           kind: "topic",
           reference: {
+            cover: null,
             id: "72000000-0000-4000-8000-000000000002",
             name: "Platform",
             slug: "platform",

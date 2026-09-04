@@ -7,6 +7,256 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ContentLibraryService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
+   * Read the bounded real-data Home projection
+   * @returns any
+   * @throws ApiError
+   */
+  public readHomeContent(): CancelablePromise<{
+    guides: Array<{
+      access: 'free' | 'membership' | 'workshop';
+      availability: 'available' | 'locked' | 'unavailable';
+      contentVersion: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      format: {
+        id: string;
+        name: string;
+        slug: string;
+      };
+      materialId: string;
+      primaryVideoDurationSeconds?: number;
+      primaryVideoId: string | null;
+      publishedAt: string;
+      seriesMemberships: Array<{
+        ordinal: number;
+        series: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+      }>;
+      slug: string;
+      summary: string;
+      tags: Array<{
+        id: string;
+        name: string;
+      }>;
+      title: string;
+      topic: {
+        id: string;
+        name: string;
+        slug: string;
+      };
+    }>;
+    notes: Array<{
+      access: 'free' | 'membership' | 'workshop';
+      availability: 'available' | 'locked' | 'unavailable';
+      contentVersion: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      format: {
+        id: string;
+        name: string;
+        slug: string;
+      };
+      materialId: string;
+      primaryVideoDurationSeconds?: number;
+      primaryVideoId: string | null;
+      publishedAt: string;
+      seriesMemberships: Array<{
+        ordinal: number;
+        series: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+      }>;
+      slug: string;
+      summary: string;
+      tags: Array<{
+        id: string;
+        name: string;
+      }>;
+      title: string;
+      topic: {
+        id: string;
+        name: string;
+        slug: string;
+      };
+    }>;
+    playlists: Array<{
+      count: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      id: string;
+      name: string;
+      previewItems: Array<{
+        access: 'free' | 'membership' | 'workshop';
+        availability: 'available' | 'locked' | 'unavailable';
+        contentVersion: number;
+        cover: {
+          coverId: string;
+          renditions: Array<{
+            height: number;
+            width: number;
+          }>;
+        } | null;
+        format: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+        materialId: string;
+        primaryVideoDurationSeconds?: number;
+        primaryVideoId: string | null;
+        publishedAt: string;
+        seriesMemberships: Array<{
+          ordinal: number;
+          series: {
+            id: string;
+            name: string;
+            slug: string;
+          };
+        }>;
+        slug: string;
+        summary: string;
+        tags: Array<{
+          id: string;
+          name: string;
+        }>;
+        title: string;
+        topic: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+      }>;
+      slug: string;
+      summary: string | null;
+    }>;
+    topics: Array<{
+      count: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      id: string;
+      name: string;
+      previewItems: Array<{
+        access: 'free' | 'membership' | 'workshop';
+        availability: 'available' | 'locked' | 'unavailable';
+        contentVersion: number;
+        cover: {
+          coverId: string;
+          renditions: Array<{
+            height: number;
+            width: number;
+          }>;
+        } | null;
+        format: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+        materialId: string;
+        primaryVideoDurationSeconds?: number;
+        primaryVideoId: string | null;
+        publishedAt: string;
+        seriesMemberships: Array<{
+          ordinal: number;
+          series: {
+            id: string;
+            name: string;
+            slug: string;
+          };
+        }>;
+        slug: string;
+        summary: string;
+        tags: Array<{
+          id: string;
+          name: string;
+        }>;
+        title: string;
+        topic: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+      }>;
+      slug: string;
+      summary: string | null;
+    }>;
+    videos: Array<{
+      access: 'free' | 'membership' | 'workshop';
+      availability: 'available' | 'locked' | 'unavailable';
+      contentVersion: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      format: {
+        id: string;
+        name: string;
+        slug: string;
+      };
+      materialId: string;
+      primaryVideoDurationSeconds?: number;
+      primaryVideoId: string | null;
+      publishedAt: string;
+      seriesMemberships: Array<{
+        ordinal: number;
+        series: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+      }>;
+      slug: string;
+      summary: string;
+      tags: Array<{
+        id: string;
+        name: string;
+      }>;
+      title: string;
+      topic: {
+        id: string;
+        name: string;
+        slug: string;
+      };
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/library/home',
+      errors: {
+        401: `Optional Account proof is invalid`,
+        500: `Account resolution failed`,
+        503: `Account proof dependency is unavailable`,
+      },
+    });
+  }
+  /**
    * List safe published Material projections
    * @returns any A deterministic page of published Materials
    * @throws ApiError
@@ -31,22 +281,166 @@ export class ContentLibraryService {
     facets: {
       formats: Array<{
         count: number;
+        cover: {
+          coverId: string;
+          renditions: Array<{
+            height: number;
+            width: number;
+          }>;
+        } | null;
         id: string;
         name: string;
+        previewItems: Array<{
+          access: 'free' | 'membership' | 'workshop';
+          availability: 'available' | 'locked' | 'unavailable';
+          contentVersion: number;
+          cover: {
+            coverId: string;
+            renditions: Array<{
+              height: number;
+              width: number;
+            }>;
+          } | null;
+          format: {
+            id: string;
+            name: string;
+            slug: string;
+          };
+          materialId: string;
+          primaryVideoDurationSeconds?: number;
+          primaryVideoId: string | null;
+          publishedAt: string;
+          seriesMemberships: Array<{
+            ordinal: number;
+            series: {
+              id: string;
+              name: string;
+              slug: string;
+            };
+          }>;
+          slug: string;
+          summary: string;
+          tags: Array<{
+            id: string;
+            name: string;
+          }>;
+          title: string;
+          topic: {
+            id: string;
+            name: string;
+            slug: string;
+          };
+        }>;
         slug: string;
         summary: string | null;
       }>;
       series: Array<{
         count: number;
+        cover: {
+          coverId: string;
+          renditions: Array<{
+            height: number;
+            width: number;
+          }>;
+        } | null;
         id: string;
         name: string;
+        previewItems: Array<{
+          access: 'free' | 'membership' | 'workshop';
+          availability: 'available' | 'locked' | 'unavailable';
+          contentVersion: number;
+          cover: {
+            coverId: string;
+            renditions: Array<{
+              height: number;
+              width: number;
+            }>;
+          } | null;
+          format: {
+            id: string;
+            name: string;
+            slug: string;
+          };
+          materialId: string;
+          primaryVideoDurationSeconds?: number;
+          primaryVideoId: string | null;
+          publishedAt: string;
+          seriesMemberships: Array<{
+            ordinal: number;
+            series: {
+              id: string;
+              name: string;
+              slug: string;
+            };
+          }>;
+          slug: string;
+          summary: string;
+          tags: Array<{
+            id: string;
+            name: string;
+          }>;
+          title: string;
+          topic: {
+            id: string;
+            name: string;
+            slug: string;
+          };
+        }>;
         slug: string;
         summary: string | null;
       }>;
       topics: Array<{
         count: number;
+        cover: {
+          coverId: string;
+          renditions: Array<{
+            height: number;
+            width: number;
+          }>;
+        } | null;
         id: string;
         name: string;
+        previewItems: Array<{
+          access: 'free' | 'membership' | 'workshop';
+          availability: 'available' | 'locked' | 'unavailable';
+          contentVersion: number;
+          cover: {
+            coverId: string;
+            renditions: Array<{
+              height: number;
+              width: number;
+            }>;
+          } | null;
+          format: {
+            id: string;
+            name: string;
+            slug: string;
+          };
+          materialId: string;
+          primaryVideoDurationSeconds?: number;
+          primaryVideoId: string | null;
+          publishedAt: string;
+          seriesMemberships: Array<{
+            ordinal: number;
+            series: {
+              id: string;
+              name: string;
+              slug: string;
+            };
+          }>;
+          slug: string;
+          summary: string;
+          tags: Array<{
+            id: string;
+            name: string;
+          }>;
+          title: string;
+          topic: {
+            id: string;
+            name: string;
+            slug: string;
+          };
+        }>;
         slug: string;
         summary: string | null;
       }>;
@@ -55,12 +449,20 @@ export class ContentLibraryService {
       access: 'free' | 'membership' | 'workshop';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       format: {
         id: string;
         name: string;
         slug: string;
       };
       materialId: string;
+      primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
       publishedAt: string;
       seriesMemberships: Array<{
@@ -122,12 +524,20 @@ export class ContentLibraryService {
       access: 'free' | 'membership' | 'workshop';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       format: {
         id: string;
         name: string;
         slug: string;
       };
       materialId: string;
+      primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
       publishedAt: string;
       seriesMemberships: Array<{
@@ -153,12 +563,26 @@ export class ContentLibraryService {
     }>;
     kind: 'related';
     reference: {
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       id: string;
       name: string;
       slug: string;
       summary: string;
     };
     relatedSeries: Array<{
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       id: string;
       matchingMaterialCount: number;
       name: string;
@@ -167,6 +591,13 @@ export class ContentLibraryService {
       totalMaterialCount: number;
     }>;
     topics: Array<{
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       id: string;
       name: string;
       slug: string;
@@ -202,12 +633,20 @@ export class ContentLibraryService {
       access: 'free' | 'membership' | 'workshop';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       format: {
         id: string;
         name: string;
         slug: string;
       };
       materialId: string;
+      primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
       publishedAt: string;
       seriesMemberships: Array<{
@@ -233,12 +672,26 @@ export class ContentLibraryService {
     }>;
     kind: 'series';
     reference: {
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       id: string;
       name: string;
       slug: string;
       summary: string;
     };
     relatedSeries: Array<{
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       id: string;
       matchingMaterialCount: number;
       name: string;
@@ -247,6 +700,13 @@ export class ContentLibraryService {
       totalMaterialCount: number;
     }>;
     topics: Array<{
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       id: string;
       name: string;
       slug: string;
@@ -282,12 +742,20 @@ export class ContentLibraryService {
       access: 'free' | 'membership' | 'workshop';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       format: {
         id: string;
         name: string;
         slug: string;
       };
       materialId: string;
+      primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
       publishedAt: string;
       seriesMemberships: Array<{
@@ -313,12 +781,26 @@ export class ContentLibraryService {
     }>;
     kind: 'topic';
     reference: {
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       id: string;
       name: string;
       slug: string;
       summary: string;
     };
     relatedSeries: Array<{
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       id: string;
       matchingMaterialCount: number;
       name: string;
@@ -327,6 +809,13 @@ export class ContentLibraryService {
       totalMaterialCount: number;
     }>;
     topics: Array<{
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       id: string;
       name: string;
       slug: string;

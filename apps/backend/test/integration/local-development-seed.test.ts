@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
+import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
   assembleMaterials,
 } from "../../src/modules/materials/index.js";
@@ -37,6 +38,7 @@ describe("local development seed", () => {
     const catalog = await listPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
+      emptyCatalogVideos,
       { subject: anonymousSubject, first: 12 },
     );
     expect(catalog.ok).toBe(true);
@@ -49,7 +51,7 @@ describe("local development seed", () => {
       { slug: "kak-ustroen-inside-platform", access: "free" },
     ]);
     expect(typeof catalog.value.nextCursor).toBe("string");
-    expect(await testDatabase.prisma.publishedMaterial.count()).toBe(13);
+    expect(await testDatabase.prisma.publishedMaterial.count()).toBe(18);
 
     await expect(
       publishedMaterialReader.read({

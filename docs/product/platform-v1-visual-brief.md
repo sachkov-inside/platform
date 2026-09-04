@@ -15,6 +15,12 @@ Structural UX authority остаётся в
 standalone concept/component gates #22/#23: visual language сначала проверяется в bounded,
 owner-controlled UI laboratory, затем принятые outputs — в production shell и реальных surfaces.
 
+Owner decision [#271](https://github.com/sachkov-inside/platform/issues/271) от 2026-09-04
+сужает текущий production visual contract: desktop Sidebar — Главная/База знаний, mobile floating
+dock — Главная/База знаний/Профиль с текстом только у active destination; Home не имеет search,
+history или `Продолжить`; Library оставляет один search, Format filters и Material sort; Reader не
+показывает related block. Более ранние противоречащие bullets ниже являются историческими.
+
 ## 1. Subject, audience и jobs
 
 Platform — живая инженерная мастерская и канонический дом полноценных Materials Inside, а не
@@ -281,7 +287,7 @@ Rendered review в [Platform #45](https://github.com/sachkov-inside/platform/iss
   может быть явно закреплён, а profile utility с детерминированной account identity остаётся у
   нижней границы независимо от page scroll;
 - collapsed sidebar показывает brand mark, а pin control появляется только в expanded state;
-- mobile использует постоянную нижнюю navigation для `Главная / Библиотека / Карта`, а не burger;
+- mobile использует floating navigation для `Главная / База знаний / Профиль`, а не burger;
 - `Media Card` является принятой основой Material preview: bounded card не растягивается на всю
   страницу, video получает реальный preview с duration в одном месте, а Material без preview
   остаётся content-first без искусственной заглушки;
@@ -320,15 +326,13 @@ rendered visual/component GO остаётся отдельным от PR и merg
 - Reader показывает только подтверждённые actions: `Назад` и вручную переключаемое
   `Прочитано / Не прочитано`; save и like не моделируются, а переход к следующему Material
   появляется только при реальном membership текущего Material в Series;
-- Library фильтрует по каноническим facets `Тема / Формат / Серия`: выбранные значения работают
-  как OR внутри facet и AND между facets; Tags остаются видимыми searchable links и search text,
-  но не образуют отдельную filter group; filters применяются без page navigation, text search
-  debounce-ится, а обычный infinite scroll сохраняет видимую кнопку ручной догрузки;
+- Library оставляет один search по Material/Topic/Series/Tag, Format filters и Material sort;
+  filters применяются без page navigation, cursor остаётся внутри infinite query;
 - Material Card показывает title и ordinal Series только при реальном membership; карточка без
   Series не резервирует под него место;
 - video Material cards образуют компактную media-grid с одинаковым `16:9` preview и стабильной
-  геометрией metadata; Material без preview остаётся естественно ниже, а related cards в Reader
-  не растягиваются на всю доступную ширину;
+  геометрией metadata; Material без cover использует стабильный fallback, а Reader не содержит
+  related cards;
 - accepted component foundation состоит из реально используемых `Button`, `Select`, `Tooltip` и
   surface patterns `ApplicationShell`, `MaterialCard`, `LibraryFilters`; story-only `Sheet`,
   неподтверждённая header topology и внешний avatar dependency в baseline не сохраняются;
@@ -347,7 +351,7 @@ surface reviews.
 Живость подтверждают реальные observable facts:
 
 - new/updated Material и active Series;
-- explicit `Продолжить`, history и manual read/unread state;
+- новые published Материалы и активные Series без fake history/`Продолжить`;
 - current video chapter/timecode и bounded playback progress;
 - save/publish/access feedback;
 - partial/loading/error states, которые не скрывают доступный content;

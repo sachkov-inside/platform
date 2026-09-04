@@ -131,6 +131,14 @@ body {
 }
 
 @media (width < 48rem) {
+  .mobile-scrollbar-hidden {
+    scrollbar-width: none;
+  }
+
+  .mobile-scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
   .platform-agentation {
     bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
   }

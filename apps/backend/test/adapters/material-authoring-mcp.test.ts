@@ -91,6 +91,7 @@ describe("Material authoring MCP adapter", () => {
             primaryVideoId: null,
             primaryVideo: null,
             latestVideoDeletion: null,
+            cover: null,
             metadata: {
               ...incompleteMetadata("Loaded"),
               seriesMemberships: [],

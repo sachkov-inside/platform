@@ -7,6 +7,7 @@ import {
 } from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -41,6 +42,7 @@ describe("Content Library discovery", () => {
     const result = await discoverPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
+      emptyCatalogVideos,
       {
         kind: "topic",
         slug: "platform",
@@ -134,6 +136,7 @@ describe("Content Library discovery", () => {
     const result = await discoverPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
+      emptyCatalogVideos,
       {
         kind: "topic",
         slug: "platform",
@@ -164,6 +167,7 @@ describe("Content Library discovery", () => {
     const result = await discoverPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
+      emptyCatalogVideos,
       {
         kind: "series",
         slug: "platform-inside",
@@ -211,6 +215,7 @@ describe("Content Library discovery", () => {
     const result = await discoverPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
+      emptyCatalogVideos,
       {
         kind: "related",
         slug: "kak-ustroen-inside-platform",
@@ -284,7 +289,7 @@ describe("Content Library discovery", () => {
     });
 
     await expect(
-      discoverPublishedMaterials(publishedMaterialReader, contentAccess, {
+      discoverPublishedMaterials(publishedMaterialReader, contentAccess, emptyCatalogVideos, {
         kind: "topic",
         slug: "empty-topic",
         first: 24,
@@ -295,7 +300,7 @@ describe("Content Library discovery", () => {
       value: { kind: "topic", items: [], hasNext: false },
     });
     await expect(
-      discoverPublishedMaterials(publishedMaterialReader, contentAccess, {
+      discoverPublishedMaterials(publishedMaterialReader, contentAccess, emptyCatalogVideos, {
         kind: "series",
         slug: "missing-series",
         first: 24,
@@ -306,7 +311,7 @@ describe("Content Library discovery", () => {
       error: { code: "discovery_not_found" },
     });
     await expect(
-      discoverPublishedMaterials(publishedMaterialReader, contentAccess, {
+      discoverPublishedMaterials(publishedMaterialReader, contentAccess, emptyCatalogVideos, {
         kind: "topic",
         slug: "INVALID",
         first: 24,
@@ -346,6 +351,7 @@ describe("Content Library discovery", () => {
       const topic = await discoverPublishedMaterials(
         publishedMaterialReader,
         contentAccess,
+        emptyCatalogVideos,
         {
           kind: "topic",
           slug: "platform",
@@ -356,6 +362,7 @@ describe("Content Library discovery", () => {
       const series = await discoverPublishedMaterials(
         publishedMaterialReader,
         contentAccess,
+        emptyCatalogVideos,
         {
           kind: "series",
           slug: "platform-inside",
@@ -379,6 +386,7 @@ describe("Content Library discovery", () => {
       const discoveryFilter = await listPublishedMaterials(
         publishedMaterialReader,
         contentAccess,
+        emptyCatalogVideos,
         {
           first: 24,
           subject: anonymousSubject,
@@ -393,6 +401,7 @@ describe("Content Library discovery", () => {
       const canonicalTopic = await listPublishedMaterials(
         publishedMaterialReader,
         contentAccess,
+        emptyCatalogVideos,
         {
           canonicalTopicSlug: "platform",
           first: 24,

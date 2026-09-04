@@ -1,5 +1,4 @@
 import { ArrowLeft, BookOpenText } from "lucide-react";
-import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -10,15 +9,12 @@ import type {
   ReaderText,
   PrimaryVideoPresentation,
 } from "@/_pages/material-reader/model/material-reader-view";
-import type { RelatedMaterialsResult } from "@/features/library-discovery";
-import { RelatedMaterialsSection } from "@/features/library-discovery";
 import { materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
 import { MaterialPrimaryVideo } from "@/features/material-video";
 import {
   libraryMaterialReaderReturnTarget,
-  materialReaderHref,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 
@@ -26,9 +22,7 @@ export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
   readonly primaryVideo: PrimaryVideoPresentation | null;
-  readonly related?: RelatedMaterialsResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
-  readonly sourceHref?: Route;
 }
 
 interface OutlineItem {
@@ -42,34 +36,26 @@ export function MaterialReaderView({
   body,
   material,
   primaryVideo,
-  related,
   returnTarget = libraryMaterialReaderReturnTarget,
-  sourceHref,
 }: MaterialReaderViewProps) {
   const outline = collectOutline(body);
 
   return (
     <div className="@container/material-reader" data-material-id={material.materialId} data-material-reader-state="available">
-      <ReaderBackAction target={returnTarget} />
-      <div className="mt-10 min-w-0">
+      <ReaderBackAction sticky target={returnTarget} />
+      <div className="mt-7 min-w-0 sm:mt-10">
         <MaterialHeader material={material} />
         {primaryVideo === null ? null : (
           <MaterialPrimaryVideo materialId={material.materialId} video={primaryVideo} />
         )}
         <ReaderOutline items={outline} />
         <article
-          className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[0.96875rem] leading-[1.7] sm:mt-12 sm:text-[1.0625rem]"
+          className="mt-9 min-w-0 max-w-[68ch] text-pretty text-[1rem] leading-[1.75] sm:mt-12 sm:text-[1.0625rem]"
           data-reader-body
         >
           <ReaderBlocks blocks={body} contentVersion={material.contentVersion} materialId={material.materialId} path={[]} />
         </article>
       </div>
-      {related === undefined ? null : (
-        <RelatedMaterialsSection
-          result={related}
-          sourceHref={sourceHref ?? materialReaderHref(material.slug)}
-        />
-      )}
       <ReaderBackAction className="mt-16" target={returnTarget} />
     </div>
   );
@@ -149,13 +135,15 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
 
 export function ReaderBackAction({
   className = "",
+  sticky = false,
   target,
 }: {
   readonly className?: string;
+  readonly sticky?: boolean;
   readonly target: MaterialReaderReturnTarget;
 }) {
   return (
-    <div className={`flex min-h-11 items-center border-b border-border pb-3 ${className}`}>
+    <div className={`${sticky ? "sticky top-0 z-20 -mx-5 bg-background/95 px-5 pt-2 backdrop-blur sm:-mx-8 sm:px-8 md:mx-0 md:px-0" : ""} flex min-h-11 items-center border-b border-border pb-3 ${className}`}>
       <Button asChild className="bg-background" size="lg" variant="outline">
         <Link href={target.href}>
           <ArrowLeft aria-hidden="true" />

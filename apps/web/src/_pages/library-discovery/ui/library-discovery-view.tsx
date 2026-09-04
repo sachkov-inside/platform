@@ -18,6 +18,7 @@ import type {
   PublishedTopicResult,
 } from "@/features/library-discovery";
 import {
+  ContentCoverImage,
   materialTaxonomyLabel,
   type MaterialPreview,
 } from "@/entities/material";
@@ -53,6 +54,13 @@ export function LibraryDiscoveryView({
         name={result.reference.name}
       />
       <header className="relative mt-6 isolate overflow-clip rounded-2xl bg-secondary px-5 py-7 shadow-card sm:mt-8 sm:px-8 sm:py-9">
+        <ContentCoverImage
+          alt=""
+          className="absolute inset-y-0 right-0 hidden w-[42%] opacity-90 @min-[48rem]/discovery:grid"
+          cover={result.reference.cover ?? null}
+          sizes="36rem"
+        />
+        <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-secondary via-secondary/95 to-secondary/35" />
         <span
           aria-hidden="true"
           className="reader-status-halo absolute -right-12 -top-20 size-56 rounded-full bg-accent/15"
@@ -102,6 +110,7 @@ function TopicMaterials({
                 key={playlist.slug}
                 playlist={{
                   countLabel: `${formatMaterialCount(playlist.matchingMaterialCount)} в теме · ${formatMaterialCount(playlist.totalMaterialCount)} всего`,
+                  cover: playlist.cover,
                   name: playlist.name,
                   slug: playlist.slug,
                   summary: playlist.summary,

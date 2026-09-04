@@ -1,7 +1,12 @@
+import type { ContentCover } from "./content-cover";
+
 export interface MaterialPreview {
-  readonly access: "free" | "membership";
+  readonly access: "free" | "membership" | "workshop";
   readonly availability: "available" | "locked" | "unavailable";
+  readonly cover?: ContentCover | null | undefined;
   readonly format: string;
+  readonly formatSlug?: string | undefined;
+  readonly primaryVideoDurationSeconds?: number | undefined;
   readonly preview?: {
     readonly duration?: string;
     readonly label: string;

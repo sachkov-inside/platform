@@ -1,12 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import {
-  RelatedMaterialsSection,
-  type LibraryDiscoveryResult,
-} from "@/features/library-discovery";
+import type { LibraryDiscoveryResult } from "@/features/library-discovery";
 import type { MaterialPreview } from "@/entities/material";
-import { materialReaderHref } from "@/shared/routing/material-reader";
 import {
   ApplicationShell,
   type ApplicationNavigationItem,
@@ -213,52 +209,6 @@ export const UnexpectedError: Story = {
   name: "Unexpected error",
 };
 
-export const RelatedReady: Story = {
-  args: { result: topicResult },
-  render: () => (
-    <RelatedMaterialsSection
-      result={{
-        discoveryKind: "related",
-        hasNext: false,
-        items: materials,
-        kind: "ready",
-        reference: { name: "Как устроен Inside Platform", slug: "inside-platform-overview", summary: "" },
-        relatedSeries: [],
-        topics: [],
-      }}
-      sourceHref={materialReaderHref("inside-platform-overview")}
-    />
-  ),
-  name: "Related · ready",
-};
-
-export const RelatedEmpty: Story = {
-  args: { result: topicResult },
-  render: () => (
-    <RelatedMaterialsSection
-      result={{
-        discoveryKind: "related",
-        kind: "empty",
-        reference: { name: "Как устроен Inside Platform", slug: "inside-platform-overview", summary: "" },
-        relatedSeries: [],
-        topics: [],
-      }}
-      sourceHref={materialReaderHref("inside-platform-overview")}
-    />
-  ),
-  name: "Related · empty",
-};
-
-export const RelatedUnavailable: Story = {
-  args: { result: topicResult },
-  render: () => (
-    <RelatedMaterialsSection
-      result={{ kind: "unavailable" }}
-      sourceHref={materialReaderHref("inside-platform-overview")}
-    />
-  ),
-  name: "Related · unavailable",
-};
 
 async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
   const storyWindow = canvasElement.ownerDocument.defaultView;

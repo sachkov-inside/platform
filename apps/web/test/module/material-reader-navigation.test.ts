@@ -7,7 +7,7 @@ import {
 } from "@/shared/routing/material-reader";
 
 describe("Material Reader navigation", () => {
-  it("round-trips a Playlist, Topic and related Material origin", () => {
+  it("round-trips Home, Library, Playlist, Topic and Profile origins", () => {
     const seriesHref = materialReaderOriginHref("series", "platform-inside");
     expect(materialReaderHref("inside-platform-overview", seriesHref)).toBe(
       "/materials/inside-platform-overview?from=%2Fseries%2Fplatform-inside",
@@ -24,12 +24,15 @@ describe("Material Reader navigation", () => {
       label: "Назад к теме",
     });
 
-    const sourceHref = materialReaderHref("inside-platform-overview", seriesHref);
-    const relatedHref = materialReaderHref("related-architecture", sourceHref);
-    expect(parseMaterialReaderReturnTarget(new URL(relatedHref, "https://inside.local").searchParams.get("from"))).toEqual({
-      href: sourceHref,
-      kind: "material",
-      label: "Назад к материалу",
+    expect(parseMaterialReaderReturnTarget("/")).toEqual({
+      href: "/",
+      kind: "home",
+      label: "Назад на Главную",
+    });
+    expect(parseMaterialReaderReturnTarget("/account")).toEqual({
+      href: "/account",
+      kind: "profile",
+      label: "Назад в профиль",
     });
   });
 
@@ -39,6 +42,7 @@ describe("Material Reader navigation", () => {
       "https://attacker.example/series/platform-inside",
       "//attacker.example/series/platform-inside",
       "/series/platform-inside?unexpected=true",
+      "/materials/inside-platform-overview",
       "/admin",
       ["/series/one", "/series/two"],
     ]) {

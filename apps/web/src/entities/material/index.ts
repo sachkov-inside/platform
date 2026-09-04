@@ -1,5 +1,10 @@
 export type { MaterialPreview } from "./model/material-preview";
 export {
+  contentCoverSchema,
+  contentCoverUrl,
+  type ContentCover,
+} from "./model/content-cover";
+export {
   materialPreviewSchema,
   publishedMaterialProjectionSchema,
   toMaterialPreview,
@@ -16,3 +21,4 @@ export {
   type RenderedText,
 } from "./model/rendered-material-body";
 export { MaterialCard, type MaterialCardProps } from "./ui/material-card";
+export { ContentCoverImage } from "./ui/content-cover-image.client";

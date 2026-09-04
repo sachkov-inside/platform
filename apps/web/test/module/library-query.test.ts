@@ -39,9 +39,7 @@ const defaultQuery = {
   after: null,
   formatSlugs: [],
   q: "",
-  seriesSlugs: [],
-  sort: "relevance",
-  topicSlugs: [],
+  sort: "newest",
 } as const;
 
 describe("Library TanStack Query interface", () => {
@@ -50,7 +48,7 @@ describe("Library TanStack Query interface", () => {
     vi.unstubAllGlobals();
   });
 
-  it("normalizes shareable search, facets, sort and cursor into one canonical URL", () => {
+  it("keeps only search, Format and Material sort in the canonical URL", () => {
     const parsed = parseLibrarySearchParams({
       after: ["cursor-one", "cursor-two"],
       format: ["video", "INVALID", "video"],
@@ -65,24 +63,22 @@ describe("Library TanStack Query interface", () => {
       after: "cursor-one",
       formatSlugs: ["video"],
       q: "карьерный маршрут",
-      seriesSlugs: ["career-path"],
       sort: "relevance",
-      topicSlugs: ["career", "platform"],
     });
     expect(parsed.wasNormalized).toBe(true);
     expect(serializeLibrarySearchQuery(parsed.query)).toBe(
-      "q=%D0%BA%D0%B0%D1%80%D1%8C%D0%B5%D1%80%D0%BD%D1%8B%D0%B9+%D0%BC%D0%B0%D1%80%D1%88%D1%80%D1%83%D1%82&topic=career&topic=platform&format=video&series=career-path&after=cursor-one",
+      "q=%D0%BA%D0%B0%D1%80%D1%8C%D0%B5%D1%80%D0%BD%D1%8B%D0%B9+%D0%BC%D0%B0%D1%80%D1%88%D1%80%D1%83%D1%82&format=video",
     );
   });
 
-  it("uses author-defined order as the canonical default for one Series", () => {
-    const parsed = parseLibrarySearchParams({ series: "platform-inside" });
+  it("uses newest by default and relevance while searching", () => {
+    const initial = parseLibrarySearchParams({});
+    const searched = parseLibrarySearchParams({ q: "platform" });
 
-    expect(parsed.query.sort).toBe("series");
-    expect(serializeLibrarySearchQuery(parsed.query)).toBe(
-      "series=platform-inside",
-    );
-    expect(parsed.wasNormalized).toBe(false);
+    expect(initial.query.sort).toBe("newest");
+    expect(serializeLibrarySearchQuery(initial.query)).toBe("");
+    expect(searched.query.sort).toBe("relevance");
+    expect(serializeLibrarySearchQuery(searched.query)).toBe("q=platform");
   });
 
   it("truncates long Unicode queries without sending a broken surrogate to NestJS", () => {
@@ -155,7 +151,7 @@ describe("Library TanStack Query interface", () => {
         }),
       );
     vi.stubGlobal("fetch", fetchMock);
-    const topicQuery = { ...defaultQuery, topicSlugs: ["platform"] };
+    const topicQuery = defaultQuery;
     const data = await new QueryClient().infiniteQuery({
       ...topicLibraryCatalogQueryOptions("platform", topicQuery),
       pages: 2,
@@ -200,7 +196,7 @@ describe("Library TanStack Query interface", () => {
     const backendRequest = vi.mocked(fetch).mock.calls[0]?.[0];
     expect(backendRequest).toBeInstanceOf(Request);
     expect((backendRequest as Request).url).toBe(
-      "https://platform-api.example.test/library/materials?sort=relevance&canonicalTopic=platform",
+      "https://platform-api.example.test/library/materials?sort=newest&canonicalTopic=platform",
     );
   });
 
@@ -280,7 +276,7 @@ describe("Library TanStack Query interface", () => {
       throw new TypeError("BFF did not use the generated server transport");
     }
     expect(backendRequest.url).toBe(
-      "https://platform-api.example.test/library/materials?sort=relevance&after=next_cursor",
+      "https://platform-api.example.test/library/materials?sort=newest&after=next_cursor",
     );
     expect(backendRequest.cache).toBe("no-store");
   });

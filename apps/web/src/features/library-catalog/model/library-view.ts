@@ -1,11 +1,13 @@
-import type { MaterialPreview } from "@/entities/material";
+import type { ContentCover, MaterialPreview } from "@/entities/material";
 
 export type { MaterialPreview as LibraryMaterialPreview } from "@/entities/material";
 
 export interface LibraryCatalogFacet {
   readonly count: number;
+  readonly cover?: ContentCover | null | undefined;
   readonly id: string;
   readonly name: string;
+  readonly previewItems?: readonly MaterialPreview[] | undefined;
   readonly slug: string;
   readonly summary: string | null;
 }

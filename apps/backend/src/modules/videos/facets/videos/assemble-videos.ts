@@ -63,6 +63,7 @@ const presentationInput = z.object({
   materialId: videoMaterialIdSchema,
   videoId: videoIdSchema,
 }).strict();
+const readyDurationsInput = z.array(videoIdSchema).max(10_000);
 const progressIdentityInput = z.object({
   accountId: videoAccountIdSchema,
   videoId: videoIdSchema,
@@ -243,6 +244,7 @@ export function assembleVideos(dependencies: {
               createdAt: savedAt,
               createdBy: parsed.data.actor,
               failureCode: lifecycle.failureCode,
+              durationSeconds: remote.durationSeconds ?? null,
               lastSyncedAt: savedAt,
               materialId: parsed.data.materialId,
               origin: "external_attachment",
@@ -382,6 +384,9 @@ export function assembleVideos(dependencies: {
                 videoId: videoIdSchema.parse(video.id),
                 title: video.title,
                 state: parseVideoState(video.state),
+                ...(video.durationSeconds === null
+                  ? {}
+                  : { durationSeconds: video.durationSeconds }),
                 ...(video.failureCode === null ? {} : { failureCode: video.failureCode }),
               },
         };
@@ -400,6 +405,32 @@ export function assembleVideos(dependencies: {
         return {
           ok: true,
           value: video === null ? null : toAuthoringPresentation(video),
+        };
+      } catch {
+        return dependencyUnavailable();
+      }
+    },
+
+    async loadReadyDurations(videoIds) {
+      const parsed = readyDurationsInput.safeParse(videoIds);
+      if (!parsed.success) return invalidRequest();
+      if (parsed.data.length === 0) return { ok: true, value: [] };
+      try {
+        const rows = await dependencies.prisma.video.findMany({
+          select: { durationSeconds: true, id: true },
+          where: {
+            durationSeconds: { not: null },
+            id: { in: [...new Set(parsed.data)] },
+            state: "ready",
+          },
+        });
+        return {
+          ok: true,
+          value: rows.flatMap(({ durationSeconds, id }) =>
+            durationSeconds === null
+              ? []
+              : [{ durationSeconds, videoId: videoIdSchema.parse(id) }],
+          ),
         };
       } catch {
         return dependencyUnavailable();
@@ -601,6 +632,7 @@ export function assembleVideos(dependencies: {
           where: { id: videoId },
           data: {
             failureCode: deleting ? local.failureCode : lifecycle.failureCode,
+            durationSeconds: remote.durationSeconds ?? null,
             lastSyncedAt: syncedAt,
             providerEmbedLocator: lifecycle.embedLocator,
             providerMessage: remote.message ?? null,
@@ -668,7 +700,7 @@ function providerLifecycle(remote: ProviderVideo): {
   return { embedLocator: null, failureCode: "unknown_provider_status", state: "failed" };
 }
 
-function toDto(video: { id: string; access: string; materialId: string; origin: string; state: string; title: string; failureCode: string | null }): VideoDto {
+function toDto(video: { id: string; access: string; materialId: string; origin: string; state: string; title: string; failureCode: string | null; durationSeconds: number | null }): VideoDto {
   return videoDtoSchema.parse({
     access: access.parse(video.access),
     materialId: videoMaterialIdSchema.parse(video.materialId),
@@ -676,12 +708,14 @@ function toDto(video: { id: string; access: string; materialId: string; origin: 
     state: parseVideoState(video.state),
     title: video.title,
     videoId: videoIdSchema.parse(video.id),
+    ...(video.durationSeconds === null ? {} : { durationSeconds: video.durationSeconds }),
     ...(video.failureCode === null ? {} : { failureCode: video.failureCode }),
   });
 }
 
 function toAuthoringPresentation(video: {
   readonly failureCode: string | null;
+  readonly durationSeconds: number | null;
   readonly id: string;
   readonly origin: string;
   readonly state: string;
@@ -692,6 +726,7 @@ function toAuthoringPresentation(video: {
     state: parseVideoState(video.state),
     title: video.title,
     videoId: videoIdSchema.parse(video.id),
+    ...(video.durationSeconds === null ? {} : { durationSeconds: video.durationSeconds }),
     ...(video.failureCode === null ? {} : { failureCode: video.failureCode }),
   });
 }

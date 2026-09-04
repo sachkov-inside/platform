@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
@@ -20,7 +20,7 @@ import {
 
 export function CatalogControls({
   facets,
-  hiddenFacets = [],
+  hiddenFacets: _hiddenFacets = [],
   isRefreshing,
   onQueryChange,
   query,
@@ -37,17 +37,7 @@ export function CatalogControls({
   readonly query: LibrarySearchQuery;
   readonly resetQuery: LibrarySearchQuery;
 }) {
-  const visibleSelections = [
-    ...(hiddenFacets.includes("topic") ? [] : query.topicSlugs),
-    ...(hiddenFacets.includes("format") ? [] : query.formatSlugs),
-    ...(hiddenFacets.includes("series") ? [] : query.seriesSlugs),
-  ];
-  const activeFilterCount = visibleSelections.length;
-  const hasFacetOptions =
-    (hiddenFacets.includes("topic") ? 0 : facets.topics.length) +
-      (hiddenFacets.includes("format") ? 0 : facets.formats.length) +
-      (hiddenFacets.includes("series") ? 0 : facets.series.length) >
-    0;
+  const activeFilterCount = query.formatSlugs.length;
 
   return (
     <form
@@ -99,9 +89,6 @@ export function CatalogControls({
             <SelectContent align="end">
               <SelectItem value="relevance">По релевантности</SelectItem>
               <SelectItem value="newest">Сначала новые</SelectItem>
-              {query.seriesSlugs.length === 1 ? (
-                <SelectItem value="series">По порядку плейлиста</SelectItem>
-              ) : null}
               <SelectItem value="title">По названию</SelectItem>
             </SelectContent>
           </Select>
@@ -112,50 +99,16 @@ export function CatalogControls({
         {isRefreshing ? "Обновляем материалы…" : "Фильтры применяются сразу"}
       </p>
 
-      {hasFacetOptions ? (
-        <details className="mt-3 rounded-xl bg-muted/75 p-4" open>
-          <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 font-semibold marker:content-none">
-            <SlidersHorizontal aria-hidden="true" className="size-4" />
-            Фильтры
-            {activeFilterCount > 0 ? (
-              <span className="grid size-6 place-items-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
-                {activeFilterCount}
-              </span>
-            ) : null}
-          </summary>
-          <div className="mt-4 grid gap-5 @min-[44rem]/library:grid-cols-3 @min-[44rem]/library:gap-4">
-            {hiddenFacets.includes("topic") ? null : (
-              <CatalogFilterFieldset
-                legend="Тема"
-                name="topic"
-                onQueryChange={onQueryChange}
-                options={facets.topics}
-                query={query}
-                selected={query.topicSlugs}
-              />
-            )}
-            {hiddenFacets.includes("format") ? null : (
-              <CatalogFilterFieldset
-                legend="Формат"
-                name="format"
-                onQueryChange={onQueryChange}
-                options={facets.formats}
-                query={query}
-                selected={query.formatSlugs}
-              />
-            )}
-            {hiddenFacets.includes("series") ? null : (
-              <CatalogFilterFieldset
-                legend="Плейлисты"
-                name="series"
-                onQueryChange={onQueryChange}
-                options={facets.series}
-                query={query}
-                selected={query.seriesSlugs}
-              />
-            )}
-          </div>
-        </details>
+      {facets.formats.length > 0 ? (
+        <div className="mt-3">
+          <CatalogFilterFieldset
+            legend="Формат"
+            onQueryChange={onQueryChange}
+            options={facets.formats}
+            query={query}
+            selected={query.formatSlugs}
+          />
+        </div>
       ) : null}
 
       {query.q.length > 0 || activeFilterCount > 0 ? (
@@ -178,14 +131,12 @@ export function CatalogControls({
 
 function CatalogFilterFieldset({
   legend,
-  name,
   onQueryChange,
   options,
   query,
   selected,
 }: {
   readonly legend: string;
-  readonly name: "format" | "series" | "topic";
   readonly onQueryChange: (query: LibrarySearchQuery) => void;
   readonly options: readonly LibraryCatalogFacet[];
   readonly query: LibrarySearchQuery;
@@ -202,20 +153,20 @@ function CatalogFilterFieldset({
             <input
               checked={selected.includes(option.slug)}
               className="peer sr-only"
-              name={name}
+              name="format"
               onChange={(event) => {
                 const values = event.currentTarget.checked
                   ? [...selected, option.slug]
                   : selected.filter((slug) => slug !== option.slug);
                 onQueryChange(
-                  changeLibraryQuery(query, { [facetProperty(name)]: values }),
+                  changeLibraryQuery(query, { formatSlugs: values }),
                 );
               }}
               type="checkbox"
               value={option.slug}
             />
             <span className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:border-muted-foreground/45 hover:bg-muted/80 peer-checked:border-accent/55 peer-checked:bg-accent/12 peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
-              {name === "format" ? materialTaxonomyLabel(option.name) : option.name}
+              {materialTaxonomyLabel(option.name)}
               <span className="text-xs text-muted-foreground">
                 {option.count}
               </span>
@@ -225,12 +176,4 @@ function CatalogFilterFieldset({
       </div>
     </fieldset>
   );
-}
-
-function facetProperty(
-  name: "format" | "series" | "topic",
-): "formatSlugs" | "seriesSlugs" | "topicSlugs" {
-  if (name === "format") return "formatSlugs";
-  if (name === "series") return "seriesSlugs";
-  return "topicSlugs";
 }

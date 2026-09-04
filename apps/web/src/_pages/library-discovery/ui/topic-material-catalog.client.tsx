@@ -46,9 +46,7 @@ export function TopicMaterialCatalog({
           catalog.query.isFetching && !catalog.query.isFetchingNextPage
         }
         onQueryChange={(next) => {
-          catalog.setSearchQuery(
-            withoutLibraryCursor({ ...next, topicSlugs: [topicSlug] }),
-          );
+          catalog.setSearchQuery(withoutLibraryCursor(next));
         }}
         query={catalog.searchQuery}
         resetQuery={fixedQuery}
@@ -83,9 +81,8 @@ export function TopicMaterialCatalog({
 }
 
 function topicQuery(topicSlug: string): LibrarySearchQuery {
-  const search = new URLSearchParams();
-  search.set("topic", topicSlug);
-  return parseLibrarySearchParams(search).query;
+  void topicSlug;
+  return parseLibrarySearchParams(new URLSearchParams()).query;
 }
 
 function CatalogStatus({ message }: { readonly message: string }) {

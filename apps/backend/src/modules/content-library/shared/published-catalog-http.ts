@@ -1,13 +1,17 @@
 import { z } from "zod";
 
-import { publishedMaterialProjectionHttpSchema } from "../../materials/index.js";
+import {
+  contentCoverProjectionHttpSchema,
+  publishedMaterialProjectionHttpSchema,
+} from "../../materials/index.js";
 
 export const publishedCatalogItemHttpSchema =
   publishedMaterialProjectionHttpSchema.extend({
     availability: z.enum(["available", "locked", "unavailable"]),
+    primaryVideoDurationSeconds: z.number().int().positive().optional(),
   });
 
-const publishedCatalogFacetHttpSchema = z
+export const publishedCatalogFacetHttpSchema = z
   .object({
     count: z.number().int().nonnegative(),
     id: z.uuid(),
@@ -17,6 +21,8 @@ const publishedCatalogFacetHttpSchema = z
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
       .max(120),
     summary: z.string().nullable(),
+    cover: contentCoverProjectionHttpSchema.nullable(),
+    previewItems: z.array(publishedCatalogItemHttpSchema),
   })
   .strict();
 
@@ -41,6 +47,7 @@ const discoveryReferenceHttpSchema = z
     name: z.string(),
     slug: z.string(),
     summary: z.string(),
+    cover: contentCoverProjectionHttpSchema.nullable(),
   })
   .strict();
 
@@ -52,11 +59,17 @@ const relatedSeriesHttpSchema = z
     slug: z.string(),
     summary: z.string(),
     totalMaterialCount: z.number().int().nonnegative(),
+    cover: contentCoverProjectionHttpSchema.nullable(),
   })
   .strict();
 
 const discoveryTopicHttpSchema = z
-  .object({ id: z.uuid(), name: z.string(), slug: z.string() })
+  .object({
+    cover: contentCoverProjectionHttpSchema.nullable(),
+    id: z.uuid(),
+    name: z.string(),
+    slug: z.string(),
+  })
   .strict();
 
 export const publishedDiscoveryPageHttpSchema = z

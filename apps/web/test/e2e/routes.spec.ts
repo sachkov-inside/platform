@@ -14,7 +14,9 @@ for (const destination of destinations) {
     await expect(page).toHaveTitle(new RegExp(`^${destination.label} · Inside$`, "u"));
 
     const navigation = getPrimaryNavigation(page, testInfo.project.name);
-    await expect(navigation.getByRole("link")).toHaveCount(1);
+    await expect(navigation.getByRole("link")).toHaveCount(
+      navigationMode(testInfo.project.name) === "mobile" ? 3 : 2,
+    );
     await expect(
       navigation.getByRole("link", { name: destination.label, exact: true }),
     ).toHaveAttribute("aria-current", "page");
@@ -34,11 +36,13 @@ for (const destination of destinations) {
   });
 }
 
-test("root redirects to the canonical library route", async ({ page }) => {
+test("root remains the canonical Home route", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page).toHaveURL(/\/library$/u);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("База знаний");
+  await expect(page).toHaveURL(/\/$/u);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Главная временно недоступна",
+  );
 });
 
 test("map remains available by direct URL without a primary navigation item", async ({
@@ -49,14 +53,25 @@ test("map remains available by direct URL without a primary navigation item", as
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Карта Inside");
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
-  await expect(navigation.getByRole("link")).toHaveCount(1);
+  await expect(navigation.getByRole("link")).toHaveCount(
+    navigationMode(testInfo.project.name) === "mobile" ? 3 : 2,
+  );
   await expect(navigation.getByRole("link", { name: "Карта" })).toHaveCount(0);
 });
 
-test("guest shell exposes a server-owned sign-in mutation on desktop and mobile", async ({
+test("guest shell exposes sign-in on desktop and Profile navigation on mobile", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.goto("/library");
+
+  if (navigationMode(testInfo.project.name) === "mobile") {
+    await expect(
+      getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
+        name: "Профиль",
+      }),
+    ).toHaveAttribute("href", "/account");
+    return;
+  }
 
   const signIn = page.locator("button:visible", { hasText: "Войти" });
   await expect(signIn).toHaveCount(1);
@@ -70,7 +85,7 @@ test("guest shell exposes a server-owned sign-in mutation on desktop and mobile"
 
 test("unlinked Account sees centered onboarding once per authenticated session", async ({
   page,
-}) => {
+}, testInfo) => {
   let authenticated = true;
   await page.route("**/auth/status", (route) =>
     route.fulfill({
@@ -123,7 +138,15 @@ test("unlinked Account sees centered onboarding once per authenticated session",
 
   authenticated = false;
   await page.reload();
-  await expect(page.locator("button:visible", { hasText: "Войти" })).toBeEnabled();
+  if (navigationMode(testInfo.project.name) === "mobile") {
+    await expect(
+      getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
+        name: "Профиль",
+      }),
+    ).toHaveAttribute("href", "/account");
+  } else {
+    await expect(page.locator("button:visible", { hasText: "Войти" })).toBeEnabled();
+  }
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -257,7 +280,11 @@ test("manager shell exposes editor navigation on desktop and mobile", async ({
     "link",
     { name: "Редактор", exact: true },
   );
-  await expect(editorLink).toHaveAttribute("href", "/authoring/materials");
+  if (navigationMode(testInfo.project.name) === "desktop") {
+    await expect(editorLink).toHaveAttribute("href", "/authoring/materials");
+  } else {
+    await expect(editorLink).toHaveCount(0);
+  }
 });
 
 test("authoring route owns a dedicated shell outside the public application shell", async ({
@@ -288,7 +315,7 @@ test("authoring route owns a dedicated shell outside the public application shel
   expect((box?.width ?? 0) + (sidebarBox?.width ?? 0)).toBe(1_440);
 });
 
-test("auth control hydrates without a server-client mismatch", async ({ page }) => {
+test("auth control hydrates without a server-client mismatch", async ({ page }, testInfo) => {
   const hydrationErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error" && message.text().includes("hydrated")) {
@@ -297,7 +324,15 @@ test("auth control hydrates without a server-client mismatch", async ({ page }) 
   });
 
   await page.goto("/library");
-  await expect(page.locator("button:visible", { hasText: "Войти" })).toBeEnabled();
+  if (navigationMode(testInfo.project.name) === "mobile") {
+    await expect(
+      getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
+        name: "Профиль",
+      }),
+    ).toBeVisible();
+  } else {
+    await expect(page.locator("button:visible", { hasText: "Войти" })).toBeEnabled();
+  }
 
   expect(hydrationErrors).toEqual([]);
 });
@@ -406,7 +441,10 @@ test("keyboard order starts with the skip link and visible navigation", async ({
     await expect(page.getByRole("button", { name: "Закрепить сайдбар" })).toBeFocused();
   }
 
-  for (const destination of destinations) {
+  for (const destination of [
+    { label: "Главная" },
+    ...destinations,
+  ]) {
     await page.keyboard.press("Tab");
     await expect(
       getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
@@ -424,7 +462,7 @@ test("focused navigation has a visible indicator", async ({ page }, testInfo) =>
     name: "База знаний",
     exact: true,
   });
-  const tabsBeforeLibrary = navigationMode(testInfo.project.name) === "desktop" ? 4 : 2;
+  const tabsBeforeLibrary = navigationMode(testInfo.project.name) === "desktop" ? 5 : 3;
 
   for (let tabIndex = 0; tabIndex < tabsBeforeLibrary; tabIndex += 1) {
     await page.keyboard.press("Tab");
@@ -454,7 +492,9 @@ test("shell exposes essential landmarks to assistive technology", async ({ page 
   }
   expect(accessibilityTree).toContain('- link "База знаний":');
   expect(accessibilityTree).toContain("- main:");
-  expect(accessibilityTree).toContain('- heading "База знаний" [level=1]');
+  expect(accessibilityTree).toContain(
+    '- heading "Главная временно недоступна" [level=1]',
+  );
 });
 
 test("content reflows without horizontal page overflow at 200% text size", async ({ page }, testInfo) => {

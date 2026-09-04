@@ -12,4 +12,3 @@ export {
   LibraryUnexpectedError,
 } from "./ui/library-page";
 export { LibraryPageQuery } from "./ui/library-page-query.client";
-export { AuthenticationFeedback } from "./ui/authentication-feedback.client";

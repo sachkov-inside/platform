@@ -1,3 +1,5 @@
+import type { ContentCoverProjection } from "../content-covers/content-covers.js";
+
 export interface PublishedMaterialProjectionDto {
   readonly materialId: string;
   readonly contentVersion: number;
@@ -7,6 +9,7 @@ export interface PublishedMaterialProjectionDto {
   readonly access: "free" | "membership" | "workshop";
   readonly publishedAt: string;
   readonly primaryVideoId: string | null;
+  readonly cover: ContentCoverProjection | null;
   readonly topic: {
     readonly id: string;
     readonly name: string;

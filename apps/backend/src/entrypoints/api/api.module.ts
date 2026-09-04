@@ -10,6 +10,7 @@ import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import {
   DiscoverPublishedMaterialsController,
   ListPublishedMaterialsController,
+  ReadHomeContentController,
 } from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
 import { MemberProfilesModule } from "../../modules/member-profiles/index.js";
@@ -37,6 +38,8 @@ import {
   KinescopeVideoAuthorizationController,
   VideoPlaybackController,
   VideoProgressController,
+  AuthoringContentCoverController,
+  ContentCoverDeliveryController,
 } from "../../modules/materials/index.js";
 import {
   KinescopeWebhookController,
@@ -50,6 +53,7 @@ import { HealthController } from "./health.controller.js";
     HealthController,
     ListPublishedMaterialsController,
     DiscoverPublishedMaterialsController,
+    ReadHomeContentController,
     ReadPublishedMaterialController,
     CreateDraftController,
     ListMaterialsController,
@@ -64,6 +68,8 @@ import { HealthController } from "./health.controller.js";
     ReorderSeriesController,
     UploadMaterialAssetController,
     DeliverMaterialAssetController,
+    AuthoringContentCoverController,
+    ContentCoverDeliveryController,
     ListContentCollectionsController,
     CreateContentCollectionController,
     UpdateContentCollectionController,

@@ -174,6 +174,7 @@ function LibraryCollections({
                 key={topic.slug}
                 topic={{
                   count: topic.count,
+                  cover: topic.cover,
                   name: topic.name,
                   slug: topic.slug,
                   summary: topic.summary ?? "",
@@ -197,7 +198,9 @@ function LibraryCollections({
                 key={playlist.slug}
                 playlist={{
                   countLabel: formatMaterialCount(playlist.count),
+                  cover: playlist.cover,
                   name: playlist.name,
+                  previewItems: playlist.previewItems ?? [],
                   slug: playlist.slug,
                   summary: playlist.summary ?? "",
                 }}

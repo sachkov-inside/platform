@@ -1,8 +1,8 @@
 import {
   BookOpenText,
+  Clapperboard,
   ListVideo,
   LockKeyhole,
-  Play,
   Unlock,
 } from "lucide-react";
 import type { Route } from "next";
@@ -12,12 +12,14 @@ import { materialReaderHref } from "@/shared/routing/material-reader";
 import { cn } from "@/shared/lib/utils";
 import type { MaterialPreview } from "../model/material-preview";
 import { materialTaxonomyLabel } from "../model/material-taxonomy-label";
+import { ContentCoverImage } from "./content-cover-image.client";
 
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
   readonly headingLevel?: "h2" | "h3";
   readonly material: MaterialPreview;
   readonly returnHref?: Route;
+  readonly variant?: "compact" | "default";
 }
 
 /** Safe published Material summary with media only when the presentation contract provides it. */
@@ -25,8 +27,12 @@ export function MaterialCard({
   headingLevel = "h2",
   material,
   returnHref,
+  variant = "default",
 }: MaterialCardProps) {
-  const hasPreview = material.preview !== undefined;
+  const hasArtwork =
+    material.cover != null ||
+    material.preview !== undefined ||
+    material.primaryVideoDurationSeconds !== undefined;
   const Heading = headingLevel;
   const titleId = `material-${material.slug}-title`;
 
@@ -39,13 +45,14 @@ export function MaterialCard({
       <div
         className="group/card relative grid h-full overflow-hidden rounded-2xl bg-card no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-within:shadow-card-hover active:translate-y-0 active:shadow-card motion-reduce:transform-none motion-reduce:transition-none"
       >
-        {hasPreview ? (
-          <MaterialPoster material={material} preview={material.preview} />
+        {hasArtwork ? (
+          <MaterialPoster material={material} />
         ) : null}
         <div
           className={cn(
-            "flex h-full min-w-0 flex-col p-4",
-            hasPreview && "min-h-[12.5rem]",
+            "flex h-full min-w-0 flex-col",
+            variant === "compact" ? "p-3 sm:p-4" : "p-4",
+            hasArtwork && variant === "default" && "min-h-[12.5rem]",
           )}
         >
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
@@ -55,10 +62,10 @@ export function MaterialCard({
               availability={material.availability}
             />
           </div>
-          <div className="mt-3">
+          <div className={cn("mt-3", variant === "compact" && "hidden sm:block")}>
             <MaterialTaxonomy material={material} />
           </div>
-          <Heading className="mt-3 line-clamp-3 text-xl font-bold leading-[1.2] tracking-[-0.03em]">
+          <Heading className={cn("mt-3 font-bold tracking-[-0.03em]", variant === "compact" ? "line-clamp-2 text-sm leading-5 sm:text-lg sm:leading-6" : "line-clamp-3 text-xl leading-[1.2]")}>
             <Link
               className="no-underline after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:underline group-hover/card:decoration-accent group-hover/card:underline-offset-4"
               href={materialReaderHref(material.slug, returnHref)}
@@ -68,12 +75,14 @@ export function MaterialCard({
               {material.title}
             </Link>
           </Heading>
-          <p
-            className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground"
-          >
-            {material.summary}
-          </p>
-          <MaterialPlaylists material={material} />
+          {variant === "compact" ? null : (
+            <>
+              <p className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground">
+                {material.summary}
+              </p>
+              <MaterialPlaylists material={material} />
+            </>
+          )}
         </div>
       </div>
     </article>
@@ -112,7 +121,12 @@ function MaterialFormat({
 }: {
   readonly material: MaterialPreview;
 }) {
-  const FormatIcon = material.preview === undefined ? BookOpenText : Play;
+  const FormatIcon =
+    material.formatSlug !== "video" &&
+    material.primaryVideoDurationSeconds === undefined &&
+    material.preview === undefined
+      ? BookOpenText
+      : Clapperboard;
 
   return (
     <span className="inline-flex min-h-7 shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -189,44 +203,48 @@ function AccessLabel({
 
 function MaterialPoster({
   material,
-  preview,
 }: {
   readonly material: MaterialPreview;
-  readonly preview: NonNullable<MaterialPreview["preview"]>;
 }) {
+  const duration =
+    material.primaryVideoDurationSeconds === undefined
+      ? material.preview?.duration
+      : formatDuration(material.primaryVideoDurationSeconds);
   return (
     <span
-      aria-label={preview.label}
-      className="relative grid aspect-video min-h-0 place-items-center overflow-clip bg-sidebar p-4 text-sidebar-foreground"
+      aria-label={material.preview?.label ?? `Обложка материала «${material.title}»`}
+      className="relative grid aspect-video min-h-0 overflow-clip bg-sidebar text-sidebar-foreground"
       role="img"
     >
-      <span
-        aria-hidden="true"
-        className="absolute left-4 top-3 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-sidebar-foreground/55"
-      >
-        {material.format}
-      </span>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "relative grid w-full items-center gap-1.5 pt-7 before:absolute before:inset-x-4 before:top-[calc(50%+0.875rem)] before:h-px before:bg-sidebar-primary",
-          preview.steps.length > 3 ? "grid-cols-5" : "grid-cols-3",
-        )}
-      >
-        {preview.steps.map((step) => (
-          <span
-            className="relative grid min-h-12 min-w-0 place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent px-1 text-center font-mono text-[0.6875rem] leading-4 text-sidebar-accent-foreground"
-            key={step}
-          >
-            {step}
-          </span>
-        ))}
-      </span>
-      {preview.duration === undefined ? null : (
+      <ContentCoverImage
+        alt=""
+        className="absolute inset-0"
+        cover={material.cover ?? null}
+      />
+      {material.cover == null && material.preview !== undefined ? (
+        <span aria-hidden="true" className="relative m-4 grid items-center gap-1.5 self-center pt-7 [grid-template-columns:repeat(3,minmax(0,1fr))] before:absolute before:inset-x-4 before:top-[calc(50%+0.875rem)] before:h-px before:bg-sidebar-primary">
+          {material.preview.steps.slice(0, 3).map((step) => (
+            <span className="relative grid min-h-12 min-w-0 place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent px-1 text-center font-mono text-[0.6875rem] leading-4 text-sidebar-accent-foreground" key={step}>
+              {step}
+            </span>
+          ))}
+        </span>
+      ) : null}
+      {duration === undefined ? null : (
         <span className="absolute bottom-3 right-3 rounded-md bg-sidebar-foreground px-2 py-1 font-mono text-[0.6875rem] font-semibold tabular-nums text-sidebar">
-          {preview.duration}
+          {duration}
         </span>
       )}
     </span>
   );
+}
+
+function formatDuration(totalSeconds: number): string {
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const minutes = totalMinutes % 60;
+  const hours = Math.floor(totalMinutes / 60);
+  return hours > 0
+    ? `${String(hours)}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+    : `${String(minutes)}:${String(seconds).padStart(2, "0")}`;
 }

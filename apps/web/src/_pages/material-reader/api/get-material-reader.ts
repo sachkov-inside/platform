@@ -40,6 +40,7 @@ const publishedMaterialSchema = z.discriminatedUnion("kind", [
     projection: projectionSchema,
     body: renderedMaterialBodySchema,
     primaryVideo: z.object({
+      durationSeconds: z.number().int().positive().optional(),
       failureCode: z.string().optional(),
       state: z.enum(["uploading", "processing", "ready", "failed"]),
       title: z.string(),

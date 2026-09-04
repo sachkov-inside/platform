@@ -1,5 +1,8 @@
 export { assembleMaterialAssets } from "./facets/material-assets/assemble-material-assets.js";
-export { MATERIAL_ASSET_LIMITS } from "./facets/material-assets/process-material-asset-bytes.js";
+export {
+  MATERIAL_ASSET_LIMITS,
+  processMaterialAssetBytes,
+} from "./facets/material-assets/process-material-asset-bytes.js";
 export { AssetsModule, MATERIAL_ASSETS } from "./assets.module.js";
 export type {
   MaterialAssetAccessFacts,

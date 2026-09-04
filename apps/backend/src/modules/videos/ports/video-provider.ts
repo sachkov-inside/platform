@@ -1,6 +1,7 @@
 import type { VideoAccess } from "../facets/videos/videos.interface.js";
 
 export interface ProviderVideo {
+  readonly durationSeconds?: number;
   readonly embedLocator: string | null;
   readonly id: string;
   readonly message?: string;

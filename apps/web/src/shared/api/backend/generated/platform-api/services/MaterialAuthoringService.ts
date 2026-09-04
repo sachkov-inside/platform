@@ -18,6 +18,13 @@ export class MaterialAuthoringService {
     kind: 'series' | 'topic',
   }): CancelablePromise<Array<{
     archived: boolean;
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
     id: string;
     kind: 'series' | 'topic';
     materialCount: number;
@@ -50,6 +57,13 @@ export class MaterialAuthoringService {
     },
   }): CancelablePromise<{
     archived: boolean;
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
     id: string;
     kind: 'series' | 'topic';
     materialCount: number;
@@ -83,6 +97,13 @@ export class MaterialAuthoringService {
     },
   }): CancelablePromise<{
     archived: boolean;
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
     id: string;
     kind: 'series' | 'topic';
     materialCount: number;
@@ -118,6 +139,13 @@ export class MaterialAuthoringService {
     },
   }): CancelablePromise<{
     archived: boolean;
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
     id: string;
     kind: 'series' | 'topic';
     materialCount: number;
@@ -134,6 +162,82 @@ export class MaterialAuthoringService {
       },
       body: requestBody,
       mediaType: 'application/json',
+    });
+  }
+  /**
+   * Remove one current author-owned cover
+   * @returns any
+   * @throws ApiError
+   */
+  public removeContentCover({
+    ownerId,
+    ownerKind,
+    requestBody,
+  }: {
+    ownerId: string,
+    ownerKind: 'material' | 'series' | 'topic',
+    requestBody: {
+      expectedCoverId: string | null;
+    },
+  }): CancelablePromise<{
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'DELETE',
+      url: '/authoring/content-covers/{ownerKind}/{ownerId}',
+      path: {
+        'ownerId': ownerId,
+        'ownerKind': ownerKind,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Upload or replace one author-owned Material, Topic, or Series cover
+   * @returns any
+   * @throws ApiError
+   */
+  public uploadContentCover({
+    ownerId,
+    ownerKind,
+    formData,
+  }: {
+    ownerId: string,
+    ownerKind: 'material' | 'series' | 'topic',
+    formData: {
+      checksumSha256: string;
+      declaredSize: number;
+      /**
+       * Current cover UUID or the literal null
+       */
+      expectedCoverId: string;
+      file: Blob;
+    },
+  }): CancelablePromise<{
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/content-covers/{ownerKind}/{ownerId}',
+      path: {
+        'ownerId': ownerId,
+        'ownerKind': ownerKind,
+      },
+      formData: formData,
+      mediaType: 'multipart/form-data',
     });
   }
   /**
@@ -269,8 +373,16 @@ export class MaterialAuthoringService {
       schemaVersion: 1;
     };
     contentVersion: number;
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
     firstPublishedAt: string | null;
     latestVideoDeletion: {
+      durationSeconds?: number;
       failureCode?: string;
       origin: 'external_attachment' | 'platform_upload';
       state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
@@ -292,6 +404,7 @@ export class MaterialAuthoringService {
       topicId: string | null;
     };
     primaryVideo: {
+      durationSeconds?: number;
       failureCode?: string;
       origin: 'external_attachment' | 'platform_upload';
       state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';

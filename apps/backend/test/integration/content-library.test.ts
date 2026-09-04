@@ -18,6 +18,7 @@ import {
 import { assembleWorkshop } from "../../src/modules/workshop/index.js";
 import { assembleWorkshopMaterialCatalog } from "../../src/modules/workshop/adapters/materials/workshop-material-catalog.js";
 import { selectPublishedMaterialProjectionPage } from "../../src/modules/materials/infrastructure/postgres/published-material-reader/published-material-projection.js";
+import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -49,6 +50,7 @@ describe("ListPublishedMaterials", () => {
     const firstPage = await listPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
+      emptyCatalogVideos,
       { subject: anonymousSubject, first: 1 },
     );
     expect(firstPage).toMatchObject({
@@ -71,6 +73,7 @@ describe("ListPublishedMaterials", () => {
     const secondPage = await listPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
+      emptyCatalogVideos,
       {
         subject: anonymousSubject,
         after: firstPage.value.nextCursor,
@@ -321,7 +324,7 @@ describe("ListPublishedMaterials", () => {
     ).resolves.toMatchObject({ ok: true, value: { kind: "available" } });
 
     await expect(
-      listPublishedMaterials(publishedMaterialReader, contentAccess, {
+      listPublishedMaterials(publishedMaterialReader, contentAccess, emptyCatalogVideos, {
         subject: anonymousSubject,
         first: 12,
         q: "Synthetic Workshop delivery retries",
@@ -361,6 +364,7 @@ describe("ListPublishedMaterials", () => {
     const english = await listPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
+      emptyCatalogVideos,
       {
         subject: anonymousSubject,
         first: 12,
@@ -389,18 +393,26 @@ describe("ListPublishedMaterials", () => {
     if (!english.ok) {
       throw new Error("Expected the English search fixture");
     }
-    expect(english.value.facets.topics.map(({ slug }) => slug)).toEqual(
-      expect.arrayContaining(["platform", "career"]),
-    );
-    expect(english.value.facets.formats.map(({ slug }) => slug)).toEqual(
-      expect.arrayContaining(["guide", "video"]),
-    );
-    expect(english.value.facets.series.map(({ slug }) => slug)).toContain(
-      "career-path",
-    );
+    expect(english.value.facets).toMatchObject({
+      topics: [
+        expect.objectContaining({ count: 2, slug: "platform" }),
+        expect.objectContaining({ count: 1, slug: "career" }),
+      ],
+      formats: [
+        expect.objectContaining({ count: 2, slug: "guide" }),
+        expect.objectContaining({ count: 1, slug: "video" }),
+      ],
+      series: [expect.objectContaining({ count: 3, slug: "career-path" })],
+    });
+    expect(english.value.facets.series[0]?.previewItems.map(({ slug }) => slug))
+      .toEqual([
+        "career-roadmap",
+        "career-roadmap-summary",
+        "career-roadmap-taxonomy",
+      ]);
 
     await expect(
-      listPublishedMaterials(publishedMaterialReader, contentAccess, {
+      listPublishedMaterials(publishedMaterialReader, contentAccess, emptyCatalogVideos, {
         subject: anonymousSubject,
         first: 12,
         q: "career roadmap",
@@ -420,6 +432,7 @@ describe("ListPublishedMaterials", () => {
     const russian = await listPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
+      emptyCatalogVideos,
       {
         subject: anonymousSubject,
         first: 12,
@@ -440,6 +453,14 @@ describe("ListPublishedMaterials", () => {
           }),
           expect.objectContaining({ slug: "karernyi-marshrut-summary" }),
         ],
+        facets: {
+          topics: [
+            expect.objectContaining({ count: 1, slug: "platform" }),
+            expect.objectContaining({ count: 1, slug: "career" }),
+          ],
+          formats: [expect.objectContaining({ count: 2, slug: "guide" })],
+          series: [],
+        },
         totalCount: 2,
       },
     });
@@ -458,6 +479,7 @@ describe("ListPublishedMaterials", () => {
     const firstPage = await listPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
+      emptyCatalogVideos,
       {
         subject: anonymousSubject,
         first: 1,
@@ -472,6 +494,7 @@ describe("ListPublishedMaterials", () => {
     const secondPage = await listPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
+      emptyCatalogVideos,
       {
         subject: anonymousSubject,
         after: firstPage.value.nextCursor,
@@ -492,7 +515,7 @@ describe("ListPublishedMaterials", () => {
     );
 
     await expect(
-      listPublishedMaterials(publishedMaterialReader, contentAccess, {
+      listPublishedMaterials(publishedMaterialReader, contentAccess, emptyCatalogVideos, {
         subject: anonymousSubject,
         after: firstPage.value.nextCursor,
         first: 1,
@@ -518,6 +541,7 @@ describe("ListPublishedMaterials", () => {
       const page = await listPublishedMaterials(
         publishedMaterialReader,
         contentAccess,
+        emptyCatalogVideos,
         {
           subject: anonymousSubject,
           first: 1,
@@ -600,16 +624,13 @@ describe("ListPublishedMaterials", () => {
 
 const actorId = "74000000-0000-4000-8000-000000000001";
 const careerTopicId = "74000000-0000-4000-8000-000000000002";
-const videoFormatId = "74000000-0000-4000-8000-000000000003";
+const videoFormatId = "72000000-0000-4000-8000-000000000040";
 const careerSeriesId = "74000000-0000-4000-8000-000000000004";
 const careerSearchTagId = "74000000-0000-4000-8000-000000000005";
 
 async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
   await testDatabase.prisma.topic.create({
     data: { id: careerTopicId, name: "Карьера", slug: "career" },
-  });
-  await testDatabase.prisma.format.create({
-    data: { id: videoFormatId, name: "Видео", slug: "video" },
   });
   await testDatabase.prisma.series.create({
     data: {

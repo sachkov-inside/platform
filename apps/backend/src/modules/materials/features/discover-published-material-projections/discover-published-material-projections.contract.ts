@@ -1,4 +1,5 @@
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
+import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
 import type { Result } from "../../result.js";
 
 export type PublishedMaterialDiscoveryKind = "related" | "series" | "topic";
@@ -18,6 +19,7 @@ export interface PublishedMaterialDiscoveryPageDto {
     readonly name: string;
     readonly slug: string;
     readonly summary: string;
+    readonly cover: ContentCoverProjection | null;
   };
   readonly relatedSeries: readonly {
     readonly id: string;
@@ -26,11 +28,13 @@ export interface PublishedMaterialDiscoveryPageDto {
     readonly slug: string;
     readonly summary: string;
     readonly totalMaterialCount: number;
+    readonly cover: ContentCoverProjection | null;
   }[];
   readonly topics: readonly {
     readonly id: string;
     readonly name: string;
     readonly slug: string;
+    readonly cover: ContentCoverProjection | null;
   }[];
 }
 

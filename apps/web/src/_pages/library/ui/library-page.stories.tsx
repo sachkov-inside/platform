@@ -78,9 +78,7 @@ const defaultQuery = {
   after: null,
   formatSlugs: [],
   q: "",
-  seriesSlugs: [],
   sort: "relevance",
-  topicSlugs: [],
 } as const satisfies LibrarySearchQuery;
 
 const catalogFacets = {
@@ -387,7 +385,6 @@ export const SearchResultsDesktop: Story = {
     query: {
       ...defaultQuery,
       q: "developer pipeline",
-      topicSlugs: ["product-engineering"],
     },
     result: {
       facets: catalogFacets,
@@ -404,9 +401,7 @@ export const SearchResultsDesktop: Story = {
     await expect(canvas.getByLabelText("Поиск по базе знаний")).toHaveValue(
       "developer pipeline",
     );
-    await expect(
-      canvas.getByRole("checkbox", { name: /Product engineering/u }),
-    ).toBeChecked();
+    await expect(canvas.getByRole("checkbox", { name: /Гайд/u })).not.toBeChecked();
     await expect(canvas.getByText("1 материал найден")).toBeInTheDocument();
   },
 };

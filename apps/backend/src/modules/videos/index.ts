@@ -29,6 +29,7 @@ export type {
   VideoOrigin,
   VideoPlayback,
   VideoPresentation,
+  ReadyVideoDuration,
   VideoResult,
   Videos,
   VideoState,

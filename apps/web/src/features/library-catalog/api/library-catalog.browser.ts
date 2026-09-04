@@ -11,8 +11,24 @@ import {
 const catalogFacetSchema = z
   .object({
     count: z.number().int().nonnegative(),
+    cover: z
+      .object({
+        coverId: z.uuid(),
+        renditions: z.array(
+          z
+            .object({
+              height: z.number().int().positive(),
+              width: z.number().int().positive(),
+            })
+            .strict(),
+        ),
+      })
+      .strict()
+      .nullable()
+      .optional(),
     id: z.string(),
     name: z.string(),
+    previewItems: z.array(materialPreviewSchema).optional(),
     slug: z.string(),
     summary: z.string().nullable(),
   })
@@ -69,7 +85,10 @@ export async function requestLibraryCatalogPage(
   after: string | undefined,
   signal: AbortSignal,
 ): Promise<LibraryCatalogPage> {
-  const search = serializeLibrarySearchQuery({ ...query, after: after ?? null });
+  const search = serializeLibrarySearchQuery(
+    { ...query, after: after ?? null },
+    { includeCursor: true },
+  );
   return requestCatalogPage(
     search.length === 0
       ? "/api/library/materials"
@@ -84,11 +103,10 @@ export async function requestTopicLibraryCatalogPage(
   after: string | undefined,
   signal: AbortSignal,
 ): Promise<LibraryCatalogPage> {
-  const search = serializeLibrarySearchQuery({
-    ...query,
-    after: after ?? null,
-    topicSlugs: [],
-  });
+  const search = serializeLibrarySearchQuery(
+    { ...query, after: after ?? null },
+    { includeCursor: true },
+  );
   const path = `/api/library/topics/${encodeURIComponent(topicSlug)}/materials`;
   return requestCatalogPage(
     search.length === 0 ? path : `${path}?${search}`,

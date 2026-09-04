@@ -34,6 +34,7 @@ import {
   publishedMaterialProblemHttpSchema,
   type PublishedMaterialReader,
 } from "../../../materials/index.js";
+import { VIDEOS, type Videos } from "../../../videos/index.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
 import {
   publishedSeriesPageHttpSchema,
@@ -64,6 +65,8 @@ export class DiscoverPublishedMaterialsController {
       ContentAccess,
       "checkAvailabilityMany"
     >,
+    @Inject(VIDEOS)
+    private readonly videos: Pick<Videos, "loadReadyDurations">,
   ) {}
 
   @Get("topics/:slug")
@@ -129,6 +132,7 @@ export class DiscoverPublishedMaterialsController {
     const result = await discoverPublishedMaterials(
       this.publishedMaterialReader,
       this.contentAccess,
+      this.videos,
       {
         first,
         kind,

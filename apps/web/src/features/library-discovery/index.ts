@@ -15,4 +15,3 @@ export {
   type PlaylistCardPresentation,
   type TopicCardPresentation,
 } from "./ui/collection-cards";
-export { RelatedMaterialsSection } from "./ui/related-materials-section";

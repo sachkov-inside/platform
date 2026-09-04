@@ -1,22 +1,13 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 
-interface HomeRouteProps {
-  readonly searchParams: Promise<Record<string, string | readonly string[] | undefined>>;
-}
+import { getHome, HomePage } from "@/_pages/home.server";
+import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
-export default async function HomeRoute({ searchParams }: HomeRouteProps) {
-  const query = new URLSearchParams();
-  for (const [name, rawValue] of Object.entries(await searchParams)) {
-    if (typeof rawValue === "string") {
-      query.append(name, rawValue);
-      continue;
-    }
-    if (rawValue !== undefined) {
-      for (const value of rawValue) {
-        query.append(name, value);
-      }
-    }
-  }
+export const metadata: Metadata = {
+  title: "Главная",
+};
 
-  redirect(query.size === 0 ? "/library" : `/library?${query.toString()}`);
+export default async function HomeRoute() {
+  const accessToken = await getOptionalPlatformAccessToken();
+  return <HomePage result={await getHome(accessToken)} />;
 }

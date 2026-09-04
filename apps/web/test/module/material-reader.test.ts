@@ -65,7 +65,12 @@ describe("Material Reader server adapter", () => {
           cacheScope: "public",
           projection: publishedProjection,
           body: renderedBody,
-          primaryVideo: null,
+          primaryVideo: {
+            durationSeconds: 600,
+            state: "ready",
+            title: "Видео про Developer Pipeline",
+            videoId: "72000000-0000-4000-8000-000000000021",
+          },
         }),
       ),
     );
@@ -101,7 +106,12 @@ describe("Material Reader server adapter", () => {
           content: [{ kind: "text", text: "Содержимое из PostgreSQL.", marks: [] }],
         },
       ],
-      primaryVideo: null,
+      primaryVideo: {
+        durationSeconds: 600,
+        state: "ready",
+        title: "Видео про Developer Pipeline",
+        videoId: "72000000-0000-4000-8000-000000000021",
+      },
     });
     expect(fetch).toHaveBeenCalledOnce();
   });

@@ -5,6 +5,10 @@ import {
 import { z } from "zod";
 
 import type { PublishedMaterialProjectionDto } from "../../../facets/published-material-reader/published-material.contract.js";
+import {
+  loadContentCoverProjections,
+  type ContentCoverProjection,
+} from "../../../facets/content-covers/content-covers.js";
 import type {
   PublishedMaterialProjectionCursor,
   PublishedMaterialProjectionPageDto,
@@ -28,6 +32,7 @@ export interface PublishedMaterialDiscoveryPage {
     readonly name: string;
     readonly slug: string;
     readonly summary: string;
+    readonly cover: ContentCoverProjection | null;
   };
   readonly relatedSeries: readonly {
     readonly id: string;
@@ -36,11 +41,13 @@ export interface PublishedMaterialDiscoveryPage {
     readonly slug: string;
     readonly summary: string;
     readonly totalMaterialCount: number;
+    readonly cover: ContentCoverProjection | null;
   }[];
   readonly topics: readonly {
     readonly id: string;
     readonly name: string;
     readonly slug: string;
+    readonly cover: ContentCoverProjection | null;
   }[];
   readonly items: readonly PublishedMaterialProjectionDto[];
   readonly hasNext: boolean;
@@ -54,11 +61,31 @@ const relatedSeriesRowSchema = z
     slug: z.string(),
     summary: z.string(),
     total_material_count: z.coerce.number().int().nonnegative(),
+    cover_id: z.uuid().nullable(),
   })
   .strict();
 
 const discoveryTopicRowSchema = z
-  .object({ id: z.uuid(), name: z.string(), slug: z.string() })
+  .object({
+    cover_id: z.uuid().nullable(),
+    id: z.uuid(),
+    name: z.string(),
+    slug: z.string(),
+  })
+  .strict();
+
+const coverProjectionSchema = z
+  .object({
+    coverId: z.uuid(),
+    renditions: z.array(
+      z
+        .object({
+          height: z.number().int().positive(),
+          width: z.number().int().positive(),
+        })
+        .strict(),
+    ),
+  })
   .strict();
 
 const publishedMaterialProjectionRowSchema = z.object({
@@ -70,6 +97,7 @@ const publishedMaterialProjectionRowSchema = z.object({
   access: z.enum(["free", "membership", "workshop"]),
   published_at: z.date(),
   primary_video_id: z.uuid().nullable(),
+  cover: coverProjectionSchema.nullable(),
   topic_id: z.uuid(),
   topic_name: z.string(),
   topic_slug: z.string(),
@@ -101,6 +129,8 @@ const facetOptionSchema = z
     name: z.string(),
     slug: z.string(),
     summary: z.string().nullable(),
+    cover: coverProjectionSchema.nullable(),
+    previewMaterialIds: z.array(z.uuid()),
   })
   .strict();
 
@@ -149,6 +179,13 @@ export async function selectPublishedMaterialProjectionPage(
   const rows = searchedPublishedMaterialProjectionRowSchema
     .array()
     .parse(rawRows);
+  const previewProjections = await selectPublishedMaterialProjectionsByIds(
+    prisma,
+    metadata.series.flatMap(({ previewMaterialIds }) => previewMaterialIds),
+  );
+  const previewById = new Map(
+    previewProjections.map((projection) => [projection.materialId, projection]),
+  );
   const visibleRows = rows.slice(0, values.first);
   const lastRow = visibleRows.at(-1);
   const hasNext = rows.length > values.first;
@@ -158,9 +195,9 @@ export async function selectPublishedMaterialProjectionPage(
         ? toContinuation(lastRow, effectiveSort)
         : null,
     facets: {
-      formats: metadata.formats,
-      series: metadata.series,
-      topics: metadata.topics,
+      formats: metadata.formats.map((facet) => projectFacet(facet, previewById)),
+      series: metadata.series.map((facet) => projectFacet(facet, previewById)),
+      topics: metadata.topics.map((facet) => projectFacet(facet, previewById)),
     },
     items: visibleRows.map(toProjection),
     hasNext,
@@ -184,6 +221,7 @@ function searchProjectionQuery(
       publication.access,
       publication.published_at,
       publication.primary_video_id,
+      ${coverProjectionSql()} as cover,
       topic.id as topic_id,
       topic.name as topic_name,
       topic.slug as topic_slug,
@@ -340,15 +378,13 @@ async function selectProjectionMetadata(
   prisma: MaterialsPrisma,
   filters: Prisma.Sql,
 ): Promise<z.infer<typeof projectionMetadataRowSchema>> {
+  const filteredPublications = filteredPublicationsSql(filters);
   const rows = projectionMetadataRowSchema.array().parse(
     await prisma.$queryRaw(Prisma.sql`
       select
         (
           select count(*)::integer
-          from materials.published_materials as publication
-          join materials.topics as topic on topic.id = publication.topic_id
-          join materials.formats as format on format.id = publication.format_id
-          where ${filters}
+          from (${filteredPublications}) as publication
         ) as total_count,
         coalesce(
           (
@@ -358,18 +394,20 @@ async function selectProjectionMetadata(
                 'name', option.name,
                 'slug', option.slug,
                 'summary', option.summary,
-                'count', option.count
+                'count', option.count,
+                'cover', option.cover,
+                'previewMaterialIds', '[]'::jsonb
               )
               order by option.name, option.id
             )
             from (
               select topic.id, topic.name, topic.slug, topic.summary,
+                ${coverProjectionSql(Prisma.sql`topic.cover_id`)} as cover,
                 count(*)::integer as count
-              from materials.published_materials as publication
+              from (${filteredPublications}) as publication
               join materials.topics as topic on topic.id = publication.topic_id
               where topic.archived_at is null
-                and publication.access <> 'workshop'
-              group by topic.id, topic.name, topic.slug, topic.summary
+              group by topic.id, topic.name, topic.slug, topic.summary, topic.cover_id
             ) as option
           ),
           '[]'::jsonb
@@ -382,15 +420,16 @@ async function selectProjectionMetadata(
                 'name', option.name,
                 'slug', option.slug,
                 'summary', null,
-                'count', option.count
+                'count', option.count,
+                'cover', null,
+                'previewMaterialIds', '[]'::jsonb
               )
               order by option.name, option.id
             )
             from (
               select format.id, format.name, format.slug, count(*)::integer as count
-              from materials.published_materials as publication
+              from (${filteredPublications}) as publication
               join materials.formats as format on format.id = publication.format_id
-              where publication.access <> 'workshop'
               group by format.id, format.name, format.slug
             ) as option
           ),
@@ -404,20 +443,31 @@ async function selectProjectionMetadata(
                 'name', option.name,
                 'slug', option.slug,
                 'summary', option.summary,
-                'count', option.count
+                'count', option.count,
+                'cover', option.cover,
+                'previewMaterialIds', option.preview_material_ids
               )
               order by option.name, option.id
             )
             from (
               select series.id, series.name, series.slug, series.summary,
+                ${coverProjectionSql(Prisma.sql`series.cover_id`)} as cover,
+                array(
+                  select preview_membership.material_id
+                  from materials.published_material_series_memberships as preview_membership
+                  join (${filteredPublications}) as preview_publication
+                    on preview_publication.material_id = preview_membership.material_id
+                  where preview_membership.series_id = series.id
+                  order by preview_membership.ordinal, preview_membership.material_id
+                  limit 3
+                ) as preview_material_ids,
                 count(*)::integer as count
               from materials.published_material_series_memberships as membership
               join materials.series as series on series.id = membership.series_id
-              join materials.published_materials as publication
+              join (${filteredPublications}) as publication
                 on publication.material_id = membership.material_id
               where series.archived_at is null
-                and publication.access <> 'workshop'
-              group by series.id, series.name, series.slug, series.summary
+              group by series.id, series.name, series.slug, series.summary, series.cover_id
             ) as option
           ),
           '[]'::jsonb
@@ -429,6 +479,54 @@ async function selectProjectionMetadata(
     throw new TypeError("Published Material projection metadata is missing");
   }
   return row;
+}
+
+function filteredPublicationsSql(filters: Prisma.Sql): Prisma.Sql {
+  return Prisma.sql`
+    select publication.material_id, publication.topic_id, publication.format_id
+    from materials.published_materials as publication
+    join materials.topics as topic on topic.id = publication.topic_id
+    join materials.formats as format on format.id = publication.format_id
+    where ${filters}
+  `;
+}
+
+async function selectPublishedMaterialProjectionsByIds(
+  prisma: MaterialsPrisma,
+  materialIds: readonly string[],
+): Promise<readonly PublishedMaterialProjectionDto[]> {
+  const uniqueIds = [...new Set(materialIds)];
+  if (uniqueIds.length === 0) return [];
+  const rows = publishedMaterialProjectionRowSchema.array().parse(
+    await prisma.$queryRaw(
+      projectionQuery({
+        where: Prisma.sql`
+          where publication.material_id in (${Prisma.join(uniqueIds)})
+            and publication.access <> 'workshop'
+        `,
+        limit: Prisma.empty,
+      }),
+    ),
+  );
+  return rows.map(toProjection);
+}
+
+function projectFacet(
+  facet: z.infer<typeof facetOptionSchema>,
+  previewById: ReadonlyMap<string, PublishedMaterialProjectionDto>,
+) {
+  return {
+    count: facet.count,
+    cover: facet.cover,
+    id: facet.id,
+    name: facet.name,
+    previewItems: facet.previewMaterialIds.flatMap((materialId) => {
+      const projection = previewById.get(materialId);
+      return projection === undefined ? [] : [projection];
+    }),
+    slug: facet.slug,
+    summary: facet.summary,
+  };
 }
 
 function effectiveProjectionSort(
@@ -510,7 +608,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
   const [reference, rawRows, rawRelatedSeries] = await Promise.all([
     prisma.topic.findUnique({
       where: { slug },
-      select: { id: true, name: true, slug: true, summary: true },
+      select: { coverId: true, id: true, name: true, slug: true, summary: true },
     }),
     first === 0
       ? Promise.resolve([])
@@ -529,6 +627,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
         series.name,
         series.slug,
         series.summary,
+        series.cover_id,
         count(*)::integer as matching_material_count,
         (
           select count(*)::integer
@@ -546,7 +645,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
       where topic.slug = ${slug}
         and series.archived_at is null
         and publication.access <> 'workshop'
-      group by series.id, series.name, series.slug, series.summary
+      group by series.id, series.name, series.slug, series.summary, series.cover_id
       order by series.name, series.id
     `),
   ]);
@@ -555,8 +654,23 @@ export async function selectPublishedMaterialProjectionsByTopic(
   }
   const rows = publishedMaterialProjectionRowSchema.array().parse(rawRows);
   const relatedSeries = relatedSeriesRowSchema.array().parse(rawRelatedSeries);
+  const covers = await loadContentCoverProjections(
+    prisma,
+    [reference.coverId, ...relatedSeries.map(({ cover_id }) => cover_id)].flatMap(
+      (coverId) => (coverId === null ? [] : [coverId]),
+    ),
+  );
   return {
-    reference,
+    reference: {
+      id: reference.id,
+      name: reference.name,
+      slug: reference.slug,
+      summary: reference.summary,
+      cover:
+        reference.coverId === null
+          ? null
+          : covers.get(reference.coverId) ?? null,
+    },
     relatedSeries: relatedSeries.map((series) => ({
       id: series.id,
       matchingMaterialCount: series.matching_material_count,
@@ -564,6 +678,8 @@ export async function selectPublishedMaterialProjectionsByTopic(
       slug: series.slug,
       summary: series.summary,
       totalMaterialCount: series.total_material_count,
+      cover:
+        series.cover_id === null ? null : covers.get(series.cover_id) ?? null,
     })),
     topics: [],
     items: rows.slice(0, first).map(toProjection),
@@ -579,7 +695,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
   const [reference, rawRows, rawTopics] = await Promise.all([
     prisma.series.findUnique({
       where: { slug },
-      select: { id: true, name: true, slug: true, summary: true },
+      select: { coverId: true, id: true, name: true, slug: true, summary: true },
     }),
     prisma.$queryRaw(
       projectionQuery({
@@ -603,7 +719,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
       }),
     ),
     prisma.$queryRaw(Prisma.sql`
-      select distinct topic.id, topic.name, topic.slug
+      select distinct topic.id, topic.name, topic.slug, topic.cover_id
       from materials.published_material_series_memberships as membership
       join materials.series as series on series.id = membership.series_id
       join materials.published_materials as publication
@@ -619,10 +735,29 @@ export async function selectPublishedMaterialProjectionsBySeries(
     return undefined;
   }
   const rows = publishedMaterialProjectionRowSchema.array().parse(rawRows);
+  const topics = discoveryTopicRowSchema.array().parse(rawTopics);
+  const covers = await loadContentCoverProjections(
+    prisma,
+    [reference.coverId, ...topics.map(({ cover_id }) => cover_id)].flatMap(
+      (coverId) => (coverId === null ? [] : [coverId]),
+    ),
+  );
   return {
-    reference,
+    reference: {
+      id: reference.id,
+      name: reference.name,
+      slug: reference.slug,
+      summary: reference.summary,
+      cover:
+        reference.coverId === null
+          ? null
+          : covers.get(reference.coverId) ?? null,
+    },
     relatedSeries: [],
-    topics: discoveryTopicRowSchema.array().parse(rawTopics),
+    topics: topics.map(({ cover_id, ...topic }) => ({
+      ...topic,
+      cover: cover_id === null ? null : covers.get(cover_id) ?? null,
+    })),
     items: (first === null ? rows : rows.slice(0, first)).map(toProjection),
     hasNext: first !== null && rows.length > first,
   };
@@ -707,6 +842,7 @@ export async function selectRelatedPublishedMaterialProjections(
       name: source.title,
       slug: source.slug,
       summary: source.summary,
+      cover: source.cover,
     },
     relatedSeries: [],
     topics: [],
@@ -736,6 +872,7 @@ function projectionQuery({
       publication.access,
       publication.published_at,
       publication.primary_video_id,
+      ${coverProjectionSql()} as cover,
       topic.id as topic_id,
       topic.name as topic_name,
       topic.slug as topic_slug,
@@ -781,6 +918,33 @@ function projectionQuery({
   `;
 }
 
+function coverProjectionSql(
+  coverId: Prisma.Sql = Prisma.sql`publication.cover_id`,
+): Prisma.Sql {
+  return Prisma.sql`
+    (
+      select jsonb_build_object(
+        'coverId', cover.id,
+        'renditions', coalesce(
+          (
+            select jsonb_agg(
+              jsonb_build_object('width', rendition.width, 'height', rendition.height)
+              order by rendition.width
+            )
+            from materials.content_cover_renditions as rendition
+            where rendition.cover_id = cover.id
+          ),
+          '[]'::jsonb
+        )
+      )
+      from materials.content_covers as cover
+      where cover.id = ${coverId}
+        and cover.state = 'ready'
+        and cover.currently_referenced
+    )
+  `;
+}
+
 function toProjection(
   row: PublishedMaterialProjectionRow,
 ): PublishedMaterialProjectionDto {
@@ -793,6 +957,7 @@ function toProjection(
     access: row.access,
     publishedAt: row.published_at.toISOString(),
     primaryVideoId: row.primary_video_id,
+    cover: row.cover,
     topic: {
       id: row.topic_id,
       name: row.topic_name,

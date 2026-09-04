@@ -22,6 +22,7 @@ export interface MaterialReaderMetadata {
 }
 
 export interface PrimaryVideoPresentation {
+  readonly durationSeconds?: number | undefined;
   readonly failureCode?: string | undefined;
   readonly state: "uploading" | "processing" | "ready" | "failed";
   readonly title: string;

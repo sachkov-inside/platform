@@ -1,8 +1,9 @@
 import type { Route } from "next";
 
 export type MaterialReaderReturnKind =
+  | "home"
   | "library"
-  | "material"
+  | "profile"
   | "series"
   | "topic";
 
@@ -11,13 +12,13 @@ export interface MaterialReaderReturnTarget {
   readonly kind: MaterialReaderReturnKind;
   readonly label:
     | "Назад в Базу знаний"
-    | "Назад к материалу"
+    | "Назад в профиль"
+    | "Назад на Главную"
     | "Назад к плейлисту"
     | "Назад к теме";
 }
 
 const applicationOrigin = "https://inside.local";
-const maximumReturnDepth = 4;
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 
 export const libraryMaterialReaderReturnTarget: MaterialReaderReturnTarget =
@@ -39,7 +40,7 @@ export function materialReaderHref(slug: string, returnHref?: Route): Route {
   assertSlug(slug);
   const pathname = `/materials/${slug}`;
   if (returnHref === undefined) return internalRoute(pathname);
-  if (readReturnTarget(returnHref, 0) === undefined) {
+  if (readReturnTarget(returnHref) === undefined) {
     throw new TypeError("Expected a supported Material Reader return route");
   }
   return internalRoute(
@@ -50,18 +51,16 @@ export function materialReaderHref(slug: string, returnHref?: Route): Route {
 export function parseMaterialReaderReturnTarget(
   value: unknown,
 ): MaterialReaderReturnTarget {
-  return readReturnTarget(value, 0) ?? libraryMaterialReaderReturnTarget;
+  return readReturnTarget(value) ?? libraryMaterialReaderReturnTarget;
 }
 
 function readReturnTarget(
   value: unknown,
-  depth: number,
 ): MaterialReaderReturnTarget | undefined {
   if (
     typeof value !== "string" ||
     value.length === 0 ||
-    value.length > 512 ||
-    depth > maximumReturnDepth
+    value.length > 512
   ) {
     return undefined;
   }
@@ -77,17 +76,28 @@ function readReturnTarget(
   if (url.pathname === "/library" && url.search.length === 0) {
     return libraryMaterialReaderReturnTarget;
   }
+  if (url.pathname === "/" && url.search.length === 0) {
+    return {
+      href: internalRoute("/"),
+      kind: "home",
+      label: "Назад на Главную",
+    };
+  }
+  if (url.pathname === "/account" && url.search.length === 0) {
+    return {
+      href: internalRoute("/account"),
+      kind: "profile",
+      label: "Назад в профиль",
+    };
+  }
 
-  const match = /^\/(materials|series|topics)\/([^/]+)$/u.exec(url.pathname);
+  const match = /^\/(series|topics)\/([^/]+)$/u.exec(url.pathname);
   if (match === null || match[2] === undefined || !slugPattern.test(match[2])) {
     return undefined;
   }
 
   const routeKind = match[1];
-  if (routeKind !== "materials" && url.search.length > 0) return undefined;
-  if (routeKind === "materials" && !validMaterialSearch(url, depth)) {
-    return undefined;
-  }
+  if (url.search.length > 0) return undefined;
 
   const href = internalRoute(`${url.pathname}${url.search}`);
   if (routeKind === "series") {
@@ -96,14 +106,7 @@ function readReturnTarget(
   if (routeKind === "topics") {
     return { href, kind: "topic", label: "Назад к теме" };
   }
-  return { href, kind: "material", label: "Назад к материалу" };
-}
-
-function validMaterialSearch(url: URL, depth: number): boolean {
-  if (url.search.length === 0) return true;
-  const keys = [...url.searchParams.keys()];
-  if (keys.length !== 1 || keys[0] !== "from") return false;
-  return readReturnTarget(url.searchParams.get("from"), depth + 1) !== undefined;
+  return undefined;
 }
 
 function assertSlug(slug: string): void {

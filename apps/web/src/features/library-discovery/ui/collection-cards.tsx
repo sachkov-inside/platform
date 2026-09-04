@@ -1,7 +1,14 @@
-import { ArrowUpRight, ListVideo } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 
+import {
+  ContentCoverImage,
+  type ContentCover,
+  type MaterialPreview,
+} from "@/entities/material";
+
 export interface TopicCardPresentation {
+  readonly cover?: ContentCover | null | undefined;
   readonly count: number;
   readonly name: string;
   readonly slug: string;
@@ -9,8 +16,10 @@ export interface TopicCardPresentation {
 }
 
 export interface PlaylistCardPresentation {
+  readonly cover?: ContentCover | null | undefined;
   readonly countLabel: string;
   readonly name: string;
+  readonly previewItems?: readonly MaterialPreview[] | undefined;
   readonly slug: string;
   readonly summary: string;
 }
@@ -23,7 +32,12 @@ export function TopicCard({ topic }: { readonly topic: TopicCardPresentation }) 
       href={`/topics/${topic.slug}`}
       prefetch={false}
     >
-      <TopicArtwork slug={topic.slug} />
+      <ContentCoverImage
+        alt=""
+        className="absolute inset-0"
+        cover={topic.cover ?? null}
+        sizes="(min-width: 1024px) 24rem, (min-width: 640px) 50vw, 100vw"
+      />
       <span className="absolute inset-x-0 bottom-0 z-10 bg-sidebar/95 p-5 sm:p-6">
         <span className="flex items-start justify-between gap-4">
           <span className="min-w-0">
@@ -59,7 +73,12 @@ export function PlaylistCard({
       href={`/series/${playlist.slug}`}
       prefetch={false}
     >
-      <PlaylistArtwork />
+      <ContentCoverImage
+        alt=""
+        className="min-h-32"
+        cover={playlist.cover ?? null}
+        sizes="9rem"
+      />
       <span className="flex min-w-0 items-center justify-between gap-4 p-5">
         <span className="min-w-0">
           <span className="block text-lg font-semibold leading-6 tracking-[-0.025em]">
@@ -71,6 +90,15 @@ export function PlaylistCard({
           <span className="mt-3 block text-xs text-muted-foreground">
             {playlist.countLabel}
           </span>
+          {(playlist.previewItems?.length ?? 0) > 0 ? (
+            <span className="mt-3 grid gap-1 text-xs text-muted-foreground">
+              {playlist.previewItems?.slice(0, 3).map((item) => (
+                <span className="truncate" key={item.slug}>
+                  {item.title}
+                </span>
+              ))}
+            </span>
+          ) : null}
         </span>
         <ArrowUpRight
           aria-hidden="true"
@@ -79,55 +107,6 @@ export function PlaylistCard({
       </span>
     </Link>
   );
-}
-
-function TopicArtwork({ slug }: { readonly slug: string }) {
-  const labels = topicLabels(slug);
-  return (
-    <span aria-hidden="true" className="absolute inset-0 overflow-clip bg-sidebar">
-      <span className="absolute inset-x-8 top-7 h-px bg-sidebar-border" />
-      <span className="absolute bottom-0 left-10 top-0 w-px bg-sidebar-border/75" />
-      <span className="absolute right-8 top-6 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-sidebar-foreground/70">
-        тема
-      </span>
-      <span className="absolute left-8 right-8 top-16 grid grid-cols-3 items-center gap-2">
-        {labels.map((label, index) => (
-          <span
-            className="relative grid min-h-14 place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent px-2 text-center font-mono text-[0.6875rem] leading-4 text-sidebar-accent-foreground"
-            key={label}
-          >
-            {label}
-            {index < labels.length - 1 ? (
-              <span className="absolute left-full top-1/2 h-px w-2 bg-sidebar-primary" />
-            ) : null}
-          </span>
-        ))}
-      </span>
-    </span>
-  );
-}
-
-function PlaylistArtwork() {
-  return (
-    <span aria-hidden="true" className="relative grid min-h-32 place-items-center overflow-clip bg-sidebar text-sidebar-foreground">
-      <span className="absolute inset-x-5 top-5 h-px bg-sidebar-border" />
-      <span className="absolute bottom-5 left-5 top-5 w-px bg-sidebar-border" />
-      <span className="grid grid-cols-3 items-center gap-2">
-        {["1", "2", "3"].map((step) => (
-          <span className="relative grid size-9 place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent font-mono text-xs text-sidebar-accent-foreground" key={step}>
-            {step}
-            {step === "3" ? null : <span className="absolute left-full top-1/2 h-px w-2 bg-sidebar-primary" />}
-          </span>
-        ))}
-      </span>
-      <ListVideo className="absolute bottom-5 right-5 size-5 text-sidebar-primary" />
-    </span>
-  );
-}
-
-function topicLabels(slug: string): readonly [string, string, string] {
-  const parts = slug.split("-").filter(Boolean);
-  return [parts[0] ?? "знать", parts[1] ?? "понять", parts[2] ?? "применить"];
 }
 
 export function formatMaterialCount(count: number): string {

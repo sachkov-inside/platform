@@ -10,6 +10,8 @@ const seriesId = "72000000-0000-4000-8000-000000000007";
 const slug = "kak-ustroen-inside-platform";
 const membershipSlug = "developer-pipeline-bez-poteri-konteksta";
 const membershipCreateIdempotencyKey = "72000000-0000-4000-8000-000000000033";
+const videoFormatId = "72000000-0000-4000-8000-000000000040";
+const noteFormatId = "72000000-0000-4000-8000-000000000041";
 
 export interface LocalDevelopmentSeed {
   readonly materialId: string;
@@ -29,6 +31,7 @@ export async function seedLocalDevelopment(
     },
   });
   await ensureCatalogContinuationMaterials(prisma, authoring);
+  await ensureHomeMaterials(prisma, authoring);
   const representativeMaterial = {
     metadata: {
       title: "Как устроен Inside Platform",
@@ -323,6 +326,107 @@ async function ensureCatalogContinuationMaterials(
   }
 }
 
+async function ensureHomeMaterials(
+  prisma: PlatformPrisma,
+  authoring: ReturnType<typeof assembleMaterials>["authoring"],
+): Promise<void> {
+  const materials = [
+    {
+      formatId: videoFormatId,
+      slug: "video-pro-developer-pipeline",
+      summary: "Короткий разбор пути задачи от ready до проверяемой поставки.",
+      title: "Видео про Developer Pipeline",
+    },
+    {
+      formatId: videoFormatId,
+      slug: "video-pro-glubokie-moduli",
+      summary: "Как сделать интерфейс модуля компактным, а реализацию — глубокой.",
+      title: "Глубокие модули на практике",
+    },
+    {
+      formatId: videoFormatId,
+      slug: "video-pro-produkty-i-kontekst",
+      summary: "Как продуктовый контекст помогает принимать инженерные решения.",
+      title: "Продукт и инженерный контекст",
+    },
+    {
+      formatId: noteFormatId,
+      slug: "zametka-pro-granitsy-modulya",
+      summary: "Короткая памятка о границах ответственности в коде.",
+      title: "Границы хорошего модуля",
+    },
+    {
+      formatId: noteFormatId,
+      slug: "zametka-pro-proveryaemuyu-postavku",
+      summary: "Что должно быть доказано до передачи результата владельцу.",
+      title: "Проверяемая поставка",
+    },
+  ] as const;
+
+  for (const [index, materialDefinition] of materials.entries()) {
+    const metadata = {
+      access: "free" as const,
+      formatId: materialDefinition.formatId,
+      seriesIds: [],
+      summary: materialDefinition.summary,
+      tagIds: [tagId],
+      title: materialDefinition.title,
+      topicId,
+    };
+    const body = {
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            attrs: {
+              nodeId: `74000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+            },
+            content: [{ type: "text", text: materialDefinition.summary }],
+            type: "paragraph",
+          },
+        ],
+      },
+    } as const;
+    const existing = await prisma.material.findUnique({
+      where: { slug: materialDefinition.slug },
+      select: { contentVersion: true, id: true, publicationState: true },
+    });
+    let material = existing;
+    if (material === null) {
+      const created = await authoring.createDraft({
+        actor,
+        body,
+        idempotencyKey: `local-home-create-${String(index + 1)}`,
+        metadata,
+      });
+      if (!created.ok) {
+        throw new Error(`Local Home draft failed: ${created.error.code}`);
+      }
+      material = {
+        contentVersion: BigInt(created.value.contentVersion),
+        id: created.value.materialId,
+        publicationState: created.value.publicationState,
+      };
+    }
+    if (material.publicationState !== "published") {
+      const expectedContentVersion = Number(material.contentVersion);
+      const published = await authoring.saveMaterial({
+        actor,
+        body,
+        expectedContentVersion,
+        idempotencyKey: `local-home-publish-${String(index + 1)}-${String(expectedContentVersion)}`,
+        materialId: material.id,
+        metadata,
+        publicationState: "published",
+      });
+      if (!published.ok) {
+        throw new Error(`Local Home publish failed: ${published.error.code}`);
+      }
+    }
+  }
+}
+
 async function ensureMembershipCatalogMaterial(
   prisma: PlatformPrisma,
   authoring: ReturnType<typeof assembleMaterials>["authoring"],
@@ -437,6 +541,16 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
   await prisma.format.upsert({
     where: { id: formatId },
     create: { id: formatId, slug: "guide", name: "Guide" },
+    update: {},
+  });
+  await prisma.format.upsert({
+    where: { id: videoFormatId },
+    create: { id: videoFormatId, slug: "video", name: "Видео" },
+    update: {},
+  });
+  await prisma.format.upsert({
+    where: { id: noteFormatId },
+    create: { id: noteFormatId, slug: "note", name: "Заметка" },
     update: {},
   });
   await prisma.tag.upsert({

@@ -94,6 +94,14 @@ import {
   name as workshopFoundationMigrationName,
   statement as workshopFoundationMigrationStatement,
 } from "../modules/workshop/infrastructure/postgres/migrations/0023-workshop-foundation.js";
+import {
+  name as contentCoversMigrationName,
+  statement as contentCoversMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0024-content-covers.js";
+import {
+  name as videoDurationMigrationName,
+  statement as videoDurationMigrationStatement,
+} from "../modules/videos/infrastructure/postgres/migrations/0025-video-duration.js";
 
 export const platformMigrations = [
   {
@@ -181,6 +189,14 @@ export const platformMigrations = [
   {
     name: workshopFoundationMigrationName,
     statement: workshopFoundationMigrationStatement,
+  },
+  {
+    name: contentCoversMigrationName,
+    statement: contentCoversMigrationStatement,
+  },
+  {
+    name: videoDurationMigrationName,
+    statement: videoDurationMigrationStatement,
   },
 ] as const;
 
