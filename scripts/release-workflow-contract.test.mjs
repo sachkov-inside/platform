@@ -28,6 +28,11 @@ describe("ordinal release workflow contract", () => {
     assert.match(plan, /bash scripts\/plan-release\.sh/u);
     assert.match(planScript, /git\/ref\/heads\/main/u);
     assert.match(planScript, /immutable-releases/u);
+    assert.ok(
+      plan.indexOf("unset RELEASE_SETTINGS_READ_TOKEN") > plan.indexOf("bash scripts/plan-release.sh") &&
+        plan.indexOf("unset RELEASE_SETTINGS_READ_TOKEN") < plan.indexOf('echo "image_matrix='),
+      "the calling shell must remove settings access before its output-processing commands",
+    );
     assert.match(ci, /^ {4}uses: \.\/\.github\/workflows\/ci\.yml$/mu);
     assert.match(ci, /source_sha: \$\{\{ needs\.plan\.outputs\.source_sha \}\}/u);
     assert.equal(
@@ -77,7 +82,11 @@ describe("ordinal release workflow contract", () => {
     assert.match(finalize, /gh release create/u);
     assert.match(finalize, /--target "\$SOURCE_SHA"/u);
     assert.match(finalize, /release-assets\/production-runtime\.tar\.gz/u);
-    assert.doesNotMatch(releaseWorkflow, /:latest|--clobber|secrets\./u);
+    assert.doesNotMatch(releaseWorkflow, /:latest|--clobber/u);
+    assert.deepEqual(
+      [...releaseWorkflow.matchAll(/secrets\.([A-Z_]+)/gu)].map((match) => match[1]),
+      ["RELEASE_SETTINGS_READ_TOKEN", "RELEASE_SETTINGS_READ_TOKEN"],
+    );
     assert.doesNotMatch(
       releaseWorkflow,
       /anchore|attestation|vulnerabil|waiver|ssh|deploy/iu,

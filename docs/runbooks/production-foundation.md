@@ -8,6 +8,24 @@ interface в #243, для будущей одноразовой настройк
 Не запускайте provisioning script на текущем сервере до clean reinstall и явного GO в #244. Он
 устанавливает системные пакеты, включает firewall и сервисы и занимает выделенные Platform пути.
 
+## Production-сервер
+
+Владелец подтвердил сервер 5 сентября 2026 года в задаче
+[#244](https://github.com/sachkov-inside/platform/issues/244):
+
+| Параметр | Значение |
+|---|---|
+| Провайдер | Timeweb Cloud |
+| Имя в панели | Inside App |
+| IPv4 | `201.24.126.23` |
+| Административный доступ | `ssh root@201.24.126.23`, по SSH-ключу |
+| Выбранная ОС после переустановки | Ubuntu 26.04 LTS |
+| Публичные домены | `inside.sachkov.dev`, `auth.sachkov.dev` |
+
+Адрес определяет целевой сервер, но не доказывает готовность приложения. Фактическую версию ОС,
+ключ хоста, DNS/TLS и состояние сервисов проверяют перед настройкой. Секреты и приватные SSH-ключи
+в этом документе не хранятся.
+
 ## Что лежит в комплекте
 
 | Путь | Назначение |
@@ -27,7 +45,7 @@ credentials.
 
 ## Что делает provisioning script
 
-Команда рассчитана на чистую Ubuntu 24.04:
+Команда рассчитана на чистую Ubuntu 24.04 или 26.04 LTS. Для production выбран выпуск 26.04 LTS:
 
 ```bash
 sudo infra/production/host/provision-host.sh
@@ -35,8 +53,8 @@ sudo infra/production/host/provision-host.sh
 
 Она:
 
-1. Проверяет запуск от `root`, Ubuntu 24.04 и отсутствие чужих данных в managed paths.
-2. Устанавливает из Ubuntu repositories Docker Engine, Compose v2, Caddy, OpenSSH, UFW, age и
+1. Проверяет запуск от `root`, Ubuntu 24.04 или 26.04 LTS и отсутствие чужих данных в managed paths.
+2. Устанавливает из Ubuntu repositories Docker Engine, Compose v2, Buildx, Caddy, OpenSSH, UFW, age и
    `util-linux` с командой `flock`, использующей блокировку ядра.
 3. Создаёт заблокированного по паролю пользователя `inside-deploy`. Его sudoers rule разрешает
    только root-owned `inside-deploy` gateway и сохраняет только `SSH_ORIGINAL_COMMAND`.

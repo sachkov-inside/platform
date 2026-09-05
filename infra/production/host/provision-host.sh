@@ -13,8 +13,8 @@ fi
 
 # shellcheck source=/dev/null
 source /etc/os-release
-if [[ "${ID:-}" != "ubuntu" || "${VERSION_ID:-}" != "24.04" ]]; then
-  echo "This provisioning kit supports only Ubuntu 24.04" >&2
+if [[ "${ID:-}" != "ubuntu" || ( "${VERSION_ID:-}" != "24.04" && "${VERSION_ID:-}" != "26.04" ) ]]; then
+  echo "This provisioning kit supports only Ubuntu 24.04 or 26.04 LTS" >&2
   exit 1
 fi
 
@@ -70,6 +70,7 @@ apt-get install --yes \
   ca-certificates \
   caddy \
   curl \
+  docker-buildx \
   docker-compose-v2 \
   docker.io \
   jq \
