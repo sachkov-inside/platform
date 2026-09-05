@@ -28,10 +28,11 @@ operational requirement for them.
 One Zod contract owns the closed manifest shape and external release inputs. The manifest binds only
 version and source commit to the backend and web `name@sha256:...` references. The source commit
 already identifies migrations and checked-in configuration, so their hashes are not duplicated.
-The immutable GitHub Release stores only this manifest; future deployment consumes it without
-parsing workflow-internal data.
+The initial immutable GitHub Release stored only this manifest. ADR 0015 later added the
+manifest-bound runtime bundle and deployment evidence without changing the ordinal/image identity
+chosen here.
 
 This decision separates release creation from deployment. Publishing `vN` does not connect to the
-production host and does not authorize a rollout. A later deployment pipeline will select a
-manifest and run its exact digests; it must not rebuild source or infer release identity from a
-moving branch or tag.
+production host and does not authorize a rollout. The deployment pipeline defined by ADR 0015
+selects that manifest and runs its exact digests; it does not rebuild source or infer release
+identity from a moving branch or tag.

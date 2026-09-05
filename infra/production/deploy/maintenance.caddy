@@ -1,0 +1,3 @@
+inside.sachkov.dev {
+	respond "Deployment in progress" 503
+}

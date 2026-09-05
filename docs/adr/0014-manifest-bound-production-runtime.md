@@ -50,4 +50,5 @@ compatibility evidence is green; otherwise recovery moves forward.
 The basic runtime smoke is deliberately read-only. It proves manifest/image identity, schema
 identity, process health, trusted TLS, expected pages and the positive/negative route matrix while
 checking that application data did not change. Provider writes and production host mutation belong
-to later owner-gated delivery and cutover work.
+to owner-gated delivery and cutover work. ADR 0015 defines the serialized delivery protocol and
+bounded manual application rollback layered on this runtime.

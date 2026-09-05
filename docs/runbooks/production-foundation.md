@@ -1,9 +1,9 @@
 # Подготовка production VPS
 
-Этот runbook описывает комплект, подготовленный в #239 для будущей одноразовой настройки
-production VPS. Сама VPS в рамках #239 не изменяется: owner сначала переустановит её, а затем
-применит комплект в owner-gated задаче #244. Обычные release и deploy не должны повторно
-provision-ить хост.
+Этот runbook описывает комплект, подготовленный в #239 и дополненный ограниченным deployment
+interface в #243, для будущей одноразовой настройки production VPS. Сама VPS в этих задачах не
+изменяется: owner сначала переустановит её, а затем применит комплект в owner-gated задаче #244.
+Обычные release и deploy не должны повторно provision-ить хост.
 
 Не запускайте provisioning script на текущем сервере до clean reinstall и явного GO в #244. Он
 устанавливает системные пакеты, включает firewall и сервисы и занимает выделенные Platform пути.
@@ -14,6 +14,8 @@ provision-ить хост.
 |---|---|
 | `infra/production/host/provision-host.sh` | Единственная команда первичной подготовки чистой Ubuntu VPS |
 | `infra/production/host/Caddyfile` | Безопасный Caddy baseline без публичных application routes |
+| `infra/production/host/inside-deploy` | Root-owned gateway для двух допустимых forced SSH commands |
+| `infra/production/host/configure-deploy-key.sh` | Идемпотентная установка одного ограниченного deployment key |
 | `config/production/foundation/*.env.example` | Шаблоны конфигурации и секретов без реальных значений |
 | `infra/production/database/` | Долгоживущий PostgreSQL 18 + pgBackRest, backup timers и restore entrypoint |
 | `infra/production/logto/` | Отдельный долгоживущий Logto stack |
@@ -34,11 +36,12 @@ sudo infra/production/host/provision-host.sh
 Она:
 
 1. Проверяет запуск от `root`, Ubuntu 24.04 и отсутствие чужих данных в managed paths.
-2. Устанавливает из Ubuntu repositories Docker Engine, Compose v2, Caddy, OpenSSH, UFW и age.
-3. Создаёт заблокированного по паролю пользователя `inside-deploy`, но не выдаёт ему Docker или
-   `sudo` permissions. Ограниченный SSH command добавит #243 вместе с deploy protocol.
-4. Создаёт `/etc/inside`, `/opt/inside/foundation`, `/srv/inside` и `/var/lib/inside` с базовыми
-   permissions.
+2. Устанавливает из Ubuntu repositories Docker Engine, Compose v2, Caddy, OpenSSH, UFW, age и
+   `util-linux` с командой `flock`, использующей блокировку ядра.
+3. Создаёт заблокированного по паролю пользователя `inside-deploy`. Его sudoers rule разрешает
+   только root-owned `inside-deploy` gateway и сохраняет только `SSH_ORIGINAL_COMMAND`.
+4. Создаёт отдельные root-owned пути для server configuration, staged Releases и deployment
+   journal; устанавливает `jq`, gateway и установщик ключа.
 5. Копирует долгоживущие database/Logto definitions в `/opt/inside/foundation`, устанавливает
    Caddy baseline, backup command и systemd units.
 6. Включает Docker, SSH, Caddy и UFW; наружу разрешены только TCP 22, 80 и 443.
@@ -54,7 +57,31 @@ PostgreSQL/Logto и не включает backup timers. Эти решения �
 
 1. Доставить на VPS проверенный checkout, содержащий merged #239, и прочитать diff скрипта.
 2. Запустить `sudo infra/production/host/provision-host.sh`.
-3. Скопировать env templates и заменить все placeholders реальными значениями:
+3. Создать отдельный Ed25519 key для GitHub Environment, доставить только public key по уже
+   подтверждённому административному каналу и установить его:
+
+   ```bash
+   sudo /usr/local/libexec/inside/configure-deploy-key /root/inside-deploy.pub
+   sudo -u inside-deploy ssh-keygen -l -f /home/inside-deploy/.ssh/authorized_keys
+   ```
+
+   `authorized_keys` содержит `restrict` и forced command. Ключ не даёт shell, forwarding, PTY или
+   прямой Docker/sudo interface. Private key, точная host key строка и hostname переходят только в
+   secrets `PRODUCTION_SSH_PRIVATE_KEY`, `PRODUCTION_SSH_HOST_KEYS` и `PRODUCTION_SSH_HOST` будущего
+   GitHub Environment `Production`.
+
+4. Скопировать application env templates, кроме генерируемого release identity, и заменить все
+   placeholders реальными значениями:
+
+   ```bash
+   for template in config/compose/production/*.env.example; do
+     [[ "$(basename "$template")" == runtime.env.example ]] && continue
+     target="/etc/inside/runtime/$(basename "${template%.example}")"
+     sudo install -m 600 -o root -g root "$template" "$target"
+   done
+   ```
+
+5. Скопировать foundation env templates и заменить все placeholders реальными значениями:
 
    ```bash
    for template in config/production/foundation/*.env.example; do
@@ -66,10 +93,10 @@ PostgreSQL/Logto и не включает backup timers. Эти решения �
    `compose.env` — единый источник имён Compose projects, shared database network, loopback port и
    активного PostgreSQL volume. Остальные `.env` файлы передаются только внутрь контейнеров.
 
-4. Подготовить host/offline age recipients и доставить secrets по
+6. Подготовить host/offline age recipients и доставить secrets по
    [инструкции](../../infra/production/secrets/README.md). Файлы `postgres.env`,
    `logto-database.env` и `pgbackrest.env` должны быть заполнены только через защищённый канал.
-5. До запуска контейнеров проверить Compose templates без вывода раскрытой конфигурации:
+7. До запуска контейнеров проверить Compose templates без вывода раскрытой конфигурации:
 
    ```bash
    sudo docker compose \
@@ -82,7 +109,7 @@ PostgreSQL/Logto и не включает backup timers. Эти решения �
      config --quiet
    ```
 
-6. Создать отдельный backup bucket/service account и запустить database stack:
+8. Создать отдельный backup bucket/service account и запустить database stack:
 
    ```bash
    sudo docker compose \
@@ -101,7 +128,7 @@ PostgreSQL/Logto и не включает backup timers. Эти решения �
      --stanza=production check
    ```
 
-7. После успешной database check запустить отдельный Logto stack:
+9. После успешной database check запустить отдельный Logto stack:
 
    ```bash
    sudo docker compose \
@@ -113,7 +140,7 @@ PostgreSQL/Logto и не включает backup timers. Эти решения �
    Logto опубликован только на `127.0.0.1:3301`. Публичный `auth.sachkov.dev`, TLS и отсутствие
    Logto Console проверяются в #244 после настройки DNS/Caddy.
 
-8. Выполнить первый full backup и только после успешных `stanza-create`, `check` и backup включить
+10. Выполнить первый full backup и только после успешных `stanza-create`, `check` и backup включить
    расписание:
 
    ```bash

@@ -1,0 +1,10 @@
+permissions: {}
+jobs:
+  deploy:
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "inside-deploy@${{ secrets.PRODUCTION_SSH_HOST }}"

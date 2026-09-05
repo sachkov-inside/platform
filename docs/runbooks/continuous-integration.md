@@ -68,9 +68,11 @@ The Workshop artifact matrix has a separate executable contract in
 through `pnpm workshop:contracts:check`; generated Go schema drift and bounded lifecycle behavior
 run through `pnpm workshop:evaluator:test`.
 
-The release workflow and manifest policy have their own executable contracts in
-`scripts/release-workflow-contract.test.mjs`, `scripts/release-image-contract.test.mjs` and
-`scripts/release-contract.test.mjs`. Fixtures cover next/duplicate/stale ordinals,
+The release, deployment and manifest policies have executable contracts in
+`scripts/release-workflow-contract.test.mjs`, `scripts/deployment-workflow-contract.test.mjs`,
+`scripts/release-image-contract.test.mjs`, `scripts/release-contract.test.mjs`,
+`scripts/release-rollback-proof.test.mjs` and the production deployment tests. Fixtures cover
+next/duplicate/stale ordinals,
 bare/mutable/discontinuous retained history and mismatched image results. The workflow contract
 checks the least-privilege boundary against both the release workflow and one over-privileged
 negative fixture.

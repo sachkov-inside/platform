@@ -34,6 +34,7 @@ worker_stop_timeout_seconds=20
 
 export PLATFORM_COMPOSE_PROJECT="$project_name"
 export PLATFORM_CONFIG_DIR="$runtime_config_dir"
+export PLATFORM_RELEASE_ENV_FILE="$runtime_config_dir/runtime.env"
 export PLATFORM_API_LOOPBACK_PORT="${PRODUCTION_SMOKE_API_PORT:-33001}"
 export PLATFORM_MCP_LOOPBACK_PORT="${PRODUCTION_SMOKE_MCP_PORT:-33002}"
 export PLATFORM_WEB_LOOPBACK_PORT="${PRODUCTION_SMOKE_WEB_PORT:-33000}"
@@ -411,6 +412,17 @@ export PRODUCTION_SMOKE_BACKEND_IMAGE PRODUCTION_SMOKE_WEB_IMAGE
   inside_fresh
 docker run --rm \
   --network "$foundation_network" \
+  --env-file "$runtime_config_dir/runtime.env" \
+  --env-file "$runtime_config_dir/migrations.env" \
+  --env DATABASE_URL=postgresql://platform:platform-production-smoke-password@postgres:5432/inside_fresh \
+  --entrypoint node \
+  "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
+  dist/migrations/migrate.js \
+  --verify-schema-compatible >/dev/null
+docker run --rm \
+  --network "$foundation_network" \
+  --env-file "$runtime_config_dir/runtime.env" \
+  --env-file "$runtime_config_dir/migrations.env" \
   --env DATABASE_URL=postgresql://platform:platform-production-smoke-password@postgres:5432/inside_fresh \
   --entrypoint node \
   "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
@@ -422,11 +434,21 @@ docker run --rm \
 
 docker run --rm \
   --network "$foundation_network" \
+  --env-file "$runtime_config_dir/runtime.env" \
+  --env-file "$runtime_config_dir/migrations.env" \
   --env DATABASE_URL=postgresql://platform:platform-production-smoke-password@postgres:5432/inside \
   --entrypoint node \
   "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
   --input-type=module \
   --eval "import { runMigrationsToLatest } from './dist/infrastructure/postgres/migrate-to-latest.js'; import { platformMigrations } from './dist/migrations/index.js'; await runMigrationsToLatest(process.env.DATABASE_URL, platformMigrations.slice(0, -1));"
+docker run --rm \
+  --network "$foundation_network" \
+  --env-file "$runtime_config_dir/runtime.env" \
+  --env-file "$runtime_config_dir/migrations.env" \
+  --entrypoint node \
+  "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
+  dist/migrations/migrate.js \
+  --verify-schema-compatible >/dev/null
 
 "${application_compose[@]}" config --quiet
 if "${application_compose[@]}" config --images | grep -Eq ':(latest|v[0-9]+)$'; then
