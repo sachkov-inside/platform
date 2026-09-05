@@ -36,7 +36,8 @@ type Screen =
   | "b"
   | "tag"
   | "membership"
-  | "profile";
+  | "profile"
+  | "review";
 type Variant = "A" | "B";
 type SeriesContext = "guides" | "review" | "none";
 const screens: readonly string[] = [
@@ -49,6 +50,7 @@ const screens: readonly string[] = [
   "tag",
   "membership",
   "profile",
+  "review",
 ];
 const guideSeries = "Как организовать harness для проекта";
 const cover = (index: number) =>
@@ -89,7 +91,13 @@ export function HomeSeriesGuidePrototype({
         query.has("member") ? query.get("member") === "1" : initialMember,
       );
       const source = query.get("series");
-      setContext(source === "none" || source === "review" ? source : "guides");
+      setContext(
+        source === "review" && next === "b"
+          ? "none"
+          : source === "none" || source === "review"
+            ? source
+            : "guides",
+      );
       const number = Number(query.get("episode"));
       setEpisode(
         Number.isInteger(number) && number >= 1 && number <= 8 ? number : 5,
@@ -487,7 +495,17 @@ export function HomeSeriesGuidePrototype({
     const entry = episodes[episode - 1] ?? episodes[4];
     return (
       <div className="hsg-reader">
-        <Back to={video ? "videos" : context === "none" ? "tag" : "guides"}>
+        <Back
+          to={
+            video
+              ? "videos"
+              : context === "none"
+                ? "tag"
+                : context === "review"
+                  ? "review"
+                  : "guides"
+          }
+        >
           {video
             ? "К видеоплейлисту"
             : context === "none"
@@ -504,7 +522,13 @@ export function HomeSeriesGuidePrototype({
         <h1 tabIndex={-1}>
           {video ? `Разработка платформы — ${String(episode)}` : guide.title}
         </h1>
-        <p className="hsg-lead">{video ? entry[0] : guide.summary}</p>
+        <p className="hsg-lead">
+          {video
+            ? episode === 5
+              ? "Заканчиваем настройку harness и подготавливаем всё к реализации"
+              : entry[0]
+            : guide.summary}
+        </p>
         <a className="hsg-tag" href={href("tag", { series: "none" })}>
           #agents
         </a>
@@ -543,9 +567,11 @@ export function HomeSeriesGuidePrototype({
               >
                 <option value="none">Отдельный материал</option>
                 <option value="guides">{guideSeries}</option>
-                <option value="review">
-                  Проверка работы агента · тестовая серия
-                </option>
+                {key === "a" && (
+                  <option value="review">
+                    Проверка работы агента · тестовая серия
+                  </option>
+                )}
               </select>
               <p>
                 {context === "review"
@@ -679,7 +705,10 @@ export function HomeSeriesGuidePrototype({
                   Следующий материал не выбран. Выберите контекст серии выше.
                 </p>
               )}
-              <a className="hsg-back" href={href("guides")}>
+              <a
+                className="hsg-back"
+                href={href(context === "review" ? "review" : "guides")}
+              >
                 К составу серии
               </a>
             </footer>
@@ -742,6 +771,26 @@ export function HomeSeriesGuidePrototype({
           Series()
         ) : screen === "video" || screen === "a" || screen === "b" ? (
           Reader()
+        ) : screen === "review" ? (
+          <>
+            <Back to="a">К материалу</Back>
+            <p className="hsg-eyebrow">Тестовая серия · проверка навигации</p>
+            <h1 tabIndex={-1}>Проверка работы агента</h1>
+            <p className="hsg-muted">
+              Дополнительная серия для проверки одного материала в нескольких
+              контекстах. В этом примере в неё входит только гайд A.
+            </p>
+            <h2>Состав серии</h2>
+            <ol className="hsg-contents">
+              <li>
+                <a href={href("a", { series: "review" })}>
+                  <span className="hsg-number">01</span>
+                  <h3>{guides.a.title}</h3>
+                  <ArrowRight aria-hidden="true" />
+                </a>
+              </li>
+            </ol>
+          </>
         ) : screen === "tag" ? (
           <>
             <Back to="home">На главную</Back>
