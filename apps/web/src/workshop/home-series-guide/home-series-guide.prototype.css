@@ -465,3 +465,52 @@
     justify-content: center;
   }
 }
+
+.hsg-topic-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+.hsg-topic-filters > span {
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  margin-right: 0.5rem;
+}
+.hsg-topic-filters a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 2rem;
+  background: var(--muted);
+  color: var(--body-muted);
+  font-size: 0.8rem;
+}
+.hsg-topic-filters a[aria-current],
+.hsg-topic-filters a:hover {
+  color: var(--action);
+}
+.hsg-related {
+  padding: 1.1rem;
+  margin: 0.5rem 0 1.5rem 2rem;
+  border-left: 2px solid var(--border);
+  background: var(--muted);
+  border-radius: 0 1rem 1rem 0;
+}
+.hsg-related .hsg-eyebrow {
+  margin-bottom: 0.5rem;
+}
+.hsg-related p:not(.hsg-eyebrow) {
+  margin: 0.5rem 0 1rem;
+  color: var(--body-muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.hsg-related h3 {
+  font-size: 1rem;
+}
+.hsg-related a {
+  display: inline-flex;
+}

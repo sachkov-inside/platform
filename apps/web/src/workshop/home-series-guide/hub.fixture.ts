@@ -1,6 +1,7 @@
 import type { HomeView } from "@/_pages/home";
 import type { ContentCover, MaterialPreview } from "@/entities/material";
 import { illustratedHome } from "@/_pages/home/ui/illustrated-home.fixture";
+import { membershipsFor } from "./series-order.fixture";
 import { episodes, guides } from "./content.fixture";
 
 const cover = (index: number): ContentCover => ({
@@ -34,13 +35,7 @@ export function hubFixture(member: boolean): HomeView {
         topic: topic[0],
         topicSlug: topic[1],
         tags: ["agents"],
-        seriesMemberships: [
-          {
-            slug: "development",
-            name: "Разработка платформы",
-            ordinal: index + 1,
-          },
-        ],
+        seriesMemberships: membershipsFor(`episode-${String(index + 1)}`),
       };
     })
     .reverse();
@@ -57,13 +52,7 @@ export function hubFixture(member: boolean): HomeView {
       topic: "AI-first",
       topicSlug: "agents",
       tags: ["agents"],
-      seriesMemberships: [
-        {
-          slug: "harness",
-          name: "Как организовать harness для проекта",
-          ordinal: index + 1,
-        },
-      ],
+      seriesMemberships: membershipsFor(`guide-${key}`),
     }),
   );
   // Existing main's illustrative note cards preserve the feed's density, not new authored content.
@@ -71,6 +60,7 @@ export function hubFixture(member: boolean): HomeView {
     ...note,
     topic: index === 0 ? "Поставка" : "Архитектура",
     topicSlug: index === 0 ? "delivery" : "architecture",
+    seriesMemberships: membershipsFor(note.slug),
   }));
   const all = [...videos, ...guideItems, ...notes];
   return {
@@ -88,6 +78,16 @@ export function hubFixture(member: boolean): HomeView {
     })),
     playlists: [
       {
+        id: "harness",
+        slug: "harness",
+        name: "Как организовать harness для проекта",
+        count: 2,
+        summary:
+          "Для первой задачи с агентом. Настройте правила проекта и проверьте изменение. 2 образца гайдов. Видео и заметка доступны по связанным ссылкам.",
+        cover: cover(1),
+        previewItems: guideItems,
+      },
+      {
         id: "development",
         slug: "development",
         name: "Разработка платформы",
@@ -98,14 +98,18 @@ export function hubFixture(member: boolean): HomeView {
         previewItems: videos.slice(0, 3),
       },
       {
-        id: "harness",
-        slug: "harness",
-        name: "Как организовать harness для проекта",
-        count: 2,
+        id: "review",
+        slug: "review",
+        name: "Проверка работы агента",
+        count: 3,
         summary:
-          "Серия гайдов · правила проекта, работа с агентом и проверка результата. 2 образца.",
-        cover: cover(1),
-        previewItems: guideItems,
+          "Смешанная тестовая серия. Явный порядок: гайд → видео → заметка. 3 образца.",
+        cover: cover(8),
+        previewItems: [
+          ...guideItems.slice(0, 1),
+          ...videos.filter((item) => item.slug === "episode-5"),
+          ...notes.slice(0, 1),
+        ],
       },
     ],
   };

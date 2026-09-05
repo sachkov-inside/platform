@@ -7,7 +7,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Development-only #290. Owner correction: preserve main Home as a hub. A extends the hub with subscription and prominent series; B is the production Home composition using the same samples. Series, standalone video, guide A → B, tag discovery, series context and access states. No production routes, persistence or playback. Floating A/B control; URL preserves the current screen.",
+          "Development-only #290. Selected A: Home hub with Series and subscription. Each Series has one explicit order. Related links are outside membership; mixed series demonstrates guide → video → note. B is historical reference only. Series, standalone video, guide A → B, tag discovery, series context and access states. No production routes, persistence or playback. Prototype state panel; URL preserves the current screen.",
       },
     },
     viewport: {
@@ -29,7 +29,7 @@ export const ValueFirst: Story = {
 };
 export const SeriesFirst: Story = {
   args: { initialVariant: "B" },
-  name: "B · Композиция main",
+  name: "Архив · Композиция main",
 };
 export const ValueFirstMobile: Story = {
   args: { initialVariant: "A" },
@@ -39,15 +39,15 @@ export const ValueFirstMobile: Story = {
 export const SeriesFirstMobile: Story = {
   args: { initialVariant: "B" },
   globals: { viewport: { value: "mobile390", isRotated: false } },
-  name: "B · Mobile 390",
+  name: "Архив · Mobile 390",
 };
 export const VideoSeries: Story = {
   args: { initialScreen: "videos" },
-  name: "Состав видеоплейлиста",
+  name: "Серия · видеодневник",
 };
 export const GuideSeries: Story = {
   args: { initialScreen: "guides" },
-  name: "Состав серии гайдов",
+  name: "Серия · два гайда и связанные разборы",
 };
 export const FreeGuide: Story = {
   args: { initialScreen: "a" },
@@ -73,4 +73,9 @@ export const TagDiscovery: Story = {
 export const HubLibraryCatalog: Story = {
   args: { initialScreen: "library" },
   name: "Навигация · каталог образцов",
+};
+
+export const MixedSeries: Story = {
+  args: { initialScreen: "review" },
+  name: "Смешанная серия · гайд → видео → заметка",
 };

@@ -3,11 +3,8 @@ import { ArrowRight, Search } from "lucide-react";
 import { useState } from "react";
 import type { HomeView } from "@/_pages/home";
 import { MaterialCard, type MaterialPreview } from "@/entities/material";
-import {
-  PlaylistCard,
-  TopicCard,
-  formatMaterialCount,
-} from "@/features/library-discovery";
+import { TopicCard, formatMaterialCount } from "@/features/library-discovery";
+import { SeriesCard } from "./series-card.prototype";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 
@@ -75,38 +72,16 @@ export function HomeHub({
           </Button>
         </aside>
       )}
-      <section aria-labelledby="hub-topics">
-        <Heading
-          id="hub-topics"
-          title="Темы"
-          action="Все темы"
-          href="/library?view=topics"
-        />
-        <ul
-          className="public-horizontal-rail -mx-4 mt-4 flex gap-4 overflow-x-auto px-4 pt-1 pb-1 sm:mx-0 sm:px-0 md:gap-5"
-          role="list"
-        >
-          {home.topics.map((topic) => (
-            <li className="w-24 shrink-0 md:w-28" key={topic.slug}>
-              <TopicCard
-                compact
-                topic={{ ...topic, summary: topic.summary ?? "" }}
-                returnHref="/"
-              />
-            </li>
-          ))}
-        </ul>
-      </section>
       <section aria-labelledby="hub-series">
         <Heading
           id="hub-series"
-          title="Серии и плейлисты"
+          title="Серии"
           action="Все серии"
           href="/library?view=series"
         />
         <div className="hsg-hub-series mt-5 grid gap-4 md:grid-cols-2">
-          {home.playlists.map((playlist) => (
-            <PlaylistCard
+          {home.playlists.slice(0, 2).map((playlist) => (
+            <SeriesCard
               key={playlist.slug}
               returnHref="/"
               playlist={{
@@ -118,6 +93,15 @@ export function HomeHub({
           ))}
         </div>
       </section>
+      <nav className="hsg-topic-filters" aria-label="Фильтр по теме">
+        <span>По теме</span>
+        {home.topics.map((topic) => (
+          <a key={topic.slug} href={`/topics/${topic.slug}`}>
+            {topic.name}
+          </a>
+        ))}
+        <a href="/library">Все материалы</a>
+      </nav>
       <section aria-labelledby="hub-videos">
         <Heading
           id="hub-videos"
@@ -179,7 +163,7 @@ export function HomeHub({
               className="text-sm font-semibold text-action"
               href="/materials/guide-a"
             >
-              Читать бесплатный образец →
+              {member ? "Открыть первый гайд →" : "Читать бесплатный образец →"}
             </a>
             <a
               className="text-sm font-semibold text-action"
@@ -244,7 +228,7 @@ export function HubLibrary({
       <h1 tabIndex={-1} className="text-3xl font-semibold tracking-tight">
         {home.topics.find((item) => item.slug === topic)?.name ??
           (view === "series"
-            ? "Серии и плейлисты"
+            ? "Серии"
             : view === "topics"
               ? "Темы"
               : "База знаний")}
@@ -252,6 +236,23 @@ export function HubLibrary({
       <p className="mt-3 text-sm text-muted-foreground">
         Каталог образцов для проверки навигации.
       </p>
+      <nav className="hsg-topic-filters" aria-label="Фильтр по теме">
+        <a
+          aria-current={!topic ? "page" : undefined}
+          href={`/library?format=${format}`}
+        >
+          Все темы
+        </a>
+        {home.topics.map((item) => (
+          <a
+            key={item.slug}
+            aria-current={topic === item.slug ? "page" : undefined}
+            href={`/library?format=${format}&topic=${item.slug}`}
+          >
+            {item.name}
+          </a>
+        ))}
+      </nav>
       <nav className="hsg-hub-shortcuts" aria-label="Форматы материалов">
         {[
           ["", "Все"],
@@ -271,7 +272,7 @@ export function HubLibrary({
       {view === "series" ? (
         <div className="grid gap-4 md:grid-cols-2">
           {home.playlists.map((playlist) => (
-            <PlaylistCard
+            <SeriesCard
               key={playlist.slug}
               playlist={{
                 ...playlist,

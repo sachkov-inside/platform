@@ -20,6 +20,7 @@ import {
 } from "react";
 import { HomePage } from "@/_pages/home";
 import { HomeHub, HubLibrary, HubNote } from "./home-hub.prototype";
+import { proofSeries } from "./series-order.fixture";
 import { hubFixture } from "./hub.fixture";
 import { Button } from "@/shared/ui/button";
 import {
@@ -44,7 +45,7 @@ type Screen =
   | "library"
   | "note";
 type Variant = "A" | "B";
-type SeriesContext = "guides" | "review" | "none";
+type SeriesContext = "guides" | "review" | "videos" | "none";
 const screens: readonly string[] = [
   "home",
   "videos",
@@ -75,7 +76,7 @@ export function HomeSeriesGuidePrototype({
   const [variant, setVariant] = useState<Variant>(initialVariant);
   const [screen, setScreen] = useState<Screen>(initialScreen);
   const [member, setMember] = useState(initialMember);
-  const [context, setContext] = useState<SeriesContext>("guides");
+  const [context, setContext] = useState<SeriesContext>("none");
   const [episode, setEpisode] = useState(5);
   const [copied, setCopied] = useState(false);
   const [catalog, setCatalog] = useState({
@@ -111,12 +112,28 @@ export function HomeSeriesGuidePrototype({
         query.has("member") ? query.get("member") === "1" : initialMember,
       );
       const source = query.get("series");
+      const targetScreen = next ?? initialScreen;
+      const materialSlug =
+        targetScreen === "a"
+          ? "guide-a"
+          : targetScreen === "b"
+            ? "guide-b"
+            : targetScreen === "video"
+              ? `episode-${query.get("episode") ?? "5"}`
+              : (query.get("note") ?? "");
+      const selected =
+        source === "guides" || source === "review" || source === "videos"
+          ? source
+          : "none";
       setContext(
-        source === "review" && next === "b"
-          ? "none"
-          : source === "none" || source === "review"
-            ? source
-            : "guides",
+        selected !== "none" &&
+          (["a", "b", "video", "note"].includes(targetScreen)
+            ? (
+                proofSeries[selected].materialSlugs as readonly string[]
+              ).includes(materialSlug)
+            : true)
+          ? selected
+          : "none",
       );
       const number = Number(query.get("episode"));
       setEpisode(
@@ -155,24 +172,6 @@ export function HomeSeriesGuidePrototype({
     return `?${query.toString()}`;
   }
 
-  useEffect(() => {
-    const cycle = (event: KeyboardEvent) => {
-      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-      if (
-        (event.target as HTMLElement).closest(
-          "input, textarea, select, button, a, [contenteditable]",
-        )
-      )
-        return;
-      event.preventDefault();
-      navigate(href("home", { variant: variant === "A" ? "B" : "A" }));
-    };
-    window.addEventListener("keydown", cycle);
-    return () => {
-      window.removeEventListener("keydown", cycle);
-    };
-  });
-
   function navigate(url: string) {
     window.history.pushState({}, "", url);
     window.dispatchEvent(new PopStateEvent("popstate"));
@@ -200,13 +199,21 @@ export function HomeSeriesGuidePrototype({
       const slug = url.pathname.split("/")[2] ?? "";
       event.preventDefault();
       if (url.pathname.startsWith("/series/"))
-        navigate(href(slug === "development" ? "videos" : "guides"));
+        navigate(
+          href(
+            slug === "development"
+              ? "videos"
+              : slug === "review"
+                ? "review"
+                : "guides",
+          ),
+        );
       else if (url.pathname.startsWith("/materials/")) {
         if (slug.startsWith("episode-"))
           navigate(href("video", { episode: slug.slice(8), series: "none" }));
         else if (slug === "guide-a" || slug === "guide-b")
-          navigate(href(slug === "guide-a" ? "a" : "b", { series: "guides" }));
-        else navigate(href("note", { note: slug }));
+          navigate(href(slug === "guide-a" ? "a" : "b", { series: "none" }));
+        else navigate(href("note", { note: slug, series: "none" }));
       } else
         navigate(
           href("library", {
@@ -306,6 +313,44 @@ export function HomeSeriesGuidePrototype({
     );
   }
 
+  function Related({ step }: { readonly step: "a" | "b" }) {
+    return (
+      <aside
+        className="hsg-related"
+        aria-label={`Необязательный разбор к шагу ${step === "a" ? "1" : "2"}`}
+      >
+        <p className="hsg-eyebrow">Необязательно · связанный разбор</p>
+        {step === "a" ? (
+          <>
+            <h3>Как harness настраивался в Inside</h3>
+            <p>
+              Выпуск 5 · 26:32. Связь предложена по описанию записи в Telegram:
+              содержимое ещё не проверено, таймкод не выбран. Гайд можно пройти
+              без видео.
+            </p>
+            <Link to="video" changes={{ episode: "5", series: "none" }}>
+              Открыть видеоразбор
+            </Link>
+          </>
+        ) : (
+          <>
+            <h3>Почему небольшое изменение проще проверить</h3>
+            <p>
+              Иллюстративная заметка из main. Дополнение к проверке результата;
+              не следующий обязательный шаг.
+            </p>
+            <Link
+              to="note"
+              changes={{ note: "proveryaemaya-postavka", series: "none" }}
+            >
+              Открыть заметку
+            </Link>
+          </>
+        )}
+      </aside>
+    );
+  }
+
   function Series() {
     const video = screen === "videos";
     return (
@@ -315,8 +360,8 @@ export function HomeSeriesGuidePrototype({
           <div>
             <p className="hsg-eyebrow">
               {video
-                ? "Видеоплейлист · записи в Telegram"
-                : "Серия гайдов · планируется"}
+                ? "Серия · видеодневник из Telegram"
+                : "Серия · два гайда и связанные материалы"}
             </p>
             <h1 tabIndex={-1}>
               {video ? "Разработка платформы" : guideSeries}
@@ -324,12 +369,23 @@ export function HomeSeriesGuidePrototype({
             <p>
               {video
                 ? "Для разработчика, которому интересна реальная работа над продуктом с агентами. Посмотрите путь Inside от лендинга до архитектуры и организации задач."
-                : "Для разработчика, который впервые пробует агента и хочет связать правила, skills, планирование, выполнение и review в один процесс."}
+                : "Для разработчика, который впервые пробует агента в своём проекте. Настройте правила работы, проведите небольшую задачу и проверьте результат."}
             </p>
+            {!video && (
+              <p>
+                <strong>На входе:</strong> свой проект и знакомые команды
+                проверки. <strong>Результат:</strong> связанные правила проекта
+                и понятный цикл от постановки до проверенного изменения.
+              </p>
+            )}
             <Link
               to={video ? "video" : "a"}
               primary
-              changes={video ? { episode: "1" } : { series: "guides" }}
+              changes={
+                video
+                  ? { episode: "1", series: "videos" }
+                  : { series: "guides" }
+              }
             >
               {video ? "Открыть первый выпуск" : "Начать с первого гайда"}
             </Link>
@@ -337,17 +393,22 @@ export function HomeSeriesGuidePrototype({
           <img src={cover(video ? 5 : 1)} alt="" />
         </header>
         <section className="hsg-section">
-          <h2>Состав серии</h2>
+          <h2>{video ? "Состав серии" : "Основной путь"}</h2>
           <p className="hsg-muted">
             {video
-              ? "Восемь существующих записей. Перенос на Platform и воспроизведение ещё не проверены."
-              : "Сейчас доступны два образца для проверки дизайна. Остальные гайды ещё не определены."}
+              ? "Восемь существующих записей в порядке выхода. Это дневник разработки, а не обязательная программа. Перенос и воспроизведение на Platform ещё не проверены."
+              : "Два планируемых гайда показаны образцами A → B. Порядок определяется задачей читателя и не зависит от даты видео. Видеоразбор и заметка доступны по ссылкам и не входят в состав этой серии."}
           </p>
           <ol className="hsg-contents">
             {video
               ? episodes.map(([title, duration], index) => (
                   <li key={title}>
-                    <a href={href("video", { episode: String(index + 1) })}>
+                    <a
+                      href={href("video", {
+                        episode: String(index + 1),
+                        series: "videos",
+                      })}
+                    >
                       <span className="hsg-number">
                         {String(index + 1).padStart(2, "0")}
                       </span>
@@ -373,11 +434,69 @@ export function HomeSeriesGuidePrototype({
                       </div>
                       <ArrowRight aria-hidden="true" />
                     </a>
+                    <Related step={key} />
                   </li>
                 ))}
           </ol>
         </section>
       </>
+    );
+  }
+
+  function destination(slug: string) {
+    if (slug === "guide-a" || slug === "guide-b")
+      return href(slug === "guide-a" ? "a" : "b");
+    if (slug.startsWith("episode-"))
+      return href("video", { episode: slug.slice(8) });
+    return href("note", { note: slug });
+  }
+
+  function SequenceNavigation({ slug }: { readonly slug: string }) {
+    const series = context === "none" ? undefined : proofSeries[context];
+    const entries: readonly string[] = series?.materialSlugs ?? [];
+    const index = entries.indexOf(slug);
+    const nextSlug = index >= 0 ? entries[index + 1] : undefined;
+    const nextMaterial = [...home.guides, ...home.videos, ...home.notes].find(
+      (item) => item.slug === nextSlug,
+    );
+    return (
+      <footer className="hsg-next">
+        {series && index >= 0 ? (
+          <>
+            <p className="hsg-eyebrow">
+              {series.name} · {index + 1} из {entries.length}
+            </p>
+            {nextMaterial ? (
+              <>
+                <h2>Следующий материал</h2>
+                <a className="hsg-back" href={destination(nextMaterial.slug)}>
+                  {nextMaterial.title}
+                  <ArrowRight aria-hidden="true" size={18} />
+                </a>
+              </>
+            ) : (
+              <p>Вы дошли до конца серии.</p>
+            )}
+            <a
+              className="hsg-back"
+              href={href(
+                context === "videos"
+                  ? "videos"
+                  : context === "review"
+                    ? "review"
+                    : "guides",
+              )}
+            >
+              К составу серии
+            </a>
+          </>
+        ) : (
+          <p>
+            Материал открыт самостоятельно. Следующий материал появится после
+            выбора серии.
+          </p>
+        )}
+      </footer>
     );
   }
 
@@ -424,20 +543,20 @@ export function HomeSeriesGuidePrototype({
       <div className="hsg-reader">
         <Back
           to={
-            video
-              ? "videos"
-              : context === "none"
-                ? "tag"
+            context === "none"
+              ? "library"
+              : context === "videos"
+                ? "videos"
                 : context === "review"
                   ? "review"
                   : "guides"
           }
         >
-          {video
-            ? "К видеоплейлисту"
-            : context === "none"
-              ? "К результатам по тегу"
-              : "К серии гайдов"}
+          {context === "none"
+            ? "В Базу знаний"
+            : context === "videos"
+              ? "К видеодневнику"
+              : "К составу серии"}
         </Back>
         <p className="hsg-eyebrow">
           {video
@@ -459,6 +578,35 @@ export function HomeSeriesGuidePrototype({
         <a className="hsg-tag" href={href("tag", { series: "none" })}>
           #agents
         </a>
+        {video && (
+          <div className="hsg-context">
+            <label htmlFor="hsg-video-series">Контекст просмотра</label>
+            <select
+              id="hsg-video-series"
+              value={context}
+              onChange={(event) => {
+                navigate(href("video", { series: event.target.value }));
+              }}
+            >
+              <option value="none">Отдельный материал</option>
+              <option value="videos">
+                Разработка платформы · видеодневник
+              </option>
+              {episode === 5 && (
+                <option value="review">
+                  Проверка работы агента · тестовая серия
+                </option>
+              )}
+            </select>
+            <p>
+              {context === "review"
+                ? "Материал 2 из 3: после видео идёт заметка."
+                : context === "videos"
+                  ? `Выпуск ${String(episode)} из 8. Порядок видеодневника.`
+                  : "Видео открыто самостоятельно. Серия не выбрана."}
+            </p>
+          </div>
+        )}
         {video ? (
           <>
             {member ? (
@@ -479,7 +627,18 @@ export function HomeSeriesGuidePrototype({
               Самостоятельный видеоматериал. Текстовый гайд не требуется для его
               просмотра.
             </p>
-            <Link to="videos">Все выпуски плейлиста</Link>
+            <Link to="videos">Состав видеодневника</Link>
+            {episode === 5 && (
+              <p className="hsg-muted">
+                <a
+                  className="text-action"
+                  href={href("a", { series: "guides" })}
+                >
+                  Связанный гайд: как организовать harness
+                </a>{" "}
+                · редакционная гипотеза по описанию записи.
+              </p>
+            )}
           </>
         ) : (
           <>
@@ -502,9 +661,9 @@ export function HomeSeriesGuidePrototype({
               </select>
               <p>
                 {context === "review"
-                  ? "Один материал в другой тестовой серии. Следующий выпуск здесь не задан."
+                  ? "Материал 1 из 3. Дальше — видео, затем заметка: явный порядок этой серии."
                   : context === "guides"
-                    ? `Материал ${key === "a" ? "1" : "2"} из 2 образцов. Следующий шаг определяется этой серией.`
+                    ? `Материал ${key === "a" ? "1" : "2"} из 2 образцов. Порядок задан автором серии.`
                     : "Выберите серию, чтобы увидеть порядок чтения."}
               </p>
             </div>
@@ -605,42 +764,12 @@ export function HomeSeriesGuidePrototype({
                 </section>
               </article>
             )}
-            <footer className="hsg-next">
-              {context === "guides" ? (
-                <>
-                  <p className="hsg-eyebrow">
-                    {key === "a"
-                      ? "Дальше в этой серии"
-                      : "Вы дошли до последнего образца"}
-                  </p>
-                  {key === "a" ? (
-                    <Link to="b" primary>
-                      {guides.b.title}
-                    </Link>
-                  ) : (
-                    <>
-                      <p>
-                        Дополнительные гайды планируются. Нового выпуска пока
-                        нет.
-                      </p>
-                      <Link to="a">Вернуться к первому гайду</Link>
-                    </>
-                  )}
-                </>
-              ) : (
-                <p>
-                  Следующий материал не выбран. Выберите контекст серии выше.
-                </p>
-              )}
-              <a
-                className="hsg-back"
-                href={href(context === "review" ? "review" : "guides")}
-              >
-                К составу серии
-              </a>
-            </footer>
+            <Related step={key} />
           </>
         )}
+        <SequenceNavigation
+          slug={video ? `episode-${String(episode)}` : `guide-${key}`}
+        />
       </div>
     );
   }
@@ -690,6 +819,31 @@ export function HomeSeriesGuidePrototype({
               <HubNote
                 material={home.notes.find((item) => item.slug === catalog.note)}
               />
+              {home.notes.find((item) => item.slug === catalog.note)
+                ?.seriesMemberships.length ? (
+                <div className="hsg-context">
+                  <label htmlFor="hsg-note-series">Контекст чтения</label>
+                  <select
+                    id="hsg-note-series"
+                    value={context === "review" ? "review" : "none"}
+                    onChange={(event) => {
+                      navigate(href("note", { series: event.target.value }));
+                    }}
+                  >
+                    <option value="none">Отдельный материал</option>
+                    <option value="review">Проверка работы агента</option>
+                  </select>
+                  <p>
+                    Последний материал смешанной серии. Полный текст ещё не
+                    подготовлен.
+                  </p>
+                </div>
+              ) : (
+                <p className="hsg-muted">
+                  Самостоятельная заметка, не входит в серии.
+                </p>
+              )}
+              <SequenceNavigation slug={catalog.note} />
             </>
           ) : screen === "videos" || screen === "guides" ? (
             Series()
@@ -697,22 +851,52 @@ export function HomeSeriesGuidePrototype({
             Reader()
           ) : screen === "review" ? (
             <>
-              <Back to="a">К материалу</Back>
-              <p className="hsg-eyebrow">Тестовая серия · проверка навигации</p>
-              <h1 tabIndex={-1}>Проверка работы агента</h1>
-              <p className="hsg-muted">
-                Дополнительная серия для проверки одного материала в нескольких
-                контекстах. В этом примере в неё входит только гайд A.
+              <Back to="library">В Базу знаний</Back>
+              <p className="hsg-eyebrow">
+                Смешанная тестовая серия · 3 образца
               </p>
-              <h2>Состав серии</h2>
+              <h1 tabIndex={-1}>Проверка работы агента</h1>
+              <p className="hsg-lead">
+                Для разработчика со своим проектом. Разберите правила,
+                посмотрите запись и прочитайте заметку о проверке небольшого
+                изменения. Связь с видео пока предположена по описанию.
+              </p>
+              <h2 className="mt-8">Состав серии</h2>
+              <p className="hsg-muted">
+                Явный авторский порядок: гайд → видео → заметка. Переход не
+                пропускает материалы.
+              </p>
               <ol className="hsg-contents">
-                <li>
-                  <a href={href("a", { series: "review" })}>
-                    <span className="hsg-number">01</span>
-                    <h3>{guides.a.title}</h3>
-                    <ArrowRight aria-hidden="true" />
-                  </a>
-                </li>
+                {proofSeries.review.materialSlugs.map((slug, index) => {
+                  const material = [
+                    ...home.guides,
+                    ...home.videos,
+                    ...home.notes,
+                  ].find((item) => item.slug === slug);
+                  return (
+                    <li key={slug}>
+                      <a
+                        href={
+                          slug === "guide-a"
+                            ? href("a", { series: "review" })
+                            : slug === "episode-5"
+                              ? href("video", {
+                                  series: "review",
+                                  episode: "5",
+                                })
+                              : href("note", { series: "review", note: slug })
+                        }
+                      >
+                        <span className="hsg-number">0{index + 1}</span>
+                        <div>
+                          <h3>{material?.title}</h3>
+                          <p>{material?.format} · образец</p>
+                        </div>
+                        <ArrowRight aria-hidden="true" />
+                      </a>
+                    </li>
+                  );
+                })}
               </ol>
             </>
           ) : screen === "tag" ? (
@@ -782,11 +966,11 @@ export function HomeSeriesGuidePrototype({
             Прототип #290 · {member ? "Участник" : "Посетитель"}
           </summary>
           <p>
-            A — развитие хаба; B — композиция main на тех же образцах. Заметки —
-            иллюстративные карточки из main. Восемь видео известны по
-            Telegram-источникам; гайды A/B — образцы, обложки — из принятого
-            визуального набора. Реальный бесплатный материал, цена и публикация
-            не выбраны.
+            Выбранный Home — хаб с сериями и подпиской. B сохранён только как
+            историческая композиция main. Заметки — иллюстративные карточки из
+            main. Восемь видео известны по Telegram-источникам; гайды A/B —
+            образцы, обложки — из принятого визуального набора. Реальный
+            бесплатный материал, цена и публикация не выбраны.
           </p>
           <label>
             <input
@@ -807,27 +991,9 @@ export function HomeSeriesGuidePrototype({
         <div
           className="hsg-switcher"
           role="group"
-          aria-label="Сравнение вариантов главной"
+          aria-label="Панель прототипа"
         >
-          <button
-            aria-label="Предыдущий вариант"
-            onClick={() => {
-              navigate(href("home", { variant: variant === "A" ? "B" : "A" }));
-            }}
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <a href={href("home")}>
-            {variant} · {variant === "A" ? "Хаб + подписка" : "Композиция main"}
-          </a>
-          <button
-            aria-label="Следующий вариант"
-            onClick={() => {
-              navigate(href("home", { variant: variant === "A" ? "B" : "A" }));
-            }}
-          >
-            <ArrowRight size={18} />
-          </button>
+          <a href={href("home", { variant: "A" })}>Серии · proof #290</a>
         </div>
       </ApplicationShell>
     </div>

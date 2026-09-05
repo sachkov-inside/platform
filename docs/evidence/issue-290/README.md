@@ -1,100 +1,124 @@
-# Prototype #290: Home hub, series and materials
+# #290 — Home hub and Series proof
 
-Status: revised after owner feedback on 2026-09-05; awaiting visual review.
-No production adoption or visual acceptance is implied.
+The owner selected the latest A (hub + subscription) on 2026-09-05 and delegated the bounded
+local product/visual completion. Public wording is **Серии**. This proof hands that direction to
+[implementation #295](https://github.com/sachkov-inside/platform/issues/295); it is not permission
+to merge or publish. The rejected landing variants remain in history, not a new A/B decision.
 
-Input: [Platform #290](https://github.com/sachkov-inside/platform/issues/290) and the
-[accepted Workspace #112 brief](https://github.com/sachkov-inside/workspace/blob/b534239889ffabd774e220e7d91b9d13f755c800/product/content-series-authoring-brief.md).
+Sources: [#290](https://github.com/sachkov-inside/platform/issues/290),
+[Workspace PR115](https://github.com/sachkov-inside/workspace/pull/115), and the coordinator's
+explicit ordered-composition clarification on 2026-09-05, also recorded in #295. The latter
+supersedes the intermediate proposal for four members with a separate A → B navigation path.
 Fixed review base: `188f92ae3bc674ca43a2f4aabbcc454ac22addbf`.
-Fetched `origin/main` at `b99a6e3`; its Home implementation is unchanged from that base.
 
-## Owner correction
+## Selected composition
 
-The owner rejected the first landing-like A/B compositions. Home must preserve the concept
-already delivered in main: a useful navigation and discovery hub that also makes Membership
-value visible through its content. Topics, new videos, playlists, guides and notes must coexist.
-Two featured series alone do not fulfill that purpose. This correction supersedes the earlier
-proposal to replace the format sections with a marketing-first Home.
+Home retains the accepted shell, colors, typography, material cards and note feed. Its order is:
+section shortcuts/search → compact invitation for visitors → **Серии** → compact topic filters →
+new videos → fresh guides and related context → notes. Members do not see the invitation.
+On mobile, Series form a horizontal rail with a visible next card; all Series remain accessible
+through «Все серии». Topics are secondary filters, not competing learning paths.
 
-A now extends that hub. B renders the actual production `HomePage` composition on the same
-sample set, as a reference rather than another proposed direction. The original production
-`Illustrated Catalog` story remains available unchanged. Previous rejected compositions are
-preserved in branch history through `5687b12`, not offered for selection.
+The first two featured Series are the two-guide path and the chronological development diary.
+The full sample catalog also exposes a mixed test Series. Library, format/topic filters, title/
+description search and direct Material opening remain available. No Course/Product entity,
+separate Series purchase, progress tracking or Workshop is introduced.
 
-## Review surface
+## One explicit order, no hidden membership roles
 
-Run `pnpm storybook` or the repository's Storybook Compose profile. The catalog entry is
-`Pages / Inside showcase 290`. Only this prototype is explicitly added alongside the production
-catalog; earlier proofs remain excluded. Existing story IDs stay stable for previously shared URLs.
+`series-order.fixture.ts` is the single source of sample membership and order. Memberships in
+material previews are derived from it. The reader visits each next entry, labelled
+«Следующий материал». It never infers a role from format, dates or a sorting convention.
 
-- A, revised hub: `/iframe.html?id=pages-inside-showcase-290--value-first&viewMode=story`
-- B, main composition: `/iframe.html?id=pages-inside-showcase-290--series-first&viewMode=story`
-- Original main fixture: `/iframe.html?id=pages-mobile-first-platform-home--illustrated-catalog&viewMode=story`
+| Series | Exact ordered composition | Next after guide A |
+|---|---|---|
+| Как организовать harness для проекта | A, B | B |
+| Проверка работы агента — mixed test | A, video 5, illustrative note | video 5 |
+| Разработка платформы — video diary | episodes 1–8 | A is not a member |
 
-The floating control compares A/B. URL state preserves variant, screen, Membership preview,
-episode, reading-series context and catalog filters. Search text is temporary component state
-and resets after leaving the catalog. Browser back/forward is supported. The expandable
-`Прототип #290` panel below the page switches visitor/member presentation. Agentation is enabled.
+Video 5 participates in both the mixed test Series and the diary. Its next is the note in the
+former, episode 6 in the latter, and none when opened independently. Guide A also belongs to two
+Series. The second illustrative note belongs to zero Series. Opening from Library selects none;
+entering from Series preserves that specific context; selectors offer only actual memberships.
 
-## What changed
+Video 5 and the note shown beside the A/B steps are **ordinary related links outside that
+Series' composition**. They open independently. If an author includes them in a Series, as the
+mixed sample does, they become normal sequence entries. There is no `main`/`optional` membership
+field. The video association is explicitly a hypothesis based on its Telegram description;
+no reviewed transcript or timestamp is claimed. The guides can be read without watching it.
 
-- Reuse production `ApplicationShell`, `PublicProductHeader`, `TopicCard`, `PlaylistCard`,
-  `MaterialCard` and `PublicSectionHeading`, with the accepted tokens and artwork.
-- Keep topics, new videos, fresh guides and the note feed. Bring series above new videos.
-- Add compact section shortcuts and a Membership invitation. Hide the invitation for the member
-  preview. Membership value also appears in concrete series, guide context and access states.
-- On mobile, topics and series are horizontal rails; all section headings still offer a route
-  to their full sample collection. Material cards preserve the main visual treatment.
-- A small sample catalog makes topic, format and collection navigation usable. It has local
-  title/description search. It is a prototype destination, not a redesign of production Library.
-- Keep series composition, standalone video, guide A → B, tags and explicit reading context.
+## Run and reproduce
 
-## Content boundaries
+Run `pnpm storybook` or the repository Storybook Compose profile. Entries are under
+`Pages / Inside showcase 290`; `src/workshop` stays outside production imports.
+The existing B story is only a historical main-composition reference, not a candidate direction.
+No switcher invites another A/B choice. URLs below are relative to the chosen Storybook port.
 
-Eight video episodes come from the brief's Telegram references. The Home cards use their episode
-summaries as descriptive titles; the reader retains numbered episode titles. Guide A/B are planned
-samples. A demonstrates free reading in development; no real free publication has been chosen.
-Two illustrative notes are reused from main's existing fixture to retain the feed and its density;
-opening them clearly states that a full authored text is absent. Topic assignment and order are
-sample presentation choices, not accepted taxonomy. Artwork is illustrative. Video playback is a
-labelled placeholder. No prices, payments, publication schedule or learning outcomes are invented.
+- Home: `/iframe.html?id=pages-inside-showcase-290--value-first&viewMode=story`
+- Guide Series: `/iframe.html?id=pages-inside-showcase-290--guide-series&viewMode=story`
+- Mixed Series: `/iframe.html?id=pages-inside-showcase-290--mixed-series&viewMode=story`
+- Diary: `/iframe.html?id=pages-inside-showcase-290--video-series&viewMode=story`
+- Catalog: `/iframe.html?id=pages-inside-showcase-290--hub-library-catalog&viewMode=story`
+- Independent A: `/iframe.html?id=pages-inside-showcase-290--free-guide&viewMode=story`
+- Locked/member B: `--locked-guide` / `--member-guide` under the same story prefix.
 
-## Review walkthrough
+Query state holds screen, Series context, episode, membership preview and catalog filters.
+Search text is temporary and resets when leaving the sample catalog. The expandable proof panel
+below the content controls member state; Agentation stays enabled during visual review.
 
-1. Compare A with the main composition at 390 × 844 and 1440 × 1024.
-2. Use the shortcuts to reach new videos, guides and notes; inspect the mobile series rail.
-3. Open all videos, search for Storybook, open episode 7, then use browser Back.
-4. Open a topic, all series, all guides and all notes; verify the relevant sample destinations.
-5. Open the guide series → A → B; inspect visitor access and the member body.
-6. Copy the instruction, download TXT, follow #agents, then choose a reading-series context.
-7. Inspect the member Home: content stays discoverable and the Membership invitation is absent.
+## Promotion mapping for #295
 
-## Verification
+No new workshop file is production-ready code. Reuse the established modules; adapt the bounded
+presentation below into owning production slices with real adapters and operational states.
+Never import this proof, its fixtures, mock URL router or development access switch into production.
 
-The previous reader implementation at `12525bd` passed web typecheck, focused lint, docs,
-web guardrails, Storybook build, both review axes, responsive inspection and the axe addon.
-Its copy/download, A → B, standalone tag and second-series paths were verified in the earlier
-session. Those results are historical and do not constitute acceptance of the revised Home.
+| Proof / input | Production owner and disposition |
+|---|---|
+| `HomeHub({home: HomeView, member, membershipHref})` in `home-hub.prototype.tsx` | Adapt layout into `_pages/home`; keep server adapter and `HomeResult` availability handling. Supply effective membership from the real account/access projection. |
+| Existing `MaterialCard`, `ContentCoverImage`, `PublicSectionHeading`, `ApplicationShell`, `PublicProductHeader`, `Button` | Already production-owned; reuse their public interfaces and accepted tokens. |
+| `SeriesCard` in `series-card.prototype.tsx` | Isolated copy of accepted `PlaylistCard` with public «Серия» wording; promote the wording in owning `features/library-discovery` rather than shipping a parallel card. Current presentation interface remains count/name/summary/cover/previews/slug. |
+| `Series()`, `Related()`, `SequenceNavigation()` in parent prototype | Adapt into existing Series discovery and Material reader slices. Load explicit ordered members and validated selected Series context through real adapters. Related content uses ordinary authored links. |
+| `series-order.fixture.ts`, `hub.fixture.ts`, `content.fixture.ts` | Storybook/development samples only. No real editorial content or authoring pipeline. |
+| `HubLibrary`, `HubNote`, local `href/navigate/intercept` | Navigation demonstration only. Keep production Library search/filter ownership and actual reader renderer; do not promote these substitutes. |
+| CSS `.hsg-hub-*`, `.hsg-topic-filters`, `.hsg-related` | Bounded visual reference for production composition. Reader generic typography is prototype CSS; preserve production rich text renderer. |
 
-Revision `f600d32` passed web typecheck, focused oxlint (0 warnings/errors), documentation
-contract, web architecture/negative guardrails and Storybook build in the pinned container.
-The Storybook Docker image also rebuilt successfully. Standards: 0 findings; Spec: 0 findings
-against the fixed base after restoring visible sample/Telegram status on Home.
+**Summary only:** Series task, audience, prerequisites, result and limits can all be expressed in
+its existing `summary`, displayed with name and count. The proof does not require dedicated
+outcome/audience/section/role fields. Use current Series order and Material relations. Preserve
+0/1/N membership, selected-context navigation and publication/access/archive checks in #295.
 
-Interactive Chrome checks covered A at 1440 × 1024 and 390 × 844, B on desktop and at 390 × 844,
-and the mobile guide section. Both mobile Home documents measured 390 px, with no page overflow.
-Inspected screenshots in the session; no screenshot attachments were published.
-Verified all videos → search Storybook (one result) → episode 7 → Back; all notes → illustrative
-note; AI-first topic (five results); all series → guide series → A → locked B → member B body;
-and member Home with the invitation absent. Section shortcuts scroll to their sections.
-The production card links stayed inside the prototype through its local navigation adapter.
+The accepted #271 cover assets are already served by the existing Storybook/static cover setup
+(`27100000-0000-4000-8000-…`). Reuse their existing fixture mapping for visual checks, not these
+fixture IDs as production catalog data. No new art assets or content rights are introduced.
 
-Storybook axe addon: revised A 0 violations / 29 passes / 0 inconclusive; sample catalog
-0 / 32 / 0; B reference 0 / 29 / 1. B's inconclusive contrast rule concerns the three video
-duration labels under the production locked-cover blur/overlay. It is an inherited reference
-presentation, not a confirmed contrast pass; production MaterialCard was not changed here.
+## Evidence and checks
 
-Not tested: full repository `pnpm check`, complete automated browser suite, production auth,
-playback, payments or publication. No backend or production contract changed. No responsive images
-have been attached to GitHub. The proof remains isolated from production; #290 stays open until
-owner visual acceptance and a separate production implementation handoff.
+Responsive screenshots in [images](images/) are source-controlled evidence, not generated mocks.
+The final verification result is recorded with the proof commit in its PR and #290 handoff.
+
+- [Home desktop](images/home-desktop.png)
+- [Series desktop](images/series-desktop.png)
+
+Pinned Storybook checks during iteration: web typecheck, focused oxlint, docs contract, web
+architecture/negative guardrails and Storybook build passed. An early full check in the Alpine
+Storybook runtime stopped in tooling because `bash` was absent; that environment is insufficient
+for the root gate. A full check is being run using the pinned host Node/pnpm contract with bash
+and Go, and the PR runs the repository CI gate. Do not equate the earlier partial run with a pass.
+
+## Boundaries and states still owned by #295
+
+Eight video source descriptions come from the brief's Telegram evidence; playback is a labelled
+placeholder. A/B are planned guide samples, with A explicitly development-free. Both notes are
+illustrative main fixtures with no full authored text. No material was created, changed or
+published in Inside Content or Platform data. Prices, payment, cadence and learning outcomes are
+not fabricated.
+
+The proof covers visitor/member presentations, standalone opening, explicit 0/1/N membership,
+ordered next/end states, related links, search results/empty search and unknown illustrative note.
+It does not prove real auth/entitlements, playback, payment, authoring, persistence, errors/loading,
+archive/unpublication/concurrent membership changes, pagination, browser refresh on production
+routes or production return-path security. Those need real adapters and tests in #295.
+
+Production visual verification remains a separate integration gate; this proof's accepted direction
+and delegated local adjustments do not approve merge/deploy. The proof branch/PR preserves source
+and evidence; do not merge throwaway workshop code just to consume it.
