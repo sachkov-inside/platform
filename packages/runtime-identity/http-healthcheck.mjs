@@ -1,3 +1,5 @@
+import { get } from "node:http";
+
 import { z } from "zod";
 
 import { productionRuntimeIdentitySchema, sha256IdentitySchema } from "./index.mjs";
@@ -79,4 +81,3 @@ async function main() {
 }
 
 void main().catch(() => fail("probe failed"));
-import { get } from "node:http";
