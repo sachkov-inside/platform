@@ -48,7 +48,10 @@ Compose stack and gave visual GO with no findings.
 - `pnpm test:storybook`: `158/158` passed.
 - `pnpm test:integration`: `151/151` passed with isolated Testcontainers.
 - `bash scripts/compose-stack-smoke.sh`: passed on the preserved local volumes.
-- Host full-stack smoke and final root check are recorded after their terminal results on the PR.
+- Host full-stack smoke: `54` passed and `1` intentionally skipped on Node `24.19.0` with pnpm
+  `11.22.0`, using isolated ports `3200/3201/3202` while the Compose preview remained available.
+- Root `pnpm check`: passed on Node `24.19.0` with pnpm `11.22.0`; its Playwright stage ran
+  `42/42` tests against an isolated, non-reused Web process on port `3210`.
 
 ## Proof promotion boundary
 
