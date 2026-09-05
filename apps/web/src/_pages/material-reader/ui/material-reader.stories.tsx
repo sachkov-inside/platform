@@ -257,19 +257,16 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
           seriesContext={{
             currentPosition: 2,
             next: {
-              format: "Видео",
               href: materialReaderHref("review-video", returnTarget.href),
               title: "Видео-разбор проверки",
             },
             previous: {
-              format: "Гайд",
               href: materialReaderHref("first-guide", returnTarget.href),
               title: "Сначала границы",
             },
             series: {
               href: returnTarget.href,
               name: "Создание Platform Inside",
-              slug: "platform-inside",
             },
             totalMaterials: 3,
           }}

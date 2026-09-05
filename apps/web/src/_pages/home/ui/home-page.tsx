@@ -22,7 +22,7 @@ export function HomePage({ result }: { readonly result: HomeResult }) {
 
 function HomeReady({ home }: { readonly home: HomeView }) {
   return (
-    <div className="@container/home min-w-0">
+    <div className="@container/home min-w-0" data-home-membership={home.membership.kind}>
       <PublicProductHeader />
       <h1 className="sr-only">Главная</h1>
       <HomeShortcuts />

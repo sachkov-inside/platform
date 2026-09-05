@@ -17,12 +17,11 @@ describe("Series Reader context", () => {
         reference: {
           name: "Создание Platform Inside",
           slug: "platform-inside",
-          summary: "Путь от идеи до работающей платформы.",
         },
         items: [
-          { format: "Гайд", slug: "first", title: "Сначала границы" },
-          { format: "Видео", slug: "shared-material", title: "Общий материал" },
-          { format: "Заметка", slug: "last", title: "Затем проверка" },
+          { slug: "first", title: "Сначала границы" },
+          { slug: "shared-material", title: "Общий материал" },
+          { slug: "last", title: "Затем проверка" },
         ],
       },
     });
@@ -30,19 +29,16 @@ describe("Series Reader context", () => {
     expect(result).toEqual({
       currentPosition: 2,
       next: {
-        format: "Заметка",
         href: "/materials/last?from=%2Fseries%2Fplatform-inside%3Ffrom%3D%252F",
         title: "Затем проверка",
       },
       previous: {
-        format: "Гайд",
         href: "/materials/first?from=%2Fseries%2Fplatform-inside%3Ffrom%3D%252F",
         title: "Сначала границы",
       },
       series: {
         href: "/series/platform-inside?from=%2F",
         name: "Создание Platform Inside",
-        slug: "platform-inside",
       },
       totalMaterials: 3,
     });
@@ -57,17 +53,15 @@ describe("Series Reader context", () => {
           reference: {
             name: "Review",
             slug: "review-series",
-            summary: "Явный смешанный порядок.",
           },
           items: [
-            { format: "Гайд", slug: "shared-material", title: "Общий материал" },
-            { format: "Видео", slug: "review-video", title: "Видео-разбор" },
-            { format: "Заметка", slug: "review-note", title: "Итоговая заметка" },
+            { slug: "shared-material", title: "Общий материал" },
+            { slug: "review-video", title: "Видео-разбор" },
+            { slug: "review-note", title: "Итоговая заметка" },
           ],
         },
       })?.next,
     ).toEqual({
-      format: "Видео",
       href: "/materials/review-video?from=%2Fseries%2Freview-series",
       title: "Видео-разбор",
     });
@@ -75,7 +69,6 @@ describe("Series Reader context", () => {
 
   it("uses the complete Series composition beyond a catalog page boundary", () => {
     const items = Array.from({ length: 30 }, (_, index) => ({
-      format: "Гайд",
       slug: `material-${String(index + 1)}`,
       title: `Материал ${String(index + 1)}`,
     }));
@@ -90,7 +83,6 @@ describe("Series Reader context", () => {
           reference: {
             name: "Создание Platform Inside",
             slug: "platform-inside",
-            summary: "Полный порядок.",
           },
         },
       }),
@@ -112,9 +104,8 @@ describe("Series Reader context", () => {
           reference: {
             name: "Создание Platform Inside",
             slug: "platform-inside",
-            summary: "Путь от идеи до работающей платформы.",
           },
-          items: [{ format: "Гайд", slug: "another", title: "Другой материал" }],
+          items: [{ slug: "another", title: "Другой материал" }],
         },
       }),
     ).toBeNull();

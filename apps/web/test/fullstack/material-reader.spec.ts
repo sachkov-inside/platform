@@ -34,18 +34,11 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
   await expect(videoCards).toHaveCount(4);
   await expect(videoCards.nth(0)).toContainText(/\d+:\d{2}/u);
   if (testInfo.project.name === "desktop-chromium") {
-    const topicCard = page.locator("[data-topic-card]").first();
-    const topicCover = topicCard.locator(".public-cover-grid");
-    const topicRail = topicCard.locator("xpath=ancestor::ul");
-    await topicCard.hover();
-    await page.waitForTimeout(250);
-    const [coverBox, railBox] = await Promise.all([
-      topicCover.boundingBox(),
-      topicRail.boundingBox(),
-    ]);
-    expect(coverBox).not.toBeNull();
-    expect(railBox).not.toBeNull();
-    expect(coverBox?.y).toBeGreaterThanOrEqual(railBox?.y ?? Number.POSITIVE_INFINITY);
+    await expect(
+      page
+        .getByRole("navigation", { name: "Фильтр по теме" })
+        .getByRole("link", { name: "Platform" }),
+    ).toHaveAttribute("href", "/topics/platform?from=%2F");
   }
   if (testInfo.project.name === "mobile-chromium") {
     const [first, second] = await Promise.all([
@@ -387,7 +380,11 @@ test("server-renders the representative PostgreSQL Material through Nest", async
 
 test("marks an anonymous video as watched without shifting the action", async ({ page }) => {
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
-  await closeTelegramOnboardingIfPresent(page);
+  const onboardingDismiss = page.getByRole("button", {
+    name: "Закрыть подключение Telegram",
+  });
+  await expect(onboardingDismiss).toBeVisible({ timeout: 10_000 });
+  await onboardingDismiss.click();
   const markWatched = page.getByRole("button", { name: "Отметить просмотренным" });
   await expect(markWatched).toBeEnabled();
   const initialBox = await markWatched.boundingBox();
@@ -699,6 +696,12 @@ test("uses the selected Series order for a shared Material and leaves standalone
     "href",
     "/materials/demo-295-finalnyy-gayd?from=%2Fseries%2Fdemo-series-harness%3Ffrom%3D%252Flibrary",
   );
+  await page.goBack();
+  await expect(page).toHaveURL(/\/series\/demo-series-harness$/u);
+  await page.goForward();
+  await expect(
+    page.getByRole("link", { name: /Следующий материал Demo #295 · Финальный гайд/u }),
+  ).toBeVisible();
 
   await page.goto("/series/demo-series-review");
   await page.getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" }).click();

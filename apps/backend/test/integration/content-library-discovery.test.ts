@@ -63,15 +63,15 @@ describe("Content Library discovery", () => {
         summary: "Platform boundaries, delivery and operations.",
       },
       hasNext: false,
-      relatedSeries: expect.arrayContaining([
-        expect.objectContaining({
-          matchingMaterialCount: 2,
-          name: "Создание Platform Inside",
-          slug: "platform-inside",
-          summary: "Build the platform in a deliberate order.",
-          totalMaterialCount: 2,
-        }),
-      ]),
+    });
+    expect(
+      result.value.relatedSeries.find(({ slug }) => slug === "platform-inside"),
+    ).toMatchObject({
+      matchingMaterialCount: 2,
+      name: "Создание Platform Inside",
+      slug: "platform-inside",
+      summary: "Build the platform in a deliberate order.",
+      totalMaterialCount: 2,
     });
     expect(
       result.value.items.find(

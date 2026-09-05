@@ -6,7 +6,6 @@ import {
 } from "@/shared/routing/material-reader";
 
 interface SeriesContextMaterial {
-  readonly format: string;
   readonly slug: string;
   readonly title: string;
 }
@@ -17,12 +16,10 @@ interface SeriesContextSource {
   readonly reference: {
     readonly name: string;
     readonly slug: string;
-    readonly summary: string;
   };
 }
 
 export interface SeriesReaderContextItem {
-  readonly format: string;
   readonly href: Route;
   readonly title: string;
 }
@@ -34,7 +31,6 @@ export interface SeriesReaderContext {
   readonly series: {
     readonly href: Route;
     readonly name: string;
-    readonly slug: string;
   };
   readonly totalMaterials: number;
 }
@@ -68,7 +64,6 @@ export function resolveSeriesReaderContext({
     series: {
       href: returnTarget.href,
       name: series.reference.name,
-      slug: series.reference.slug,
     },
     totalMaterials: series.items.length,
   };
@@ -81,7 +76,6 @@ function toContextItem(
   return material === undefined
     ? null
     : {
-        format: material.format,
         href: materialReaderHref(material.slug, seriesHref),
         title: material.title,
       };
