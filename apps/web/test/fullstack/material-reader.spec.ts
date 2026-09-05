@@ -91,7 +91,15 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   await expect(page.locator('[data-access-cover="locked"]')).toHaveCount(1);
   await expect(page.getByText("Бесплатно")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Темы", level: 2 })).toBeVisible();
-  await expect(page.locator("[data-topic-card]")).toContainText("Platform");
+  const topicNavigation = page.getByRole("navigation", { name: "Фильтр по теме" });
+  await expect(
+    topicNavigation.getByRole("link", { name: "Все темы" }),
+  ).toHaveAttribute("aria-current", "page");
+  await expect(topicNavigation.getByRole("link", { name: "Platform" })).toHaveAttribute(
+    "href",
+    "/topics/platform?from=%2Flibrary",
+  );
+  await expect(page.locator("[data-topic-card]")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Серии", level: 2 })).toBeVisible();
   await expect(
     page.locator("[data-playlist-card]").filter({

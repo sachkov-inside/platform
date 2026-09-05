@@ -339,11 +339,14 @@ export const ReadyDesktop: Story = {
       "/topics/product-engineering?from=%2Flibrary",
     );
     await expect(canvas.queryByText("Бесплатно")).not.toBeInTheDocument();
-    const topicCard = canvasElement.querySelector<HTMLElement>("[data-topic-card]");
-    if (topicCard === null) {
-      throw new Error("Topic card is missing");
-    }
-    await expect(within(topicCard).queryByText("1", { exact: true })).not.toBeInTheDocument();
+    const topicNavigation = canvas.getByRole("navigation", { name: "Фильтр по теме" });
+    await expect(
+      within(topicNavigation).getByRole("link", { name: "Все темы" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      within(topicNavigation).getByRole("link", { name: "Product engineering" }),
+    ).toHaveAttribute("href", "/topics/product-engineering?from=%2Flibrary");
+    await expect(canvasElement.querySelector("[data-topic-card]")).not.toBeInTheDocument();
     await expect(
       canvasElement.querySelectorAll('[data-access-cover="locked"]'),
     ).toHaveLength(2);
@@ -399,7 +402,10 @@ export const SearchResultsDesktop: Story = {
   args: {
     query: {
       ...defaultQuery,
+      after: "opaque_cursor",
+      formatSlugs: ["video"],
       q: "developer pipeline",
+      sort: "title",
     },
     result: {
       facets: catalogFacets,
@@ -418,6 +424,15 @@ export const SearchResultsDesktop: Story = {
     );
     await expect(canvas.getByRole("radio", { name: /Гайды/u })).not.toBeChecked();
     await expect(canvas.getByText("1 материал найден")).toBeInTheDocument();
+    await expect(
+      within(canvas.getByRole("navigation", { name: "Фильтр по теме" })).getByRole(
+        "link",
+        { name: "Product engineering" },
+      ),
+    ).toHaveAttribute(
+      "href",
+      "/topics/product-engineering?from=%2Flibrary%3Fq%3Ddeveloper%2Bpipeline%26format%3Dvideo%26sort%3Dtitle",
+    );
   },
 };
 
@@ -439,6 +454,18 @@ export const NoSearchResults: Story = {
     },
   },
   name: "Search · no results",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      within(canvas.getByRole("navigation", { name: "Фильтр по теме" })).getByRole(
+        "link",
+        { name: "Все темы" },
+      ),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      canvas.getByRole("button", { name: "Сбросить поиск и фильтры" }),
+    ).toBeVisible();
+  },
 };
 
 export const ContinuedCatalog: Story = {

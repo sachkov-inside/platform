@@ -106,8 +106,10 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
   затем компактные Темы, новые Видео → Гайды → Заметки и переход в общий каталог. Компактное
   приглашение в Membership показывается только visitor/non-member по реальному account Membership
   state; active member его не видит. `Продолжить` и history не входят в Home.
-- Library имеет один поиск по Material/Topic/Series/Tag, Format filters и Material sort. Topics и
-  Series остаются коллекциями на том же экране; Topic/Series filters отсутствуют.
+- Library имеет один поиск по Material/Topic/Series/Tag, Format filters и Material sort. Topics
+  показаны компактными route chips: выбор открывает существующую Topic discovery page и сохраняет
+  канонический Library return context (`q`/`format`/`sort`), а «Все темы» возвращает к нему. Topic
+  и Series не добавляются в Library query schema; Series остаются коллекциями на том же экране.
 - `Topic` отображается как `Тема`. `ReadingState` меняется только явным user action, без scroll,
   time или video-completion heuristics.
 - Authoring полностью доступен на narrow mobile, а не ограничен preview/publish режимом.

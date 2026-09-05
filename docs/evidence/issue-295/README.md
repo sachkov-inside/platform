@@ -12,6 +12,9 @@
 - Home presents shortcuts, the real membership-state invitation, Series, compact Topic filters,
   videos, guides, notes and the independent catalog in that order. Active members and unknown
   membership state do not receive the invitation.
+- Owner follow-up keeps Library Topic navigation visually aligned with Home: compact wrapping chips
+  open the existing Topic discovery routes, while «Все темы» keeps the canonical Library
+  `q`/`format`/`sort` context. No Topic query field or backend contract was added.
 
 ## Real-adapter development scenario
 

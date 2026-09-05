@@ -332,7 +332,9 @@ rendered visual/component GO остаётся отдельным от PR и merg
   `Прочитано / Не прочитано`; save и like не моделируются, а переход к следующему Material
   появляется только при реальном membership текущего Material в Series;
 - Library оставляет один search по Material/Topic/Series/Tag, Format filters и Material sort;
-  filters применяются без page navigation, cursor остаётся внутри infinite query;
+  эти query filters применяются без page navigation, cursor остаётся внутри infinite query;
+  Topics повторяют компактный wrapping-chip pattern Главной, но остаются обычными ссылками на
+  существующие Topic discovery pages с каноническим Library return context и «Все темы» reset;
 - Material Card показывает title и ordinal Series только при реальном membership; карточка без
   Series не резервирует под него место;
 - video Material cards образуют компактную media-grid с одинаковым `16:9` preview и стабильной

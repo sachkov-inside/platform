@@ -15,9 +15,9 @@ import {
 } from "@/features/library-catalog";
 import {
   PlaylistCard,
-  TopicCard,
   formatMaterialCount,
 } from "@/features/library-discovery";
+import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import { PublicProductHeader } from "@/widgets/application-shell";
@@ -176,27 +176,32 @@ function LibraryCollections({
       <section aria-labelledby="topics-heading">
         <CollectionHeading count={facets.topics.length} id="topics-heading" title="Темы" />
         {facets.topics.length === 0 ? (
-          <CollectionEmpty label="Тем пока нет" />
+          <nav aria-label="Фильтр по теме" className="mt-4 flex flex-wrap items-center gap-2">
+            <TopicResetLink href={returnHref} />
+            <span className="text-sm text-muted-foreground">Тем пока нет</span>
+          </nav>
         ) : (
-          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-7 @min-[48rem]/library:grid-cols-5 @min-[68rem]/library:grid-cols-6">
-            {facets.topics.map((topic) => (
-              <TopicCard
-                key={topic.slug}
-                returnHref={returnHref}
-                topic={{
-                  count: topic.count,
-                  cover: topic.cover,
-                  name: topic.name,
-                  slug: topic.slug,
-                  summary: topic.summary ?? "",
-                }}
-              />
-            ))}
-          </div>
+          <nav aria-label="Фильтр по теме" className="mt-4">
+            <ul className="flex flex-wrap gap-2" role="list">
+              <li>
+                <TopicResetLink href={returnHref} />
+              </li>
+              {facets.topics.map((topic) => (
+                <li key={topic.slug}>
+                  <Link
+                    className="inline-flex min-h-11 items-center rounded-full bg-muted px-4 text-sm font-semibold text-muted-foreground no-underline hover:text-action focus-visible:outline-ring"
+                    href={collectionDiscoveryHref("topic", topic.slug, returnHref)}
+                  >
+                    {topic.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         )}
       </section>
 
-      <section aria-labelledby="playlists-heading">
+      <section aria-labelledby="series-heading">
         <CollectionHeading count={facets.series.length} id="series-heading" title="Серии" />
         {facets.series.length === 0 ? (
           <CollectionEmpty label="Серий пока нет" />
@@ -220,6 +225,19 @@ function LibraryCollections({
         )}
       </section>
     </>
+  );
+}
+
+function TopicResetLink({ href }: { readonly href: Route }) {
+  return (
+    <Link
+      aria-current="page"
+      className="inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-white no-underline focus-visible:outline-ring"
+      href={href}
+    >
+      <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />
+      Все темы
+    </Link>
   );
 }
 
