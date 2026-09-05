@@ -431,6 +431,8 @@
   cursor: pointer;
 }
 .hsg-switcher a {
+  background: var(--primary);
+  color: var(--primary-foreground);
   font-size: 0.75rem;
   white-space: nowrap;
   padding: 0.75rem 0.25rem;

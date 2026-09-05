@@ -852,7 +852,11 @@ export function HomeSeriesGuidePrototype({
             </p>
           </>
         )}
-        <div className="hsg-switcher" aria-label="Сравнение вариантов главной">
+        <div
+          className="hsg-switcher"
+          role="group"
+          aria-label="Сравнение вариантов главной"
+        >
           <button
             aria-label="Предыдущий вариант"
             onClick={() => {
