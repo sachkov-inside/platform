@@ -76,7 +76,23 @@ web guardrails, Storybook build, both review axes, responsive inspection and the
 Its copy/download, A → B, standalone tag and second-series paths were verified in the earlier
 session. Those results are historical and do not constitute acceptance of the revised Home.
 
-Revision checks and review closure are recorded below after completion.
+Revision `f600d32` passed web typecheck, focused oxlint (0 warnings/errors), documentation
+contract, web architecture/negative guardrails and Storybook build in the pinned container.
+The Storybook Docker image also rebuilt successfully. Standards: 0 findings; Spec: 0 findings
+against the fixed base after restoring visible sample/Telegram status on Home.
+
+Interactive Chrome checks covered A at 1440 × 1024 and 390 × 844, B on desktop and at 390 × 844,
+and the mobile guide section. Both mobile Home documents measured 390 px, with no page overflow.
+Inspected screenshots in the session; no screenshot attachments were published.
+Verified all videos → search Storybook (one result) → episode 7 → Back; all notes → illustrative
+note; AI-first topic (five results); all series → guide series → A → locked B → member B body;
+and member Home with the invitation absent. Section shortcuts scroll to their sections.
+The production card links stayed inside the prototype through its local navigation adapter.
+
+Storybook axe addon: revised A 0 violations / 29 passes / 0 inconclusive; sample catalog
+0 / 32 / 0; B reference 0 / 29 / 1. B's inconclusive contrast rule concerns the three video
+duration labels under the production locked-cover blur/overlay. It is an inherited reference
+presentation, not a confirmed contrast pass; production MaterialCard was not changed here.
 
 Not tested: full repository `pnpm check`, complete automated browser suite, production auth,
 playback, payments or publication. No backend or production contract changed. No responsive images
