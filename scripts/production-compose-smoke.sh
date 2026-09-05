@@ -484,7 +484,7 @@ if ! api_schema_marker="$(read_schema_marker "$api_health")" || [[ "$api_health"
   echo "API readiness did not report the expected release and schema: $api_health" >&2
   exit 1
 fi
-mcp_health="$("${application_compose[@]}" exec -T mcp node -e "fetch('http://127.0.0.1:3002/_health/ready',{headers:{host:'inside.sachkov.dev'}}).then(async response=>{process.stdout.write(await response.text());if(!response.ok)process.exit(1)})")"
+mcp_health="$(curl --fail --silent --header 'Host: inside.sachkov.dev' "http://127.0.0.1:${PLATFORM_MCP_LOOPBACK_PORT}/_health/ready")"
 if ! mcp_schema_marker="$(read_schema_marker "$mcp_health")" || [[ "$mcp_health" != *'"release":"v1"'* || "$mcp_health" != *'"status":"ready"'* || "$mcp_schema_marker" != "$api_schema_marker" ]]; then
   echo "MCP readiness did not report the expected release and schema: $mcp_health" >&2
   exit 1
