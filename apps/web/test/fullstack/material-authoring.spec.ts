@@ -700,7 +700,11 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
 
   const response = await page.goto("/authoring/playlists");
   expect(response?.status()).toBe(200);
-  await page.getByRole("link", { name: "Состав" }).click();
+  await page
+    .getByRole("article")
+    .filter({ hasText: "Создание Platform Inside" })
+    .getByRole("link", { name: "Состав" })
+    .click();
   await expect(page).toHaveURL(/\/authoring\/playlists\/[0-9a-f-]+$/u);
   await expect(
     page.getByRole("heading", { name: "Создание Platform Inside", level: 1 }),

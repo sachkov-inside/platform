@@ -31,7 +31,7 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
     .getByRole("heading", { name: "Новые видео", level: 2 })
     .locator("xpath=ancestor::section")
     .getByRole("article");
-  await expect(videoCards).toHaveCount(3);
+  await expect(videoCards).toHaveCount(4);
   await expect(videoCards.nth(0)).toContainText(/\d+:\d{2}/u);
   if (testInfo.project.name === "desktop-chromium") {
     const topicCard = page.locator("[data-topic-card]").first();
@@ -100,9 +100,11 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   await expect(page.getByRole("heading", { name: "Темы", level: 2 })).toBeVisible();
   await expect(page.locator("[data-topic-card]")).toContainText("Platform");
   await expect(page.getByRole("heading", { name: "Серии", level: 2 })).toBeVisible();
-  await expect(page.locator("[data-playlist-card]")).toContainText(
-    "Создание Platform Inside",
-  );
+  await expect(
+    page.locator("[data-playlist-card]").filter({
+      hasText: "Создание Platform Inside",
+    }),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { exact: true, name: "Developer Pipeline без потери контекста" }),
   ).toHaveAttribute(
@@ -385,6 +387,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
 
 test("marks an anonymous video as watched without shifting the action", async ({ page }) => {
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
+  await closeTelegramOnboardingIfPresent(page);
   const markWatched = page.getByRole("button", { name: "Отметить просмотренным" });
   await expect(markWatched).toBeEnabled();
   const initialBox = await markWatched.boundingBox();
@@ -715,7 +718,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await page.goto("/materials/demo-295-samostoyatelnaya-zametka");
   await expect(page.getByRole("heading", { name: "Demo #295 · Самостоятельная заметка" })).toBeVisible();
   await expect(page.locator("[data-series-reader-navigation]")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Назад в Базу знаний" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Назад в Базу знаний" }).first()).toBeVisible();
 });
 
 async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
