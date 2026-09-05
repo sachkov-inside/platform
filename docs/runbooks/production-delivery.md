@@ -83,6 +83,11 @@ requires it to be immutable, compares the manifest byte-for-byte and verifies th
 workflow run. GitHub unavailability fails preflight; the SSH key alone cannot supply executable
 code. An existing ordinal can be reused only with byte-identical assets.
 
+The gateway bounds the compressed payload to 16 MiB and each decoded tar stream to 32 MiB before
+inspection. It accepts only regular files and streams each member into a fixed destination with a
+size cap: 1 MiB for the manifest and each runtime file, 16 MiB for the compressed runtime bundle.
+Oversized content is rejected before JSON parsing or execution, including highly compressed input.
+
 One deployment executes this order: host/config and current-schema preflight, maintenance route,
 exact image pulls, candidate compatibility check, old worker drain, migrations, candidate
 processes, release/schema readiness, read-only web smoke, public routes, successful journal write.

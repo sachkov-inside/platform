@@ -19,6 +19,27 @@ import { writeTrustedReleaseEvidence } from "./github-release-evidence.test-supp
 const gateway = readFileSync("infra/production/host/inside-deploy", "utf8");
 
 describe("inside-deploy forced SSH command", () => {
+  for (const [paddingBytes, diagnostic] of [
+    [33 * 1024 * 1024, /Decoded archive exceeds/u],
+    [2 * 1024 * 1024, /Archive member exceeds/u],
+  ]) {
+    it(`rejects a compressed manifest with ${paddingBytes} bytes before parsing it`, () => {
+      const fixture = createFixture();
+      try {
+        fixture.manifest += " ".repeat(paddingBytes);
+        createEnvelope(fixture);
+        assert.ok(readFileSync(fixture.payload).length < 128 * 1024);
+        const result = runGateway(fixture, "deploy v1 110");
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, diagnostic);
+        assert.equal(existsSync(resolve(fixture.root, "invocation")), false);
+        assert.equal(existsSync(resolve(fixture.root, "srv/inside/releases/v1")), false);
+      } finally {
+        fixture.cleanup();
+      }
+    });
+  }
+
   it("binds executable payloads to the fixed public GitHub release authority", () => {
     assert.match(
       gateway,

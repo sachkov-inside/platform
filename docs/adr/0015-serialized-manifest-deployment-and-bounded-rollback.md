@@ -14,8 +14,10 @@ Every Release carries a closed manifest and one digest-bound runtime bundle. The
 Compose, the positive Caddy route fragment, maintenance response and the deployment state machine
 from the same source SHA as the images. The host gateway accepts only two forced SSH command shapes
 and a two-file payload, validates both archives before mutation and refuses to replace a staged
-ordinal. Before it executes bundled code, the host independently queries the fixed public GitHub
-repository, requires the manifest to be byte-identical to the selected immutable Release and
+ordinal. Both compressed and decoded archives, plus each extracted member, have byte limits applied
+before parsing or execution; regular members stream into fixed destinations. Before it executes
+bundled code, the host independently queries the fixed public GitHub repository, requires the
+manifest to be byte-identical to the selected immutable Release and
 verifies its successful publication workflow. A stolen deployment key can therefore request only
 published operations; it cannot introduce executable bytes. The deployment key has no interactive
 shell, forwarding, PTY, Docker group or general sudo access; its only sudo target is the root-owned

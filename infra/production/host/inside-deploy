@@ -52,18 +52,56 @@ cleanup() {
 }
 trap cleanup EXIT
 
+file_size() {
+  stat -c %s "$1" 2>/dev/null || stat -f %z "$1"
+}
+
+decode_archive() {
+  local archive="$1"
+  local decoded="$2"
+  local limit=33554432
+  if ! gzip -dc "$archive" | head -c "$((limit + 1))" >"$decoded"; then
+    echo "Decoded archive exceeds 32 MiB or contains invalid gzip data" >&2
+    exit 1
+  fi
+  if [[ "$(file_size "$decoded")" -gt "$limit" ]]; then
+    echo "Decoded archive exceeds 32 MiB" >&2
+    exit 1
+  fi
+}
+
+extract_member() {
+  local archive="$1"
+  local member="$2"
+  local destination="$3"
+  local limit="$4"
+  if ! tar -xOf "$archive" "$member" | head -c "$((limit + 1))" >"$destination"; then
+    echo "Archive member exceeds its byte limit or is invalid: $member" >&2
+    exit 1
+  fi
+  if [[ "$(file_size "$destination")" -gt "$limit" ]]; then
+    echo "Archive member exceeds its byte limit: $member" >&2
+    exit 1
+  fi
+}
+
 head -c 16777217 >"$incoming_dir/payload.tar.gz"
-if [[ "$(stat -c %s "$incoming_dir/payload.tar.gz" 2>/dev/null || stat -f %z "$incoming_dir/payload.tar.gz")" -gt 16777216 ]]; then
+if [[ "$(file_size "$incoming_dir/payload.tar.gz")" -gt 16777216 ]]; then
   echo "Deployment payload exceeds 16 MiB" >&2
   exit 1
 fi
-payload_entries="$(tar -tzf "$incoming_dir/payload.tar.gz" | LC_ALL=C sort)"
+decode_archive "$incoming_dir/payload.tar.gz" "$incoming_dir/payload.tar"
+payload_entries="$(tar -tf "$incoming_dir/payload.tar" | LC_ALL=C sort)"
 if [[ "$payload_entries" != $'production-runtime.tar.gz\nrelease-manifest.json' ]]; then
   echo "Payload must contain only the release manifest and runtime bundle" >&2
   exit 1
 fi
-tar -C "$incoming_dir" -xzf "$incoming_dir/payload.tar.gz" \
-  release-manifest.json production-runtime.tar.gz
+if [[ "$(tar -tvf "$incoming_dir/payload.tar" | cut -c 1 | LC_ALL=C sort -u)" != - ]]; then
+  echo "Deployment payload entries must be regular files" >&2
+  exit 1
+fi
+extract_member "$incoming_dir/payload.tar" release-manifest.json "$incoming_dir/release-manifest.json" 1048576
+extract_member "$incoming_dir/payload.tar" production-runtime.tar.gz "$incoming_dir/production-runtime.tar.gz" 16777216
 
 manifest="$incoming_dir/release-manifest.json"
 bundle="$incoming_dir/production-runtime.tar.gz"
@@ -214,18 +252,23 @@ if [[ "$actual_bundle_digest" != "$expected_bundle_digest" ]]; then
   exit 1
 fi
 
-bundle_entries="$(tar -tzf "$bundle" | LC_ALL=C sort)"
+decode_archive "$bundle" "$incoming_dir/runtime.tar"
+bundle_entries="$(tar -tf "$incoming_dir/runtime.tar" | LC_ALL=C sort)"
 if [[ "$bundle_entries" != $'bin/deploy-release\ncaddy/maintenance.caddy\ncaddy/platform.caddy\ncompose.production.yaml' ]]; then
   echo "Production runtime bundle contains an unexpected path" >&2
   exit 1
 fi
-install -d -m 755 "$incoming_dir/runtime"
-tar -C "$incoming_dir/runtime" -xzf "$bundle"
+if [[ "$(tar -tvf "$incoming_dir/runtime.tar" | cut -c 1 | LC_ALL=C sort -u)" != - ]]; then
+  echo "Production runtime bundle entries must be regular files" >&2
+  exit 1
+fi
+install -d -m 755 "$incoming_dir/runtime/bin" "$incoming_dir/runtime/caddy"
 for path in \
   bin/deploy-release \
   caddy/maintenance.caddy \
   caddy/platform.caddy \
   compose.production.yaml; do
+  extract_member "$incoming_dir/runtime.tar" "$path" "$incoming_dir/runtime/$path" 1048576
   if [[ ! -f "$incoming_dir/runtime/$path" || -L "$incoming_dir/runtime/$path" ]]; then
     echo "Production runtime bundle entry is not a regular file: $path" >&2
     exit 1
@@ -241,7 +284,7 @@ if [[ -d "$release_dir" ]]; then
     exit 1
   fi
 else
-  rm "$incoming_dir/payload.tar.gz"
+  rm "$incoming_dir/payload.tar.gz" "$incoming_dir/payload.tar" "$incoming_dir/runtime.tar"
   mv "$incoming_dir" "$release_dir"
   incoming_dir=""
 fi
