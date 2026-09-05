@@ -7,7 +7,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Development-only #290. Two Home compositions on Workspace #112 samples. Series, standalone video, guide A → B, tag discovery, series context and access states. No production routes, persistence or playback. Floating A/B control; URL preserves the current screen.",
+          "Development-only #290. Owner correction: preserve main Home as a hub. A extends the hub with subscription and prominent series; B is the production Home composition using the same samples. Series, standalone video, guide A → B, tag discovery, series context and access states. No production routes, persistence or playback. Floating A/B control; URL preserves the current screen.",
       },
     },
     viewport: {
@@ -25,11 +25,11 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const ValueFirst: Story = {
   args: { initialVariant: "A" },
-  name: "A · Сначала ценность",
+  name: "A · Хаб + подписка",
 };
 export const SeriesFirst: Story = {
   args: { initialVariant: "B" },
-  name: "B · Сначала серии",
+  name: "B · Композиция main",
 };
 export const ValueFirstMobile: Story = {
   args: { initialVariant: "A" },
@@ -68,4 +68,9 @@ export const VideoPlaceholder: Story = {
 export const TagDiscovery: Story = {
   args: { initialScreen: "tag" },
   name: "Поиск по тегу",
+};
+
+export const HubLibraryCatalog: Story = {
+  args: { initialScreen: "library" },
+  name: "Навигация · каталог образцов",
 };

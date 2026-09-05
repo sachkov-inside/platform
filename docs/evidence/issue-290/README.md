@@ -1,99 +1,84 @@
-# Prototype #290: Home, series and materials
+# Prototype #290: Home hub, series and materials
 
-Status: first implementation for owner review; no visual acceptance or production adoption.
+Status: revised after owner feedback on 2026-09-05; awaiting visual review.
+No production adoption or visual acceptance is implied.
 
 Input: [Platform #290](https://github.com/sachkov-inside/platform/issues/290) and the
 [accepted Workspace #112 brief](https://github.com/sachkov-inside/workspace/blob/b534239889ffabd774e220e7d91b9d13f755c800/product/content-series-authoring-brief.md).
-Base: `188f92ae3bc674ca43a2f4aabbcc454ac22addbf`.
+Fixed review base: `188f92ae3bc674ca43a2f4aabbcc454ac22addbf`.
+Fetched `origin/main` at `b99a6e3`; its Home implementation is unchanged from that base.
 
-Run `pnpm storybook` from the task branch, or the repository's Storybook Compose profile.
-The catalog entry is `Pages / Inside showcase 290`. Only this prototype is explicitly added
-alongside the production catalog; earlier proofs remain excluded.
+## Owner correction
 
-- A: `/iframe.html?id=pages-inside-showcase-290--value-first&viewMode=story`
-- B: `/iframe.html?id=pages-inside-showcase-290--series-first&viewMode=story`
+The owner rejected the first landing-like A/B compositions. Home must preserve the concept
+already delivered in main: a useful navigation and discovery hub that also makes Membership
+value visible through its content. Topics, new videos, playlists, guides and notes must coexist.
+Two featured series alone do not fulfill that purpose. This correction supersedes the earlier
+proposal to replace the format sections with a marketing-first Home.
 
-The floating control compares A/B. Links preserve variant, screen, membership preview, episode
-and reading-series context in the URL. Browser back/forward is supported. The expandable
-`Прототип #290` panel switches visitor/member presentation. Agentation remains enabled.
+A now extends that hub. B renders the actual production `HomePage` composition on the same
+sample set, as a reference rather than another proposed direction. The original production
+`Illustrated Catalog` story remains available unchanged. Previous rejected compositions are
+preserved in branch history through `5687b12`, not offered for selection.
 
-## Composition question
+## Review surface
 
-A leads with audience and value, then a two-column series selection. B leads into two editorial
-series rows with the same content. Both keep the accepted ApplicationShell, typography, semantic
-tokens and static artwork from #271. Artwork is illustrative, not the real video cover.
+Run `pnpm storybook` or the repository's Storybook Compose profile. The catalog entry is
+`Pages / Inside showcase 290`. Only this prototype is explicitly added alongside the production
+catalog; earlier proofs remain excluded. Existing story IDs stay stable for previously shared URLs.
 
-Both show eight video episodes documented from Telegram and two planned guide samples. Guide A
-is explicitly a development-only free sample; B demonstrates the subscription boundary. Video
-playback is a labelled placeholder. Prices, payments, publication, learning results and cadence
-are not fabricated.
+- A, revised hub: `/iframe.html?id=pages-inside-showcase-290--value-first&viewMode=story`
+- B, main composition: `/iframe.html?id=pages-inside-showcase-290--series-first&viewMode=story`
+- Original main fixture: `/iframe.html?id=pages-mobile-first-platform-home--illustrated-catalog&viewMode=story`
+
+The floating control compares A/B. URL state preserves variant, screen, Membership preview,
+episode, reading-series context and catalog filters. Search text is temporary component state
+and resets after leaving the catalog. Browser back/forward is supported. The expandable
+`Прототип #290` panel below the page switches visitor/member presentation. Agentation is enabled.
+
+## What changed
+
+- Reuse production `ApplicationShell`, `PublicProductHeader`, `TopicCard`, `PlaylistCard`,
+  `MaterialCard` and `PublicSectionHeading`, with the accepted tokens and artwork.
+- Keep topics, new videos, fresh guides and the note feed. Bring series above new videos.
+- Add compact section shortcuts and a Membership invitation. Hide the invitation for the member
+  preview. Membership value also appears in concrete series, guide context and access states.
+- On mobile, topics and series are horizontal rails; all section headings still offer a route
+  to their full sample collection. Material cards preserve the main visual treatment.
+- A small sample catalog makes topic, format and collection navigation usable. It has local
+  title/description search. It is a prototype destination, not a redesign of production Library.
+- Keep series composition, standalone video, guide A → B, tags and explicit reading context.
+
+## Content boundaries
+
+Eight video episodes come from the brief's Telegram references. The Home cards use their episode
+summaries as descriptive titles; the reader retains numbered episode titles. Guide A/B are planned
+samples. A demonstrates free reading in development; no real free publication has been chosen.
+Two illustrative notes are reused from main's existing fixture to retain the feed and its density;
+opening them clearly states that a full authored text is absent. Topic assignment and order are
+sample presentation choices, not accepted taxonomy. Artwork is illustrative. Video playback is a
+labelled placeholder. No prices, payments, publication schedule or learning outcomes are invented.
 
 ## Review walkthrough
 
-1. Compare both home compositions at 390 × 844 and 1440 × 1024.
-2. Open the video playlist, then episode 5; switch to member to inspect the player placeholder.
-3. Open the guide series → A → B; inspect the visitor boundary and member body.
-4. Copy the guide instruction and download the demonstration TXT.
-5. Follow #agents → open A separately → choose its series → follow the next step.
-6. Select the second explicitly labelled test series. The material stays the same; a next step
-   is not invented when this series has no selected continuation.
+1. Compare A with the main composition at 390 × 844 and 1440 × 1024.
+2. Use the shortcuts to reach new videos, guides and notes; inspect the mobile series rail.
+3. Open all videos, search for Storybook, open episode 7, then use browser Back.
+4. Open a topic, all series, all guides and all notes; verify the relevant sample destinations.
+5. Open the guide series → A → B; inspect visitor access and the member body.
+6. Copy the instruction, download TXT, follow #agents, then choose a reading-series context.
+7. Inspect the member Home: content stays discoverable and the Membership invitation is absent.
 
-## Differences to the earlier Home contract
+## Verification
 
-- Product explanation and series intent precede the old format-first sequence of topics,
-  new videos, playlists, guides and notes.
-- Video playlists and guide series have distinct presentation without renaming domain Series.
-- Reader introduces an actionable tag, explicit reading context and A → B navigation.
-- No standalone Workshop, progress tracking, full Library redesign or new production shell.
+The previous reader implementation at `12525bd` passed web typecheck, focused lint, docs,
+web guardrails, Storybook build, both review axes, responsive inspection and the axe addon.
+Its copy/download, A → B, standalone tag and second-series paths were verified in the earlier
+session. Those results are historical and do not constitute acceptance of the revised Home.
 
-These are proposed changes, pending owner choice. Do not update accepted product/UX contracts
-or promote this code into production before that choice and a separate implementation scope.
+Revision checks and review closure are recorded below after completion.
 
-## Verification — 2026-09-05
-
-Checked on prototype commit `12525bd` using the pinned Node/pnpm Storybook image:
-
-- Web typecheck: passed.
-- Focused oxlint: 0 warnings, 0 errors.
-- Documentation contract: passed.
-- Web architecture and negative guardrails: passed.
-- Storybook build: passed.
-- Standards and Spec review against `188f92ae3bc674ca43a2f4aabbcc454ac22addbf`: 0 remaining
-  findings on both axes. Fixed the second-series return and episode 5 description before re-review.
-
-Interactive Chrome review covered desktop 1440 × 1024 and mobile 390 × 844. Screenshots were
-inspected in the review session. Both Home layouts retain the accepted shell and fit the viewport.
-Measured mobile document width was 390 px on B, video and standalone guide A.
-The A/B switcher changes the URL. Browser Back restored tag results after opening a material.
-
-Confirmed journeys: Home → guide series → A → B; visitor B has no body and member B exposes it;
-#agents → standalone A retains `series=none`; choosing the second test series and returning to
-its contents shows that series with one A; standalone video 5 has the agreed description and a
-labelled placeholder. Copy reports success. The downloaded `agent-task-prompt.txt` was compared
-byte-for-byte as UTF-8 text with the fixture instruction and matched.
-
-Manual accessibility review checked semantic headings, named controls, focus on the reader
-heading after navigation, native select/links and the live copy status. Agentation stays enabled.
-The floating A/B control is review chrome, separate from the accepted mobile dock.
-
-Storybook axe addon was also run after the switcher accessibility fix:
-
-| Story | Violations | Passes | Inconclusive |
-|---|---:|---:|---:|
-| Home A | 0 | 30 | 0 |
-| Home B | 0 | 30 | 1 |
-| Free guide A | 0 | 30 | 0 |
-| Locked guide B | 0 | 28 | 0 |
-| Video placeholder | 0 | 23 | 0 |
-
-B's remaining inconclusive result is the floating switcher link overlapping the page. Its
-computed foreground is `rgb(255, 255, 255)` and its explicit opaque background is
-`rgb(32, 33, 36)`: measured relative-luminance contrast is 16.10:1. The earlier unnamed-div ARIA
-finding was fixed with `role="group"`; both review axes rechecked `12525bd` with no findings.
-Typecheck, focused lint and Storybook build passed again after that change.
-
-Not tested: full repository `pnpm check`, the complete automated browser suite, production authentication,
-playback, payments or publication. These are not implied by the prototype checks. No backend or
-production contract changed. Responsive screenshots have not been attached to a GitHub issue;
-owner visual selection and any resulting revisions are still pending. The proof is not a
-production-ready feature, and #290 must remain open until its owner acceptance and handoff.
+Not tested: full repository `pnpm check`, complete automated browser suite, production auth,
+playback, payments or publication. No backend or production contract changed. No responsive images
+have been attached to GitHub. The proof remains isolated from production; #290 stays open until
+owner visual acceptance and a separate production implementation handoff.
