@@ -57,6 +57,8 @@ COPY --from=production-build --chown=node:node /workspace/apps/web/.next/standal
 COPY --from=production-build --chown=node:node /workspace/apps/web/.next/static ./apps/web/.next/static
 COPY --from=release-identity --chown=root:root --chmod=0444 /workspace/release-identity.json ./apps/web/release-identity.json
 
+COPY --chown=node:node packages/runtime-identity/index.mjs packages/runtime-identity/http-healthcheck.mjs ./apps/web/healthcheck/
+
 EXPOSE 3000
 USER node
 CMD ["node", "apps/web/server.js"]

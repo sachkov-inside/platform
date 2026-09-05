@@ -83,6 +83,14 @@ function assertRuntimeContract(files) {
   assert.match(files.compose, /application:\n {4}internal: true/u);
   assert.match(files.compose, /127\.0\.0\.1:\$\{PLATFORM_(?:API|MCP|WEB)_LOOPBACK_PORT:/u);
   assert.match(files.compose, /dist\/infrastructure\/worker-healthcheck\.js/u);
+  assert.doesNotMatch(files.compose, /- -e\n/u);
+  for (const service of ["api", "mcp", "web"]) {
+    const commandPath = service === "web"
+      ? "apps/web/healthcheck/http-healthcheck.mjs"
+      : "healthcheck/http-healthcheck.mjs";
+    assert.ok(files.compose.includes(`        - ${commandPath}\n        - ${service}\n`));
+  }
+
   assert.match(files.releaseWorkflow, /INSIDE_RELEASE_VERSION=\$\{\{ needs\.plan\.outputs\.version \}\}/u);
   assert.match(files.releaseWorkflow, /INSIDE_SOURCE_SHA=\$\{\{ needs\.plan\.outputs\.source_sha \}\}/u);
 

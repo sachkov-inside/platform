@@ -74,6 +74,8 @@ COPY --from=production-build --chown=node:node /workspace/.production/backend/pa
 COPY --from=production-build --chown=node:node /workspace/.production/backend/node_modules ./node_modules
 COPY --from=production-build --chown=node:node /workspace/apps/backend/dist ./dist
 
+COPY --chown=node:node packages/runtime-identity/index.mjs packages/runtime-identity/http-healthcheck.mjs ./healthcheck/
+
 EXPOSE 3001
 USER node
 CMD ["node", "dist/entrypoints/api.js"]
