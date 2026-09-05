@@ -62,9 +62,24 @@ describe("production foundation architecture contract", () => {
       /platform_(?:owner|runtime)|PLATFORM_DATABASE_(?:OWNER|RUNTIME)/u,
     );
   });
+
+  it("rejects PostgreSQL running as PID 1 with asynchronous pgBackRest children", () => {
+    assert.throws(
+      () => assertFoundationContract({
+        ...foundation,
+        databaseCompose: foundation.databaseCompose.replace("    init: true\n", ""),
+      }),
+      /PostgreSQL must delegate orphaned pgBackRest children to Docker init/u,
+    );
+  });
 });
 
 function assertFoundationContract(files) {
+  assert.match(
+    files.databaseCompose,
+    /\n {2}postgres:\n(?: {4}[^\n]*\n)*? {4}init: true\n/u,
+    "PostgreSQL must delegate orphaned pgBackRest children to Docker init",
+  );
   const databaseNetwork = networkVariable(files.databaseCompose);
   const logtoNetwork = networkVariable(files.logtoCompose);
   if (databaseNetwork !== logtoNetwork) {
