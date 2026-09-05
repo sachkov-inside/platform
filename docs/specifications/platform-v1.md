@@ -490,7 +490,7 @@ Published body читается только для current `published` state; d
   body/headings/asset labels остаются отдельным server-side protected index;
 - PostgreSQL FTS ранжирует title выше description/headings, затем taxonomy/body/assets и проверяется на
   bounded representative RU/EN corpus;
-- Home получает одну bounded body-free проекцию: Topics, Playlists и секции Videos/Guides/Notes;
+- Home получает одну bounded body-free проекцию: Topics, Series и секции Videos/Guides/Notes;
 - Library имеет один search по Material, Topic, Series и Tag; публичное URL-state ограничено
   `q`, `format`, `sort`, а cursor хранится только внутри TanStack Infinite Query;
 - filters появляются только из реально используемых Format;
@@ -498,8 +498,12 @@ Published body читается только для current `published` state; d
   membership results с замком; active Membership или `materials:manage` дополнительно включает
   protected body index. Одна current Membership применяется ко всем membership-материалам, без
   `Account × Material` grants и per-row authorization calls;
-- Topic/Series являются контекстной навигацией; Reader не запрашивает related выдачу и принимает
-  back context только из allowlist Home/Library/Topic/Series/Profile.
+- Topic/Series являются контекстной навигацией; Reader не запрашивает derived related выдачу и
+  принимает back context только из allowlist Home/Library/Topic/Series/Profile. Выбранная Series
+  дополнительно определяет previous/next по полному published composition существующего
+  `readPublishedSeries`, а не по paginated Library page; контекст применяется только когда текущий
+  Material действительно входит в Series. Все explicit memberships идут последовательно без
+  main/optional inference по Format, дате или ссылкам.
 
 ### MCP
 

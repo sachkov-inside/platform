@@ -254,6 +254,22 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
           material={material}
           primaryVideo={null}
           returnTarget={returnTarget}
+          seriesContext={{
+            currentPosition: 2,
+            next: {
+              href: materialReaderHref("review-video", returnTarget.href),
+              title: "Видео-разбор проверки",
+            },
+            previous: {
+              href: materialReaderHref("first-guide", returnTarget.href),
+              title: "Сначала границы",
+            },
+            series: {
+              href: returnTarget.href,
+              name: "Создание Platform Inside",
+            },
+            totalMaterials: 3,
+          }}
         />
       );
     }
@@ -399,10 +415,21 @@ export const PlaylistReturn: Story = {
   args: { mode: "playlist-return" },
   play: async ({ canvasElement }) => {
     const links = within(canvasElement).getAllByRole("link", {
-      name: "Назад к плейлисту",
+      name: "Назад к серии",
     });
     await expect(links).toHaveLength(2);
     await expect(links[0]).toHaveAttribute("href", "/series/platform-inside");
+    const seriesNavigation = within(canvasElement).getByRole("navigation", {
+      name: "Навигация по серии «Создание Platform Inside»",
+    });
+    await expect(
+      within(seriesNavigation).getByRole("link", {
+        name: /Следующий материал Видео-разбор проверки/u,
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/materials/review-video?from=%2Fseries%2Fplatform-inside",
+    );
   },
 };
 

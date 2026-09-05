@@ -311,13 +311,13 @@ laboratory-итерации:
 
 - mobile использует сплошной content canvas без внешней рамки, компактный title region,
   полноширинные Search и custom Filters, две полностью видимые Topic cards на шаг horizontal
-  navigation и отдельный блок `Плейлисты`;
+  navigation и отдельный блок `Серии`;
 - desktop сохраняет ту же information architecture, использует весь viewport и прокручивает только
   main content; округлый sidebar остаётся плавающим с небольшим inset, а profile закреплён внизу;
 - native browser selects не входят в visual language: workshop использует собственный accessible
   Select;
-- `Плейлисты` является проверяемым UI label для ordered collections, но не переименовывает
-  канонический domain term `Series` без отдельного product decision;
+- `Серии` является подтверждённым UI label для ordered collections и совпадает с каноническим
+  domain term `Series`;
 - production routes и backend seam по-прежнему не импортируют workshop fixtures или runtime.
 
 Completion pass 2026-08-24 зафиксировал owner-directed contract для финального bounded review; его
@@ -369,7 +369,8 @@ presentation state.
 Prototype fixtures, button-owned navigation, hardcoded audience decisions, personalised
 `Продолжить`/history и порядок секций, который расходится с issue #271, не являются product
 authority. Production сохраняет реальные RSC/TanStack Query/BFF seams, ContentAccess outcomes и
-порядок Home `Видео → Плейлисты → Гайды → Заметки`.
+порядок Home `Серии → Темы → Видео → Гайды → Заметки → общий каталог`; компактное приглашение в
+Membership показывается только visitor/non-member по реальному Membership state.
 
 Workshop baseline остаётся versioned comparison source до owner visual GO на exact production
 routes. После GO его удаление не должно менять rendered result; production stories становятся

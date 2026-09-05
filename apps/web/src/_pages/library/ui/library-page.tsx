@@ -197,9 +197,9 @@ function LibraryCollections({
       </section>
 
       <section aria-labelledby="playlists-heading">
-        <CollectionHeading count={facets.series.length} id="playlists-heading" title="Плейлисты" />
+        <CollectionHeading count={facets.series.length} id="series-heading" title="Серии" />
         {facets.series.length === 0 ? (
-          <CollectionEmpty label="Плейлистов пока нет" />
+          <CollectionEmpty label="Серий пока нет" />
         ) : (
           <div className="mt-4 grid gap-4 @min-[48rem]/library:grid-cols-2">
             {facets.series.map((playlist) => (

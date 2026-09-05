@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, waitFor, within } from "storybook/test";
+import { expect, within } from "storybook/test";
 
 import type { MaterialPreview } from "@/entities/material";
 import { ApplicationShell } from "@/widgets/application-shell";
@@ -26,6 +26,10 @@ const note = material({
 const home = {
   guides: [guide],
   notes: [note],
+  membership: {
+    acquisitionUrl: "https://t.me/tribute/app?startapp=inside",
+    kind: "inactive",
+  },
   playlists: [
     {
       count: 3,
@@ -94,9 +98,9 @@ export const RealDataReady: Story = {
     await expect(canvas.getByRole("heading", { name: "Главная" })).toBeInTheDocument();
     await expect(canvas.getByRole("heading", { name: "Новые видео" })).toBeVisible();
     await expect(canvas.getByText("12:34")).toBeVisible();
-    const topicCard = canvas.getByRole("link", { name: "Открыть тему Platform" });
-    await expect(topicCard).toHaveAttribute("data-topic-card");
-    await expect(within(topicCard).queryByText("5", { exact: true })).not.toBeInTheDocument();
+    const topicLink = canvas.getByRole("link", { name: "Platform" });
+    await expect(topicLink).toHaveAttribute("href", "/topics/platform?from=%2F");
+    await expect(canvas.getByRole("complementary", { name: "Подписка Inside" })).toBeVisible();
     await expect(canvas.queryByText(/продолжить/iu)).not.toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "Все видео" })).toHaveAttribute(
       "href",
@@ -111,6 +115,30 @@ export const RealDataReady: Story = {
       "/library?format=note",
     );
     await expect(canvas.getByRole("list", { name: "Лента заметок" })).toBeVisible();
+    const seriesHeading = canvas.getByRole("heading", { name: "Серии" });
+    const videosHeading = canvas.getByRole("heading", { name: "Новые видео" });
+    await expect(
+      Boolean(
+        seriesHeading.compareDocumentPosition(videosHeading) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+  },
+};
+
+export const ActiveMember: Story = {
+  args: {
+    result: {
+      kind: "ready",
+      value: { ...home, membership: { kind: "active" } },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).queryByRole("complementary", {
+        name: "Подписка Inside",
+      }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -122,10 +150,9 @@ export const IllustratedCatalog: Story = {
   args: { result: { kind: "ready", value: illustratedHome } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const topic = canvas.getByRole("link", { name: "Открыть тему Архитектура" });
+    const topic = canvas.getByRole("link", { name: "Архитектура" });
     await expect(topic).toBeVisible();
-    await waitFor(() => expect(topic.querySelector("img")?.naturalWidth ?? 0).toBeGreaterThan(0));
-    const playlist = canvas.getByRole("link", { name: "Открыть плейлист Создание Platform Inside" });
+    const playlist = canvas.getByRole("link", { name: "Открыть серию Создание Platform Inside" });
     await expect(playlist.querySelectorAll("[data-content-cover-id]")).toHaveLength(2);
   },
 };

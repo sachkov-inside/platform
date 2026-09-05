@@ -16,6 +16,7 @@ import {
 import { AccountsModule } from "../../modules/accounts/index.js";
 import { MemberProfilesModule } from "../../modules/member-profiles/index.js";
 import { TelegramMembershipModule } from "../../modules/telegram-membership/index.js";
+import { MembershipEntitlementsModule } from "../../modules/membership-entitlements/index.js";
 import {
   CreateDraftController,
   DeleteDraftController,
@@ -98,6 +99,7 @@ export class ApiModule {
         AccountsModule,
         MemberProfilesModule,
         TelegramMembershipModule,
+        MembershipEntitlementsModule,
         MaterialsModule,
         VideosModule,
       ],

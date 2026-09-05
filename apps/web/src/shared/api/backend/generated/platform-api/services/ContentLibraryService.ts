@@ -53,6 +53,14 @@ export class ContentLibraryService {
         slug: string;
       };
     }>;
+    membership: ({
+      kind: 'active';
+    } | {
+      acquisitionUrl: string;
+      kind: 'inactive';
+    } | {
+      kind: 'unknown';
+    });
     notes: Array<{
       access: 'free' | 'membership' | 'workshop';
       availability: 'available' | 'locked' | 'unavailable';

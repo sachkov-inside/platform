@@ -185,7 +185,7 @@ export const Editing: Story = {
   name: "Редактирование",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("group", { name: "Плейлисты" })).toBeInTheDocument();
+    await expect(canvas.getByRole("group", { name: "Серии" })).toBeInTheDocument();
     await expect(
       canvas.getByRole("checkbox", { name: "Создание Platform Inside" }),
     ).toBeChecked();

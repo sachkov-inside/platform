@@ -49,7 +49,7 @@ export function MaterialCatalogControls({
   selectedFormats,
   selectedSeriesIds,
   selectedTopics,
-  seriesLabel = "Плейлист",
+  seriesLabel = "Серия",
   seriesOptions,
   setQuery,
   setSelectedFormats,

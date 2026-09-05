@@ -109,6 +109,11 @@ test("creates or edits the Account Profile and preserves the member projection",
 }, testInfo) => {
   await addFullStackSession(context, "FULLSTACK_LOGTO_MEMBER_SESSION");
 
+  const home = await page.goto("/");
+  expect(home?.status()).toBe(200);
+  await expect(page.locator('[data-home-membership="active"]')).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Подписка Inside" })).toHaveCount(0);
+
   const profileStateResponse = await page.request.get("/api/account/profile");
   expect(profileStateResponse.status()).toBe(200);
   const profileState = (await profileStateResponse.json()) as {

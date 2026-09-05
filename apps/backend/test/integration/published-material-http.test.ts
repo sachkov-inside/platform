@@ -187,6 +187,10 @@ describe("published Material HTTP contract", () => {
     const home = response.json<{
       readonly guides: readonly { readonly slug: string }[];
       readonly notes: readonly { readonly slug: string }[];
+      readonly membership: {
+        readonly acquisitionUrl: string;
+        readonly kind: "inactive";
+      };
       readonly playlists: readonly {
         readonly previewItems: readonly unknown[];
         readonly slug: string;
@@ -198,6 +202,10 @@ describe("published Material HTTP contract", () => {
       }[];
     }>();
     expect(home.topics.map(({ slug }) => slug)).toContain("platform");
+    expect(home.membership).toEqual({
+      acquisitionUrl: "https://t.me/tribute/app?startapp=inside",
+      kind: "inactive",
+    });
     expect(home.playlists.map(({ slug }) => slug)).toContain("platform-inside");
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
     expect(home.videos.map(({ slug }) => slug)).toContain(

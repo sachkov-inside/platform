@@ -21,31 +21,24 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
     (headings) => headings.map((heading) => heading.textContent?.trim()),
   );
   expect(sectionOrder).toEqual([
-    "Темы",
+    "Серии",
     "Новые видео",
-    "Плейлисты",
     "Свежие гайды",
     "Заметки",
+    "Все материалы в одном каталоге",
   ]);
   const videoCards = page
     .getByRole("heading", { name: "Новые видео", level: 2 })
     .locator("xpath=ancestor::section")
     .getByRole("article");
-  await expect(videoCards).toHaveCount(3);
+  await expect(videoCards).toHaveCount(4);
   await expect(videoCards.nth(0)).toContainText(/\d+:\d{2}/u);
   if (testInfo.project.name === "desktop-chromium") {
-    const topicCard = page.locator("[data-topic-card]").first();
-    const topicCover = topicCard.locator(".public-cover-grid");
-    const topicRail = topicCard.locator("xpath=ancestor::ul");
-    await topicCard.hover();
-    await page.waitForTimeout(250);
-    const [coverBox, railBox] = await Promise.all([
-      topicCover.boundingBox(),
-      topicRail.boundingBox(),
-    ]);
-    expect(coverBox).not.toBeNull();
-    expect(railBox).not.toBeNull();
-    expect(coverBox?.y).toBeGreaterThanOrEqual(railBox?.y ?? Number.POSITIVE_INFINITY);
+    await expect(
+      page
+        .getByRole("navigation", { name: "Фильтр по теме" })
+        .getByRole("link", { name: "Platform" }),
+    ).toHaveAttribute("href", "/topics/platform?from=%2F");
   }
   if (testInfo.project.name === "mobile-chromium") {
     const [first, second] = await Promise.all([
@@ -99,10 +92,12 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   await expect(page.getByText("Бесплатно")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Темы", level: 2 })).toBeVisible();
   await expect(page.locator("[data-topic-card]")).toContainText("Platform");
-  await expect(page.getByRole("heading", { name: "Плейлисты", level: 2 })).toBeVisible();
-  await expect(page.locator("[data-playlist-card]")).toContainText(
-    "Создание Platform Inside",
-  );
+  await expect(page.getByRole("heading", { name: "Серии", level: 2 })).toBeVisible();
+  await expect(
+    page.locator("[data-playlist-card]").filter({
+      hasText: "Создание Platform Inside",
+    }),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { exact: true, name: "Developer Pipeline без потери контекста" }),
   ).toHaveAttribute(
@@ -385,6 +380,11 @@ test("server-renders the representative PostgreSQL Material through Nest", async
 
 test("marks an anonymous video as watched without shifting the action", async ({ page }) => {
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
+  const onboardingDismiss = page.getByRole("button", {
+    name: "Закрыть подключение Telegram",
+  });
+  await expect(onboardingDismiss).toBeVisible({ timeout: 10_000 });
+  await onboardingDismiss.click();
   const markWatched = page.getByRole("button", { name: "Отметить просмотренным" });
   await expect(markWatched).toBeEnabled();
   const initialBox = await markWatched.boundingBox();
@@ -536,8 +536,8 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await expect(page.locator('input[value="Platform"]')).toBeVisible();
   await captureIssue195Evidence(page, testInfo, "admin-topics");
 
-  await page.getByRole("link", { name: "Плейлисты", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Плейлисты", level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: "Серии", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Серии", level: 1 })).toBeVisible();
   await expect(page.locator('input[value="Создание Platform Inside"]')).toBeVisible();
   await captureIssue195Evidence(page, testInfo, "admin-playlists");
 });
@@ -552,7 +552,7 @@ test("returns the production not-found state for an unpublished slug", async ({ 
     /noindex/,
   );
   await expect(page.getByRole("heading", { name: "Материал не найден" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Назад к плейлисту" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Назад к серии" })).toHaveAttribute(
     "href",
     "/series/platform-inside",
   );
@@ -627,7 +627,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
   ).toBeVisible();
-  await expect(page).toHaveTitle("Создание Platform Inside — плейлист · Inside");
+  await expect(page).toHaveTitle("Создание Platform Inside — серия · Inside");
   await expectLibraryNavigationActive(page, testInfo);
   await expect(
     page.locator("[data-series-order] [data-series-ordinal]").evaluateAll((items) =>
@@ -657,7 +657,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
   );
   const playlistBackLinks = page.getByRole("link", {
-    name: "Назад к плейлисту",
+    name: "Назад к серии",
   });
   await expect(playlistBackLinks).toHaveCount(2);
   await expect(playlistBackLinks.first()).toHaveAttribute(
@@ -670,7 +670,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   const expectedSeriesLabel =
     `Создание Platform Inside · № ${representativeOrdinal ?? ""}`;
   const readerSeriesLink = page
-    .getByRole("list", { name: "Плейлисты материала" })
+    .getByRole("list", { name: "Серии материала" })
     .getByRole("link", { exact: true, name: expectedSeriesLabel });
   await expect(readerSeriesLink).toHaveAttribute("href", "/series/platform-inside");
   await expect(readerSeriesLink).toHaveText(expectedSeriesLabel);
@@ -682,6 +682,46 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "reader");
 
+});
+
+test("uses the selected Series order for a shared Material and leaves standalone reading independent", async ({
+  page,
+}) => {
+  await page.goto("/series/demo-series-harness");
+  await page.getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" }).click();
+  await expect(page.locator("[data-series-reader-navigation]")).toContainText("1 из 2");
+  await expect(
+    page.getByRole("link", { name: /Следующий материал Demo #295 · Финальный гайд/u }),
+  ).toHaveAttribute(
+    "href",
+    "/materials/demo-295-finalnyy-gayd?from=%2Fseries%2Fdemo-series-harness%3Ffrom%3D%252Flibrary",
+  );
+  await page.goBack();
+  await expect(page).toHaveURL(/\/series\/demo-series-harness$/u);
+  await page.goForward();
+  await expect(
+    page.getByRole("link", { name: /Следующий материал Demo #295 · Финальный гайд/u }),
+  ).toBeVisible();
+
+  await page.goto("/series/demo-series-review");
+  await page.getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" }).click();
+  await expect(page.locator("[data-series-reader-navigation]")).toContainText("1 из 3");
+  const mixedNext = page.getByRole("link", {
+    name: /Следующий материал Demo #295 · Видео-разбор/u,
+  });
+  await expect(mixedNext).toHaveAttribute(
+    "href",
+    "/materials/demo-295-video-razbor?from=%2Fseries%2Fdemo-series-review%3Ffrom%3D%252Flibrary",
+  );
+  await mixedNext.click();
+  await expect(
+    page.getByRole("link", { name: /Следующий материал Demo #295 · Итоговая заметка/u }),
+  ).toBeVisible();
+
+  await page.goto("/materials/demo-295-samostoyatelnaya-zametka");
+  await expect(page.getByRole("heading", { name: "Demo #295 · Самостоятельная заметка" })).toBeVisible();
+  await expect(page.locator("[data-series-reader-navigation]")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Назад в Базу знаний" }).first()).toBeVisible();
 });
 
 async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {

@@ -219,7 +219,7 @@ export const EmptySeries: Story = {
     result: {
       discoveryKind: "series",
       kind: "empty",
-      reference: { name: "Новый плейлист", slug: "new-series", summary: "" },
+      reference: { name: "Новая серия", slug: "new-series", summary: "" },
       relatedSeries: [],
       topics: [],
     },

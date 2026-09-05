@@ -372,7 +372,7 @@ export function TopicPagePrototype({
           <SectionHeading
             countLabel={formatPlaylistCount(topic.playlists.length)}
             id="topic-playlists"
-            title="Плейлисты по теме"
+            title="Серии по теме"
           />
           {topic.playlists.length > 0 ? (
             <ul
@@ -393,7 +393,7 @@ export function TopicPagePrototype({
               ))}
             </ul>
           ) : (
-            <InlineEmpty title="Плейлистов по теме пока нет" />
+            <InlineEmpty title="Серий по теме пока нет" />
           )}
         </section>
 
@@ -455,7 +455,7 @@ export function PlaylistPagePrototype({
         data-collection-page="playlist"
         data-collection-scenario={scenario}
       >
-        <CollectionBreadcrumb current={playlist.name} kind="Плейлист" />
+        <CollectionBreadcrumb current={playlist.name} kind="Серия" />
         <PlaylistHeader playlist={playlist} />
 
         <section aria-labelledby="playlist-materials" className="mt-10 sm:mt-14">
@@ -475,7 +475,7 @@ export function PlaylistPagePrototype({
               ))}
             </ol>
           ) : (
-            <InlineEmpty title="Плейлист пока пуст" />
+            <InlineEmpty title="Серия пока пуст" />
           )}
         </section>
       </div>
@@ -501,7 +501,7 @@ function CollectionBreadcrumb({
   kind,
 }: {
   readonly current: string;
-  readonly kind: "Плейлист" | "Тема";
+  readonly kind: "Серия" | "Тема";
 }) {
   return (
     <nav aria-label="Хлебные крошки">
@@ -598,7 +598,7 @@ function PlaylistHeader({ playlist }: { readonly playlist: PlaylistPageFixture }
             {formatMaterialCount(playlist.materials.length)}
           </p>
           {playlist.topics.length > 0 ? (
-            <nav aria-label="Темы плейлиста" className="mt-4">
+            <nav aria-label="Темы серии" className="mt-4">
               <ul className="flex flex-wrap gap-2" role="list">
                 {playlist.topics.map((topic) => (
                   <li key={topic.slug}>
@@ -812,7 +812,7 @@ function formatMaterialCount(count: number) {
 }
 
 function formatPlaylistCount(count: number) {
-  return formatCount(count, "плейлист", "плейлиста", "плейлистов");
+  return formatCount(count, "серия", "серии", "серий");
 }
 
 function formatCount(count: number, one: string, few: string, many: string) {
