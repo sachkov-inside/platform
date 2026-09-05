@@ -174,6 +174,17 @@ PostgreSQL/Logto и не включает backup timers. Эти решения �
 incremental — каждые шесть часов. WAL архивируется непрерывно; pgBackRest хранит четыре full
 backup. После этого #243 может доставить application release, а #244 — выполнить первый cutover.
 
+PostgreSQL service использует `init: true`: Docker init собирает завершившиеся фоновые процессы
+асинхронного pgBackRest. Если PostgreSQL сам работает PID 1, ошибка такого процесса может попасть
+в его обработчик `untracked child process` и вызвать повторное восстановление базы. Это правило
+проверяет `scripts/production-foundation-contract.test.mjs`.
+
+При обновлении существующей foundation остановите Logto и application traffic, доставьте новую
+версию database Compose и выполните `up --detach --no-build --force-recreate --wait postgres` с теми
+же foundation env и database volume. Проверьте `HostConfig.Init=true` у нового контейнера и
+`pgbackrest --stanza=production check`, затем верните Logto и application traffic. Volume не
+удаляйте; одного `restart` недостаточно для изменения init-настройки контейнера.
+
 ## Восстановление базы
 
 Restore — ручная аварийная операция, а не CI job. Сначала переведите application в maintenance
