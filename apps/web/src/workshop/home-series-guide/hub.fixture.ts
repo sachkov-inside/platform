@@ -1,7 +1,7 @@
 import type { HomeView } from "@/_pages/home";
 import type { ContentCover, MaterialPreview } from "@/entities/material";
 import { illustratedHome } from "@/_pages/home/ui/illustrated-home.fixture";
-import { membershipsFor } from "./series-order.fixture";
+import { membershipsFor, proofSeries } from "./series-order.fixture";
 import { episodes, guides } from "./content.fixture";
 
 const cover = (index: number): ContentCover => ({
@@ -81,7 +81,7 @@ export function hubFixture(member: boolean): HomeView {
         id: "harness",
         slug: "harness",
         name: "Как организовать harness для проекта",
-        count: 2,
+        count: proofSeries.guides.materialSlugs.length,
         summary:
           "Для первой задачи с агентом. Настройте правила проекта и проверьте изменение. 2 образца гайдов. Видео и заметка доступны по связанным ссылкам.",
         cover: cover(1),
@@ -91,7 +91,7 @@ export function hubFixture(member: boolean): HomeView {
         id: "development",
         slug: "development",
         name: "Разработка платформы",
-        count: 8,
+        count: proofSeries.videos.materialSlugs.length,
         summary:
           "8 видео из Telegram · от идеи Inside до дизайна, архитектуры и работы над задачами.",
         cover: cover(5),
@@ -101,7 +101,7 @@ export function hubFixture(member: boolean): HomeView {
         id: "review",
         slug: "review",
         name: "Проверка работы агента",
-        count: 3,
+        count: proofSeries.review.materialSlugs.length,
         summary:
           "Смешанная тестовая серия. Явный порядок: гайд → видео → заметка. 3 образца.",
         cover: cover(8),

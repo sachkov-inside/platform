@@ -86,6 +86,7 @@ export function HomeSeriesGuidePrototype({
     note: "",
   });
   const home = hubFixture(member);
+  const materialSamples = [...home.guides, ...home.videos, ...home.notes];
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -155,7 +156,7 @@ export function HomeSeriesGuidePrototype({
     root.current
       ?.querySelector<HTMLElement>("h1")
       ?.focus({ preventScroll: true });
-  }, [screen, variant]);
+  }, [screen, variant, episode, catalog.note]);
 
   function href(next: Screen, changes: Record<string, string> = {}) {
     const query = new URLSearchParams(
@@ -400,55 +401,91 @@ export function HomeSeriesGuidePrototype({
               : "Два планируемых гайда показаны образцами A → B. Порядок определяется задачей читателя и не зависит от даты видео. Видеоразбор и заметка доступны по ссылкам и не входят в состав этой серии."}
           </p>
           <ol className="hsg-contents">
-            {video
-              ? episodes.map(([title, duration], index) => (
-                  <li key={title}>
-                    <a
-                      href={href("video", {
-                        episode: String(index + 1),
-                        series: "videos",
-                      })}
-                    >
+            {proofSeries[video ? "videos" : "guides"].materialSlugs.map(
+              (slug, index) => {
+                const material = materialSamples.find(
+                  (item) => item.slug === slug,
+                );
+                return (
+                  <li key={slug}>
+                    <a href={destination(slug, video ? "videos" : "guides")}>
                       <span className="hsg-number">
                         {String(index + 1).padStart(2, "0")}
                       </span>
                       <div>
-                        <h3>{title}</h3>
-                        <p>Видео · {duration} · по подписке</p>
-                      </div>
-                      <Play aria-hidden="true" />
-                    </a>
-                  </li>
-                ))
-              : (["a", "b"] as const).map((key, index) => (
-                  <li key={key}>
-                    <a href={href(key, { series: "guides" })}>
-                      <span className="hsg-number">0{index + 1}</span>
-                      <div>
-                        <h3>{guides[key].title}</h3>
+                        <h3>{material?.title}</h3>
                         <p>
-                          {key === "a"
-                            ? "Гайд · бесплатный development-образец"
-                            : "Гайд · образец доступа по подписке"}
+                          {material?.format} ·{" "}
+                          {slug === "guide-a"
+                            ? "бесплатный development-образец"
+                            : "по подписке · образец"}
                         </p>
                       </div>
                       <ArrowRight aria-hidden="true" />
                     </a>
-                    <Related step={key} />
+                    {!video && (slug === "guide-a" || slug === "guide-b") && (
+                      <Related step={slug === "guide-a" ? "a" : "b"} />
+                    )}
                   </li>
-                ))}
+                );
+              },
+            )}
           </ol>
         </section>
       </>
     );
   }
 
-  function destination(slug: string) {
+  function destination(slug: string, selectedContext: SeriesContext = context) {
     if (slug === "guide-a" || slug === "guide-b")
-      return href(slug === "guide-a" ? "a" : "b");
+      return href(slug === "guide-a" ? "a" : "b", { series: selectedContext });
     if (slug.startsWith("episode-"))
-      return href("video", { episode: slug.slice(8) });
-    return href("note", { note: slug });
+      return href("video", { episode: slug.slice(8), series: selectedContext });
+    return href("note", { note: slug, series: selectedContext });
+  }
+
+  function ContextPicker({
+    slug,
+    label = "Контекст чтения",
+  }: {
+    readonly slug: string;
+    readonly label?: string;
+  }) {
+    const choices = (["guides", "review", "videos"] as const).filter((key) =>
+      (proofSeries[key].materialSlugs as readonly string[]).includes(slug),
+    );
+    if (choices.length === 0)
+      return (
+        <p className="hsg-muted">
+          Самостоятельный материал, не входит в серии.
+        </p>
+      );
+    const selected = context === "none" ? undefined : proofSeries[context];
+    return (
+      <div className="hsg-context">
+        <label htmlFor="hsg-reading-context">{label}</label>
+        <select
+          id="hsg-reading-context"
+          value={context}
+          onChange={(event) => {
+            navigate(href(screen, { series: event.target.value }));
+          }}
+        >
+          <option value="none">Отдельный материал</option>
+          {choices.map((key) => (
+            <option key={key} value={key}>
+              {proofSeries[key].name}
+              {key === "review" ? " · тестовая серия" : ""}
+            </option>
+          ))}
+        </select>
+        <p>
+          {selected
+            ? `Материал ${String((selected.materialSlugs as readonly string[]).indexOf(slug) + 1)} из ${String(selected.materialSlugs.length)}. Порядок задан автором этой серии.`
+            : "Выберите серию, чтобы увидеть порядок чтения."}
+        </p>
+      </div>
+    );
   }
 
   function SequenceNavigation({ slug }: { readonly slug: string }) {
@@ -578,35 +615,11 @@ export function HomeSeriesGuidePrototype({
         <a className="hsg-tag" href={href("tag", { series: "none" })}>
           #agents
         </a>
-        {video && (
-          <div className="hsg-context">
-            <label htmlFor="hsg-video-series">Контекст просмотра</label>
-            <select
-              id="hsg-video-series"
-              value={context}
-              onChange={(event) => {
-                navigate(href("video", { series: event.target.value }));
-              }}
-            >
-              <option value="none">Отдельный материал</option>
-              <option value="videos">
-                Разработка платформы · видеодневник
-              </option>
-              {episode === 5 && (
-                <option value="review">
-                  Проверка работы агента · тестовая серия
-                </option>
-              )}
-            </select>
-            <p>
-              {context === "review"
-                ? "Материал 2 из 3: после видео идёт заметка."
-                : context === "videos"
-                  ? `Выпуск ${String(episode)} из 8. Порядок видеодневника.`
-                  : "Видео открыто самостоятельно. Серия не выбрана."}
-            </p>
-          </div>
-        )}
+        {video &&
+          ContextPicker({
+            slug: `episode-${String(episode)}`,
+            label: "Контекст просмотра",
+          })}
         {video ? (
           <>
             {member ? (
@@ -630,10 +643,7 @@ export function HomeSeriesGuidePrototype({
             <Link to="videos">Состав видеодневника</Link>
             {episode === 5 && (
               <p className="hsg-muted">
-                <a
-                  className="text-action"
-                  href={href("a", { series: "guides" })}
-                >
+                <a className="text-action" href={href("a", { series: "none" })}>
                   Связанный гайд: как организовать harness
                 </a>{" "}
                 · редакционная гипотеза по описанию записи.
@@ -642,31 +652,7 @@ export function HomeSeriesGuidePrototype({
           </>
         ) : (
           <>
-            <div className="hsg-context">
-              <label htmlFor="hsg-series">Контекст чтения</label>
-              <select
-                id="hsg-series"
-                value={context}
-                onChange={(event) => {
-                  navigate(href(screen, { series: event.target.value }));
-                }}
-              >
-                <option value="none">Отдельный материал</option>
-                <option value="guides">{guideSeries}</option>
-                {key === "a" && (
-                  <option value="review">
-                    Проверка работы агента · тестовая серия
-                  </option>
-                )}
-              </select>
-              <p>
-                {context === "review"
-                  ? "Материал 1 из 3. Дальше — видео, затем заметка: явный порядок этой серии."
-                  : context === "guides"
-                    ? `Материал ${key === "a" ? "1" : "2"} из 2 образцов. Порядок задан автором серии.`
-                    : "Выберите серию, чтобы увидеть порядок чтения."}
-              </p>
-            </div>
+            {ContextPicker({ slug: `guide-${key}` })}
             {key === "b" && !member ? (
               <Access />
             ) : (
@@ -819,30 +805,7 @@ export function HomeSeriesGuidePrototype({
               <HubNote
                 material={home.notes.find((item) => item.slug === catalog.note)}
               />
-              {home.notes.find((item) => item.slug === catalog.note)
-                ?.seriesMemberships.length ? (
-                <div className="hsg-context">
-                  <label htmlFor="hsg-note-series">Контекст чтения</label>
-                  <select
-                    id="hsg-note-series"
-                    value={context === "review" ? "review" : "none"}
-                    onChange={(event) => {
-                      navigate(href("note", { series: event.target.value }));
-                    }}
-                  >
-                    <option value="none">Отдельный материал</option>
-                    <option value="review">Проверка работы агента</option>
-                  </select>
-                  <p>
-                    Последний материал смешанной серии. Полный текст ещё не
-                    подготовлен.
-                  </p>
-                </div>
-              ) : (
-                <p className="hsg-muted">
-                  Самостоятельная заметка, не входит в серии.
-                </p>
-              )}
+              {ContextPicker({ slug: catalog.note })}
               <SequenceNavigation slug={catalog.note} />
             </>
           ) : screen === "videos" || screen === "guides" ? (
