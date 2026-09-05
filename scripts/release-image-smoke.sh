@@ -52,7 +52,9 @@ docker run --rm --entrypoint sh "$backend_image" -ec '
     dist/entrypoints/material-assets-worker.js \
     dist/entrypoints/profile-avatars-worker.js \
     dist/entrypoints/video-deletions-worker.js \
-    dist/migrations/migrate.js
+    dist/migrations/migrate.js \
+    healthcheck/http-healthcheck.mjs \
+    healthcheck/index.mjs
   do
     test -f "$path"
   done
@@ -67,6 +69,8 @@ docker run --rm --entrypoint sh "$backend_image" -ec '
 
 docker run --rm --entrypoint sh "$web_image" -ec '
   test "$(id -u)" = "1000"
+  test -f /app/apps/web/healthcheck/http-healthcheck.mjs
+  test -f /app/apps/web/healthcheck/index.mjs
   test -f /app/apps/web/server.js
   test -d /app/apps/web/.next/static
   test ! -e /workspace
@@ -77,3 +81,20 @@ docker run --rm --entrypoint sh "$web_image" -ec '
   test "$(cat apps/web/release-identity.json)" = "{\"release\":\"v1\",\"sourceSha\":\"1111111111111111111111111111111111111111\"}"
   test ! -w apps/web/release-identity.json
 '
+
+# Execute the shipped command without configuration: imports must work in the final images.
+for kind in backend web; do
+  if [[ "$kind" == backend ]]; then
+    image="$backend_image"
+    command_path=healthcheck/http-healthcheck.mjs
+  else
+    image="$web_image"
+    command_path=apps/web/healthcheck/http-healthcheck.mjs
+  fi
+  set +e
+  diagnostic="$(docker run --rm --network none --entrypoint node "$image" "$command_path" api 2>&1)"
+  probe_status=$?
+  set -e
+  test "$probe_status" = 1
+  test "$diagnostic" = 'readiness: invalid expected release identity'
+done

@@ -116,25 +116,62 @@ generation starts.
 The replacement `operation.json` retains the exact failed version, run and recovery phase under
 `repairForward`, allowing the repair candidate itself to be retried after an early or late failure.
 
-## Readiness and routing
+## Проверки готовности и маршрутизация
 
-API and MCP expose separate liveness and readiness endpoints on their private listeners. Web
-exposes the same under `/_health`. Liveness proves the process and release identity. Readiness also
-proves the exact ordered/checksummed Platform migration registry; web requires the same ready API
-release. Worker Compose healthchecks validate an equivalent private tmpfs marker and re-query the
-current database schema on every probe.
+Проверка работающего процесса (`liveness`) отвечает на вопрос «приложение ещё отвечает?».
+Например, `/health/live` у API сообщает `status: alive` и сведения о запущенной версии
+(`release identity`): номер выпуска `release`, например `v1`, и полный SHA исходного коммита
+`sourceSha`. Это ещё не означает, что база готова обслуживать запросы.
 
-Useful loopback checks on the host are:
+Проверка готовности (`readiness`) у API `/health/ready` и MCP `/_health/ready` при каждом
+обращении проверяет точный порядок и контрольные суммы миграций Platform, а также версию схемы
+`pg-boss` — таблиц очереди фоновых задач. Отсутствующая, изменённая, переставленная или более новая
+миграция приводит к отказу. Применяет миграции отдельная команда `migrations`, сама проверка
+ничего не исправляет и не записывает в бизнес-данные.
+
+Web по адресу `/_health/ready` требует готовый API с тем же номером выпуска и SHA и возвращает
+сведения о его схеме. У фоновых процессов `worker-healthcheck` проверяет служебный файл в памяти
+контейнера и заново читает схему базы при каждом запуске. Эти проверки сохраняют прежние гарантии.
+
+В `compose.production.yaml` API и MCP запускают `node healthcheck/http-healthcheck.mjs api`
+и `node healthcheck/http-healthcheck.mjs mcp`, web —
+`node apps/web/healthcheck/http-healthcheck.mjs web`. Общий исходник находится в
+`packages/runtime-identity/http-healthcheck.mjs`; Dockerfile копирует его и схемы версии
+в конечные образы. Команда обращается только к `127.0.0.1` внутри своего контейнера и не следует
+перенаправлениям. MCP передаёт `Host` из `MCP_SERVER_URL`: например, для
+`https://mcp.example.invalid:8443/mcp` это `mcp.example.invalid:8443`, но соединение по-прежнему
+идёт на локальный порт `3002`.
+
+Успех требует HTTP 2xx, корректных полей готовности и схемы, а также точного совпадения версии
+с непустыми корректными `PLATFORM_RELEASE_VERSION` и `PLATFORM_SOURCE_SHA`. Команда молча
+завершается с кодом `0`. При отказе она завершается с кодом `1` и пишет одну короткую причину:
+например, `readiness: HTTP 503` — приложение пока не готово,
+`readiness: source SHA mismatch` — отвечает другая сборка,
+`readiness: invalid JSON response` — ответ не удалось прочитать как JSON,
+`readiness: request timed out` — ответ, включая его тело, не получен за три секунды.
+Значения конфигурации, полные ответы и тексты исключений не выводятся.
+
+Внутренний предел — три секунды, внешний `timeout` Docker — пять секунд, чтобы причина успела
+попасть в журнал. Интервал пять секунд, число попыток и начальный период ожидания не изменены.
+Docker отмечает контейнер как `unhealthy`, когда проверка устойчиво не проходит. Это отметка
+состояния: `restart: unless-stopped` относится к завершению основного процесса и сама по себе
+не перезапускает контейнер из-за `unhealthy`. Команда проверки завершает только свой процесс.
+
+Посмотреть последнее безопасное сообщение у API можно так, передав тот же production Compose
+набор переменных, который использовался для запуска:
+
+```bash
+docker inspect --format '{{range .State.Health.Log}}{{.Output}}{{end}}' \
+  "$(docker compose -f compose.production.yaml ps -q api)"
+```
+
+Для ручного чтения служебного ответа с хоста доступны локальные адреса:
 
 ```bash
 curl --fail --silent http://127.0.0.1:13001/health/live
 curl --fail --silent http://127.0.0.1:13001/health/ready
 curl --fail --silent http://127.0.0.1:13000/_health/ready
 ```
-
-Every successful report includes the selected `release`, full `sourceSha` and expected schema
-identity. A missing, edited, reordered or newer-than-runtime Platform migration makes readiness fail
-closed. The migration job separately converges the library-owned `pg-boss` schema.
 
 The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes only:
 

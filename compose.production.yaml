@@ -39,9 +39,8 @@ services:
       test:
         - CMD
         - node
-        - -e
-        - >-
-          fetch('http://127.0.0.1:3001/health/ready').then(async response=>{const report=await response.json();if(!response.ok||report.release?.release!==process.env.PLATFORM_RELEASE_VERSION||report.release?.sourceSha!==process.env.PLATFORM_SOURCE_SHA)process.exit(1)}).catch(()=>process.exit(1))
+        - healthcheck/http-healthcheck.mjs
+        - api
       interval: 5s
       timeout: 5s
       retries: 12
@@ -65,9 +64,8 @@ services:
       test:
         - CMD
         - node
-        - -e
-        - >-
-          const host=new URL(process.env.MCP_SERVER_URL).host;fetch('http://127.0.0.1:3002/_health/ready',{headers:{host}}).then(async response=>{const report=await response.json();if(!response.ok||report.release?.release!==process.env.PLATFORM_RELEASE_VERSION||report.release?.sourceSha!==process.env.PLATFORM_SOURCE_SHA)process.exit(1)}).catch(()=>process.exit(1))
+        - healthcheck/http-healthcheck.mjs
+        - mcp
       interval: 5s
       timeout: 5s
       retries: 12
@@ -136,9 +134,8 @@ services:
       test:
         - CMD
         - node
-        - -e
-        - >-
-          fetch('http://127.0.0.1:3000/_health/ready').then(async response=>{const report=await response.json();if(!response.ok||report.release?.release!==process.env.PLATFORM_RELEASE_VERSION||report.release?.sourceSha!==process.env.PLATFORM_SOURCE_SHA)process.exit(1)}).catch(()=>process.exit(1))
+        - apps/web/healthcheck/http-healthcheck.mjs
+        - web
       interval: 5s
       timeout: 5s
       retries: 18
