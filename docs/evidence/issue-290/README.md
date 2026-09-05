@@ -93,17 +93,70 @@ fixture IDs as production catalog data. No new art assets or content rights are 
 
 ## Evidence and checks
 
-Responsive screenshots in [images](images/) are source-controlled evidence, not generated mocks.
-The final verification result is recorded with the proof commit in its PR and #290 handoff.
+Source commit: `0addf2ab910e9b51c983b73e98426eb29b523dfc`. Subsequent evidence commits do
+not change the proof code. Browser checks ran in Chrome against the local Storybook on 2026-09-05.
+Screenshots are captured UI, with desktop 1440 px and mobile 390 px viewport widths. Home uses an
+internal scrolling main region, so the top and feed are separate captures. The floating proof and
+Agentation controls are development tools and are not part of the promoted interface.
 
-- [Home desktop](images/home-desktop.png)
-- [Series desktop](images/series-desktop.png)
+| Surface | Desktop | Mobile |
+|---|---|---|
+| Visitor Home | [top](images/home-desktop.png), [feed](images/home-feed-desktop.png) | [top](images/home-mobile.png), [feed](images/home-feed-mobile.png) |
+| Member Home | [no invitation](images/home-member-desktop.png) | Same conditional presentation; no separate final screenshot |
+| Two-guide Series | [composition](images/series-desktop.png) | [composition](images/series-mobile.png) |
+| Mixed Series | [ordered composition](images/mixed-series-desktop.png) | [ordered composition](images/mixed-series-mobile.png) |
+| Guide A in mixed context | [reader](images/guide-context-desktop.png) | [reader](images/guide-context-mobile.png) |
 
-Pinned Storybook checks during iteration: web typecheck, focused oxlint, docs contract, web
-architecture/negative guardrails and Storybook build passed. An early full check in the Alpine
-Storybook runtime stopped in tooling because `bash` was absent; that environment is insufficient
-for the root gate. A full check is being run using the pinned host Node/pnpm contract with bash
-and Go, and the PR runs the repository CI gate. Do not equate the earlier partial run with a pass.
+Final browser journeys confirmed A → video 5 → note → end, video 5 context switch from mixed to
+diary → episode 6, and independent opening with no next entry. After video → video navigation,
+the new title receives focus and both main/window scroll return to zero. Related links carry no
+selected Series. Guide A in the guide context points to B. Member Home hides the invitation.
+Earlier iteration checks also covered catalog title search/empty results, standalone guide,
+zero-membership note, locked/member B, copy and TXT download; their limitations remain below.
+
+Storybook Accessibility panel on final source: Home **0 violations / 28 passes / 0 inconclusive**;
+mixed Series **0 / 24 / 0**; free guide **0 / 30 / 0**. Responsive screenshots and navigation were
+checked directly. Intermittent shared CUA timeouts stopped after exclusive browser ownership;
+a browser-wide viewport override later missed the target tab, so the final Home mobile captures
+used a tab-scoped 390 × 844 override, verified from the DOM and reset afterward.
+
+Full **`pnpm check` passed, exit 0**, using the repository-pinned host Node **24.19.0**, pnpm
+**11.22.0**, bash and Go. This includes documentation/API contracts, lint, typecheck, architecture
+and negative guardrails, tooling and Workshop checks, backend **296/296**, web **343/343**,
+desktop/mobile e2e **39/39**, application build, standalone-config tests and Storybook build.
+Reproduction from a checkout with that toolchain: `PLAYWRIGHT_PORT=3290 pnpm check`.
+The port isolates the e2e server; it does not change the test assertions.
+
+Both Standards and Spec reviews closed with **0 remaining findings** on the source commit above,
+against the fixed base stated at the top. Their fixes removed duplicate composition facts,
+reset reader focus/scroll for successive videos/notes, and made the related guide open independently.
+The final evidence-only diff received a bounded review and documentation contract verification.
+The PR owns separate exact-head CI results; this local pass is not a claim about remote CI.
+
+### Original Home image flake diagnosis
+
+The first valid host root run stopped at original `home-page.stories.tsx:127`: the Topic image
+had not satisfied `naturalWidth > 0` within its existing wait. Web result was **342/343**. The
+production story and assertion were not changed for this proof.
+
+The referenced #271 cover file exists, and both Storybook and its Vitest addon serve the same
+`/api/content-covers` static directory. Live Home images completed with nonzero natural widths.
+Focused original Home stories passed **3/3**. A temporary failure-only probe would log image
+URL/completion/dimensions, element bounds and resource timing, then rethrow the original failure;
+the full web rerun passed **343/343**, so the probe captured no new failure. The probe was removed
+and the original story restored before the final unmodified root run, which also passed **343/343**.
+
+A persistent missing asset or wrong mock URL was not reproduced. A transient cold-start/parallel
+image-readiness delay is a hypothesis, **not a proven root cause or a shipped fix**. Preserve this
+qualification if the check flakes again in #295. Local diagnostic logs are named
+`inside-290-host-check.log`, `inside-290-home-focused.log`, `inside-290-web-probe.log` and
+`inside-290-host-check-final.log` in the session temporary directory; the durable findings are here.
+An earlier Alpine Storybook-image attempt lacked bash and was not a valid root verification gate.
+
+After final browser captures, the proof owner stopped only its own `inside-platform` Compose
+stack using `docker compose --profile storybook down`, without volume removal, and released
+singleton runtime/browser ownership to the coordinator and #295. Rebuild from the checkout to
+reproduce; screenshots remain available after shutdown. Localhost is not a persistent preview.
 
 ## Boundaries and states still owned by #295
 
