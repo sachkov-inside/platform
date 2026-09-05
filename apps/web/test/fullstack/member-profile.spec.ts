@@ -179,11 +179,14 @@ test("creates or edits the Account Profile and preserves the member projection",
     path: resolve(avatarEvidenceDirectory, `account-${viewportName}.png`),
   });
 
-  const bio =
+  const bioInput = page.getByLabel("О себе · необязательно");
+  const preferredBio =
     testInfo.project.name === "mobile-chromium"
       ? "Развиваю инженерные команды и проверяю agent-first delivery на практике."
       : "Развиваю инженерные команды и изучаю agent-first delivery.";
-  await page.getByLabel("О себе · необязательно").fill(bio);
+  const alternateBio = `${preferredBio} Проверка повторного запуска.`;
+  const bio = (await bioInput.inputValue()) === preferredBio ? alternateBio : preferredBio;
+  await bioInput.fill(bio);
   await page.getByRole("button", { name: /Создать|Сохранить/u }).click();
   await expect(page.getByText("Профиль сохранён.")).toBeVisible();
   await expect(page.getByRole("article").getByText(bio)).toBeVisible();
