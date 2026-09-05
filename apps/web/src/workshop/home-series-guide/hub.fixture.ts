@@ -93,7 +93,7 @@ export function hubFixture(member: boolean): HomeView {
         name: "Разработка платформы",
         count: 8,
         summary:
-          "8 видео · от идеи Inside до дизайна, архитектуры и работы над задачами.",
+          "8 видео из Telegram · от идеи Inside до дизайна, архитектуры и работы над задачами.",
         cover: cover(5),
         previewItems: videos.slice(0, 3),
       },

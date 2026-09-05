@@ -125,6 +125,9 @@ export function HomeHub({
           action="Все видео"
           href="/library?format=video"
         />
+        <p className="mt-2 text-sm text-muted-foreground">
+          Записи из Telegram · в порядке выхода
+        </p>
         <ul
           className="mt-5 grid grid-cols-2 items-start gap-x-3 gap-y-7 md:grid-cols-3 md:gap-x-5"
           role="list"
@@ -148,6 +151,9 @@ export function HomeHub({
           action="Все гайды"
           href="/library?format=guide"
         />
+        <p className="mt-2 text-sm text-muted-foreground">
+          Планируемая серия · два образца для проверки макета
+        </p>
         <div className="hsg-hub-guides">
           <ul className="grid grid-cols-2 gap-4" role="list">
             {home.guides.map((material) => (
@@ -173,7 +179,7 @@ export function HomeHub({
               className="text-sm font-semibold text-action"
               href="/materials/guide-a"
             >
-              Читать первый гайд бесплатно →
+              Читать бесплатный образец →
             </a>
             <a
               className="text-sm font-semibold text-action"
