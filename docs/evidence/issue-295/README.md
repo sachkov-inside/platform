@@ -15,6 +15,9 @@
 - Owner follow-up keeps Library Topic navigation visually aligned with Home: compact wrapping chips
   open the existing Topic discovery routes, while «Все темы» keeps the canonical Library
   `q`/`format`/`sort` context. No Topic query field or backend contract was added.
+- Home Notes render as separate rounded mini-post cards with token border/background, comfortable
+  padding and vertical spacing instead of horizontal row separators. Their author line, title,
+  summary and reader link are unchanged.
 
 ## Real-adapter development scenario
 
@@ -28,6 +31,12 @@ application interface. They are not editorial content and do not replace existin
 
 Live browser inspection at desktop `1440x1024` and mobile `390x844` confirmed the two different
 next links, the mixed-format transition, no standalone Series context and zero horizontal overflow.
+The follow-up Library review confirmed the compact Topic navigation at both viewports, the explicit
+«Все темы» current state, and the canonical round trip from a filtered Library through Topic
+discovery and back. The return context preserved `q`/`format`/`sort` and intentionally dropped the
+pagination cursor.
+The follow-up Home review used viewports positioned at the Notes section to confirm each note reads
+as an independent rounded mini-post at desktop and mobile widths without truncation or overflow.
 Axe reported zero WCAG A/AA findings in the application Home and Reader UI. The development-only
 Agentation toolbar was excluded from Axe because its own controls and blocked localhost webhook
 requests are outside the application DOM contract. Compose smoke passed against API, PostgreSQL and
@@ -38,6 +47,10 @@ Compose stack and gave visual GO with no findings.
 
 - [Home desktop](home-desktop.png)
 - [Home mobile](home-mobile.png)
+- [Home Notes mini-posts desktop](home-notes-desktop.png)
+- [Home Notes mini-posts mobile](home-notes-mobile.png)
+- [Library Topic chips desktop](library-topic-chips-desktop.png)
+- [Library Topic chips mobile](library-topic-chips-mobile.png)
 - [Harness Reader desktop](harness-reader-desktop.png)
 - [Mixed Reader desktop](mixed-reader-desktop.png)
 - [Mixed Reader mobile](mixed-reader-mobile.png)

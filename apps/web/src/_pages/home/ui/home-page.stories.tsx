@@ -114,7 +114,15 @@ export const RealDataReady: Story = {
       "href",
       "/library?format=note",
     );
-    await expect(canvas.getByRole("list", { name: "Лента заметок" })).toBeVisible();
+    const noteFeed = canvas.getByRole("list", { name: "Лента заметок" });
+    await expect(noteFeed).toBeVisible();
+    await expect(noteFeed).toHaveClass("space-y-4");
+    await expect(noteFeed).not.toHaveClass("divide-y");
+    await expect(within(noteFeed).getByRole("article")).toHaveClass(
+      "rounded-[1.5rem]",
+      "border",
+      "bg-card",
+    );
     const seriesHeading = canvas.getByRole("heading", { name: "Серии" });
     const videosHeading = canvas.getByRole("heading", { name: "Новые видео" });
     await expect(

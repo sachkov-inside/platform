@@ -373,6 +373,9 @@ Prototype fixtures, button-owned navigation, hardcoded audience decisions, perso
 authority. Production сохраняет реальные RSC/TanStack Query/BFF seams, ContentAccess outcomes и
 порядок Home `Серии → Темы → Видео → Гайды → Заметки → общий каталог`; компактное приглашение в
 Membership показывается только visitor/non-member по реальному Membership state.
+Заметки на Home оформляются как самостоятельные спокойные mini-post cards: rounded token surface,
+внутренние отступы и вертикальный gap вместо горизонтальных разделителей; author line, title,
+summary и действие чтения сохраняются полностью.
 
 Workshop baseline остаётся versioned comparison source до owner visual GO на exact production
 routes. После GO его удаление не должно менять rendered result; production stories становятся
