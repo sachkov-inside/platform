@@ -46,36 +46,34 @@ export function MaterialCard({
   if (variant === "feed") {
     return (
       <article
-        className="group/card relative w-full max-w-[48rem] rounded-[1.75rem] border border-black/6 bg-white p-5 shadow-note md:p-7"
+        className="group/card relative grid w-full max-w-[48rem] grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 py-6"
         data-material-id={material.slug}
         data-material-slug={material.slug}
         data-material-variant={variant}
       >
-        <div className="flex items-center gap-3">
-          <span
-            aria-hidden="true"
-            className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-white ring-4 ring-muted"
-          >
-            S
-          </span>
-          <p className="text-sm">
-            <strong>Sachkov Inside</strong>
-            <span className="text-muted-foreground"> · {material.topic}</span>
-          </p>
-        </div>
-        <Heading className="mt-4 text-xl font-semibold leading-6 tracking-[-0.03em]">
+        <span
+          aria-hidden="true"
+          className="row-span-4 grid size-9 place-items-center rounded-full bg-primary text-xs font-bold text-white"
+        >
+          S
+        </span>
+        <p className="text-sm leading-5">
+          <strong>Sachkov Inside</strong>
+          <span className="text-muted-foreground"> · {material.topic}</span>
+        </p>
+        <Heading className="col-start-2 mt-2 text-xl font-semibold leading-6 tracking-[-0.03em]">
           <Link
-            className="no-underline after:absolute after:inset-0 after:rounded-[1.75rem] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:text-action"
+            className="no-underline after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:text-action"
             href={readerHref}
             prefetch={false}
           >
             {material.title}
           </Link>
         </Heading>
-        <p className="mt-2 text-[1.0625rem] leading-7 tracking-[-0.015em] text-body-muted md:text-xl md:leading-8">
+        <p className="col-start-2 mt-2 text-base leading-7 tracking-[-0.015em] text-body-muted md:text-lg">
           {material.summary}
         </p>
-        <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-action">
+        <span className="col-start-2 mt-3 inline-flex items-center gap-1 text-sm font-semibold text-action">
           Читать заметку
           <ChevronRight aria-hidden="true" className="size-4" />
         </span>
@@ -122,7 +120,7 @@ export function MaterialCard({
         className={cn(
           "line-clamp-2 font-semibold tracking-[-0.025em]",
           isCompact
-            ? "mt-3 min-h-10 text-[0.9375rem] leading-5 md:min-h-12 md:text-lg md:leading-6"
+            ? "mt-3 text-[0.9375rem] leading-5 md:text-lg md:leading-6"
             : "mt-1 text-[0.9375rem] leading-5 tracking-[-0.02em] md:text-lg md:leading-6",
         )}
       >

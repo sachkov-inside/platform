@@ -175,7 +175,7 @@ function NoteFeed({ items }: { readonly items: HomeView["notes"] }) {
       {items.length === 0 ? (
         <EmptyCollection label="В этом разделе пока нет опубликованных материалов." />
       ) : (
-        <ul aria-label="Лента заметок" className="mt-5 grid gap-3" role="list">
+        <ul aria-label="Лента заметок" className="mt-2 max-w-[48rem] divide-y divide-border" role="list">
           {items.map((material) => (
             <li key={material.slug}>
               <MaterialCard

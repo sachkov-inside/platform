@@ -8,7 +8,10 @@ owner visual GO and merge GO remain separate and pending.
 - Home Topics use a smaller square footprint and a shorter top gap.
 - Guides use two columns on mobile, three at intermediate content widths, and four on wide
   desktop layouts. Titles have more room than in the earlier five-column grid.
-- Video title footprints keep the topic labels aligned within each row.
+- Video topic labels sit directly below each title, including one-line titles; the cards retain
+  their shared row height.
+- Notes form a light feed with a left avatar, aligned text and thin separators. Framed cards,
+  large inner padding and note shadows are removed in the owner-requested follow-up.
 - Playlist thumbnails align along the bottom of adjacent cards. A two-material preview shows
   two thumbnails instead of an invented third material; empty previews retain one cover fallback.
 - Eleven [generated covers and prompts](../covers/README.md) establish a provisional shared style.
@@ -45,7 +48,7 @@ Images are loaded and decoded before capture. Desktop content scrolls inside the
 
 ## Verification and limitations
 
-- All `pnpm check` stages passed. The first run reached E2E but could not start a second Next dev
+- The initial illustrated-catalog iteration passed all `pnpm check` stages. Its first run reached E2E but could not start a second Next dev
   process in the same worktree; after stopping the review process, E2E and the remaining build
   stages passed, then the review application was restarted.
 - Tooling: 74 tests; backend modules: 294 tests; Web module/Storybook: 330 tests.
