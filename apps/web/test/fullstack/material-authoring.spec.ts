@@ -762,7 +762,6 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   await expect(items).toHaveCount(countAfterAdd - 1);
   await page.getByRole("button", { name: "Сохранить", exact: true }).first().click();
   await expect(page.getByText("Порядок сохранён.")).toBeVisible();
-  await expect(page.getByText("Порядок сохранён.")).toBeVisible();
   await page.reload();
   await expect(items.first().locator("p").first()).toHaveText(secondTitle);
 });
