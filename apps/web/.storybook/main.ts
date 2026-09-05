@@ -5,10 +5,14 @@ import { mergeConfig } from "vite";
 
 const config: StorybookConfig = {
   staticDirs: [
-    { from: "../../../docs/evidence/issue-271/covers", to: "/api/content-covers" },
+    {
+      from: "../../../docs/evidence/issue-271/covers",
+      to: "/api/content-covers",
+    },
   ],
   stories: [
     "../src/**/*.mdx",
+    "../src/workshop/home-series-guide/home-series-guide.prototype.stories.tsx",
     "../src/**/!(*.prototype).stories.@(js|jsx|mjs|ts|tsx)",
   ],
   addons: [
