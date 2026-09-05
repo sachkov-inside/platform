@@ -41,7 +41,7 @@ jobs:
           [[ "$VERSION" =~ ^v[1-9][0-9]*$ ]]
           release_dir="$RUNNER_TEMP/production-release"
           mkdir -m 700 "$release_dir"
-          gh release view "$VERSION" \
+          gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" \
             --json assets,isImmutable,tagName,targetCommitish \
             | jq '{
                 assets: [.assets[].name] | sort,
@@ -55,7 +55,7 @@ jobs:
             (.assets | index("release-manifest.json") != null) and
             (.assets | index("production-runtime.tar.gz") != null)
           ' "$release_dir/release.json" >/dev/null
-          gh release download "$VERSION" \
+          gh release download "$VERSION" --repo "$GITHUB_REPOSITORY" \
             --pattern release-manifest.json \
             --pattern production-runtime.tar.gz \
             --dir "$release_dir"
@@ -105,7 +105,7 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          gh release view "$VERSION" \
+          gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" \
             --json assets,isImmutable,tagName,targetCommitish \
             | jq '{
                 assets: [.assets[].name] | sort,

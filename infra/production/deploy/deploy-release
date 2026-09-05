@@ -271,11 +271,8 @@ archive_repair_forward_operation() {
   fi
 }
 
-install -d -m 700 "$state_dir" "$operation_history_dir" "$release_env_dir"
-install -d -m 755 "$runtime_dir/caddy"
-last_operation_json=null
-if [[ -f "$operation_file" ]]; then
-  if ! jq --exit-status '
+validate_operation_journal() {
+  jq --exit-status '
     (keys == ["githubRunId", "operation", "phase", "recordedAt", "recoveryPhase", "repairForward", "schemaVersion", "status", "version"]) and
     .schemaVersion == "inside.platform.deployment-operation.v1" and
     (.status == "running" or .status == "failed" or .status == "succeeded") and
@@ -327,7 +324,103 @@ if [[ -f "$operation_file" ]]; then
         )
       )
     )
-  ' "$operation_file" >/dev/null; then
+  ' "$1" >/dev/null
+}
+
+deployment_predecessor() {
+  local ordinal="$1"
+  jq --exit-status --compact-output --argjson ordinal "$ordinal" '
+    if ((.current.version[1:] | tonumber) + 1) == $ordinal then .current
+    elif .operation == "rollback" and
+      .rolledBackFrom != null and
+      (.rolledBackFrom.version | test("^v[1-9][0-9]*$")) and
+      ((.rolledBackFrom.version[1:] | tonumber) + 1) == $ordinal and
+      .rolledBackFrom.schemaIdentity == .current.schemaIdentity
+    then .rolledBackFrom
+    else error("Deployment must follow the current version or its recorded rollback source")
+    end
+  ' "$state_file"
+}
+
+verify_manifest_predecessor() {
+  local candidate="$1"
+  local predecessor="$2"
+  jq --exit-status --argjson predecessor "$predecessor" '
+    .rollback.previous != null and
+    .rollback.previous.version == $predecessor.version and
+    .rollback.previous.sourceSha == $predecessor.sourceSha and
+    .rollback.previous.manifestSha256 == $predecessor.manifestSha256 and
+    .rollback.previous.schemaIdentity == $predecessor.schemaIdentity and
+    .rollback.previous.verifiedByWorkflowRunId == .publication.workflowRunId
+  ' "$candidate" >/dev/null
+}
+
+verify_repair_lineage() {
+  local journal candidate prior_manifest prior_json prior_version prior_run prior_phase
+  local root_ordinal predecessor
+  prior_version="$repair_forward_version"
+  prior_run="$repair_forward_run_id"
+  prior_phase="$repair_forward_phase"
+  candidate="$manifest"
+  if [[ "$repair_forward_initial" == true ]]; then
+    journal="$operation_file"
+  else
+    journal="$operation_history_dir/deploy-$prior_version-run-$prior_run.json"
+  fi
+  while true; do
+    if [[ ! -f "$journal" || -L "$journal" ]] ||
+      ! validate_operation_journal "$journal" ||
+      ! jq --exit-status --arg version "$prior_version" --arg phase "$prior_phase" \
+        --argjson run "$prior_run" '
+          (.status == "failed" or .status == "running") and
+          .operation == "deploy" and .version == $version and .githubRunId == $run and
+          (.recoveryPhase // .phase) == $phase
+        ' "$journal" >/dev/null; then
+      echo "Repair-forward operation lineage is missing or invalid" >&2
+      exit 1
+    fi
+    prior_manifest="$host_root/srv/inside/releases/$prior_version/release-manifest.json"
+    if [[ ! -f "$prior_manifest" || -L "$prior_manifest" ]]; then
+      echo "Repair-forward lineage manifest is missing" >&2
+      exit 1
+    fi
+    prior_json="$(jq --compact-output --arg digest "sha256:$(sha256_file "$prior_manifest")" '
+      {version, sourceSha: .source.sha, manifestSha256: $digest, schemaIdentity: .schema.identity}
+    ' "$prior_manifest")"
+    if ! verify_manifest_predecessor "$candidate" "$prior_json"; then
+      echo "Repair-forward manifest does not bind the exact failed release" >&2
+      exit 1
+    fi
+    if [[ "$(jq --raw-output '.repairForward == null' "$journal")" == true ]]; then
+      if [[ "$is_noop" == true ]]; then
+        break # The exact committed state already attests the successful transition.
+      fi
+      root_ordinal="${prior_version#v}"
+      if [[ -f "$state_file" ]]; then
+        predecessor="$(deployment_predecessor "$root_ordinal")"
+        if ! verify_manifest_predecessor "$prior_manifest" "$predecessor"; then
+          echo "Repair-forward lineage does not bind the successful state" >&2
+          exit 1
+        fi
+      elif [[ "$root_ordinal" -ne 1 || "$(jq --raw-output '.rollback.previous == null' "$prior_manifest")" != true ]]; then
+        echo "Repair-forward lineage must start at the first deployment" >&2
+        exit 1
+      fi
+      break
+    fi
+    prior_version="$(jq --raw-output .repairForward.version "$journal")"
+    prior_run="$(jq --raw-output .repairForward.githubRunId "$journal")"
+    prior_phase="$(jq --raw-output .repairForward.recoveryPhase "$journal")"
+    candidate="$prior_manifest"
+    journal="$operation_history_dir/deploy-$prior_version-run-$prior_run.json"
+  done
+}
+
+install -d -m 700 "$state_dir" "$operation_history_dir" "$release_env_dir"
+install -d -m 755 "$runtime_dir/caddy"
+last_operation_json=null
+if [[ -f "$operation_file" ]]; then
+  if ! validate_operation_journal "$operation_file"; then
     echo "Deployment operation journal is invalid" >&2
     exit 1
   fi
@@ -505,7 +598,6 @@ if [[ "$operation" == deploy ]]; then
   if [[ "$is_noop" == true ]]; then
     : # The exact state was committed before its operation journal closed.
   elif [[ "$repair_forward" == true ]]; then
-    repair_forward_ordinal="${repair_forward_version#v}"
     repair_forward_release_dir="$host_root/srv/inside/releases/$repair_forward_version"
     repair_forward_manifest="$repair_forward_release_dir/release-manifest.json"
     if [[ ! -f "$repair_forward_manifest" || -L "$repair_forward_manifest" ]] ||
@@ -516,36 +608,11 @@ if [[ "$operation" == deploy ]]; then
       echo "The failed release manifest required for repair forward is invalid" >&2
       exit 1
     fi
+    verify_repair_lineage
     if [[ -f "$state_file" ]]; then
-      current_version="$(jq --raw-output .current.version "$state_file")"
-      current_ordinal="${current_version#v}"
-      if [[ "$repair_forward_ordinal" -ne $((current_ordinal + 1)) ]]; then
-        echo "Repair forward must follow the failed ordinal after $current_version" >&2
-        exit 1
-      fi
       previous_json="$(jq --compact-output .current "$state_file")"
-    elif [[ "$repair_forward_ordinal" -ne 1 ]]; then
-      echo "Repair forward without successful state must replace failed v1" >&2
-      exit 1
     fi
-    repair_forward_source_sha="$(jq --raw-output .source.sha "$repair_forward_manifest")"
     repair_forward_schema_identity="$(jq --raw-output .schema.identity "$repair_forward_manifest")"
-    repair_forward_manifest_digest="sha256:$(sha256_file "$repair_forward_manifest")"
-    if ! jq --exit-status \
-      --arg version "$repair_forward_version" \
-      --arg sourceSha "$repair_forward_source_sha" \
-      --arg manifestSha256 "$repair_forward_manifest_digest" \
-      --arg schemaIdentity "$repair_forward_schema_identity" '
-        .rollback.previous != null and
-        .rollback.previous.version == $version and
-        .rollback.previous.sourceSha == $sourceSha and
-        .rollback.previous.manifestSha256 == $manifestSha256 and
-        .rollback.previous.schemaIdentity == $schemaIdentity and
-        .rollback.previous.verifiedByWorkflowRunId == .publication.workflowRunId
-      ' "$manifest" >/dev/null; then
-      echo "Repair-forward manifest does not bind the exact failed release" >&2
-      exit 1
-    fi
   elif [[ ! -f "$state_file" ]]; then
     if [[ "$target_ordinal" -ne 1 || "$(jq --raw-output '.rollback.previous == null' "$manifest")" != true ]]; then
       echo "The first deployment must be v1 without a previous release" >&2
@@ -553,25 +620,17 @@ if [[ "$operation" == deploy ]]; then
     fi
   elif [[ "$is_noop" != true ]]; then
     current_version="$(jq --raw-output .current.version "$state_file")"
-    current_ordinal="${current_version#v}"
-    if [[ "$target_ordinal" -ne $((current_ordinal + 1)) ]]; then
-      echo "A deployment must select the next ordinal after $current_version" >&2
+    if ! predecessor_json="$(deployment_predecessor "$target_ordinal")"; then
+      echo "A deployment must select the next ordinal after $current_version or its recorded rollback source" >&2
       exit 1
     fi
     previous_json="$(jq --compact-output .current "$state_file")"
-    if ! jq --exit-status \
-      --arg version "$current_version" \
-      --arg sourceSha "$(jq --raw-output .current.sourceSha "$state_file")" \
-      --arg manifestSha256 "$(jq --raw-output .current.manifestSha256 "$state_file")" '
-        .rollback.previous != null and
-        .rollback.previous.version == $version and
-        .rollback.previous.sourceSha == $sourceSha and
-        .rollback.previous.manifestSha256 == $manifestSha256
-      ' "$manifest" >/dev/null; then
+    if ! verify_manifest_predecessor "$manifest" "$predecessor_json"; then
       echo "Candidate manifest does not bind the exact deployed previous release" >&2
       exit 1
     fi
-    rollback_json="$(jq --compact-output \
+    if [[ "$(jq --raw-output .version <<<"$predecessor_json")" == "$current_version" ]]; then
+      rollback_json="$(jq --compact-output \
       '
         .rollback.previous | {
           targetVersion: .version,
@@ -582,6 +641,7 @@ if [[ "$operation" == deploy ]]; then
           verifiedByWorkflowRunId
         }
       ' "$manifest")"
+    fi
   fi
 else
   if [[ ! -f "$state_file" ]]; then
@@ -624,6 +684,7 @@ compose_config="$(docker compose \
   config --format json)"
 
 if [[ "$repair_forward" == true && "$is_noop" == true ]]; then
+  verify_repair_lineage
   archive_repair_forward_operation
 fi
 if [[ "$repair_forward" == true && "$is_noop" != true ]]; then

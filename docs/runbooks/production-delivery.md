@@ -157,15 +157,18 @@ compatibility evidence is green. Otherwise keep the database and repair forward.
 uses the affected feature's disable/recovery path, not a global application rollback.
 
 Repair forward publishes and deploys the immediate ordinal after the failed release. The new
-manifest must bind that failed release, and the last successful state must either be absent before a
-failed `v1` or immediately precede the failed ordinal. Before accepting the transition, the failed
+manifest must bind that failed release. Every earlier repair link must resolve to its exact archived
+operation and digest-bound manifest, back to the first failed deployment after the successful state
+(or failed `v1` without successful state). Missing or conflicting history fails before mutation.
+Before accepting the transition, the failed
 image proves an exact live schema after completed migrations, or a compatible prefix if migration
 execution was interrupted. The new candidate then follows the normal maintenance, pull,
 compatibility, worker drain and forward-migration sequence. Its successful state keeps the last
 successful application as `previous`, preserves the failed operation in `operation-history/`, and
 does not offer rollback to the failed application version. If the repair candidate also fails, its
 exact retry uses the linked failed-release schema before its own migrations, or its own compatible
-or exact schema proof after migrations may have started. If `state.json` was successfully written
+or exact schema proof after migrations may have started. Another immediate ordinal can repair it
+forward with the same checked history chain. If `state.json` was successfully written
 before a host interruption left `operation.json` unfinished, the exact version and manifest are a
 no-op after live-schema and history validation; the retry only closes the operation journal.
 
@@ -177,6 +180,13 @@ broader contract. A successful deployment opens its rollback window for 24 hours
 target, a changed manifest, incompatible evidence or a new selection after the window expires is
 rejected. Once an eligible rollback has passed preflight and entered a mutating phase, its exact
 unfinished operation remains retryable after the deadline so maintenance cannot become permanent.
+
+After a successful rollback, deployment may select the ordinal immediately after the recorded
+`rolledBackFrom` release: `v1 → v2 → rollback v1 → deploy v3` does not restart `v2`. The `v3` manifest
+must bind the exact recorded `v2`, while preflight proves the live `v1` schema and its workers are
+drained. The successful state records `v1` as previous but offers no rollback: the publication proof
+binds `v2`, not `v1`. If this corrected release fails, its next ordinal uses the same repair-forward
+history checks rooted in the rollback state.
 
 Before maintenance, the deployed backend image runs
 `node dist/migrations/migrate.js --verify-schema-identity <sha256:identity>` against the

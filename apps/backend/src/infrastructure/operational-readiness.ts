@@ -1,10 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import {
-  PLATFORM_CONFIG,
-  type BackendProcess,
-  type PlatformConfig,
-} from "../config/platform-config.js";
+import type { BackendProcess } from "../config/platform-config.js";
 import { platformMigrations } from "../migrations/index.js";
 import {
   expectedPgBossSchemaVersion,
@@ -21,7 +17,9 @@ import {
 } from "./prisma/index.js";
 import {
   type MigrationVerification,
-  verifyMigrationState,
+  assertAppliedMigrations,
+  parseAppliedMigrations,
+  parsePgBossSchemaVersionRows,
 } from "./postgres/migrate-to-latest.js";
 
 export type RuntimeProcess = BackendProcess;
@@ -73,8 +71,6 @@ export class OperationalReadiness {
     private readonly prisma: Pick<PlatformPrisma, "$queryRaw">,
     @Inject(RUNTIME_IDENTITY)
     private readonly runtimeIdentity: RuntimeIdentity,
-    @Inject(PLATFORM_CONFIG)
-    private readonly config: Pick<PlatformConfig, "database">,
   ) {}
 
   live(process: RuntimeProcess): LivenessReport {
@@ -86,10 +82,21 @@ export class OperationalReadiness {
   }
 
   async check(process: RuntimeProcess): Promise<ReadinessReport> {
-    await this.prisma.$queryRaw(Prisma.sql`select 1`);
-    const schema = runtimeSchemaReadiness(
-      await verifyMigrationState(this.config.database.url, platformMigrations),
+    const applied = parseAppliedMigrations(
+      await this.prisma.$queryRaw(Prisma.sql`
+        select name, position, checksum
+        from public.platform_migrations
+        order by position
+      `),
     );
+    assertAppliedMigrations(applied, platformMigrations);
+    const jobSchemaVersion = parsePgBossSchemaVersionRows(
+      await this.prisma.$queryRaw(Prisma.sql`select version from pgboss.version`),
+    );
+    const schema = runtimeSchemaReadiness({
+      appliedMigrations: applied.map(({ name }) => name),
+      jobSchemaVersion,
+    });
 
     return {
       process,

@@ -41,7 +41,10 @@ can migrate the live schema forward after the normal maintenance and pull steps.
 operation journal is retained under `operation-history`; repair forward does not create a rollback
 target for an application version that never deployed successfully. The new operation journal
 retains a closed `repairForward` link to that archived version, run and recovery phase, so an exact
-retry reconstructs the same ordinal and schema context. If the successful state was atomically
+retry reconstructs the same ordinal and schema context. A failed repair candidate can itself be
+repaired by the next ordinal. Each link is checked against its archived operation and manifest back
+to the successful state or the initial failed `v1`; incomplete history cannot authorize mutation.
+If the successful state was atomically
 written immediately before an interruption, the exact retry validates that state, live schema and
 history as a no-op and closes the unfinished operation journal. Success is recorded only after
 readiness, read-only smoke and the positive route reload.
@@ -64,6 +67,12 @@ and entered a mutating phase keeps its exact retry path after the deadline; othe
 failure could strand maintenance permanently. This conservative equality rule can be broadened only
 by a later decision with executable evidence for the exact previous application against the
 candidate schema.
+
+Successful rollback retains `rolledBackFrom` as an additional deployment predecessor. It permits
+the immediate corrective release without restarting the version just rolled back. The manifest
+must bind that recorded predecessor, and preflight still proves the actual running schema. This
+transition keeps the running application as `previous` but does not infer rollback compatibility
+to it from a publication proof for a different release.
 
 The repository Zod schema is the canonical release-manifest contract wherever repository code can
 run. Two deliberately smaller bootstrap predicates repeat its closed shape: the no-checkout GitHub

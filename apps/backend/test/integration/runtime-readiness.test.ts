@@ -33,7 +33,6 @@ describe("production runtime readiness", () => {
         release: "v7",
         sourceSha: "7".repeat(40),
       },
-      { database: { url: database.url } },
     );
 
     await expect(readiness.check("api")).resolves.toMatchObject({
@@ -69,6 +68,23 @@ describe("production runtime readiness", () => {
       appliedMigrations: [],
     });
     expect(typeof outcome.jobSchemaVersion).toBe("number");
+  });
+
+  test("reads readiness schema through the supplied application connection", async () => {
+    const database = await createTestDatabase();
+    databases.push(database);
+    await migrateRuntimeDatabase(database.url);
+    await database.prisma.$transaction(async (connection) => {
+      await connection.$executeRaw(
+        Prisma.sql`update pgboss.version set version = ${expectedPgBossSchemaVersion - 1}`,
+      );
+      const readiness = new OperationalReadiness(
+        connection,
+        { release: "v7", sourceSha: "7".repeat(40) },
+      );
+      await expect(readiness.check("api")).rejects.toThrow("Expected PgBoss schema");
+      await expect(readiness.check("mcp")).rejects.toThrow("Expected PgBoss schema");
+    });
   });
 
   test("verifies the exact current runtime schema without changing the database", async () => {

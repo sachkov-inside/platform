@@ -212,6 +212,12 @@ function databaseReferenceViolations(sourceFile, program) {
       `${sourcePath}: database table references must use statically declared identifiers (${operation})`,
   );
   return [...violations, ...references.flatMap((reference) => {
+    if (
+      sourcePath === "src/infrastructure/operational-readiness.ts" &&
+      ["public.platform_migrations", "pgboss.version"].includes(reference)
+    ) {
+      return [];
+    }
     if (expectedSchema === undefined) {
       return [
         `${sourcePath}: application schema references must stay inside the owning Module (${reference})`,

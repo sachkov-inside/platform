@@ -18,6 +18,121 @@ import { describe, it } from "node:test";
 import { writeTrustedReleaseEvidence } from "./github-release-evidence.test-support.mjs";
 
 describe("production deployment state machine", () => {
+  it("repairs forward again when the first repair release also fails", () => {
+    const fixture = createHostFixture();
+    try {
+      for (const [version, runId] of [["v1", 510], ["v2", 511]]) {
+        const failed = runGateway(fixture, "deploy", version, runId, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        });
+        assert.notEqual(failed.status, 0);
+        assert.match(failed.stderr, /Injected deployment failure at readiness/u);
+      }
+      assert.notEqual(runGateway(fixture, "deploy", "v3", 512, {
+        INSIDE_DEPLOY_TEST_INTERRUPT_AFTER_STATE: "true",
+      }).status, 0);
+      const parentHistory = resolve(
+        fixture.root, "var/lib/inside/deployments/operation-history/deploy-v1-run-510.json",
+      );
+      const parentJournal = readFileSync(parentHistory, "utf8");
+      rmSync(parentHistory);
+      const invalidRetry = runGateway(fixture, "deploy", "v3", 513);
+      assert.notEqual(invalidRetry.status, 0);
+      assert.match(invalidRetry.stderr, /lineage is missing or invalid/u);
+      writeFileSync(parentHistory, parentJournal);
+      assertGatewaySuccess(fixture, "deploy", "v3", 514);
+      const state = readState(fixture);
+      assert.equal(state.current.version, "v3");
+      assert.equal(state.previous, null);
+      assert.equal(state.rollback, null);
+      for (const [version, runId] of [["v1", 510], ["v2", 511]]) {
+        const archived = JSON.parse(readFileSync(resolve(
+          fixture.root,
+          `var/lib/inside/deployments/operation-history/deploy-${version}-run-${runId}.json`,
+        ), "utf8"));
+        assert.equal(archived.version, version);
+        assert.equal(archived.status, "failed");
+      }
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("deploys the corrected release after rollback without restarting the rolled-back version", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 501);
+      assertGatewaySuccess(fixture, "deploy", "v2", 502);
+      assertGatewaySuccess(fixture, "rollback", "v1", 503);
+      const logStart = readExternalLog(fixture).length;
+      assertGatewaySuccess(fixture, "deploy", "v3", 504);
+      const state = readState(fixture);
+      assert.equal(state.current.version, "v3");
+      assert.equal(state.previous.version, "v1");
+      assert.equal(state.rollback, null);
+      assert.doesNotMatch(
+        readExternalLog(fixture).slice(logStart),
+        /releases\/v2\/.* up --detach/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  for (const rollbackFirst of [false, true]) {
+    it(`continues repair forward from successful state with prior rollback=${rollbackFirst}`, () => {
+      const fixture = createHostFixture();
+      try {
+        assertGatewaySuccess(fixture, "deploy", "v1", 520);
+        if (rollbackFirst) {
+          assertGatewaySuccess(fixture, "deploy", "v2", 521);
+          assertGatewaySuccess(fixture, "rollback", "v1", 522);
+        } else {
+          assert.notEqual(runGateway(fixture, "deploy", "v2", 523, {
+            INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+          }).status, 0);
+        }
+        const failed = runGateway(fixture, "deploy", "v3", 524, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        });
+        assert.notEqual(failed.status, 0);
+        assert.match(failed.stderr, /Injected deployment failure at readiness/u);
+        assert.notEqual(runGateway(fixture, "deploy", "v4", 525, {
+          INSIDE_DEPLOY_FAIL_PHASE: "maintenance",
+        }).status, 0);
+        assertGatewaySuccess(fixture, "deploy", "v4", 526);
+        const state = readState(fixture);
+        assert.equal(state.current.version, "v4");
+        assert.equal(state.previous.version, "v1");
+        assert.equal(state.rollback, null);
+      } finally {
+        fixture.cleanup();
+      }
+    });
+  }
+
+  it("rejects a broken repair history before changing the active journal or routes", () => {
+    const fixture = createHostFixture();
+    try {
+      for (const [version, runId] of [["v1", 530], ["v2", 531]]) {
+        assert.notEqual(runGateway(fixture, "deploy", version, runId, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+        }).status, 0);
+      }
+      const journal = resolve(fixture.root, "var/lib/inside/deployments/operation.json");
+      const before = readFileSync(journal, "utf8");
+      const logStart = readExternalLog(fixture).length;
+      rmSync(resolve(fixture.root, "var/lib/inside/deployments/operation-history/deploy-v1-run-530.json"));
+      const rejected = runGateway(fixture, "deploy", "v3", 532);
+      assert.notEqual(rejected.status, 0);
+      assert.match(rejected.stderr, /lineage is missing or invalid/u);
+      assert.equal(readFileSync(journal, "utf8"), before);
+      assert.doesNotMatch(readExternalLog(fixture).slice(logStart), /caddy reload|docker pull/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("deploys v1, repeats as a no-op, deploys v2 and rolls back to v1", () => {
     const fixture = createHostFixture();
     try {
@@ -1031,7 +1146,29 @@ fi
     manifests: { v1: v1Manifest, v2: v2Manifest, v3: v3Manifest },
     root,
   };
-  for (const version of ["v1", "v2", "v3"]) {
+  const v4Manifest = releaseManifest({
+    bundleDigest,
+    runId: 94,
+    schemaIdentity,
+    sourceSha: "4".repeat(40),
+    version: "v4",
+    previous: {
+      version: "v3",
+      sourceSha: "3".repeat(40),
+      manifestSha256: sha256(v3Manifest),
+      schemaIdentity,
+      compatible,
+      verifiedByWorkflowRunId: 94,
+    },
+  });
+  fixture.manifests.v4 = v4Manifest;
+  writeTrustedReleaseEvidence(root, {
+    manifest: v4Manifest,
+    publicationRunId: 94,
+    sourceSha: "4".repeat(40),
+    version: "v4",
+  });
+  for (const version of ["v1", "v2", "v3", "v4"]) {
     createEnvelope(fixture, version);
   }
   return fixture;
@@ -1049,6 +1186,7 @@ function releaseManifest({
     v1: ["a", "b"],
     v2: ["d", "e"],
     v3: ["f", "0"],
+    v4: ["4", "5"],
   }[version];
   assert.ok(imageDigests, `missing image fixture for ${version}`);
   return `${JSON.stringify({
