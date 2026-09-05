@@ -380,11 +380,6 @@ test("server-renders the representative PostgreSQL Material through Nest", async
 
 test("marks an anonymous video as watched without shifting the action", async ({ page }) => {
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
-  const onboardingDismiss = page.getByRole("button", {
-    name: "Закрыть подключение Telegram",
-  });
-  await expect(onboardingDismiss).toBeVisible({ timeout: 10_000 });
-  await onboardingDismiss.click();
   const markWatched = page.getByRole("button", { name: "Отметить просмотренным" });
   await expect(markWatched).toBeEnabled();
   const initialBox = await markWatched.boundingBox();
@@ -468,6 +463,11 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   ]);
 
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
+  const onboardingDismiss = page.getByRole("button", {
+    name: "Закрыть подключение Telegram",
+  });
+  await expect(onboardingDismiss).toBeVisible({ timeout: 10_000 });
+  await onboardingDismiss.click();
   const markWatched = page.getByRole("button", { name: "Отметить просмотренным" });
   await expect(markWatched).toBeEnabled();
   await markWatched.click();
