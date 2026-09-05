@@ -273,18 +273,98 @@ describe("OpenAPI contract", () => {
       expect(hasResponseSchema(evidence, status, "application/problem+json")).toBe(true);
     }
   });
+
+  test("publishes concrete Content Cover request and error contracts", () => {
+    const document = createApiOpenApiDocument(app);
+    const upload = operation(
+      document,
+      "/authoring/content-covers/{ownerKind}/{ownerId}",
+      "put",
+    );
+    expect(requestBodySchema(upload, "multipart/form-data")).toMatchObject({
+      properties: {
+        expectedCoverId: {
+          anyOf: [
+            { format: "uuid", type: "string" },
+            { enum: ["null"], type: "string" },
+          ],
+        },
+      },
+    });
+    expect(responseSchema(upload, "409", "application/problem+json")).toMatchObject({
+      additionalProperties: false,
+      properties: {
+        code: { enum: ["conflict"] },
+        currentCoverId: { format: "uuid", nullable: true },
+        status: { enum: [409] },
+        title: { enum: ["Content cover changed concurrently"] },
+        type: { enum: ["urn:inside:problem:content-cover-conflict"] },
+      },
+      required: ["code", "currentCoverId", "status", "title", "type"],
+    });
+
+    const delivery = operation(
+      document,
+      "/content-covers/{coverId}/{width}",
+      "get",
+    );
+    expect(delivery.security).toEqual([{}]);
+    expect(responseSchema(delivery, "404", "application/problem+json")).toMatchObject({
+      additionalProperties: false,
+      properties: {
+        code: { enum: ["cover_not_found"] },
+        status: { enum: [404] },
+        title: { enum: ["Content cover not found"] },
+        type: { enum: ["urn:inside:problem:cover-not-found"] },
+      },
+      required: ["code", "status", "title", "type"],
+    });
+  });
 });
 
 function operation(
   document: ReturnType<typeof createApiOpenApiDocument>,
   path: string,
-  method: "get" | "post",
+  method: "delete" | "get" | "post" | "put",
 ): Readonly<Record<string, unknown>> {
   const pathItem: unknown = document.paths[path];
   if (!isRecord(pathItem) || !isRecord(pathItem[method])) {
     throw new TypeError(`Missing ${method.toUpperCase()} ${path}`);
   }
   return pathItem[method];
+}
+
+function requestBodySchema(
+  operation: Readonly<Record<string, unknown>>,
+  mediaType: string,
+): Readonly<Record<string, unknown>> {
+  const requestBody = operation.requestBody;
+  if (!isRecord(requestBody) || !isRecord(requestBody.content)) {
+    throw new TypeError(`Missing ${mediaType} request body`);
+  }
+  const media = requestBody.content[mediaType];
+  if (!isRecord(media) || !isRecord(media.schema)) {
+    throw new TypeError(`Missing ${mediaType} request schema`);
+  }
+  return media.schema;
+}
+
+function responseSchema(
+  operation: Readonly<Record<string, unknown>>,
+  status: string,
+  mediaType: string,
+): Readonly<Record<string, unknown>> {
+  const responses = operation.responses;
+  if (!isRecord(responses)) throw new TypeError("Missing responses");
+  const response = responses[status];
+  if (!isRecord(response) || !isRecord(response.content)) {
+    throw new TypeError(`Missing ${status} response`);
+  }
+  const media = response.content[mediaType];
+  if (!isRecord(media) || !isRecord(media.schema)) {
+    throw new TypeError(`Missing ${status} ${mediaType} response schema`);
+  }
+  return media.schema;
 }
 
 function hasSuccessContent(operation: Readonly<Record<string, unknown>>): boolean {

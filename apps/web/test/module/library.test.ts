@@ -6,16 +6,16 @@ const defaultQuery = {
   after: null,
   formatSlugs: [],
   q: "",
-  seriesSlugs: [],
   sort: "relevance",
-  topicSlugs: [],
 } as const;
 const facets = {
   formats: [
     {
       count: 1,
+      cover: null,
       id: "72000000-0000-4000-8000-000000000003",
       name: "Гайд",
+      previewItems: [],
       slug: "guide",
       summary: null,
     },
@@ -23,8 +23,10 @@ const facets = {
   series: [
     {
       count: 1,
+      cover: null,
       id: "72000000-0000-4000-8000-000000000005",
       name: "Создание Platform Inside",
+      previewItems: [],
       slug: "platform-inside",
       summary: "Путь создания Platform.",
     },
@@ -32,8 +34,10 @@ const facets = {
   topics: [
     {
       count: 1,
+      cover: null,
       id: "72000000-0000-4000-8000-000000000002",
       name: "Platform",
+      previewItems: [],
       slug: "platform",
       summary: "Материалы о Platform.",
     },
@@ -62,7 +66,9 @@ describe("Library server adapter", () => {
               summary: "Один реальный published Material.",
               access: "membership",
               availability: "locked",
+              cover: null,
               publishedAt: "2026-08-25T05:00:00.000Z",
+              primaryVideoId: null,
               topic: {
                 id: "72000000-0000-4000-8000-000000000002",
                 name: "Platform",
@@ -107,9 +113,11 @@ describe("Library server adapter", () => {
           summary: "Один реальный published Material.",
           access: "membership",
           availability: "locked",
+          cover: null,
           topic: "Platform",
           topicSlug: "platform",
           format: "Гайд",
+          formatSlug: "guide",
           tags: ["Architecture"],
           seriesMemberships: [
             {

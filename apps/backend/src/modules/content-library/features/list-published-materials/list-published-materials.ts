@@ -1,12 +1,14 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
 import type { ContentAccess } from "../../../content-access/index.js";
 import type {
+  PublishedMaterialProjectionDto,
   PublishedMaterialProjectionCursor,
   PublishedMaterialReader,
 } from "../../../materials/index.js";
+import type { Videos } from "../../../videos/index.js";
 import { projectPublishedCatalogItems } from "../../shared/project-published-catalog-items.js";
 import type {
   ListPublishedMaterialsQuery,
@@ -110,6 +112,7 @@ const cursorSchema = z
 export async function listPublishedMaterials(
   publishedMaterialReader: Pick<PublishedMaterialReader, "listProjections">,
   contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
+  videos: Pick<Videos, "loadReadyDurations">,
   query: ListPublishedMaterialsQuery,
 ): Promise<PublishedMaterialCatalogResult> {
   const parsed = querySchema.safeParse(query);
@@ -147,19 +150,53 @@ export async function listPublishedMaterials(
     return page;
   }
 
+  const projections = uniqueProjections([
+    ...page.value.items,
+    ...page.value.facets.series.flatMap(({ previewItems }) => previewItems),
+  ]);
   const projected = await projectPublishedCatalogItems(
     contentAccess,
+    videos,
     query.subject,
-    page.value.items,
+    projections,
   );
   if (!projected.ok) {
     return projected;
   }
+  const projectedById = new Map(
+    projected.items.map((item) => [item.materialId, item]),
+  );
+  const items = page.value.items.flatMap(({ materialId }) => {
+    const item = projectedById.get(materialId);
+    return item === undefined ? [] : [item];
+  });
+  if (items.length !== page.value.items.length) {
+    return {
+      ok: false,
+      error: { code: "internal_error", correlationId: randomUUID() },
+    };
+  }
   return {
     ok: true,
     value: {
-      facets: page.value.facets,
-      items: projected.items,
+      facets: {
+        formats: page.value.facets.formats.map((facet) => ({
+          ...facet,
+          previewItems: [],
+        })),
+        series: page.value.facets.series.map((facet) => ({
+          ...facet,
+          previewItems: facet.previewItems.flatMap(({ materialId }) => {
+            const item = projectedById.get(materialId);
+            return item === undefined ? [] : [item];
+          }),
+        })),
+        topics: page.value.facets.topics.map((facet) => ({
+          ...facet,
+          previewItems: [],
+        })),
+      },
+      items,
       nextCursor:
         page.value.hasNext && page.value.continuation !== null
           ? encodeCursor(page.value.continuation, fingerprint)
@@ -167,6 +204,12 @@ export async function listPublishedMaterials(
       totalCount: page.value.totalCount,
     },
   };
+}
+
+function uniqueProjections(
+  projections: readonly PublishedMaterialProjectionDto[],
+) {
+  return [...new Map(projections.map((item) => [item.materialId, item])).values()];
 }
 
 interface NormalizedCatalogQuery {

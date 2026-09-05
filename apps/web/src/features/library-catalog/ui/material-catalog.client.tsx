@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 
 import { MaterialCard } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
+import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import {
   formatFoundMaterialCount,
   formatLoadedMaterialCount,
@@ -60,15 +61,16 @@ export function InfiniteMaterialCatalog({
   }, [hasNextPage, isFetchNextPageError, isFetchingNextPage, onLoadNextPage]);
 
   return (
-    <section aria-labelledby="materials-heading" className="mt-8 sm:mt-10" data-library-state="ready">
-      <div>
-        <h2 className="text-lg font-semibold tracking-[-0.025em] @min-[30rem]/library:text-xl" id="materials-heading">
-          Материалы
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {formatFoundMaterialCount(totalCount)} · {formatLoadedMaterialCount(materialCount)}
-        </p>
-      </div>
+    <section aria-labelledby="materials-heading" className="mt-11" data-library-state="ready">
+      <PublicSectionHeading
+        aside={
+          <p className="text-sm font-semibold text-muted-foreground">
+            {formatFoundMaterialCount(totalCount)} · {formatLoadedMaterialCount(materialCount)}
+          </p>
+        }
+        id="materials-heading"
+        title="Материалы"
+      />
       {pages.map((page, pageIndex) => (
         <MaterialCatalogGrid
           className="mt-4"
@@ -119,15 +121,16 @@ export function MaterialCatalogGrid({
   return (
     <ul
       {...(label === undefined ? {} : { "aria-label": label })}
-      className={`${className} grid grid-cols-1 items-stretch justify-items-center gap-4 @min-[40rem]/library:grid-cols-2 @min-[68rem]/library:grid-cols-3`}
+      className={`${className} grid grid-cols-1 items-stretch gap-3 @min-[44rem]/library:grid-cols-2`}
       data-material-grid
       role="list"
     >
       {items.map((material) => (
-        <li className="h-full w-full max-w-[28rem]" key={material.slug}>
+        <li className="h-full min-w-0 w-full" key={material.slug}>
           <MaterialCard
             headingLevel="h3"
             material={material}
+            variant="row"
             {...(returnHref === undefined ? {} : { returnHref })}
           />
         </li>

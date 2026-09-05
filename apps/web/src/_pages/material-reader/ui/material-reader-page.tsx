@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { getRelatedMaterials } from "@/features/library-discovery.server";
 import { loadMaterialReader } from "../api/load-material-reader";
-import { RelatedMaterialsSection } from "@/features/library-discovery";
 import {
   materialReaderHref,
   type MaterialReaderReturnTarget,
@@ -19,15 +17,11 @@ export async function MaterialReaderPage({
   readonly returnTarget: MaterialReaderReturnTarget;
   readonly slug: string;
 }) {
-  const [result, related] = await Promise.all([
-    loadMaterialReader(slug, accessToken),
-    getRelatedMaterials(slug, accessToken),
-  ]);
+  const result = await loadMaterialReader(slug, accessToken);
   if (result.kind === "not-found") {
     notFound();
   }
   if (result.kind === "access") {
-    const sourceHref = currentMaterialHref(slug, returnTarget);
     return (
       <div className="@container/material-reader">
         <MaterialReaderAccess
@@ -35,7 +29,6 @@ export async function MaterialReaderPage({
           material={result.material}
           returnTarget={returnTarget}
         />
-        <RelatedMaterialsSection result={related} sourceHref={sourceHref} />
       </div>
     );
   }
@@ -52,9 +45,7 @@ export async function MaterialReaderPage({
       body={result.body}
       material={result.material}
       primaryVideo={result.primaryVideo}
-      related={related}
       returnTarget={returnTarget}
-      sourceHref={currentMaterialHref(slug, returnTarget)}
     />
   );
 }

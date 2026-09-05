@@ -52,16 +52,16 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   const readerResponse = await page.goto(`/materials/${slug}`);
   expect(readerResponse?.headers()["content-security-policy"]).toContain("frame-src https://kinescope.io");
   expect(readerResponse?.headers()["content-security-policy"]).toContain("script-src 'self' 'unsafe-inline' https://player.kinescope.io");
-  await expect(page.getByRole("heading", { name: "Видео", level: 2 })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Видео" })).toBeVisible();
   await expect(page.locator("p:visible", { hasText: `test-video-${suffix}` })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Загрузить player" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Загрузить видео" })).toBeVisible();
   await expect(page.locator("iframe")).toHaveCount(0);
   expect(providerRequests).toEqual([]);
 
-  const materialId = await page.getByRole("button", { name: "Загрузить player" }).evaluate((button) =>
+  const materialId = await page.getByRole("button", { name: "Загрузить видео" }).evaluate((button) =>
     button.closest("main")?.querySelector<HTMLElement>("[data-material-id]")?.dataset.materialId ?? null,
   );
-  const videoId = await page.getByRole("button", { name: "Загрузить player" }).evaluate((button) =>
+  const videoId = await page.getByRole("button", { name: "Загрузить видео" }).evaluate((button) =>
     button.closest("section")?.getAttribute("data-video-id"),
   );
   if (typeof materialId !== "string" || typeof videoId !== "string") {
@@ -121,7 +121,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
   await page.goto(`/materials/${slug}`);
-  const replacementVideoId = await page.getByRole("button", { name: "Загрузить player" }).evaluate((button) =>
+  const replacementVideoId = await page.getByRole("button", { name: "Загрузить видео" }).evaluate((button) =>
     button.closest("section")?.getAttribute("data-video-id"),
   );
   if (typeof replacementVideoId !== "string") {

@@ -22,7 +22,13 @@ import {
 } from "@/widgets/application-shell";
 
 const navigationItems = [
+  { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
+] satisfies readonly ApplicationNavigationItem[];
+
+const mobileNavigationItems = [
+  ...navigationItems,
+  { href: "/account", icon: "profile", label: "Профиль" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const catalogItems = [
@@ -78,9 +84,7 @@ const defaultQuery = {
   after: null,
   formatSlugs: [],
   q: "",
-  seriesSlugs: [],
-  sort: "relevance",
-  topicSlugs: [],
+  sort: "newest",
 } as const satisfies LibrarySearchQuery;
 
 const catalogFacets = {
@@ -264,6 +268,7 @@ function ProductionShell({ children }: { readonly children: React.ReactNode }) {
     <ApplicationShell
       accountLabel="Гость"
       currentPath="/library"
+      mobileNavigationItems={mobileNavigationItems}
       navigationItems={navigationItems}
       sidebarDefaultPinned
     >
@@ -291,7 +296,7 @@ const meta = {
     },
     nextjs: { appDirectory: true },
   },
-  title: "Pages/Library/Production",
+  title: "Pages/Mobile-first Platform/Knowledge Base",
 } satisfies Meta<typeof LibraryPage>;
 
 export default meta;
@@ -317,26 +322,34 @@ export const ReadyDesktop: Story = {
     const grid = canvasElement.querySelector<HTMLElement>("[data-material-grid]");
 
     await expect(cards).toHaveLength(3);
+    for (const name of ["Все форматы", "Гайды", "Видео", "Заметки"]) {
+      await expect(canvas.getByRole("radio", { name: new RegExp(name, "u") })).toBeVisible();
+    }
     if (firstCard === undefined) {
       throw new Error("First Material card is missing");
     }
-    await expect(within(firstCard).getAllByRole("link")).toHaveLength(3);
+    await expect(within(firstCard).getAllByRole("link")).toHaveLength(2);
     await expect(
       within(firstCard).getByRole("link", { name: catalogItems[0].title }),
-    ).toHaveAttribute("href", "/materials/platform-delivery");
+    ).toHaveAttribute("href", "/materials/platform-delivery?from=%2Flibrary");
     await expect(
       within(firstCard).getByRole("link", { name: "Product engineering" }),
-    ).toHaveAttribute("href", "/topics/product-engineering");
+    ).toHaveAttribute(
+      "href",
+      "/topics/product-engineering?from=%2Flibrary",
+    );
+    await expect(canvas.queryByText("Бесплатно")).not.toBeInTheDocument();
+    const topicCard = canvasElement.querySelector<HTMLElement>("[data-topic-card]");
+    if (topicCard === null) {
+      throw new Error("Topic card is missing");
+    }
+    await expect(within(topicCard).queryByText("1", { exact: true })).not.toBeInTheDocument();
     await expect(
-      within(firstCard).getByRole("link", {
-        name: "Создание Platform Inside № 5",
-      }),
-    ).toHaveAttribute("href", "/series/platform-inside");
-    await expect(canvas.getByText("Бесплатно")).toBeInTheDocument();
-    await expect(canvas.getAllByText("Для участников")).toHaveLength(2);
+      canvasElement.querySelectorAll('[data-access-cover="locked"]'),
+    ).toHaveLength(2);
     await expect(
       canvas.getByRole("link", { name: catalogItems[1].title }),
-    ).toHaveAttribute("href", "/materials/public-agent-skills");
+    ).toHaveAttribute("href", "/materials/public-agent-skills?from=%2Flibrary");
     if (grid === null) {
       throw new Error("Material grid is missing");
     }
@@ -387,7 +400,6 @@ export const SearchResultsDesktop: Story = {
     query: {
       ...defaultQuery,
       q: "developer pipeline",
-      topicSlugs: ["product-engineering"],
     },
     result: {
       facets: catalogFacets,
@@ -401,12 +413,10 @@ export const SearchResultsDesktop: Story = {
   name: "Search results · desktop",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByLabelText("Поиск по базе знаний")).toHaveValue(
+    await expect(canvas.getByLabelText("Поиск по Базе знаний")).toHaveValue(
       "developer pipeline",
     );
-    await expect(
-      canvas.getByRole("checkbox", { name: /Product engineering/u }),
-    ).toBeChecked();
+    await expect(canvas.getByRole("radio", { name: /Гайды/u })).not.toBeChecked();
     await expect(canvas.getByText("1 материал найден")).toBeInTheDocument();
   },
 };

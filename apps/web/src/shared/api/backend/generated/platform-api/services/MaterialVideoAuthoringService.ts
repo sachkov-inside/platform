@@ -22,6 +22,7 @@ export class MaterialVideoAuthoringService {
     },
   }): CancelablePromise<{
     access: 'free' | 'membership' | 'workshop';
+    durationSeconds?: number;
     failureCode?: string;
     materialId: string;
     origin: 'external_attachment' | 'platform_upload';
@@ -61,6 +62,7 @@ export class MaterialVideoAuthoringService {
     uploadEndpoint: string;
     video: {
       access: 'free' | 'membership' | 'workshop';
+      durationSeconds?: number;
       failureCode?: string;
       materialId: string;
       origin: 'external_attachment' | 'platform_upload';
@@ -93,6 +95,7 @@ export class MaterialVideoAuthoringService {
     videoId: string,
   }): CancelablePromise<{
     access: 'free' | 'membership' | 'workshop';
+    durationSeconds?: number;
     failureCode?: string;
     materialId: string;
     origin: 'external_attachment' | 'platform_upload';
@@ -119,6 +122,7 @@ export class MaterialVideoAuthoringService {
     videoId: string,
   }): CancelablePromise<{
     access: 'free' | 'membership' | 'workshop';
+    durationSeconds?: number;
     failureCode?: string;
     materialId: string;
     origin: 'external_attachment' | 'platform_upload';

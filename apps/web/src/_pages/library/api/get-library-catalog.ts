@@ -10,7 +10,7 @@ import {
 import {
   publishedMaterialProjectionSchema,
   toMaterialPreview,
-} from "@/entities/material";
+} from "@/entities/material.model";
 import {
   BackendConnectionError,
   requestPublishedMaterialCatalog,
@@ -20,8 +20,10 @@ import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details
 const catalogFacetSchema = z
   .object({
     count: z.number().int().nonnegative(),
+    cover: publishedMaterialProjectionSchema.shape.cover,
     id: z.string(),
     name: z.string(),
+    previewItems: z.array(publishedMaterialProjectionSchema),
     slug: z.string(),
     summary: z.string().nullable(),
   })
@@ -131,7 +133,7 @@ async function requestLibraryCatalogPage(
     return after === undefined && !hasActiveLibrarySearch(query)
       ? { kind: "empty" }
       : {
-          facets: parsed.data.facets,
+          facets: mapFacets(parsed.data.facets),
           kind: "ready",
           items: [],
           nextCursor: null,
@@ -139,11 +141,26 @@ async function requestLibraryCatalogPage(
         };
   }
   return {
-    facets: parsed.data.facets,
+    facets: mapFacets(parsed.data.facets),
     kind: "ready",
     items: parsed.data.items.map(toMaterialPreview),
     nextCursor: parsed.data.nextCursor,
     totalCount: parsed.data.totalCount,
+  };
+}
+
+function mapFacets(facets: z.infer<typeof catalogSchema>["facets"]) {
+  return {
+    formats: facets.formats.map(mapFacet),
+    series: facets.series.map(mapFacet),
+    topics: facets.topics.map(mapFacet),
+  };
+}
+
+function mapFacet(facet: z.infer<typeof catalogFacetSchema>) {
+  return {
+    ...facet,
+    previewItems: facet.previewItems.map(toMaterialPreview),
   };
 }
 
@@ -154,10 +171,9 @@ function toBackendQuery(
 ) {
   return {
     ...(canonicalTopicSlug === undefined
-      ? { topic: query.topicSlugs }
+      ? {}
       : { canonicalTopic: canonicalTopicSlug }),
     format: query.formatSlugs,
-    series: query.seriesSlugs,
     sort: query.sort,
     ...(after === undefined ? {} : { after }),
     ...(query.q.length === 0 ? {} : { q: query.q }),

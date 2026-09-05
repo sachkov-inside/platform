@@ -1,7 +1,18 @@
-import { ArrowUpRight, ListVideo } from "lucide-react";
+import { ArrowRight, LockKeyhole } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
+import {
+  ContentCoverImage,
+  materialPreviewHasVideo,
+  type ContentCover,
+  type MaterialPreview,
+} from "@/entities/material";
+import { cn } from "@/shared/lib/utils";
+import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
+
 export interface TopicCardPresentation {
+  readonly cover?: ContentCover | null | undefined;
   readonly count: number;
   readonly name: string;
   readonly slug: string;
@@ -9,125 +20,140 @@ export interface TopicCardPresentation {
 }
 
 export interface PlaylistCardPresentation {
+  readonly cover?: ContentCover | null | undefined;
   readonly countLabel: string;
   readonly name: string;
+  readonly previewItems?: readonly MaterialPreview[] | undefined;
   readonly slug: string;
   readonly summary: string;
 }
 
-export function TopicCard({ topic }: { readonly topic: TopicCardPresentation }) {
+export function TopicCard({
+  compact = false,
+  returnHref,
+  topic,
+}: {
+  readonly compact?: boolean;
+  readonly returnHref?: Route;
+  readonly topic: TopicCardPresentation;
+}) {
   return (
     <Link
-      className="group/topic relative isolate min-h-64 overflow-clip rounded-2xl bg-sidebar text-sidebar-foreground no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-sidebar-ring motion-reduce:transform-none motion-reduce:transition-none"
+      aria-label={`Открыть тему ${topic.name}`}
+      className="group/topic min-w-0 text-left no-underline"
       data-topic-card
-      href={`/topics/${topic.slug}`}
+      href={collectionDiscoveryHref("topic", topic.slug, returnHref)}
       prefetch={false}
     >
-      <TopicArtwork slug={topic.slug} />
-      <span className="absolute inset-x-0 bottom-0 z-10 bg-sidebar/95 p-5 sm:p-6">
-        <span className="flex items-start justify-between gap-4">
-          <span className="min-w-0">
-            <span className="block max-w-[24ch] text-xl font-semibold leading-[1.18] tracking-[-0.03em]">
-              {topic.name}
-            </span>
-            <span className="mt-2 block max-w-[50ch] text-sm leading-5 text-sidebar-foreground/70">
-              {topic.summary || "Материалы по теме"}
-            </span>
-          </span>
-          <ArrowUpRight
-            aria-hidden="true"
-            className="size-5 shrink-0 text-sidebar-primary transition-transform group-hover/topic:-translate-y-0.5 group-hover/topic:translate-x-0.5 motion-reduce:transform-none"
-          />
-        </span>
-        <span className="mt-4 block text-xs text-sidebar-foreground/58">
+      <span className="block">
+        <ContentCoverImage
+          alt=""
+          className={cn(
+            "aspect-square min-h-0 transition-transform duration-200 group-hover/topic:-translate-y-1 motion-reduce:transform-none motion-reduce:transition-none",
+            compact ? "rounded-[1.15rem]" : "rounded-[1.35rem]",
+          )}
+          cover={topic.cover ?? null}
+          fallbackKind="topic"
+          fallbackSeed={topic.slug}
+          sizes="(min-width: 1024px) 16rem, 50vw"
+        />
+      </span>
+      <strong className={cn(
+        "block tracking-[-0.02em]",
+        compact ? "mt-2 text-sm leading-5" : "mt-3 text-[0.9375rem] leading-5 md:text-base md:leading-6",
+      )}>
+        {topic.name}
+      </strong>
+      {compact ? null : (
+        <span className="mt-1 block text-xs font-medium text-muted-foreground">
           {formatMaterialCount(topic.count)}
         </span>
-      </span>
+      )}
     </Link>
   );
 }
 
 export function PlaylistCard({
   playlist,
+  returnHref,
 }: {
   readonly playlist: PlaylistCardPresentation;
+  readonly returnHref?: Route;
 }) {
+  const previews = playlist.previewItems?.slice(0, 3) ?? [];
+
   return (
     <Link
-      className="group/playlist grid min-h-32 overflow-clip rounded-2xl bg-secondary text-foreground no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none @min-[34rem]/playlist-surface:grid-cols-[9rem_minmax(0,1fr)]"
+      aria-label={`Открыть плейлист ${playlist.name}`}
+      className="group/playlist flex h-full min-w-0 flex-col overflow-hidden rounded-[2rem] bg-primary p-5 text-left text-white no-underline transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
       data-playlist-card
-      href={`/series/${playlist.slug}`}
+      href={collectionDiscoveryHref("series", playlist.slug, returnHref)}
       prefetch={false}
     >
-      <PlaylistArtwork />
-      <span className="flex min-w-0 items-center justify-between gap-4 p-5">
-        <span className="min-w-0">
-          <span className="block text-lg font-semibold leading-6 tracking-[-0.025em]">
-            {playlist.name}
-          </span>
-          <span className="mt-2 block text-sm leading-5 text-muted-foreground">
-            {playlist.summary || "Последовательность материалов"}
-          </span>
-          <span className="mt-3 block text-xs text-muted-foreground">
-            {playlist.countLabel}
-          </span>
+      <span className="flex items-start justify-between gap-3">
+        <span className="inline-flex rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/75">
+          Плейлист · {playlist.countLabel}
         </span>
-        <ArrowUpRight
+        <span
           aria-hidden="true"
-          className="size-5 shrink-0 text-accent transition-transform group-hover/playlist:-translate-y-0.5 group-hover/playlist:translate-x-0.5 motion-reduce:transform-none"
-        />
+          className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-foreground"
+        >
+          <ArrowRight className="size-4 transition-transform group-hover/playlist:translate-x-0.5 motion-reduce:transform-none" />
+        </span>
+      </span>
+      <strong className="mt-4 block text-xl leading-6 tracking-[-0.035em] md:text-2xl md:leading-7">
+        {playlist.name}
+      </strong>
+      <span className="mt-2 block text-sm leading-5 text-white/65">
+        {playlist.summary || "Последовательность материалов"}
+      </span>
+      <span className="mt-auto grid grid-cols-3 gap-2 pt-6" aria-hidden="true">
+        {Array.from({ length: Math.max(previews.length, 1) }, (_, index) => {
+          const material = previews[index];
+          const collectionCover = index === 0
+            ? playlist.cover ?? null
+            : null;
+          const locked =
+            collectionCover === null &&
+            material?.availability !== undefined &&
+            material.availability !== "available";
+          return (
+            <span className="relative block overflow-hidden rounded-2xl" key={material?.slug ?? `${playlist.slug}-${String(index)}`}>
+              <span className={locked ? "block scale-[1.04] blur-[4px]" : "block"}>
+                <ContentCoverImage
+                  alt=""
+                  className="aspect-[4/3] min-h-0 rounded-2xl"
+                  cover={collectionCover ?? material?.cover ?? null}
+                  fallbackKind={
+                    collectionCover !== null
+                      ? "playlist"
+                      : material === undefined
+                      ? "playlist"
+                      : materialPreviewHasVideo(material)
+                        ? "video"
+                        : "material"
+                  }
+                  fallbackSeed={
+                    collectionCover === null
+                      ? material?.slug ?? `${playlist.slug}-${String(index)}`
+                      : playlist.slug
+                  }
+                  sizes="10rem"
+                />
+              </span>
+              {locked ? (
+                <span className="absolute inset-0 grid place-items-center bg-white/20">
+                  <span className="grid size-8 place-items-center rounded-full bg-white/92 text-accent shadow-xl backdrop-blur-xl">
+                    <LockKeyhole className="size-4" />
+                  </span>
+                </span>
+              ) : null}
+            </span>
+          );
+        })}
       </span>
     </Link>
   );
-}
-
-function TopicArtwork({ slug }: { readonly slug: string }) {
-  const labels = topicLabels(slug);
-  return (
-    <span aria-hidden="true" className="absolute inset-0 overflow-clip bg-sidebar">
-      <span className="absolute inset-x-8 top-7 h-px bg-sidebar-border" />
-      <span className="absolute bottom-0 left-10 top-0 w-px bg-sidebar-border/75" />
-      <span className="absolute right-8 top-6 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-sidebar-foreground/70">
-        тема
-      </span>
-      <span className="absolute left-8 right-8 top-16 grid grid-cols-3 items-center gap-2">
-        {labels.map((label, index) => (
-          <span
-            className="relative grid min-h-14 place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent px-2 text-center font-mono text-[0.6875rem] leading-4 text-sidebar-accent-foreground"
-            key={label}
-          >
-            {label}
-            {index < labels.length - 1 ? (
-              <span className="absolute left-full top-1/2 h-px w-2 bg-sidebar-primary" />
-            ) : null}
-          </span>
-        ))}
-      </span>
-    </span>
-  );
-}
-
-function PlaylistArtwork() {
-  return (
-    <span aria-hidden="true" className="relative grid min-h-32 place-items-center overflow-clip bg-sidebar text-sidebar-foreground">
-      <span className="absolute inset-x-5 top-5 h-px bg-sidebar-border" />
-      <span className="absolute bottom-5 left-5 top-5 w-px bg-sidebar-border" />
-      <span className="grid grid-cols-3 items-center gap-2">
-        {["1", "2", "3"].map((step) => (
-          <span className="relative grid size-9 place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent font-mono text-xs text-sidebar-accent-foreground" key={step}>
-            {step}
-            {step === "3" ? null : <span className="absolute left-full top-1/2 h-px w-2 bg-sidebar-primary" />}
-          </span>
-        ))}
-      </span>
-      <ListVideo className="absolute bottom-5 right-5 size-5 text-sidebar-primary" />
-    </span>
-  );
-}
-
-function topicLabels(slug: string): readonly [string, string, string] {
-  const parts = slug.split("-").filter(Boolean);
-  return [parts[0] ?? "знать", parts[1] ?? "понять", parts[2] ?? "применить"];
 }
 
 export function formatMaterialCount(count: number): string {

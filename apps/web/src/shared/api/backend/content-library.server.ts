@@ -44,6 +44,16 @@ export function requestPublishedMaterialCatalog(
   );
 }
 
+export function requestHomeContent(
+  options: PublicRequestOptions = {},
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new ContentLibraryService(request).readHomeContent(),
+    200,
+    options,
+  );
+}
+
 export function requestPublishedTopic(
   slug: string,
   options: PublicRequestOptions = {},

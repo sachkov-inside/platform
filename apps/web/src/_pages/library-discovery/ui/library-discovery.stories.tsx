@@ -1,12 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import {
-  RelatedMaterialsSection,
-  type LibraryDiscoveryResult,
-} from "@/features/library-discovery";
+import type { LibraryDiscoveryResult } from "@/features/library-discovery";
 import type { MaterialPreview } from "@/entities/material";
-import { materialReaderHref } from "@/shared/routing/material-reader";
 import {
   ApplicationShell,
   type ApplicationNavigationItem,
@@ -20,7 +16,13 @@ import {
 } from "./library-discovery-view";
 
 const navigationItems = [
+  { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
+] satisfies readonly ApplicationNavigationItem[];
+
+const mobileNavigationItems = [
+  ...navigationItems,
+  { href: "/account", icon: "profile", label: "Профиль" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const materials = [
@@ -59,10 +61,22 @@ const topicResult = {
   hasNext: false,
   items: materials,
   kind: "ready",
-  reference: { name: "Platform", slug: "platform", summary: "Архитектура, продукт и поставка Platform." },
+  reference: {
+    cover: {
+      coverId: "02000000-0000-4000-8000-000000000061",
+      renditions: [{ height: 540, width: 960 }],
+    },
+    name: "Platform",
+    slug: "platform",
+    summary: "Архитектура, продукт и поставка Platform.",
+  },
   relatedSeries: [
     {
       id: "series-platform-inside",
+      cover: {
+        coverId: "02000000-0000-4000-8000-000000000062",
+        renditions: [{ height: 540, width: 960 }],
+      },
       matchingMaterialCount: 2,
       name: "Создание Platform Inside",
       slug: "platform-inside",
@@ -78,7 +92,15 @@ const seriesResult = {
   hasNext: false,
   items: materials,
   kind: "ready",
-  reference: { name: "Создание Platform Inside", slug: "platform-inside", summary: "Последовательный путь создания Platform." },
+  reference: {
+    cover: {
+      coverId: "02000000-0000-4000-8000-000000000063",
+      renditions: [{ height: 540, width: 960 }],
+    },
+    name: "Создание Platform Inside",
+    slug: "platform-inside",
+    summary: "Последовательный путь создания Platform.",
+  },
   relatedSeries: [],
   topics: [{ id: "topic-platform", name: "Platform", slug: "platform" }],
 } as const satisfies LibraryDiscoveryResult;
@@ -87,7 +109,8 @@ function ProductionShell({ children }: { readonly children: React.ReactNode }) {
   return (
     <ApplicationShell
       accountLabel="Гость"
-      currentPath="/library"
+      currentPath="/topics/platform"
+      mobileNavigationItems={mobileNavigationItems}
       navigationItems={navigationItems}
       sidebarDefaultPinned
     >
@@ -108,7 +131,7 @@ const meta = {
   parameters: {
     nextjs: { appDirectory: true },
   },
-  title: "Pages/Library discovery/Production",
+  title: "Pages/Mobile-first Platform/Collections",
 } satisfies Meta<typeof LibraryDiscoveryView>;
 
 export default meta;
@@ -122,8 +145,17 @@ export const TopicDesktop: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
     await expect(canvasElement.querySelector("[data-playlist-card]")).toHaveAttribute(
-      "href", "/series/platform-inside",
+      "href",
+      "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
     );
+    for (const coverId of [
+      "02000000-0000-4000-8000-000000000061",
+      "02000000-0000-4000-8000-000000000062",
+    ]) {
+      await expect(
+        canvasElement.querySelector(`[data-content-cover-id="${coverId}"]`),
+      ).toBeInTheDocument();
+    }
   },
 };
 
@@ -152,13 +184,19 @@ export const SeriesDesktop: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Series · ordered desktop",
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
     const orderedItems = canvasElement.querySelectorAll("[data-series-ordinal]");
     await expect([...orderedItems].map((item) => item.getAttribute("data-series-ordinal"))).toEqual([
       "1",
       "2",
     ]);
-    await expect(canvas.getByText("Для участников")).toBeVisible();
+    await expect(
+      canvasElement.querySelector('[data-access-cover="locked"]'),
+    ).toBeInTheDocument();
+    await expect(
+      canvasElement.querySelector(
+        '[data-content-cover-id="02000000-0000-4000-8000-000000000063"]',
+      ),
+    ).toBeInTheDocument();
   },
 };
 
@@ -213,52 +251,6 @@ export const UnexpectedError: Story = {
   name: "Unexpected error",
 };
 
-export const RelatedReady: Story = {
-  args: { result: topicResult },
-  render: () => (
-    <RelatedMaterialsSection
-      result={{
-        discoveryKind: "related",
-        hasNext: false,
-        items: materials,
-        kind: "ready",
-        reference: { name: "Как устроен Inside Platform", slug: "inside-platform-overview", summary: "" },
-        relatedSeries: [],
-        topics: [],
-      }}
-      sourceHref={materialReaderHref("inside-platform-overview")}
-    />
-  ),
-  name: "Related · ready",
-};
-
-export const RelatedEmpty: Story = {
-  args: { result: topicResult },
-  render: () => (
-    <RelatedMaterialsSection
-      result={{
-        discoveryKind: "related",
-        kind: "empty",
-        reference: { name: "Как устроен Inside Platform", slug: "inside-platform-overview", summary: "" },
-        relatedSeries: [],
-        topics: [],
-      }}
-      sourceHref={materialReaderHref("inside-platform-overview")}
-    />
-  ),
-  name: "Related · empty",
-};
-
-export const RelatedUnavailable: Story = {
-  args: { result: topicResult },
-  render: () => (
-    <RelatedMaterialsSection
-      result={{ kind: "unavailable" }}
-      sourceHref={materialReaderHref("inside-platform-overview")}
-    />
-  ),
-  name: "Related · unavailable",
-};
 
 async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
   const storyWindow = canvasElement.ownerDocument.defaultView;

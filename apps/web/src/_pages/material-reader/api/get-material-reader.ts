@@ -10,7 +10,10 @@ import {
   BackendConnectionError,
   requestPublishedMaterial,
 } from "@/shared/api/backend/index.server";
-import { renderedMaterialBodySchema } from "@/entities/material";
+import {
+  contentCoverSchema,
+  renderedMaterialBodySchema,
+} from "@/entities/material.model";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
 
 const projectionSchema = z.object({
@@ -20,6 +23,7 @@ const projectionSchema = z.object({
   title: z.string(),
   summary: z.string(),
   access: z.enum(["free", "membership", "workshop"]),
+  cover: contentCoverSchema.nullable(),
   publishedAt: z.iso.datetime({ offset: true }),
   primaryVideoId: z.uuid().nullable(),
   topic: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
@@ -40,6 +44,7 @@ const publishedMaterialSchema = z.discriminatedUnion("kind", [
     projection: projectionSchema,
     body: renderedMaterialBodySchema,
     primaryVideo: z.object({
+      durationSeconds: z.number().int().positive().optional(),
       failureCode: z.string().optional(),
       state: z.enum(["uploading", "processing", "ready", "failed"]),
       title: z.string(),
@@ -133,6 +138,7 @@ function toMaterialMetadata(
     title: projection.title,
     summary: projection.summary,
     access: projection.access,
+    cover: projection.cover,
     publishedAt: projection.publishedAt,
     topic: { name: projection.topic.name, slug: projection.topic.slug },
     format: { name: projection.format.name, slug: projection.format.slug },

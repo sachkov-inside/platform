@@ -9,6 +9,10 @@ const publishedProjection = {
   title: "Как устроен Inside Platform",
   summary: "Один реальный published Material.",
   access: "free",
+  cover: {
+    coverId: "72000000-0000-4000-8000-000000000022",
+    renditions: [{ height: 540, width: 960 }],
+  },
   publishedAt: "2026-08-25T05:00:00.000Z",
   primaryVideoId: null,
   topic: {
@@ -65,7 +69,12 @@ describe("Material Reader server adapter", () => {
           cacheScope: "public",
           projection: publishedProjection,
           body: renderedBody,
-          primaryVideo: null,
+          primaryVideo: {
+            durationSeconds: 600,
+            state: "ready",
+            title: "Видео про Developer Pipeline",
+            videoId: "72000000-0000-4000-8000-000000000021",
+          },
         }),
       ),
     );
@@ -79,6 +88,10 @@ describe("Material Reader server adapter", () => {
         title: "Как устроен Inside Platform",
         summary: "Один реальный published Material.",
         access: "free",
+        cover: {
+          coverId: "72000000-0000-4000-8000-000000000022",
+          renditions: [{ height: 540, width: 960 }],
+        },
         publishedAt: "2026-08-25T05:00:00.000Z",
         topic: { name: "Platform", slug: "platform" },
         format: { name: "Гайд", slug: "guide" },
@@ -101,7 +114,12 @@ describe("Material Reader server adapter", () => {
           content: [{ kind: "text", text: "Содержимое из PostgreSQL.", marks: [] }],
         },
       ],
-      primaryVideo: null,
+      primaryVideo: {
+        durationSeconds: 600,
+        state: "ready",
+        title: "Видео про Developer Pipeline",
+        videoId: "72000000-0000-4000-8000-000000000021",
+      },
     });
     expect(fetch).toHaveBeenCalledOnce();
   });

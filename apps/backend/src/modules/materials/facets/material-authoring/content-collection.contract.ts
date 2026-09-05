@@ -9,4 +9,6 @@ export interface ContentCollectionDto {
   readonly slug: string;
   readonly summary: string;
   readonly version: number;
+  readonly cover: ContentCoverProjection | null;
 }
+import type { ContentCoverProjection } from "../content-covers/content-covers.js";

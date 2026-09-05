@@ -8,6 +8,7 @@ import type {
   ValidationIssue,
 } from "../../domain/material-body/material-body.js";
 import type { VideoAuthoringPresentation } from "../../../videos/index.js";
+import type { ContentCoverProjection } from "../content-covers/content-covers.js";
 
 export interface SeriesMembershipInput {
   readonly seriesId: string;
@@ -39,6 +40,7 @@ export interface MaterialDto {
   readonly primaryVideoId: string | null;
   readonly primaryVideo: VideoAuthoringPresentation | null;
   readonly latestVideoDeletion: VideoAuthoringPresentation | null;
+  readonly cover: ContentCoverProjection | null;
   readonly metadata: MaterialMetadataDto;
   readonly body: MaterialBodySnapshot;
 }

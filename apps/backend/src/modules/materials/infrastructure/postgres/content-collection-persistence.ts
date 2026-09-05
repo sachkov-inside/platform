@@ -3,6 +3,8 @@ import type {
   ContentCollectionDto,
   ContentCollectionKind,
 } from "../../facets/material-authoring/content-collection.contract.js";
+import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
+import { loadContentCoverProjections } from "./content-cover-projections.js";
 
 interface ContentCollectionRecord {
   readonly archivedAt: Date | null;
@@ -11,6 +13,7 @@ interface ContentCollectionRecord {
   readonly slug: string;
   readonly summary: string;
   readonly version: number;
+  readonly coverId: string | null;
 }
 
 interface ContentCollectionPersistence {
@@ -50,14 +53,24 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
     record: ContentCollectionRecord | null,
   ): Promise<ContentCollectionDto | undefined> => {
     if (record === null) return undefined;
-    return toDto("topic", record, await prisma.material.count({
-      where: { topicId: record.id },
-    }));
+    const [materialCount, covers] = await Promise.all([
+      prisma.material.count({ where: { topicId: record.id } }),
+      loadContentCoverProjections(
+        prisma,
+        record.coverId === null ? [] : [record.coverId],
+      ),
+    ]);
+    return toDto(
+      "topic",
+      record,
+      materialCount,
+      record.coverId === null ? null : covers.get(record.coverId) ?? null,
+    );
   };
   return {
     create: async (data) => {
       const record = await prisma.topic.create({ data });
-      return toDto("topic", record, 0);
+      return toDto("topic", record, 0, null);
     },
     list: async () => {
       const [records, counts] = await Promise.all([
@@ -75,8 +88,17 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
           topicId === null ? [] : [[topicId, _count._all] as const],
         ),
       );
+      const covers = await loadContentCoverProjections(
+        prisma,
+        records.flatMap(({ coverId }) => (coverId === null ? [] : [coverId])),
+      );
       return records.map((record) =>
-        toDto("topic", record, countById.get(record.id) ?? 0),
+        toDto(
+          "topic",
+          record,
+          countById.get(record.id) ?? 0,
+          record.coverId === null ? null : covers.get(record.coverId) ?? null,
+        ),
       );
     },
     load: async (id) =>
@@ -113,14 +135,24 @@ function seriesPersistence(prisma: MaterialsPrisma): ContentCollectionPersistenc
     record: ContentCollectionRecord | null,
   ): Promise<ContentCollectionDto | undefined> => {
     if (record === null) return undefined;
-    return toDto("series", record, await prisma.seriesMembership.count({
-      where: { seriesId: record.id },
-    }));
+    const [materialCount, covers] = await Promise.all([
+      prisma.seriesMembership.count({ where: { seriesId: record.id } }),
+      loadContentCoverProjections(
+        prisma,
+        record.coverId === null ? [] : [record.coverId],
+      ),
+    ]);
+    return toDto(
+      "series",
+      record,
+      materialCount,
+      record.coverId === null ? null : covers.get(record.coverId) ?? null,
+    );
   };
   return {
     create: async (data) => {
       const record = await prisma.series.create({ data });
-      return toDto("series", record, 0);
+      return toDto("series", record, 0, null);
     },
     list: async () => {
       const [records, counts] = await Promise.all([
@@ -135,8 +167,17 @@ function seriesPersistence(prisma: MaterialsPrisma): ContentCollectionPersistenc
       const countById = new Map(
         counts.map(({ seriesId, _count }) => [seriesId, _count._all]),
       );
+      const covers = await loadContentCoverProjections(
+        prisma,
+        records.flatMap(({ coverId }) => (coverId === null ? [] : [coverId])),
+      );
       return records.map((record) =>
-        toDto("series", record, countById.get(record.id) ?? 0),
+        toDto(
+          "series",
+          record,
+          countById.get(record.id) ?? 0,
+          record.coverId === null ? null : covers.get(record.coverId) ?? null,
+        ),
       );
     },
     load: async (id) =>
@@ -172,6 +213,7 @@ function toDto(
   kind: ContentCollectionKind,
   record: ContentCollectionRecord,
   materialCount: number,
+  cover: ContentCoverProjection | null,
 ): ContentCollectionDto {
   return {
     archived: record.archivedAt !== null,
@@ -182,5 +224,6 @@ function toDto(
     slug: record.slug,
     summary: record.summary,
     version: record.version,
+    cover,
   };
 }

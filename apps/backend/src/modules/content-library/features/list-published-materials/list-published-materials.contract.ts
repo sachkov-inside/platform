@@ -1,4 +1,5 @@
 import type { Subject } from "../../../content-access/index.js";
+import type { ContentCoverProjection } from "../../../materials/index.js";
 
 export interface PublishedMaterialCatalogItemDto {
   readonly materialId: string;
@@ -9,6 +10,9 @@ export interface PublishedMaterialCatalogItemDto {
   readonly access: "free" | "membership" | "workshop";
   readonly availability: "available" | "locked" | "unavailable";
   readonly publishedAt: string;
+  readonly primaryVideoId: string | null;
+  readonly primaryVideoDurationSeconds?: number;
+  readonly cover: ContentCoverProjection | null;
   readonly topic: {
     readonly id: string;
     readonly name: string;
@@ -50,6 +54,8 @@ export interface PublishedMaterialCatalogFacetDto {
   readonly name: string;
   readonly slug: string;
   readonly summary: string | null;
+  readonly cover: ContentCoverProjection | null;
+  readonly previewItems: readonly PublishedMaterialCatalogItemDto[];
 }
 
 export type PublishedMaterialCatalogError =

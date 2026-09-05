@@ -3,9 +3,10 @@ import "server-only";
 import { z } from "zod";
 
 import {
+  contentCoverSchema,
   publishedMaterialProjectionSchema,
   toMaterialPreview,
-} from "@/entities/material";
+} from "@/entities/material.model";
 import {
   BackendConnectionError,
   type BackendTransportResult,
@@ -18,10 +19,17 @@ import type {
 } from "../model/library-discovery-view";
 
 const discoveryReferenceSchema = z
-  .object({ id: z.string(), name: z.string(), slug: z.string(), summary: z.string() })
+  .object({
+    cover: contentCoverSchema.nullable(),
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+    summary: z.string(),
+  })
   .strict();
 const relatedPlaylistSchema = z
   .object({
+    cover: contentCoverSchema.nullable(),
     id: z.string(),
     matchingMaterialCount: z.number().int().nonnegative(),
     name: z.string(),
@@ -31,7 +39,12 @@ const relatedPlaylistSchema = z
   })
   .strict();
 const discoveryTopicSchema = z
-  .object({ id: z.string(), name: z.string(), slug: z.string() })
+  .object({
+    cover: contentCoverSchema.nullable(),
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+  })
   .strict();
 const discoveryNotFoundSchema = z
   .object({
@@ -86,6 +99,7 @@ export function mapLibraryDiscoveryResult<
   }
 
   const reference = {
+    cover: parsed.data.reference.cover,
     name: parsed.data.reference.name,
     slug: parsed.data.reference.slug,
     summary: parsed.data.reference.summary,

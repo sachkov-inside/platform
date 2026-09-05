@@ -174,6 +174,53 @@ describe("published Material HTTP contract", () => {
     expect(response.body).not.toContain("blocks");
   });
 
+  test("returns one bounded Home projection in visual section order", async () => {
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/library/home",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe(
+      "public, max-age=30, stale-while-revalidate=60",
+    );
+    const home = response.json<{
+      readonly guides: readonly { readonly slug: string }[];
+      readonly notes: readonly { readonly slug: string }[];
+      readonly playlists: readonly {
+        readonly previewItems: readonly unknown[];
+        readonly slug: string;
+      }[];
+      readonly topics: readonly { readonly slug: string }[];
+      readonly videos: readonly {
+        readonly primaryVideoDurationSeconds?: number;
+        readonly slug: string;
+      }[];
+    }>();
+    expect(home.topics.map(({ slug }) => slug)).toContain("platform");
+    expect(home.playlists.map(({ slug }) => slug)).toContain("platform-inside");
+    expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
+    expect(home.videos.map(({ slug }) => slug)).toContain(
+      "video-pro-developer-pipeline",
+    );
+    expect(
+      home.videos.find(({ slug }) => slug === "video-pro-developer-pipeline"),
+    ).toMatchObject({ primaryVideoDurationSeconds: 628 });
+    expect(home.guides.map(({ slug }) => slug)).toContain(
+      "kak-ustroen-inside-platform",
+    );
+    expect(home.notes.map(({ slug }) => slug)).toContain(
+      "granitsy-khoroshego-modulya",
+    );
+    expect(home.topics.length).toBeLessThanOrEqual(8);
+    expect(home.playlists.length).toBeLessThanOrEqual(4);
+    for (const section of [home.videos, home.guides, home.notes]) {
+      expect(section.length).toBeLessThanOrEqual(8);
+    }
+    expect(response.body).not.toContain("schemaVersion");
+    expect(response.body).not.toContain("blocks");
+  });
+
   test("searches the catalog with canonical URL facets and sort", async () => {
     const response = await app.getHttpAdapter().getInstance().inject({
       method: "GET",

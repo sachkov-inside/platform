@@ -3,9 +3,11 @@ import type { Metadata } from "next";
 import { loadPublishedSeries } from "@/features/library-discovery.server";
 import { PublishedSeriesPage } from "@/_pages/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
+import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 interface SeriesPageProps {
   readonly params: Promise<{ readonly slug: string }>;
+  readonly searchParams: Promise<{ readonly from?: string | readonly string[] }>;
 }
 
 export async function generateMetadata({
@@ -27,12 +29,13 @@ export async function generateMetadata({
       };
 }
 
-export default async function SeriesRoute({ params }: SeriesPageProps) {
-  const { slug } = await params;
+export default async function SeriesRoute({ params, searchParams }: SeriesPageProps) {
+  const [{ slug }, query] = await Promise.all([params, searchParams]);
   const accessToken = await getOptionalPlatformAccessToken();
   return (
     <PublishedSeriesPage
       {...(accessToken === undefined ? {} : { accessToken })}
+      returnTarget={parseMaterialReaderReturnTarget(query.from)}
       slug={slug}
     />
   );

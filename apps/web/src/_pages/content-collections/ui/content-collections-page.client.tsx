@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
+import { ContentCoverEditor } from "@/features/content-covers";
 
 import {
   createContentCollection,
@@ -181,6 +182,15 @@ function CollectionEditor({
             </Link>
           </Button>
         ) : null}
+      </div>
+      <div className="mt-4 max-w-md">
+        <ContentCoverEditor
+          disabled={disabled}
+          initialCover={collection.cover ?? null}
+          ownerId={collection.id}
+          ownerKind={collection.kind}
+          ownerLabel={collection.name}
+        />
       </div>
       <form
         className="mt-4 grid gap-3 lg:grid-cols-2"

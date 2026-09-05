@@ -156,14 +156,22 @@ function parseProviderVideo(data: Record<string, unknown>): ProviderVideo {
   }
   if (embedLocator !== null) assertKinescopeUrl(embedLocator, "embed locator");
   const message = optionalString(data, "message", "error")?.slice(0, 500) ?? null;
+  const durationSeconds = normalizedDurationSeconds(data.duration);
   return {
     id,
     projectId,
     status,
     title,
     embedLocator,
+    ...(durationSeconds === undefined ? {} : { durationSeconds }),
     ...(message === null ? {} : { message }),
   };
+}
+
+function normalizedDurationSeconds(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.max(1, Math.round(value))
+    : undefined;
 }
 
 function readString(data: Record<string, unknown>, ...keys: readonly string[]): string {

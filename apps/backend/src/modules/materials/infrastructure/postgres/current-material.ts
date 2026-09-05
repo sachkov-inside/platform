@@ -16,6 +16,10 @@ import type {
   MaterialDto,
 } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { VideoAuthoringPresentation } from "../../../videos/index.js";
+import {
+  type ContentCoverProjection,
+} from "../../facets/content-covers/content-covers.js";
+import { loadContentCoverProjections } from "./content-cover-projections.js";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
@@ -24,6 +28,7 @@ export interface CurrentMaterial {
   readonly metadata: MaterialMetadata;
   readonly body: MaterialBody;
   readonly primaryVideoId: string | null;
+  readonly cover: ContentCoverProjection | null;
 }
 
 export async function loadCurrentMaterial(
@@ -41,7 +46,7 @@ export async function loadCurrentMaterial(
   if (row === null) {
     return undefined;
   }
-  const [tags, seriesMemberships] = await Promise.all([
+  const [tags, seriesMemberships, covers] = await Promise.all([
     prisma.materialTag.findMany({
       where: { materialId },
       select: { tagId: true },
@@ -52,6 +57,7 @@ export async function loadCurrentMaterial(
       select: { seriesId: true, ordinal: true },
       orderBy: { seriesId: "asc" },
     }),
+    loadContentCoverProjections(prisma, row.coverId === null ? [] : [row.coverId]),
   ]);
   const metadata = MaterialMetadata.create({
     title: row.title,
@@ -93,6 +99,7 @@ export async function loadCurrentMaterial(
       metadata: metadata.value,
       body: body.value,
       primaryVideoId: row.primaryVideoId,
+      cover: row.coverId === null ? null : covers.get(row.coverId) ?? null,
     },
   };
 }
@@ -138,6 +145,7 @@ export function toMaterialDto(
     primaryVideoId: material.primaryVideoId,
     primaryVideo: videos.primaryVideo,
     latestVideoDeletion: videos.latestVideoDeletion,
+    cover: material.cover,
     metadata: material.metadata.toValues(),
     body: material.body,
   };

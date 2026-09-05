@@ -98,6 +98,18 @@ import {
   name as workshopMembershipEntitlementProjectionMigrationName,
   statement as workshopMembershipEntitlementProjectionMigrationStatement,
 } from "../modules/workshop/infrastructure/postgres/migrations/0024-membership-entitlement-projection.js";
+import {
+  name as contentCoversMigrationName,
+  statement as contentCoversMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0025-content-covers.js";
+import {
+  name as videoDurationMigrationName,
+  statement as videoDurationMigrationStatement,
+} from "../modules/videos/infrastructure/postgres/migrations/0026-video-duration.js";
+import {
+  name as currentCollectionSearchMigrationName,
+  statement as currentCollectionSearchMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0027-current-collection-search.js";
 
 export const platformMigrations = [
   {
@@ -189,6 +201,18 @@ export const platformMigrations = [
   {
     name: workshopMembershipEntitlementProjectionMigrationName,
     statement: workshopMembershipEntitlementProjectionMigrationStatement,
+  },
+  {
+    name: contentCoversMigrationName,
+    statement: contentCoversMigrationStatement,
+  },
+  {
+    name: videoDurationMigrationName,
+    statement: videoDurationMigrationStatement,
+  },
+  {
+    name: currentCollectionSearchMigrationName,
+    statement: currentCollectionSearchMigrationStatement,
   },
 ] as const;
 

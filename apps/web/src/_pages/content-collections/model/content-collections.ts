@@ -1,10 +1,13 @@
 import { z } from "zod";
 
+import { contentCoverSchema } from "@/entities/material.model";
+
 export type ContentCollectionKind = "series" | "topic";
 
 export const contentCollectionSchema = z
   .object({
     archived: z.boolean(),
+    cover: contentCoverSchema.nullable().optional(),
     id: z.uuid(),
     kind: z.enum(["series", "topic"]),
     materialCount: z.number().int().nonnegative(),

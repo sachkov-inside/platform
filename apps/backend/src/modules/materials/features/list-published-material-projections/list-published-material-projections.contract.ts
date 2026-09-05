@@ -1,4 +1,5 @@
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
+import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
 import type { Result } from "../../result.js";
 
 export interface ListPublishedMaterialProjectionsQuery {
@@ -47,6 +48,8 @@ export interface PublishedMaterialFacetOptionDto {
   readonly name: string;
   readonly slug: string;
   readonly summary: string | null;
+  readonly cover: ContentCoverProjection | null;
+  readonly previewItems: readonly PublishedMaterialProjectionDto[];
 }
 
 export interface PublishedMaterialProjectionPageDto {

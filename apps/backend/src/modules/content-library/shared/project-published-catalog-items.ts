@@ -9,6 +9,7 @@ import {
   materialId as checkedMaterialId,
   type PublishedMaterialProjectionDto,
 } from "../../materials/index.js";
+import type { Videos } from "../../videos/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../features/list-published-materials/list-published-materials.contract.js";
 
 const CONTENT_ACCESS_BATCH_SIZE = 100;
@@ -17,17 +18,39 @@ export type PublishedCatalogItemsResult =
   | { readonly ok: true; readonly items: readonly PublishedMaterialCatalogItemDto[] }
   | {
       readonly ok: false;
-      readonly error: { readonly code: "internal_error"; readonly correlationId: string };
+      readonly error:
+        | { readonly code: "dependency_unavailable"; readonly retryable: true }
+        | { readonly code: "internal_error"; readonly correlationId: string };
     };
 
 export async function projectPublishedCatalogItems(
   contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
+  videos: Pick<Videos, "loadReadyDurations">,
   subject: Subject,
   projections: readonly PublishedMaterialProjectionDto[],
 ): Promise<PublishedCatalogItemsResult> {
   if (projections.length === 0) {
     return { ok: true, items: [] };
   }
+  const durations = await videos.loadReadyDurations(
+    projections.flatMap(({ primaryVideoId }) =>
+      primaryVideoId === null ? [] : [primaryVideoId],
+    ),
+  );
+  if (!durations.ok) {
+    return durations.error.code === "dependency_unavailable"
+      ? {
+          ok: false,
+          error: { code: "dependency_unavailable", retryable: true },
+        }
+      : internalError();
+  }
+  const durationByVideoId = new Map(
+    durations.value.map(({ durationSeconds, videoId }) => [
+      videoId,
+      durationSeconds,
+    ]),
+  );
   const availabilityItems: AccessAvailability[] = [];
   for (let start = 0; start < projections.length; start += CONTENT_ACCESS_BATCH_SIZE) {
     const batch = projections.slice(start, start + CONTENT_ACCESS_BATCH_SIZE);
@@ -56,7 +79,13 @@ export async function projectPublishedCatalogItems(
     const itemAvailability = availabilityById.get(projection.materialId);
     return itemAvailability === undefined
       ? undefined
-      : toCatalogItem(projection, itemAvailability.availability);
+      : toCatalogItem(
+          projection,
+          itemAvailability.availability,
+          projection.primaryVideoId === null
+            ? undefined
+            : durationByVideoId.get(projection.primaryVideoId),
+        );
   });
   return items.some((item) => item === undefined)
     ? internalError()
@@ -71,6 +100,7 @@ export async function projectPublishedCatalogItems(
 function toCatalogItem(
   projection: PublishedMaterialProjectionDto,
   availability: AccessAvailability["availability"],
+  primaryVideoDurationSeconds: number | undefined,
 ): PublishedMaterialCatalogItemDto {
   return {
     materialId: projection.materialId,
@@ -81,6 +111,11 @@ function toCatalogItem(
     access: projection.access,
     availability,
     publishedAt: projection.publishedAt,
+    primaryVideoId: projection.primaryVideoId,
+    ...(primaryVideoDurationSeconds === undefined
+      ? {}
+      : { primaryVideoDurationSeconds }),
+    cover: projection.cover,
     topic: { ...projection.topic },
     format: { ...projection.format },
     tags: projection.tags.map((tag) => ({ ...tag })),

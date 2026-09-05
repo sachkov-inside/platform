@@ -1,232 +1,266 @@
-import {
-  BookOpenText,
-  ListVideo,
-  LockKeyhole,
-  Play,
-  Unlock,
-} from "lucide-react";
+import { ChevronRight, Clock3, LockKeyhole } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
-import { materialReaderHref } from "@/shared/routing/material-reader";
 import { cn } from "@/shared/lib/utils";
-import type { MaterialPreview } from "../model/material-preview";
+import {
+  collectionDiscoveryHref,
+  materialReaderHref,
+} from "@/shared/routing/material-reader";
+import {
+  materialPreviewHasVideo,
+  type MaterialPreview,
+} from "../model/material-preview";
 import { materialTaxonomyLabel } from "../model/material-taxonomy-label";
+import { ContentCoverImage } from "./content-cover-image.client";
 
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
   readonly headingLevel?: "h2" | "h3";
   readonly material: MaterialPreview;
   readonly returnHref?: Route;
+  readonly variant?: "compact" | "default" | "feed" | "row";
 }
 
-/** Safe published Material summary with media only when the presentation contract provides it. */
+/** Safe published Material summary rendered in the accepted public visual language. */
 export function MaterialCard({
   headingLevel = "h2",
   material,
   returnHref,
+  variant = "default",
 }: MaterialCardProps) {
-  const hasPreview = material.preview !== undefined;
   const Heading = headingLevel;
-  const titleId = `material-${material.slug}-title`;
+  const readerHref = materialReaderHref(material.slug, returnHref);
+
+  if (variant === "row") {
+    return (
+      <MaterialRow
+        headingLevel={headingLevel}
+        material={material}
+        readerHref={readerHref}
+        {...(returnHref === undefined ? {} : { returnHref })}
+      />
+    );
+  }
+
+  if (variant === "feed") {
+    return (
+      <article
+        className="group/card relative grid w-full max-w-[48rem] grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 py-6"
+        data-material-id={material.slug}
+        data-material-slug={material.slug}
+        data-material-variant={variant}
+      >
+        <span
+          aria-hidden="true"
+          className="row-span-4 grid size-9 place-items-center rounded-full bg-primary text-xs font-bold text-white"
+        >
+          S
+        </span>
+        <p className="text-sm leading-5">
+          <strong>Sachkov Inside</strong>
+          <span className="text-muted-foreground"> · {material.topic}</span>
+        </p>
+        <Heading className="col-start-2 mt-2 text-xl font-semibold leading-6 tracking-[-0.03em]">
+          <Link
+            className="no-underline after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:text-action"
+            href={readerHref}
+            prefetch={false}
+          >
+            {material.title}
+          </Link>
+        </Heading>
+        <p className="col-start-2 mt-2 text-base leading-7 tracking-[-0.015em] text-body-muted md:text-lg">
+          {material.summary}
+        </p>
+        <span className="col-start-2 mt-3 inline-flex items-center gap-1 text-sm font-semibold text-action">
+          Читать заметку
+          <ChevronRight aria-hidden="true" className="size-4" />
+        </span>
+      </article>
+    );
+  }
+
+  const isCompact = variant === "compact";
+  const duration = materialDuration(material);
 
   return (
     <article
-      className="@container/material-card h-full w-full max-w-[28rem]"
+      className="group/card relative h-full min-w-0 w-full"
       data-material-id={material.slug}
       data-material-slug={material.slug}
+      data-material-variant={variant}
     >
-      <div
-        className="group/card relative grid h-full overflow-hidden rounded-2xl bg-card no-underline shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-within:shadow-card-hover active:translate-y-0 active:shadow-card motion-reduce:transform-none motion-reduce:transition-none"
-      >
-        {hasPreview ? (
-          <MaterialPoster material={material} preview={material.preview} />
-        ) : null}
-        <div
+      <AccessCover compact={isCompact} material={material}>
+        <ContentCoverImage
+          alt=""
           className={cn(
-            "flex h-full min-w-0 flex-col p-4",
-            hasPreview && "min-h-[12.5rem]",
+            "min-h-0 w-full transition-transform duration-200 group-hover/card:-translate-y-1 motion-reduce:transform-none motion-reduce:transition-none",
+            isCompact
+              ? "aspect-video rounded-[1.25rem]"
+              : "aspect-square rounded-[1.5rem]",
           )}
+          cover={material.cover ?? null}
+          fallbackKind={isCompact ? "video" : "material"}
+          fallbackSeed={material.slug}
+          sizes="(min-width: 768px) 20rem, 50vw"
+        />
+        {isCompact && duration !== undefined ? (
+          <span className="absolute bottom-3 right-3 rounded-full bg-black/70 px-2.5 py-1 text-[0.6875rem] font-semibold text-white">
+            {duration}
+          </span>
+        ) : null}
+      </AccessCover>
+      {isCompact ? null : (
+        <span className="mt-3 block text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-eyebrow">
+          {material.topic}
+        </span>
+      )}
+      <Heading
+        className={cn(
+          "line-clamp-2 font-semibold tracking-[-0.025em]",
+          isCompact
+            ? "mt-3 text-[0.9375rem] leading-5 md:text-lg md:leading-6"
+            : "mt-1 text-[0.9375rem] leading-5 tracking-[-0.02em] md:text-lg md:leading-6",
+        )}
+      >
+        <Link
+          className="no-underline after:absolute after:inset-0 after:rounded-[1.5rem] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
+          href={readerHref}
+          prefetch={false}
         >
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-            <MaterialFormat material={material} />
-            <AccessLabel
-              access={material.access}
-              availability={material.availability}
-            />
-          </div>
-          <div className="mt-3">
-            <MaterialTaxonomy material={material} />
-          </div>
-          <Heading className="mt-3 line-clamp-3 text-xl font-bold leading-[1.2] tracking-[-0.03em]">
-            <Link
-              className="no-underline after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:underline group-hover/card:decoration-accent group-hover/card:underline-offset-4"
-              href={materialReaderHref(material.slug, returnHref)}
-              id={titleId}
-              prefetch={false}
-            >
-              {material.title}
-            </Link>
-          </Heading>
-          <p
-            className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground"
-          >
-            {material.summary}
-          </p>
-          <MaterialPlaylists material={material} />
-        </div>
-      </div>
+          {material.title}
+        </Link>
+      </Heading>
+      {isCompact ? (
+        <span className="mt-1 block text-xs font-medium text-muted-foreground md:text-sm">
+          {material.topic}
+        </span>
+      ) : duration === undefined ? null : (
+        <span className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+          <Clock3 aria-hidden="true" className="size-3.5" />
+          {duration}
+        </span>
+      )}
     </article>
   );
 }
 
-function MaterialTaxonomy({
+function MaterialRow({
+  headingLevel,
   material,
+  readerHref,
+  returnHref,
 }: {
+  readonly headingLevel: "h2" | "h3";
   readonly material: MaterialPreview;
+  readonly readerHref: Route;
+  readonly returnHref?: Route;
 }) {
+  const Heading = headingLevel;
+  const isVideo = materialPreviewHasVideo(material);
   return (
-    <ul aria-label="Контекст материала" className="flex flex-wrap gap-1.5" role="list">
-      <li>
-        <Link
-          className="relative z-10 inline-flex min-h-7 items-center rounded-lg bg-accent/10 px-2.5 py-1 text-xs font-medium leading-4 text-foreground no-underline hover:bg-accent/20 focus-visible:outline-ring"
-          href={`/topics/${material.topicSlug}`}
-          prefetch={false}
-        >
-          {materialTaxonomyLabel(material.topic)}
-        </Link>
-      </li>
-      {material.tags.slice(0, 2).map((tag) => (
-        <li key={tag}>
-          <span className="inline-flex min-h-7 items-center rounded-lg bg-secondary px-2.5 py-1 text-xs font-medium leading-4 text-muted-foreground">
-            {tag}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function MaterialFormat({
-  material,
-}: {
-  readonly material: MaterialPreview;
-}) {
-  const FormatIcon = material.preview === undefined ? BookOpenText : Play;
-
-  return (
-    <span className="inline-flex min-h-7 shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
-      <FormatIcon aria-hidden="true" className="size-3.5 text-accent" />
-      {materialTaxonomyLabel(material.format)}
-    </span>
-  );
-}
-
-function MaterialPlaylists({
-  material,
-}: {
-  readonly material: MaterialPreview;
-}) {
-  if (material.seriesMemberships.length === 0) {
-    return null;
-  }
-
-  return (
-    <ul
-      aria-label="Плейлисты материала"
-      className="mt-auto grid gap-1.5 pt-3 text-xs text-muted-foreground"
-      role="list"
+    <article
+      className="group/row relative grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none"
+      data-material-id={material.slug}
+      data-material-slug={material.slug}
+      data-material-variant="row"
     >
-      {material.seriesMemberships.map((membership) => (
-        <li key={`${membership.name}-${String(membership.ordinal)}`}>
+      <AccessCover compact material={material}>
+        <ContentCoverImage
+          alt=""
+          className="aspect-square min-h-0 rounded-xl"
+          cover={material.cover ?? null}
+          fallbackKind={isVideo ? "video" : "material"}
+          fallbackSeed={material.slug}
+          sizes="5.5rem"
+        />
+      </AccessCover>
+      <span className="min-w-0">
+        <span className="flex min-w-0 items-center gap-1 text-xs font-semibold text-muted-foreground">
+          <span>{materialTaxonomyLabel(material.format)}</span>
+          <span aria-hidden="true">·</span>
           <Link
-            className="relative z-10 grid min-h-9 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-lg px-1.5 py-2 no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
-            href={`/series/${membership.slug}`}
+            className="relative z-10 truncate no-underline hover:text-foreground"
+            href={collectionDiscoveryHref("topic", material.topicSlug, returnHref)}
             prefetch={false}
           >
-            <ListVideo aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-accent" />
-            <span className="min-w-0 break-words leading-4">{membership.name}</span>
-            <span className="shrink-0 text-muted-foreground">№ {membership.ordinal}</span>
+            {material.topic}
           </Link>
-        </li>
-      ))}
-    </ul>
+        </span>
+        <Heading className="mt-1 line-clamp-2 text-base font-semibold leading-5 tracking-[-0.02em]">
+          <Link
+            className="no-underline after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
+            href={readerHref}
+            prefetch={false}
+          >
+            {material.title}
+          </Link>
+        </Heading>
+      </span>
+      <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
+    </article>
   );
 }
 
-function AccessLabel({
-  access,
-  availability,
+function AccessCover({
+  children,
+  compact = false,
+  material,
 }: {
-  readonly access: MaterialPreview["access"];
-  readonly availability: MaterialPreview["availability"];
+  readonly children: React.ReactNode;
+  readonly compact?: boolean;
+  readonly material: MaterialPreview;
 }) {
-  const isAvailable = availability === "available";
-  const Icon = isAvailable ? Unlock : LockKeyhole;
-  const label =
-    availability === "locked"
-      ? "Для участников"
-      : availability === "unavailable"
-        ? "Недоступно"
-        : access === "free"
-          ? "Бесплатно"
-          : "Доступно";
+  const locked = material.availability !== "available";
+  if (!locked) return <span className="relative block">{children}</span>;
 
   return (
     <span
       className={cn(
-        "inline-flex min-h-7 w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium",
-        isAvailable
-          ? "bg-secondary text-secondary-foreground"
-          : "bg-primary text-primary-foreground",
+        "relative block overflow-hidden",
+        compact ? "rounded-xl" : "rounded-[1.5rem]",
       )}
+      data-access-cover={material.availability}
     >
-      <Icon aria-hidden="true" className="size-3.5" />
-      {label}
+      <span className="block scale-[1.04] blur-[4px]">{children}</span>
+      <span className="absolute inset-0 grid place-items-center bg-white/20">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full bg-white/92 font-semibold text-foreground shadow-xl backdrop-blur-xl",
+            compact ? "size-8 justify-center p-0" : "px-3 py-2 text-xs",
+          )}
+        >
+          <LockKeyhole aria-hidden="true" className="size-4 text-accent" />
+          {compact ? (
+            <span className="sr-only">{materialAccessLabel(material)}</span>
+          ) : (
+            materialAccessLabel(material)
+          )}
+        </span>
+      </span>
     </span>
   );
 }
 
-function MaterialPoster({
-  material,
-  preview,
-}: {
-  readonly material: MaterialPreview;
-  readonly preview: NonNullable<MaterialPreview["preview"]>;
-}) {
-  return (
-    <span
-      aria-label={preview.label}
-      className="relative grid aspect-video min-h-0 place-items-center overflow-clip bg-sidebar p-4 text-sidebar-foreground"
-      role="img"
-    >
-      <span
-        aria-hidden="true"
-        className="absolute left-4 top-3 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-sidebar-foreground/55"
-      >
-        {material.format}
-      </span>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "relative grid w-full items-center gap-1.5 pt-7 before:absolute before:inset-x-4 before:top-[calc(50%+0.875rem)] before:h-px before:bg-sidebar-primary",
-          preview.steps.length > 3 ? "grid-cols-5" : "grid-cols-3",
-        )}
-      >
-        {preview.steps.map((step) => (
-          <span
-            className="relative grid min-h-12 min-w-0 place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent px-1 text-center font-mono text-[0.6875rem] leading-4 text-sidebar-accent-foreground"
-            key={step}
-          >
-            {step}
-          </span>
-        ))}
-      </span>
-      {preview.duration === undefined ? null : (
-        <span className="absolute bottom-3 right-3 rounded-md bg-sidebar-foreground px-2 py-1 font-mono text-[0.6875rem] font-semibold tabular-nums text-sidebar">
-          {preview.duration}
-        </span>
-      )}
-    </span>
-  );
+function materialDuration(material: MaterialPreview): string | undefined {
+  return material.primaryVideoDurationSeconds === undefined
+    ? material.preview?.duration
+    : formatDuration(material.primaryVideoDurationSeconds);
+}
+
+function materialAccessLabel(material: MaterialPreview): string {
+  if (material.availability === "locked") return "Для участников";
+  if (material.availability === "unavailable") return "Недоступно";
+  return material.access === "free" ? "Бесплатно" : "Доступно";
+}
+
+function formatDuration(totalSeconds: number): string {
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const minutes = totalMinutes % 60;
+  const hours = Math.floor(totalMinutes / 60);
+  return hours > 0
+    ? `${String(hours)}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+    : `${String(minutes)}:${String(seconds).padStart(2, "0")}`;
 }

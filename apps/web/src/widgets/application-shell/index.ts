@@ -1,1 +1,5 @@
-export { ApplicationShell, type ApplicationNavigationItem } from "./ui/application-shell.client";
+export {
+  ApplicationShell,
+  PublicProductHeader,
+  type ApplicationNavigationItem,
+} from "./ui/application-shell.client";

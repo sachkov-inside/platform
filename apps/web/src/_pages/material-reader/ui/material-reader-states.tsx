@@ -3,7 +3,7 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/material-reader-view";
-import { materialTaxonomyLabel } from "@/entities/material";
+import { ContentCoverImage, materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import {
   libraryMaterialReaderReturnTarget,
@@ -71,46 +71,64 @@ export function MaterialReaderAccess({
 }) {
   return (
     <div
-      className="max-w-[52rem] pt-1 sm:pt-3"
+      className="max-w-[60rem]"
       data-material-reader-state="access-required"
     >
       <ReaderBackAction target={returnTarget} />
-      <header className="mt-7 max-w-[48rem] sm:mt-8">
-        <div className="flex flex-wrap gap-2 text-xs font-semibold text-muted-foreground">
-          <span className="rounded-full bg-muted px-3 py-1.5">
-            {materialTaxonomyLabel(material.format.name)}
-          </span>
-          <Link
-            className="rounded-full bg-muted px-3 py-1.5 no-underline hover:bg-secondary focus-visible:outline-ring"
-            href={`/topics/${material.topic.slug}`}
-            prefetch={false}
-          >
-            {material.topic.name}
-          </Link>
-        </div>
-        <h1 className="mt-4 max-w-[22ch] text-balance text-[1.75rem] font-semibold leading-[1.12] tracking-[-0.03em] sm:text-[2.25rem]">
-          {material.title}
-        </h1>
-        <p className="mt-4 max-w-[65ch] text-pretty leading-7 text-muted-foreground">
-          {material.summary}
-        </p>
-      </header>
+      <div className="mx-auto mt-7 max-w-[60rem] md:mt-10">
+        <ContentCoverImage
+          alt=""
+          className="aspect-video min-h-0 w-full rounded-[1.5rem] md:rounded-[2rem]"
+          cover={material.cover}
+          fallbackKind="material"
+          fallbackSeed={material.slug}
+          sizes="(min-width: 1024px) 60rem, 100vw"
+        />
+        <header className="mx-auto mt-8 max-w-[43rem] md:mt-12">
+          <div className="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-[0.14em] text-action">
+            <span>{materialTaxonomyLabel(material.format.name)}</span>
+            <span aria-hidden="true">·</span>
+            <Link
+              className="no-underline hover:text-foreground focus-visible:outline-ring"
+              href={`/topics/${material.topic.slug}`}
+              prefetch={false}
+            >
+              {material.topic.name}
+            </Link>
+          </div>
+          <h1 className="mt-3 max-w-[22ch] text-balance text-[2.3rem] font-semibold leading-[1.02] tracking-[-0.055em] md:text-[3.75rem]">
+            {material.title}
+          </h1>
+          <p className="mt-5 max-w-[65ch] text-pretty text-lg leading-8 text-muted-foreground">
+            {material.summary}
+          </p>
+        </header>
+      </div>
       <section
-        className="relative mt-7 isolate overflow-clip rounded-2xl bg-secondary px-6 py-7 shadow-card sm:px-8 sm:py-8"
+        className="relative mx-auto mt-10 max-w-[43rem] overflow-hidden rounded-[2rem] border border-black/6 bg-muted p-6 md:mt-12 md:p-9"
         aria-labelledby="access-heading"
       >
-        <StatusHalo />
-        <span className="relative grid size-12 place-items-center rounded-xl bg-background/80 text-accent [&_svg]:size-6">
-          <LockKeyhole aria-hidden="true" />
-        </span>
-        <h2 className="relative mt-5 text-xl font-semibold tracking-[-0.025em] sm:text-2xl" id="access-heading">
-          Материал доступен в Мастерской
-        </h2>
-        <p className="relative mt-3 max-w-[62ch] text-pretty leading-7 text-muted-foreground">
-          Вступите, чтобы открыть этот и другие закрытые материалы.
-        </p>
-        <div className="relative mt-6 flex flex-wrap gap-3">
-          <Button asChild className="h-11 rounded-xl px-4" size="lg">
+        <div aria-hidden="true" className="select-none space-y-5 blur-[7px] opacity-45">
+          <div className="h-7 w-2/3 rounded-full bg-placeholder-strong" />
+          <div className="space-y-3">
+            <div className="h-4 rounded-full bg-placeholder" />
+            <div className="h-4 w-11/12 rounded-full bg-placeholder" />
+            <div className="h-4 w-4/5 rounded-full bg-placeholder" />
+          </div>
+          <div className="h-36 rounded-[1.5rem] bg-white" />
+        </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-white/20 via-white/70 to-white/95 px-6 text-center">
+          <span className="grid size-12 place-items-center rounded-full bg-white text-accent shadow-lg">
+            <LockKeyhole aria-hidden="true" className="size-5" />
+          </span>
+          <h2 className="mt-4 text-2xl font-semibold tracking-[-0.04em]" id="access-heading">
+            Продолжение для участников
+          </h2>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+            Откройте полный материал и весь маршрут по теме.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+          <Button asChild className="h-11 rounded-xl bg-accent px-4 text-white hover:bg-accent-hover" size="lg">
             <a href={cta.url} rel="noopener noreferrer" target="_blank">
               {cta.label}
               <ArrowUpRight
@@ -120,6 +138,7 @@ export function MaterialReaderAccess({
               />
             </a>
           </Button>
+          </div>
         </div>
       </section>
     </div>

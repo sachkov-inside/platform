@@ -16,3 +16,9 @@ export type {
 } from "./features/discover-published-materials/discover-published-materials.contract.js";
 export { ListPublishedMaterialsController } from "./features/list-published-materials/list-published-materials.controller.js";
 export { DiscoverPublishedMaterialsController } from "./features/discover-published-materials/discover-published-materials.controller.js";
+export { ReadHomeContentController } from "./features/read-home-content/read-home-content.controller.js";
+export {
+  readHomeContent,
+  type HomeContentDto,
+  type HomeContentResult,
+} from "./features/read-home-content/read-home-content.js";

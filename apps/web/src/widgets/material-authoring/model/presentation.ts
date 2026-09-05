@@ -1,6 +1,11 @@
 import type { JSONContent } from "@tiptap/core";
 
-import type { RenderedBlock, RenderedMark, RenderedText } from "@/entities/material";
+import type {
+  ContentCover,
+  RenderedBlock,
+  RenderedMark,
+  RenderedText,
+} from "@/entities/material";
 import type {
   DeleteMaterialDraftInput,
   DeleteMaterialDraftResult,
@@ -22,6 +27,7 @@ export interface MaterialSelectOption {
 export interface MaterialDraftPresentation {
   readonly access: "free" | "membership";
   readonly canDelete: boolean;
+  readonly cover?: ContentCover | null | undefined;
   readonly document: JSONContent;
   readonly deleteVideoId: string | null;
   readonly formatId: string;

@@ -1,14 +1,16 @@
-import type { MaterialPreview } from "@/entities/material";
+import type { ContentCover, MaterialPreview } from "@/entities/material";
 
 export type LibraryDiscoveryKind = "related" | "series" | "topic";
 
 export interface LibraryDiscoveryReference {
+  readonly cover?: ContentCover | null | undefined;
   readonly name: string;
   readonly slug: string;
   readonly summary: string;
 }
 
 export interface RelatedPlaylist {
+  readonly cover?: ContentCover | null | undefined;
   readonly id: string;
   readonly matchingMaterialCount: number;
   readonly name: string;
@@ -18,6 +20,7 @@ export interface RelatedPlaylist {
 }
 
 export interface DiscoveryTopic {
+  readonly cover?: ContentCover | null | undefined;
   readonly id: string;
   readonly name: string;
   readonly slug: string;

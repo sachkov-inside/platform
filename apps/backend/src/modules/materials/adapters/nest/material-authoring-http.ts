@@ -16,6 +16,7 @@ import type {
   UpdateContentCollectionError,
 } from "../../index.js";
 import { videoAuthoringPresentationSchema } from "../../../videos/index.js";
+import { contentCoverProjectionHttpSchema } from "./content-cover-http.js";
 import {
   contentVersionWireSchema,
   idempotencyKeyWireSchema,
@@ -53,6 +54,7 @@ export const materialSchema = z
     primaryVideoId: z.uuid().nullable(),
     primaryVideo: videoAuthoringPresentationSchema.nullable(),
     latestVideoDeletion: videoAuthoringPresentationSchema.nullable(),
+    cover: contentCoverProjectionHttpSchema.nullable(),
     firstPublishedAt: z.iso.datetime({ offset: true }).nullable(),
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
     metadata: materialMetadataSchema,
@@ -134,6 +136,7 @@ export const contentCollectionSchema = z
     slug: z.string().min(1).max(120),
     summary: z.string().max(500),
     version: z.number().int().positive(),
+    cover: contentCoverProjectionHttpSchema.nullable(),
   })
   .strict();
 export const contentCollectionListSchema = z.array(contentCollectionSchema);

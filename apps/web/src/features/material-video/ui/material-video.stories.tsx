@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import {
@@ -19,7 +20,8 @@ type VideoStoryMode =
   | "authoring-processing"
   | "authoring-ready"
   | "authoring-uploading"
-  | "player-error";
+  | "player-error"
+  | "player-ready";
 
 const actions = {
   onAttach: fn(),
@@ -33,11 +35,27 @@ const actions = {
 };
 
 function MaterialVideoStateBoard({ mode }: { readonly mode: VideoStoryMode }) {
+  const [watched, setWatched] = useState(false);
+  if (mode === "player-ready") {
+    return (
+      <div className="mx-auto max-w-5xl p-5 sm:p-8">
+        <MaterialVideoPlayerView
+          onLoad={actions.onLoad}
+          onToggleWatched={() => { setWatched((current) => !current); }}
+          phase="idle"
+          title="Разбор проверки skill contract"
+          videoId="03000000-0000-4000-8000-000000000001"
+          watched={watched}
+        />
+      </div>
+    );
+  }
   if (mode === "player-error") {
     return (
       <div className="mx-auto max-w-5xl p-5 sm:p-8">
         <MaterialVideoPlayerView
           onLoad={actions.onLoad}
+          onToggleWatched={fn()}
           phase="error"
           title="Разбор проверки skill contract"
           videoId="03000000-0000-4000-8000-000000000001"
@@ -222,7 +240,22 @@ export const PlayerErrorAndRetry: Story = {
   name: "Player · error and retry",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Player сейчас недоступен. Можно безопасно повторить.")).toBeVisible();
+    await expect(canvas.getByText("Видео сейчас недоступно. Можно безопасно повторить.")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Повторить" })).toBeEnabled();
+  },
+};
+
+export const PlayerWatchedToggle: Story = {
+  args: { mode: "player-ready" },
+  name: "Player · watched toggle",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const markWatched = canvas.getByRole("button", { name: "Отметить просмотренным" });
+    await expect(markWatched).toHaveAttribute("aria-pressed", "false");
+    const initialWidth = markWatched.getBoundingClientRect().width;
+    await userEvent.click(markWatched);
+    const watched = canvas.getByRole("button", { name: "Просмотрено" });
+    await expect(watched).toHaveAttribute("aria-pressed", "true");
+    await expect(watched.getBoundingClientRect().width).toBe(initialWidth);
   },
 };

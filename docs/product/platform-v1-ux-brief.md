@@ -10,6 +10,13 @@ owner-taste constraints записаны отдельно в
 принадлежит [Platform Specification #19](https://github.com/sachkov-inside/platform/issues/19).
 Material lifecycle и access presentation уточнены owner decision #132 от 2026-08-27.
 
+Owner decision [#271](https://github.com/sachkov-inside/platform/issues/271) от 2026-09-04
+заменяет все более ранние Home/global-navigation/Library-filter/Reader-related фрагменты этого
+brief: `/` — реальная Home-витрина без history и `Продолжить`; desktop navigation содержит
+Главную и Базу знаний, mobile dock — Главную, Базу знаний и Профиль; Library URL хранит только
+`q`, `format`, `sort`; Reader не запрашивает related Materials. Старые wireframes ниже сохраняются
+только как историческая provenance.
+
 Snapshot источников: 2026-08-27. Repository-owned product/application contract и glossary
 ссылаются на current relative files и синхронизируются этим change; cross-repository provenance
 привязан к merge commit
@@ -93,12 +100,12 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
 - Closed Material остаётся addressable и индексируемой public page с teaser. Один CTA
   `Получить доступ` для любого locked state ведёт на общую Platform setting с Tribute URL; ссылка
   не является полем Material, billing integration или источником Membership state.
-- Top-level navigation: `Главная`, `Библиотека`, `Карта`. Темы и Серии открываются контекстно из
-  Home, cards и Materials.
-- Signed-in Home: conditional `Продолжить`, затем лента новых материалов, Темы, активные Серии и
-  entry в Карту. Короткая history живёт на Home, полная — в Account.
-- Library filters: `Тема`, `Формат`, `Серия`; multiple values работают как OR внутри facet и AND
-  между facets. Tags остаются visible/searchable links без отдельной filter panel.
+- Top-level navigation: desktop `Главная` и `База знаний`; mobile `Главная`, `База знаний`,
+  `Профиль`. Темы и Серии открываются контекстно из Home и cards; Карта остаётся direct route.
+- Home одинаково опирается на текущие published данные для visitor/member: компактные Темы, затем
+  Видео → Плейлисты → Гайды → Заметки. `Продолжить` и history не входят в Home.
+- Library имеет один поиск по Material/Topic/Series/Tag, Format filters и Material sort. Topics и
+  Playlists остаются коллекциями на том же экране; Topic/Series filters отсутствуют.
 - `Topic` отображается как `Тема`. `ReadingState` меняется только явным user action, без scroll,
   time или video-completion heuristics.
 - Authoring полностью доступен на narrow mobile, а не ограничен preview/publish режимом.
@@ -183,16 +190,16 @@ arbitrary layout blocks;
 
 | Surface | Audience | Job | Content authority / relation |
 |---|---|---|---|
-| Global navigation | Все browser actors | Открыть основную public destination и account context | Только База знаний; `/` redirect на `/library`, Карта доступна по прямому URL; Account/Author — actor utilities |
-| Library / search | Все | Выбрать Topic/Series или найти published Material через full-text search и filters Тема/Формат/Серия | Отдельные real-data секции Topics, Playlists и Materials; multiple values: OR внутри facet, AND между facets; closed body отсутствует в public results |
+| Global navigation | Все browser actors | Открыть основную public destination и account context | Desktop: Главная/База знаний; mobile: Главная/База знаний/Профиль; Карта доступна по прямому URL; Author — actor utility |
+| Library / search | Все | Выбрать Topic/Series или найти published Material одним поиском и Format filters | Один real-data экран Topics, Playlists и Materials; URL только `q`/`format`/`sort`, cursor internal; closed body отсутствует в public results |
 | Topic | Все | Понять направление и перейти к связанным Series/Materials | Generated view по exactly-one Topic |
 | Series | Все | Понять series и пройти ordered episodes; public visitor видит карточки и порядок даже closed Series | Ordered `SeriesMembership`; Material data не копируется |
 | Roadmap | Все | Понять направления продукта и перейти к Topics/Series/Materials | Editorial `NavigationPage` с curated/query links |
-| Material | Все с actor-dependent body state | Прочитать teaser/free/closed body, использовать image/file/video, related Materials и read status | Только current `published` state; public projection отделена от protected body |
+| Material | Все с actor-dependent body state | Прочитать teaser/free/closed body и использовать image/file/video | Только current `published` state; public projection отделена от protected body; related request отсутствует |
 | Sign-in handoff | Anonymous | Создать или открыть account одним email-code flow | После успеха и на каждом следующем входе при unlinked Telegram — центрированное skippable onboarding-окно один раз за authenticated browser session; separate sign-up form отсутствует |
 | Account | Authenticated human | Видеть account, Telegram link и coarse Membership state; запускать link/local-state-update/recovery-supported actions | Account не управляет billing/subscription и не хранит Membership rule в UI |
 | Telegram link result | Authenticated human | Отправить `/start` по short-lived bot link и увидеть linked / expired / conflict / unavailable outcome; Membership result остаётся в Account | Linking не является login и само по себе не даёт access; отдельного browser callback нет |
-| Recent history / reading state | Authenticated human | Вернуться к недавно просмотренному, вручную mark read/unread | Последний/короткий список на Home, полная bounded history в Account; auto-mark отсутствует |
+| Recent history / reading state | Authenticated human | Вручную mark read/unread | Не входит в Home #271; auto-mark отсутствует |
 | Author material list | Author/admin | Найти draft/published/unpublished Materials, создать Material, открыть editor | Private, noindex; list не становится second content authority |
 | Author Topic/Series | Author/admin | Создать, переименовать, описать, архивировать и восстановить Topic/Series; управлять полным составом Series | Slug immutable; composition сохраняется атомарно с optimistic conflict protection; archived references сохраняются, но не назначаются заново |
 | Author editor | Author/admin | Атомарно сохранить document/metadata/access/publication state; видеть validation, upload и conflict states | Один full-state Save contract с MCP; published Save становится live сразу |
@@ -207,13 +214,14 @@ roles и personal layer подтверждены Platform brief.
 
 ### Navigation relationships
 
-- `/` перенаправляет на Library; Topic и Series открываются из real-data discovery sections.
+- `/` server-render-ит bounded Home projection; Topic и Series открываются из real-data discovery
+  sections и cards.
 - Library, Topic и Series являются разными generated views одной content model: они ведут к одному
   Material identity и не хранят собственные копии title/description/access state.
 - Roadmap является editorial `NavigationPage`: её body объясняет направления, а links ведут в
   generated views или конкретные Materials.
-- Material возвращает пользователя к своей Topic, всем Series memberships и related Materials;
-  related выдача сочетает metadata score и explicit author pins без AI dependency.
+- Material принимает безопасный back context только для Home, Library, Topic, Series или Profile и
+  иначе возвращает в Library. Отдельной related выдачи в Reader нет.
 - Account и author surfaces — отдельные private branches; они не должны попадать в public sitemap.
 
 Эти relations следуют logical model и search/navigation flow.
@@ -265,15 +273,15 @@ CTA.
 
 | ID | Requirement / invariant | Actor journey | Surface или `No UI` | Обязательные observable states/actions | Source |
 |---|---|---|---|---|---|
-| R01 | Public home с editorial discovery | Visitor/member открывает Platform и выбирает направление | Home | New feed, Topics, active Series, Карта; after login conditional Продолжить + short history | [Platform navigation][platform-brief-navigation] |
+| R01 | Public mobile-first Home на real data | Visitor/member открывает Platform и выбирает направление | Home | Темы; Видео → Плейлисты → Гайды → Заметки; no Continue/history | [Platform navigation][platform-brief-navigation] |
 | R02 | Полный published catalog | Любой actor просматривает все карточки | Library | client-owned loading, populated, empty; card free/closed status; cursor continuation через automatic infinite scroll и явный fallback | [Workspace v1 scope][workspace-v1-scope] |
 | R03 | Full-text search | Любой actor ищет RU/EN terms | Library/search | query, loading, results, no results, controlled failure; typo/normalization fixture | [Workspace search flow][workspace-search-flow] |
-| R04 | Filters только из real metadata | Любой actor уточняет выдачу | Library/search | Тема/Формат/Серия; multi-select OR within facet, AND across facets; Tags visible/searchable | [Publishing audit navigation][audit-navigation] |
+| R04 | Search и filters только из real metadata | Любой actor уточняет выдачу | Library/search | Один search по Material/Topic/Series/Tag; только Format filters и Material sort | [Publishing audit navigation][audit-navigation] |
 | R05 | Topic navigation | Любой actor открывает направление | Topic | description/context, Series и Material cards, empty/partial | [Platform navigation][platform-brief-navigation] |
 | R06 | Ordered Series, включая closed Series visibility | Visitor видит description/order/cards; member читает episodes | Series | ordered episodes, free/closed/read status, empty/partial; no invented overall progress percent | [Platform actors][platform-brief-actors] |
 | R07 | Editorial Roadmap | Любой actor понимает product directions и переходит к content | Roadmap | editorial body + curated/query links; partial links fail independently | [Workspace navigation roles][workspace-navigation-roles] |
 | R08 | Public card/teaser каждого published Material | Visitor оценивает состав до покупки | Cards на Home/Library/Topic/Series/Roadmap и Material | free/closed label, title, description, cover, author, taxonomy/series, `publishedAt`; no closed body bytes | [Workspace public projection][workspace-public-projection] |
-| R09 | Полное чтение free Material без account | Visitor открывает free card | Material | body, code/table/callout/media/file; optional primary Video section; loading/error; related content | [ContentAccess matrix][access-matrix] |
+| R09 | Полное чтение free Material без account | Visitor открывает free card | Material | body, code/table/callout/media/file; optional primary Video section; loading/error; no related request | [ContentAccess matrix][access-matrix] |
 | R10 | Closed Material deny без утечки | Actor без доступа открывает closed card | Material | indexable public teaser + один `Получить доступ` CTA на configured Tribute URL; protected bytes absent | [Access copy boundary][access-copy] |
 | R11 | Authenticated non-member closed state | Signed-in non-member открывает closed Material | Material + Account | Material показывает только общий `locked`; Membership details/recovery могут жить в Account; free content остаётся доступным | [Membership UX][membership-ux] |
 | R12 | Protected reading | Active member или `materials:manage` opens body/image/file/video | Material | single authorize current published Material; conditional one-body load по `contentVersion`; resource unavailable локален | [ContentAccess matrix][access-matrix] |
@@ -343,12 +351,12 @@ CTA.
 
 | Surface | Actor | Observable state | Разрешённые действия | Запрещённое следствие |
 |---|---|---|---|---|
-| Root | Любой browser actor | Redirect на `/library` | Продолжить в Базу знаний | Не поддерживать вторую public content composition |
+| Root / Home | Любой browser actor | RSC ready / empty sections / controlled failure | Открыть Topic, Playlist или Material | Не использовать frontend fixtures, history или `Продолжить` |
 | Library/search | Все | Client loading / searching / results / no results / controlled failure; published membership cards locked без доступа и unlocked для active member/manager | Мгновенно применить/сбросить real-data filters без page navigation, ввести debounced query, автоматически догрузить cursor continuation, открыть card | Не искать client-side по закрытому body, не выдумывать facets и не публиковать cursor в URL |
 | Topic | Все | Ready / empty / partial | Открыть Series или Material, перейти в Library с Topic context | Не хранить отдельную копию Material metadata |
 | Series | Все | Ready / empty / partial / long ordered list | Открыть episode; authenticated actor видит read/unread | Не скрывать порядок closed Series и не вычислять percent complete |
 | Roadmap | Все | Ready / partial links / editorial empty | Следовать curated/query links в generated views и Materials | Не превращать Roadmap в Topic, Series или duplicated catalog |
-| Free Material | Все | Body ready / loading / long / resource partial | Read, play/download free Resources, открыть related; authenticated — mark read/unread | Не требовать account или Membership |
+| Free Material | Все | Body ready / loading / long / resource partial | Read, play/download free Resources | Не требовать account или Membership и не запускать related request |
 | Closed Material | Любой actor без доступа | Indexable public teaser + `locked` | `Получить доступ` → configured Tribute URL; продолжить public/free navigation | Не fetch/render closed body, inline media, download locator или Video token; не раскрывать точную deny reason |
 | Closed Material | Active member | `allowed`, current published Material | Read body; отдельно authorize image/download/video; mark read/unread | Не reuse одного allow для другой Resource/Action или изменившейся `contentVersion` |
 | Closed Material | Author | `allowed_by_permission` для current published read; Preview для любого lifecycle state | Read published или открыть explicit Preview | Не открывать draft/unpublished через public URL и не превращать permission в fake `MembershipEntitlement` |
@@ -547,10 +555,9 @@ search/access tests и production surfaces.
 
 ## 9. Low-fidelity responsive wireframes
 
-Owner decision #195 supersedes Home/global-navigation fragments in the older wireframes below:
-production starts at `/library`, global navigation contains only «База знаний», and the accepted
-Library/Topic/Series compositions are the real-data implementations from #203 and #216. The older
-Home frames remain only as historical rationale for hierarchy, not as a current surface contract.
+Owner decision #271 supersedes Home/global-navigation/Library/Reader fragments in the older
+wireframes below. Текущий production contract описан в начале brief; frames ниже остаются только
+историческим rationale и не определяют route, navigation, filters, history или related content.
 
 Wireframes encode hierarchy and reading/keyboard order only. Brackets mean a semantic region or
 control, not a component, border, color, spacing token or visual style. Owner-approved compact IA:

@@ -72,6 +72,11 @@ import {
   type WorkshopMaterialAccess,
   type WorkshopMaterialProtection,
 } from "../workshop/index.js";
+import {
+  assembleContentCovers,
+  CONTENT_COVERS,
+  type ContentCovers,
+} from "./facets/content-covers/content-covers.js";
 
 @Module({
   imports: [
@@ -116,6 +121,25 @@ import {
           videos,
           workshopMaterialProtection,
           materialBodyOperations,
+        });
+      },
+    },
+    {
+      provide: CONTENT_COVERS,
+      inject: [PrismaClientProvider, ACCOUNTS, OBJECT_STORAGE],
+      useFactory: (
+        prisma: PrismaClientProvider,
+        accounts: Accounts,
+        objectStorage: ObjectStorage,
+      ): ContentCovers => {
+        const accountPermissions = assembleCurrentAccountPermissions(accounts);
+        return assembleContentCovers({
+          prisma,
+          objectStorage,
+          authorPolicy: {
+            canManage: (accountId) =>
+              accountPermissions.hasMaterialsManage(checkedAccountId(accountId)),
+          },
         });
       },
     },
@@ -223,6 +247,7 @@ import {
   ],
   exports: [
     CONTENT_ACCESS,
+    CONTENT_COVERS,
     MATERIAL_AUTHORING,
     MATERIAL_ASSET_AUTHORING,
     MATERIAL_ASSET_DELIVERY,

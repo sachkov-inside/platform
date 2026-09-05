@@ -302,6 +302,7 @@ model Topic {
   summary    String    @default("")
   archivedAt DateTime? @map("archived_at") @db.Timestamptz
   version    Int       @default(1)
+  coverId    String?   @map("cover_id") @db.Uuid
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
@@ -334,6 +335,7 @@ model Series {
   summary    String    @default("")
   archivedAt DateTime? @map("archived_at") @db.Timestamptz
   version    Int       @default(1)
+  coverId    String?   @map("cover_id") @db.Uuid
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
@@ -358,6 +360,7 @@ model Material {
   publishedAt      DateTime? @map("published_at") @db.Timestamptz
   publishedBy      String?   @map("published_by") @db.Uuid
   primaryVideoId   String?   @map("primary_video_id") @db.Uuid
+  coverId          String?   @map("cover_id") @db.Uuid
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
@@ -416,9 +419,47 @@ model PublishedMaterial {
   publishedBy    String   @map("published_by") @db.Uuid
   publishedAt    DateTime @map("published_at") @db.Timestamptz
   primaryVideoId String?  @map("primary_video_id") @db.Uuid
+  coverId        String?  @map("cover_id") @db.Uuid
 
   @@index([publishedAt(sort: Desc), materialId(sort: Desc)], map: "published_materials_cursor_idx")
   @@map("published_materials")
+  @@schema("materials")
+}
+
+model ContentCover {
+  id                  String    @id @db.Uuid
+  materialId          String?   @map("material_id") @db.Uuid
+  topicId             String?   @map("topic_id") @db.Uuid
+  seriesId            String?   @map("series_id") @db.Uuid
+  state               String
+  failureCode         String?   @map("failure_code") @db.VarChar(64)
+  currentlyReferenced Boolean   @default(false) @map("currently_referenced")
+  orphanedAt          DateTime  @default(now()) @map("orphaned_at") @db.Timestamptz
+  readyAt             DateTime? @map("ready_at") @db.Timestamptz
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  renditions          ContentCoverRendition[]
+
+  @@unique([id, materialId], map: "content_covers_material_identity")
+  @@unique([id, topicId], map: "content_covers_topic_identity")
+  @@unique([id, seriesId], map: "content_covers_series_identity")
+  @@index([currentlyReferenced, orphanedAt, updatedAt], map: "content_covers_orphan_idx")
+  @@map("content_covers")
+  @@schema("materials")
+}
+
+model ContentCoverRendition {
+  coverId         String @map("cover_id") @db.Uuid
+  width           Int
+  height          Int
+  contentType     String @map("content_type") @db.VarChar(255)
+  byteSize        Int    @map("byte_size")
+  checksumSha256  String @map("checksum_sha256") @db.Char(64)
+  publicObjectKey String @map("public_object_key") @db.VarChar(512)
+  cover           ContentCover @relation(fields: [coverId], references: [id], onDelete: Cascade)
+
+  @@id([coverId, width], map: "content_cover_renditions_primary")
+  @@map("content_cover_renditions")
   @@schema("materials")
 }
 
@@ -528,6 +569,7 @@ model Video {
   origin              String
   providerEmbedLocator String?  @map("provider_embed_locator") @db.VarChar(2048)
   providerStatus      String    @map("provider_status") @db.VarChar(64)
+  durationSeconds     Int?      @map("duration_seconds")
   providerVisibleAt   DateTime? @map("provider_visible_at") @db.Timestamptz
   state               String
   failureCode         String?   @map("failure_code") @db.VarChar(64)

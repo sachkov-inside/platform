@@ -27,6 +27,13 @@ and publication date. A membership Material remains discoverable through this pr
 body and body-linked resources stay protected.
 _Avoid_: Teaser revision, public body, access decision
 
+**Content Cover**:
+A dedicated public image owned by exactly one Material, Topic or Series. Platform keeps only
+normalized responsive renditions; replacement and removal detach the old cover, and API
+projections never expose originals, storage keys or checksums. In Russian product language:
+«Обложка».
+_Avoid_: MaterialAsset, shared media-library image, original upload
+
 **Topic**:
 The single subject area to which a Material belongs. Topics are one level deep in v1 and have an
 immutable slug plus mutable name and summary. Archiving removes a Topic from new assignments and
@@ -56,6 +63,12 @@ An editorial page that introduces and connects other Platform destinations. Road
 NavigationPage; Library is instead a generated view of Materials and is labelled «База знаний» in
 the Russian product interface.
 _Avoid_: Material, generated index
+
+**ContentLibrary**:
+The read capability that builds coherent, body-free projections of current Published Materials,
+Topics and Series for Home, Library and discovery pages. Home is a bounded projection of this same
+model, not an editorial copy or a second content store.
+_Avoid_: Frontend fixture catalog, Home CMS, duplicated publication
 
 **MaterialAsset**:
 An immutable non-video image or downloadable file owned by exactly one Material and referenced

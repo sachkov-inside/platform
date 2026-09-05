@@ -5,6 +5,7 @@ import {
   LibraryBig,
   Map,
   PenLine,
+  UserRound,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
@@ -20,7 +21,7 @@ import {
   useSidebar,
 } from "@/shared/ui/sidebar";
 
-type ApplicationNavigationIcon = "home" | "library" | "map" | "pen";
+type ApplicationNavigationIcon = "home" | "library" | "map" | "pen" | "profile";
 
 export interface ApplicationNavigationItem {
   readonly href: Route;
@@ -35,6 +36,7 @@ export interface ApplicationShellProps {
   /** Current route used to expose the active navigation item. */
   readonly currentPath: string;
   readonly navigationItems: readonly ApplicationNavigationItem[];
+  readonly mobileNavigationItems?: readonly ApplicationNavigationItem[];
   /** Server-owned identity control rendered inside the desktop sidebar. */
   readonly desktopAccountSlot?: ReactNode | undefined;
   /** Server-owned identity control rendered beside mobile navigation. */
@@ -48,6 +50,7 @@ const iconByName: Readonly<Record<ApplicationNavigationIcon, LucideIcon>> = {
   library: LibraryBig,
   map: Map,
   pen: PenLine,
+  profile: UserRound,
 };
 
 /** Responsive product frame that owns primary navigation and the main landmark. */
@@ -57,12 +60,13 @@ export function ApplicationShell({
   currentPath,
   desktopAccountSlot,
   mobileAccountSlot,
+  mobileNavigationItems,
   navigationItems,
   sidebarDefaultPinned = false,
 }: ApplicationShellProps) {
   return (
     <ShellFrame>
-      <div className="flex min-h-svh items-start bg-background md:h-svh md:min-h-0 md:overflow-hidden md:bg-card">
+      <div className="flex min-h-svh items-start bg-white pb-28 text-foreground md:h-svh md:min-h-0 md:overflow-hidden md:pb-0">
         <Sidebar defaultPinned={sidebarDefaultPinned}>
           <SidebarBody>
             <SidebarContents
@@ -78,7 +82,7 @@ export function ApplicationShell({
       <MobileBottomNavigation
         accountSlot={mobileAccountSlot}
         currentPath={currentPath}
-        items={navigationItems}
+        items={mobileNavigationItems ?? navigationItems}
       />
     </ShellFrame>
   );
@@ -86,7 +90,7 @@ export function ApplicationShell({
 
 function ShellFrame({ children }: { readonly children: ReactNode }) {
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="min-h-svh bg-white text-foreground" data-public-shell>
       <a
         className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] focus:translate-y-0 motion-reduce:transition-none"
         href="#content"
@@ -102,13 +106,13 @@ function ShellMain({ children }: { readonly children: ReactNode }) {
   return (
     <main
       className={cn(
-        "min-h-svh min-w-0 flex-1 bg-background pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:bg-card md:pb-0",
+        "mobile-scrollbar-hidden min-h-svh min-w-0 flex-1 bg-white",
         "md:h-full md:min-h-0 md:overflow-x-hidden md:overflow-y-auto md:overscroll-y-contain md:[scrollbar-gutter:stable]",
       )}
       id="content"
       tabIndex={-1}
     >
-      <div className="mx-3 my-3 w-auto max-w-6xl rounded-2xl border border-border bg-card px-5 py-7 sm:mx-5 sm:px-8 sm:py-10 md:mx-auto md:my-0 md:w-full md:rounded-none md:border-0 md:bg-transparent md:py-12 lg:px-12 lg:py-14">
+      <div className="mx-auto w-full max-w-[66rem] px-4 pb-16 pt-5 sm:px-7 md:px-10 md:pb-20 md:pt-9">
         {children}
       </div>
     </main>
@@ -218,13 +222,10 @@ function MobileBottomNavigation({
   return (
     <nav
       aria-label="Мобильная навигация"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2 rounded-[1.6rem] border border-black/8 bg-white/88 p-1.5 text-foreground shadow-floating-nav backdrop-blur-xl md:hidden"
     >
       <div
-        className={cn(
-          "grid px-2 pt-1",
-          accountSlot === undefined ? "grid-cols-3" : "grid-cols-4",
-        )}
+        className="flex items-center justify-center gap-1"
       >
         {items.map((item) => {
           const Icon = iconByName[item.icon];
@@ -234,18 +235,18 @@ function MobileBottomNavigation({
             <Link
               aria-current={current ? "page" : undefined}
               className={cn(
-                "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-[0.625rem] font-medium leading-none text-muted-foreground no-underline",
-                "transition-colors duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] active:bg-muted focus-visible:outline-ring motion-reduce:transition-none",
-                current && "text-foreground",
+                "flex min-h-12 items-center justify-center gap-2 rounded-[1.15rem] px-3 text-xs font-semibold leading-none text-muted-foreground no-underline",
+                "transition-[background,color,padding] duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] active:bg-muted focus-visible:outline-ring motion-reduce:transition-none",
+                current && "bg-primary px-5 text-white",
               )}
               href={item.href}
               key={item.href}
             >
               <Icon
                 aria-hidden="true"
-                className={cn("size-4.5", current && "text-accent")}
+                className={cn("size-5", current && "text-accent-bright")}
               />
-              <span>{item.label}</span>
+              {current ? <span>{item.label}</span> : <span className="sr-only">{item.label}</span>}
             </Link>
           );
         })}
@@ -255,9 +256,29 @@ function MobileBottomNavigation({
   );
 }
 
+/** Mobile wordmark shared by public pages inside ApplicationShell. */
+export function PublicProductHeader() {
+  return (
+    <header className="md:hidden">
+      <p className="text-lg font-extrabold tracking-[-0.035em]">
+        Sachkov <span className="text-accent">Inside</span>
+      </p>
+    </header>
+  );
+}
+
 function isCurrentPath(pathname: string, href: Route): boolean {
   if (href === "/") {
     return pathname === href;
+  }
+
+  if (
+    href === "/library" &&
+    ["/materials/", "/series/", "/topics/"].some((prefix) =>
+      pathname.startsWith(prefix),
+    )
+  ) {
+    return true;
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);

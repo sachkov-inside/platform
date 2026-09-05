@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { materialPreviewSchema } from "@/entities/material";
+import {
+  contentCoverSchema,
+  materialPreviewSchema,
+} from "@/entities/material";
 import { createLibraryCatalogQueryOptions } from "../model/library-catalog-query";
 import type { LibraryCatalogPage } from "../model/library-view";
 import {
@@ -11,8 +14,10 @@ import {
 const catalogFacetSchema = z
   .object({
     count: z.number().int().nonnegative(),
+    cover: contentCoverSchema.nullable().optional(),
     id: z.string(),
     name: z.string(),
+    previewItems: z.array(materialPreviewSchema).optional(),
     slug: z.string(),
     summary: z.string().nullable(),
   })
@@ -69,7 +74,10 @@ export async function requestLibraryCatalogPage(
   after: string | undefined,
   signal: AbortSignal,
 ): Promise<LibraryCatalogPage> {
-  const search = serializeLibrarySearchQuery({ ...query, after: after ?? null });
+  const search = serializeLibrarySearchQuery(
+    { ...query, after: after ?? null },
+    { includeCursor: true },
+  );
   return requestCatalogPage(
     search.length === 0
       ? "/api/library/materials"
@@ -84,11 +92,10 @@ export async function requestTopicLibraryCatalogPage(
   after: string | undefined,
   signal: AbortSignal,
 ): Promise<LibraryCatalogPage> {
-  const search = serializeLibrarySearchQuery({
-    ...query,
-    after: after ?? null,
-    topicSlugs: [],
-  });
+  const search = serializeLibrarySearchQuery(
+    { ...query, after: after ?? null },
+    { includeCursor: true },
+  );
   const path = `/api/library/topics/${encodeURIComponent(topicSlug)}/materials`;
   return requestCatalogPage(
     search.length === 0 ? path : `${path}?${search}`,

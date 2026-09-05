@@ -1,11 +1,13 @@
-export type { MaterialPreview } from "./model/material-preview";
 export {
+  contentCoverSchema,
+  contentCoverUrl,
+  type ContentCover,
+  materialPreviewHasVideo,
+  type MaterialPreview,
   materialPreviewSchema,
   publishedMaterialProjectionSchema,
   toMaterialPreview,
-} from "./model/material-preview-schema";
-export { materialTaxonomyLabel } from "./model/material-taxonomy-label";
-export {
+  materialTaxonomyLabel,
   renderedBlockSchema,
   renderedMarkSchema,
   renderedMaterialBodySchema,
@@ -14,5 +16,6 @@ export {
   type RenderedMark,
   type RenderedMaterialBody,
   type RenderedText,
-} from "./model/rendered-material-body";
+} from "../material.model";
 export { MaterialCard, type MaterialCardProps } from "./ui/material-card";
+export { ContentCoverImage } from "./ui/content-cover-image.client";

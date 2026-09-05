@@ -1,6 +1,7 @@
 "use client";
 
 import { RefreshCw } from "lucide-react";
+import type { Route } from "next";
 import { useCallback, useMemo } from "react";
 
 import {
@@ -12,15 +13,16 @@ import {
   useLibraryCatalogQuery,
   withoutLibraryCursor,
 } from "@/features/library-catalog";
-import { materialReaderOriginHref } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
 
 export function TopicMaterialCatalog({
+  returnHref,
   topicSlug,
 }: {
+  readonly returnHref: Route;
   readonly topicSlug: string;
 }) {
-  const fixedQuery = useMemo(() => topicQuery(topicSlug), [topicSlug]);
+  const fixedQuery = useMemo(() => topicQuery(), []);
   const createQueryOptions = useCallback(
     (query: LibrarySearchQuery) =>
       topicLibraryCatalogQueryOptions(topicSlug, query),
@@ -41,17 +43,19 @@ export function TopicMaterialCatalog({
     <div className="@container/library mt-10">
       <CatalogControls
         facets={facets}
-        hiddenFacets={["topic"]}
         isRefreshing={
-          catalog.query.isFetching && !catalog.query.isFetchingNextPage
+          catalog.query.isFetching &&
+          !catalog.query.isPending &&
+          !catalog.query.isFetchingNextPage
         }
         onQueryChange={(next) => {
-          catalog.setSearchQuery(
-            withoutLibraryCursor({ ...next, topicSlugs: [topicSlug] }),
-          );
+          catalog.setSearchQuery(withoutLibraryCursor(next));
         }}
         query={catalog.searchQuery}
         resetQuery={fixedQuery}
+        {...(firstPage?.kind === "ready"
+          ? { totalCount: firstPage.totalCount }
+          : {})}
       />
       {catalog.query.isPending ? (
         <CatalogStatus message="Загружаем материалы темы…" />
@@ -74,7 +78,7 @@ export function TopicMaterialCatalog({
           isFetchingNextPage={catalog.query.isFetchingNextPage}
           onLoadNextPage={catalog.loadNextPage}
           pages={catalog.readyPages}
-          returnHref={materialReaderOriginHref("topic", topicSlug)}
+          returnHref={returnHref}
           totalCount={firstPage.totalCount}
         />
       )}
@@ -82,10 +86,8 @@ export function TopicMaterialCatalog({
   );
 }
 
-function topicQuery(topicSlug: string): LibrarySearchQuery {
-  const search = new URLSearchParams();
-  search.set("topic", topicSlug);
-  return parseLibrarySearchParams(search).query;
+function topicQuery(): LibrarySearchQuery {
+  return parseLibrarySearchParams(new URLSearchParams()).query;
 }
 
 function CatalogStatus({ message }: { readonly message: string }) {

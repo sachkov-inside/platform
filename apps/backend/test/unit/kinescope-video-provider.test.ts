@@ -60,6 +60,7 @@ describe("Kinescope VideoProvider adapter", () => {
   test("returns authoritative project facts so the application can fail a mismatch explicitly", async () => {
     const request = vi.fn().mockResolvedValue(Response.json({
       data: {
+        duration: 66.00001,
         embed_link: "https://kinescope.io/embed/provider-video",
         id: "provider-video",
         project_id: "different-project",
@@ -70,7 +71,10 @@ describe("Kinescope VideoProvider adapter", () => {
     const provider = createKinescopeVideoProvider({ ...config, fetch: request });
 
     await expect(provider.find({ id: "provider-video", projectId: "member-project" }))
-      .resolves.toMatchObject({ projectId: "different-project" });
+      .resolves.toMatchObject({
+        durationSeconds: 66,
+        projectId: "different-project",
+      });
   });
 
   test("deletes one stored provider identity and retains the provider request ID", async () => {

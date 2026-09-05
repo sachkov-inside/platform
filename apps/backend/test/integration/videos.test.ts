@@ -87,6 +87,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       .resolves.toMatchObject({ ok: true, value: { state: "processing" } });
 
     remote.set(providerVideoId, {
+      durationSeconds: 600,
       embedLocator: `https://kinescope.io/embed/${providerVideoId}`,
       id: providerVideoId,
       projectId: "member-project",
@@ -106,6 +107,23 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     await expect(videos.loadPlayback(initialized.value.video.videoId)).resolves.toMatchObject({
       ok: true,
       value: { access: "membership", providerVideoId },
+    });
+    await expect(
+      videos.loadPresentation({
+        materialId,
+        videoId: initialized.value.video.videoId,
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: { durationSeconds: 600, state: "ready" },
+    });
+    await expect(
+      videos.loadReadyDurations([initialized.value.video.videoId]),
+    ).resolves.toEqual({
+      ok: true,
+      value: [
+        { durationSeconds: 600, videoId: initialized.value.video.videoId },
+      ],
     });
     await expect(videos.loadAccessFacts([initialized.value.video.videoId])).resolves.toEqual({
       ok: true,

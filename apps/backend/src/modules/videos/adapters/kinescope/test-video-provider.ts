@@ -39,6 +39,7 @@ export function createTestVideoProvider(): VideoProvider {
         if (known.status === "processing") {
           videos.set(input.id, {
             ...known,
+            durationSeconds: known.durationSeconds ?? 600,
             embedLocator: `https://kinescope.io/embed/${input.id}`,
             status: "done",
           });
@@ -46,6 +47,7 @@ export function createTestVideoProvider(): VideoProvider {
         return Promise.resolve(known);
       }
       return Promise.resolve({
+        durationSeconds: 600,
         embedLocator: `https://kinescope.io/embed/${input.id}`,
         id: input.id,
         projectId: input.projectId,

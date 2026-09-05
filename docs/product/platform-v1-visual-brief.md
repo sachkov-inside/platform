@@ -15,6 +15,12 @@ Structural UX authority остаётся в
 standalone concept/component gates #22/#23: visual language сначала проверяется в bounded,
 owner-controlled UI laboratory, затем принятые outputs — в production shell и реальных surfaces.
 
+Owner decision [#271](https://github.com/sachkov-inside/platform/issues/271) от 2026-09-04
+сужает текущий production visual contract: desktop Sidebar — Главная/База знаний, mobile floating
+dock — Главная/База знаний/Профиль с текстом только у active destination; Home не имеет search,
+history или `Продолжить`; Library оставляет один search, Format filters и Material sort; Reader не
+показывает related block. Более ранние противоречащие bullets ниже являются историческими.
+
 ## 1. Subject, audience и jobs
 
 Platform — живая инженерная мастерская и канонический дом полноценных Materials Inside, а не
@@ -79,9 +85,14 @@ owner review.
 | H1 против H3 | Owner выбрал вариант `1` из представленных hypotheses без отдельного rationale | H1 выше H3 как текущий starting point; приписывать owner конкретную причину нельзя |
 | H2 против H3 | Owner не дал предпочтения и попросил не превращать approximate direction в точную final reference | Pairwise outcome — tie; оба остаются optional lenses для real surfaces, но их не нужно отдельно прототипировать |
 | Exact reference против adaptable direction | Реализовывать поэтапно под owner control, не считать reference точной спецификацией | Ни один mockup/source не получает pixel authority; решения подтверждаются на rendered surfaces |
+| Integrated mobile-first prototype | Owner 2026-09-04 выбрал visual language объединённого Home/Library/Topic/Playlist/Reader prototype как главный | `Mobile-first Platform/Prototype` становится canonical visual baseline для этих public surfaces; fixture behaviour не заменяет product contract |
 
 Итоговый rank для текущего handoff: `H1 > H2 = H3`. Это starting taste signal для первой
 production baseline, но не final visual selection и не требование создать несколько concepts.
+
+Решение 2026-09-04 supersede-ит ограничение строки `Exact reference против adaptable direction`
+для public surfaces, перечисленных в integrated mobile-first prototype. Baseline задаёт точную
+визуальную композицию и responsive language, но не переносит fixture-only поведение в product.
 
 ## 3. Preference axes
 
@@ -281,7 +292,7 @@ Rendered review в [Platform #45](https://github.com/sachkov-inside/platform/iss
   может быть явно закреплён, а profile utility с детерминированной account identity остаётся у
   нижней границы независимо от page scroll;
 - collapsed sidebar показывает brand mark, а pin control появляется только в expanded state;
-- mobile использует постоянную нижнюю navigation для `Главная / Библиотека / Карта`, а не burger;
+- mobile использует floating navigation для `Главная / База знаний / Профиль`, а не burger;
 - `Media Card` является принятой основой Material preview: bounded card не растягивается на всю
   страницу, video получает реальный preview с duration в одном месте, а Material без preview
   остаётся content-first без искусственной заглушки;
@@ -320,15 +331,13 @@ rendered visual/component GO остаётся отдельным от PR и merg
 - Reader показывает только подтверждённые actions: `Назад` и вручную переключаемое
   `Прочитано / Не прочитано`; save и like не моделируются, а переход к следующему Material
   появляется только при реальном membership текущего Material в Series;
-- Library фильтрует по каноническим facets `Тема / Формат / Серия`: выбранные значения работают
-  как OR внутри facet и AND между facets; Tags остаются видимыми searchable links и search text,
-  но не образуют отдельную filter group; filters применяются без page navigation, text search
-  debounce-ится, а обычный infinite scroll сохраняет видимую кнопку ручной догрузки;
+- Library оставляет один search по Material/Topic/Series/Tag, Format filters и Material sort;
+  filters применяются без page navigation, cursor остаётся внутри infinite query;
 - Material Card показывает title и ordinal Series только при реальном membership; карточка без
   Series не резервирует под него место;
 - video Material cards образуют компактную media-grid с одинаковым `16:9` preview и стабильной
-  геометрией metadata; Material без preview остаётся естественно ниже, а related cards в Reader
-  не растягиваются на всю доступную ширину;
+  геометрией metadata; Material без cover использует стабильный fallback, а Reader не содержит
+  related cards;
 - accepted component foundation состоит из реально используемых `Button`, `Select`, `Tooltip` и
   surface patterns `ApplicationShell`, `MaterialCard`, `LibraryFilters`; story-only `Sheet`,
   неподтверждённая header topology и внешний avatar dependency в baseline не сохраняются;
@@ -342,12 +351,36 @@ owning surface reviews.
 Chapters, video timecode, closed access и authoring composition остаются открытыми до своих owning
 surface reviews.
 
+### Integrated mobile-first public baseline
+
+Owner review 2026-09-04 выбрал Storybook proof `Pages/Mobile-first Platform/Prototype` как
+canonical visual baseline для public Home, Library, Topic, Playlist and Reader. Versioned sources:
+
+- `apps/web/src/workshop/mobile-first-platform.prototype.tsx`;
+- `apps/web/src/workshop/mobile-first-platform.prototype.css`;
+- `apps/web/src/workshop/mobile-first-platform.prototype.stories.tsx`.
+
+Baseline authority включает composition, hierarchy, typography, spacing, colour, cover geometry,
+card presentation, desktop Sidebar, mobile floating navigation и responsive behaviour на
+`390 × 844` и `1440 × 1024`. Production routes и production Storybook stories используют одну
+production-owned implementation этих решений; story fixtures поставляют только representative
+presentation state.
+
+Prototype fixtures, button-owned navigation, hardcoded audience decisions, personalised
+`Продолжить`/history и порядок секций, который расходится с issue #271, не являются product
+authority. Production сохраняет реальные RSC/TanStack Query/BFF seams, ContentAccess outcomes и
+порядок Home `Видео → Плейлисты → Гайды → Заметки`.
+
+Workshop baseline остаётся versioned comparison source до owner visual GO на exact production
+routes. После GO его удаление не должно менять rendered result; production stories становятся
+единственным executable visual contract.
+
 ## 7. Alive, not animated
 
 Живость подтверждают реальные observable facts:
 
 - new/updated Material и active Series;
-- explicit `Продолжить`, history и manual read/unread state;
+- новые published Материалы и активные Series без fake history/`Продолжить`;
 - current video chapter/timecode и bounded playback progress;
 - save/publish/access feedback;
 - partial/loading/error states, которые не скрывают доступный content;

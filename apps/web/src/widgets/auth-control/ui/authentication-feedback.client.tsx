@@ -24,7 +24,7 @@ export function AuthenticationFeedback() {
 
   return (
     <div
-      className="fixed right-5 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-50 flex w-[calc(100%-2.5rem)] max-w-md items-start gap-3 rounded-2xl border border-destructive/25 bg-background px-5 py-4 text-sm leading-6 text-destructive shadow-lg md:bottom-5"
+      className="fixed right-5 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-50 flex w-[calc(100%-2.5rem)] max-w-md items-start gap-3 rounded-2xl border border-destructive/25 bg-background px-5 py-4 text-sm leading-6 text-destructive shadow-lg md:bottom-5"
       role="status"
     >
       <p className="min-w-0 flex-1">{message}</p>

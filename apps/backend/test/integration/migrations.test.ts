@@ -27,6 +27,8 @@ import {
 
 const materialTables = [
   "authoring_idempotency",
+  "content_cover_renditions",
+  "content_covers",
   "formats",
   "material_related_pins",
   "material_search_documents",
@@ -158,6 +160,9 @@ describe("Platform migrations", () => {
         "0022_workshop_video_access",
         "0023_workshop_foundation",
         "0024_workshop_membership_entitlement_projection",
+        "0025_content_covers",
+        "0026_video_duration",
+        "0027_current_collection_search",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -222,12 +227,37 @@ describe("Platform migrations", () => {
     expect(cursorIndexes[0]?.definition).toContain(
       "(published_at DESC, material_id DESC)",
     );
+
+    const addedColumns = await testDatabase.prisma.$queryRaw<
+      readonly { readonly column_name: string; readonly table_schema: string; readonly table_name: string }[]
+    >(Prisma.sql`
+      select table_schema, table_name, column_name
+      from information_schema.columns
+      where (table_schema = 'materials' and column_name = 'cover_id')
+         or (table_schema = 'videos' and table_name = 'videos' and column_name = 'duration_seconds')
+      order by table_schema, table_name
+    `);
+    expect(addedColumns).toEqual([
+      { column_name: "cover_id", table_name: "content_cover_renditions", table_schema: "materials" },
+      { column_name: "cover_id", table_name: "materials", table_schema: "materials" },
+      { column_name: "cover_id", table_name: "published_materials", table_schema: "materials" },
+      { column_name: "cover_id", table_name: "series", table_schema: "materials" },
+      { column_name: "cover_id", table_name: "topics", table_schema: "materials" },
+      { column_name: "duration_seconds", table_name: "videos", table_schema: "videos" },
+    ]);
   });
 
   test("backfills Workshop entitlement from the current Membership projection", async () => {
     const database = await createTestDatabase();
     try {
-      await runMigrationsToLatest(database.url, platformMigrations.slice(0, -1));
+      const migrationIndex = platformMigrations.findIndex(
+        ({ name }) => name === "0024_workshop_membership_entitlement_projection",
+      );
+      expect(migrationIndex).toBeGreaterThan(0);
+      await runMigrationsToLatest(
+        database.url,
+        platformMigrations.slice(0, migrationIndex),
+      );
       await database.prisma.$executeRaw(Prisma.sql`
         insert into membership_entitlements.account_bindings (
           account_id,
@@ -262,7 +292,12 @@ describe("Platform migrations", () => {
         );
       `);
 
-      await expect(migrateToLatest(database.url)).resolves.toEqual({
+      await expect(
+        runMigrationsToLatest(
+          database.url,
+          platformMigrations.slice(0, migrationIndex + 1),
+        ),
+      ).resolves.toEqual({
         appliedMigrations: ["0024_workshop_membership_entitlement_projection"],
       });
       await expect(
@@ -283,7 +318,15 @@ describe("Platform migrations", () => {
   test("backfills conservative immutable Video origin from durable upload evidence", async () => {
     const database = await createTestDatabase();
     try {
-      await runMigrationsToLatest(database.url, platformMigrations.slice(0, -5));
+      await runMigrationsToLatest(
+        database.url,
+        platformMigrations.slice(
+          0,
+          platformMigrations.findIndex(
+            ({ name }) => name === "0020_safe_video_deletion",
+          ),
+        ),
+      );
       await database.prisma.$executeRaw(Prisma.sql`
         insert into videos.videos (
           id, material_id, created_by, access, project_id, provider_video_id,
@@ -627,6 +670,9 @@ describe("Platform migrations", () => {
           "0022_workshop_video_access",
           "0023_workshop_foundation",
           "0024_workshop_membership_entitlement_projection",
+          "0025_content_covers",
+          "0026_video_duration",
+          "0027_current_collection_search",
         ],
       });
 
@@ -776,11 +822,11 @@ describe("Platform migrations", () => {
       await migrateToLatest(database.url);
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
-        values ('9999_unknown', 25, repeat('0', 64))
+        values ('9999_unknown', 28, repeat('0', 64))
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 25",
+        "Migration ledger is not an exact registry prefix at position 28",
       );
     } finally {
       await database.dispose();

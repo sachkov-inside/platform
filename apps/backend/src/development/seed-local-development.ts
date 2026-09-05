@@ -1,5 +1,9 @@
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
 import { assembleMaterials } from "../modules/materials/index.js";
+import {
+  assembleVideos,
+  type VideoProvider,
+} from "../modules/videos/index.js";
 
 const actor = "72000000-0000-4000-8000-000000000001";
 const topicId = "72000000-0000-4000-8000-000000000002";
@@ -10,6 +14,29 @@ const seriesId = "72000000-0000-4000-8000-000000000007";
 const slug = "kak-ustroen-inside-platform";
 const membershipSlug = "developer-pipeline-bez-poteri-konteksta";
 const membershipCreateIdempotencyKey = "72000000-0000-4000-8000-000000000033";
+const videoFormatId = "72000000-0000-4000-8000-000000000040";
+const noteFormatId = "72000000-0000-4000-8000-000000000041";
+const localVideoProjects = {
+  free: "local-development-free",
+  membership: "local-development-membership",
+} as const;
+const localVideoFixtures: ReadonlyMap<string, {
+  readonly durationSeconds: number;
+  readonly title: string;
+}> = new Map([
+  ["local-home-developer-pipeline", {
+    durationSeconds: 628,
+    title: "Видео про Developer Pipeline",
+  }],
+  ["local-home-deep-modules", {
+    durationSeconds: 481,
+    title: "Глубокие модули на практике",
+  }],
+  ["local-home-product-context", {
+    durationSeconds: 754,
+    title: "Продукт и инженерный контекст",
+  }],
+]);
 
 export interface LocalDevelopmentSeed {
   readonly materialId: string;
@@ -22,13 +49,21 @@ export async function seedLocalDevelopment(
 ): Promise<LocalDevelopmentSeed> {
   await ensureReferenceData(prisma);
 
+  const videos = assembleVideos({
+    canManage: (accountId) => Promise.resolve(accountId === actor),
+    prisma,
+    projects: localVideoProjects,
+    provider: localDevelopmentVideoProvider,
+  });
   const { authoring } = assembleMaterials({
     prisma,
     authorPolicy: {
       canManage: (accountId) => accountId === actor,
     },
+    videos,
   });
   await ensureCatalogContinuationMaterials(prisma, authoring);
+  await ensureHomeMaterials(prisma, authoring, videos);
   const representativeMaterial = {
     metadata: {
       title: "Как устроен Inside Platform",
@@ -323,6 +358,155 @@ async function ensureCatalogContinuationMaterials(
   }
 }
 
+async function ensureHomeMaterials(
+  prisma: PlatformPrisma,
+  authoring: ReturnType<typeof assembleMaterials>["authoring"],
+  videos: ReturnType<typeof assembleVideos>,
+): Promise<void> {
+  const materials = [
+    {
+      formatId: videoFormatId,
+      slug: "video-pro-developer-pipeline",
+      summary: "Короткий разбор пути задачи от ready до проверяемой поставки.",
+      title: "Видео про Developer Pipeline",
+      providerVideoId: "local-home-developer-pipeline",
+    },
+    {
+      formatId: videoFormatId,
+      slug: "video-pro-glubokie-moduli",
+      summary: "Как сделать интерфейс модуля компактным, а реализацию — глубокой.",
+      title: "Глубокие модули на практике",
+      providerVideoId: "local-home-deep-modules",
+    },
+    {
+      formatId: videoFormatId,
+      slug: "video-pro-produkty-i-kontekst",
+      summary: "Как продуктовый контекст помогает принимать инженерные решения.",
+      title: "Продукт и инженерный контекст",
+      providerVideoId: "local-home-product-context",
+    },
+    {
+      formatId: noteFormatId,
+      slug: "zametka-pro-granitsy-modulya",
+      summary: "Короткая памятка о границах ответственности в коде.",
+      title: "Границы хорошего модуля",
+    },
+    {
+      formatId: noteFormatId,
+      slug: "zametka-pro-proveryaemuyu-postavku",
+      summary: "Что должно быть доказано до передачи результата владельцу.",
+      title: "Проверяемая поставка",
+    },
+  ] as const;
+
+  for (const [index, materialDefinition] of materials.entries()) {
+    const metadata = {
+      access: "free" as const,
+      formatId: materialDefinition.formatId,
+      seriesIds: [],
+      summary: materialDefinition.summary,
+      tagIds: [tagId],
+      title: materialDefinition.title,
+      topicId,
+    };
+    const body = {
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            attrs: {
+              nodeId: `74000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+            },
+            content: [{ type: "text", text: materialDefinition.summary }],
+            type: "paragraph",
+          },
+        ],
+      },
+    } as const;
+    const existing = await prisma.material.findFirst({
+      where: {
+        OR: [
+          { slug: materialDefinition.slug },
+          { title: materialDefinition.title },
+        ],
+      },
+      select: { contentVersion: true, id: true, primaryVideoId: true, publicationState: true },
+    });
+    let material = existing;
+    if (material === null) {
+      const created = await authoring.createDraft({
+        actor,
+        body,
+        idempotencyKey: `local-home-create-${String(index + 1)}`,
+        metadata,
+      });
+      if (!created.ok) {
+        throw new Error(`Local Home draft failed: ${created.error.code}`);
+      }
+      material = {
+        contentVersion: BigInt(created.value.contentVersion),
+        id: created.value.materialId,
+        primaryVideoId: null,
+        publicationState: created.value.publicationState,
+      };
+    }
+    let primaryVideoId: string | null = null;
+    if ("providerVideoId" in materialDefinition) {
+      const attached = await videos.attachExisting({
+        access: "free",
+        actor,
+        materialId: material.id,
+        providerVideoId: materialDefinition.providerVideoId,
+      });
+      if (!attached.ok) {
+        throw new Error(`Local Home video failed: ${attached.error.code}`);
+      }
+      primaryVideoId = attached.value.videoId;
+    }
+    if (
+      material.publicationState !== "published" ||
+      material.primaryVideoId !== primaryVideoId
+    ) {
+      const expectedContentVersion = Number(material.contentVersion);
+      const published = await authoring.saveMaterial({
+        actor,
+        body,
+        expectedContentVersion,
+        idempotencyKey: `local-home-publish-v2-${String(index + 1)}-${String(expectedContentVersion)}`,
+        materialId: material.id,
+        metadata,
+        primaryVideoId,
+        publicationState: "published",
+      });
+      if (!published.ok) {
+        throw new Error(`Local Home publish failed: ${published.error.code}`);
+      }
+    }
+  }
+}
+
+const localDevelopmentVideoProvider: VideoProvider = {
+  delete() {
+    return Promise.resolve({ kind: "not_found" });
+  },
+  find({ id, projectId }) {
+    const fixture = localVideoFixtures.get(id);
+    if (fixture === undefined || projectId !== localVideoProjects.free) return Promise.resolve(null);
+    return Promise.resolve({
+      durationSeconds: fixture.durationSeconds,
+      embedLocator: `https://kinescope.io/embed/${id}`,
+      id,
+      projectId,
+      status: "done",
+      title: fixture.title,
+    });
+  },
+  initUpload() {
+    return Promise.reject(new Error("Local development seed does not upload videos"));
+  },
+};
+
 async function ensureMembershipCatalogMaterial(
   prisma: PlatformPrisma,
   authoring: ReturnType<typeof assembleMaterials>["authoring"],
@@ -437,6 +621,16 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
   await prisma.format.upsert({
     where: { id: formatId },
     create: { id: formatId, slug: "guide", name: "Guide" },
+    update: {},
+  });
+  await prisma.format.upsert({
+    where: { id: videoFormatId },
+    create: { id: videoFormatId, slug: "video", name: "Видео" },
+    update: {},
+  });
+  await prisma.format.upsert({
+    where: { id: noteFormatId },
+    create: { id: noteFormatId, slug: "note", name: "Заметка" },
     update: {},
   });
   await prisma.tag.upsert({

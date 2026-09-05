@@ -13,6 +13,7 @@ export const videoStateSchema = z.enum([
   "delete_failed",
 ]);
 export const videoPresentationSchema = z.object({
+  durationSeconds: z.number().int().positive().optional(),
   failureCode: z.string().optional(),
   state: videoStateSchema,
   title: z.string(),
@@ -51,6 +52,11 @@ export interface VideoPlayback {
   readonly embedLocator: string;
   readonly materialId: string;
   readonly providerVideoId: string;
+  readonly videoId: string;
+}
+
+export interface ReadyVideoDuration {
+  readonly durationSeconds: number;
   readonly videoId: string;
 }
 
@@ -157,6 +163,12 @@ export interface Videos {
     readonly materialId: string;
     readonly videoId: string;
   }): Promise<OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">>;
+  loadReadyDurations(videoIds: readonly string[]): Promise<
+    OperationResult<
+      readonly ReadyVideoDuration[],
+      "dependency_unavailable" | "invalid_request"
+    >
+  >;
   loadLatestDeletion(materialId: string): Promise<
     OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">
   >;

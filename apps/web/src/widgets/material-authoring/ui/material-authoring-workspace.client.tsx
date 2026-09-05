@@ -9,6 +9,7 @@ import {
 import { MaterialCurrentPreview } from "./material-current-preview";
 import { MaterialMetadataPanel } from "./material-metadata-panel.client";
 import { MaterialVideoAuthoring } from "@/features/material-video";
+import { ContentCoverEditor } from "@/features/content-covers";
 import {
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
@@ -114,6 +115,20 @@ export function MaterialAuthoringWorkspace({
           <h2 className="text-sm font-semibold" id="document-heading">
             Содержимое материала
           </h2>
+          {presentation.draft.materialId === null ? null : (
+            <div className="mt-4">
+              <ContentCoverEditor
+                disabled={
+                  presentation.save.kind === "submitting" ||
+                  presentation.blocking.kind !== "none" ||
+                  presentation.draft.readOnly
+                }
+                initialCover={presentation.draft.cover ?? null}
+                ownerId={presentation.draft.materialId}
+                ownerKind="material"
+              />
+            </div>
+          )}
           <MaterialVideoAuthoring
             access={presentation.draft.access}
             disabled={

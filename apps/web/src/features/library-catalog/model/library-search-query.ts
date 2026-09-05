@@ -1,18 +1,24 @@
-const FACET_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+import type { Route } from "next";
+
+import {
+  defaultLibraryRouteSort,
+  libraryRouteHref,
+  parseLibraryRouteSearch,
+  serializeLibraryRouteSearch,
+  type LibraryRouteFormat,
+  type LibraryRouteSort,
+} from "@/shared/routing/library-route";
+
 const CURSOR = /^[A-Za-z0-9_-]+$/u;
-const MAX_QUERY_LENGTH = 120;
-const MAX_FACET_VALUES = 20;
 const MAX_CURSOR_LENGTH = 512;
 
-export type LibraryCatalogSort = "newest" | "relevance" | "series" | "title";
+export type LibraryCatalogSort = LibraryRouteSort;
 
 export interface LibrarySearchQuery {
   readonly after: string | null;
-  readonly formatSlugs: readonly string[];
+  readonly formatSlugs: readonly LibraryRouteFormat[];
   readonly q: string;
-  readonly seriesSlugs: readonly string[];
   readonly sort: LibraryCatalogSort;
-  readonly topicSlugs: readonly string[];
 }
 
 export interface ParsedLibrarySearchParams {
@@ -26,36 +32,40 @@ type SearchParamsInput =
 
 export function parseLibrarySearchParams(
   input: SearchParamsInput,
+  options: { readonly includeCursor?: boolean } = {},
 ): ParsedLibrarySearchParams {
   const raw = toSearchParams(input);
-  const q = normalizeQuery(raw.getAll("q")[0]);
-  const seriesSlugs = normalizeFacetValues(raw.getAll("series"));
+  const route = parseLibraryRouteSearch(raw);
   const query = {
     after: normalizeCursor(raw.getAll("after")[0]),
-    formatSlugs: normalizeFacetValues(raw.getAll("format")),
-    q,
-    seriesSlugs,
-    sort: normalizeSort(raw.getAll("sort")[0], q, seriesSlugs),
-    topicSlugs: normalizeFacetValues(raw.getAll("topic")),
+    formatSlugs: route.formatSlug === null ? [] : [route.formatSlug],
+    q: route.q,
+    sort: route.sort,
   } satisfies LibrarySearchQuery;
   return {
     query,
-    wasNormalized: raw.toString() !== serializeLibrarySearchQuery(query),
+    wasNormalized:
+      raw.toString() !==
+      serializeLibrarySearchQuery(query, {
+        includeCursor: options.includeCursor ?? false,
+      }),
   };
 }
 
 export function serializeLibrarySearchQuery(
   query: LibrarySearchQuery,
+  options: { readonly includeCursor?: boolean } = {},
 ): string {
-  const search = new URLSearchParams();
-  if (query.q.length > 0) search.set("q", query.q);
-  appendValues(search, "topic", query.topicSlugs);
-  appendValues(search, "format", query.formatSlugs);
-  appendValues(search, "series", query.seriesSlugs);
-  if (query.sort !== defaultSort(query.q, query.seriesSlugs)) {
-    search.set("sort", query.sort);
+  const search = new URLSearchParams(
+    serializeLibraryRouteSearch({
+      formatSlug: query.formatSlugs[0] ?? null,
+      q: query.q,
+      sort: query.sort,
+    }),
+  );
+  if (options.includeCursor === true && query.after !== null) {
+    search.set("after", query.after);
   }
-  if (query.after !== null) search.set("after", query.after);
   return search.toString();
 }
 
@@ -63,12 +73,19 @@ export function librarySearchQueryIdentity(query: LibrarySearchQuery): string {
   return serializeLibrarySearchQuery(query);
 }
 
+export function libraryHref(query: LibrarySearchQuery): Route {
+  return libraryRouteHref({
+    formatSlug: query.formatSlugs[0] ?? null,
+    q: query.q,
+    sort: query.sort,
+  });
+}
+
 export function hasActiveLibrarySearch(query: LibrarySearchQuery): boolean {
   return (
     query.q.length > 0 ||
-    query.topicSlugs.length > 0 ||
     query.formatSlugs.length > 0 ||
-    query.seriesSlugs.length > 0
+    query.sort !== defaultLibraryRouteSort(query.q)
   );
 }
 
@@ -102,20 +119,6 @@ function toSearchParams(input: SearchParamsInput): URLSearchParams {
   return search;
 }
 
-function normalizeQuery(value: string | undefined): string {
-  const truncated = (value ?? "")
-    .trim()
-    .replace(/\s+/gu, " ")
-    .slice(0, MAX_QUERY_LENGTH);
-  return /[\uD800-\uDBFF]$/u.test(truncated) ? truncated.slice(0, -1) : truncated;
-}
-
-function normalizeFacetValues(values: readonly string[]): readonly string[] {
-  return [...new Set(values.filter((value) => FACET_SLUG.test(value)))]
-    .sort()
-    .slice(0, MAX_FACET_VALUES);
-}
-
 function normalizeCursor(value: string | undefined): string | null {
   return value !== undefined &&
     value.length > 0 &&
@@ -123,29 +126,4 @@ function normalizeCursor(value: string | undefined): string | null {
     CURSOR.test(value)
     ? value
     : null;
-}
-
-function normalizeSort(
-  value: string | undefined,
-  q: string,
-  seriesSlugs: readonly string[],
-): LibraryCatalogSort {
-  return value === "newest" ||
-    value === "relevance" ||
-    value === "title" ||
-    (value === "series" && seriesSlugs.length === 1)
-    ? value
-    : defaultSort(q, seriesSlugs);
-}
-
-function defaultSort(q: string, seriesSlugs: readonly string[]): LibraryCatalogSort {
-  return q.length === 0 && seriesSlugs.length === 1 ? "series" : "relevance";
-}
-
-function appendValues(
-  search: URLSearchParams,
-  name: string,
-  values: readonly string[],
-): void {
-  for (const value of values) search.append(name, value);
 }

@@ -142,8 +142,18 @@ export { KinescopeVideoAuthorizationController } from "./adapters/nest/kinescope
 export { VIDEO_PLAYBACK, assembleVideoPlayback } from "./facets/video-playback/video-playback.js";
 export { MaterialAssetMaintenanceModule } from "./material-asset-maintenance.module.js";
 export { assembleMaterialAuthoringMcpServer } from "./adapters/mcp/material-authoring-mcp.js";
+export {
+  assembleContentCovers,
+  type ChangeContentCoverCommand,
+  type ChangeContentCoverResult,
+  type ContentCoverOwner,
+  type ContentCoverProjection,
+  type ContentCovers,
+  type DeliverContentCoverResult,
+} from "./facets/content-covers/content-covers.js";
 export { assembleMaterials, type Materials } from "./assemble-materials.js";
 export {
+  contentCoverProjectionHttpSchema,
   publishedMaterialProblemHttpSchema,
   publishedMaterialProjectionHttpSchema,
 } from "./adapters/nest/published-material-http.js";
@@ -170,6 +180,10 @@ export { CreateContentCollectionController } from "./features/create-content-col
 export { ListContentCollectionsController } from "./features/list-content-collections/list-content-collections.controller.js";
 export { SetContentCollectionArchiveController } from "./features/set-content-collection-archive/set-content-collection-archive.controller.js";
 export { UpdateContentCollectionController } from "./features/update-content-collection/update-content-collection.controller.js";
+export {
+  AuthoringContentCoverController,
+  ContentCoverDeliveryController,
+} from "./facets/content-covers/content-covers.controller.js";
 export {
   MATERIAL_ASSET_MAINTENANCE,
   type CleanupMaterialAssetsResult,

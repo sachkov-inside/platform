@@ -25,13 +25,21 @@ import { MaterialReaderView } from "./material-reader-view";
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
-  { href: "/map", icon: "map", label: "Карта" },
+] satisfies readonly ApplicationNavigationItem[];
+
+const mobileNavigationItems = [
+  ...navigationItems,
+  { href: "/account", icon: "profile", label: "Профиль" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const material = {
   materialId: "02000000-0000-4000-8000-000000000010",
   contentVersion: 7,
   access: "free",
+  cover: {
+    coverId: "02000000-0000-4000-8000-000000000011",
+    renditions: [{ height: 540, width: 960 }],
+  },
   format: { name: "Гайд", slug: "guide" },
   publishedAt: "2026-08-25T05:00:00.000Z",
   seriesMemberships: [
@@ -208,6 +216,7 @@ function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
     <ApplicationShell
       accountLabel="Кирилл"
       currentPath={`/materials/${material.slug}`}
+      mobileNavigationItems={mobileNavigationItems}
       navigationItems={navigationItems}
       sidebarDefaultPinned
     >
@@ -218,12 +227,18 @@ function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
 
 function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
   switch (mode) {
-    case "desktop":
     case "mobile":
       return <MaterialReaderView
         body={body}
         material={material}
+        primaryVideo={null}
+      />;
+    case "desktop":
+      return <MaterialReaderView
+        body={body}
+        material={material}
         primaryVideo={{
+          durationSeconds: 754,
           state: "ready",
           title: "Разбор проверки skill contract",
           videoId: "03000000-0000-4000-8000-000000000001",
@@ -239,7 +254,6 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
           material={material}
           primaryVideo={null}
           returnTarget={returnTarget}
-          sourceHref={materialReaderHref(material.slug, returnTarget.href)}
         />
       );
     }
@@ -298,7 +312,7 @@ const meta = {
     },
     nextjs: { appDirectory: true },
   },
-  title: "Pages/Material/Reader",
+  title: "Pages/Mobile-first Platform/Reader",
 } satisfies Meta<typeof MaterialReaderBoard>;
 
 export default meta;
@@ -313,8 +327,19 @@ export const Mobile: Story = {
       canvas.getByRole("heading", { name: "Публичные skills для agent-first setup", level: 1 }),
     ).toBeInTheDocument();
     await expect(canvas.getByRole("navigation", { name: "Мобильная навигация" })).toBeInTheDocument();
-    await expect(canvas.getByText("В этом материале", { selector: "summary" })).toBeInTheDocument();
+    await expect(canvas.getByLabelText("Содержание: 2")).toBeInTheDocument();
+    await expect(
+      canvasElement.querySelector(
+        '[data-content-cover-id="02000000-0000-4000-8000-000000000011"]',
+      ),
+    ).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" })).toBeInTheDocument();
+    const media = canvasElement.querySelector("[data-reader-hero-media]");
+    const heading = canvas.getByRole("heading", { name: "Публичные skills для agent-first setup", level: 1 });
+    if (media === null) throw new Error("Reader hero media is missing");
+    await expect(
+      Boolean(media.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING),
+    ).toBe(true);
     await expect(canvas.getByRole("link", { name: /Чек-лист проверки repository-owned skill/u })).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(1);
   },
@@ -336,7 +361,8 @@ export const Desktop: Story = {
       if (block === null) throw new Error(`Reader ${kind} block is missing`);
       await expect(Number.parseFloat(getComputedStyle(block).marginTop)).toBeGreaterThanOrEqual(32);
     }
-    await expect(canvas.getByRole("button", { name: "Загрузить player" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Загрузить видео" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Отметить просмотренным" })).toBeEnabled();
     await expect(canvasElement.querySelector("iframe")).toBeNull();
   },
 };
@@ -346,7 +372,7 @@ export const VideoProcessing: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Видео обрабатывается" })).toBeVisible();
-    await expect(canvas.getByText("Можно продолжить чтение и вернуться к player позже.")).toBeVisible();
+    await expect(canvas.getByText("Можно продолжить чтение и вернуться к видео позже.")).toBeVisible();
   },
 };
 
@@ -394,7 +420,7 @@ export const AccessRequired: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Материал доступен в Мастерской" }),
+      canvas.getByRole("heading", { name: "Продолжение для участников" }),
     ).toBeInTheDocument();
     const membershipLink = canvas.getByRole("link", { name: "Получить доступ" });
     await expect(membershipLink).toHaveAttribute(
@@ -403,6 +429,11 @@ export const AccessRequired: Story = {
     );
     await expect(membershipLink).toHaveAttribute("target", "_blank");
     await expect(membershipLink).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(
+      canvasElement.querySelector(
+        '[data-content-cover-id="02000000-0000-4000-8000-000000000011"]',
+      ),
+    ).toBeInTheDocument();
     await expect(canvas.queryByText("Хороший skill начинается")).not.toBeInTheDocument();
   },
 };

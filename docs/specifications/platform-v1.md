@@ -10,7 +10,7 @@ production frontend integration, а также отдельным
 Member Profile track и [Platform #132](https://github.com/sachkov-inside/platform/issues/132)
 mutable Material/access decision.
 
-Дата: 2026-08-30.
+Дата: 2026-09-04.
 
 ## Результат и authority
 
@@ -56,7 +56,8 @@ consequences:
   identity, Membership или authorization input;
 - Member Profile доступен только active members; anonymous visitor, non-member и crawler не
   получают projection или sensitive Account/identity/link/evidence/security data;
-- PostgreSQL projections обеспечивают Library, Topic/Series navigation, search и related Materials;
+- PostgreSQL projections обеспечивают bounded Home, единый Library catalog, Topic/Series
+  navigation и search; Reader не делает related request;
 - ReadingState не участвует в access decision и сохраняется при окончании Membership;
 - одна Platform-configured Tribute URL является только outbound acquisition destination:
   Platform не интегрируется с Tribute API/webhooks и не использует click/payment state как
@@ -240,7 +241,7 @@ Entry points вызывают одни application use cases и не созда�
 | `Accounts` | establish/resolve trusted Logto identity в local Account и проверить exact permission | Account mapping, email fingerprint, permissions и redacted audit |
 | `MemberProfiles` | управлять owner-only Profile state/avatar и вернуть active-member projection | display name/bio, opaque public Profile/avatar identity, rendition lifecycle, visibility, optimistic version и redacted audit |
 | `Materials` | `MaterialAuthoring` создаёт и full-state-save-ит current Material; reader возвращает published current state | content/metadata, publication/access state, content version, author policy, internal body schemas, safe public/search projections |
-| `ContentLibrary` | читать projections, search и навигацию, находить related Materials | published projections, ranking и explicit related pins |
+| `ContentLibrary` | читать bounded Home, единый catalog, search и Topic/Series navigation | current published projections, ranking, filtered facets и bounded Series previews |
 | [`ContentAccess`](content-access-authorization-v1.md) | batch `checkAvailabilityMany` для presentation и single `authorize` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
 | `MembershipEntitlements` | принять MembershipEvidence и построить Platform-owned entitlement | state, validity и monotonic evidence application |
 | `Assets` | начать/finalize upload, связать с current Material и ограничить delivery | Asset identity, readiness и immutable resource references |
@@ -273,6 +274,7 @@ entities и invariants v1:
 | `Tag` | Material имеет 0..N Tags; managed dictionary поддерживает rename/merge без synonyms-duplicates |
 | `Series` | имеет 0..N ordered memberships; Material входит в 0..N Series |
 | `SeriesMembership` | пара Series/Material уникальна; ordinal уникален внутри Series |
+| `ContentCover` | принадлежит ровно одному Material, Topic или Series; current cover не переиспользуется между owners; только normalized public WebP renditions, original/key/checksum не входят в read contract |
 | `MaterialAsset` | принадлежит ровно одному Material; current MaterialBody ссылается на 0..N immutable ready MaterialAssets; `pending | processing | ready | failed` |
 | `Video` | local identity с одним Kinescope provider mapping; current Material ссылается на 0..N Videos |
 | `ExternalLink` | typed label + normalized URL; current Material содержит 0..N links |
@@ -482,18 +484,22 @@ Published body читается только для current `published` state; d
     webhook secret и playback signing secret. ADR о production adapter/config создаётся только
     после redacted credentialed proof на approved account; test adapter не считается таким proof.
 
-### Search, navigation и related Materials
+### Home, search и navigation
 
 - Save transaction обновляет public search projection из title, description и current metadata;
   body/headings/asset labels остаются отдельным server-side protected index;
 - PostgreSQL FTS ранжирует title выше description/headings, затем taxonomy/body/assets и проверяется на
   bounded representative RU/EN corpus;
-- filters появляются только из реально используемых Topic, Format и Series;
+- Home получает одну bounded body-free проекцию: Topics, Playlists и секции Videos/Guides/Notes;
+- Library имеет один search по Material, Topic, Series и Tag; публичное URL-state ограничено
+  `q`, `format`, `sort`, а cursor хранится только внутри TanStack Infinite Query;
+- filters появляются только из реально используемых Format;
 - anonymous/non-member search сопоставляет только public projection и всё равно показывает
   membership results с замком; active Membership или `materials:manage` дополнительно включает
   protected body index. Одна current Membership применяется ко всем membership-материалам, без
   `Account × Material` grants и per-row authorization calls;
-- related выдача сочетает metadata score и explicit author pins без AI dependency.
+- Topic/Series являются контекстной навигацией; Reader не запрашивает related выдачу и принимает
+  back context только из allowlist Home/Library/Topic/Series/Profile.
 
 ### MCP
 

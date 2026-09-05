@@ -1,12 +1,14 @@
 "use client";
 
 import { DatabaseZap, RefreshCw } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
 import {
   CatalogControls,
   MaterialCatalogGrid,
   formatFoundMaterialCount,
+  libraryHref,
   parseLibrarySearchParams,
   type LibraryCatalogPage,
   type LibrarySearchQuery,
@@ -17,6 +19,8 @@ import {
   formatMaterialCount,
 } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
+import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
+import { PublicProductHeader } from "@/widgets/application-shell";
 
 export function LibraryPage({
   catalog,
@@ -24,6 +28,7 @@ export function LibraryPage({
   onQueryChange,
   onRetry,
   query,
+  returnHref,
   result,
 }: {
   readonly catalog?: React.ReactNode;
@@ -31,8 +36,10 @@ export function LibraryPage({
   readonly onQueryChange: (query: LibrarySearchQuery) => void;
   readonly onRetry?: () => void;
   readonly query: LibrarySearchQuery;
+  readonly returnHref?: Route;
   readonly result: LibraryCatalogPage;
 }) {
+  const effectiveReturnHref = returnHref ?? libraryHref(query);
   const facets =
     result.kind === "ready"
       ? result.facets
@@ -40,20 +47,24 @@ export function LibraryPage({
   return (
     <div
       aria-busy={isRefreshing}
-      className="@container/library -mx-5 -mb-7 overflow-hidden bg-background sm:-mx-8 sm:-mb-10 md:m-0 md:overflow-visible md:bg-transparent"
+      className="@container/library min-w-0"
     >
       <LibraryHeader />
-      <div className="px-5 pb-7 sm:px-8 sm:pb-10 md:px-0 md:pb-0">
-        {result.kind === "ready" ? (
-          <LibraryCollections facets={result.facets} />
-        ) : null}
+      <div>
         <CatalogControls
           facets={facets}
           isRefreshing={isRefreshing}
           onQueryChange={onQueryChange}
           query={query}
           resetQuery={emptyLibraryQuery()}
+          {...(result.kind === "ready" ? { totalCount: result.totalCount } : {})}
         />
+        {result.kind === "ready" ? (
+          <LibraryCollections
+            facets={result.facets}
+            returnHref={effectiveReturnHref}
+          />
+        ) : null}
         {result.kind === "ready"
           ? result.totalCount === 0
             ? <LibraryNoResults
@@ -64,6 +75,7 @@ export function LibraryPage({
             : catalog ?? (
                 <LibraryCatalog
                   items={result.items}
+                  returnHref={effectiveReturnHref}
                   totalCount={result.totalCount}
                 />
               )
@@ -84,23 +96,21 @@ export function LibraryLoading() {
     <div
       aria-busy="true"
       aria-label="База знаний загружается"
-      className="@container/library -mx-5 -mb-7 overflow-hidden bg-background sm:-mx-8 sm:-mb-10 md:m-0 md:overflow-visible md:bg-transparent"
+      className="@container/library min-w-0"
       data-library-state="loading"
     >
       <LibraryHeader />
-      <div className="px-5 pb-7 sm:px-8 sm:pb-10 md:px-0 md:pb-0">
-        <section aria-labelledby="library-loading-heading" className="mt-8 sm:mt-10">
-          <h2 className="text-lg font-semibold tracking-[-0.025em]" id="library-loading-heading">
-            Материалы
-          </h2>
+      <div>
+        <section aria-labelledby="library-loading-heading" className="mt-11">
+          <PublicSectionHeading id="library-loading-heading" title="Материалы" />
           <ul
             aria-hidden="true"
-            className="mt-4 grid grid-cols-1 items-start justify-items-center gap-4 @min-[40rem]/library:grid-cols-2 @min-[68rem]/library:grid-cols-3"
+            className="mt-4 grid grid-cols-1 items-start gap-3 @min-[44rem]/library:grid-cols-2"
             role="list"
           >
             {[0, 1, 2].map((item) => (
-              <li className="w-full max-w-[28rem]" key={item}>
-                <div className="h-52 animate-pulse rounded-xl bg-muted shadow-card motion-reduce:animate-none" />
+              <li className="w-full" key={item}>
+                <div className="h-28 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
               </li>
             ))}
           </ul>
@@ -117,9 +127,9 @@ export function LibraryUnexpectedError({
   readonly onRetry: () => void;
 }) {
   return (
-    <div className="@container/library -mx-5 -mb-7 overflow-hidden bg-background sm:-mx-8 sm:-mb-10 md:m-0 md:overflow-visible md:bg-transparent">
+    <div className="@container/library min-w-0">
       <LibraryHeader />
-      <div className="px-5 pb-7 sm:px-8 sm:pb-10 md:px-0 md:pb-0">
+      <div>
         <LibraryStatus
           action={
             <div className="flex flex-wrap gap-3">
@@ -143,37 +153,39 @@ export function LibraryUnexpectedError({
 
 function LibraryHeader() {
   return (
-    <header className="rounded-b-2xl bg-card px-5 pb-5 pt-4 sm:px-8 sm:pb-8 sm:pt-10 md:rounded-none md:bg-transparent md:p-0">
-      <h1 className="text-balance text-2xl font-semibold leading-7 tracking-[-0.03em] @min-[30rem]/library:text-3xl @min-[30rem]/library:leading-9 @min-[52rem]/library:text-5xl @min-[52rem]/library:leading-[1.1]">
+    <>
+      <PublicProductHeader />
+      <header className="mt-9 md:mt-12">
+      <h1 className="text-[2.25rem] font-semibold leading-none tracking-[-0.055em] md:text-6xl">
         База знаний
       </h1>
-      <p className="mt-3 max-w-[58ch] text-pretty text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
-        Темы, плейлисты и материалы Sachkov Inside.
-      </p>
-    </header>
+      </header>
+    </>
   );
 }
 
 function LibraryCollections({
   facets,
+  returnHref,
 }: {
   readonly facets: Extract<LibraryCatalogPage, { readonly kind: "ready" }>["facets"];
+  readonly returnHref: Route;
 }) {
   return (
     <>
-      <section aria-labelledby="topics-heading" className="mt-8 sm:mt-10">
-        <h2 className="text-xl font-semibold tracking-[-0.025em] sm:text-2xl" id="topics-heading">
-          Темы
-        </h2>
+      <section aria-labelledby="topics-heading">
+        <CollectionHeading count={facets.topics.length} id="topics-heading" title="Темы" />
         {facets.topics.length === 0 ? (
           <CollectionEmpty label="Тем пока нет" />
         ) : (
-          <div className="mt-4 grid gap-4 @min-[42rem]/library:grid-cols-2 @min-[64rem]/library:grid-cols-3">
+          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-7 @min-[48rem]/library:grid-cols-5 @min-[68rem]/library:grid-cols-6">
             {facets.topics.map((topic) => (
               <TopicCard
                 key={topic.slug}
+                returnHref={returnHref}
                 topic={{
                   count: topic.count,
+                  cover: topic.cover,
                   name: topic.name,
                   slug: topic.slug,
                   summary: topic.summary ?? "",
@@ -184,20 +196,21 @@ function LibraryCollections({
         )}
       </section>
 
-      <section aria-labelledby="playlists-heading" className="mt-10 sm:mt-12">
-        <h2 className="text-xl font-semibold tracking-[-0.025em] sm:text-2xl" id="playlists-heading">
-          Плейлисты
-        </h2>
+      <section aria-labelledby="playlists-heading">
+        <CollectionHeading count={facets.series.length} id="playlists-heading" title="Плейлисты" />
         {facets.series.length === 0 ? (
           <CollectionEmpty label="Плейлистов пока нет" />
         ) : (
-          <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/library:grid-cols-2">
+          <div className="mt-4 grid gap-4 @min-[48rem]/library:grid-cols-2">
             {facets.series.map((playlist) => (
               <PlaylistCard
                 key={playlist.slug}
+                returnHref={returnHref}
                 playlist={{
                   countLabel: formatMaterialCount(playlist.count),
+                  cover: playlist.cover,
                   name: playlist.name,
+                  previewItems: playlist.previewItems ?? [],
                   slug: playlist.slug,
                   summary: playlist.summary ?? "",
                 }}
@@ -218,26 +231,49 @@ function CollectionEmpty({ label }: { readonly label: string }) {
   );
 }
 
+function CollectionHeading({
+  count,
+  id,
+  title,
+}: {
+  readonly count: number;
+  readonly id: string;
+  readonly title: string;
+}) {
+  return (
+    <PublicSectionHeading
+      aside={
+        <span className="text-sm font-semibold text-muted-foreground">{count}</span>
+      }
+      className="mt-11"
+      id={id}
+      title={title}
+    />
+  );
+}
+
 export function LibraryCatalog({
   items,
+  returnHref = "/library",
   totalCount,
 }: {
   readonly items: Extract<LibraryCatalogPage, { readonly kind: "ready" }>["items"];
+  readonly returnHref?: Route;
   readonly totalCount: number;
 }) {
   return (
-    <section aria-labelledby="materials-heading" className="mt-8 sm:mt-10" data-library-state="ready">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-[-0.025em] @min-[30rem]/library:text-xl" id="materials-heading">
-            Материалы
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+    <section aria-labelledby="materials-heading" data-library-state="ready">
+      <PublicSectionHeading
+        aside={
+          <p className="text-sm font-semibold text-muted-foreground">
             {formatFoundMaterialCount(totalCount)}
           </p>
-        </div>
-      </div>
-      <MaterialCatalogGrid className="mt-4" items={items} />
+        }
+        className="mt-11"
+        id="materials-heading"
+        title="Материалы"
+      />
+      <MaterialCatalogGrid className="mt-4" items={items} returnHref={returnHref} />
     </section>
   );
 }
@@ -256,6 +292,7 @@ function LibraryNoResults({ onReset }: { readonly onReset: () => void }) {
         Измените запрос или сбросьте фильтры.
       </p>
       <Button
+        aria-label="Сбросить поиск и фильтры"
         className="mt-5 min-h-11 px-4"
         onClick={onReset}
         type="button"

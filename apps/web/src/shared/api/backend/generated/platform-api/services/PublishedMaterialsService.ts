@@ -32,6 +32,13 @@ export class PublishedMaterialsService {
     projection: {
       access: 'free' | 'membership' | 'workshop';
       contentVersion: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       format: {
         id: string;
         name: string;
@@ -74,6 +81,13 @@ export class PublishedMaterialsService {
     projection: {
       access: 'free' | 'membership' | 'workshop';
       contentVersion: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
       format: {
         id: string;
         name: string;

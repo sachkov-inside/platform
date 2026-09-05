@@ -1,6 +1,9 @@
 import { z } from "zod";
 
 import { renderedBlockSchema } from "./material-authoring-http.js";
+import { contentCoverProjectionHttpSchema } from "./content-cover-http.js";
+
+export { contentCoverProjectionHttpSchema } from "./content-cover-http.js";
 
 const referenceSchema = z
   .object({ id: z.string(), name: z.string(), slug: z.string() })
@@ -16,6 +19,7 @@ export const publishedMaterialProjectionHttpSchema = z
     access: z.enum(["free", "membership", "workshop"]),
     publishedAt: z.iso.datetime({ offset: true }),
     primaryVideoId: z.uuid().nullable(),
+    cover: contentCoverProjectionHttpSchema.nullable(),
     topic: referenceSchema,
     format: referenceSchema,
     tags: z.array(z.object({ id: z.string(), name: z.string() }).strict()),

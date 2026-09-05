@@ -1,5 +1,6 @@
 import type { Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../list-published-materials/list-published-materials.contract.js";
+import type { ContentCoverProjection } from "../../../materials/index.js";
 
 export interface DiscoverPublishedMaterialsQuery {
   readonly first: number | null;
@@ -17,6 +18,7 @@ export interface PublishedMaterialDiscoveryDto {
     readonly name: string;
     readonly slug: string;
     readonly summary: string;
+    readonly cover: ContentCoverProjection | null;
   };
   readonly relatedSeries: readonly {
     readonly id: string;
@@ -25,11 +27,13 @@ export interface PublishedMaterialDiscoveryDto {
     readonly slug: string;
     readonly summary: string;
     readonly totalMaterialCount: number;
+    readonly cover: ContentCoverProjection | null;
   }[];
   readonly topics: readonly {
     readonly id: string;
     readonly name: string;
     readonly slug: string;
+    readonly cover: ContentCoverProjection | null;
   }[];
 }
 

@@ -1,4 +1,9 @@
-import type { RenderedBlock, RenderedMark, RenderedText } from "@/entities/material";
+import type {
+  ContentCover,
+  RenderedBlock,
+  RenderedMark,
+  RenderedText,
+} from "@/entities/material.model";
 
 export type ReaderMark = RenderedMark;
 export type ReaderText = RenderedText;
@@ -7,6 +12,7 @@ export type ReaderBlock = RenderedBlock;
 export interface MaterialReaderMetadata {
   readonly access: "free" | "membership" | "workshop";
   readonly contentVersion: number;
+  readonly cover: ContentCover | null;
   readonly format: { readonly name: string; readonly slug: string };
   readonly materialId: string;
   readonly publishedAt: string;
@@ -22,6 +28,7 @@ export interface MaterialReaderMetadata {
 }
 
 export interface PrimaryVideoPresentation {
+  readonly durationSeconds?: number | undefined;
   readonly failureCode?: string | undefined;
   readonly state: "uploading" | "processing" | "ready" | "failed";
   readonly title: string;

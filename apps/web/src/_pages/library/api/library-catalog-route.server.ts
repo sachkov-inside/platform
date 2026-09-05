@@ -36,11 +36,10 @@ async function handleCatalogRequest(
   accessToken?: string,
   canonicalTopicSlug?: string,
 ): Promise<Response> {
-  const parsed = parseLibrarySearchParams(new URL(request.url).searchParams);
-  if (
-    parsed.wasNormalized ||
-    (canonicalTopicSlug !== undefined && parsed.query.topicSlugs.length > 0)
-  ) {
+  const parsed = parseLibrarySearchParams(new URL(request.url).searchParams, {
+    includeCursor: true,
+  });
+  if (parsed.wasNormalized) {
     return invalidLibraryQueryResponse();
   }
 

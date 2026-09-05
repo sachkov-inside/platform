@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { ContentAccess } from "../../../content-access/index.js";
 import type { PublishedMaterialReader } from "../../../materials/index.js";
+import type { Videos } from "../../../videos/index.js";
 import { projectPublishedCatalogItems } from "../../shared/project-published-catalog-items.js";
 import type {
   DiscoverPublishedMaterialsQuery,
@@ -34,6 +35,7 @@ export async function discoverPublishedMaterials(
     "discoverProjections"
   >,
   contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
+  videos: Pick<Videos, "loadReadyDurations">,
   query: DiscoverPublishedMaterialsQuery,
 ): Promise<PublishedMaterialDiscoveryResult> {
   const parsed = querySchema.safeParse(query);
@@ -50,6 +52,7 @@ export async function discoverPublishedMaterials(
   }
   const projected = await projectPublishedCatalogItems(
     contentAccess,
+    videos,
     query.subject,
     page.value.items,
   );

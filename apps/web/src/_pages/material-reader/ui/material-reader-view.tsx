@@ -1,5 +1,4 @@
-import { ArrowLeft, BookOpenText } from "lucide-react";
-import type { Route } from "next";
+import { ArrowLeft, List } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -10,15 +9,13 @@ import type {
   ReaderText,
   PrimaryVideoPresentation,
 } from "@/_pages/material-reader/model/material-reader-view";
-import type { RelatedMaterialsResult } from "@/features/library-discovery";
-import { RelatedMaterialsSection } from "@/features/library-discovery";
-import { materialTaxonomyLabel } from "@/entities/material";
+import { ContentCoverImage, materialTaxonomyLabel } from "@/entities/material";
+import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
 import { MaterialPrimaryVideo } from "@/features/material-video";
 import {
   libraryMaterialReaderReturnTarget,
-  materialReaderHref,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 
@@ -26,9 +23,7 @@ export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
   readonly primaryVideo: PrimaryVideoPresentation | null;
-  readonly related?: RelatedMaterialsResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
-  readonly sourceHref?: Route;
 }
 
 interface OutlineItem {
@@ -42,34 +37,43 @@ export function MaterialReaderView({
   body,
   material,
   primaryVideo,
-  related,
   returnTarget = libraryMaterialReaderReturnTarget,
-  sourceHref,
 }: MaterialReaderViewProps) {
   const outline = collectOutline(body);
 
   return (
     <div className="@container/material-reader" data-material-id={material.materialId} data-material-reader-state="available">
-      <ReaderBackAction target={returnTarget} />
-      <div className="mt-10 min-w-0">
-        <MaterialHeader material={material} />
-        {primaryVideo === null ? null : (
-          <MaterialPrimaryVideo materialId={material.materialId} video={primaryVideo} />
-        )}
-        <ReaderOutline items={outline} />
-        <article
-          className="mt-10 min-w-0 max-w-[70ch] text-pretty text-[0.96875rem] leading-[1.7] sm:mt-12 sm:text-[1.0625rem]"
-          data-reader-body
-        >
-          <ReaderBlocks blocks={body} contentVersion={material.contentVersion} materialId={material.materialId} path={[]} />
-        </article>
+      <ReaderBackAction sticky target={returnTarget} />
+      <div className="mt-5 min-w-0 md:mt-10">
+        <div className="mx-auto max-w-[64rem]" data-reader-hero-media>
+          {primaryVideo === null ? (
+            <ContentCoverImage
+              alt=""
+              className="aspect-video min-h-0 w-full rounded-[1.5rem] md:rounded-[2rem]"
+              cover={material.cover}
+              fallbackKind="material"
+              fallbackSeed={material.slug}
+              sizes="(min-width: 1024px) 64rem, 100vw"
+            />
+          ) : (
+            <MaterialPrimaryVideo
+              className="m-0 max-w-none sm:m-0"
+              materialId={material.materialId}
+              video={primaryVideo}
+            />
+          )}
+        </div>
+        <div className="mx-auto mt-8 min-w-0 max-w-[43rem] md:mt-12">
+          <MaterialHeader material={material} />
+          <ReaderOutline items={outline} />
+          <article
+            className="mt-10 min-w-0 text-pretty text-[1.0625rem] leading-8 text-reader-foreground md:mt-12"
+            data-reader-body
+          >
+            <ReaderBlocks blocks={body} contentVersion={material.contentVersion} materialId={material.materialId} path={[]} />
+          </article>
+        </div>
       </div>
-      {related === undefined ? null : (
-        <RelatedMaterialsSection
-          result={related}
-          sourceHref={sourceHref ?? materialReaderHref(material.slug)}
-        />
-      )}
       <ReaderBackAction className="mt-16" target={returnTarget} />
     </div>
   );
@@ -84,28 +88,28 @@ function MaterialHeader({ material }: { readonly material: MaterialReaderMetadat
   }).format(new Date(material.publishedAt));
 
   return (
-    <header className="min-w-0 max-w-[56rem]">
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-secondary px-2.5 font-semibold text-secondary-foreground">
-          <BookOpenText aria-hidden="true" className="size-3.5 text-accent" />
-          {materialTaxonomyLabel(material.format.name)}
-        </span>
+    <header className="flex min-w-0 flex-col">
+      <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-action">
+        <span>{materialTaxonomyLabel(material.format.name)}</span>
+        <span aria-hidden="true">·</span>
         <Link
-          className="inline-flex min-h-7 items-center rounded-md px-2 no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
+          className="no-underline hover:text-foreground focus-visible:outline-ring"
           href={`/topics/${material.topic.slug}`}
           prefetch={false}
         >
           {material.topic.name}
         </Link>
-        <time dateTime={material.publishedAt}>Опубликовано {publicationDate}</time>
       </div>
-      <h1 className="mt-5 max-w-[22ch] text-balance text-[1.75rem] font-semibold leading-[1.1] tracking-[-0.035em] sm:text-[2.25rem] @min-[62rem]/material-reader:text-[2.5rem]">
+      <h1 className="mt-3 max-w-[22ch] text-balance text-[2.3rem] font-semibold leading-[1.02] tracking-[-0.055em] md:text-[3.5rem]">
         {material.title}
       </h1>
-      <p className="mt-4 max-w-[65ch] text-pretty text-[0.9375rem] leading-6 text-muted-foreground sm:mt-5 sm:text-base sm:leading-7">
+      <p className="mt-5 max-w-[65ch] text-pretty text-lg leading-8 text-muted-foreground">
         {material.summary}
       </p>
       <MaterialContext material={material} />
+      <time className="mt-5 text-xs font-semibold text-muted-foreground" dateTime={material.publishedAt}>
+        Опубликовано {publicationDate}
+      </time>
     </header>
   );
 }
@@ -116,13 +120,13 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
   }
 
   return (
-    <div className="mt-5 grid gap-3">
+    <div className="mt-6 grid gap-3">
       {material.tags.length > 0 ? (
         <ul aria-label="Теги материала" className="flex flex-wrap gap-2" role="list">
           {material.tags.map((tag) => (
             <li key={tag.name}>
-              <span className="inline-flex min-h-8 items-center rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
-                {tag.name}
+              <span className="inline-flex min-h-8 items-center rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+                #{tag.name}
               </span>
             </li>
           ))}
@@ -133,7 +137,7 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
           {material.seriesMemberships.map(({ ordinal, series }) => (
             <li key={series.slug}>
               <Link
-                className="inline-flex min-h-8 items-center rounded-lg px-2 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
+                className="inline-flex min-h-8 items-center rounded-full bg-muted px-3 text-sm font-semibold text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
                 href={`/series/${series.slug}`}
                 prefetch={false}
               >
@@ -149,14 +153,16 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
 
 export function ReaderBackAction({
   className = "",
+  sticky = false,
   target,
 }: {
   readonly className?: string;
+  readonly sticky?: boolean;
   readonly target: MaterialReaderReturnTarget;
 }) {
   return (
-    <div className={`flex min-h-11 items-center border-b border-border pb-3 ${className}`}>
-      <Button asChild className="bg-background" size="lg" variant="outline">
+    <div className={cn(sticky && "sticky top-0 z-30 -mx-4 -mt-5 border-b border-black/6 bg-white/88 px-4 py-3 backdrop-blur-xl sm:-mx-7 sm:px-7 md:-mx-10 md:-mt-9 md:px-10", "flex min-h-11 items-center", className)}>
+      <Button asChild className="min-h-11 rounded-full border-0 bg-black/5 px-3 text-xs font-semibold shadow-none" size="lg" variant="outline">
         <Link href={target.href}>
           <ArrowLeft aria-hidden="true" />
           {target.label}
@@ -183,27 +189,27 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
   ));
 
   return (
-    <div className="mt-6 max-w-[70ch]">
-      <details className="group rounded-xl bg-muted/60 @min-[40rem]/material-reader:hidden">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-          В этом материале
-          <span aria-hidden="true" className="text-xs text-muted-foreground">
-            {items.length}
+    <div className="mt-8 border-y border-black/8 py-2">
+      <details className="group">
+        <summary
+          aria-label={`Содержание: ${String(items.length)}`}
+          className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-1 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
+        >
+          <span className="inline-flex items-center gap-2">
+            <List aria-hidden="true" className="size-4 text-action" />
+            Содержание · {items.length}
+          </span>
+          <span aria-hidden="true" className="text-xs text-muted-foreground group-open:hidden">
+            Открыть
+          </span>
+          <span aria-hidden="true" className="hidden text-xs text-muted-foreground group-open:inline">
+            Скрыть
           </span>
         </summary>
-        <nav aria-label="В этом материале" className="border-t border-border px-1.5 py-1.5">
-          <ul role="list">{links}</ul>
+        <nav aria-label="В этом материале" className="border-t border-black/8 pb-2 pt-3">
+          <ul className="grid gap-2" role="list">{links}</ul>
         </nav>
       </details>
-      <nav
-        aria-label="В этом материале"
-        className="hidden rounded-xl bg-muted/60 px-2 py-3 @min-[40rem]/material-reader:block"
-      >
-        <p className="px-2 text-sm font-semibold">В этом материале</p>
-        <ul className="mt-2 flex flex-wrap gap-2" role="list">
-          {links}
-        </ul>
-      </nav>
     </div>
   );
 }
@@ -247,7 +253,7 @@ function ReaderBlockView({
       const Heading = `h${String(block.level)}` as "h2" | "h3" | "h4";
       return (
         <Heading
-          className="mt-12 scroll-mt-8 text-balance text-xl font-semibold leading-tight tracking-[-0.03em] first:mt-0 sm:mt-14 sm:text-2xl"
+          className="mt-12 scroll-mt-24 text-balance text-3xl font-semibold leading-tight tracking-[-0.04em] text-foreground first:mt-0"
           id={headingId(path)}
         >
           <ReaderInline content={block.content} />
