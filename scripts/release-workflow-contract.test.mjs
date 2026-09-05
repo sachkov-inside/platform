@@ -28,6 +28,11 @@ describe("ordinal release workflow contract", () => {
     assert.match(plan, /bash scripts\/plan-release\.sh/u);
     assert.match(planScript, /git\/ref\/heads\/main/u);
     assert.match(planScript, /immutable-releases/u);
+    assert.ok(
+      plan.indexOf("unset RELEASE_SETTINGS_READ_TOKEN") > plan.indexOf("bash scripts/plan-release.sh") &&
+        plan.indexOf("unset RELEASE_SETTINGS_READ_TOKEN") < plan.indexOf('echo "image_matrix='),
+      "the calling shell must remove settings access before its output-processing commands",
+    );
     assert.match(ci, /^ {4}uses: \.\/\.github\/workflows\/ci\.yml$/mu);
     assert.match(ci, /source_sha: \$\{\{ needs\.plan\.outputs\.source_sha \}\}/u);
     assert.equal(

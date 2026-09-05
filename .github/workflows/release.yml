@@ -50,6 +50,7 @@ jobs:
           SOURCE_SHA: ${{ github.sha }}
         run: |
           bash scripts/plan-release.sh >release-plan.json
+          unset RELEASE_SETTINGS_READ_TOKEN
           echo "image_matrix=$(jq --compact-output .imageMatrix release-plan.json)" >>"$GITHUB_OUTPUT"
           echo "manifest_asset_name=$(jq --raw-output .manifestAssetName release-plan.json)" >>"$GITHUB_OUTPUT"
           echo "previous_version=$(jq --raw-output '.previousVersion // empty' release-plan.json)" >>"$GITHUB_OUTPUT"
@@ -181,6 +182,7 @@ jobs:
           SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
         run: |
           bash scripts/plan-release.sh >"$RUNNER_TEMP/release-plan.json"
+          unset RELEASE_SETTINGS_READ_TOKEN
       - name: Build runtime bundle and exact schema proof
         env:
           GH_TOKEN: ${{ github.token }}
