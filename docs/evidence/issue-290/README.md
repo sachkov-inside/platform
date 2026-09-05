@@ -49,9 +49,35 @@ are not fabricated.
 These are proposed changes, pending owner choice. Do not update accepted product/UX contracts
 or promote this code into production before that choice and a separate implementation scope.
 
-## Verification
+## Verification — 2026-09-05
 
-Web typecheck and focused lint passed during implementation. Storybook build and responsive
-checks are recorded in the session handoff after final verification. No backend/production
-contracts changed. No production playback, authentication, payment or real free publication
-was tested. This development-only proof has no persistent data and is not a production-ready feature.
+Checked on prototype commit `fc8c9fa` using the pinned Node/pnpm Storybook image:
+
+- Web typecheck: passed.
+- Focused oxlint: 0 warnings, 0 errors.
+- Documentation contract: passed.
+- Web architecture and negative guardrails: passed.
+- Storybook build: passed.
+- Standards and Spec review against `188f92ae3bc674ca43a2f4aabbcc454ac22addbf`: 0 remaining
+  findings on both axes. Fixed the second-series return and episode 5 description before re-review.
+
+Interactive Chrome review covered desktop 1440 × 1024 and mobile 390 × 844. Screenshots were
+inspected in the review session. Both Home layouts retain the accepted shell and fit the viewport.
+Measured mobile document width was 390 px on B, video and standalone guide A.
+The A/B switcher changes the URL. Browser Back restored tag results after opening a material.
+
+Confirmed journeys: Home → guide series → A → B; visitor B has no body and member B exposes it;
+#agents → standalone A retains `series=none`; choosing the second test series and returning to
+its contents shows that series with one A; standalone video 5 has the agreed description and a
+labelled placeholder. Copy reports success. The downloaded `agent-task-prompt.txt` was compared
+byte-for-byte as UTF-8 text with the fixture instruction and matched.
+
+Manual accessibility review checked semantic headings, named controls, focus on the reader
+heading after navigation, native select/links and the live copy status. Agentation stays enabled.
+The floating A/B control is review chrome, separate from the accepted mobile dock.
+
+Not tested: automated axe suite, full repository `pnpm check`, production authentication,
+playback, payments or publication. These are not implied by the prototype checks. No backend or
+production contract changed. Responsive screenshots have not been attached to a GitHub issue;
+owner visual selection and any resulting revisions are still pending. The proof is not a
+production-ready feature, and #290 must remain open until its owner acceptance and handoff.
