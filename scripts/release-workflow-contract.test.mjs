@@ -77,7 +77,11 @@ describe("ordinal release workflow contract", () => {
     assert.match(finalize, /gh release create/u);
     assert.match(finalize, /--target "\$SOURCE_SHA"/u);
     assert.match(finalize, /release-assets\/production-runtime\.tar\.gz/u);
-    assert.doesNotMatch(releaseWorkflow, /:latest|--clobber|secrets\./u);
+    assert.doesNotMatch(releaseWorkflow, /:latest|--clobber/u);
+    assert.deepEqual(
+      [...releaseWorkflow.matchAll(/secrets\.([A-Z_]+)/gu)].map((match) => match[1]),
+      ["RELEASE_SETTINGS_READ_TOKEN", "RELEASE_SETTINGS_READ_TOKEN"],
+    );
     assert.doesNotMatch(
       releaseWorkflow,
       /anchore|attestation|vulnerabil|waiver|ssh|deploy/iu,

@@ -252,6 +252,18 @@ remove them on exit; neither uses production credentials or contacts the product
 
 ## Publish the next ordinal release
 
+Before publication, configure the repository Actions secret `RELEASE_SETTINGS_READ_TOKEN` with a
+fine-grained token scoped to `sachkov-inside/platform` and repository **Administration: read**
+(plus GitHub's implicit Metadata read). Use a finite expiry and renew it before it expires. This
+credential reads only the repository's immutable-release setting; it cannot change that setting.
+The [GitHub settings endpoint](https://docs.github.com/en/rest/repos/repos#check-if-immutable-releases-are-enabled-for-a-repository)
+requires this permission, which the standard `GITHUB_TOKEN` cannot request. The token is supplied
+only to the two release-planning steps, never to builds, images, production or deploy. The planner
+removes it from the environment before all other commands; release history, image publication and
+Release creation keep their existing `GITHUB_TOKEN` permissions. Missing or denied settings access,
+or disabled immutability, stops publication. Do not substitute a broad personal token for the
+workflow token or skip this check.
+
 `.github/workflows/release.yml` remains the sole publication entry point. It captures exact current
 `main`, reuses application CI, embeds the ordinal and source SHA in both images, publishes their
 public GHCR digests, proves anonymous digest access, validates the downloaded image result against

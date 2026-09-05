@@ -45,6 +45,7 @@ jobs:
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_SETTINGS_READ_TOKEN: ${{ secrets.RELEASE_SETTINGS_READ_TOKEN }}
           REQUESTED_VERSION: ${{ inputs.version }}
           SOURCE_SHA: ${{ github.sha }}
         run: |
@@ -175,6 +176,7 @@ jobs:
       - name: Recheck release state
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_SETTINGS_READ_TOKEN: ${{ secrets.RELEASE_SETTINGS_READ_TOKEN }}
           REQUESTED_VERSION: ${{ needs.plan.outputs.version }}
           SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
         run: |
