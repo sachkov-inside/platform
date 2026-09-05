@@ -53,11 +53,11 @@ function TopicSection({ topics }: { readonly topics: HomeView["topics"] }) {
         <EmptyCollection label="Тем пока нет." />
       ) : (
         <ul
-          className="public-horizontal-rail -mx-4 mt-4 flex gap-3 overflow-x-auto px-4 pt-1 sm:mx-0 sm:px-0"
+          className="public-horizontal-rail -mx-4 mt-4 flex gap-4 overflow-x-auto px-4 pt-1 pb-1 sm:mx-0 sm:px-0 md:gap-5"
           role="list"
         >
           {topics.map((topic) => (
-            <li className="w-[8.5rem] shrink-0 md:w-36" key={topic.slug}>
+            <li className="w-24 shrink-0 md:w-28" key={topic.slug}>
               <TopicCard
                 compact
                 returnHref="/"
@@ -105,7 +105,7 @@ function MaterialSection({
           className={
             variant === "video"
               ? "mt-5 grid grid-cols-2 items-start gap-x-3 gap-y-7 md:grid-cols-3 md:gap-x-5"
-              : "mt-5 grid grid-cols-2 gap-x-3 gap-y-7 @min-[48rem]/home:grid-cols-5 @min-[48rem]/home:gap-x-4 @min-[48rem]/home:gap-y-9"
+              : "mt-5 grid grid-cols-2 gap-x-4 gap-y-8 @min-[40rem]/home:grid-cols-3 @min-[52rem]/home:grid-cols-4 @min-[40rem]/home:gap-x-5 @min-[40rem]/home:gap-y-9"
           }
           data-video-grid={variant === "video" ? true : undefined}
           role="list"
@@ -214,7 +214,7 @@ function SectionHeading({
           {action}
         </Link>
       }
-      className="mt-11"
+      className={id === "home-topics" ? "mt-6 md:mt-2" : "mt-10 md:mt-12"}
       id={id}
       title={title}
     />

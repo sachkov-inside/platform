@@ -122,7 +122,7 @@ export function MaterialCard({
         className={cn(
           "line-clamp-2 font-semibold tracking-[-0.025em]",
           isCompact
-            ? "mt-3 text-[0.9375rem] leading-5 md:text-lg md:leading-6"
+            ? "mt-3 min-h-10 text-[0.9375rem] leading-5 md:min-h-12 md:text-lg md:leading-6"
             : "mt-1 text-[0.9375rem] leading-5 tracking-[-0.02em] md:text-lg md:leading-6",
         )}
       >

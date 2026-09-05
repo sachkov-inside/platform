@@ -1,10 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, waitFor, within } from "storybook/test";
 
 import type { MaterialPreview } from "@/entities/material";
 import { ApplicationShell } from "@/widgets/application-shell";
 import type { HomeView } from "../model/home-view";
 import { HomePage } from "./home-page";
+import { illustratedHome } from "./illustrated-home.fixture";
 
 const video = material({
   format: "Видео",
@@ -115,6 +116,18 @@ export const RealDataReady: Story = {
 
 export const Unavailable: Story = {
   args: { result: { kind: "unavailable" } },
+};
+
+export const IllustratedCatalog: Story = {
+  args: { result: { kind: "ready", value: illustratedHome } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const topic = canvas.getByRole("link", { name: "Открыть тему Архитектура" });
+    await expect(topic).toBeVisible();
+    await waitFor(() => expect(topic.querySelector("img")?.naturalWidth ?? 0).toBeGreaterThan(0));
+    const playlist = canvas.getByRole("link", { name: "Открыть плейлист Создание Platform Inside" });
+    await expect(playlist.querySelectorAll("[data-content-cover-id]")).toHaveLength(2);
+  },
 };
 
 function material(

@@ -1,5 +1,8 @@
 # Issue 271 — mobile-first production evidence
 
+Latest proposed iteration: [Home visual polishing, 2026-09-05](./home-polish/README.md).
+The screenshots below preserve the earlier baseline.
+
 ## Accepted visual baseline
 
 Owner review on 2026-09-04 selected the mobile-first prototype as the canonical visual language

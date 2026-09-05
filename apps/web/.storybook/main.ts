@@ -4,6 +4,9 @@ import type { StorybookConfig } from "@storybook/react-vite";
 import { mergeConfig } from "vite";
 
 const config: StorybookConfig = {
+  staticDirs: [
+    { from: "../../../docs/evidence/issue-271/covers", to: "/api/content-covers" },
+  ],
   stories: [
     "../src/**/*.mdx",
     "../src/**/!(*.prototype).stories.@(js|jsx|mjs|ts|tsx)",

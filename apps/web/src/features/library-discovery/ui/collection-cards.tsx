@@ -85,7 +85,7 @@ export function PlaylistCard({
   return (
     <Link
       aria-label={`Открыть плейлист ${playlist.name}`}
-      className="group/playlist block min-w-0 overflow-hidden rounded-[2rem] bg-primary p-5 text-left text-white no-underline transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
+      className="group/playlist flex h-full min-w-0 flex-col overflow-hidden rounded-[2rem] bg-primary p-5 text-left text-white no-underline transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
       data-playlist-card
       href={collectionDiscoveryHref("series", playlist.slug, returnHref)}
       prefetch={false}
@@ -107,8 +107,8 @@ export function PlaylistCard({
       <span className="mt-2 block text-sm leading-5 text-white/65">
         {playlist.summary || "Последовательность материалов"}
       </span>
-      <span className="mt-6 grid grid-cols-3 gap-2" aria-hidden="true">
-        {Array.from({ length: 3 }, (_, index) => {
+      <span className="mt-auto grid grid-cols-3 gap-2 pt-6" aria-hidden="true">
+        {Array.from({ length: Math.max(previews.length, 1) }, (_, index) => {
           const material = previews[index];
           const collectionCover = index === 0
             ? playlist.cover ?? null
