@@ -62,7 +62,7 @@ export function CatalogControls({
               onChange={(event) => {
                 onQueryChange(changeLibraryQuery(query, { q: event.currentTarget.value }));
               }}
-              placeholder="Материал, плейлист, тема или тег"
+              placeholder="Материал, серия, тема или тег"
               type="search"
               value={query.q}
             />

@@ -3,13 +3,14 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/material-reader-view";
+import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { ContentCoverImage, materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import {
   libraryMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
-import { ReaderBackAction } from "./material-reader-view";
+import { ReaderBackAction, SeriesReaderNavigation } from "./material-reader-view";
 
 export function MaterialReaderLoading() {
   return (
@@ -61,6 +62,7 @@ export function MaterialReaderAccess({
   cta,
   material,
   returnTarget = libraryMaterialReaderReturnTarget,
+  seriesContext = null,
 }: {
   readonly cta: {
     readonly label: "Получить доступ";
@@ -68,6 +70,7 @@ export function MaterialReaderAccess({
   };
   readonly material: MaterialReaderMetadata;
   readonly returnTarget?: MaterialReaderReturnTarget;
+  readonly seriesContext?: SeriesReaderContext | null;
 }) {
   return (
     <div
@@ -141,6 +144,7 @@ export function MaterialReaderAccess({
           </div>
         </div>
       </section>
+      <SeriesReaderNavigation context={seriesContext} />
     </div>
   );
 }

@@ -6,7 +6,7 @@ export function MapPage() {
           Карта Inside
         </h1>
         <p className="mt-4 max-w-[66ch] text-pretty text-base leading-7 text-muted-foreground sm:text-lg">
-          Редакционная карта свяжет направления, темы, плейлисты и отдельные материалы.
+          Редакционная карта свяжет направления, темы, серии и отдельные материалы.
         </p>
       </header>
       <section

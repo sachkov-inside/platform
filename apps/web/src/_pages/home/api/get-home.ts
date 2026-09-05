@@ -30,6 +30,11 @@ const homeSchema = z
   .object({
     guides: z.array(publishedMaterialProjectionSchema),
     notes: z.array(publishedMaterialProjectionSchema),
+    membership: z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("active") }).strict(),
+      z.object({ acquisitionUrl: z.url(), kind: z.literal("inactive") }).strict(),
+      z.object({ kind: z.literal("unknown") }).strict(),
+    ]),
     playlists: z.array(homeCollectionSchema),
     topics: z.array(homeCollectionSchema),
     videos: z.array(publishedMaterialProjectionSchema),
@@ -72,6 +77,7 @@ export async function getHome(
     value: {
       guides: parsed.data.guides.map(toMaterialPreview),
       notes: parsed.data.notes.map(toMaterialPreview),
+      membership: parsed.data.membership,
       playlists: parsed.data.playlists.map(mapCollection),
       topics: parsed.data.topics.map(mapCollection),
       videos: parsed.data.videos.map(toMaterialPreview),

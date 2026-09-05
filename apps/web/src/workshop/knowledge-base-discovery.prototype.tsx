@@ -143,7 +143,7 @@ function KnowledgeBaseHeader() {
         База знаний
       </h1>
       <p className="mt-3 max-w-[58ch] text-pretty text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
-        Темы, плейлисты и материалы Sachkov Inside.
+        Темы, серии и материалы Sachkov Inside.
       </p>
     </header>
   );
@@ -172,7 +172,7 @@ function FeaturedTopicsVariant({
 
       <DiscoverySectionHeader
         className="mt-10 sm:mt-12"
-        title="Плейлисты"
+        title="Серии"
       />
       {availablePlaylists.length > 0 ? (
         <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/knowledge:grid-cols-2">
@@ -235,10 +235,10 @@ function EqualTopicsVariant({
 
       <DiscoverySectionHeader
         className="mt-10 sm:mt-12"
-        title="Плейлисты"
+        title="Серии"
       />
       {availablePlaylists.length > 0 ? (
-        <section aria-label="Плейлисты">
+        <section aria-label="Серии">
           <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/knowledge:grid-cols-2">
             {availablePlaylists.map((playlist) => (
               <SharedPlaylistCard
@@ -277,7 +277,7 @@ function PlaylistFirstVariant({
     <>
       <DiscoverySectionHeader
         className="mt-8 sm:mt-10"
-        title="Плейлисты"
+        title="Серии"
       />
       {availablePlaylists.length > 0 ? (
         <div className="@container/playlist-surface mt-4 grid max-w-[68rem] gap-4 @min-[48rem]/knowledge:grid-cols-2">
@@ -583,7 +583,7 @@ function DiscoveryEmpty({ kind }: { readonly kind: "playlists" | "topics" }) {
   return (
     <div className="mt-4 rounded-2xl bg-muted px-5 py-7 sm:px-8">
       <p className="text-base font-semibold">
-        {kind === "topics" ? "Тем пока нет" : "Плейлистов пока нет"}
+        {kind === "topics" ? "Тем пока нет" : "Серий пока нет"}
       </p>
     </div>
   );

@@ -36,7 +36,7 @@ export function SeriesOrderRouteState({
             {state.kind === "empty" ? null : (
               <Button asChild>
                 <Link href={{ pathname: retryHref }}>
-                  {state.kind === "not_found" ? "Выбрать другой плейлист" : "Повторить"}
+                  {state.kind === "not_found" ? "Выбрать другую серию" : "Повторить"}
                 </Link>
               </Button>
             )}
@@ -56,18 +56,18 @@ export function SeriesOrderRouteState({
 function routeStateContent(state: RouteState): { readonly text: string; readonly title: string } {
   if (state.kind === "empty") {
     return {
-      text: "Добавьте плейлист в справочные данные, чтобы управлять порядком материалов.",
-      title: "Плейлистов пока нет",
+      text: "Добавьте серию в справочные данные, чтобы управлять порядком материалов.",
+      title: "Серий пока нет",
     };
   }
   if (state.kind === "not_found") {
     return {
-      text: "Возможно, плейлист был удалён. Выберите другой плейлист и продолжите работу.",
-      title: "Плейлист не найден",
+      text: "Возможно, серия была удалена. Выберите другую серию и продолжите работу.",
+      title: "Серия не найдена",
     };
   }
   return {
     text: "Данные не изменены. Повторите попытку после восстановления соединения.",
-    title: "Не удалось открыть плейлист",
+    title: "Не удалось открыть серию",
   };
 }

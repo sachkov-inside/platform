@@ -218,6 +218,71 @@ describe("Series order", () => {
     );
   });
 
+  test("keeps one Material in a second Series when the author removes it from the first", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const [firstSeries, secondSeries] = await Promise.all([
+      authoring.createContentCollection({
+        actor,
+        kind: "series",
+        name: "First independent Series",
+        slug: "first-independent-series",
+        summary: "First explicit order.",
+      }),
+      authoring.createContentCollection({
+        actor,
+        kind: "series",
+        name: "Second independent Series",
+        slug: "second-independent-series",
+        summary: "Second explicit order.",
+      }),
+    ]);
+    if (!firstSeries.ok || !secondSeries.ok) {
+      throw new Error("Expected two Series");
+    }
+    const shared = await authoring.createDraft({
+      actor,
+      idempotencyKey: "series-order-shared-material",
+      metadata: {
+        ...metadata("Shared Material"),
+        seriesIds: [firstSeries.value.id, secondSeries.value.id],
+      },
+      body: representativeDocument("Shared body."),
+    });
+    if (!shared.ok) throw new Error(shared.error.code);
+
+    const firstOrder = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: firstSeries.value.id,
+    });
+    if (!firstOrder.ok) throw new Error(firstOrder.error.code);
+    const removed = await authoring.reorderSeries({
+      actor,
+      expectedOrderVersion: firstOrder.value.orderVersion,
+      orderedMaterialIds: [],
+      seriesId: firstSeries.value.id,
+    });
+    if (!removed.ok) throw new Error(removed.error.code);
+
+    const [firstAfterRemoval, secondAfterRemoval, material] = await Promise.all([
+      authoring.loadSeriesOrder({ actor, seriesId: firstSeries.value.id }),
+      authoring.loadSeriesOrder({ actor, seriesId: secondSeries.value.id }),
+      authoring.loadMaterial({ actor, materialId: shared.value.materialId }),
+    ]);
+    if (!firstAfterRemoval.ok || !secondAfterRemoval.ok || !material.ok) {
+      throw new Error("Expected preserved Material and Series");
+    }
+    expect(firstAfterRemoval.value.items).toEqual([]);
+    expect(secondAfterRemoval.value.items).toMatchObject([
+      { materialId: shared.value.materialId, ordinal: 1 },
+    ]);
+    expect(material.value.metadata.seriesMemberships).toEqual([
+      { ordinal: 1, seriesId: secondSeries.value.id },
+    ]);
+  });
+
   test("serializes concurrent reorders through one optimistic order version", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,

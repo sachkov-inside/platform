@@ -6,7 +6,7 @@ const meta = {
   args: { state: { kind: "empty" } },
   component: SeriesOrderRouteState,
   parameters: { nextjs: { appDirectory: true } },
-  title: "Pages/Authoring/Состояния плейлистов",
+  title: "Pages/Authoring/Состояния серий",
 } satisfies Meta<typeof SeriesOrderRouteState>;
 
 export default meta;

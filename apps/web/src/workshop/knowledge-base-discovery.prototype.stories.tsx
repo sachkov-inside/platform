@@ -211,7 +211,7 @@ export const Empty: Story = {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByText("Тем пока нет")).toBeVisible();
-    await expect(canvas.getByText("Плейлистов пока нет")).toBeVisible();
+    await expect(canvas.getByText("Серий пока нет")).toBeVisible();
     await expect(canvas.getByRole("heading", { level: 3, name: "Материалов пока нет" })).toBeVisible();
   },
 };

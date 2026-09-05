@@ -106,7 +106,7 @@ function DiscoveryHero({
           >
             {isSeries ? (
               <>
-                Плейлист ·{" "}
+                Серия ·{" "}
                 {formatMaterialCount(
                   result.kind === "ready" ? result.items.length : 0,
                 )}
@@ -191,7 +191,7 @@ function TopicMaterials({
         <DiscoverySectionHeading
           count={result.relatedSeries.length}
           id="topic-playlists"
-          title="Плейлисты"
+          title="Серии"
         />
         {result.relatedSeries.length > 0 ? (
           <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/discovery:grid-cols-2">
@@ -211,7 +211,7 @@ function TopicMaterials({
           </div>
         ) : (
           <p className="mt-4 rounded-2xl bg-muted px-5 py-7 font-semibold sm:px-8">
-            Связанных плейлистов пока нет
+            Связанных серий пока нет
           </p>
         )}
       </section>
@@ -242,7 +242,7 @@ function SeriesMaterials({
               {result.items.length}
             </p>
             {topics.length > 0 ? (
-              <nav aria-label="Темы плейлиста">
+              <nav aria-label="Темы серии">
                 <ul className="flex flex-wrap gap-2" role="list">
                   {topics.map((topic) => (
                     <li key={topic.slug}>
@@ -323,7 +323,7 @@ function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
     <section className="mt-8 max-w-[48rem] rounded-2xl bg-muted px-6 py-7 sm:mt-10 sm:px-8">
       <LibraryBig aria-hidden="true" className="size-6 text-accent" />
       <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em]">
-        {kind === "series" ? "В плейлисте пока нет материалов" : "В теме пока нет материалов"}
+        {kind === "series" ? "В серии пока нет материалов" : "В теме пока нет материалов"}
       </h2>
       <Button asChild className="mt-6" size="lg" variant="outline">
         <Link href="/library">Открыть Базу знаний</Link>
@@ -353,7 +353,7 @@ function DiscoveryBreadcrumb({
             {returnTarget.label}
           </Link>
         </li>
-        <li className="sr-only">{kind === "series" ? "Плейлист" : "Тема"}</li>
+        <li className="sr-only">{kind === "series" ? "Серия" : "Тема"}</li>
         <li aria-current="page" className="sr-only">{name}</li>
       </ol>
     </nav>
@@ -456,7 +456,7 @@ export function LibraryDiscoveryNotFound() {
         </Button>
       }
       icon={<SearchX aria-hidden="true" />}
-      message="Проверьте адрес или выберите другую тему или плейлист в Базе знаний."
+      message="Проверьте адрес или выберите другую тему или серию в Базе знаний."
       state="not-found"
       title="Подборка не найдена"
     />

@@ -692,7 +692,7 @@ test("trusted author sees a typed not-found state for a missing current Preview"
   await expect(page.getByRole("link", { name: "Вернуться в редактор" })).toBeVisible();
 });
 
-test("trusted author reorders a PostgreSQL playlist with keyboard controls", async ({
+test("trusted author reorders a PostgreSQL series with keyboard controls", async ({
   context,
   page,
 }) => {
@@ -721,7 +721,7 @@ test("trusted author reorders a PostgreSQL playlist with keyboard controls", asy
   await picker.getByRole("button", { name: "Закрыть выбор материала" }).click();
   await expect(picker).toBeHidden();
 
-  const items = page.getByRole("list", { name: "Материалы плейлиста" }).getByRole("listitem");
+  const items = page.getByRole("list", { name: "Материалы серии" }).getByRole("listitem");
   await expect(items.nth(1)).toBeVisible();
   const firstTitle = await items.first().locator("p").first().innerText();
   const secondTitle = await items.nth(1).locator("p").first().innerText();

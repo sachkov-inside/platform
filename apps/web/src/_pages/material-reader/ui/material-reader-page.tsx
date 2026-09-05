@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
 
+import { loadPublishedSeries } from "@/features/library-discovery.server";
 import { loadMaterialReader } from "../api/load-material-reader";
+import { resolveSeriesReaderContext } from "../model/series-reader-context";
 import {
+  libraryMaterialReaderReturnTarget,
   materialReaderHref,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
@@ -17,17 +20,36 @@ export async function MaterialReaderPage({
   readonly returnTarget: MaterialReaderReturnTarget;
   readonly slug: string;
 }) {
-  const result = await loadMaterialReader(slug, accessToken);
+  const [result, seriesResult] = await Promise.all([
+    loadMaterialReader(slug, accessToken),
+    returnTarget.kind === "series" && returnTarget.seriesSlug !== undefined
+      ? loadPublishedSeries(returnTarget.seriesSlug, accessToken)
+      : Promise.resolve(null),
+  ]);
   if (result.kind === "not-found") {
     notFound();
   }
+  const seriesContext =
+    seriesResult?.kind === "ready" &&
+    (result.kind === "available" || result.kind === "access")
+      ? resolveSeriesReaderContext({
+          currentMaterialSlug: result.material.slug,
+          returnTarget,
+          series: seriesResult,
+        })
+      : null;
+  const effectiveReturnTarget =
+    returnTarget.kind === "series" && seriesContext === null
+      ? libraryMaterialReaderReturnTarget
+      : returnTarget;
   if (result.kind === "access") {
     return (
       <div className="@container/material-reader">
         <MaterialReaderAccess
           cta={result.cta}
           material={result.material}
-          returnTarget={returnTarget}
+          returnTarget={effectiveReturnTarget}
+          seriesContext={seriesContext}
         />
       </div>
     );
@@ -35,8 +57,8 @@ export async function MaterialReaderPage({
   if (result.kind === "unavailable") {
     return (
       <MaterialReaderUnavailable
-        retryHref={currentMaterialHref(slug, returnTarget)}
-        returnTarget={returnTarget}
+        retryHref={currentMaterialHref(slug, effectiveReturnTarget)}
+        returnTarget={effectiveReturnTarget}
       />
     );
   }
@@ -45,7 +67,8 @@ export async function MaterialReaderPage({
       body={result.body}
       material={result.material}
       primaryVideo={result.primaryVideo}
-      returnTarget={returnTarget}
+      returnTarget={effectiveReturnTarget}
+      seriesContext={seriesContext}
     />
   );
 }

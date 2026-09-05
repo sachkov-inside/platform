@@ -20,12 +20,12 @@ export async function generateMetadata({
   );
   return result.kind === "ready" || result.kind === "empty"
     ? {
-        title: `${result.reference.name} — плейлист`,
-        description: `Опубликованные материалы плейлиста «${result.reference.name}» в авторском порядке.`,
+        title: `${result.reference.name} — серия`,
+        description: `Опубликованные материалы серии «${result.reference.name}» в авторском порядке.`,
       }
     : {
         title:
-          result.kind === "not-found" ? "Плейлист не найден" : "Плейлист недоступен",
+          result.kind === "not-found" ? "Серия не найдена" : "Серия недоступна",
       };
 }
 

@@ -75,8 +75,8 @@ export function ContentCollectionsPageClient({
     archiveMutation.reset();
     router.refresh();
   };
-  const noun = kind === "topic" ? "тему" : "плейлист";
-  const plural = kind === "topic" ? "Темы" : "Плейлисты";
+  const noun = kind === "topic" ? "тему" : "серию";
+  const plural = kind === "topic" ? "Темы" : "Серии";
 
   return (
     <main className="h-full min-h-svh overflow-y-auto bg-background px-4 pb-20 pt-5 text-foreground sm:px-6 md:min-h-0" id="authoring-content" tabIndex={-1}>

@@ -1,4 +1,4 @@
-import { ArrowLeft, List } from "lucide-react";
+import { ArrowLeft, ArrowRight, List } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -9,6 +9,7 @@ import type {
   ReaderText,
   PrimaryVideoPresentation,
 } from "@/_pages/material-reader/model/material-reader-view";
+import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { ContentCoverImage, materialTaxonomyLabel } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -24,6 +25,7 @@ export interface MaterialReaderViewProps {
   readonly material: MaterialReaderMetadata;
   readonly primaryVideo: PrimaryVideoPresentation | null;
   readonly returnTarget?: MaterialReaderReturnTarget;
+  readonly seriesContext?: SeriesReaderContext | null;
 }
 
 interface OutlineItem {
@@ -38,6 +40,7 @@ export function MaterialReaderView({
   material,
   primaryVideo,
   returnTarget = libraryMaterialReaderReturnTarget,
+  seriesContext = null,
 }: MaterialReaderViewProps) {
   const outline = collectOutline(body);
 
@@ -74,8 +77,74 @@ export function MaterialReaderView({
           </article>
         </div>
       </div>
+      <SeriesReaderNavigation context={seriesContext} />
       <ReaderBackAction className="mt-16" target={returnTarget} />
     </div>
+  );
+}
+
+export function SeriesReaderNavigation({
+  context,
+}: {
+  readonly context: SeriesReaderContext | null;
+}) {
+  if (context === null) return null;
+
+  return (
+    <nav
+      aria-label={`Навигация по серии «${context.series.name}»`}
+      className="mx-auto mt-12 max-w-[43rem] border-y border-border py-6"
+      data-series-reader-navigation
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <Link
+          className="min-w-0 break-words font-semibold no-underline hover:text-action focus-visible:outline-ring"
+          href={context.series.href}
+        >
+          {context.series.name}
+        </Link>
+        <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+          {context.currentPosition} из {context.totalMaterials}
+        </span>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <SeriesReaderStep direction="previous" item={context.previous} />
+        <SeriesReaderStep direction="next" item={context.next} />
+      </div>
+    </nav>
+  );
+}
+
+function SeriesReaderStep({
+  direction,
+  item,
+}: {
+  readonly direction: "next" | "previous";
+  readonly item: SeriesReaderContext["next"];
+}) {
+  if (item === null) {
+    return <span aria-hidden="true" className="hidden sm:block" />;
+  }
+  const isNext = direction === "next";
+  return (
+    <Link
+      className={cn(
+        "group flex min-h-20 min-w-0 items-center gap-3 rounded-xl bg-muted px-4 py-3 no-underline focus-visible:outline-ring",
+        isNext && "sm:text-right",
+      )}
+      href={item.href}
+    >
+      {isNext ? null : <ArrowLeft aria-hidden="true" className="size-4 shrink-0 text-action" />}
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-semibold text-muted-foreground">
+          {isNext ? "Следующий материал" : "Предыдущий материал"}
+        </span>
+        <span className="mt-1 block break-words text-sm font-semibold leading-5">
+          {item.title}
+        </span>
+      </span>
+      {isNext ? <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-action" /> : null}
+    </Link>
   );
 }
 
@@ -133,7 +202,7 @@ function MaterialContext({ material }: { readonly material: MaterialReaderMetada
         </ul>
       ) : null}
       {material.seriesMemberships.length > 0 ? (
-        <ul aria-label="Плейлисты материала" className="flex flex-wrap gap-x-4 gap-y-2" role="list">
+        <ul aria-label="Серии материала" className="flex flex-wrap gap-x-4 gap-y-2" role="list">
           {material.seriesMemberships.map(({ ordinal, series }) => (
             <li key={series.slug}>
               <Link

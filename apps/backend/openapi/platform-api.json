@@ -21661,6 +21661,60 @@
                       },
                       "type": "array"
                     },
+                    "membership": {
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "active"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "acquisitionUrl": {
+                              "format": "uri",
+                              "type": "string"
+                            },
+                            "kind": {
+                              "enum": [
+                                "inactive"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "acquisitionUrl",
+                            "kind"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "unknown"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
                     "notes": {
                       "items": {
                         "additionalProperties": false,
@@ -22689,7 +22743,8 @@
                     "playlists",
                     "videos",
                     "guides",
-                    "notes"
+                    "notes",
+                    "membership"
                   ],
                   "type": "object"
                 }

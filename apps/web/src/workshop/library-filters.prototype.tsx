@@ -34,7 +34,7 @@ export function LibraryFilters({
   selectedFormats,
   selectedSeriesIds,
   selectedTopics,
-  seriesLabel = "Плейлисты",
+  seriesLabel = "Серии",
   seriesOptions,
   setSelectedFormats,
   setSelectedSeriesIds,

@@ -1,13 +1,13 @@
-import { DatabaseZap } from "lucide-react";
+import { ArrowRight, DatabaseZap, Search } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
 import { MaterialCard } from "@/entities/material";
 import {
   PlaylistCard,
-  TopicCard,
   formatMaterialCount,
 } from "@/features/library-discovery";
+import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import { PublicProductHeader } from "@/widgets/application-shell";
@@ -25,6 +25,9 @@ function HomeReady({ home }: { readonly home: HomeView }) {
     <div className="@container/home min-w-0">
       <PublicProductHeader />
       <h1 className="sr-only">Главная</h1>
+      <HomeShortcuts />
+      <MembershipInvitation membership={home.membership} />
+      <PlaylistSection playlists={home.playlists} />
       <TopicSection topics={home.topics} />
       <MaterialSection
         formatSlug="video"
@@ -33,7 +36,6 @@ function HomeReady({ home }: { readonly home: HomeView }) {
         title="Новые видео"
         variant="video"
       />
-      <PlaylistSection playlists={home.playlists} />
       <MaterialSection
         formatSlug="guide"
         id="home-guides"
@@ -41,39 +43,92 @@ function HomeReady({ home }: { readonly home: HomeView }) {
         title="Свежие гайды"
       />
       <NoteFeed items={home.notes} />
+      <CatalogInvitation />
     </div>
+  );
+}
+
+function HomeShortcuts() {
+  return (
+    <nav
+      aria-label="Разделы главной"
+      className="public-horizontal-rail flex items-center gap-5 overflow-x-auto py-3 text-sm font-semibold text-muted-foreground"
+    >
+      <a className="min-h-11 shrink-0 content-center hover:text-action" href="#home-series">
+        Серии
+      </a>
+      <a className="min-h-11 shrink-0 content-center hover:text-action" href="#home-videos">
+        Новое
+      </a>
+      <a className="min-h-11 shrink-0 content-center hover:text-action" href="#home-guides">
+        Гайды
+      </a>
+      <a className="min-h-11 shrink-0 content-center hover:text-action" href="#home-notes">
+        Заметки
+      </a>
+      <Link
+        aria-label="Найти материал"
+        className="ml-auto inline-flex min-h-11 shrink-0 items-center gap-2 no-underline hover:text-action"
+        href="/library"
+      >
+        <Search aria-hidden="true" className="size-4" />
+        <span className="hidden sm:inline">Найти материал</span>
+      </Link>
+    </nav>
+  );
+}
+
+function MembershipInvitation({
+  membership,
+}: {
+  readonly membership: HomeView["membership"];
+}) {
+  if (membership.kind !== "inactive") return null;
+  return (
+    <aside
+      aria-label="Подписка Inside"
+      className="mt-2 grid gap-5 rounded-[1.5rem] bg-muted px-5 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6"
+    >
+      <div className="min-w-0">
+        <strong className="text-lg tracking-[-0.02em]">Внутри — весь процесс разработки</strong>
+        <p className="mt-1 max-w-[65ch] text-sm leading-6 text-muted-foreground">
+          Видео, гайды и рабочие решения с контекстом. Обсуждаем и применяем вместе в закрытом сообществе.
+        </p>
+      </div>
+      <Button asChild className="w-full rounded-full sm:w-auto">
+        <a href={membership.acquisitionUrl} rel="noopener noreferrer" target="_blank">
+          Что даёт подписка
+          <ArrowRight aria-hidden="true" />
+        </a>
+      </Button>
+    </aside>
   );
 }
 
 function TopicSection({ topics }: { readonly topics: HomeView["topics"] }) {
   return (
-    <section aria-labelledby="home-topics">
-      <SectionHeading action="Все темы" href="/library" id="home-topics" title="Темы" />
+    <nav aria-label="Фильтр по теме" className="mt-6 flex flex-wrap items-center gap-2">
+      <span className="mr-1 text-sm text-muted-foreground">По теме</span>
       {topics.length === 0 ? (
-        <EmptyCollection label="Тем пока нет." />
+        <span className="text-sm text-muted-foreground">Тем пока нет</span>
       ) : (
-        <ul
-          className="public-horizontal-rail -mx-4 mt-4 flex gap-4 overflow-x-auto px-4 pt-1 pb-1 sm:mx-0 sm:px-0 md:gap-5"
-          role="list"
-        >
+        <ul className="flex flex-wrap gap-2" role="list">
           {topics.map((topic) => (
-            <li className="w-24 shrink-0 md:w-28" key={topic.slug}>
-              <TopicCard
-                compact
-                returnHref="/"
-                topic={{
-                  count: topic.count,
-                  cover: topic.cover,
-                  name: topic.name,
-                  slug: topic.slug,
-                  summary: topic.summary ?? "",
-                }}
-              />
+            <li key={topic.slug}>
+              <Link
+                className="inline-flex min-h-11 items-center rounded-full bg-muted px-4 text-sm font-semibold text-muted-foreground no-underline hover:text-action focus-visible:outline-ring"
+                href={collectionDiscoveryHref("topic", topic.slug, "/")}
+              >
+                {topic.name}
+              </Link>
             </li>
           ))}
         </ul>
       )}
-    </section>
+      <Link className="inline-flex min-h-11 items-center px-2 text-sm font-semibold no-underline" href="/library">
+        Все материалы
+      </Link>
+    </nav>
   );
 }
 
@@ -132,30 +187,31 @@ function PlaylistSection({
   readonly playlists: HomeView["playlists"];
 }) {
   return (
-    <section aria-labelledby="home-playlists">
+    <section aria-labelledby="home-series">
       <SectionHeading
-        action="Все плейлисты"
-        href="/library"
-        id="home-playlists"
-        title="Плейлисты"
+        action="Все серии"
+        href="/library#series-heading"
+        id="home-series"
+        title="Серии"
       />
       {playlists.length === 0 ? (
-        <EmptyCollection label="Плейлистов пока нет." />
+        <EmptyCollection label="Серий пока нет." />
       ) : (
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          {playlists.map((playlist) => (
-            <PlaylistCard
-              key={playlist.slug}
-              returnHref="/"
-              playlist={{
-                countLabel: formatMaterialCount(playlist.count),
-                cover: playlist.cover,
-                name: playlist.name,
-                previewItems: playlist.previewItems,
-                slug: playlist.slug,
-                summary: playlist.summary ?? "",
-              }}
-            />
+        <div className="public-horizontal-rail -mx-4 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-2 md:px-0">
+          {playlists.slice(0, 2).map((playlist) => (
+            <div className="w-[88%] shrink-0 snap-center md:w-auto" key={playlist.slug}>
+              <PlaylistCard
+                returnHref="/"
+                playlist={{
+                  countLabel: formatMaterialCount(playlist.count),
+                  cover: playlist.cover,
+                  name: playlist.name,
+                  previewItems: playlist.previewItems,
+                  slug: playlist.slug,
+                  summary: playlist.summary ?? "",
+                }}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -214,10 +270,29 @@ function SectionHeading({
           {action}
         </Link>
       }
-      className={id === "home-topics" ? "mt-6 md:mt-2" : "mt-10 md:mt-12"}
+      className="mt-10 md:mt-12"
       id={id}
       title={title}
     />
+  );
+}
+
+function CatalogInvitation() {
+  return (
+    <section className="mt-12 border-t border-border pt-8" aria-labelledby="home-catalog">
+      <h2 className="text-2xl font-semibold tracking-[-0.03em]" id="home-catalog">
+        Все материалы в одном каталоге
+      </h2>
+      <p className="mt-2 max-w-[60ch] text-sm leading-6 text-muted-foreground">
+        Ищите независимо от Серий по названию, теме, формату или тегу.
+      </p>
+      <Button asChild className="mt-5" variant="outline">
+        <Link href="/library">
+          Открыть Базу знаний
+          <ArrowRight aria-hidden="true" />
+        </Link>
+      </Button>
+    </section>
   );
 }
 
