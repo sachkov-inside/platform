@@ -58,13 +58,25 @@ describe("ordinal release workflow contract", () => {
     assert.match(build, /docker buildx imagetools inspect/u);
   });
 
-  it("rechecks state and publishes only the digest manifest", () => {
+  it("binds the runtime bundle and exact previous image proof before publication", () => {
     const finalize = jobBlock(releaseWorkflow, "finalize");
 
     assert.equal(releaseWorkflow.match(/bash scripts\/plan-release\.sh/gu)?.length, 2);
+    assert.match(finalize, /build-production-runtime-bundle\.sh/u);
+    assert.match(finalize, /release-contract\.mjs image-reference/u);
+    assert.match(finalize, /release-schema-identity\.sh/u);
+    assert.ok(
+      finalize.indexOf("release-contract.mjs image-reference") <
+        finalize.indexOf("release-schema-identity.sh"),
+      "the image artifact must be fully validated before its image is executed",
+    );
+    assert.match(finalize, /PREVIOUS_VERSION/u);
+    assert.match(finalize, /gh release download "\$PREVIOUS_VERSION"/u);
+    assert.match(finalize, /GITHUB_RUN_ID/u);
     assert.match(finalize, /release-contract\.mjs manifest/u);
     assert.match(finalize, /gh release create/u);
     assert.match(finalize, /--target "\$SOURCE_SHA"/u);
+    assert.match(finalize, /release-assets\/production-runtime\.tar\.gz/u);
     assert.doesNotMatch(releaseWorkflow, /:latest|--clobber|secrets\./u);
     assert.doesNotMatch(
       releaseWorkflow,

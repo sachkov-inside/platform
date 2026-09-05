@@ -21,7 +21,7 @@ services:
     <<: *backend-runtime
     command: ["node", "dist/migrations/migrate.js"]
     env_file:
-      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_RELEASE_ENV_FILE:?PLATFORM_RELEASE_ENV_FILE is required}
       - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/migrations.env
     networks: [database]
     restart: "no"
@@ -30,7 +30,7 @@ services:
     <<: *backend-runtime
     command: ["node", "dist/entrypoints/api.js"]
     env_file:
-      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_RELEASE_ENV_FILE:?PLATFORM_RELEASE_ENV_FILE is required}
       - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/api.env
     depends_on:
       migrations:
@@ -56,7 +56,7 @@ services:
     <<: *backend-runtime
     command: ["node", "dist/entrypoints/mcp.js"]
     env_file:
-      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_RELEASE_ENV_FILE:?PLATFORM_RELEASE_ENV_FILE is required}
       - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/mcp.env
     depends_on:
       migrations:
@@ -82,7 +82,7 @@ services:
     <<: *backend-runtime
     command: ["node", "dist/entrypoints/material-assets-worker.js"]
     env_file:
-      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_RELEASE_ENV_FILE:?PLATFORM_RELEASE_ENV_FILE is required}
       - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/material-assets-worker.env
     depends_on:
       migrations:
@@ -97,7 +97,7 @@ services:
     <<: *backend-runtime
     command: ["node", "dist/entrypoints/profile-avatars-worker.js"]
     env_file:
-      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_RELEASE_ENV_FILE:?PLATFORM_RELEASE_ENV_FILE is required}
       - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/profile-avatars-worker.env
     depends_on:
       migrations:
@@ -112,7 +112,7 @@ services:
     <<: *backend-runtime
     command: ["node", "dist/entrypoints/video-deletions-worker.js"]
     env_file:
-      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_RELEASE_ENV_FILE:?PLATFORM_RELEASE_ENV_FILE is required}
       - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/video-deletions-worker.env
     depends_on:
       migrations:
@@ -127,7 +127,7 @@ services:
     image: ${PLATFORM_WEB_IMAGE_REPOSITORY:?web repository is required}@sha256:${PLATFORM_WEB_IMAGE_DIGEST:?web sha256 digest is required}
     pull_policy: never
     env_file:
-      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/runtime.env
+      - ${PLATFORM_RELEASE_ENV_FILE:?PLATFORM_RELEASE_ENV_FILE is required}
       - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/web.env
     depends_on:
       api:

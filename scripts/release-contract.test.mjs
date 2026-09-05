@@ -9,6 +9,46 @@ import { spawnSync } from "node:child_process";
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("release contract CLI", () => {
+  it("returns the exact backend image reference only for the captured source", () => {
+    const result = runImageReference(
+      readJson("scripts/fixtures/release/manifest/backend.image.json"),
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(
+      result.stdout,
+      "ghcr.io/sachkov-inside/platform-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+    );
+  });
+
+  it("rejects a valid image result for the wrong release image", () => {
+    const result = runImageReference(
+      readJson("scripts/fixtures/release/manifest/web.image.json"),
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /result does not bind the expected image and release source/u,
+    );
+  });
+
+  it("rejects a backend image result from another source before use", () => {
+    const fixture = readJson(
+      "scripts/fixtures/release/manifest/backend.image.json",
+    );
+    const result = runImageReference({
+      ...fixture,
+      sourceSha: "4444444444444444444444444444444444444444",
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /result does not bind the expected image and release source/u,
+    );
+  });
+
   it("accepts the next ordinal release for the captured current main", () => {
     const result = runReleaseContractWithInput(
       "plan",
@@ -33,6 +73,7 @@ describe("release contract CLI", () => {
       ],
       manifestAssetName: "release-manifest.json",
       ordinal: 3,
+      previousVersion: "v2",
       sourceSha: "3333333333333333333333333333333333333333",
       version: "v3",
     });
@@ -99,8 +140,8 @@ describe("release contract CLI", () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(JSON.parse(result.stdout), {
-      schemaVersion: "inside.platform.release-manifest.v1",
-      version: "v3",
+      schemaVersion: "inside.platform.release-manifest.v2",
+      version: "v1",
       source: {
         repository: "sachkov-inside/platform",
         sha: "3333333333333333333333333333333333333333",
@@ -110,6 +151,17 @@ describe("release contract CLI", () => {
           "ghcr.io/sachkov-inside/platform-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         web: "ghcr.io/sachkov-inside/platform-web@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       },
+      schema: {
+        identity:
+          "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      },
+      runtimeBundle: {
+        asset: "production-runtime.tar.gz",
+        sha256:
+          "sha256:1410351722bc79029b917fbd7b55af8d9ae82588d063f924610cc3432ac80c6a",
+      },
+      publication: { workflowRunId: 12345 },
+      rollback: { previous: null },
     });
   });
 
@@ -123,7 +175,10 @@ describe("release contract CLI", () => {
     });
 
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /result does not bind the release source/u);
+    assert.match(
+      result.stderr,
+      /result does not bind the expected image and release source/u,
+    );
   });
 });
 
@@ -142,6 +197,27 @@ function runReleaseContractWithInput(command, input) {
   return spawnSync(
     process.execPath,
     ["scripts/release-contract.mjs", command, "--input", "-"],
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      input: JSON.stringify(input),
+    },
+  );
+}
+
+function runImageReference(input) {
+  return spawnSync(
+    process.execPath,
+    [
+      "scripts/release-contract.mjs",
+      "image-reference",
+      "--input",
+      "-",
+      "--kind",
+      "backend",
+      "--source-sha",
+      "3333333333333333333333333333333333333333",
+    ],
     {
       cwd: repositoryRoot,
       encoding: "utf8",

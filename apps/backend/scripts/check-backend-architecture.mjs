@@ -172,7 +172,6 @@ function violationsFor(source, specifier) {
   const importsPg = specifier === "pg" || specifier.startsWith("pg/");
   const ownsPostgresLifecycle = [
     "src/infrastructure/postgres/migrate-to-latest.ts",
-    "src/infrastructure/worker-healthcheck.ts",
     "src/infrastructure/worker-runtime.ts",
   ].includes(sourcePath);
   const importsDeletedGeneratedPersistence =
@@ -215,7 +214,7 @@ function databaseReferenceViolations(sourceFile, program) {
   return [...violations, ...references.flatMap((reference) => {
     if (
       sourcePath === "src/infrastructure/operational-readiness.ts" &&
-      reference === "public.platform_migrations"
+      ["public.platform_migrations", "pgboss.version"].includes(reference)
     ) {
       return [];
     }

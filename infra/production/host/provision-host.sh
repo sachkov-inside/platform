@@ -36,7 +36,10 @@ if [[ ! -f "$managed_marker" ]]; then
 
   for managed_file in \
     /etc/caddy/Caddyfile \
-    /usr/local/libexec/inside/database-backup; do
+    /etc/sudoers.d/inside-deploy \
+    /usr/local/libexec/inside/configure-deploy-key \
+    /usr/local/libexec/inside/database-backup \
+    /usr/local/libexec/inside/inside-deploy; do
     if [[ -e "$managed_file" || -L "$managed_file" ]]; then
       echo "Refusing to overwrite unmanaged file: $managed_file" >&2
       exit 1
@@ -69,8 +72,10 @@ apt-get install --yes \
   curl \
   docker-compose-v2 \
   docker.io \
+  jq \
   openssh-server \
   sudo \
+  util-linux \
   ufw
 
 if ! id inside-deploy >/dev/null 2>&1; then
@@ -78,11 +83,12 @@ if ! id inside-deploy >/dev/null 2>&1; then
 fi
 passwd --lock inside-deploy >/dev/null
 
-install -d -m 700 /etc/inside/age /etc/inside/foundation
+install -d -m 700 /etc/inside/age /etc/inside/foundation /etc/inside/runtime
 install -d -m 755 /opt/inside/foundation/infra/identity/logto
 install -d -m 755 /opt/inside/foundation/infra/production/database
 install -d -m 755 /opt/inside/foundation/infra/production/logto
-install -d -m 755 /srv/inside/runtime/caddy /var/lib/inside
+install -d -m 755 /srv/inside/releases /srv/inside/runtime/caddy /var/lib/inside
+install -d -m 700 /var/lib/inside/deployments
 install -d -m 755 /usr/local/libexec/inside
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -104,6 +110,21 @@ install -m 644 "$script_dir/Caddyfile" /etc/caddy/Caddyfile
 install -m 755 \
   "$production_dir/database/database-backup" \
   /usr/local/libexec/inside/database-backup
+install -m 755 \
+  "$script_dir/configure-deploy-key.sh" \
+  /usr/local/libexec/inside/configure-deploy-key
+install -m 755 \
+  "$script_dir/inside-deploy" \
+  /usr/local/libexec/inside/inside-deploy
+sudoers_temp="$(mktemp)"
+printf '%s\n' \
+  'Defaults:inside-deploy env_keep += "SSH_ORIGINAL_COMMAND"' \
+  'inside-deploy ALL=(root) NOPASSWD: /usr/local/libexec/inside/inside-deploy' \
+  >"$sudoers_temp"
+chmod 440 "$sudoers_temp"
+visudo --check "$sudoers_temp"
+install -m 440 "$sudoers_temp" /etc/sudoers.d/inside-deploy
+rm "$sudoers_temp"
 for unit in "${backup_units[@]}"; do
   install -m 644 \
     "$production_dir/database/$unit" \

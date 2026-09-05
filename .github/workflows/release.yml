@@ -21,6 +21,7 @@ jobs:
     outputs:
       image_matrix: ${{ steps.plan.outputs.image_matrix }}
       manifest_asset_name: ${{ steps.plan.outputs.manifest_asset_name }}
+      previous_version: ${{ steps.plan.outputs.previous_version }}
       source_sha: ${{ steps.plan.outputs.source_sha }}
       version: ${{ steps.plan.outputs.version }}
     permissions:
@@ -50,6 +51,7 @@ jobs:
           bash scripts/plan-release.sh >release-plan.json
           echo "image_matrix=$(jq --compact-output .imageMatrix release-plan.json)" >>"$GITHUB_OUTPUT"
           echo "manifest_asset_name=$(jq --raw-output .manifestAssetName release-plan.json)" >>"$GITHUB_OUTPUT"
+          echo "previous_version=$(jq --raw-output '.previousVersion // empty' release-plan.json)" >>"$GITHUB_OUTPUT"
           echo "source_sha=$(jq --raw-output .sourceSha release-plan.json)" >>"$GITHUB_OUTPUT"
           echo "version=$(jq --raw-output .version release-plan.json)" >>"$GITHUB_OUTPUT"
 
@@ -177,6 +179,38 @@ jobs:
           SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
         run: |
           bash scripts/plan-release.sh >"$RUNNER_TEMP/release-plan.json"
+      - name: Build runtime bundle and exact schema proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_VERSION: ${{ needs.plan.outputs.previous_version }}
+          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          bash scripts/build-production-runtime-bundle.sh \
+            release-assets/production-runtime.tar.gz
+          backend_image="$(node scripts/release-contract.mjs image-reference \
+            --input release-assets/backend.image.json \
+            --kind backend \
+            --source-sha "$SOURCE_SHA")"
+          bash scripts/release-schema-identity.sh "$backend_image" \
+            >"$RUNNER_TEMP/candidate-schema-identity"
+          jq --null-input '{previous: null}' >"$RUNNER_TEMP/rollback-input.json"
+          if [[ -n "$PREVIOUS_VERSION" ]]; then
+            mkdir -m 700 "$RUNNER_TEMP/previous-release"
+            gh release download "$PREVIOUS_VERSION" \
+              --pattern release-manifest.json \
+              --dir "$RUNNER_TEMP/previous-release"
+            previous_manifest="$RUNNER_TEMP/previous-release/release-manifest.json"
+            node scripts/runtime-contract.mjs plan --manifest "$previous_manifest" >/dev/null
+            [[ "$(jq --raw-output .version "$previous_manifest")" == "$PREVIOUS_VERSION" ]]
+            previous_backend_image="$(jq --raw-output .images.backend "$previous_manifest")"
+            previous_schema_identity="$(bash scripts/release-schema-identity.sh "$previous_backend_image")"
+            jq --null-input \
+              --arg manifest "$previous_manifest" \
+              --arg schemaIdentity "$previous_schema_identity" \
+              '{previous: {manifest: $manifest, schemaIdentity: $schemaIdentity}}' \
+              >"$RUNNER_TEMP/rollback-input.json"
+          fi
       - name: Create immutable manifest
         env:
           MANIFEST_ASSET_NAME: ${{ needs.plan.outputs.manifest_asset_name }}
@@ -189,11 +223,19 @@ jobs:
             --arg repository "$GITHUB_REPOSITORY" \
             --arg backend release-assets/backend.image.json \
             --arg web release-assets/web.image.json \
+            --arg schemaIdentity "$(<"$RUNNER_TEMP/candidate-schema-identity")" \
+            --arg runtimeBundle release-assets/production-runtime.tar.gz \
+            --argjson workflowRunId "$GITHUB_RUN_ID" \
+            --slurpfile rollback "$RUNNER_TEMP/rollback-input.json" \
             '{
               version: $version,
               sourceSha: $sourceSha,
               repository: $repository,
-              images: {backend: $backend, web: $web}
+              images: {backend: $backend, web: $web},
+              schemaIdentity: $schemaIdentity,
+              runtimeBundle: $runtimeBundle,
+              publicationWorkflowRunId: $workflowRunId,
+              rollback: $rollback[0]
             }' >"$RUNNER_TEMP/release-manifest-input.json"
           node scripts/release-contract.mjs manifest \
             --input "$RUNNER_TEMP/release-manifest-input.json" \
@@ -208,11 +250,13 @@ jobs:
           jq --raw-output '
             "Source: `" + .source.sha + "`\n\n" +
             "Backend: `" + .images.backend + "`\n\n" +
-            "Web: `" + .images.web + "`"
+            "Web: `" + .images.web + "`\n\n" +
+            "Schema: `" + .schema.identity + "`"
           ' "release-assets/${MANIFEST_ASSET_NAME}" >"$RUNNER_TEMP/release-notes.md"
           gh release create "$VERSION" \
             --target "$SOURCE_SHA" \
             --title "$VERSION" \
             --notes-file "$RUNNER_TEMP/release-notes.md" \
             --latest \
-            "release-assets/${MANIFEST_ASSET_NAME}"
+            "release-assets/${MANIFEST_ASSET_NAME}" \
+            "release-assets/production-runtime.tar.gz"

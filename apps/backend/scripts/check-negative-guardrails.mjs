@@ -78,6 +78,7 @@ expectFailure(
     "raw persistence imports",
     "Kysely is forbidden",
     "src/infrastructure/operational-readiness.ts",
+    "src/infrastructure/operational-readiness.ts: application schema references must stay inside the owning Module (accounts.accounts)",
     "(pg)",
     "database table references must be schema-qualified",
     "database table references must stay inside the owning Module schema",

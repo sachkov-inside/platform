@@ -1,7 +1,11 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { z } from "zod";
 
 import type { BackendProcess } from "../config/platform-config.js";
+import { platformMigrations } from "../migrations/index.js";
+import {
+  expectedPgBossSchemaVersion,
+  runtimeDatabaseSchemaIdentity,
+} from "../migrations/runtime-schema.js";
 import {
   RUNTIME_IDENTITY,
   type RuntimeIdentity,
@@ -12,20 +16,13 @@ import {
   type PlatformPrisma,
 } from "./prisma/index.js";
 import {
+  type MigrationVerification,
   assertAppliedMigrations,
-  migrationRegistryIdentity,
+  parseAppliedMigrations,
+  parsePgBossSchemaVersionRows,
 } from "./postgres/migrate-to-latest.js";
-import { platformMigrations } from "../migrations/index.js";
 
 export type RuntimeProcess = BackendProcess;
-
-const appliedMigrationRowsSchema = z.array(
-  z.object({
-    checksum: z.string().length(64),
-    name: z.string().min(1),
-    position: z.number().int().positive(),
-  }).strict(),
-);
 
 export interface LivenessReport {
   readonly process: RuntimeProcess;
@@ -44,16 +41,25 @@ export interface ReadinessReport {
   };
 }
 
-export function platformSchemaReadiness(appliedRows: unknown): ReadinessReport["schema"] {
-  const applied = appliedMigrationRowsSchema.parse(appliedRows);
-  assertAppliedMigrations(applied, platformMigrations);
-  if (applied.length !== platformMigrations.length) {
+export function runtimeSchemaReadiness(
+  migrationState: MigrationVerification,
+): ReadinessReport["schema"] {
+  if (migrationState.appliedMigrations.length !== platformMigrations.length) {
     throw new Error(
-      `Expected ${String(platformMigrations.length)} Platform migrations, received ${String(applied.length)}`,
+      `Expected ${String(platformMigrations.length)} Platform migrations, received ${String(migrationState.appliedMigrations.length)}`,
+    );
+  }
+  const { jobSchemaVersion } = migrationState;
+  if (jobSchemaVersion !== expectedPgBossSchemaVersion) {
+    throw new Error(
+      `Expected PgBoss schema ${String(expectedPgBossSchemaVersion)}, received ${String(jobSchemaVersion)}`,
     );
   }
   return {
-    identity: migrationRegistryIdentity(platformMigrations),
+    identity: runtimeDatabaseSchemaIdentity(
+      platformMigrations,
+      jobSchemaVersion,
+    ),
     migrationCount: platformMigrations.length,
   };
 }
@@ -76,14 +82,21 @@ export class OperationalReadiness {
   }
 
   async check(process: RuntimeProcess): Promise<ReadinessReport> {
-    await this.prisma.$queryRaw(Prisma.sql`select 1`);
-    const schema = platformSchemaReadiness(
+    const applied = parseAppliedMigrations(
       await this.prisma.$queryRaw(Prisma.sql`
         select name, position, checksum
         from public.platform_migrations
         order by position
       `),
     );
+    assertAppliedMigrations(applied, platformMigrations);
+    const jobSchemaVersion = parsePgBossSchemaVersionRows(
+      await this.prisma.$queryRaw(Prisma.sql`select version from pgboss.version`),
+    );
+    const schema = runtimeSchemaReadiness({
+      appliedMigrations: applied.map(({ name }) => name),
+      jobSchemaVersion,
+    });
 
     return {
       process,

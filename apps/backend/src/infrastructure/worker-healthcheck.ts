@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-import { Pool } from "pg";
 import {
   runtimeIdentitySchema,
   sha256IdentitySchema,
@@ -9,11 +8,11 @@ import {
 import { z } from "zod";
 
 import { parsePlatformDatabaseConfig } from "../config/platform-config.js";
-import { platformSchemaReadiness } from "./operational-readiness.js";
+import { platformMigrations } from "../migrations/index.js";
+import { runtimeSchemaReadiness } from "./operational-readiness.js";
+import { verifyMigrationState } from "./postgres/migrate-to-latest.js";
 import { parseRuntimeIdentity, type RuntimeIdentity } from "./runtime-identity.js";
 import { WORKER_READINESS_PATH } from "./worker-runtime.js";
-
-const WORKER_HEALTH_DATABASE_CONNECTION_TIMEOUT_MILLISECONDS = 3_000;
 
 const workerProcessSchema = z.enum([
   "material-assets-worker",
@@ -45,29 +44,14 @@ export async function assertCurrentWorkerReadiness(input: {
     throw new Error("Worker readiness marker does not match this process release");
   }
 
-  const pool = new Pool({
-    connectionString: input.databaseUrl,
-    connectionTimeoutMillis: WORKER_HEALTH_DATABASE_CONNECTION_TIMEOUT_MILLISECONDS,
-    max: 1,
-  });
-  try {
-    const schema = platformSchemaReadiness(
-      (
-        await pool.query(`
-          select name, position, checksum
-          from public.platform_migrations
-          order by position
-        `)
-      ).rows,
-    );
-    if (
-      marker.schema.identity !== schema.identity ||
-      marker.schema.migrationCount !== schema.migrationCount
-    ) {
-      throw new Error("Worker readiness marker has a stale schema identity");
-    }
-  } finally {
-    await pool.end();
+  const schema = runtimeSchemaReadiness(
+    await verifyMigrationState(input.databaseUrl, platformMigrations),
+  );
+  if (
+    marker.schema.identity !== schema.identity ||
+    marker.schema.migrationCount !== schema.migrationCount
+  ) {
+    throw new Error("Worker readiness marker has a stale schema identity");
   }
 }
 

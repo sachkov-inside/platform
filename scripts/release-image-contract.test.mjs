@@ -53,6 +53,8 @@ describe("release image contract", () => {
     assert.equal(smoke.match(/^ {4}--provenance=false \\/gmu)?.length, 1);
     assert.equal(smoke.match(/^ {4}--sbom=false \\/gmu)?.length, 1);
     assert.match(smoke, /release-contract\.mjs images/u);
+    assert.match(smoke, /release-schema-identity\.sh/u);
+    assert.match(smoke, /docker image inspect/u);
     assert.doesNotMatch(smoke, /apps\/(?:backend|web)\/Dockerfile/u);
     assert.doesNotMatch(smoke, /(?:backend|web)-production/u);
     assert.match(smoke, /test ! -e \/workspace/u);

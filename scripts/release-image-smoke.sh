@@ -40,6 +40,10 @@ done < <(
 : "${backend_image:?backend release image is missing from the contract}"
 : "${web_image:?web release image is missing from the contract}"
 
+backend_image_id="$(docker image inspect --format '{{.Id}}' "$backend_image")"
+schema_identity="$(bash scripts/release-schema-identity.sh "$backend_image_id")"
+[[ "$schema_identity" =~ ^sha256:[0-9a-f]{64}$ ]]
+
 docker run --rm --entrypoint sh "$backend_image" -ec '
   test "$(id -u)" = "1000"
   for path in \
