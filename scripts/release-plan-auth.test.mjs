@@ -44,7 +44,8 @@ import { appendFileSync } from "node:fs";
 const endpoint = process.argv.find(value => value.startsWith("repos/"));
 const settings = endpoint?.endsWith("/immutable-releases");
 if (process.env.RELEASE_SETTINGS_READ_TOKEN !== undefined) process.exit(3);
-const credential = process.env.GH_TOKEN === "settings-read" ? "settings" : "standard";
+const credential = process.env.GH_TOKEN === "settings-read" ? "settings"
+  : process.env.GH_TOKEN === "workflow-token" ? "standard" : "unknown";
 appendFileSync(process.env.AUTH_CALLS, credential + "\\n");
 if (settings) {
   if (credential !== "settings" || process.env.SETTINGS_RESULT === "denied") {
