@@ -54,7 +54,7 @@ sudo infra/production/host/provision-host.sh
 Она:
 
 1. Проверяет запуск от `root`, Ubuntu 24.04 или 26.04 LTS и отсутствие чужих данных в managed paths.
-2. Устанавливает из Ubuntu repositories Docker Engine, Compose v2, Caddy, OpenSSH, UFW, age и
+2. Устанавливает из Ubuntu repositories Docker Engine, Compose v2, Buildx, Caddy, OpenSSH, UFW, age и
    `util-linux` с командой `flock`, использующей блокировку ядра.
 3. Создаёт заблокированного по паролю пользователя `inside-deploy`. Его sudoers rule разрешает
    только root-owned `inside-deploy` gateway и сохраняет только `SSH_ORIGINAL_COMMAND`.

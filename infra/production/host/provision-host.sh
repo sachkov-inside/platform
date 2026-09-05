@@ -70,6 +70,7 @@ apt-get install --yes \
   ca-certificates \
   caddy \
   curl \
+  docker-buildx \
   docker-compose-v2 \
   docker.io \
   jq \
