@@ -51,7 +51,7 @@ or promote this code into production before that choice and a separate implement
 
 ## Verification — 2026-09-05
 
-Checked on prototype commit `fc8c9fa` using the pinned Node/pnpm Storybook image:
+Checked on prototype commit `12525bd` using the pinned Node/pnpm Storybook image:
 
 - Web typecheck: passed.
 - Focused oxlint: 0 warnings, 0 errors.
@@ -76,7 +76,23 @@ Manual accessibility review checked semantic headings, named controls, focus on 
 heading after navigation, native select/links and the live copy status. Agentation stays enabled.
 The floating A/B control is review chrome, separate from the accepted mobile dock.
 
-Not tested: automated axe suite, full repository `pnpm check`, production authentication,
+Storybook axe addon was also run after the switcher accessibility fix:
+
+| Story | Violations | Passes | Inconclusive |
+|---|---:|---:|---:|
+| Home A | 0 | 30 | 0 |
+| Home B | 0 | 30 | 1 |
+| Free guide A | 0 | 30 | 0 |
+| Locked guide B | 0 | 28 | 0 |
+| Video placeholder | 0 | 23 | 0 |
+
+B's remaining inconclusive result is the floating switcher link overlapping the page. Its
+computed foreground is `rgb(255, 255, 255)` and its explicit opaque background is
+`rgb(32, 33, 36)`: measured relative-luminance contrast is 16.10:1. The earlier unnamed-div ARIA
+finding was fixed with `role="group"`; both review axes rechecked `12525bd` with no findings.
+Typecheck, focused lint and Storybook build passed again after that change.
+
+Not tested: full repository `pnpm check`, the complete automated browser suite, production authentication,
 playback, payments or publication. These are not implied by the prototype checks. No backend or
 production contract changed. Responsive screenshots have not been attached to a GitHub issue;
 owner visual selection and any resulting revisions are still pending. The proof is not a
