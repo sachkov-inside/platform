@@ -113,9 +113,9 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
 - Top-level navigation: desktop `Главная` и `База знаний`; mobile `Главная`, `База знаний`,
   `Профиль`. Темы и Серии открываются контекстно из Home и cards; Карта остаётся direct route.
 - Home одинаково опирается на текущие published данные для visitor/member: Серии идут первыми,
-  затем компактные Темы, новые Видео → Гайды → Заметки и переход в общий каталог. Компактное
-  приглашение в Membership показывается только visitor/non-member по реальному account Membership
-  state; active member его не видит. `Продолжить` и history не входят в Home.
+  затем компактные Темы, новые Видео → Гайды → Заметки и переход в общий каталог. Размещение
+  предложения подписки следует [контракту навигации](platform-mvp-brief.md#поиск-и-навигация).
+  `Продолжить` и history не входят в Home.
 - Library имеет один общий поиск, который независимо сопоставляет Серии по их name/summary и
   Materials по публичной поисковой проекции. Серии идут перед каталогом и не зависят от
   material-only Topic/Format/sort filters или material pagination. Компактные Topic chips живут у
