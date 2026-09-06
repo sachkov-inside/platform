@@ -9,7 +9,7 @@ import {
 } from "../model/communications";
 
 export const fieldClass =
-  "mt-2 min-h-12 w-full rounded-lg border border-input bg-background px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  "mt-2 min-h-12 w-full rounded-lg border border-input bg-card px-3 py-2 text-base read-only:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 const types = {
   text: "Текст",
   photo: "Фото",
@@ -49,11 +49,14 @@ export function PartsEditor({
   return (
     <fieldset disabled={disabled || pending} className="min-w-0 space-y-4">
       <legend className="text-base font-semibold">{label}</legend>
-      <ol className="divide-y divide-border">
+      <ol className="space-y-4">
         {parts.map((part, index) => (
-          <li key={part.partId} className="space-y-3 py-4">
+          <li
+            key={part.partId}
+            className="space-y-4 rounded-lg border border-border bg-background p-4"
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-medium">
+              <p className="rounded-md bg-secondary px-2.5 py-1.5 text-xs font-semibold text-secondary-foreground">
                 Часть {index + 1} · {types[part.content.type]}
               </p>
               <div className="flex flex-wrap gap-1">
@@ -239,7 +242,7 @@ export function PartsEditor({
           Добавить текстовую часть
         </Button>
       </div>
-      <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto]">
+      <div className="grid items-end gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto]">
         <label className="text-sm font-medium">
           ID или ссылка заготовки
           <input
@@ -254,7 +257,7 @@ export function PartsEditor({
         <Button
           type="button"
           variant="outline"
-          className="min-h-12"
+          className="min-h-12 sm:min-w-48"
           disabled={!reference.trim() || parts.length >= 20}
           onClick={() => {
             void (async () => {

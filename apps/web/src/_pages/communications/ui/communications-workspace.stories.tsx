@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { useState } from "react";
+import { AuthoringShell } from "@/widgets/authoring-shell";
 import type { Funnel, Part, Preview } from "../model/communications";
 import {
   CommunicationsWorkspace,
@@ -175,11 +176,22 @@ const meta = {
   decorators: [
     (Story) => (
       <QueryFixture>
-        <Story />
+        <AuthoringShell>
+          <Story />
+        </AuthoringShell>
       </QueryFixture>
     ),
   ],
-  parameters: { layout: "fullscreen", nextjs: { appDirectory: true } },
+  parameters: {
+    layout: "fullscreen",
+    nextjs: { appDirectory: true },
+    docs: {
+      description: {
+        component:
+          "Редактор воронок использует тот же компонент и AuthoringShell, что и /authoring/communications. Сохранение черновика, проверка охвата и публикация — отдельные действия. Все данные здесь синтетические; сообщения не отправляются. Визуальное принятие: #316.",
+      },
+    },
+  },
   tags: ["autodocs"],
 } satisfies Meta<typeof CommunicationsWorkspace>;
 export default meta;
@@ -381,5 +393,49 @@ export const UnknownDelivery: Story = {
       }),
     );
     await expect(retry).toBeEnabled();
+  },
+};
+
+export const LoadError: Story = {
+  args: {
+    actions: {
+      ...actions,
+      listFunnels: fn<CommunicationsActions["listFunnels"]>(() =>
+        Promise.resolve({ kind: "error", code: "unavailable" }),
+      ),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "Не удалось открыть воронки",
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Повторить загрузку" }),
+    ).toBeEnabled();
+  },
+};
+export const Keyboard: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = await openFunnel(canvasElement);
+    await userEvent.click(canvas.getByLabelText("Название воронки"));
+    await userEvent.tab();
+    await expect(
+      canvas.getByRole("checkbox", {
+        name: "Стандартная воронка для обычного запуска бота",
+      }),
+    ).toHaveFocus();
+  },
+};
+export const NarrowMobile: Story = {
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await openFunnel(canvasElement);
+  },
+};
+export const Dark: Story = {
+  globals: { theme: "dark" },
+  play: async ({ canvasElement }) => {
+    await openFunnel(canvasElement);
   },
 };
