@@ -129,3 +129,16 @@ export const CorrectInvalidDraft: Story = {
     await expect(args.onSave).toHaveBeenCalledOnce();
   },
 };
+
+export const EditPausedBeforeLaunch: Story = {
+  args: { broadcast: { ...meta.args.broadcast, state: "paused", scheduledAt: "2030-10-10T12:00:00Z" } },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("button", { name: "Возобновить" })).toBeEnabled();
+    await userEvent.type(canvas.getByRole("textbox", { name: "Текст" }), " Правка");
+    await expect(canvas.getByRole("button", { name: "Возобновить" })).toBeDisabled();
+    await userEvent.click(canvas.getByRole("button", { name: "Сохранить черновик" }));
+    await expect(args.onSave).toHaveBeenCalledOnce();
+    await expect(args.onResume).not.toHaveBeenCalled();
+  },
+};

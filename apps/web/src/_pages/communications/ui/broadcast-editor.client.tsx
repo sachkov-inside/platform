@@ -460,7 +460,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
         ) : null}
         {broadcast.state === "paused" ? (
           <Button
-            disabled={disabled}
+            disabled={disabled || dirty}
             onClick={() => {
               props.onResume(action());
             }}

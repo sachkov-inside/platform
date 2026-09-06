@@ -3,6 +3,9 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
 
+// Other full-stack suites have no Telegram contract fixture.
+test.skip(process.env.COMMUNICATIONS_PROVIDER_URL === undefined, "Run through smoke:communications");
+
 test("author creates, previews, launches, pauses/resumes/cancels and reads analytics through real BFF/Nest", async ({
   page,
   context,
@@ -32,15 +35,15 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
   ).toBeVisible();
   await page.getByRole("button", { name: "Новая рассылка" }).click();
   await page
-    .getByLabel("Текст", { exact: true })
+    .getByRole("textbox", { name: "Текст", exact: true })
     .fill("Тестовая рассылка browser parity");
   await page
     .getByRole("radio", { name: "Участники выбранных воронок" })
     .check();
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Проверьте содержание" })).toBeVisible();
-  await expect(page.getByLabel("Текст", { exact: true })).toBeEnabled();
-  await expect(page.getByLabel("Текст", { exact: true })).toHaveValue("Тестовая рассылка browser parity");
+  await expect(page.getByRole("textbox", { name: "Текст", exact: true })).toBeEnabled();
+  await expect(page.getByRole("textbox", { name: "Текст", exact: true })).toHaveValue("Тестовая рассылка browser parity");
   await page
     .getByRole("checkbox", { name: "Тестовая инженерная практика" })
     .check();
