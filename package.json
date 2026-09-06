@@ -53,7 +53,8 @@
     "smoke:fullstack": "node scripts/full-stack-smoke.mjs",
     "check:full": "pnpm check && pnpm test:integration && pnpm smoke:fullstack",
     "telegram:local:dev": "node scripts/telegram-sign-in-local.mjs",
-    "smoke:communications": "node scripts/communications-browser-smoke.mjs"
+    "smoke:communications": "node scripts/communications-browser-smoke.mjs",
+    "conformance:communications": "pnpm --filter @inside/backend conformance:communications"
   },
   "dependencies": {
     "zod": "4.4.3"

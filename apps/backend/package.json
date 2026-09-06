@@ -36,7 +36,8 @@
     "smoke:mcp-authoring": "tsx scripts/mcp-authoring-smoke.ts",
     "smoke:health": "vitest run --config vitest.smoke.config.mts",
     "communications:generate": "node scripts/generate-communications-contract.mjs",
-    "communications:check": "node scripts/generate-communications-contract.mjs --check"
+    "communications:check": "node scripts/generate-communications-contract.mjs --check",
+    "conformance:communications": "tsx scripts/communications-conformance.ts"
   },
   "dependencies": {
     "@inside/runtime-identity": "workspace:*",
