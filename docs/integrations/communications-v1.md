@@ -112,3 +112,37 @@ A local HTTP contract stub checks the service credential and calls the real auth
 endpoint. Vendored scenarios check consumer forwarding, repeated operation IDs, stale revisions,
 foreign templates and permission revocation. Stub success for publish/launch proves consumer rights
 and transport parity, not actual publication, audience selection or Telegram delivery.
+
+## Funnel management UI
+
+`/authoring/communications` uses the production AuthoringShell and a feature-local presentation
+interface shared with Storybook. Browser-owned named mutations call capability BFF routes under
+`/api/communications`; the shared authenticated boundary enforces Origin, session, body limit and
+private no-store. The server adapters validate unknown responses and use the generated Nest client.
+Draft saves, preview, publish, intro save, lifecycle, template resolution and delivery retry/skip
+are separate operations. Repeated identical attempts retain their operation ID within the open
+editor; permission and expected revision remain backend/provider decisions. Reloading a conflicted
+editor explicitly replaces the local edits. Source codes are stable after the first save.
+
+Common intro Save updates the block for future recipients immediately, explicitly labelled in UI;
+funnel Save never publishes. Media templates keep their snapshot and formatting. Editing formatted
+text requires an explicit remove-formatting action, avoiding silent entity loss. Preview never
+sends a Telegram message. Actual bot entry and credentialed messages require separate owner approval.
+Rollback remains an API capability and is outside this editor's lifecycle controls. The existing
+rollback path does not run this new validation: the provider contract cannot yet expose a historical
+snapshot for Platform validation. Closing that integration gap is tracked by #310; validation here
+covers fresh preview/publish only.
+
+Set `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` to the canonical public Platform origin, matching
+`WEB_BASE_URL`. Without it publication/preview fail closed. The Materials-owned `PublicContentTargets`
+facet checks linked Materials and Series for publication, free access and complete composition;
+Communications validates Platform URLs in plain text, buttons and Telegram URL/text_link entities (including bare-domain entities) before a fresh
+publish and adds URL-specific failures to preview. An already committed publish replay stays owned
+by the provider receipt. Content access is still checked by the public Reader; this point-in-time
+validation does not grant access or promise availability after a later unpublish.
+
+The Platform success envelope adds `botStartUrl` for entry links and optional `targetErrors` for
+content diagnostics. These are Platform presentation facts, not a second Telegram schema. The
+provider-owned `funnels.preview` is supplied by [Telegram #34](https://github.com/sachkov-inside/inside-telegram/issues/34).
+The functional UI's temporary semantic implementation is tracked through visual integration
+[#316](https://github.com/sachkov-inside/platform/issues/316), under Specification #304.

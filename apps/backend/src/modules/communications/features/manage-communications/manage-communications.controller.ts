@@ -57,7 +57,7 @@ export class ManageCommunicationsController {
 function toHttpResult(result: CommunicationsResult) {
   if (result.ok) return result;
   const statuses = {
-    forbidden: 403, invalid_input: 400, link_required: 409, authorization_unavailable: 503,
+    forbidden: 403, invalid_input: 400, invalid_targets: 422, link_required: 409, authorization_unavailable: 503,
     provider_unavailable: 503, provider_invalid_response: 502, unauthorized: 502,
     not_found: 404, malformed: 400, unsupported_content: 422, revision_conflict: 409,
     operation_conflict: 409, not_implemented: 501,

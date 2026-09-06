@@ -1,3 +1,4 @@
+import { PublicContentTargets } from "./facets/public-content-targets/public-content-targets.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -13,12 +14,20 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 
 @Module({
   imports: [PrismaModule],
-  providers: [{
-    provide: MATERIAL_CONTENT,
-    inject: [PrismaClientProvider],
-    useFactory: (prisma: PrismaClientProvider): MaterialContent =>
-      assembleMaterialContent({ prisma, materialBodyOperations }),
-  }],
-  exports: [MATERIAL_CONTENT],
+  providers: [
+    {
+      provide: PublicContentTargets,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new PublicContentTargets(prisma),
+    },
+    {
+      provide: MATERIAL_CONTENT,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider): MaterialContent =>
+        assembleMaterialContent({ prisma, materialBodyOperations }),
+    },
+  ],
+  exports: [MATERIAL_CONTENT, PublicContentTargets],
 })
 export class MaterialContentModule {}

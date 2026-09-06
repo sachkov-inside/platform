@@ -189,3 +189,5 @@ export {
   type CleanupMaterialAssetsResult,
   type MaterialAssetMaintenance,
 } from "./features/cleanup-material-assets/cleanup-material-assets.js";
+
+export { PublicContentTargets, type PublicContentTarget, type PublicContentTargetResult } from "./facets/public-content-targets/public-content-targets.js";
