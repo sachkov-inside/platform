@@ -1,0 +1,56 @@
+[
+  {
+    "name": "editor",
+    "width": 1440,
+    "overflow": false,
+    "accessibilityViolations": 0
+  },
+  {
+    "name": "analytics",
+    "width": 1440,
+    "overflow": false,
+    "accessibilityViolations": 0
+  },
+  {
+    "name": "list",
+    "width": 1440,
+    "overflow": false,
+    "accessibilityViolations": 0
+  },
+  {
+    "name": "editor",
+    "width": 390,
+    "overflow": false,
+    "accessibilityViolations": 0
+  },
+  {
+    "name": "analytics",
+    "width": 390,
+    "overflow": false,
+    "accessibilityViolations": 0
+  },
+  {
+    "name": "list",
+    "width": 390,
+    "overflow": false,
+    "accessibilityViolations": 0
+  },
+  {
+    "name": "editor",
+    "width": 320,
+    "overflow": false,
+    "accessibilityViolations": 0
+  },
+  {
+    "name": "analytics",
+    "width": 320,
+    "overflow": false,
+    "accessibilityViolations": 0
+  },
+  {
+    "name": "list",
+    "width": 320,
+    "overflow": false,
+    "accessibilityViolations": 0
+  }
+]

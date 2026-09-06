@@ -1,44 +1,25 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
-import { AnalyticsPanel } from "./analytics-panel";
+import { expect, fn, userEvent, within } from "storybook/test";
+import {
+  contactFixture,
+  funnelFixture,
+  statisticsFixture,
+} from "./broadcasts.fixtures";
+import { AnalyticsPanel, EntryHistory } from "./analytics-panel";
 const meta = {
   title: "Pages/Communications/Аналитика",
   component: AnalyticsPanel,
   args: {
-    funnels: [],
+    funnels: [funnelFixture],
     onContact: fn(),
     onNextContacts: fn(),
     onNextDeliveries: fn(),
     deliveries: { kind: "ready", deliveries: [], nextCursor: null },
-    result: {
-      kind: "ready",
-      trackingBacklog: { kind: "ready", pending: 3, oldestAgeSeconds: 120 },
-      statistics: {
-        totalBotContacts: 140,
-        reachable: 130,
-        blocked: 10,
-        marketingOff: 20,
-        uniqueParticipants: 110,
-        deliveries: {
-          sent: 80,
-          suppressed: 5,
-          failed: 1,
-          unknown: 2,
-          partialCancelled: 1,
-          pending: 32,
-        },
-        trackingHits: 34,
-        uniqueTokensWithHits: 21,
-        knownAutomationHits: 5,
-        analyticsLagSeconds: 30,
-        contacts: [],
-        nextCursor: null,
-      },
-    },
+    result: statisticsFixture,
   },
   decorators: [
     (Story) => (
-      <main className="mx-auto max-w-4xl p-4">
+      <main className="mx-auto max-w-6xl bg-background p-4 text-foreground">
         <h1 className="text-2xl">Коммуникации</h1>
         <h2 className="text-xl">Аналитика</h2>
         <Story />
@@ -78,4 +59,74 @@ export const PersistentSkip: Story = {
       ],
     },
   },
+};
+
+export const Loading: Story = { args: { result: undefined } };
+export const Denied: Story = {
+  args: { result: { kind: "error", code: "forbidden" } },
+};
+export const Empty: Story = {
+  args: {
+    result: {
+      ...statisticsFixture,
+      statistics: {
+        totalBotContacts: 0,
+        reachable: 0,
+        blocked: 0,
+        marketingOff: 0,
+        uniqueParticipants: 0,
+        deliveries: {
+          sent: 0,
+          suppressed: 0,
+          failed: 0,
+          unknown: 0,
+          partialCancelled: 0,
+          pending: 0,
+        },
+        trackingHits: 0,
+        uniqueTokensWithHits: 0,
+        knownAutomationHits: 0,
+        analyticsLagSeconds: 0,
+        contacts: [],
+        nextCursor: null,
+      },
+      trackingBacklog: { kind: "ready", pending: 0, oldestAgeSeconds: 0 },
+    },
+  },
+};
+export const Mobile: Story = {
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const Dark: Story = { globals: { theme: "dark" } };
+export const Paginated: Story = {
+  args: {
+    deliveries: {
+      kind: "ready",
+      deliveries: [],
+      nextCursor: "delivery-page-2",
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "История входов" }),
+    );
+    await expect(args.onContact).toHaveBeenCalledWith(contactFixture);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Следующие контакты" }),
+    );
+    await expect(args.onNextContacts).toHaveBeenCalledWith("contacts-page-2");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Следующие доставки" }),
+    );
+    await expect(args.onNextDeliveries).toHaveBeenCalledWith("delivery-page-2");
+  },
+};
+export const EntryTimeline: Story = {
+  render: () => (
+    <EntryHistory entries={contactFixture.entries} funnels={[funnelFixture]} />
+  ),
+};
+export const EmptyHistory: Story = {
+  render: () => <EntryHistory entries={[]} funnels={[]} />,
 };

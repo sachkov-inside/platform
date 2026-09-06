@@ -78,12 +78,12 @@ provider/consumer and end-to-end acceptance.
 Communications are unconfigured by default. Configure all four variables together in the API and MCP
 process environments. Partial configuration fails startup:
 
-| Variable | Meaning |
-|---|---|
-| `TELEGRAM_COMMUNICATIONS_ENDPOINT` | Provider URL ending exactly in `/integrations/platform/v1/communications`; HTTPS, or HTTP on loopback for an isolated local test |
-| `TELEGRAM_COMMUNICATIONS_SECRET` | Existing provider `PLATFORM_INTEGRATION_SECRET`, kept only in private runtime configuration |
-| `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | Dedicated callback bearer secret matching the provider's `PLATFORM_AUTHOR_AUTHORIZATION_SECRET` |
-| `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY` | Exact configured provider bot identity; not the author's Telegram username |
+| Variable                               | Meaning                                                                                                                          |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `TELEGRAM_COMMUNICATIONS_ENDPOINT`     | Provider URL ending exactly in `/integrations/platform/v1/communications`; HTTPS, or HTTP on loopback for an isolated local test |
+| `TELEGRAM_COMMUNICATIONS_SECRET`       | Existing provider `PLATFORM_INTEGRATION_SECRET`, kept only in private runtime configuration                                      |
+| `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | Dedicated callback bearer secret matching the provider's `PLATFORM_AUTHOR_AUTHORIZATION_SECRET`                                  |
+| `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY` | Exact configured provider bot identity; not the author's Telegram username                                                       |
 
 Point the provider's `PLATFORM_AUTHOR_AUTHORIZATION_URL` at the Platform authorization endpoint above.
 Connections reject redirects and time out after five seconds. Credentials are never placed in URLs,
@@ -201,3 +201,25 @@ content diagnostics. These are Platform presentation facts, not a second Telegra
 provider-owned `funnels.preview` is supplied by [Telegram #34](https://github.com/sachkov-inside/inside-telegram/issues/34).
 The functional UI's temporary semantic implementation is tracked through visual integration
 [#316](https://github.com/sachkov-inside/platform/issues/316), under Specification #304.
+
+## Посты из Telegram и рассылки (#317, уточнение #125)
+
+Основной путь подготовки сообщения — `/admin` в Telegram. Страница разовых рассылок загружает
+`templates.list`, позволяет настроить кнопки сохранённого поста через `templates.save`, запросить
+`templates.testSend` только автору и выбрать сохранённую версию в рассылку. Текст в редакторе рассылки
+доступен для чтения: он больше не сбрасывает native entities при вводе. Для замены текста/медиа автор
+заменяет сообщение в боте и явно выбирает новую часть в веб-редакторе.
+
+Кнопки сохранённого поста и кнопки выбранной копии в черновике — разные снимки. «Сохранить пост»
+не меняет уже выбранные части или запланированные рассылки; «Заменить часть» применяет выбранный
+снимок явно. Необязательный `row` сохраняется в BFF/schema/generated client и MCP без потери.
+Provider проверяет layout до сохранения. Образец использует только сохранённую версию поста;
+web preview не вызывает Telegram transport. Повтор запроса образца после неопределённого ответа
+в открытом редакторе сохраняет тот же operationId.
+
+Delegated MCP получает `communications_templates_list` и те же save/read/testSend operations;
+текущий authenticated Account и communications:manage остаются единственным авторским основанием.
+Публикация и запуск по-прежнему отдельны от сохранения. Provider runtime поставляется в
+[Telegram #39](https://github.com/sachkov-inside/inside-telegram/pull/39), shared decision —
+[Workspace #125](https://github.com/sachkov-inside/workspace/issues/125). Schema snapshot pinned
+на commit из `contracts/inside-communications-v1/snapshot.json`; production enablement не меняется.

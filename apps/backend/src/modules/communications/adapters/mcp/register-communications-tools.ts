@@ -4,7 +4,7 @@ import { COMMUNICATIONS_VERSION, managementSchemas } from "../../communications-
 import type { Communications } from "../../facets/communications/communications.js";
 import { templateReferenceSchema } from "../../features/manage-communications/template-reference.js";
 
-const readOperations = new Set(["templates.read", "funnels.read", "funnels.list", "funnels.preview", "broadcasts.read", "broadcasts.list", "entries.read", "intro.read", "deliveries.read", "statistics.read"]);
+const readOperations = new Set(["templates.list", "templates.read", "funnels.read", "funnels.list", "funnels.preview", "broadcasts.read", "broadcasts.list", "entries.read", "intro.read", "deliveries.read", "statistics.read"]);
 
 export function registerCommunicationsTools(server: McpServer, dependencies: { readonly accountId: string; readonly communications: Pick<Communications, "execute"> }): void {
   for (const schema of managementSchemas) {
@@ -37,6 +37,7 @@ export function registerCommunicationsTools(server: McpServer, dependencies: { r
 }
 
 function description(operation: string, readOnly: boolean): string {
+  if (operation === "templates.save") return "Save a versioned Telegram post. Preserve native entities and media when changing URL buttons or their row. Source edits do not update a broadcast snapshot. Reuse operationId and expectedRevision on retry.";
   if (operation === "templates.testSend") return "Explicitly send the template only to the confirmed Telegram author. This is an external send, unlike read or preview. Reuse operationId on retry.";
   if (operation === "delivery.resolve") return "Explicitly skip or retry one delivery part with expectedRevision. Retrying an unknown outcome risks a duplicate and requires duplicateRiskAccepted=true. Preserve operationId on retry.";
   if (operation === "funnels.preview") return "Preview the publication diff and audience impact. Sends no messages and does not publish.";
