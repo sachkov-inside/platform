@@ -51,7 +51,8 @@
     "infra:down": "docker compose down",
     "smoke:health": "pnpm --filter @inside/backend smoke:health",
     "smoke:fullstack": "node scripts/full-stack-smoke.mjs",
-    "check:full": "pnpm check && pnpm test:integration && pnpm smoke:fullstack"
+    "check:full": "pnpm check && pnpm test:integration && pnpm smoke:fullstack",
+    "prototype:series-cards": "pnpm --filter @inside/web exec next dev --port 3215"
   },
   "dependencies": {
     "zod": "4.4.3"

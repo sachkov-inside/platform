@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import type {
   LibraryDiscoveryKind,
@@ -33,6 +34,7 @@ import {
 import { PublicProductHeader } from "@/widgets/application-shell";
 import { seriesSteps } from "../model/series-steps";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
+import { SeriesCardsPrototype } from "./series-cards.prototype";
 
 type ResolvedDiscoveryResult = Exclude<
   PublishedSeriesResult | PublishedTopicResult,
@@ -270,7 +272,7 @@ function SeriesMaterials({
         id="series-materials"
         title="Маршрут"
       />
-      <ol className="mt-4 grid gap-4" data-series-order>
+      {process.env.NODE_ENV !== "production" ? <Suspense fallback={null}><SeriesCardsPrototype items={result.items} seriesSlug={result.reference.slug} returnHref={currentHref} /></Suspense> : <ol className="mt-4 grid gap-4" data-series-order>
         {result.items.map((material, index) => {
           const ordinal =
             material.seriesMemberships.find(
@@ -305,7 +307,7 @@ function SeriesMaterials({
             </li>
           );
         })}
-      </ol>
+      </ol>}
       <DiscoveryContinuation result={result} />
     </section>
   );
