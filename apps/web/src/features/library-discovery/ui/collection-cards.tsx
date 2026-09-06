@@ -101,7 +101,7 @@ export function PlaylistCard({
           <ArrowRight className="size-4 transition-transform group-hover/playlist:translate-x-0.5 motion-reduce:transform-none" />
         </span>
       </span>
-      <strong className="mt-4 block text-xl leading-6 tracking-[-0.035em] md:text-2xl md:leading-7">
+      <strong className="mt-4 block text-lg leading-6 tracking-[-0.035em] md:text-2xl md:leading-7">
         {playlist.name}
       </strong>
       <span className="mt-2 block text-sm leading-5 text-white/65">

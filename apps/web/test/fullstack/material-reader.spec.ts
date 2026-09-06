@@ -3,6 +3,26 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
+for (const width of [320, 390, 1440]) {
+  test(`Home series lift stays visible at ${String(width)}px`, async ({ page }, testInfo) => {
+    // Narrow desktop pointer reproduces hovering a phone-sized Storybook preview.
+    test.skip(testInfo.project.name !== "desktop-chromium");
+    await page.setViewportSize({ width, height: 1000 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/");
+    const card = page.locator("[data-playlist-card]").first();
+    await card.scrollIntoViewIfNeeded();
+    await card.hover();
+    await expect(card).toHaveCSS("translate", "0px -2px");
+    // Probe the lifted top edge: an overflow ancestor must not remove it from hit testing.
+    await expect.poll(() => card.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const painted = document.elementFromPoint(rect.x + rect.width / 2, rect.y + 0.5);
+      return painted !== null && element.contains(painted);
+    })).toBe(true);
+  });
+}
+
 test("server-renders the mobile-first Home showcase from ContentLibrary", async ({
   page,
   request,

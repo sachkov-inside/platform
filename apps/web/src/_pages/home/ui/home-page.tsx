@@ -164,7 +164,7 @@ function PlaylistSection({
       {playlists.length === 0 ? (
         <EmptyCollection label="Серий пока нет." />
       ) : (
-        <div className="public-horizontal-rail -mx-4 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-2 md:px-0">
+        <div className="public-horizontal-rail -mx-4 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 py-1 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0">
           {playlists.slice(0, 2).map((playlist) => (
             <div className="w-[88%] shrink-0 snap-center md:w-auto" key={playlist.slug}>
               <PlaylistCard

@@ -65,7 +65,7 @@ export function MaterialCard({
           <strong>Sachkov Inside</strong>
           <span className="text-muted-foreground"> · {material.topic}</span>
         </p>
-        <Heading className="col-start-2 mt-2 text-xl font-semibold leading-6 tracking-[-0.03em]">
+        <Heading className="col-start-2 mt-2 text-lg font-semibold leading-6 tracking-[-0.03em] md:text-xl">
           <Link
             className="no-underline after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:text-action"
             href={readerHref}
