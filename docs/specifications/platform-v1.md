@@ -14,8 +14,9 @@ mutable Material/access decision.
 
 ## Результат и authority
 
-Platform v1 является каноническим домом материалов Inside. Автор вручную создаёт и публикует
-материалы; публичный посетитель находит и читает открытый контент; участник управляет private
+Platform v1 публикует Materials и Series Inside через общий authoring Save по
+[контентной границе](../product/platform-mvp-brief.md#контент). Публичный посетитель находит и
+читает открытый контент; участник управляет private
 Account и отдельным Member Profile, связывает Account с Telegram и получает
 закрытый контент, пока состоит в каноническом закрытом chat.
 
@@ -669,7 +670,8 @@ importer, not an implemented automatic import or publication flow.
    production GO.
 12. **Feature-complete candidate:** author/MCP, content, Kinescope, private resources, Membership,
    reading activity и UI journeys проходят end-to-end application verification; актуальные
-   Materials вручную созданы без import pipeline.
+   Materials опубликованы через общий authoring Save по
+   [контентной границе](../product/platform-mvp-brief.md#контент).
 
 Identity/Membership dependency graph:
 
