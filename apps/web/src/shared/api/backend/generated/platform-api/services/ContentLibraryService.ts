@@ -39,6 +39,7 @@ export class ContentLibraryService {
           name: string;
           slug: string;
         };
+        stepGroup?: string | null;
       }>;
       slug: string;
       summary: string;
@@ -88,6 +89,7 @@ export class ContentLibraryService {
           name: string;
           slug: string;
         };
+        stepGroup?: string | null;
       }>;
       slug: string;
       summary: string;
@@ -140,6 +142,7 @@ export class ContentLibraryService {
             name: string;
             slug: string;
           };
+          stepGroup?: string | null;
         }>;
         slug: string;
         summary: string;
@@ -195,6 +198,7 @@ export class ContentLibraryService {
             name: string;
             slug: string;
           };
+          stepGroup?: string | null;
         }>;
         slug: string;
         summary: string;
@@ -239,6 +243,7 @@ export class ContentLibraryService {
           name: string;
           slug: string;
         };
+        stepGroup?: string | null;
       }>;
       slug: string;
       summary: string;
@@ -325,6 +330,7 @@ export class ContentLibraryService {
               name: string;
               slug: string;
             };
+            stepGroup?: string | null;
           }>;
           slug: string;
           summary: string;
@@ -380,6 +386,7 @@ export class ContentLibraryService {
               name: string;
               slug: string;
             };
+            stepGroup?: string | null;
           }>;
           slug: string;
           summary: string;
@@ -435,6 +442,7 @@ export class ContentLibraryService {
               name: string;
               slug: string;
             };
+            stepGroup?: string | null;
           }>;
           slug: string;
           summary: string;
@@ -480,6 +488,7 @@ export class ContentLibraryService {
           name: string;
           slug: string;
         };
+        stepGroup?: string | null;
       }>;
       slug: string;
       summary: string;
@@ -555,6 +564,7 @@ export class ContentLibraryService {
           name: string;
           slug: string;
         };
+        stepGroup?: string | null;
       }>;
       slug: string;
       summary: string;
@@ -664,6 +674,7 @@ export class ContentLibraryService {
           name: string;
           slug: string;
         };
+        stepGroup?: string | null;
       }>;
       slug: string;
       summary: string;
@@ -773,6 +784,7 @@ export class ContentLibraryService {
           name: string;
           slug: string;
         };
+        stepGroup?: string | null;
       }>;
       slug: string;
       summary: string;

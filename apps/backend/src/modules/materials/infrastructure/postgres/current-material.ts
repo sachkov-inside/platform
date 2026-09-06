@@ -162,6 +162,11 @@ export async function replaceCurrentRelations(
       data: metadata.tagIds.map((tagId) => ({ materialId, tagId })),
     });
   }
+  const previousMemberships = await transaction.seriesMembership.findMany({
+    where: { materialId },
+    select: { seriesId: true, stepGroup: true },
+  });
+  const stepGroups = new Map(previousMemberships.map(({ seriesId, stepGroup }) => [seriesId, stepGroup]));
   await transaction.seriesMembership.deleteMany({ where: { materialId } });
   if (metadata.seriesMemberships.length > 0) {
     await transaction.seriesMembership.createMany({
@@ -169,6 +174,7 @@ export async function replaceCurrentRelations(
         materialId,
         seriesId,
         ordinal,
+        stepGroup: stepGroups.get(seriesId) ?? null,
       })),
     });
   }

@@ -39,12 +39,24 @@ export async function executeReorderSeries(
     return { kind: "error", reference: "series-order-form" };
   }
 
+  let stepGroups: Record<string, string> | undefined;
+  const groupsValue = formData.get("stepGroups");
+  if (groupsValue !== null) {
+    if (typeof groupsValue !== "string") return { kind: "error", reference: "series-order-form" };
+    try {
+      stepGroups = z.record(z.uuid(), z.string().trim().min(1).max(120)).parse(JSON.parse(groupsValue) as unknown);
+    } catch {
+      return { kind: "error", reference: "series-order-form" };
+    }
+  }
+
   let result: BackendTransportResult;
   try {
     result = await request(
       {
         expectedOrderVersion: parsed.data.expectedOrderVersion,
         orderedMaterialIds: orderedMaterialIds.data,
+        ...(stepGroups === undefined ? {} : { stepGroups }),
         seriesId: parsed.data.seriesId,
       },
       accessToken,

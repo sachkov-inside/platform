@@ -108,6 +108,29 @@ export const Reordering: Story = {
   },
 };
 
+export const StepAssignments: Story = {
+  decorators: [withMutationFetch(saveOrderSpy)],
+  play: async ({ canvasElement }) => {
+    saveOrderSpy.mockClear();
+    const canvas = within(canvasElement);
+    const input = canvas.getAllByRole("textbox", { name: "Последовательность шагов" })[0];
+    if (input === undefined) throw new Error("Step assignment field is missing");
+    await userEvent.type(input, "От проекта до релиза");
+    await userEvent.click(firstSaveButton(canvasElement));
+    await expect(await canvas.findByText("Порядок сохранён.")).toBeInTheDocument();
+    const body = saveOrderSpy.mock.calls[0]?.[1]?.body;
+    if (!(body instanceof FormData)) throw new Error("Expected composition form");
+    await expect(body.get("stepGroups")).toBe(JSON.stringify({ "95000000-0000-4000-8000-000000000001": "От проекта до релиза" }));
+    await expect(firstSaveButton(canvasElement)).toBeDisabled();
+    await userEvent.clear(input);
+    await userEvent.click(firstSaveButton(canvasElement));
+    await expect(saveOrderSpy).toHaveBeenCalledTimes(2);
+    const cleared = saveOrderSpy.mock.calls[1]?.[1]?.body;
+    if (!(cleared instanceof FormData)) throw new Error("Expected clear form");
+    await expect(cleared.get("stepGroups")).toBe("{}");
+  },
+};
+
 export const Empty: Story = {
   args: {
     presentation: { ...meta.args.presentation, items: [] },

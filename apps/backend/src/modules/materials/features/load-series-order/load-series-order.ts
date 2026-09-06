@@ -42,6 +42,7 @@ export function assembleLoadSeriesOrder(
           ...snapshot,
           orderVersion: seriesOrderVersion(
             snapshot.items.map(({ materialId }) => materialId),
+            Object.fromEntries(snapshot.items.flatMap(({ materialId, stepGroup }) => stepGroup === null ? [] : [[materialId, stepGroup]])),
           ),
         },
       };

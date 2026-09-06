@@ -31,6 +31,7 @@ import {
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import { PublicProductHeader } from "@/widgets/application-shell";
+import { seriesSteps } from "../model/series-steps";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
 type ResolvedDiscoveryResult = Exclude<
@@ -232,6 +233,7 @@ function SeriesMaterials({
   readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
 }) {
   const topics = result.topics;
+  const steps = seriesSteps(result.items, result.reference.slug);
 
   return (
     <section aria-labelledby="series-materials">
@@ -268,29 +270,50 @@ function SeriesMaterials({
         id="series-materials"
         title="Маршрут"
       />
-      <ol className="mt-4 grid gap-4" data-series-order>
+      <ol aria-label="Материалы серии" className="mt-4 grid gap-4" data-series-order>
         {result.items.map((material, index) => {
           const ordinal =
             material.seriesMemberships.find(
               ({ slug }) => slug === result.reference.slug,
             )?.ordinal ?? index + 1;
+          const step = steps.get(material.slug);
           return (
             <li
-              className="grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3"
+              className="relative grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3"
               data-series-ordinal={ordinal}
               key={material.slug}
             >
-              <div className="flex min-h-11 items-center font-semibold text-muted-foreground">
-                <span className="grid size-8 place-items-center rounded-full bg-primary text-xs font-bold text-white">
+              {result.items.length > 1 ? (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-[15px] w-0 border-l-2 border-dashed border-action/35"
+                  data-series-rail
+                  style={{
+                    top: index === 0 ? "50%" : "-1rem",
+                    bottom: index === result.items.length - 1 ? "50%" : "-1rem",
+                  }}
+                />
+              ) : null}
+              <div className="relative z-10 flex min-h-11 items-center font-semibold text-muted-foreground">
+                <span className="grid size-8 place-items-center rounded-full bg-primary text-xs font-bold text-white ring-4 ring-background" data-series-marker>
                   {ordinal}
                 </span>
               </div>
-              <MaterialCard
-                headingLevel="h3"
-                material={material}
-                returnHref={currentHref}
-                variant="row"
-              />
+              <div className="min-w-0">
+                <MaterialCard
+                  headingLevel="h3"
+                  material={material}
+                  returnHref={currentHref}
+                  rowAnnotation={step === undefined ? undefined : (
+                    <span className="mt-2 flex flex-wrap items-baseline gap-x-1 text-xs leading-5" data-series-step>
+                      <span className="font-semibold text-foreground">Шаг {step.ordinal} из {step.total}</span>
+                      <span aria-hidden="true" className="text-muted-foreground">·</span>
+                      <span className="min-w-0 break-words text-muted-foreground">{step.label}</span>
+                    </span>
+                  )}
+                  variant="row"
+                />
+              </div>
             </li>
           );
         })}

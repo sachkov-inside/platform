@@ -259,3 +259,78 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
     canvasElement.ownerDocument.documentElement.scrollWidth,
   ).toBeLessThanOrEqual(storyWindow.innerWidth + 1);
 }
+
+const connectedStepsResult = {
+  ...seriesResult,
+  reference: { cover: null, name: "Релиз своего проекта", slug: "release", summary: "Видео, заметки и последовательные инструкции в одной серии." },
+  items: [
+    { title: "Как устроен релиз моего проекта", format: "Видео", formatSlug: "video", summary: "От коммита до работающего сервиса: сборка, конфигурация, публикация и откат релиза." },
+    { title: "Подготовка приложения", format: "Гайд", formatSlug: "guide", stepGroup: "От проекта до релиза" },
+    { title: "Разбираем Docker на реальном примере", format: "Видео", formatSlug: "video", summary: "Собираем образ приложения, настраиваем сеть и тома Docker Compose, читаем логи при неудачном запуске." },
+    { title: "Памятка по секретам", format: "Заметка", formatSlug: "note" },
+    { title: "Настройка окружения", format: "Гайд", formatSlug: "guide", stepGroup: "От проекта до релиза" },
+    { title: "Первый деплой", format: "Гайд", formatSlug: "guide", stepGroup: "От проекта до релиза" },
+  ].map((definition, index) => ({
+    ...materials[0], ...definition, slug: `release-${String(index)}`,
+    summary: definition.summary ?? "Материал общей серии: изучайте в предложенном порядке или возвращайтесь к нужному шагу.",
+    seriesMemberships: [{ name: "Релиз своего проекта", slug: "release", ordinal: index + 1, stepGroup: definition.stepGroup ?? null }],
+  })),
+} satisfies LibraryDiscoveryResult;
+
+const overviewVideo = connectedStepsResult.items[0];
+const dockerVideo = connectedStepsResult.items[2];
+if (overviewVideo === undefined || dockerVideo === undefined) throw new Error("Missing release video fixtures");
+
+export const ConnectedStepsDesktop: Story = {
+  args: { result: connectedStepsResult },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Шаг 1 из 3")).toBeVisible();
+    await expect(canvas.getByText("Шаг 2 из 3")).toBeVisible();
+    await expect(canvas.getByText("Шаг 3 из 3")).toBeVisible();
+    await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(6);
+    await expect(canvasElement.querySelectorAll("[data-series-step]")).toHaveLength(3);
+    const rows = canvasElement.querySelectorAll("[data-series-ordinal]");
+    const markers = canvasElement.querySelectorAll<HTMLElement>("[data-series-marker]");
+    await expect(markers).toHaveLength(6);
+    const firstMarker = markers[0];
+    if (firstMarker === undefined) throw new Error("Missing Series ordinal marker");
+    for (const [index, marker] of [...markers].entries()) {
+      await expect(marker).toHaveTextContent(String(index + 1));
+      const rail = rows[index]?.querySelector("[data-series-rail]")?.getBoundingClientRect();
+      const markerBox = marker.getBoundingClientRect();
+      if (rail === undefined) throw new Error("Missing mixed-Series rail");
+      await expect(Math.abs(rail.x + rail.width / 2 - markerBox.x - markerBox.width / 2)).toBeLessThan(1);
+      const style = getComputedStyle(marker);
+      await expect(style.backgroundColor).toBe(getComputedStyle(firstMarker).backgroundColor);
+    }
+    const guide = canvas.getByRole("heading", { name: "Подготовка приложения" }).closest("article");
+    if (guide === null) throw new Error("Missing guide card");
+    await expect(within(guide).getByText("Шаг 1 из 3")).toBeVisible();
+    await expect(canvas.getByText(overviewVideo.summary)).toBeVisible();
+    await expect(canvas.getByText(dockerVideo.summary)).toBeVisible();
+    for (const summary of [overviewVideo.summary, dockerVideo.summary]) {
+      const element = canvas.getByText(summary);
+      const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight);
+      await expect(element.getBoundingClientRect().height).toBeLessThanOrEqual(lineHeight * 3 + 1);
+    }
+    await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+export const ConnectedStepsMobile: Story = {
+  ...ConnectedStepsDesktop,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+const literalSummary = '<img src=x onerror="alert(1)"> Команда остаётся текстом.';
+export const VideoSummaryIsPlainText: Story = {
+  args: { result: { ...connectedStepsResult, items: [{ ...overviewVideo, summary: literalSummary }] } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(literalSummary)).toBeVisible();
+    await expect(canvasElement.querySelector("img[onerror]")).toBeNull();
+    await expect(canvasElement.querySelectorAll("[data-series-rail]")).toHaveLength(0);
+    await expect(canvasElement.querySelectorAll("[data-series-step]")).toHaveLength(0);
+  },
+};

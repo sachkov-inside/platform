@@ -11,6 +11,7 @@ export interface ReorderSeriesCommand {
   readonly actor: string;
   readonly expectedOrderVersion: string;
   readonly orderedMaterialIds: readonly string[];
+  readonly stepGroups?: Readonly<Record<string, string>> | undefined;
   readonly seriesId: string;
 }
 

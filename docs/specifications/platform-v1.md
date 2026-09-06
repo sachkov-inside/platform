@@ -273,7 +273,7 @@ entities и invariants v1:
 | `Format` | Material имеет ровно один Format; это primary consumption mode, не Asset kind |
 | `Tag` | Material имеет 0..N Tags; managed dictionary поддерживает rename/merge без synonyms-duplicates |
 | `Series` | имеет 0..N ordered memberships; Material входит в 0..N Series |
-| `SeriesMembership` | пара Series/Material уникальна; ordinal уникален внутри Series |
+| `SeriesMembership` | пара Series/Material уникальна; ordinal уникален внутри Series; nullable stepGroup связывает шаги только в контексте этой Series |
 | `ContentCover` | принадлежит ровно одному Material, Topic или Series; current cover не переиспользуется между owners; только normalized public WebP renditions, original/key/checksum не входят в read contract |
 | `MaterialAsset` | принадлежит ровно одному Material; current MaterialBody ссылается на 0..N immutable ready MaterialAssets; `pending | processing | ready | failed` |
 | `Video` | local identity с одним Kinescope provider mapping; current Material ссылается на 0..N Videos |
@@ -705,3 +705,31 @@ choice, неочевидный контекст и реальный trade-off. �
 - [Workspace #41: Telegram Membership boundary](https://github.com/sachkov-inside/workspace/issues/41)
 - [Workspace #42: Kinescope lifecycle](https://github.com/sachkov-inside/workspace/issues/42)
 - [Workspace #54: provider-neutral ContentAccess](https://github.com/sachkov-inside/workspace/issues/54)
+
+### Series step sequences
+
+`SeriesMembership.stepGroup` is a nullable exact label after ECMAScript `trim()`, 1–120 UTF-16 code
+units. Identical case-sensitive labels connect entries within that Series only; there is no second
+stored order or group entity. Current membership owns the label. Published projections enrich only
+published memberships with that current label; draft-only labels and entries never enter public
+step counts. Web derives the badge ordinal and total from the complete published Series composition.
+Reader previous/next still follows every published entry in its one existing order.
+
+The Series list connects every overall ordinal with one dashed rail, first marker to last marker.
+All formats use the same dark filled ordinal marker. The explicit step label appears inside the
+existing Material row below its title; video rows render the existing published summary as plain
+text, limited to three visible lines so long descriptions do not dominate the mixed list. The presentation neither invents descriptions nor reads body content for previews.
+
+Existing `reorderSeries` / REST `PUT /authoring/series/:seriesId/order` /
+MCP `playlist_save_composition` accept optional `stepGroups: Record<MaterialId, string>` alongside
+`orderedMaterialIds`. Every key must belong to that submitted composition. Omission preserves labels
+for surviving members (legacy-client compatibility); `{}` clears them; a supplied map replaces all
+assignments. New members without an assignment have no label. The optimistic `orderVersion` covers
+both the composition order and its labels. Full-state Material Save preserves labels for retained
+Series memberships; removing then re-adding membership does not restore a removed label.
+
+The local Git authoring contract uses optional `step_groups: { local-material-id: label }` on a
+Series, alongside its existing `materials` list. A full authoring snapshot maps absent/empty
+`step_groups` to an explicit empty API map; absence of the API field is reserved for preserving
+assignments. Resolve local Material IDs before sending the map. This is a contract for the future
+importer, not an implemented automatic import or publication flow.

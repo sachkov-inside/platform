@@ -684,6 +684,7 @@ export class MaterialAuthoringService {
       materialId: string;
       ordinal: number;
       publicationState: 'draft' | 'published' | 'unpublished';
+      stepGroup: string | null;
       title: string | null;
     }>;
     name: string;
@@ -711,6 +712,7 @@ export class MaterialAuthoringService {
     requestBody: {
       expectedOrderVersion: string;
       orderedMaterialIds: Array<string>;
+      stepGroups?: Record<string, string>;
     },
   }): CancelablePromise<{
     orderVersion: string;

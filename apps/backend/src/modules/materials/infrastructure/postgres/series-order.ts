@@ -15,6 +15,7 @@ export interface SeriesOrderSnapshot {
   readonly items: readonly {
     readonly materialId: string;
     readonly ordinal: number;
+    readonly stepGroup: string | null;
     readonly publicationState: "draft" | "published" | "unpublished";
     readonly title: string | null;
   }[];
@@ -34,7 +35,7 @@ export async function loadSeriesOrderSnapshot(
     prisma.seriesMembership.findMany({
       where: { seriesId },
       orderBy: [{ ordinal: "asc" }, { materialId: "asc" }],
-      select: { materialId: true, ordinal: true },
+      select: { materialId: true, ordinal: true, stepGroup: true },
     }),
   ]);
   if (series === null) {
@@ -50,7 +51,7 @@ export async function loadSeriesOrderSnapshot(
   const materialById = new Map(materials.map((material) => [material.id, material]));
   return {
     archived: series.archivedAt !== null,
-    items: memberships.map(({ materialId, ordinal }) => {
+    items: memberships.map(({ materialId, ordinal, stepGroup }) => {
       const material = materialById.get(materialId);
       if (material === undefined) {
         throw new TypeError("Series membership references a missing Material");
@@ -58,6 +59,7 @@ export async function loadSeriesOrderSnapshot(
       return {
         materialId,
         ordinal,
+        stepGroup,
         publicationState: publicationStateSchema.parse(material.publicationState),
         title: material.title,
       };
@@ -156,6 +158,7 @@ export async function replaceSeriesOrder(
   transaction: MaterialsPrismaTransaction,
   seriesId: string,
   orderedMaterialIds: readonly string[],
+  stepGroups: Readonly<Record<string, string>>,
 ): Promise<void> {
   const previousMemberships = await transaction.seriesMembership.findMany({
     where: { seriesId },
@@ -167,6 +170,7 @@ export async function replaceSeriesOrder(
       data: orderedMaterialIds.map((materialId, index) => ({
         materialId,
         ordinal: index + 1,
+        stepGroup: stepGroups[materialId] ?? null,
         seriesId,
       })),
     });
