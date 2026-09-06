@@ -2,6 +2,7 @@
 
 Визуальная приёмка [Platform #316](https://github.com/sachkov-inside/platform/issues/316).
 Подготовлено 6 сентября 2026 года от `e528cbe` (функциональная часть #308).
+В рабочую ветку включён принятый `2980d46` (#309); ссылка «Рассылки и аналитика» сохранена.
 
 Редактор использует общие tokens из `app/globals.css` и принятый `AuthoringShell`.
 Storybook и `/authoring/communications` импортируют один `CommunicationsWorkspace`.
@@ -55,7 +56,9 @@ PLAYWRIGHT_PORT=3416 pnpm check
 - Реальная страница: два browser tests, по две ширины в каждом, прошли.
 - Standards и Spec review от `e528cbe`: без блокирующих замечаний; найденное отличие активного
   пункта Storybook исправлено в fixture маршрута.
-- Полный `pnpm check`: результат будет записан после завершения текущего прогона.
+- Итоговый результат полного `pnpm check` и CI для точного head фиксируется в
+  [PR #322](https://github.com/sachkov-inside/platform/pull/322).
+  Первый общий прогон встретил timeout неизменённого mobile Profile test; его отдельный повтор прошёл.
 
 **Owner visual GO ожидается.** Замечания владельца ещё не получены; их закрытие не заявляется.
 Temporary marker #308/#316 намеренно сохранён до принятия внешнего вида. После visual GO
