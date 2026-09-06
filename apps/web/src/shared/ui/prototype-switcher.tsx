@@ -6,9 +6,9 @@ import { useCallback, useEffect } from "react";
 import type { Route } from "next";
 
 export const cardVariants = [
-  { key: "A", name: "Текстовая отметка" },
-  { key: "B", name: "Скруглённая отметка" },
-  { key: "C", name: "Отметка с акцентом" },
+  { key: "A", name: "Линия между гайдами" },
+  { key: "B", name: "Ссылки между гайдами" },
+  { key: "C", name: "Схема последовательности" },
 ] as const;
 
 /** Throwaway #301 comparison controls; never ship with the selected design. */
@@ -36,7 +36,7 @@ export function PrototypeSwitcher() {
   }, [choose, index]);
   if (process.env.NODE_ENV === "production") return null;
   return (
-    <aside aria-label="Сравнение отметок шага" className="fixed bottom-24 left-1/2 z-50 w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-white/20 bg-primary p-3 text-white shadow-xl md:bottom-6">
+    <aside aria-label="Сравнение связи между гайдами" className="fixed bottom-24 left-1/2 z-50 w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-white/20 bg-primary p-3 text-white shadow-xl md:bottom-6">
       <p aria-live="polite" className="mb-2 text-center text-xs font-semibold">{cardVariants[index]!.key} · {cardVariants[index]!.name}</p>
       <div className="flex items-center justify-between gap-2">
         <button aria-label="Предыдущий вариант" className="grid size-10 place-items-center rounded-xl hover:bg-white/15 focus-visible:outline-2" onClick={() => choose(index - 1)}><ArrowLeft className="size-4" /></button>
