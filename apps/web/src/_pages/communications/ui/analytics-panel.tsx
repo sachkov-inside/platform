@@ -1,3 +1,4 @@
+import styles from "./broadcasts.module.css";
 import { Button } from "@/shared/ui/button";
 import {
   type StatisticsResult,
@@ -24,9 +25,18 @@ export function AnalyticsPanel({
   readonly onNextContacts: (cursor: string) => void;
   readonly onNextDeliveries: (cursor: string) => void;
 }) {
-  if (!result) return <p role="status">Загружаем аналитику…</p>;
+  if (!result)
+    return (
+      <p role="status" className={styles.empty}>
+        Загружаем аналитику…
+      </p>
+    );
   if (result.kind === "error")
-    return <p role="alert">{errorMessage(result.code)}</p>;
+    return (
+      <p role="alert" className={styles.alert}>
+        {errorMessage(result.code)}
+      </p>
+    );
   const { statistics: s, trackingBacklog } = result;
   const sourceName = (id: string | null) =>
     id === null
@@ -35,37 +45,65 @@ export function AnalyticsPanel({
           .flatMap((f) => f.sources)
           .find((source) => source.sourceId === id)?.name ?? id);
   return (
-    <section className="mt-6 space-y-5" aria-label="Аналитика коммуникаций">
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {Object.entries({
-          "Всего контактов": s.totalBotContacts,
-          "Доступны боту": s.reachable,
-          "Заблокировали бота": s.blocked,
-          "Отключили сообщения": s.marketingOff,
-          "Участники воронок": s.uniqueParticipants,
-          "Отправлено частей": s.deliveries.sent,
-          "Пропущено частей": s.deliveries.suppressed,
-          "Ошибок отправки": s.deliveries.failed,
-          "Неизвестных результатов": s.deliveries.unknown,
-          "Ожидает частей": s.deliveries.pending,
-          "Частично отменено доставок": s.deliveries.partialCancelled,
-          "Переходов по ссылкам": s.trackingHits,
-          "Уникальных ссылок с переходом": s.uniqueTokensWithHits,
-          "Автоматических переходов": s.knownAutomationHits,
-        }).map(([label, value]) => (
-          <div className="rounded-lg border border-border p-3" key={label}>
-            <dt className="text-sm text-muted-foreground">{label}</dt>
-            <dd className="mt-1 text-2xl font-semibold">{value}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="text-sm">
+    <section className={styles.analytics} aria-label="Аналитика коммуникаций">
+      {[
+        {
+          title: "Аудитория бота",
+          hint: "Общие контакты и доступность — независимо от выбранного фильтра.",
+          values: {
+            "Всего контактов": s.totalBotContacts,
+            "Доступны боту": s.reachable,
+            "Заблокировали бота": s.blocked,
+            "Отключили сообщения": s.marketingOff,
+          },
+        },
+        {
+          title: "Доставка",
+          hint: "Участники и отправленные части для выбранных коммуникаций.",
+          values: {
+            "Участники воронок": s.uniqueParticipants,
+            "Отправлено частей": s.deliveries.sent,
+            "Пропущено частей": s.deliveries.suppressed,
+            "Ошибок отправки": s.deliveries.failed,
+            "Неизвестных результатов": s.deliveries.unknown,
+            "Ожидает частей": s.deliveries.pending,
+            "Частично отменено доставок": s.deliveries.partialCancelled,
+          },
+        },
+        {
+          title: "Переходы по ссылкам",
+          hint: "Зарегистрированные события, включая повторные переходы и известную автоматизацию.",
+          values: {
+            "Переходов по ссылкам": s.trackingHits,
+            "Уникальных ссылок с переходом": s.uniqueTokensWithHits,
+            "Автоматических переходов": s.knownAutomationHits,
+          },
+        },
+      ].map((group) => (
+        <section
+          key={group.title}
+          aria-label={group.title}
+          className={styles.metricGroup}
+        >
+          <h3 className={styles.sectionTitle}>{group.title}</h3>
+          <p className={styles.hint}>{group.hint}</p>
+          <dl className={styles.metrics}>
+            {Object.entries(group.values).map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value?.toLocaleString("ru-RU")}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ))}
+      <p className={styles.hint}>
         Общие контакты и доступность относятся ко всему боту. Фильтр сужает
         участников, доставки, переходы и список контактов. Отправка не означает
         прочтение. Ссылку можно переслать: переход не доказывает личность
         читателя, вход в аккаунт или оплату.
       </p>
-      <p role="status">
+      <p role="status" className={styles.notice}>
         {trackingBacklog.kind === "unavailable"
           ? "Задержка передачи переходов сейчас неизвестна; статистика может быть неполной."
           : `Ожидают передачи: ${String(trackingBacklog.pending)}. Возраст самого старого события: ${String(trackingBacklog.oldestAgeSeconds)} с.`}{" "}
@@ -76,12 +114,9 @@ export function AnalyticsPanel({
       {!s.contacts.length ? (
         <p>Контактов пока нет.</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className={styles.contacts}>
           {s.contacts.map((contact) => (
-            <li
-              key={contact.contactId}
-              className="space-y-1 rounded-lg border border-border p-3"
-            >
+            <li key={contact.contactId} className={styles.contact}>
               <p className="break-all font-mono text-xs">
                 Контакт {contact.contactId}
               </p>
@@ -129,12 +164,9 @@ export function AnalyticsPanel({
           {!deliveries.deliveries.length ? (
             <p>Доставок пока нет.</p>
           ) : (
-            <ul className="space-y-3">
+            <ul className={styles.contacts}>
               {deliveries.deliveries.map((delivery) => (
-                <li
-                  key={delivery.deliveryId}
-                  className="rounded-lg border border-border p-3"
-                >
+                <li key={delivery.deliveryId} className={styles.contact}>
                   <p className="break-all text-xs">
                     Контакт {delivery.contactId}
                   </p>
@@ -179,8 +211,8 @@ export function EntryHistory({
   readonly funnels: readonly Funnel[];
 }) {
   const sources = funnels.flatMap((f) => f.sources);
-  return (
-    <ol className="space-y-2">
+  return entries.length ? (
+    <ol className={styles.history}>
       {entries.map((entry, i) => (
         <li key={i} className="break-words">
           {new Date(entry.enteredAt).toLocaleString("ru-RU")} ·{" "}
@@ -190,5 +222,7 @@ export function EntryHistory({
         </li>
       ))}
     </ol>
+  ) : (
+    <p className={styles.empty}>Входов пока нет.</p>
   );
 }

@@ -82,6 +82,25 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
     path: `../../ci-artifacts/communications/${testInfo.project.name}-editor.png`,
     fullPage: true,
   });
+  const editor = page.getByRole("region", { name: "Рассылка · Черновик" });
+  const identifier = editor.locator("summary");
+  await identifier.focus();
+  await page.keyboard.press("Enter");
+  await expect(editor.locator("details")).toHaveAttribute("open", "");
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("textbox", { name: "Текст", exact: true }),
+  ).toBeFocused();
+  await identifier.click();
+  await editor.screenshot({
+    path: `../../ci-artifacts/communications/${testInfo.project.name}-editor-full.png`,
+  });
+  const editorFailures = (
+    await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze()
+  ).violations;
+  expect(editorFailures).toEqual([]);
   await page.getByRole("button", { name: "Запустить сейчас" }).click();
   await expect(
     page.getByRole("heading", { name: "Рассылка · Отправляется" }),
@@ -149,6 +168,25 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
     path: `../../ci-artifacts/communications/${testInfo.project.name}.png`,
     fullPage: true,
   });
+  await page
+    .getByRole("region", { name: "Аналитика", exact: true })
+    .screenshot({
+      path: `../../ci-artifacts/communications/${testInfo.project.name}-analytics-full.png`,
+    });
+  if (testInfo.project.name === "mobile-chromium") {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await expect(
+      page.getByRole("button", { name: "Закрыть историю" }),
+    ).toBeVisible();
+  }
   const redirect = await page.request.get(
     `/communications/visit?token=${"a".repeat(43)}`,
     { maxRedirects: 0 },
