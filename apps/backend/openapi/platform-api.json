@@ -24435,11 +24435,48 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "botStartUrl": {
+                      "format": "uri",
+                      "type": "string"
+                    },
                     "ok": {
                       "enum": [
                         true
                       ],
                       "type": "boolean"
+                    },
+                    "targetErrors": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "reason": {
+                            "enum": [
+                              "not_found",
+                              "not_published",
+                              "not_free",
+                              "incomplete"
+                            ],
+                            "type": "string"
+                          },
+                          "targetId": {
+                            "format": "uuid",
+                            "nullable": true,
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                            "type": "string"
+                          },
+                          "url": {
+                            "format": "uri",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url",
+                          "reason",
+                          "targetId"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "trackingBacklog": {
                       "anyOf": [
@@ -32330,7 +32367,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -32418,7 +32456,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -32466,7 +32505,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -32514,7 +32554,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -32562,7 +32603,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -32610,7 +32652,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -32658,7 +32701,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -32706,7 +32750,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -32784,11 +32829,48 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "botStartUrl": {
+                      "format": "uri",
+                      "type": "string"
+                    },
                     "ok": {
                       "enum": [
                         true
                       ],
                       "type": "boolean"
+                    },
+                    "targetErrors": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "reason": {
+                            "enum": [
+                              "not_found",
+                              "not_published",
+                              "not_free",
+                              "incomplete"
+                            ],
+                            "type": "string"
+                          },
+                          "targetId": {
+                            "format": "uuid",
+                            "nullable": true,
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                            "type": "string"
+                          },
+                          "url": {
+                            "format": "uri",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url",
+                          "reason",
+                          "targetId"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "trackingBacklog": {
                       "anyOf": [
@@ -40679,7 +40761,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -40767,7 +40850,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -40815,7 +40899,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -40863,7 +40948,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -40911,7 +40997,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -40959,7 +41046,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -41007,7 +41095,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },
@@ -41055,7 +41144,8 @@
                         "unsupported_content",
                         "revision_conflict",
                         "operation_conflict",
-                        "not_implemented"
+                        "not_implemented",
+                        "invalid_targets"
                       ],
                       "type": "string"
                     },

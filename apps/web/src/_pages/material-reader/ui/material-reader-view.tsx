@@ -260,7 +260,7 @@ export function ReaderBackAction({
 
   if (sticky) {
     return (
-      <div className="sticky top-0 z-30 -mx-4 -mt-5 border-b border-black/6 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-7 sm:px-7 md:-mx-10 md:-mt-9 md:px-10">
+      <div className="sticky top-0 z-30 -mx-4 -mt-5 border-b border-black/6 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-7 sm:px-7 lg:-mx-10 lg:-mt-9 lg:px-10">
         <div className={cn("mx-auto flex min-h-11 max-w-[43rem] items-center", className)}>
           {action}
         </div>

@@ -677,7 +677,13 @@ export class CommunicationsService {
       };
     }),
   }): CancelablePromise<{
+    botStartUrl?: string;
     ok: boolean;
+    targetErrors?: Array<{
+      reason: 'not_found' | 'not_published' | 'not_free' | 'incomplete';
+      targetId: string | null;
+      url: string;
+    }>;
     trackingBacklog?: ({
       kind: 'ready';
       oldestAgeSeconds: number;
@@ -1765,7 +1771,13 @@ export class CommunicationsService {
       reference: string;
     },
   }): CancelablePromise<{
+    botStartUrl?: string;
     ok: boolean;
+    targetErrors?: Array<{
+      reason: 'not_found' | 'not_published' | 'not_free' | 'incomplete';
+      targetId: string | null;
+      url: string;
+    }>;
     trackingBacklog?: ({
       kind: 'ready';
       oldestAgeSeconds: number;

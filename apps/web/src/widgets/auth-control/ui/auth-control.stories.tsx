@@ -1,57 +1,46 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-
-import { Sidebar, SidebarBody } from "@/shared/ui/sidebar";
-
-import {
-  type AuthControlState,
-  DesktopAuthControl,
-  MobileAuthControl,
-} from "./auth-control.client";
-
-interface AuthControlFixtureProps {
-  readonly presentation: "desktop" | "mobile";
-  readonly state: AuthControlState;
-}
-
-function AuthControlFixture({ presentation, state }: AuthControlFixtureProps) {
-  if (presentation === "mobile") {
-    return (
-      <div className="w-24 rounded-xl border bg-card p-2">
-        <MobileAuthControl state={state} />
-      </div>
-    );
-  }
-  return (
-    <Sidebar defaultPinned>
-      <SidebarBody className="relative h-32">
-        <div className="mt-auto border-t border-sidebar-border p-3">
-          <DesktopAuthControl state={state} />
-        </div>
-      </SidebarBody>
-    </Sidebar>
-  );
-}
+import { expect, userEvent, within } from "storybook/test";
+import { HeaderAuthControl } from "./auth-control.client";
 
 const meta = {
-  args: { presentation: "desktop", state: "guest" },
-  component: AuthControlFixture,
+  args: { state: "guest" },
+  component: HeaderAuthControl,
+  decorators: [
+    (Story) => (
+      <div
+        data-public-shell
+        className="min-h-64 bg-background p-6 text-foreground"
+        onSubmit={(event) => {
+          event.preventDefault();
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
   parameters: {
     docs: {
       description: {
         component:
-          "Presentation-only Platform identity control. Story fixtures choose coarse state; production mapping stays in the server-owned app adapter.",
+          "Управление аккаунтом в desktop-шапке. На mobile используется страница Профиля. Фикстура задаёт только состояние; production использует существующий app adapter и POST-формы входа/выхода.",
       },
     },
   },
   title: "Patterns/Identity/Auth control",
-} satisfies Meta<typeof AuthControlFixture>;
-
+} satisfies Meta<typeof HeaderAuthControl>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-
 export const Guest: Story = {};
 export const Authenticated: Story = { args: { state: "authenticated" } };
-export const Unavailable: Story = { args: { state: "unavailable" } };
-export const MobileGuest: Story = {
-  args: { presentation: "mobile", state: "guest" },
+export const Unavailable: Story = {
+  args: { state: "unavailable" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(canvas.getByRole("button", { name: "Сессия" }));
+    await expect(
+      body.getByRole("menuitem", { name: "Завершить сессию" }).closest("form"),
+    ).toHaveAttribute("action", "/auth/sign-out");
+    await userEvent.keyboard("{Escape}");
+  },
 };

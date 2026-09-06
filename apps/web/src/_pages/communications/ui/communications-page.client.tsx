@@ -1,16 +1,17 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/shared/ui/button";
 import { communicationsQueries } from "../model/communications-queries";
-import * as api from "../api/communications.browser";
+import * as api from "../api/broadcasts.browser";
 import {
   type Broadcast,
   type Contact,
   type Funnel,
   stateLabels,
   errorMessage,
-} from "../model/communications";
+} from "../model/broadcasts";
 import {
   BroadcastEditor,
   applyBroadcastResult,
@@ -90,6 +91,9 @@ export function CommunicationsPage() {
       className="h-full overflow-y-auto bg-background px-4 pb-24 pt-5 text-foreground sm:px-6"
     >
       <div className="mx-auto max-w-5xl space-y-5">
+        <Link className="underline" href="/authoring/communications">
+          Воронки Telegram
+        </Link>
         <h1 className="text-3xl font-semibold">Рассылки и аналитика</h1>
         <p>
           Разовые сообщения контактам Inside и наблюдаемые входы и переходы.

@@ -215,6 +215,7 @@ const platformConfigSchema = z
           url.pathname === "/integrations/platform/v1/communications";
       }),
       secret: telegramSecretSchema("TELEGRAM_COMMUNICATIONS_SECRET"),
+      publicOrigin: httpUrlSchema("TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN").optional(),
       authorizationSecret: telegramSecretSchema("TELEGRAM_AUTHOR_AUTHORIZATION_SECRET"),
       botIdentity: z.string().min(1).max(128),
     }).readonly().optional(),
@@ -325,6 +326,7 @@ export function parsePlatformConfig(
       ? undefined : {
         endpoint: environment.TELEGRAM_COMMUNICATIONS_ENDPOINT,
         secret: environment.TELEGRAM_COMMUNICATIONS_SECRET,
+        publicOrigin: environment.TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN,
         authorizationSecret: environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET,
         botIdentity: environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY,
       },

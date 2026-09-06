@@ -16,3 +16,4 @@ export {
   handleTrackingVisit,
   handleTrackingHead,
 } from "./api/tracking-route.server";
+export * from "./api/communications-route.server";

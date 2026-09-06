@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, waitFor, within } from "storybook/test";
 
 import type {
   MaterialReaderMetadata,
@@ -25,11 +25,6 @@ import { MaterialReaderView } from "./material-reader-view";
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
-] satisfies readonly ApplicationNavigationItem[];
-
-const mobileNavigationItems = [
-  ...navigationItems,
-  { href: "/account", icon: "profile", label: "Профиль" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const material = {
@@ -214,11 +209,9 @@ type ReaderStoryMode =
 function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
   return (
     <ApplicationShell
-      accountLabel="Кирилл"
       currentPath={`/materials/${material.slug}`}
-      mobileNavigationItems={mobileNavigationItems}
       navigationItems={navigationItems}
-      sidebarDefaultPinned
+      mobileNavigationItems={[...navigationItems, { href: "/account", icon: "profile", label: "Профиль" }]}
     >
       <MaterialReaderState mode={mode} />
     </ApplicationShell>
@@ -342,7 +335,7 @@ export const Mobile: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Публичные skills для agent-first setup", level: 1 }),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("navigation", { name: "Мобильная навигация" })).toBeInTheDocument();
+    await expect(canvas.getByRole("navigation", { name: "Мобильная навигация" })).toBeVisible();
     await expect(canvas.getByLabelText("Содержание: 2")).toBeInTheDocument();
     await expect(
       canvasElement.querySelector(
@@ -367,6 +360,27 @@ export const Mobile: Story = {
     ).toBe(true);
     await expect(canvas.getByRole("link", { name: /Чек-лист проверки repository-owned skill/u })).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(1);
+    const document = canvasElement.ownerDocument;
+    const scrollRoot = document.scrollingElement;
+    if (scrollRoot === null) throw new Error("Mobile document scroll is missing");
+    await expect(canvasElement.querySelector("[data-public-header]")).not.toBeVisible();
+    const back = canvas.getByRole("link", { name: "Назад в Базу знаний" });
+    const originalFontSize = document.documentElement.style.fontSize;
+    try {
+      for (const fontSize of ["100%", "200%"]) {
+        document.documentElement.style.fontSize = fontSize;
+        scrollRoot.scrollTop = 900;
+        await waitFor(async () => {
+          await expect(scrollRoot.scrollTop).toBeGreaterThan(0);
+          await expect(back.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+          await expect(back.getBoundingClientRect().top).toBeLessThan(40);
+        });
+      }
+    } finally {
+      document.documentElement.style.fontSize = originalFontSize;
+      scrollRoot.scrollTop = 0;
+    }
+
   },
 };
 

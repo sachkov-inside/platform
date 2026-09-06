@@ -21,7 +21,7 @@ import {
   templateResultSchema,
   broadcastSaveInputSchema,
   broadcastActionInputSchema,
-} from "../model/communications";
+} from "../model/broadcasts";
 const version = { contractVersion: "inside-communications-v1" } as const;
 const problemSchema = z.object({ code: z.string() });
 const envelopeSchema = z.object({

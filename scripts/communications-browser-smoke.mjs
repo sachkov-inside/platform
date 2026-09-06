@@ -116,7 +116,7 @@ try {
       "test",
       "--config",
       "playwright.fullstack.config.ts",
-      "communications.spec.ts",
+      "broadcasts.spec.ts",
     ],
     env,
   );

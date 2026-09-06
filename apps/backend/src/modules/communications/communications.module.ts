@@ -1,4 +1,8 @@
 import {
+  MaterialContentModule,
+  PublicContentTargets,
+} from "../materials/index.js";
+import {
   PrismaModule,
   PrismaClientProvider,
 } from "../../infrastructure/prisma/index.js";
@@ -68,7 +72,12 @@ export class TrackingHitPump
 }
 
 @Module({
-  imports: [PrismaModule, AccountsModule, TelegramAccountLinksModule],
+  imports: [
+    PrismaModule,
+    AccountsModule,
+    TelegramAccountLinksModule,
+    MaterialContentModule,
+  ],
   controllers: [
     TrackVisitController,
     AuthorizeCommunicationsAuthorController,
@@ -93,17 +102,29 @@ export class TrackingHitPump
     },
     {
       provide: Communications,
-      inject: [ACCOUNTS, TelegramAccountLinks, PLATFORM_CONFIG, TrackingVisits],
+      inject: [
+        ACCOUNTS,
+        TelegramAccountLinks,
+        PLATFORM_CONFIG,
+        TrackingVisits,
+        PublicContentTargets,
+      ],
       useFactory: (
         accounts: Accounts,
         links: TelegramAccountLinks,
         config: PlatformConfig,
         visits: TrackingVisits,
+        targets: PublicContentTargets,
       ) =>
         new Communications(
           accounts,
           links,
           new HttpCommunicationsProvider(config.communications),
+          {
+            targets,
+            publicOrigin: config.communications?.publicOrigin,
+            botStartUrl: config.telegramMembership.botStartUrl,
+          },
           visits,
         ),
     },

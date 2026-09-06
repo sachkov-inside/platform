@@ -21,7 +21,6 @@ import {
 } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
-import { PublicProductHeader } from "@/widgets/application-shell";
 
 export function LibraryPage({
   catalog,
@@ -168,7 +167,6 @@ export function LibraryUnexpectedError({
 function LibraryHeader() {
   return (
     <>
-      <PublicProductHeader />
       <header className="mt-9 md:mt-12">
         <h1 className="text-[2.25rem] font-semibold leading-none tracking-[-0.055em] md:text-6xl">
           База знаний

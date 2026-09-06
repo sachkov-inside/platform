@@ -7,7 +7,7 @@ import {
   errorMessage,
   deliveryLabels,
   type deliveryListSchema,
-} from "../model/communications";
+} from "../model/broadcasts";
 import type { z } from "zod";
 export function AnalyticsPanel({
   result,

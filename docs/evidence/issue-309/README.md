@@ -1,6 +1,9 @@
 # Issue 309 — broadcasts and communication analytics
 
-Captured on 2026-09-06 from source commit `f4d20f6`.
+Captured on 2026-09-06. Storybook uses source commit `f4d20f6`; working-page screenshots
+were refreshed after integrating the funnel UI from `e528cbe` into this branch.
+The broadcast route is now `/authoring/communications/broadcasts`, linked from the
+existing funnel page `/authoring/communications`.
 
 | Surface | Desktop | Mobile |
 | --- | --- | --- |

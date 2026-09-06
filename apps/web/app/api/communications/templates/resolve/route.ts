@@ -1,1 +1,1 @@
-export { handleTemplateResolve as POST } from "@/_pages/communications.server";
+export { handleResolveTemplate as POST } from "@/_pages/communications.server";

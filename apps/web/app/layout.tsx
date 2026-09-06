@@ -11,8 +11,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Главная · Inside",
-    template: "%s · Inside",
+    default: "Главная · Sachkov Inside",
+    template: "%s · Sachkov Inside",
   },
   description: "Материалы, темы и серии Sachkov Inside",
 };

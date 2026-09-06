@@ -10,7 +10,7 @@ import {
   type BroadcastActionInput,
   stateLabels,
   errorMessage,
-} from "../model/communications";
+} from "../model/broadcasts";
 
 /** Temporary semantic UI for #309. Replace through #317 after Storybook acceptance. */
 export interface BroadcastEditorProps {
