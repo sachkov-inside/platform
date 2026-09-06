@@ -25,7 +25,7 @@ const meta = {
   args: { status: "pending", deepLink: "https://t.me/inside_storybook_bot?start=fixture" },
   parameters: {
     layout: "fullscreen",
-    docs: { description: { component: "Экран Logto из #303. Одна реализация для Storybook и входа; состояния здесь заданы примерами. Кнопка бота в примерах не начинает настоящий вход. Визуальное согласование владельцем ожидается." } },
+    docs: { description: { component: "Экран Logto из #303. Одна реализация для Storybook и входа; состояния здесь заданы примерами. Кнопка бота в примерах не начинает настоящий вход. Оформление с голубым акцентом принято владельцем 2026-09-06 (#303)." } },
   },
 } satisfies Meta<typeof TelegramSignIn>;
 export default meta;
