@@ -252,5 +252,7 @@ function decodeResponse<Schema extends z.ZodType>(
   if (!parsed.success) return { kind: "error", code: "unavailable" };
   if (parsed.data.kind === "error") return parsed.data;
   const value = schema.safeParse(parsed.data.value);
-  return value.success ? { kind: "ready", value: value.data } : { kind: "error", code: "unavailable" };
+  return value.success
+    ? { kind: "ready", value: value.data }
+    : { kind: "error", code: "unavailable" };
 }

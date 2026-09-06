@@ -79,3 +79,5 @@ export interface TransactionClient<Transaction> {
     operation: (transaction: Transaction) => Promise<Result>,
   ): Promise<Result>;
 }
+
+export type CommunicationsPrisma = Pick<PlatformPrisma, "communicationTrackingHit">;

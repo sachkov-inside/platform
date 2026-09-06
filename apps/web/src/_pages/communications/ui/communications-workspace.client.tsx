@@ -235,10 +235,18 @@ export function CommunicationsWorkspace({
     >
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-3 border-b border-border pb-6">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            <Send aria-hidden="true" className="size-4" /> Telegram · общение с
-            участниками
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <Send aria-hidden="true" className="size-4" /> Telegram · общение
+              с участниками
+            </p>
+            <Link
+              className="inline-flex min-h-11 items-center text-sm underline underline-offset-4"
+              href="/authoring/communications/broadcasts"
+            >
+              Рассылки и аналитика
+            </Link>
+          </div>
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
             Воронки Telegram
           </h1>

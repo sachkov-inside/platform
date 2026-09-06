@@ -21425,7 +21425,7 @@
                               "additionalProperties": false,
                               "properties": {
                                 "code": {
-                                  "pattern": "^m_[A-Za-z0-9_-]{1,48}$",
+                                  "pattern": "^m_[A-Za-z0-9_-]{1,40}$",
                                   "type": "string"
                                 },
                                 "name": {
@@ -24321,6 +24321,106 @@
                       "payload"
                     ],
                     "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "contractVersion": {
+                        "enum": [
+                          "inside-communications-v1"
+                        ],
+                        "type": "string"
+                      },
+                      "expectedRevision": {
+                        "maximum": 2147483647,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "operation": {
+                        "enum": [
+                          "broadcasts.list"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                        "type": "string"
+                      },
+                      "payload": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "cursor": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "contractVersion",
+                      "operation",
+                      "operationId",
+                      "expectedRevision",
+                      "payload"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "contractVersion": {
+                        "enum": [
+                          "inside-communications-v1"
+                        ],
+                        "type": "string"
+                      },
+                      "expectedRevision": {
+                        "maximum": 2147483647,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "operation": {
+                        "enum": [
+                          "entries.read"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                        "type": "string"
+                      },
+                      "payload": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "contactId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                            "type": "string"
+                          },
+                          "cursor": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "contactId"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "contractVersion",
+                      "operation",
+                      "operationId",
+                      "expectedRevision",
+                      "payload"
+                    ],
+                    "type": "object"
                   }
                 ]
               }
@@ -24377,6 +24477,52 @@
                         "type": "object"
                       },
                       "type": "array"
+                    },
+                    "trackingBacklog": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "ready"
+                              ],
+                              "type": "string"
+                            },
+                            "oldestAgeSeconds": {
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "pending": {
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "pending",
+                            "oldestAgeSeconds"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "unavailable"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "type": "object"
+                        }
+                      ]
                     },
                     "value": {
                       "anyOf": [
@@ -25833,7 +25979,7 @@
                                     "additionalProperties": false,
                                     "properties": {
                                       "code": {
-                                        "pattern": "^m_[A-Za-z0-9_-]{1,48}$",
+                                        "pattern": "^m_[A-Za-z0-9_-]{1,40}$",
                                         "type": "string"
                                       },
                                       "name": {
@@ -27336,7 +27482,7 @@
                                       "additionalProperties": false,
                                       "properties": {
                                         "code": {
-                                          "pattern": "^m_[A-Za-z0-9_-]{1,48}$",
+                                          "pattern": "^m_[A-Za-z0-9_-]{1,40}$",
                                           "type": "string"
                                         },
                                         "name": {
@@ -29335,15 +29481,64 @@
                                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                                               "type": "string"
                                             },
-                                            "sourceId": {
-                                              "format": "uuid",
-                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                            "funnelId": {
+                                              "anyOf": [
+                                                {
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "enum": [
+                                                    null
+                                                  ],
+                                                  "nullable": true,
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "outcome": {
+                                              "maxLength": 64,
                                               "type": "string"
+                                            },
+                                            "sourceCode": {
+                                              "anyOf": [
+                                                {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "enum": [
+                                                    null
+                                                  ],
+                                                  "nullable": true,
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "sourceId": {
+                                              "anyOf": [
+                                                {
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "enum": [
+                                                    null
+                                                  ],
+                                                  "nullable": true,
+                                                  "type": "string"
+                                                }
+                                              ]
                                             }
                                           },
                                           "required": [
                                             "sourceId",
-                                            "enteredAt"
+                                            "sourceCode",
+                                            "funnelId",
+                                            "enteredAt",
+                                            "outcome"
                                           ],
                                           "type": "object"
                                         },
@@ -29382,13 +29577,37 @@
                                             "type": "string"
                                           }
                                         ]
+                                      },
+                                      "marketingEnabled": {
+                                        "type": "boolean"
+                                      },
+                                      "nextEntryCursor": {
+                                        "anyOf": [
+                                          {
+                                            "maxLength": 128,
+                                            "type": "string"
+                                          },
+                                          {
+                                            "enum": [
+                                              null
+                                            ],
+                                            "nullable": true,
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "reachable": {
+                                        "type": "boolean"
                                       }
                                     },
                                     "required": [
                                       "contactId",
                                       "firstSourceId",
                                       "latestSourceId",
-                                      "entries"
+                                      "entries",
+                                      "reachable",
+                                      "marketingEnabled",
+                                      "nextEntryCursor"
                                     ],
                                     "type": "object"
                                   },
@@ -29439,6 +29658,11 @@
                                     "pending"
                                   ],
                                   "type": "object"
+                                },
+                                "knownAutomationHits": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
                                 },
                                 "marketingOff": {
                                   "maximum": 2147483647,
@@ -29497,7 +29721,8 @@
                                 "uniqueTokensWithHits",
                                 "analyticsLagSeconds",
                                 "contacts",
-                                "nextCursor"
+                                "nextCursor",
+                                "knownAutomationHits"
                               ],
                               "type": "object"
                             },
@@ -31156,6 +31381,956 @@
                             "status",
                             "deliveries",
                             "nextCursor"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "broadcasts": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "audience": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "kind": {
+                                            "enum": [
+                                              "all"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "funnelIds": {
+                                            "items": {
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                              "type": "string"
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "funnels"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "funnelIds"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    ]
+                                  },
+                                  "audienceSnapshotId": {
+                                    "anyOf": [
+                                      {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "enum": [
+                                          null
+                                        ],
+                                        "nullable": true,
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "broadcastId": {
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                    "type": "string"
+                                  },
+                                  "parts": {
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "content": {
+                                          "anyOf": [
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "buttons": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "text": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "text",
+                                                      "url"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 20,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "entities": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "language": {
+                                                        "maxLength": 64,
+                                                        "type": "string"
+                                                      },
+                                                      "length": {
+                                                        "maximum": 9007199254740991,
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                      },
+                                                      "offset": {
+                                                        "maximum": 2147483647,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
+                                                      "type": {
+                                                        "enum": [
+                                                          "mention",
+                                                          "hashtag",
+                                                          "cashtag",
+                                                          "bot_command",
+                                                          "url",
+                                                          "email",
+                                                          "phone_number",
+                                                          "bold",
+                                                          "italic",
+                                                          "underline",
+                                                          "strikethrough",
+                                                          "spoiler",
+                                                          "code",
+                                                          "pre",
+                                                          "text_link",
+                                                          "blockquote",
+                                                          "expandable_blockquote"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "type",
+                                                      "offset",
+                                                      "length"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 100,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "text": {
+                                                  "maxLength": 4096,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "text"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "text",
+                                                "entities",
+                                                "buttons"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "buttons": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "text": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "text",
+                                                      "url"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 20,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "entities": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "language": {
+                                                        "maxLength": 64,
+                                                        "type": "string"
+                                                      },
+                                                      "length": {
+                                                        "maximum": 9007199254740991,
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                      },
+                                                      "offset": {
+                                                        "maximum": 2147483647,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
+                                                      "type": {
+                                                        "enum": [
+                                                          "mention",
+                                                          "hashtag",
+                                                          "cashtag",
+                                                          "bot_command",
+                                                          "url",
+                                                          "email",
+                                                          "phone_number",
+                                                          "bold",
+                                                          "italic",
+                                                          "underline",
+                                                          "strikethrough",
+                                                          "spoiler",
+                                                          "code",
+                                                          "pre",
+                                                          "text_link",
+                                                          "blockquote",
+                                                          "expandable_blockquote"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "type",
+                                                      "offset",
+                                                      "length"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 100,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "fileId": {
+                                                  "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "maxLength": 1024,
+                                                  "type": "string"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "photo"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "text",
+                                                "entities",
+                                                "buttons",
+                                                "fileId"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "buttons": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "text": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "text",
+                                                      "url"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 20,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "entities": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "language": {
+                                                        "maxLength": 64,
+                                                        "type": "string"
+                                                      },
+                                                      "length": {
+                                                        "maximum": 9007199254740991,
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                      },
+                                                      "offset": {
+                                                        "maximum": 2147483647,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
+                                                      "type": {
+                                                        "enum": [
+                                                          "mention",
+                                                          "hashtag",
+                                                          "cashtag",
+                                                          "bot_command",
+                                                          "url",
+                                                          "email",
+                                                          "phone_number",
+                                                          "bold",
+                                                          "italic",
+                                                          "underline",
+                                                          "strikethrough",
+                                                          "spoiler",
+                                                          "code",
+                                                          "pre",
+                                                          "text_link",
+                                                          "blockquote",
+                                                          "expandable_blockquote"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "type",
+                                                      "offset",
+                                                      "length"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 100,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "fileId": {
+                                                  "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "maxLength": 1024,
+                                                  "type": "string"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "video"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "text",
+                                                "entities",
+                                                "buttons",
+                                                "fileId"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "buttons": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "text": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "text",
+                                                      "url"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 20,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "entities": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "language": {
+                                                        "maxLength": 64,
+                                                        "type": "string"
+                                                      },
+                                                      "length": {
+                                                        "maximum": 9007199254740991,
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                      },
+                                                      "offset": {
+                                                        "maximum": 2147483647,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
+                                                      "type": {
+                                                        "enum": [
+                                                          "mention",
+                                                          "hashtag",
+                                                          "cashtag",
+                                                          "bot_command",
+                                                          "url",
+                                                          "email",
+                                                          "phone_number",
+                                                          "bold",
+                                                          "italic",
+                                                          "underline",
+                                                          "strikethrough",
+                                                          "spoiler",
+                                                          "code",
+                                                          "pre",
+                                                          "text_link",
+                                                          "blockquote",
+                                                          "expandable_blockquote"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "type",
+                                                      "offset",
+                                                      "length"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 0,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "fileId": {
+                                                  "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "maxLength": 0,
+                                                  "type": "string"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "video_note"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "text",
+                                                "entities",
+                                                "buttons",
+                                                "fileId"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "buttons": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "text": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "text",
+                                                      "url"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 20,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "entities": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "language": {
+                                                        "maxLength": 64,
+                                                        "type": "string"
+                                                      },
+                                                      "length": {
+                                                        "maximum": 9007199254740991,
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                      },
+                                                      "offset": {
+                                                        "maximum": 2147483647,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
+                                                      "type": {
+                                                        "enum": [
+                                                          "mention",
+                                                          "hashtag",
+                                                          "cashtag",
+                                                          "bot_command",
+                                                          "url",
+                                                          "email",
+                                                          "phone_number",
+                                                          "bold",
+                                                          "italic",
+                                                          "underline",
+                                                          "strikethrough",
+                                                          "spoiler",
+                                                          "code",
+                                                          "pre",
+                                                          "text_link",
+                                                          "blockquote",
+                                                          "expandable_blockquote"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "type",
+                                                      "offset",
+                                                      "length"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 100,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "fileId": {
+                                                  "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "maxLength": 1024,
+                                                  "type": "string"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "voice"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "text",
+                                                "entities",
+                                                "buttons",
+                                                "fileId"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "buttons": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "text": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "text",
+                                                      "url"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 20,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "entities": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "language": {
+                                                        "maxLength": 64,
+                                                        "type": "string"
+                                                      },
+                                                      "length": {
+                                                        "maximum": 9007199254740991,
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                      },
+                                                      "offset": {
+                                                        "maximum": 2147483647,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
+                                                      "type": {
+                                                        "enum": [
+                                                          "mention",
+                                                          "hashtag",
+                                                          "cashtag",
+                                                          "bot_command",
+                                                          "url",
+                                                          "email",
+                                                          "phone_number",
+                                                          "bold",
+                                                          "italic",
+                                                          "underline",
+                                                          "strikethrough",
+                                                          "spoiler",
+                                                          "code",
+                                                          "pre",
+                                                          "text_link",
+                                                          "blockquote",
+                                                          "expandable_blockquote"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "type",
+                                                      "offset",
+                                                      "length"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 100,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "fileId": {
+                                                  "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "maxLength": 1024,
+                                                  "type": "string"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "document"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "text",
+                                                "entities",
+                                                "buttons",
+                                                "fileId"
+                                              ],
+                                              "type": "object"
+                                            }
+                                          ]
+                                        },
+                                        "partId": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "partId",
+                                        "content"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "maxItems": 20,
+                                    "minItems": 1,
+                                    "type": "array"
+                                  },
+                                  "revision": {
+                                    "maximum": 2147483647,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "scheduledAt": {
+                                    "anyOf": [
+                                      {
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "enum": [
+                                          null
+                                        ],
+                                        "nullable": true,
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "snapshotSize": {
+                                    "maximum": 2147483647,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "state": {
+                                    "enum": [
+                                      "draft",
+                                      "scheduled",
+                                      "running",
+                                      "paused",
+                                      "cancelled",
+                                      "completed"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "broadcastId",
+                                  "revision",
+                                  "state",
+                                  "parts",
+                                  "audience",
+                                  "scheduledAt",
+                                  "audienceSnapshotId",
+                                  "snapshotSize"
+                                ],
+                                "type": "object"
+                              },
+                              "maxItems": 100,
+                              "minItems": 0,
+                              "type": "array"
+                            },
+                            "contractVersion": {
+                              "enum": [
+                                "inside-communications-v1"
+                              ],
+                              "type": "string"
+                            },
+                            "nextCursor": {
+                              "anyOf": [
+                                {
+                                  "maxLength": 128,
+                                  "type": "string"
+                                },
+                                {
+                                  "enum": [
+                                    null
+                                  ],
+                                  "nullable": true,
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "status": {
+                              "enum": [
+                                "ok"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "contractVersion",
+                            "status",
+                            "nextCursor",
+                            "broadcasts"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "contractVersion": {
+                              "enum": [
+                                "inside-communications-v1"
+                              ],
+                              "type": "string"
+                            },
+                            "entries": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "enteredAt": {
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                                    "type": "string"
+                                  },
+                                  "funnelId": {
+                                    "anyOf": [
+                                      {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "enum": [
+                                          null
+                                        ],
+                                        "nullable": true,
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "outcome": {
+                                    "maxLength": 64,
+                                    "type": "string"
+                                  },
+                                  "sourceCode": {
+                                    "anyOf": [
+                                      {
+                                        "maxLength": 64,
+                                        "type": "string"
+                                      },
+                                      {
+                                        "enum": [
+                                          null
+                                        ],
+                                        "nullable": true,
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "sourceId": {
+                                    "anyOf": [
+                                      {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "enum": [
+                                          null
+                                        ],
+                                        "nullable": true,
+                                        "type": "string"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "sourceId",
+                                  "sourceCode",
+                                  "funnelId",
+                                  "enteredAt",
+                                  "outcome"
+                                ],
+                                "type": "object"
+                              },
+                              "maxItems": 100,
+                              "minItems": 0,
+                              "type": "array"
+                            },
+                            "nextCursor": {
+                              "anyOf": [
+                                {
+                                  "maxLength": 128,
+                                  "type": "string"
+                                },
+                                {
+                                  "enum": [
+                                    null
+                                  ],
+                                  "nullable": true,
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "status": {
+                              "enum": [
+                                "ok"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "contractVersion",
+                            "status",
+                            "nextCursor",
+                            "entries"
                           ],
                           "type": "object"
                         }
@@ -31697,6 +32872,52 @@
                       },
                       "type": "array"
                     },
+                    "trackingBacklog": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "ready"
+                              ],
+                              "type": "string"
+                            },
+                            "oldestAgeSeconds": {
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "pending": {
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "pending",
+                            "oldestAgeSeconds"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "unavailable"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
                     "value": {
                       "anyOf": [
                         {
@@ -33152,7 +34373,7 @@
                                     "additionalProperties": false,
                                     "properties": {
                                       "code": {
-                                        "pattern": "^m_[A-Za-z0-9_-]{1,48}$",
+                                        "pattern": "^m_[A-Za-z0-9_-]{1,40}$",
                                         "type": "string"
                                       },
                                       "name": {
@@ -34655,7 +35876,7 @@
                                       "additionalProperties": false,
                                       "properties": {
                                         "code": {
-                                          "pattern": "^m_[A-Za-z0-9_-]{1,48}$",
+                                          "pattern": "^m_[A-Za-z0-9_-]{1,40}$",
                                           "type": "string"
                                         },
                                         "name": {
@@ -36654,15 +37875,64 @@
                                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                                               "type": "string"
                                             },
-                                            "sourceId": {
-                                              "format": "uuid",
-                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                            "funnelId": {
+                                              "anyOf": [
+                                                {
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "enum": [
+                                                    null
+                                                  ],
+                                                  "nullable": true,
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "outcome": {
+                                              "maxLength": 64,
                                               "type": "string"
+                                            },
+                                            "sourceCode": {
+                                              "anyOf": [
+                                                {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "enum": [
+                                                    null
+                                                  ],
+                                                  "nullable": true,
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "sourceId": {
+                                              "anyOf": [
+                                                {
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "enum": [
+                                                    null
+                                                  ],
+                                                  "nullable": true,
+                                                  "type": "string"
+                                                }
+                                              ]
                                             }
                                           },
                                           "required": [
                                             "sourceId",
-                                            "enteredAt"
+                                            "sourceCode",
+                                            "funnelId",
+                                            "enteredAt",
+                                            "outcome"
                                           ],
                                           "type": "object"
                                         },
@@ -36701,13 +37971,37 @@
                                             "type": "string"
                                           }
                                         ]
+                                      },
+                                      "marketingEnabled": {
+                                        "type": "boolean"
+                                      },
+                                      "nextEntryCursor": {
+                                        "anyOf": [
+                                          {
+                                            "maxLength": 128,
+                                            "type": "string"
+                                          },
+                                          {
+                                            "enum": [
+                                              null
+                                            ],
+                                            "nullable": true,
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "reachable": {
+                                        "type": "boolean"
                                       }
                                     },
                                     "required": [
                                       "contactId",
                                       "firstSourceId",
                                       "latestSourceId",
-                                      "entries"
+                                      "entries",
+                                      "reachable",
+                                      "marketingEnabled",
+                                      "nextEntryCursor"
                                     ],
                                     "type": "object"
                                   },
@@ -36758,6 +38052,11 @@
                                     "pending"
                                   ],
                                   "type": "object"
+                                },
+                                "knownAutomationHits": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
                                 },
                                 "marketingOff": {
                                   "maximum": 2147483647,
@@ -36816,7 +38115,8 @@
                                 "uniqueTokensWithHits",
                                 "analyticsLagSeconds",
                                 "contacts",
-                                "nextCursor"
+                                "nextCursor",
+                                "knownAutomationHits"
                               ],
                               "type": "object"
                             },
@@ -38477,6 +39777,956 @@
                             "nextCursor"
                           ],
                           "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "broadcasts": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "audience": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "kind": {
+                                            "enum": [
+                                              "all"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "funnelIds": {
+                                            "items": {
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                              "type": "string"
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "funnels"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "funnelIds"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    ]
+                                  },
+                                  "audienceSnapshotId": {
+                                    "anyOf": [
+                                      {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "enum": [
+                                          null
+                                        ],
+                                        "nullable": true,
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "broadcastId": {
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                    "type": "string"
+                                  },
+                                  "parts": {
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "content": {
+                                          "anyOf": [
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "buttons": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "text": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "text",
+                                                      "url"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 20,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "entities": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "language": {
+                                                        "maxLength": 64,
+                                                        "type": "string"
+                                                      },
+                                                      "length": {
+                                                        "maximum": 9007199254740991,
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                      },
+                                                      "offset": {
+                                                        "maximum": 2147483647,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
+                                                      "type": {
+                                                        "enum": [
+                                                          "mention",
+                                                          "hashtag",
+                                                          "cashtag",
+                                                          "bot_command",
+                                                          "url",
+                                                          "email",
+                                                          "phone_number",
+                                                          "bold",
+                                                          "italic",
+                                                          "underline",
+                                                          "strikethrough",
+                                                          "spoiler",
+                                                          "code",
+                                                          "pre",
+                                                          "text_link",
+                                                          "blockquote",
+                                                          "expandable_blockquote"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "type",
+                                                      "offset",
+                                                      "length"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 100,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "text": {
+                                                  "maxLength": 4096,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "text"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "text",
+                                                "entities",
+                                                "buttons"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "buttons": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "text": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "text",
+                                                      "url"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 20,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "entities": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "language": {
+                                                        "maxLength": 64,
+                                                        "type": "string"
+                                                      },
+                                                      "length": {
+                                                        "maximum": 9007199254740991,
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                      },
+                                                      "offset": {
+                                                        "maximum": 2147483647,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
+                                                      "type": {
+                                                        "enum": [
+                                                          "mention",
+                                                          "hashtag",
+                                                          "cashtag",
+                                                          "bot_command",
+                                                          "url",
+                                                          "email",
+                                                          "phone_number",
+                                                          "bold",
+                                                          "italic",
+                                                          "underline",
+                                                          "strikethrough",
+                                                          "spoiler",
+                                                          "code",
+                                                          "pre",
+                                                          "text_link",
+                                                          "blockquote",
+                                                          "expandable_blockquote"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "type",
+                                                      "offset",
+                                                      "length"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 100,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "fileId": {
+                                                  "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "maxLength": 1024,
+                                                  "type": "string"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "photo"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "text",
+                                                "entities",
+                                                "buttons",
+                                                "fileId"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "buttons": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "text": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "text",
+                                                      "url"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 20,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "entities": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "language": {
+                                                        "maxLength": 64,
+                                                        "type": "string"
+                                                      },
+                                                      "length": {
+                                                        "maximum": 9007199254740991,
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                      },
+                                                      "offset": {
+                                                        "maximum": 2147483647,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
+                                                      "type": {
+                                                        "enum": [
+                                                          "mention",
+                                                          "hashtag",
+                                                          "cashtag",
+                                                          "bot_command",
+                                                          "url",
+                                                          "email",
+                                                          "phone_number",
+                                                          "bold",
+                                                          "italic",
+                                                          "underline",
+                                                          "strikethrough",
+                                                          "spoiler",
+                                                          "code",
+                                                          "pre",
+                                                          "text_link",
+                                                          "blockquote",
+                                                          "expandable_blockquote"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "type",
+                                                      "offset",
+                                                      "length"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 100,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "fileId": {
+                                                  "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "maxLength": 1024,
+                                                  "type": "string"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "video"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "text",
+                                                "entities",
+                                                "buttons",
+                                                "fileId"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "buttons": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "text": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "text",
+                                                      "url"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 20,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "entities": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "language": {
+                                                        "maxLength": 64,
+                                                        "type": "string"
+                                                      },
+                                                      "length": {
+                                                        "maximum": 9007199254740991,
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                      },
+                                                      "offset": {
+                                                        "maximum": 2147483647,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
+                                                      "type": {
+                                                        "enum": [
+                                                          "mention",
+                                                          "hashtag",
+                                                          "cashtag",
+                                                          "bot_command",
+                                                          "url",
+                                                          "email",
+                                                          "phone_number",
+                                                          "bold",
+                                                          "italic",
+                                                          "underline",
+                                                          "strikethrough",
+                                                          "spoiler",
+                                                          "code",
+                                                          "pre",
+                                                          "text_link",
+                                                          "blockquote",
+                                                          "expandable_blockquote"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "type",
+                                                      "offset",
+                                                      "length"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 0,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "fileId": {
+                                                  "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "maxLength": 0,
+                                                  "type": "string"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "video_note"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "text",
+                                                "entities",
+                                                "buttons",
+                                                "fileId"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "buttons": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "text": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "text",
+                                                      "url"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 20,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "entities": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "language": {
+                                                        "maxLength": 64,
+                                                        "type": "string"
+                                                      },
+                                                      "length": {
+                                                        "maximum": 9007199254740991,
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                      },
+                                                      "offset": {
+                                                        "maximum": 2147483647,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
+                                                      "type": {
+                                                        "enum": [
+                                                          "mention",
+                                                          "hashtag",
+                                                          "cashtag",
+                                                          "bot_command",
+                                                          "url",
+                                                          "email",
+                                                          "phone_number",
+                                                          "bold",
+                                                          "italic",
+                                                          "underline",
+                                                          "strikethrough",
+                                                          "spoiler",
+                                                          "code",
+                                                          "pre",
+                                                          "text_link",
+                                                          "blockquote",
+                                                          "expandable_blockquote"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "type",
+                                                      "offset",
+                                                      "length"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 100,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "fileId": {
+                                                  "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "maxLength": 1024,
+                                                  "type": "string"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "voice"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "text",
+                                                "entities",
+                                                "buttons",
+                                                "fileId"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "buttons": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "text": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "text",
+                                                      "url"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 20,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "entities": {
+                                                  "items": {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "language": {
+                                                        "maxLength": 64,
+                                                        "type": "string"
+                                                      },
+                                                      "length": {
+                                                        "maximum": 9007199254740991,
+                                                        "minimum": 1,
+                                                        "type": "integer"
+                                                      },
+                                                      "offset": {
+                                                        "maximum": 2147483647,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
+                                                      "type": {
+                                                        "enum": [
+                                                          "mention",
+                                                          "hashtag",
+                                                          "cashtag",
+                                                          "bot_command",
+                                                          "url",
+                                                          "email",
+                                                          "phone_number",
+                                                          "bold",
+                                                          "italic",
+                                                          "underline",
+                                                          "strikethrough",
+                                                          "spoiler",
+                                                          "code",
+                                                          "pre",
+                                                          "text_link",
+                                                          "blockquote",
+                                                          "expandable_blockquote"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "url": {
+                                                        "maxLength": 2048,
+                                                        "pattern": "^https:\\/\\/",
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "type",
+                                                      "offset",
+                                                      "length"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  "maxItems": 100,
+                                                  "minItems": 0,
+                                                  "type": "array"
+                                                },
+                                                "fileId": {
+                                                  "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "maxLength": 1024,
+                                                  "type": "string"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "document"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "text",
+                                                "entities",
+                                                "buttons",
+                                                "fileId"
+                                              ],
+                                              "type": "object"
+                                            }
+                                          ]
+                                        },
+                                        "partId": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "partId",
+                                        "content"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "maxItems": 20,
+                                    "minItems": 1,
+                                    "type": "array"
+                                  },
+                                  "revision": {
+                                    "maximum": 2147483647,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "scheduledAt": {
+                                    "anyOf": [
+                                      {
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "enum": [
+                                          null
+                                        ],
+                                        "nullable": true,
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "snapshotSize": {
+                                    "maximum": 2147483647,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "state": {
+                                    "enum": [
+                                      "draft",
+                                      "scheduled",
+                                      "running",
+                                      "paused",
+                                      "cancelled",
+                                      "completed"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "broadcastId",
+                                  "revision",
+                                  "state",
+                                  "parts",
+                                  "audience",
+                                  "scheduledAt",
+                                  "audienceSnapshotId",
+                                  "snapshotSize"
+                                ],
+                                "type": "object"
+                              },
+                              "maxItems": 100,
+                              "minItems": 0,
+                              "type": "array"
+                            },
+                            "contractVersion": {
+                              "enum": [
+                                "inside-communications-v1"
+                              ],
+                              "type": "string"
+                            },
+                            "nextCursor": {
+                              "anyOf": [
+                                {
+                                  "maxLength": 128,
+                                  "type": "string"
+                                },
+                                {
+                                  "enum": [
+                                    null
+                                  ],
+                                  "nullable": true,
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "status": {
+                              "enum": [
+                                "ok"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "contractVersion",
+                            "status",
+                            "nextCursor",
+                            "broadcasts"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "contractVersion": {
+                              "enum": [
+                                "inside-communications-v1"
+                              ],
+                              "type": "string"
+                            },
+                            "entries": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "enteredAt": {
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                                    "type": "string"
+                                  },
+                                  "funnelId": {
+                                    "anyOf": [
+                                      {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "enum": [
+                                          null
+                                        ],
+                                        "nullable": true,
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "outcome": {
+                                    "maxLength": 64,
+                                    "type": "string"
+                                  },
+                                  "sourceCode": {
+                                    "anyOf": [
+                                      {
+                                        "maxLength": 64,
+                                        "type": "string"
+                                      },
+                                      {
+                                        "enum": [
+                                          null
+                                        ],
+                                        "nullable": true,
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "sourceId": {
+                                    "anyOf": [
+                                      {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "enum": [
+                                          null
+                                        ],
+                                        "nullable": true,
+                                        "type": "string"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "sourceId",
+                                  "sourceCode",
+                                  "funnelId",
+                                  "enteredAt",
+                                  "outcome"
+                                ],
+                                "type": "object"
+                              },
+                              "maxItems": 100,
+                              "minItems": 0,
+                              "type": "array"
+                            },
+                            "nextCursor": {
+                              "anyOf": [
+                                {
+                                  "maxLength": 128,
+                                  "type": "string"
+                                },
+                                {
+                                  "enum": [
+                                    null
+                                  ],
+                                  "nullable": true,
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "status": {
+                              "enum": [
+                                "ok"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "contractVersion",
+                            "status",
+                            "nextCursor",
+                            "entries"
+                          ],
+                          "type": "object"
                         }
                       ]
                     }
@@ -38932,6 +41182,95 @@
         "summary": "Read an authorized template by ID or reference link without fetching the link",
         "tags": [
           "Communications"
+        ]
+      }
+    },
+    "/communications/tracking/resolve": {
+      "post": {
+        "operationId": "resolveCommunicationVisit",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "token": {
+                    "pattern": "^[A-Za-z0-9_-]{32,128}$",
+                    "type": "string"
+                  },
+                  "traffic": {
+                    "enum": [
+                      "unknown",
+                      "known_automation"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token",
+                  "traffic"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "resolved"
+                          ],
+                          "type": "string"
+                        },
+                        "safeUrl": {
+                          "format": "uri",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "safeUrl"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "invalid",
+                            "not_found",
+                            "unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [],
+        "summary": "Resolve an opaque public link and persist a visit without granting content access",
+        "tags": [
+          "Communications tracking"
         ]
       }
     },

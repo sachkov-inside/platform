@@ -166,6 +166,7 @@ describe("Platform migrations", () => {
         "0028_series_step_groups",
           "0029_telegram_sign_in",
           "0030_communications_permission",
+          "0031_communication_tracking_hits",
 
       ],
     });
@@ -680,6 +681,7 @@ describe("Platform migrations", () => {
         "0028_series_step_groups",
           "0029_telegram_sign_in",
           "0030_communications_permission",
+          "0031_communication_tracking_hits",
 
         ],
       });

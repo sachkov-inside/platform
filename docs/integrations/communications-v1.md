@@ -5,7 +5,7 @@ The product authority is the accepted
 [Workspace communications contract](https://github.com/sachkov-inside/workspace/blob/1553211220c44882dbacce7519dd50e35493090e/docs/specifications/telegram-communications-v1.md).
 Telegram owns the physical schema and mutable communications state. Its pinned revision is recorded
 in [the vendored snapshot](../../apps/backend/src/modules/communications/contracts/inside-communications-v1/snapshot.json).
-Platform has no communications tables, second mutable definition store, or scheduler.
+Platform stores only the outgoing tracking-event ledger in `communications.tracking_hits`; it has no second mutable definition store or broadcast scheduler.
 
 ## Identity and permission
 
@@ -47,8 +47,8 @@ with an underscore, for these provider commands:
 - `intro.read`, `intro.save`;
 - `funnels.list`, `funnels.read`, `funnels.save`, `funnels.preview`, `funnels.publish`,
   `funnels.lifecycle`, `funnels.rollback`;
-- `broadcasts.read`, `broadcasts.save`, `broadcasts.launch`, `broadcasts.lifecycle`;
-- `deliveries.read`, `delivery.resolve`, `statistics.read`.
+- `broadcasts.list`, `broadcasts.read`, `broadcasts.save`, `broadcasts.launch`, `broadcasts.lifecycle`;
+- `deliveries.read`, `delivery.resolve`, `statistics.read`, `entries.read`.
 
 Source definitions are read and saved with the funnel; the provider contract has no separate source
 mutation. MCP input omits `contractVersion` and `operation`, which are fixed by each tool, and retains
@@ -69,9 +69,8 @@ and `operationId`. A reference is a UUID or an HTTPS URL with the exact path
 and is never fetched; only the extracted object ID reaches the authorized `templates.read` operation.
 A foreign template remains `not_found`.
 
-Eligibility and public tracking are separate Platform #310 work and cannot be called through these
-delegated management tools. Provider commands still marked contract-only return `not_implemented`;
-this facade does not deliver their scheduler or audience runtime. UI is #308/#309; #310 owns combined
+Eligibility remains separate Platform #310 work. Public tracking belongs to #309 and cannot be called through delegated management tools. Provider commands still marked contract-only return `not_implemented`;
+this facade does not deliver their scheduler or audience runtime. Funnel UI is #308; broadcast/analytics UI is #309; #310 owns combined
 provider/consumer and end-to-end acceptance.
 
 ## Configuration and owner bootstrap
@@ -112,6 +111,62 @@ A local HTTP contract stub checks the service credential and calls the real auth
 endpoint. Vendored scenarios check consumer forwarding, repeated operation IDs, stale revisions,
 foreign templates and permission revocation. Stub success for publish/launch proves consumer rights
 and transport parity, not actual publication, audience selection or Telegram delivery.
+
+## Broadcasts and analytics UI
+
+`/authoring/communications/broadcasts` uses the same Account-authorized facade as MCP through named same-origin
+BFF operations. Browser TanStack Query owns lists and statistics; writes have distinct literal routes.
+A draft holds ordered text or imported template parts, buttons, union audience and a local-time date
+with the displayed timezone. Saving a date does not launch: explicit launch schedules a future draft
+or starts an immediate draft. The audience snapshot appears only after actual launch. Pause/resume
+keeps it; terminal broadcasts cannot launch again. Uncertain writes disable further effects until
+an explicit reload, preserving author intent instead of automatically repeating delivery.
+
+The presentation uses temporary semantic forms under #309, with the final Storybook proof and visual
+integration tracked in #317. Existing Authoring shell and accepted primitives remain the foundation.
+No real audience messages or provider media downloads are part of preview. Imported formatting/media
+references survive unchanged; explicit textarea edits clear the displayed formatting warning's entities.
+Statistics, contact entry history, funnel/source names, broadcasts and deliveries paginate through the
+provider contract. Contacts are opaque IDs, never raw Telegram identities. Each source first/latest
+observation is separate from its entry history. Counts of parts sent, hits, unique tokens with hits
+and named automation are separate; a forwarded link proves neither the visitor Account nor reading,
+Membership or purchase.
+
+## Public tracking and durable event delivery
+
+Set `TELEGRAM_TRACKING_ORIGIN` to the exact HTTPS public Platform origin. It is optional and disables
+tracking when absent. Configure Telegram's `PLATFORM_TRACKING_REDIRECT_URL` as that origin plus
+`/communications/visit`; its permitted targets must match Platform `/materials/<slug>` and
+`/series/<slug>` routes. The route accepts only an opaque `token`; caller-supplied destination URLs
+are ignored. It resolves through the authenticated provider with `serviceRef: platform-tracking`,
+then independently checks origin, canonical content path, HTTPS, no credentials/query/fragment.
+Invalid or unresolved tokens return a safe 404/503. GET returns private no-store, no-referrer 302;
+HEAD does not create hits. Destination routes still run their normal ContentAccess checks.
+
+Only named TelegramBot, facebookexternalhit, Twitterbot, Slackbot-LinkExpanding, Discordbot,
+Googlebot and bingbot user agents are marked `known_automation`. Other traffic is `unknown`, never
+asserted to be human. User agents, IPs, Account identities and credentials are not stored in events.
+
+Each resolved GET creates its own durable event ID. The API's lifecycle-owned outbox pump atomically
+claims due rows and sends bounded parallel batches. Both event ID and operation ID stay identical
+across retries and process restarts; provider ingestion deduplicates even an ambiguous commit/ACK.
+Expired claims are reclaimable; acknowledgements update only their own current claim. Failed events
+remain pending and retry after 30 seconds. Statistics HTTP/MCP responses carry `trackingBacklog`:
+current pending count and live age of the oldest pending event, or explicit `unavailable`. The provider's
+historical received-event delay is displayed separately and never substitutes for live backlog age.
+
+Navigation waits at most 750 ms for local persistence confirmation after safe resolution. A failed or
+unconfirmed insert emits a token-free operational error and allows navigation; only actually persisted
+events can recover automatically. A local database outage may therefore lose hits. The dashboard
+reports an unavailable backlog during that outage rather than a fabricated zero. Provider outages
+retain already persisted events for retry. The BFF's named 12-second communications budget covers the
+provider's five-second bound and local persistence; normal backend requests retain their existing budget.
+
+`pnpm smoke:communications` owns disposable PostgreSQL and ephemeral host ports, synthetic delegated
+identity and a Telegram contract stub. It proves desktop/mobile Browser → BFF → Nest, management
+identity, preview/save/launch/lifecycle, analytics/history, private redirect and anonymous denial, and
+captures screenshots in `ci-artifacts/communications`. It does not touch the shared Compose stack.
+Real provider scheduling, Telegram sends and the combined live content route remain #310 acceptance.
 
 ## Funnel management UI
 

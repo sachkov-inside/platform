@@ -75,7 +75,7 @@ export const stepSchema = z.strictObject({
 
 export const sourceSchema = z.strictObject({
   "sourceId": z.guid(),
-  "code": z.string().regex(new RegExp("^m_[A-Za-z0-9_-]{1,48}$")),
+  "code": z.string().regex(new RegExp("^m_[A-Za-z0-9_-]{1,40}$")),
   "name": z.string().min(1).max(128),
 });
 
@@ -354,6 +354,27 @@ z.strictObject({
   "broadcastId": z.guid().optional(),
   "cursor": z.string().max(128).optional(),
 }),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "operation": z.literal("broadcasts.list"),
+  "operationId": z.guid(),
+  "actor": actorSchema,
+  "expectedRevision": z.number().int().min(0).max(2147483647),
+  "payload": z.strictObject({
+  "cursor": z.string().min(1).max(128).optional(),
+}),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "operation": z.literal("entries.read"),
+  "operationId": z.guid(),
+  "actor": actorSchema,
+  "expectedRevision": z.number().int().min(0).max(2147483647),
+  "payload": z.strictObject({
+  "cursor": z.string().min(1).max(128).optional(),
+  "contactId": z.guid(),
+}),
 })
 ]);
 
@@ -447,6 +468,14 @@ export const countsSchema = z.strictObject({
   "pending": z.number().int().min(0).max(2147483647),
 });
 
+export const sourceEntrySchema = z.strictObject({
+  "sourceId": z.union([z.guid(), z.null()]),
+  "sourceCode": z.union([z.string().max(64), z.null()]),
+  "funnelId": z.union([z.guid(), z.null()]),
+  "enteredAt": z.iso.datetime({ offset: true }),
+  "outcome": z.string().max(64),
+});
+
 export const statisticsSchema = z.strictObject({
   "totalBotContacts": z.number().int().min(0).max(2147483647),
   "reachable": z.number().int().min(0).max(2147483647),
@@ -461,12 +490,13 @@ export const statisticsSchema = z.strictObject({
   "contactId": z.guid(),
   "firstSourceId": z.union([z.guid(), z.null()]),
   "latestSourceId": z.union([z.guid(), z.null()]),
-  "entries": z.array(z.strictObject({
-  "sourceId": z.guid(),
-  "enteredAt": z.iso.datetime({ offset: true }),
-})).min(0).max(100),
+  "entries": z.array(sourceEntrySchema).min(0).max(100),
+  "reachable": z.boolean(),
+  "marketingEnabled": z.boolean(),
+  "nextEntryCursor": z.union([z.string().max(128), z.null()]),
 })).min(0).max(100),
   "nextCursor": z.union([z.string().max(128), z.null()]),
+  "knownAutomationHits": z.number().int().min(0),
 });
 
 export const introSchema = z.strictObject({
@@ -574,5 +604,17 @@ z.strictObject({
   "status": z.literal("ok"),
   "deliveries": z.array(deliverySchema).max(100),
   "nextCursor": z.union([z.string().max(128), z.null()]),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "status": z.literal("ok"),
+  "nextCursor": z.union([z.string().max(128), z.null()]),
+  "broadcasts": z.array(broadcastSchema).min(0).max(100),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "status": z.literal("ok"),
+  "nextCursor": z.union([z.string().max(128), z.null()]),
+  "entries": z.array(sourceEntrySchema).min(0).max(100),
 })
 ]);
