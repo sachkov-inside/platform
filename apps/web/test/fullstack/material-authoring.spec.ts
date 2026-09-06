@@ -992,7 +992,8 @@ async function installPlaybackProviderDouble(page: Page): Promise<void> {
           return Promise.resolve({
             Events: { TimeUpdate: "time", Pause: "pause", Ended: "ended" },
             destroy: () => { iframe.remove(); return Promise.resolve(); },
-            getDuration: () => Promise.resolve(120),
+            // Match the authoritative duration returned by the local test Video provider.
+            getDuration: () => Promise.resolve(600),
             on: () => undefined,
             seekTo: (seconds: number) => { iframe.dataset.seekSeconds = String(seconds); return Promise.resolve(); },
           });
