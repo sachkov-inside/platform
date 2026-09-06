@@ -27,6 +27,9 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     if (hostname.endsWith("kinescope.io")) providerRequests.push(request.url());
   });
 
+  await page.addLocatorHandler(page.getByRole("dialog", { name: "Подключите Telegram" }), async (dialog) => {
+    await dialog.getByRole("button", { name: "Закрыть подключение Telegram" }).click();
+  });
   await addFullStackSession(context);
   await page.goto("/authoring/materials/new");
   await completeProfileOnboardingIfPresent(page);
