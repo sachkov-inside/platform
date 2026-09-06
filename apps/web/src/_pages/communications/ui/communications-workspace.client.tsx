@@ -25,10 +25,6 @@ import { DeliveryHistory } from "./delivery-history.client";
 import { fieldClass, moveItem, PartsEditor } from "./parts-editor.client";
 
 export type CommunicationsActions = typeof Browser;
-/**
- * Temporary semantic UI for #308.
- * Replace through #316 after Storybook acceptance.
- */
 export function CommunicationsWorkspace({
   actions,
 }: {
