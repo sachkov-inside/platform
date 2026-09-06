@@ -6,7 +6,7 @@ import { useCallback, useEffect } from "react";
 import type { Route } from "next";
 
 export const cardVariants = [
-  { key: "A", name: "Линия между гайдами" },
+  { key: "A", name: "Линия через номера" },
   { key: "B", name: "Ссылки между гайдами" },
   { key: "C", name: "Схема последовательности" },
 ] as const;
