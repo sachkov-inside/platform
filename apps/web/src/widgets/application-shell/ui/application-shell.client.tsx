@@ -14,7 +14,7 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { Dialog } from "radix-ui";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 import { InsideBrand } from "./inside-brand";
@@ -50,10 +50,28 @@ export function ApplicationShell({
   navigationItems,
   accountSlot,
 }: ApplicationShellProps) {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+
+  // Sticky reader controls share the header's actual height, including text zoom and wrapping.
+  useEffect(() => {
+    const shell = shellRef.current;
+    const header = headerRef.current;
+    if (shell === null || header === null) return;
+    const updateHeight = () => {
+      shell.style.setProperty("--public-header-height", `${String(header.getBoundingClientRect().height)}px`);
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(header);
+    return () => { observer.disconnect(); };
+  }, []);
+
   return (
     <div
       className="flex min-h-svh flex-col bg-background text-foreground lg:h-svh lg:overflow-hidden"
       data-public-shell
+      ref={shellRef}
     >
       <a
         href="#content"
@@ -64,6 +82,7 @@ export function ApplicationShell({
       <header
         className="sticky top-0 z-40 shrink-0 border-b border-border bg-background"
         data-public-header
+        ref={headerRef}
       >
         <div className="mx-auto flex flex-wrap min-h-[4.75rem] max-w-[82.5rem] items-center gap-2 px-4 py-3 sm:gap-4 sm:px-7 lg:min-h-[5.5rem] lg:gap-6 lg:px-8 lg:py-4">
           <InsideBrand />

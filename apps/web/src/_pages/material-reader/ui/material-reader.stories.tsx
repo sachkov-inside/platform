@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, waitFor, within } from "storybook/test";
 
 import type {
   MaterialReaderMetadata,
@@ -334,7 +334,7 @@ export const Mobile: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Публичные skills для agent-first setup", level: 1 }),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("navigation", { name: "Мобильная навигация" })).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Открыть меню" })).toBeVisible();
     await expect(canvas.getByLabelText("Содержание: 2")).toBeInTheDocument();
     await expect(
       canvasElement.querySelector(
@@ -359,6 +359,27 @@ export const Mobile: Story = {
     ).toBe(true);
     await expect(canvas.getByRole("link", { name: /Чек-лист проверки repository-owned skill/u })).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(1);
+    const document = canvasElement.ownerDocument;
+    const scrollRoot = document.scrollingElement;
+    if (scrollRoot === null) throw new Error("Mobile document scroll is missing");
+    const header = canvasElement.querySelector<HTMLElement>("[data-public-header]");
+    if (header === null) throw new Error("Public header is missing");
+    const back = canvas.getByRole("link", { name: "Назад в Базу знаний" });
+    const originalFontSize = document.documentElement.style.fontSize;
+    try {
+      for (const fontSize of ["100%", "200%"]) {
+        document.documentElement.style.fontSize = fontSize;
+        scrollRoot.scrollTop = 900;
+        await waitFor(async () => {
+          await expect(scrollRoot.scrollTop).toBeGreaterThan(0);
+          await expect(back.getBoundingClientRect().top).toBeGreaterThanOrEqual(header.getBoundingClientRect().bottom);
+        });
+      }
+    } finally {
+      document.documentElement.style.fontSize = originalFontSize;
+      scrollRoot.scrollTop = 0;
+    }
+
   },
 };
 
