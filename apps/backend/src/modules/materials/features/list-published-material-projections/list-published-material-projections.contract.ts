@@ -7,7 +7,6 @@ export interface ListPublishedMaterialProjectionsQuery {
   readonly canonicalTopicSlug?: string;
   readonly formatSlugs?: readonly string[];
   readonly first: number;
-  readonly facetScope?: "library" | "material-results";
   readonly q?: string;
   readonly seriesSlugs?: readonly string[];
   readonly sort?: PublishedMaterialProjectionSort;

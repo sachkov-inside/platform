@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { internalRoute } from "./internal-route";
 
 const MAX_QUERY_LENGTH = 120;
-const COLLECTION_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 
 export type LibraryRouteFormat = "guide" | "note" | "video";
 export type LibraryRouteSort = "newest" | "relevance" | "title";
@@ -42,9 +41,7 @@ export function serializeLibraryRouteSearch(
 }
 
 function normalizeLibraryTopic(value: string | undefined): string | null {
-  return value !== undefined &&
-    value.length <= MAX_QUERY_LENGTH &&
-    COLLECTION_SLUG.test(value)
+  return value !== undefined && value.length > 0 && value.length <= MAX_QUERY_LENGTH
     ? value
     : null;
 }

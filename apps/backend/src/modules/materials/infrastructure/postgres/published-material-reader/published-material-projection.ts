@@ -18,7 +18,6 @@ interface PublishedMaterialProjectionSearchValues {
   readonly canonicalTopicSlug?: string;
   readonly first: number;
   readonly formatSlugs: readonly string[];
-  readonly facetScope?: "library" | "material-results";
   readonly q?: string;
   readonly seriesSlugs: readonly string[];
   readonly sort: PublishedMaterialProjectionSort;
@@ -173,12 +172,7 @@ export async function selectPublishedMaterialProjectionPage(
   const filters = projectionFiltersSql(values);
   const [rawRows, metadata] = await Promise.all([
     prisma.$queryRaw(searchProjectionQuery(values, filters, searchRank)),
-    selectProjectionMetadata(
-      prisma,
-      filters,
-      values.facetScope === "library" ? values.q : undefined,
-      values.facetScope === "library",
-    ),
+    selectProjectionMetadata(prisma, filters, values.q),
   ]);
   const rows = searchedPublishedMaterialProjectionRowSchema
     .array()
@@ -382,12 +376,11 @@ async function selectProjectionMetadata(
   prisma: MaterialsPrisma,
   filters: Prisma.Sql,
   q: string | undefined,
-  useLibraryFacets: boolean,
 ): Promise<z.infer<typeof projectionMetadataRowSchema>> {
   const filteredPublications = filteredPublicationsSql(filters);
-  const independentPublications = useLibraryFacets
-    ? filteredPublicationsSql(Prisma.sql`publication.access <> 'workshop'`)
-    : filteredPublications;
+  const independentPublications = filteredPublicationsSql(
+    Prisma.sql`publication.access <> 'workshop'`,
+  );
   const facetPublications = independentPublications;
   const seriesPublications = independentPublications;
   const rows = projectionMetadataRowSchema.array().parse(

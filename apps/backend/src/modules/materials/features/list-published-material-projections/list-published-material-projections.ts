@@ -55,7 +55,6 @@ const querySchema = z
     canonicalTopicSlug: facetSlugSchema.optional(),
     formatSlugs: facetSlugsSchema.optional(),
     first: z.number().int().min(1).max(24),
-    facetScope: z.enum(["library", "material-results"]).optional(),
     q: z
       .string()
       .trim()
@@ -107,7 +106,6 @@ export async function listPublishedMaterialProjections(
         : { canonicalTopicSlug: parsed.data.canonicalTopicSlug }),
       formatSlugs: parsed.data.formatSlugs ?? [],
       first: parsed.data.first,
-      facetScope: parsed.data.facetScope ?? "material-results",
       seriesSlugs: parsed.data.seriesSlugs ?? [],
       sort,
       topicSlugs: parsed.data.topicSlugs ?? [],

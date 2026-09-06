@@ -94,7 +94,7 @@ describe("Library TanStack Query interface", () => {
       topicSlug: "career",
     });
     expect(
-      serializeLibrarySearchQuery({ ...initial, topicSlug: "INVALID topic" }),
+      serializeLibrarySearchQuery({ ...initial, topicSlug: "x".repeat(121) }),
     ).toBe("q=platform");
   });
 
