@@ -3,6 +3,7 @@ import { z } from "zod";
 
 export interface SeriesOrderItemPresentation {
   readonly materialId: string;
+  readonly stepGroup?: string | null;
   readonly publicationState: "draft" | "published" | "unpublished";
   readonly title: string;
 }
@@ -49,6 +50,7 @@ export type CreateSeriesOrderMaterialSearchQueryOptions = (input: {
 export interface ReorderSeriesInput {
   readonly expectedOrderVersion: string;
   readonly orderedMaterialIds: readonly string[];
+  readonly stepGroups?: Readonly<Record<string, string>>;
   readonly seriesId: string;
 }
 

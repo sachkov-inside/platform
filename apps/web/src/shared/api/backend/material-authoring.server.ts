@@ -117,8 +117,8 @@ export function requestSeriesOrder(seriesId: string, accessToken: string): Promi
   return executeGeneratedRequest((request) => new MaterialAuthoringService(request).loadAuthoringSeriesOrder({ seriesId }), 200, { accessToken });
 }
 
-export function requestSeriesReorder(input: { readonly expectedOrderVersion: string; readonly orderedMaterialIds: readonly string[]; readonly seriesId: string }, accessToken: string): Promise<BackendTransportResult> {
-  return executeGeneratedRequest((request) => new MaterialAuthoringService(request).reorderAuthoringSeries({ seriesId: input.seriesId, requestBody: { expectedOrderVersion: input.expectedOrderVersion, orderedMaterialIds: [...input.orderedMaterialIds] } }), 200, { accessToken });
+export function requestSeriesReorder(input: { readonly expectedOrderVersion: string; readonly orderedMaterialIds: readonly string[]; readonly stepGroups?: Readonly<Record<string, string>>; readonly seriesId: string }, accessToken: string): Promise<BackendTransportResult> {
+  return executeGeneratedRequest((request) => new MaterialAuthoringService(request).reorderAuthoringSeries({ seriesId: input.seriesId, requestBody: { expectedOrderVersion: input.expectedOrderVersion, orderedMaterialIds: [...input.orderedMaterialIds], ...(input.stepGroups === undefined ? {} : { stepGroups: { ...input.stepGroups } }) } }), 200, { accessToken });
 }
 
 export function requestMaterialValidation(materialId: string, contentVersion: number, accessToken: string): Promise<BackendTransportResult> {

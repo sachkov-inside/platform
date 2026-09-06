@@ -3,6 +3,12 @@
 Use one production frontend in `apps/web`. Storybook is its executable UI review surface, not a
 second application or data path.
 
+For Home, Library, Series or Reader changes, read the current
+[product navigation contract](../product/platform-mvp-brief.md#поиск-и-навигация) and
+[Series composition contract](../specifications/platform-v1.md#series-step-sequences).
+These own the accepted content relationships and presentation; earlier design proofs provide
+history, not an alternative product model.
+
 ## Review surface
 
 Use Agentation as the owner-feedback overlay during interactive browser and Storybook review. Keep

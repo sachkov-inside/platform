@@ -1,4 +1,4 @@
-import { name as telegramSignInMigrationName, statement as telegramSignInMigrationStatement } from "../modules/accounts/infrastructure/postgres/migrations/0028-telegram-sign-in.js";
+import { name as telegramSignInMigrationName, statement as telegramSignInMigrationStatement } from "../modules/accounts/infrastructure/postgres/migrations/0029-telegram-sign-in.js";
 import {
   runMigrationsToLatest,
   type MigrationOutcome,
@@ -112,6 +112,11 @@ import {
   statement as currentCollectionSearchMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0027-current-collection-search.js";
 
+import {
+  name as seriesStepGroupsMigrationName,
+  statement as seriesStepGroupsMigrationStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0028-series-step-groups.js";
+
 export const platformMigrations = [
   {
     name: materialsMigrationName,
@@ -214,6 +219,10 @@ export const platformMigrations = [
   {
     name: currentCollectionSearchMigrationName,
     statement: currentCollectionSearchMigrationStatement,
+  },
+  {
+    name: seriesStepGroupsMigrationName,
+    statement: seriesStepGroupsMigrationStatement,
   },
   { name: telegramSignInMigrationName, statement: telegramSignInMigrationStatement },
 ] as const;

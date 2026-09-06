@@ -54,7 +54,7 @@ describe("local development seed", () => {
       { slug: "kak-ustroen-inside-platform", access: "free" },
     ]);
     expect(typeof catalog.value.nextCursor).toBe("string");
-    expect(await testDatabase.prisma.publishedMaterial.count()).toBe(23);
+    expect(await testDatabase.prisma.publishedMaterial.count()).toBe(29);
     await expect(
       testDatabase.prisma.video.findMany({
         orderBy: { providerVideoId: "asc" },
@@ -64,6 +64,8 @@ describe("local development seed", () => {
       { durationSeconds: 481, providerVideoId: "local-home-deep-modules", state: "ready" },
       { durationSeconds: 628, providerVideoId: "local-home-developer-pipeline", state: "ready" },
       { durationSeconds: 754, providerVideoId: "local-home-product-context", state: "ready" },
+      { durationSeconds: 810, providerVideoId: "local-series-release-docker", state: "ready" },
+      { durationSeconds: 630, providerVideoId: "local-series-release-overview", state: "ready" },
       { durationSeconds: 542, providerVideoId: "local-series-review-video", state: "ready" },
     ]);
 

@@ -17470,6 +17470,10 @@
                             ],
                             "type": "string"
                           },
+                          "stepGroup": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "title": {
                             "nullable": true,
                             "type": "string"
@@ -17478,6 +17482,7 @@
                         "required": [
                           "materialId",
                           "ordinal",
+                          "stepGroup",
                           "publicationState",
                           "title"
                         ],
@@ -18093,6 +18098,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "stepGroups": {
+                    "additionalProperties": {
+                      "maxLength": 120,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "type": "object"
                   }
                 },
                 "required": [
@@ -21942,6 +21955,10 @@
                                     "slug"
                                   ],
                                   "type": "object"
+                                },
+                                "stepGroup": {
+                                  "nullable": true,
+                                  "type": "string"
                                 }
                               },
                               "required": [
@@ -22211,6 +22228,10 @@
                                     "slug"
                                   ],
                                   "type": "object"
+                                },
+                                "stepGroup": {
+                                  "nullable": true,
+                                  "type": "string"
                                 }
                               },
                               "required": [
@@ -22484,6 +22505,10 @@
                                           "slug"
                                         ],
                                         "type": "object"
+                                      },
+                                      "stepGroup": {
+                                        "nullable": true,
+                                        "type": "string"
                                       }
                                     },
                                     "required": [
@@ -22780,6 +22805,10 @@
                                           "slug"
                                         ],
                                         "type": "object"
+                                      },
+                                      "stepGroup": {
+                                        "nullable": true,
+                                        "type": "string"
                                       }
                                     },
                                     "required": [
@@ -23018,6 +23047,10 @@
                                     "slug"
                                   ],
                                   "type": "object"
+                                },
+                                "stepGroup": {
+                                  "nullable": true,
+                                  "type": "string"
                                 }
                               },
                               "required": [
@@ -23612,6 +23645,10 @@
                                               "slug"
                                             ],
                                             "type": "object"
+                                          },
+                                          "stepGroup": {
+                                            "nullable": true,
+                                            "type": "string"
                                           }
                                         },
                                         "required": [
@@ -23908,6 +23945,10 @@
                                               "slug"
                                             ],
                                             "type": "object"
+                                          },
+                                          "stepGroup": {
+                                            "nullable": true,
+                                            "type": "string"
                                           }
                                         },
                                         "required": [
@@ -24204,6 +24245,10 @@
                                               "slug"
                                             ],
                                             "type": "object"
+                                          },
+                                          "stepGroup": {
+                                            "nullable": true,
+                                            "type": "string"
                                           }
                                         },
                                         "required": [
@@ -24450,6 +24495,10 @@
                                     "slug"
                                   ],
                                   "type": "object"
+                                },
+                                "stepGroup": {
+                                  "nullable": true,
+                                  "type": "string"
                                 }
                               },
                               "required": [
@@ -24958,6 +25007,10 @@
                                     "slug"
                                   ],
                                   "type": "object"
+                                },
+                                "stepGroup": {
+                                  "nullable": true,
+                                  "type": "string"
                                 }
                               },
                               "required": [
@@ -25720,6 +25773,10 @@
                                     "slug"
                                   ],
                                   "type": "object"
+                                },
+                                "stepGroup": {
+                                  "nullable": true,
+                                  "type": "string"
                                 }
                               },
                               "required": [
@@ -26482,6 +26539,10 @@
                                     "slug"
                                   ],
                                   "type": "object"
+                                },
+                                "stepGroup": {
+                                  "nullable": true,
+                                  "type": "string"
                                 }
                               },
                               "required": [
@@ -28598,6 +28659,10 @@
                                       "slug"
                                     ],
                                     "type": "object"
+                                  },
+                                  "stepGroup": {
+                                    "nullable": true,
+                                    "type": "string"
                                   }
                                 },
                                 "required": [
@@ -28857,6 +28922,10 @@
                                       "slug"
                                     ],
                                     "type": "object"
+                                  },
+                                  "stepGroup": {
+                                    "nullable": true,
+                                    "type": "string"
                                   }
                                 },
                                 "required": [

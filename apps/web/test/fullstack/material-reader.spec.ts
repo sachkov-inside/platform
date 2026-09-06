@@ -31,7 +31,7 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
     .getByRole("heading", { name: "Новые видео", level: 2 })
     .locator("xpath=ancestor::section")
     .getByRole("article");
-  await expect(videoCards).toHaveCount(4);
+  await expect(videoCards).toHaveCount(6);
   await expect(videoCards.nth(0)).toContainText(/\d+:\d{2}/u);
   if (testInfo.project.name === "desktop-chromium") {
     await expect(
@@ -90,15 +90,10 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   await expect(page.getByRole("heading", { name: "База знаний", level: 1 })).toBeVisible();
   await expect(page.locator('[data-access-cover="locked"]')).toHaveCount(1);
   await expect(page.getByText("Бесплатно")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Темы", level: 2 })).toBeVisible();
-  const topicNavigation = page.getByRole("navigation", { name: "Фильтр по теме" });
-  await expect(
-    topicNavigation.getByRole("link", { name: "Все темы" }),
-  ).toHaveAttribute("aria-current", "page");
-  await expect(topicNavigation.getByRole("link", { name: "Platform" })).toHaveAttribute(
-    "href",
-    "/topics/platform?from=%2Flibrary",
-  );
+  const materialSection = page.getByRole("region", { name: "Материалы", exact: true });
+  const topicFilters = materialSection.getByRole("group", { name: "Тема материала" });
+  await expect(topicFilters.getByRole("radio", { name: "Все темы", exact: true })).toBeChecked();
+  await expect(topicFilters.getByRole("radio", { name: /^Platform/u })).toBeVisible();
   await expect(page.locator("[data-topic-card]")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Серии", level: 2 })).toBeVisible();
   await expect(
@@ -123,21 +118,19 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
     window.scrollTo({ top: document.documentElement.scrollHeight });
   });
   await continuation;
-  const articles = page.getByRole("article");
+  const articles = materialSection.getByRole("article");
   await expect.poll(() => articles.count()).toBeGreaterThanOrEqual(13);
   const loadedCount = await articles.count();
   expect(loadedCount).toBeGreaterThanOrEqual(13);
   await expect(
     page.getByRole("link", { exact: true, name: "Как устроен Inside Platform" }),
   ).toBeVisible();
-  const catalogStatus = page.getByText(
-    /^\d+ материал(?:а|ов)? найден(?:о)? · \d+ материал(?:а|ов)? загружен(?:о)?$/u,
-  );
+  const catalogStatus = materialSection.getByText(/^\d+ материал(?:а|ов)? найден(?:о)?$/u);
   await expect(catalogStatus).toBeVisible();
   const counts = (await catalogStatus.innerText()).match(/\d+/gu);
-  expect(counts).toHaveLength(2);
+  expect(counts).toHaveLength(1);
   expect(Number(counts?.[0])).toBeGreaterThanOrEqual(loadedCount);
-  expect(Number(counts?.[1])).toBe(loadedCount);
+  expect(loadedCount).toBeGreaterThanOrEqual(13);
 
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Перейти к содержанию" })).toBeFocused();
@@ -232,7 +225,7 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   await page.getByLabel("Поиск по Базе знаний").fill("nothing can match 404404");
   await expect(page.getByRole("heading", { name: "Ничего не найдено" })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Сбросить поиск и фильтры" }),
+    page.getByRole("heading", { name: "Ничего не найдено" }).locator("xpath=ancestor::section").getByRole("button", { name: "Очистить поиск" }),
   ).toBeVisible();
   expect(new URL(page.url()).searchParams.get("q")).toBe(
     "nothing can match 404404",

@@ -29,6 +29,7 @@ export interface PublishedMaterialCatalogItemDto {
   }[];
   readonly seriesMemberships: readonly {
     readonly ordinal: number;
+    readonly stepGroup?: string | null;
     readonly series: {
       readonly id: string;
       readonly name: string;

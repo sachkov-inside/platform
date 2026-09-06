@@ -13,6 +13,7 @@ export async function reorderSeries(
   formData.set("expectedOrderVersion", input.expectedOrderVersion);
   formData.set("orderedMaterialIds", JSON.stringify(input.orderedMaterialIds));
   formData.set("seriesId", input.seriesId);
+  if (input.stepGroups !== undefined) formData.set("stepGroups", JSON.stringify(input.stepGroups));
   const result = await requestSameOriginMutation(
     "/api/authoring/series/order",
     "PUT",

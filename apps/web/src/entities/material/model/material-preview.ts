@@ -15,6 +15,7 @@ export interface MaterialPreview {
   readonly seriesMemberships: readonly {
     readonly name: string;
     readonly ordinal: number;
+    readonly stepGroup?: string | null | undefined;
     readonly slug: string;
   }[];
   readonly slug: string;

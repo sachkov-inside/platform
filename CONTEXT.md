@@ -1,7 +1,8 @@
 # Platform
 
-Platform is the canonical home of Inside materials and the application where visitors, Membership
-participants and Workshop learners use Inside products. This glossary names the durable concepts
+Platform publishes Inside Materials and Series for visitors and Membership participants. The
+[current product brief](docs/product/platform-mvp-brief.md) owns delivery scope and the boundary
+between editorial originals and published application state. This glossary names the concepts
 shared by product and application work.
 
 ## Language
@@ -57,6 +58,13 @@ never authored directly. A Series has an immutable slug plus mutable name and su
 preserves its composition and canonical reader but removes it from new assignments and discovery.
 In the Russian product interface: «Серия».
 _Avoid_: Topic, Playlist, плейлист
+
+**Series Step Sequence**:
+An explicitly named connection between some Materials within one Series. Its steps follow the
+Series order even when other Materials appear between them. The same Material may have a different
+connection or none in another Series. It does not rank Materials by importance or create another
+reading path. In Russian product language: «Последовательность шагов».
+_Avoid_: Module, Track, main/optional role
 
 **NavigationPage**:
 An editorial page that introduces and connects other Platform destinations. Roadmap is a
@@ -125,7 +133,13 @@ A coarse resume position for one Account and one local Video identity. Replaceme
 starts independently, and playback progress never changes ReadingState.
 _Avoid_: Material completion, read status, Kinescope user profile
 
-## Production Workshop
+## Deferred Workshop vocabulary
+
+Workshop is deferred while the current platform develops Materials and Series. These terms retain
+the separate Workshop model and implemented foundations; they do not define Series modules or
+expand the current delivery scope. See the
+[deferred Workshop contract](docs/specifications/workshop-tracks.md).
+
 
 **Workshop**:
 Inside's practical learning area for active subscribers: thematic Workshop Tracks combine

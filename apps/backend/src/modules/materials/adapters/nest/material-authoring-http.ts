@@ -1,5 +1,6 @@
 import { HttpException } from "@nestjs/common";
 import { z } from "zod";
+import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
 
 import type {
   CreateDraftError,
@@ -100,6 +101,7 @@ export const seriesOrderSchema = z
         .object({
           materialId: materialIdSchema,
           ordinal: z.number().int().positive(),
+          stepGroup: z.string().nullable(),
           publicationState: publicationStateWireSchema,
           title: z.string().nullable(),
         })
@@ -114,6 +116,7 @@ export const reorderSeriesBodySchema = z
   .object({
     expectedOrderVersion: seriesOrderVersionSchema,
     orderedMaterialIds: z.array(materialIdSchema),
+    stepGroups: seriesStepGroupsSchema.optional(),
   })
   .strict()
   .refine(

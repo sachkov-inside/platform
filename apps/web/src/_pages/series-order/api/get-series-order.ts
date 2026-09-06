@@ -17,6 +17,7 @@ const schema = z
         .object({
           materialId: z.uuid(),
           ordinal: z.number().int().positive(),
+          stepGroup: z.string().nullable().optional(),
           publicationState: z.enum(["draft", "published", "unpublished"]),
           title: z.string().nullable(),
         })
@@ -66,6 +67,7 @@ export async function getSeriesOrder(
       archived: parsed.data.archived,
       items: parsed.data.items.map((item) => ({
         materialId: item.materialId,
+        ...(item.stepGroup === undefined ? {} : { stepGroup: item.stepGroup }),
         publicationState: item.publicationState,
         title: item.title ?? "Без названия",
       })),

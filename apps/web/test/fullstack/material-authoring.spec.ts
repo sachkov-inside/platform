@@ -467,8 +467,9 @@ test("trusted author finds every Material and returns from Editor to the same li
   await expect(page.getByText("Версия", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Topic", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Format", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("Платформа", { exact: true })).toBeVisible();
-  await expect(page.getByText("Гайд", { exact: true })).toBeVisible();
+  const targetItem = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: "Как устроен Inside Platform", exact: true }) });
+  await expect(targetItem.getByText("Платформа", { exact: true })).toBeVisible();
+  await expect(targetItem.getByText("Гайд", { exact: true })).toBeVisible();
   await expect(page.getByText(/Все текущие Materials/u)).toHaveCount(0);
   await expect(
     page.getByRole("combobox", { name: "Состояние публикации" }),
@@ -503,13 +504,13 @@ test("trusted author finds every Material and returns from Editor to the same li
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
-  await page.getByRole("link", { name: "Предпросмотр" }).click();
+  await targetItem.getByRole("link", { name: "Предпросмотр" }).click();
   await expect(page.getByRole("heading", { name: "Предпросмотр материала" })).toBeVisible();
   await expect(page.getByText("Reader verification checklist")).toBeVisible();
   await page.getByRole("link", { name: "К материалам" }).click();
   await expect(page).toHaveURL(listUrl);
 
-  await page.getByRole("link", { name: "Редактировать" }).click();
+  await targetItem.getByRole("link", { name: "Редактировать" }).click();
   await expect(page.getByRole("heading", { name: "Как устроен Inside Platform" })).toBeVisible();
   await page.getByRole("button", { name: "Вернуться к материалам" }).click();
   await expect(page).toHaveURL(listUrl);
@@ -730,6 +731,7 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   expect(countAfterAdd).toBeGreaterThan(2);
   const firstTitle = await items.first().locator("p").first().innerText();
   const secondTitle = await items.nth(1).locator("p").first().innerText();
+  await items.first().getByRole("textbox", { name: "Последовательность шагов" }).fill("Full-stack instruction");
   const moveDown = items.first().getByRole("button", {
     name: `Опустить «${firstTitle}»`,
   });
@@ -764,6 +766,11 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   await expect(page.getByText("Порядок сохранён.")).toBeVisible();
   await page.reload();
   await expect(items.first().locator("p").first()).toHaveText(secondTitle);
+  const groupedItem = items.filter({ has: page.locator("p", { hasText: firstTitle }) });
+  await expect(groupedItem.getByRole("textbox", { name: "Последовательность шагов" })).toHaveValue("Full-stack instruction");
+  await groupedItem.getByRole("textbox", { name: "Последовательность шагов" }).clear();
+  await page.getByRole("button", { name: "Сохранить", exact: true }).first().click();
+  await expect(page.getByText("Порядок сохранён.")).toBeVisible();
 });
 
 test("guest cannot reach the production Material editor", async ({ page }) => {

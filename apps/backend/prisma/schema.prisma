@@ -380,6 +380,7 @@ model MaterialTag {
 }
 
 model SeriesMembership {
+  stepGroup String? @map("step_group")
   seriesId   String @map("series_id") @db.Uuid
   materialId String @map("material_id") @db.Uuid
   ordinal    Int
