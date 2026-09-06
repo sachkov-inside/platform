@@ -92,8 +92,19 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
     page.getByRole("textbox", { name: "Текст", exact: true }),
   ).toBeFocused();
   await identifier.click();
-  await editor.screenshot({
-    path: `../../ci-artifacts/communications/${testInfo.project.name}-editor-full.png`,
+  await editor.locator("h2").evaluate((element) => {
+    element.scrollIntoView({ block: "start" });
+  });
+  await page.screenshot({
+    path: `../../ci-artifacts/communications/${testInfo.project.name}-editor-top.png`,
+  });
+  await editor
+    .getByText("Время отправки", { exact: false })
+    .evaluate((element) => {
+      element.scrollIntoView({ block: "start" });
+    });
+  await page.screenshot({
+    path: `../../ci-artifacts/communications/${testInfo.project.name}-editor-settings.png`,
   });
   const editorFailures = (
     await new AxeBuilder({ page })
@@ -168,11 +179,20 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
     path: `../../ci-artifacts/communications/${testInfo.project.name}.png`,
     fullPage: true,
   });
+  await page.locator("#analytics-title").evaluate((element) => {
+    element.scrollIntoView({ block: "start" });
+  });
+  await page.screenshot({
+    path: `../../ci-artifacts/communications/${testInfo.project.name}-analytics.png`,
+  });
   await page
-    .getByRole("region", { name: "Аналитика", exact: true })
-    .screenshot({
-      path: `../../ci-artifacts/communications/${testInfo.project.name}-analytics-full.png`,
+    .getByRole("heading", { name: "Контакты и источники входа" })
+    .evaluate((element) => {
+      element.scrollIntoView({ block: "start" });
     });
+  await page.screenshot({
+    path: `../../ci-artifacts/communications/${testInfo.project.name}-contacts.png`,
+  });
   if (testInfo.project.name === "mobile-chromium") {
     await page.setViewportSize({ width: 320, height: 844 });
     await page.evaluate(() => {
