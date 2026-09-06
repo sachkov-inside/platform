@@ -289,7 +289,7 @@ export async function ensureTelegramConnector(api) {
   const existing = connectors.find((connector) => connector.connectorId === "inside-telegram");
   if (process.env.TELEGRAM_SIGN_IN_ENABLED !== "true") {
     if (existing) await api(`/connectors/${existing.id}`, { method: "PATCH", body: { config: { ...existing.config, enabled: false } } });
-    return undefined;
+    return existing?.id;
   }
   // This is the disposable Logto owner's migration, never a Platform runtime DB access.
   execFileSync("docker", ["compose", "--env-file", composeEnvironment, "-f", composeFile, "exec", "-T", "logto-postgres", "psql", "-U", "logto", "-d", "logto", "-v", "ON_ERROR_STOP=1"], {

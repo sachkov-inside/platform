@@ -32,6 +32,7 @@ RUN apk add --no-cache --virtual .inside-patch-tools patch \
 
 
 COPY connector-inside-telegram /tmp/inside-telegram-connector
+COPY fork/packages/core/src/routes/inside-telegram-view.ts packages/core/src/routes/inside-telegram-view.ts
 COPY fork/packages/core/src/routes/inside-telegram.ts packages/core/src/routes/inside-telegram.ts
 COPY patches/issue-299-telegram-sign-in.patch /tmp/issue-299-telegram-sign-in.patch
 RUN apk add --no-cache --virtual .inside-patch-tools patch \

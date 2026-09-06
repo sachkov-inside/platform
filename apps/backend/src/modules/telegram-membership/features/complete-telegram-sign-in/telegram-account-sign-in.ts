@@ -41,7 +41,9 @@ export class TelegramAccountSignIn {
     const account = established.account;
     const telegram = identity.telegram;
     try {
-      // Persist the stable principal before the external write, so a lost response can be retried.
+      // Unlike a new email-link attempt, sign-in must retain even an expired principal:
+      // the provider may already own it after a lost response. A fresh proof repairs that write.
+      // Prefer a confirmed link over old abandoned attempts and never rotate its principal.
       const link = await prisma.$transaction(async (transaction) => {
         z.array(z.object({ lock: z.string() })).parse(
           await transaction.$queryRaw(Prisma.sql`

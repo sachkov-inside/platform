@@ -36,6 +36,9 @@ describe("process configuration", () => {
       database: { url: "postgresql://database.example/inside" },
       api: { host: "api.example", port: 4100 },
       identity: {
+        telegramSignInEnabled: false,
+        telegramSignInProviderUrl: "http://127.0.0.1:3606",
+        telegramSignInIntegrationSecret: undefined,
         issuer: "https://identity.example.test/oidc",
         audience: "https://api.example.test",
         jwksUrl: "https://identity.example.test/oidc/jwks",
@@ -90,6 +93,9 @@ describe("process configuration", () => {
       },
       api: { host: "127.0.0.1", port: 3001 },
       identity: {
+        telegramSignInEnabled: false,
+        telegramSignInProviderUrl: "http://127.0.0.1:3606",
+        telegramSignInIntegrationSecret: undefined,
         issuer: "https://identity.inside.localhost:3301/oidc",
         audience: "http://127.0.0.1:3001",
         jwksUrl: "https://identity.inside.localhost:3301/oidc/jwks",

@@ -21,6 +21,7 @@ IDENTITY_PROOF_LOGTO_ADMIN_PORT=3632
 IDENTITY_PROOF_MAILPIT_PORT=3625
 IDENTITY_PROOF_SMTP_PORT=3626
 IDENTITY_PROOF_POSTGRES_PORT=55439
+IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS=60
 TELEGRAM_SIGN_IN_ENABLED=true
 TELEGRAM_SIGN_IN_PROVIDER_URL=http://host.docker.internal:3606
 TELEGRAM_SIGN_IN_PLATFORM_URL=http://host.docker.internal:3601
@@ -35,7 +36,7 @@ TELEGRAM_SIGN_IN_INTEGRATION_SECRET=
 pnpm identity:proof:certs
 docker compose --env-file .identity-proof/299.env -f infra/identity/logto/compose.yaml up -d --build --wait
 COMPOSE_PROJECT_NAME=inside-platform-proof-299 POSTGRES_HOST_PORT=55439 OBJECT_STORAGE_HOST_PORT=3900 OBJECT_STORAGE_CONSOLE_HOST_PORT=3901 docker compose up -d --wait postgres object-storage
-node --env-file=.identity-proof/299.env --use-env-proxy scripts/identity-proof-bootstrap.mjs
+NODE_EXTRA_CA_CERTS=.identity-proof/tls/certificate.pem node --env-file=.identity-proof/299.env scripts/identity-proof-bootstrap.mjs
 ```
 
 Для HTTPS bootstrap задайте `NODE_EXTRA_CA_CERTS=.identity-proof/tls/certificate.pem` в окружении.
@@ -50,8 +51,8 @@ Bootstrap создаёт отдельную конфигурацию прило�
 равными `disabled`, `WORKERS_ENABLED=true`. Из Telegram repository:
 
 ```bash
-node --env-file=.env.sign-in-local --run db:migrate
-node --env-file=.env.sign-in-local --run dev
+node --env-file=.env.sign-in-local --import tsx src/database/migrate.ts
+node --env-file=.env.sign-in-local --import tsx src/main.ts
 ```
 
 В сгенерированном Platform environment дополните `TELEGRAM_SIGN_IN_INTEGRATION_SECRET` и установите
@@ -61,8 +62,8 @@ node --env-file=.env.sign-in-local --run dev
 Установите `OBJECT_STORAGE_ENDPOINT=http://127.0.0.1:3900`. Из Platform:
 
 ```bash
-node --env-file=.identity-proof/platform.env --run api:generate
-node --env-file=.identity-proof/platform.env --run telegram:local:dev
+pnpm api:generate
+node --env-file=.identity-proof/platform.env scripts/telegram-sign-in-local.mjs
 ```
 
 `telegram:local:dev` применяет миграции, создаёт локальные демонстрационные материалы, запускает
@@ -104,3 +105,6 @@ COMPOSE_PROJECT_NAME=inside-platform-proof-299 docker compose down
 ```
 
 Команды сохраняют volumes. Удаление данных не требуется для повторного запуска.
+
+Экран ожидания — временная семантическая реализация. Визуальная интеграция и owner acceptance
+ведутся отдельно в [Platform #303](https://github.com/sachkov-inside/platform/issues/303).

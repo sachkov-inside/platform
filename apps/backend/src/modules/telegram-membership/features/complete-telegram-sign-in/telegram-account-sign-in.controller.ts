@@ -25,12 +25,12 @@ import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js"
 import {
   LOGTO_ACCESS_TOKEN_VERIFIER,
   AccountProblemDetailsFilter,
+  accountProblemSchema,
   type LogtoAccessTokenVerifier,
 } from "../../../accounts/index.js";
 import {
   bearerCredential,
   credentialsMatch,
-  telegramMembershipProblemSchema,
 } from "../../adapters/nest/telegram-membership-http.js";
 import { TelegramAccountSignIn } from "./telegram-account-sign-in.js";
 const accountSchema = z.object({ account: z.object({ accountId: z.uuid() }) });
@@ -67,15 +67,15 @@ export class TelegramAccountSignInController {
   @ApiResponse({ status: 200, schema: toOpenApiSchema(accountSchema) })
   @ApiResponse({
     status: 401,
-    schema: toOpenApiSchema(telegramMembershipProblemSchema),
+    schema: toOpenApiSchema(accountProblemSchema),
   })
   @ApiResponse({
     status: 409,
-    schema: toOpenApiSchema(telegramMembershipProblemSchema),
+    schema: toOpenApiSchema(accountProblemSchema),
   })
   @ApiResponse({
     status: 503,
-    schema: toOpenApiSchema(telegramMembershipProblemSchema),
+    schema: toOpenApiSchema(accountProblemSchema),
   })
   async complete(@Headers("authorization") authorization: string | undefined) {
     const proof = await this.verifier.verifyAccountSignIn(
@@ -107,15 +107,15 @@ export class TelegramAccountSignInController {
   @ApiResponse({ status: 200, schema: toOpenApiSchema(identitySchema) })
   @ApiResponse({
     status: 400,
-    schema: toOpenApiSchema(telegramMembershipProblemSchema),
+    schema: toOpenApiSchema(accountProblemSchema),
   })
   @ApiResponse({
     status: 401,
-    schema: toOpenApiSchema(telegramMembershipProblemSchema),
+    schema: toOpenApiSchema(accountProblemSchema),
   })
   @ApiResponse({
     status: 409,
-    schema: toOpenApiSchema(telegramMembershipProblemSchema),
+    schema: toOpenApiSchema(accountProblemSchema),
   })
   async resolve(
     @Headers("authorization") authorization: string | undefined,

@@ -1,0 +1,20 @@
+# Telegram sign-in evidence
+
+Локальный Logto `1.41.0-inside.3`, реальный Platform и provider из Telegram PR #25.
+Доставка Telegram выключена; webhook updates синтетические. Это функциональная проверка,
+не owner visual acceptance и не проверка настоящего Bot API.
+
+- `telegram-waiting-desktop.png`: реальный экран ожидания, 1440 × 1024.
+- `telegram-waiting-mobile.png`: тот же экран, ширина 390; горизонтального переполнения нет.
+- `telegram-expired-mobile.png`, `telegram-disabled-mobile.png`, `telegram-unavailable-mobile.png`:
+  presentation fixtures на реальной странице Logto. Серверная семантика этих состояний отдельно
+  проверяется provider PostgreSQL tests и подписанными JWT tests.
+
+Сквозные Playwright tests проверяют регистрацию, refresh после 60-секундного access token,
+выход, повторный вход, отказ, чужой browser context, email → явную Telegram-привязку → вход
+в тот же приватный профиль и два одновременных первых Logto interaction для одной identity.
+Скриншоты содержат только видимую страницу. Число подтверждения не является секретом;
+start tokens, browser secret, credentials, callback URLs и traces не сохраняются.
+
+Визуальная интеграция: [#303](https://github.com/sachkov-inside/platform/issues/303).
+Воспроизведение: [runbook](../../verification/telegram-sign-in-local.md).

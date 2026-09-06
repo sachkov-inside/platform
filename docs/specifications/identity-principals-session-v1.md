@@ -217,7 +217,11 @@ opaque principal through Platform before attaching the social identity to that e
 Client-selected subjects, usernames and email coincidence are never ownership evidence.
 
 The Account and stable linking principal are persisted before provider account-link finalization.
-A lost response is repaired by retrying with the same principal. Linking does not issue Membership
+A lost response is repaired by retrying with the same principal, even when the old attempt expired.
+Provider consume reserves an unlinked Telegram subject under a shared identity lock; ordinary
+email linking cannot take it between proof consumption and finalization. The reservation survives
+a lost response and a fresh bot proof repairs it. If email linking wins first, consume returns
+that confirmed link instead. Linking does not issue Membership
 or permissions. First email attachment to Telegram-only Accounts, merging, replacement and recovery
 are excluded. The pre-registration screen explains these limits and the existing-email path.
 

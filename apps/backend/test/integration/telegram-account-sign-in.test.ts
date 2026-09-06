@@ -112,6 +112,7 @@ test("a lost provider response retains one Account and principal, and a fresh pr
   await expect(
     signIn.resolveLink(principalRef, telegramIdentityRef, randomUUID()),
   ).resolves.toBeUndefined();
+  await database.prisma.telegramLinkTransaction.update({ where: { principalRef }, data: { expiresAt: new Date(Date.now() - 1000) } });
   unavailable = false;
   const retry = await signIn.complete(
     proof("telegram-timeout", first.identity.telegram.subjectRef).identity,

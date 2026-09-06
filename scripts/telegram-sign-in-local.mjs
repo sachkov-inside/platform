@@ -1,3 +1,4 @@
+import { createServer } from "node:net";
 import { spawn, spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -9,9 +10,17 @@ const api = new URL(process.env.BACKEND_BASE_URL);
 if (web.hostname !== "127.0.0.1" || api.hostname !== "127.0.0.1" || process.env.NODE_ENV !== "development") {
   throw new Error("This launcher requires explicit loopback URLs and NODE_ENV=development");
 }
+for (const port of [Number(web.port), Number(api.port), 3602]) {
+  if (!Number.isInteger(port) || port < 1) throw new Error("Explicit local ports are required");
+  await new Promise((accept, reject) => {
+    const server = createServer();
+    server.once("error", () => reject(new Error(`Port ${String(port)} is already owned by another process`)));
+    server.listen(port, "127.0.0.1", () => server.close(accept));
+  });
+}
 const environment = {
   ...process.env, API_HOST: "127.0.0.1", API_PORT: api.port,
-  MCP_HOST: "127.0.0.1", MCP_PORT: "3602",
+  MCP_HOST: "127.0.0.1", MCP_PORT: "3602", MCP_SERVER_URL: "http://127.0.0.1:3602/mcp",
   NODE_EXTRA_CA_CERTS: resolve(root, ".identity-proof/tls/certificate.pem"),
 };
 for (const command of ["db:migrate", "db:seed"]) {
