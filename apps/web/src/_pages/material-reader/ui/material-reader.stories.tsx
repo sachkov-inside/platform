@@ -334,7 +334,7 @@ export const Mobile: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Публичные skills для agent-first setup", level: 1 }),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Открыть меню" })).toBeVisible();
+    await expect(canvas.getByRole("navigation", { name: "Мобильная навигация" })).toBeVisible();
     await expect(canvas.getByLabelText("Содержание: 2")).toBeInTheDocument();
     await expect(
       canvasElement.querySelector(
@@ -362,8 +362,7 @@ export const Mobile: Story = {
     const document = canvasElement.ownerDocument;
     const scrollRoot = document.scrollingElement;
     if (scrollRoot === null) throw new Error("Mobile document scroll is missing");
-    const header = canvasElement.querySelector<HTMLElement>("[data-public-header]");
-    if (header === null) throw new Error("Public header is missing");
+    await expect(canvasElement.querySelector("[data-public-header]")).not.toBeVisible();
     const back = canvas.getByRole("link", { name: "Назад в Базу знаний" });
     const originalFontSize = document.documentElement.style.fontSize;
     try {
@@ -372,7 +371,8 @@ export const Mobile: Story = {
         scrollRoot.scrollTop = 900;
         await waitFor(async () => {
           await expect(scrollRoot.scrollTop).toBeGreaterThan(0);
-          await expect(back.getBoundingClientRect().top).toBeGreaterThanOrEqual(header.getBoundingClientRect().bottom);
+          await expect(back.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+          await expect(back.getBoundingClientRect().top).toBeLessThan(40);
         });
       }
     } finally {

@@ -24,7 +24,8 @@ Reader не показывает related block или декоративную c
 
 Owner выбрал верхнюю шапку A и словесный логотип C в
 [#311](https://github.com/sachkov-inside/platform/issues/311); production integration — #313.
-Это заменяет все sidebar/dock решения ниже. Полное название **Sachkov Inside**, его цветовое
+Это заменяет desktop sidebar. По уточнению владельца mobile сохраняет нижнюю навигацию без
+верхней шапки. Полное название **Sachkov Inside**, его цветовое
 разделение и поведение шапки заданы в
 [контракте навигации](platform-mvp-brief.md#поиск-и-навигация).
 Остальной принятый дизайн страниц сохраняется; production visual GO остаётся отдельным от
@@ -297,8 +298,8 @@ H1 задаёт starting point для первого production consumer. H2/H3 
 
 ## 6. Owner-approved UI laboratory baseline
 
-История принятых proofs. Описания sidebar и mobile dock в этом разделе заменены решением #311/#313
-и не задают текущую навигацию.
+История принятых proofs. Описание desktop sidebar заменено решением #311/#313. Mobile dock сохранён по уточнению
+владельца; текущая граница навигации задаётся контрактом выше.
 
 Rendered review в [Platform #45](https://github.com/sachkov-inside/platform/issues/45) 2026-08-23
 подтвердил первую bounded baseline для продолжения laboratory. Это approval конкретных patterns,

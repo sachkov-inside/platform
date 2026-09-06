@@ -22,7 +22,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Один identity control в шапке для всех размеров. Фикстура задаёт только состояние; production использует существующий app adapter и POST-формы входа/выхода.",
+          "Управление аккаунтом в desktop-шапке. На mobile используется страница Профиля. Фикстура задаёт только состояние; production использует существующий app adapter и POST-формы входа/выхода.",
       },
     },
   },
@@ -43,7 +43,4 @@ export const Unavailable: Story = {
     ).toHaveAttribute("action", "/auth/sign-out");
     await userEvent.keyboard("{Escape}");
   },
-};
-export const MobileGuest: Story = {
-  globals: { viewport: { isRotated: false, value: "mobile320" } },
 };

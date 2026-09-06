@@ -260,7 +260,7 @@ export function ReaderBackAction({
 
   if (sticky) {
     return (
-      <div className="sticky top-[var(--public-header-height,4.75rem)] lg:top-0 z-30 -mx-4 -mt-5 border-b border-black/6 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-7 sm:px-7 lg:-mx-10 lg:-mt-9 lg:px-10">
+      <div className="sticky top-0 z-30 -mx-4 -mt-5 border-b border-black/6 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-7 sm:px-7 lg:-mx-10 lg:-mt-9 lg:px-10">
         <div className={cn("mx-auto flex min-h-11 max-w-[43rem] items-center", className)}>
           {action}
         </div>
@@ -357,7 +357,7 @@ function ReaderBlockView({
       return (
         <Heading
           className={cn(
-            "scroll-mt-[calc(var(--public-header-height,4.75rem)+6rem)] lg:scroll-mt-24 break-words text-balance font-semibold text-foreground first:mt-0",
+            "scroll-mt-24 break-words text-balance font-semibold text-foreground first:mt-0",
             block.level === 2 && "mt-12 text-2xl leading-[1.35] tracking-[-0.025em] md:text-[1.75rem] md:leading-[1.3]",
             block.level === 3 && "mt-10 text-[1.375rem] leading-[1.35] tracking-[-0.02em]",
             block.level === 4 && "mt-8 text-lg leading-[1.45] tracking-[-0.015em]",

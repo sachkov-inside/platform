@@ -15,7 +15,7 @@ const triggerClass =
 const menuItemClass =
   "flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium no-underline outline-none hover:bg-muted focus:bg-muted data-[highlighted]:bg-muted";
 
-/** Same identity actions at every viewport; state remains owned by the app adapter. */
+/** Desktop identity actions; state remains owned by the app adapter. */
 export function HeaderAuthControl({ state }: AuthControlStateProps) {
   if (state === "guest")
     return (

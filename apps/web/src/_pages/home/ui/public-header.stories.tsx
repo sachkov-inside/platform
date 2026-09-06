@@ -47,7 +47,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Рабочая верхняя шапка Platform с выбранным словесным логотипом C — Sachkov Inside. Общая модель разделов, видимый вход, меню аккаунта и мобильное меню. Используется тот же компонент, что в публичных маршрутах; содержимое главной — демонстрационные данные.",
+          "Рабочая верхняя шапка Platform с выбранным словесным логотипом C — Sachkov Inside. На desktop — разделы, поиск, вход и меню аккаунта. На mobile — прежняя нижняя навигация без верхней шапки. Используется тот же компонент, что в публичных маршрутах; содержимое главной — демонстрационные данные.",
       },
     },
   },
@@ -124,35 +124,46 @@ export const Authenticated: Story = {
   },
 };
 
-export const MobileHeader: Story = {
-  name: "Mobile 320 · меню",
+export const MobileBottomNavigation: Story = {
+  name: "Mobile 320 · нижняя навигация",
   args: { currentPath: "/materials/example" },
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const body = within(canvasElement.ownerDocument.body);
-    await expect(canvas.getByRole("button", { name: "Войти" })).toBeVisible();
-    const trigger = canvas.getByRole("button", { name: "Открыть меню" });
-    await userEvent.click(trigger);
-    const menu = body.getByRole("dialog", { name: "Разделы" });
-    const library = within(menu).getByRole("link", { name: "База знаний" });
-    await expect(library).toHaveAttribute("aria-current", "page");
+    await expect(canvas.queryByRole("banner")).not.toBeInTheDocument();
     await expect(
-      within(menu)
+      canvas.queryByRole("button", { name: "Открыть меню" }),
+    ).not.toBeInTheDocument();
+    const navigation = canvas.getByRole("navigation", {
+      name: "Мобильная навигация",
+    });
+    await expect(within(navigation).getAllByRole("link")).toHaveLength(3);
+    await expect(
+      within(navigation).getByRole("link", { name: "База знаний" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      within(navigation).getByRole("link", { name: "Профиль" }),
+    ).toHaveAttribute("href", "/account");
+    await expect(
+      within(navigation)
         .getAllByRole("link")
         .every((link) => link.getBoundingClientRect().height >= 44),
     ).toBe(true);
-    await userEvent.keyboard("{Escape}");
-    await expect(trigger).toHaveFocus();
-    await expect(
-      canvasElement.ownerDocument.documentElement.scrollWidth,
-    ).toBeLessThanOrEqual(320);
+    const document = canvasElement.ownerDocument;
+    const scrollRoot = document.scrollingElement;
+    if (scrollRoot === null) throw new Error("Document scroll is missing");
+    const before = navigation.getBoundingClientRect().top;
+    scrollRoot.scrollTop = 600;
+    await expect(scrollRoot.scrollTop).toBeGreaterThan(0);
+    await expect(navigation.getBoundingClientRect().top).toBe(before);
+    scrollRoot.scrollTop = 0;
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
   },
 };
 
 export const MobileAccount: Story = {
-  name: "Mobile · аккаунт",
-  args: { accountSlot: <HeaderAuthControl state="authenticated" /> },
+  name: "Mobile · профиль выбран",
+  args: { currentPath: "/account" },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 export const Unavailable: Story = {

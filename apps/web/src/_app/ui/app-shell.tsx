@@ -21,6 +21,11 @@ const publicNavigationItems = [
   { href: "/library", icon: "library", label: "База знаний" },
 ] satisfies readonly ApplicationNavigationItem[];
 
+const mobileNavigationItems = [
+  ...publicNavigationItems,
+  { href: "/account", icon: "profile", label: "Профиль" },
+] satisfies readonly ApplicationNavigationItem[];
+
 const authoringNavigationItem = {
   href: authoringMaterialsRootHref,
   icon: "pen",
@@ -40,6 +45,7 @@ export function AppShell({ children }: AppShellProps) {
       currentPath={pathname}
       accountSlot={<HeaderAuthControl state={authStatus.state} />}
       navigationItems={navigationItems}
+      mobileNavigationItems={mobileNavigationItems}
     >
       {children}
       <AccountTelegramOnboarding
