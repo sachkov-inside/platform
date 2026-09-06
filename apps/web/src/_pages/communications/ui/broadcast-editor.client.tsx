@@ -54,7 +54,8 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
   const [scheduled, setScheduled] = useState(localDate(broadcast.scheduledAt));
   const [reference, setReference] = useState("");
   const [preview, setPreview] = useState(false);
-  const [replaceIndex, setReplaceIndex] = useState<number | null>(null);
+  const [replacePartId, setReplacePartId] = useState<string | null>(null);
+  const replaceIndex = parts.findIndex((part) => part.partId === replacePartId);
   const [importing, setImporting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const editable =
@@ -130,18 +131,18 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
               disabled={
                 !editable ||
                 disabled ||
-                (replaceIndex === null && parts.length >= 20)
+                (replacePartId === null && parts.length >= 20)
               }
               chooseLabel={
-                replaceIndex === null
+                replacePartId === null
                   ? "Добавить в рассылку"
                   : `Заменить часть ${String(replaceIndex + 1)}`
               }
               onChoose={(part) => {
                 setParts((current) =>
-                  replaceIndex !== null
-                    ? current.map((value, i) =>
-                        i === replaceIndex
+                  replacePartId !== null
+                    ? current.map((value) =>
+                        value.partId === replacePartId
                           ? { ...part, partId: value.partId }
                           : value,
                       )
@@ -151,9 +152,14 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                       ? [part]
                       : [...current, part],
                 );
-                setReplaceIndex(null);
+                setReplacePartId(null);
               }}
             />
+          ) : null}
+          {replacePartId !== null ? (
+            <Button variant="outline" onClick={() => { setReplacePartId(null); }}>
+              Отменить замену
+            </Button>
           ) : null}
           {parts.map((part, index) => (
             <div key={part.partId} className={styles.part}>
@@ -274,7 +280,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                   <Button
                     variant="outline"
                     onClick={() => {
-                      setReplaceIndex(index);
+                      setReplacePartId(part.partId);
                     }}
                   >
                     Заменить часть {index + 1}
@@ -323,6 +329,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                     setParts((current) =>
                       current.filter((p) => p.partId !== part.partId),
                     );
+                    if (replacePartId === part.partId) setReplacePartId(null);
                   }}
                 >
                   Удалить часть

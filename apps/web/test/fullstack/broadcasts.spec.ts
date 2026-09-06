@@ -63,7 +63,23 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
       "Пост сохранён. Уже выбранные сообщения рассылок и воронок не изменились.",
     ),
   ).toBeVisible();
+  // The provider accepts the first request, but the browser loses its acknowledgement.
+  let uncertainOperation: unknown;
+  await page.route("**/api/communications/templates/sample", async (route) => {
+    uncertainOperation = (await new Response(route.request().postData(), { headers: { "Content-Type": route.request().headers()["content-type"] ?? "" } }).formData()).get("input");
+    const accepted = await route.fetch();
+    expect(accepted.ok()).toBe(true);
+    await route.abort("failed");
+  }, { times: 1 });
   await page.getByRole("button", { name: "Образец себе", exact: true }).click();
+  await expect(page.getByText(/Результат запроса образца не подтверждён/)).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Новая рассылка" }).click();
+  await page.getByRole("button", { name: /^Тестовая рассылка browser parity · v[0-9]+$/ }).click();
+  const repeatedSample = page.waitForRequest("**/api/communications/templates/sample");
+  await page.getByRole("button", { name: "Образец себе", exact: true }).click();
+  const repeatedRequest = await repeatedSample;
+  expect((await new Response(repeatedRequest.postData(), { headers: { "Content-Type": repeatedRequest.headers()["content-type"] ?? "" } }).formData()).get("input")).toEqual(uncertainOperation);
   await expect(
     page.getByText("Образец поставлен в очередь только вам в Telegram."),
   ).toBeVisible();

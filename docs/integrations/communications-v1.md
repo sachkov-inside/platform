@@ -215,7 +215,9 @@ The functional UI's temporary semantic implementation is tracked through visual 
 снимок явно. Необязательный `row` сохраняется в BFF/schema/generated client и MCP без потери.
 Provider проверяет layout до сохранения. Образец использует только сохранённую версию поста;
 web preview не вызывает Telegram transport. Повтор запроса образца после неопределённого ответа
-в открытом редакторе сохраняет тот же operationId.
+сохраняет тот же operationId и revision, в том числе после перезагрузки страницы.
+Неподтверждённая операция хранится в браузере до получения ответа; при недоступном хранилище
+новая отправка не начинается. Очистка данных браузера удаляет эту защиту.
 
 Delegated MCP получает `communications_templates_list` и те же save/read/testSend operations;
 текущий authenticated Account и communications:manage остаются единственным авторским основанием.

@@ -1,55 +1,57 @@
-# Рассылки и аналитика — #317
+# Рассылки из Telegram — #317
 
-Редактор разделён на сообщение и настройки отправки. На узком экране настройки идут после
-сообщения. Список показывает аудиторию, расписание и состояние рассылки. Аналитика группирует
-контакты бота, доставку и переходы; отдельно показывает задержку передачи событий. История
-входов сохраняет первый и последний источники.
+Автор готовит текст и медиа в `/admin` бота, выбирает сохранённый пост в веб-админке,
+настраивает URL-кнопки и их ряды, запрашивает образец себе и добавляет снимок в рассылку.
+Замена части явная и сохраняет выбранную цель при перестановке. Аудитория, расписание,
+запуск и аналитика остаются в общей странице `/authoring/communications/broadcasts`.
 
-Production `/authoring/communications/broadcasts` и Storybook используют общие
-`BroadcastEditor`, `BroadcastList`, `AnalyticsPanel` и `EntryHistory`. Tokens и Authoring shell
-сохранены; транспорт, права, расписание и правила доставки не менялись.
+Production и Storybook используют одни `PostLibrary`, `BroadcastEditor`, `BroadcastList`,
+`AnalyticsPanel` и `EntryHistory`. Текст в веб-админке доступен для чтения; настоящий вид
+форматирования проверяется образцом в Telegram.
 
-## Снимки
+## Актуальные снимки
 
-Снято 2026-09-06 с implementation SHA `1844e81037246198ebfd2fb7d06add9d2bbe5ca0`.
-Последующие изменения этой папки сохраняют evidence, не меняя реализацию.
+Снято 2026-09-06 с реализацией `7246d01145f54db5dc4cdc0559280f5d5639521c`.
+Последующие изменения тестовых типов и evidence не меняют показанный интерфейс.
 
 | Поверхность | Desktop | Mobile |
 |---|---|---|
-| Редактор Storybook | [1440 px](editor-1440.png) | [390 px](editor-390.png), [320 px](editor-320.png) |
-| Список Storybook | [1440 px](list-1440.png) | [390 px](list-390.png), [320 px](list-320.png) |
-| Аналитика Storybook | [1440 px](analytics-1440.png) | [390 px](analytics-390.png), [320 px](analytics-320.png) |
-| Редактор в приложении | [начало](desktop-chromium-editor-top.png), [настройки](desktop-chromium-editor-settings.png) | [начало](mobile-chromium-editor-top.png), [настройки](mobile-chromium-editor-settings.png) |
-| Аналитика в приложении | [счётчики](desktop-chromium-analytics.png), [контакты](desktop-chromium-contacts.png) | [счётчики](mobile-chromium-analytics.png), [контакты](mobile-chromium-contacts.png) |
+| Выбор поста и настройка кнопок в Storybook | [Полная страница](telegram-posts-desktop.png) | [390 px](telegram-posts-390.png), [320 px](telegram-posts-320.png) |
+| Редактор в приложении | [Начало](desktop-chromium-editor-top.png), [настройки](desktop-chromium-editor-settings.png) | [Начало](mobile-chromium-editor-top.png), [настройки](mobile-chromium-editor-settings.png) |
+| Аналитика в приложении | [Счётчики](desktop-chromium-analytics.png), [контакты](desktop-chromium-contacts.png) | [Счётчики](mobile-chromium-analytics.png), [контакты](mobile-chromium-contacts.png) |
 
-Снимки показывают реальные видимые области при прокрутке. Storybook использует синтетические
-fixtures, приложение — настоящий Next BFF/Nest/PostgreSQL и тестовую замену Telegram provider.
+Storybook использует синтетические посты. Приложение работает через настоящий Next BFF,
+Nest и PostgreSQL; только внешний Telegram provider заменён тестовым транспортом.
+Снимки `editor-*.png`, `list-*.png`, `analytics-*.png` и `storybook-checks.json` сохранены
+как история первоначального оформления на `1844e810`; они не подтверждают новый выбор постов.
 
 ## Проверка и воспроизведение
 
 - `pnpm check`: документация, контракты, lint, types, guardrails, tests, browser routes,
   production build, standalone runtime config и Storybook build.
-- `pnpm --filter @inside/web exec vitest run --config vitest.config.mts --project=storybook
-  src/_pages/communications/ui/broadcast-editor.stories.tsx
-  src/_pages/communications/ui/broadcast-list.stories.tsx
-  src/_pages/communications/ui/analytics-panel.stories.tsx`: 35 stories, включая состояния,
-  заготовку, предпросмотр без отправки, блокировку запуска несохранённого текста, пагинацию,
-  клавиатуру и accessibility в светлой и тёмной темах.
-- `node scripts/communications-browser-smoke.mjs`: draft → launch → pause → resume → cancel,
-  история входов, HTTP authorization и tracking redirect. Native keyboard раскрывает ID через
-  Enter и переводит Tab в текст. Axe проверяет редактор и итоговую страницу. На mobile также
-  проверяются 320 px и 200% текста без горизонтального переполнения.
-- [Дополнительные responsive/axe проверки Storybook](storybook-checks.json): редактор, список
-  и аналитика на ширинах 1440, 390 и 320 px; по каждой — нет переполнения и WCAG A/AA violations.
-- Standards и Spec review от `2980d4663a3b66abd5b588d546cb090ed09183d9`: без замечаний
-  к реализации. Точные результаты проверки финального PR head хранятся в PR/CI.
+- Focused Storybook: `pnpm --filter @inside/web exec vitest run --config vitest.config.mts
+  --project=storybook src/_pages/communications/ui/broadcast-editor.stories.tsx
+  src/_pages/communications/ui/post-library.stories.tsx` — 27 сценариев. Включены состояния
+  библиотеки, кнопки, образец, выбор поста, readonly source, замена после перестановки/удаления,
+  клавиатура и светлая/тёмная темы.
+- `node scripts/communications-browser-smoke.mjs`: выбор поста → правка кнопки → образец →
+  draft → launch → pause → resume → cancel; история входов, HTTP authorization и tracking.
+  Потеря ответа после принятого образца и reload повторяют прежние operationId/revision.
+  Сохраняются native entities и ряды кнопок. Axe проверяет редактор и итоговую страницу;
+  mobile также проверяет 320 px и 200% текста без горизонтального переполнения.
+- Браузерный визуальный просмотр: desktop, 390 и 320 px. Кнопки, ссылки и настройки помещаются;
+  на узком экране аудитория и расписание идут после сообщения.
+- Standards и Spec review от `2980d4663a3b66abd5b588d546cb090ed09183d9` до `7246d011` —
+  оба пройдены. Результаты финального полного check и CI записаны в PR #338.
 
-Для визуального просмотра: `pnpm storybook`, каталог `Pages/Communications` → `Рассылка`,
-`Список рассылок`, `Аналитика`. Agentation включён для замечаний владельца.
+Для просмотра: `pnpm storybook`, `Pages/Communications/Рассылка` → `Telegram Posts` или
+`Telegram Posts Mobile`; отдельные состояния — `Посты из Telegram`. Agentation доступен
+для замечаний владельца.
 
-## Открытое решение и границы
+## Границы
 
-Визуальная приёмка владельцем **ожидается**. Эти снимки и автоматические проверки не являются
-owner visual GO. Merge требует отдельного разрешения. Реальных рассылок, production enablement,
-проверок Telegram на настоящей аудитории и оплаты не выполнялось. Переход по пересланной ссылке
-не подтверждает личность читателя или прочтение.
+Визуальная приёмка владельцем ожидается. Реальный Telegram transport, внешний вид сообщения
+в приложении Telegram, production enablement и отправка на настоящую аудиторию не проверялись.
+Merge и production запуск требуют отдельных решений. Очистка данных браузера удаляет
+сохранённый идентификатор неподтверждённого образца. Переход по пересланной ссылке не доказывает
+личность читателя или прочтение.
