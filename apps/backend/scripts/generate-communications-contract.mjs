@@ -70,7 +70,7 @@ function convert(value) {
   return result;
 }
 Object.keys(definitions).forEach(emit);
-const output = `${lines.join("\n")}\n`;
+const output = `${lines.join("\n").trimEnd()}\n`;
 const target = new URL("communications-schema.generated.ts", root);
 if (process.argv.includes("--check")) {
   if (await readFile(target, "utf8") !== output) throw new Error("Communications schema drift: run pnpm communications:generate");

@@ -20,4 +20,3 @@ export function credentialsMatch(
   const expectedDigest = createHash("sha256").update(expected).digest();
   return timingSafeEqual(receivedDigest, expectedDigest);
 }
-
