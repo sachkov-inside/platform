@@ -276,7 +276,7 @@ export function MaterialVideoPlayerView({
       <div className="mt-3 flex justify-end">
         <Button
           aria-pressed={watched}
-          className="h-auto min-h-10 w-[13.5rem] max-w-full shrink-0 justify-center whitespace-normal rounded-full py-2"
+          className="h-auto min-h-14 w-[13.5rem] max-w-full shrink-0 justify-center whitespace-normal rounded-full py-2"
           disabled={watchedDisabled || onToggleWatched === undefined}
           onClick={onToggleWatched}
           type="button"

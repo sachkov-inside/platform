@@ -253,9 +253,11 @@ export const PlayerWatchedToggle: Story = {
     const markWatched = canvas.getByRole("button", { name: "Отметить просмотренным" });
     await expect(markWatched).toHaveAttribute("aria-pressed", "false");
     const initialWidth = markWatched.getBoundingClientRect().width;
+    const initialHeight = markWatched.getBoundingClientRect().height;
     await userEvent.click(markWatched);
     const watched = canvas.getByRole("button", { name: "Просмотрено" });
     await expect(watched).toHaveAttribute("aria-pressed", "true");
     await expect(watched.getBoundingClientRect().width).toBe(initialWidth);
+    await expect(watched.getBoundingClientRect().height).toBe(initialHeight);
   },
 };
