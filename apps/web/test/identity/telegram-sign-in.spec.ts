@@ -25,6 +25,12 @@ const webhookEndpoint =
 const webhookSecret =
   process.env.TELEGRAM_PROOF_WEBHOOK_SECRET ?? "inside-299-synthetic-webhook";
 const telegramUserId = 29900001;
+let lastUpdateId = Date.now() % 1_000_000_000;
+function nextUpdateId() {
+  // Parallel /start messages must not share the provider inbox deduplication key.
+  lastUpdateId = Math.max(lastUpdateId + 1, Date.now() % 1_000_000_000);
+  return lastUpdateId;
+}
 
 async function start(page: Page) {
   await page.goto("/");
@@ -63,7 +69,7 @@ async function confirm(
     expect(response.ok()).toBeTruthy();
   };
   await send({
-    update_id: Date.now() % 1_000_000_000,
+    update_id: nextUpdateId(),
     message: {
       message_id: 1,
       date: Math.floor(Date.now() / 1000),
@@ -77,7 +83,7 @@ async function confirm(
     .poll(
       async () => {
         await send({
-          update_id: (Date.now() + 1) % 1_000_000_000,
+          update_id: nextUpdateId(),
           callback_query: {
             id: "synthetic-299",
             from,
@@ -278,7 +284,7 @@ test("email Account explicitly links Telegram and bot sign-in retains its privat
       await request.post(webhookEndpoint, {
         headers: { "x-telegram-bot-api-secret-token": webhookSecret },
         data: {
-          update_id: Date.now() % 1_000_000_000,
+          update_id: nextUpdateId(),
           message: {
             message_id: 1,
             date: Math.floor(Date.now() / 1000),
@@ -351,6 +357,9 @@ test("two fresh Logto interactions for one Telegram identity converge on one Acc
       .toBe(true);
     const winner = (await authenticated(page)) ? page : other;
     const secondPage = winner === page ? other : page;
+    await expect(
+      winner.getByRole("button", { name: "Выйти", exact: true }),
+    ).toBeVisible();
     const identity = await createProfile(winner);
     if (!(await authenticated(secondPage))) {
       await secondPage.context().clearCookies();
