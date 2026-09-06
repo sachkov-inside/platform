@@ -1,4 +1,4 @@
-import { trackingBacklogSchema } from "./features/track-visit/track-visit.js";
+import { trackingBacklogSchema } from "./facets/tracking-visits/tracking-visits.js";
 import { z } from "zod";
 import { requestSchema, responseSchema, errorSchema, type authorizationRequestSchema } from "./communications-schema.generated.js";
 

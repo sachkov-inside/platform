@@ -9,7 +9,10 @@ import { createApiApplication } from "../src/entrypoints/api/create-api-applicat
 import { createPrismaClient } from "../src/infrastructure/prisma/index.js";
 import { migrateToLatest } from "../src/migrations/index.js";
 import { bootstrapOwnerAccount } from "../src/modules/accounts/index.js";
-import { type broadcastSchema, requestSchema } from "../src/modules/communications/communications-schema.generated.js";
+import {
+  type broadcastSchema,
+  requestSchema,
+} from "../src/modules/communications/communications-schema.generated.js";
 
 // A contract stub for the external Telegram port. It proves Platform's live path,
 // not Telegram scheduling or delivery; those remain provider/#310 acceptance.
@@ -20,10 +23,17 @@ await migrateToLatest(databaseUrl);
 const issuer = "https://communications.smoke.test/oidc";
 const audience = "https://communications.smoke.test/api";
 const keyPair = await generateKeyPair("ES384");
-const jwk = { ...await exportJWK(keyPair.publicKey), alg: "ES384", kid: "smoke-key" };
+const jwk = {
+  ...(await exportJWK(keyPair.publicKey)),
+  alg: "ES384",
+  kid: "smoke-key",
+};
 const provider = Fastify();
 const broadcasts = new Map<string, z.infer<typeof broadcastSchema>>();
-const version = { contractVersion: "inside-communications-v1", status: "ok" } as const;
+const version = {
+  contractVersion: "inside-communications-v1",
+  status: "ok",
+} as const;
 const funnelId = "10000000-0000-4000-8000-000000000003";
 const sourceId = "10000000-0000-4000-8000-000000000004";
 const contactId = "10000000-0000-4000-8000-000000000005";
@@ -31,36 +41,219 @@ const operations: unknown[] = [];
 provider.get("/jwks", () => ({ keys: [jwk] }));
 provider.get("/captured", () => operations);
 provider.post("/integrations/platform/v1/communications", (request, reply) => {
-  if (request.headers.authorization !== "Bearer synthetic-communications-secret") return reply.code(401).send({ ...version, status: "unauthorized" });
-  const command = requestSchema.parse(request.body); operations.push(command);
+  if (
+    request.headers.authorization !== "Bearer synthetic-communications-secret"
+  )
+    return reply.code(401).send({ ...version, status: "unauthorized" });
+  const command = requestSchema.parse(request.body);
+  operations.push(command);
   const payload = command.payload;
-  if (command.operation === "broadcasts.list") return { ...version, broadcasts: [...broadcasts.values()], nextCursor: null };
-  if (command.operation === "funnels.list") return { ...version, funnels: [{ funnelId, revision: 1, publishedRevision: 1, lifecycle: "published", name: "Тестовая инженерная практика", steps: [], sources: [{ sourceId, code: "m_test", name: "Тестовый ролик" }], isDefault: true, entryResponse: { stepId: randomUUID(), parts: [{ partId: randomUUID(), content: { type: "text", text: "Тест", entities: [], buttons: [] } }] } }], nextCursor: null };
-  if (command.operation === "statistics.read") return { ...version, statistics: { totalBotContacts: 3, reachable: 2, blocked: 1, marketingOff: 1, uniqueParticipants: 2, deliveries: { sent: 1, suppressed: 1, failed: 0, unknown: 0, partialCancelled: 0, pending: 0 }, trackingHits: 3, uniqueTokensWithHits: 1, knownAutomationHits: 1, analyticsLagSeconds: 0, contacts: [{ contactId, firstSourceId: sourceId, latestSourceId: sourceId, reachable: true, marketingEnabled: false, entries: [], nextEntryCursor: null }], nextCursor: null } };
-  if (command.operation === "deliveries.read") return { ...version, deliveries: [], nextCursor: null };
-  if (command.operation === "entries.read") return { ...version, entries: [{ sourceId, sourceCode: "m_test", funnelId, enteredAt: new Date().toISOString(), outcome: "enrolled" }], nextCursor: null };
-  if (command.operation === "tracking.resolve") return { ...version, safeUrl: "https://inside.test/materials/test-guide" };
-  if (command.operation === "tracking.recordHit") return { ...version, eventId: command.payload.eventId, outcome: "recorded" };
-  if (!("broadcastId" in payload) || !payload.broadcastId) return reply.code(501).send({ ...version, status: "not_implemented" });
+  if (command.operation === "broadcasts.list")
+    return {
+      ...version,
+      broadcasts: [...broadcasts.values()],
+      nextCursor: null,
+    };
+  if (command.operation === "funnels.list")
+    return {
+      ...version,
+      funnels: [
+        {
+          funnelId,
+          revision: 1,
+          publishedRevision: 1,
+          lifecycle: "published",
+          name: "Тестовая инженерная практика",
+          steps: [],
+          sources: [{ sourceId, code: "m_test", name: "Тестовый ролик" }],
+          isDefault: true,
+          entryResponse: {
+            stepId: randomUUID(),
+            parts: [
+              {
+                partId: randomUUID(),
+                content: {
+                  type: "text",
+                  text: "Тест",
+                  entities: [],
+                  buttons: [],
+                },
+              },
+            ],
+          },
+        },
+      ],
+      nextCursor: null,
+    };
+  if (command.operation === "statistics.read")
+    return {
+      ...version,
+      statistics: {
+        totalBotContacts: 3,
+        reachable: 2,
+        blocked: 1,
+        marketingOff: 1,
+        uniqueParticipants: 2,
+        deliveries: {
+          sent: 1,
+          suppressed: 1,
+          failed: 0,
+          unknown: 0,
+          partialCancelled: 0,
+          pending: 0,
+        },
+        trackingHits: 3,
+        uniqueTokensWithHits: 1,
+        knownAutomationHits: 1,
+        analyticsLagSeconds: 0,
+        contacts: [
+          {
+            contactId,
+            firstSourceId: sourceId,
+            latestSourceId: sourceId,
+            reachable: true,
+            marketingEnabled: false,
+            entries: [],
+            nextEntryCursor: null,
+          },
+        ],
+        nextCursor: null,
+      },
+    };
+  if (command.operation === "deliveries.read")
+    return { ...version, deliveries: [], nextCursor: null };
+  if (command.operation === "entries.read")
+    return {
+      ...version,
+      entries: [
+        {
+          sourceId,
+          sourceCode: "m_test",
+          funnelId,
+          enteredAt: new Date().toISOString(),
+          outcome: "enrolled",
+        },
+      ],
+      nextCursor: null,
+    };
+  if (command.operation === "tracking.resolve")
+    return { ...version, safeUrl: "https://inside.test/materials/test-guide" };
+  if (command.operation === "tracking.recordHit")
+    return {
+      ...version,
+      eventId: command.payload.eventId,
+      outcome: "recorded",
+    };
+  if (!("broadcastId" in payload) || !payload.broadcastId)
+    return reply.code(501).send({ ...version, status: "not_implemented" });
   let broadcast = broadcasts.get(payload.broadcastId);
-  if (command.operation === "broadcasts.read") return broadcast ? { ...version, broadcast } : reply.code(404).send({ ...version, status: "not_found" });
-  if ((broadcast?.revision ?? 0) !== command.expectedRevision) return reply.code(409).send({ ...version, status: "revision_conflict" });
-  if (command.operation === "broadcasts.save") broadcast = { ...command.payload, revision: command.expectedRevision + 1, state: "draft", audienceSnapshotId: null, snapshotSize: 0 };
-  else if (broadcast && command.operation === "broadcasts.launch") broadcast = { ...broadcast, revision: broadcast.revision + 1, state: broadcast.scheduledAt ? "scheduled" : "running", audienceSnapshotId: broadcast.scheduledAt ? null : randomUUID(), snapshotSize: broadcast.scheduledAt ? 0 : 2 };
-  else if (broadcast && command.operation === "broadcasts.lifecycle") broadcast = { ...broadcast, revision: broadcast.revision + 1, state: command.payload.action === "pause" ? "paused" : command.payload.action === "resume" ? "running" : "cancelled" };
-  if (!broadcast) return reply.code(404).send({ ...version, status: "not_found" });
+  if (command.operation === "broadcasts.read")
+    return broadcast
+      ? { ...version, broadcast }
+      : reply.code(404).send({ ...version, status: "not_found" });
+  if ((broadcast?.revision ?? 0) !== command.expectedRevision)
+    return reply.code(409).send({ ...version, status: "revision_conflict" });
+  if (command.operation === "broadcasts.save")
+    broadcast = {
+      ...command.payload,
+      revision: command.expectedRevision + 1,
+      state: "draft",
+      audienceSnapshotId: null,
+      snapshotSize: 0,
+    };
+  else if (broadcast && command.operation === "broadcasts.launch")
+    broadcast = {
+      ...broadcast,
+      revision: broadcast.revision + 1,
+      state: broadcast.scheduledAt ? "scheduled" : "running",
+      audienceSnapshotId: broadcast.scheduledAt ? null : randomUUID(),
+      snapshotSize: broadcast.scheduledAt ? 0 : 2,
+    };
+  else if (broadcast && command.operation === "broadcasts.lifecycle")
+    broadcast = {
+      ...broadcast,
+      revision: broadcast.revision + 1,
+      state:
+        command.payload.action === "pause"
+          ? "paused"
+          : command.payload.action === "resume"
+            ? "running"
+            : "cancelled",
+    };
+  if (!broadcast)
+    return reply.code(404).send({ ...version, status: "not_found" });
   broadcasts.set(broadcast.broadcastId, broadcast);
   return { ...version, broadcast };
 });
 const providerUrl = await provider.listen({ host: "127.0.0.1", port: 0 });
-const owner = await bootstrapOwnerAccount(prisma, { issuer, subject: "owner" }, "communications:manage");
-await prisma.telegramLinkTransaction.create({ data: { linkRef: randomUUID(), accountId: owner.accountId, principalRef: "synthetic-author", providerIdentityRef: "synthetic-identity", providerTransactionRef: randomUUID(), returnCorrelation: randomUUID(), tokenDigest: "a".repeat(43), status: "linked", createdAt: new Date(), updatedAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } });
-const app = await createApiApplication(parsePlatformConfig({ NODE_ENV: "test", DATABASE_URL: databaseUrl, LOGTO_ISSUER: issuer, LOGTO_AUDIENCE: audience, LOGTO_JWKS_URL: `${providerUrl}/jwks`, TELEGRAM_COMMUNICATIONS_ENDPOINT: `${providerUrl}/integrations/platform/v1/communications`, TELEGRAM_COMMUNICATIONS_SECRET: "synthetic-communications-secret", TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "synthetic-authorization-secret", TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "synthetic-bot", TELEGRAM_TRACKING_ORIGIN: "https://inside.test" }), { logger: false });
+const owner = await bootstrapOwnerAccount(
+  prisma,
+  { issuer, subject: "owner" },
+  "communications:manage",
+);
+await prisma.telegramLinkTransaction.create({
+  data: {
+    linkRef: randomUUID(),
+    accountId: owner.accountId,
+    principalRef: "synthetic-author",
+    providerIdentityRef: "synthetic-identity",
+    providerTransactionRef: randomUUID(),
+    returnCorrelation: randomUUID(),
+    tokenDigest: "a".repeat(43),
+    status: "linked",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    expiresAt: new Date(Date.now() + 60_000),
+  },
+});
+const app = await createApiApplication(
+  parsePlatformConfig({
+    NODE_ENV: "test",
+    DATABASE_URL: databaseUrl,
+    LOGTO_ISSUER: issuer,
+    LOGTO_AUDIENCE: audience,
+    LOGTO_JWKS_URL: `${providerUrl}/jwks`,
+    TELEGRAM_COMMUNICATIONS_ENDPOINT: `${providerUrl}/integrations/platform/v1/communications`,
+    TELEGRAM_COMMUNICATIONS_SECRET: "synthetic-communications-secret",
+    TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "synthetic-authorization-secret",
+    TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "synthetic-bot",
+    TELEGRAM_TRACKING_ORIGIN: "https://inside.test",
+  }),
+  { logger: false },
+);
 await app.listen(0, "127.0.0.1");
-const token = await new SignJWT({}).setProtectedHeader({ alg: "ES384", kid: "smoke-key" }).setIssuer(issuer).setSubject("owner").setAudience(audience).setIssuedAt().setExpirationTime("5m").sign(keyPair.privateKey);
+const token = await new SignJWT({})
+  .setProtectedHeader({ alg: "ES384", kid: "smoke-key" })
+  .setIssuer(issuer)
+  .setSubject("owner")
+  .setAudience(audience)
+  .setIssuedAt()
+  .setExpirationTime("5m")
+  .sign(keyPair.privateKey);
 const path = z.string().min(1).parse(process.env.COMMUNICATIONS_FIXTURE_PATH);
-await writeFile(path, JSON.stringify({ BACKEND_BASE_URL: await app.getUrl(), LOGTO_AUDIENCE: audience, LOGTO_ISSUER: issuer, LOGTO_JWKS_URL: `${providerUrl}/jwks`, token, providerUrl }));
+await writeFile(
+  path,
+  JSON.stringify({
+    BACKEND_BASE_URL: await app.getUrl(),
+    LOGTO_AUDIENCE: audience,
+    LOGTO_ISSUER: issuer,
+    LOGTO_JWKS_URL: `${providerUrl}/jwks`,
+    token,
+    providerUrl,
+  }),
+);
 let stopping = false;
-async function stop() { if (stopping) return; stopping = true; await app.close(); await provider.close(); await prisma.$disconnect(); await container.stop(); }
-process.on("SIGTERM", () => { void stop().then(() => process.exit(0)); });
-process.on("SIGINT", () => { void stop().then(() => process.exit(0)); });
+async function stop() {
+  if (stopping) return;
+  stopping = true;
+  await app.close();
+  await provider.close();
+  await prisma.$disconnect();
+  await container.stop();
+}
+process.on("SIGTERM", () => {
+  void stop().then(() => process.exit(0));
+});
+process.on("SIGINT", () => {
+  void stop().then(() => process.exit(0));
+});

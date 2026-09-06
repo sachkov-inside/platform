@@ -1,4 +1,4 @@
-import type { TrackVisit } from "../../features/track-visit/track-visit.js";
+import type { TrackingVisits } from "../../facets/tracking-visits/tracking-visits.js";
 import type { Accounts } from "../../../accounts/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 import { communicationsFailure, managementRequestSchema, type CommunicationsResult } from "../../communications-contract.js";
@@ -10,7 +10,7 @@ export class Communications {
     private readonly accounts: Accounts,
     private readonly links: TelegramAccountLinks,
     private readonly provider: HttpCommunicationsProvider,
-    private readonly visits?: TrackVisit,
+    private readonly visits?: TrackingVisits,
   ) {}
 
   async execute(accountId: string, input: unknown): Promise<CommunicationsResult> {
