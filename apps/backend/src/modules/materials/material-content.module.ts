@@ -1,3 +1,4 @@
+import { PublishedSeriesComposition } from "./facets/published-series-composition/published-series-composition.js";
 import { PublicContentTargets } from "./facets/public-content-targets/public-content-targets.js";
 import { Module } from "@nestjs/common";
 
@@ -15,6 +16,7 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 @Module({
   imports: [PrismaModule],
   providers: [
+    { provide: PublishedSeriesComposition, inject: [PrismaClientProvider], useFactory: (prisma: PrismaClientProvider) => new PublishedSeriesComposition(prisma) },
     {
       provide: PublicContentTargets,
       inject: [PrismaClientProvider],
@@ -28,6 +30,6 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
         assembleMaterialContent({ prisma, materialBodyOperations }),
     },
   ],
-  exports: [MATERIAL_CONTENT, PublicContentTargets],
+  exports: [MATERIAL_CONTENT, PublicContentTargets, PublishedSeriesComposition],
 })
 export class MaterialContentModule {}

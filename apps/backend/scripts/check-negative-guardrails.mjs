@@ -42,6 +42,7 @@ expectFailure(
     "account",
     "accounts.accounts",
     "material",
+    "readingMaterialState",
     "Cannot find name 'describe'",
   ],
 );
@@ -85,6 +86,7 @@ expectFailure(
     "database table references must use statically declared identifiers",
     "application schema references must stay inside the owning Module",
     'accounts.accounts',
+    'src/modules/reading-activity/infrastructure/postgres/foreign-schema.ts: database table references must stay inside the owning Module schema (materials.published_materials)',
   ],
 );
 

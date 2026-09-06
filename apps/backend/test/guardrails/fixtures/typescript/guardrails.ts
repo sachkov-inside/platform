@@ -17,3 +17,8 @@ await materialsPrisma.$transaction(async (transaction) =>
 await accountsPrisma.material.count();
 
 describe("production code", () => materialId);
+
+import type { ReadingActivityPrismaClient } from "../../../../src/infrastructure/prisma/index.js";
+declare const readingPrisma: ReadingActivityPrismaClient;
+await readingPrisma.material.count();
+await materialsPrisma.readingMaterialState.count();

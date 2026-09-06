@@ -167,6 +167,7 @@ describe("Platform migrations", () => {
           "0029_telegram_sign_in",
           "0030_communications_permission",
           "0031_communication_tracking_hits",
+          "0032_reading_activity",
 
       ],
     });
@@ -186,6 +187,7 @@ describe("Platform migrations", () => {
       "telegram_membership",
       telegramMembershipTables,
     );
+    await expectTables(testDatabase, "reading_activity", ["commands", "events", "material_states"]);
     await expectTables(testDatabase, "assets", assetTables);
     await expectTables(testDatabase, "videos", videoTables);
     await expectTables(testDatabase, "workshop", workshopTables);
@@ -211,6 +213,7 @@ describe("Platform migrations", () => {
       join pg_namespace as target_schema on target_schema.oid = target_table.relnamespace
       where constraint_record.contype = 'f'
         and source_schema.nspname in (
+          'reading_activity',
           'materials',
           'membership_entitlements',
           'telegram_membership',
@@ -682,6 +685,7 @@ describe("Platform migrations", () => {
           "0029_telegram_sign_in",
           "0030_communications_permission",
           "0031_communication_tracking_hits",
+          "0032_reading_activity",
 
         ],
       });
@@ -867,6 +871,7 @@ describe("Platform migrations", () => {
 async function expectTables(
   database: TestDatabase,
   schema:
+    | "reading_activity"
     | "accounts"
     | "assets"
     | "identity_principals"

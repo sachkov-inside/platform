@@ -297,7 +297,7 @@ pnpm --filter @inside/backend prisma:generate
 ```
 
 The Prisma schema maps the product-owned `materials`, `assets`, `accounts`, `member_profiles`,
-`membership_entitlements` and `telegram_membership` schemas. Checked-in,
+`membership_entitlements`, `reading_activity` and `telegram_membership` schemas. Checked-in,
 append-only SQL migrations remain the database authority. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
 generated client files are not committed or edited. A pre-Prisma local volume must be recreated
