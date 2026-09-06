@@ -1,7 +1,6 @@
 import { ArrowLeft, ArrowRight, List } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import type { ReactNode } from "react";
 
 import type {
   MaterialReaderMetadata,
@@ -170,14 +169,10 @@ export function MaterialReaderHeader({
 export function MaterialReaderMetadataFooter({
   material,
   seriesContext = null,
-  readingAction,
-  seriesProgress,
   returnTarget = libraryMaterialReaderReturnTarget,
 }: {
   readonly material: MaterialReaderMetadata;
   readonly seriesContext?: SeriesReaderContext | null;
-  readonly readingAction?: ReactNode;
-  readonly seriesProgress?: ReactNode;
   readonly returnTarget?: MaterialReaderReturnTarget;
 }) {
   const otherSeries = material.seriesMemberships.filter(({ series }) =>

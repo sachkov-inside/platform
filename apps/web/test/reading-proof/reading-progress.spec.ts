@@ -27,7 +27,7 @@ for (const scenario of ["text", "member", "video", "cards", "complete-series", "
     const readingAction = page.getByRole("region", { name: "Отметка материала" });
     if (await readingAction.count() > 0) await readingAction.scrollIntoViewIfNeeded();
     if (["text", "member", "video", "failure", "conflict"].includes(scenario)) {
-      await page.locator("[data-series-progress]").evaluate((element) => element.scrollIntoView({ block: "center" }));
+      await page.locator("[data-series-progress]").evaluate((element) => { element.scrollIntoView({ block: "center" }); });
     }
     await page.screenshot({ fullPage: true, animations: "disabled", path: resolve(`../../docs/evidence/issue-328/${scenario}-${testInfo.project.name}.png`) });
   });
