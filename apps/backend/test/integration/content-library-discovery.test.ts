@@ -414,6 +414,12 @@ describe("Content Library discovery", () => {
       expect(
         canonicalTopic.value.items.every(({ topic }) => topic.slug === "platform"),
       ).toBe(true);
+      expect(
+        canonicalTopic.value.facets.formats.reduce(
+          (count, format) => count + format.count,
+          0,
+        ),
+      ).toBe(canonicalTopic.value.totalCount);
     } finally {
       await Promise.all([
         testDatabase.prisma.topic.update({

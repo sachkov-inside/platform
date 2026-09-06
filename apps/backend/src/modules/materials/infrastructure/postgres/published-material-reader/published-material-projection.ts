@@ -172,7 +172,12 @@ export async function selectPublishedMaterialProjectionPage(
   const filters = projectionFiltersSql(values);
   const [rawRows, metadata] = await Promise.all([
     prisma.$queryRaw(searchProjectionQuery(values, filters, searchRank)),
-    selectProjectionMetadata(prisma, filters, values.q),
+    selectProjectionMetadata(
+      prisma,
+      filters,
+      values.canonicalTopicSlug === undefined ? values.q : undefined,
+      values.canonicalTopicSlug === undefined,
+    ),
   ]);
   const rows = searchedPublishedMaterialProjectionRowSchema
     .array()
@@ -376,11 +381,12 @@ async function selectProjectionMetadata(
   prisma: MaterialsPrisma,
   filters: Prisma.Sql,
   q: string | undefined,
+  useIndependentFacets: boolean,
 ): Promise<z.infer<typeof projectionMetadataRowSchema>> {
   const filteredPublications = filteredPublicationsSql(filters);
-  const independentPublications = filteredPublicationsSql(
-    Prisma.sql`publication.access <> 'workshop'`,
-  );
+  const independentPublications = useIndependentFacets
+    ? filteredPublicationsSql(Prisma.sql`publication.access <> 'workshop'`)
+    : filteredPublications;
   const facetPublications = independentPublications;
   const seriesPublications = independentPublications;
   const rows = projectionMetadataRowSchema.array().parse(

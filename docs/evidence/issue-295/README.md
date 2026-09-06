@@ -36,8 +36,10 @@ application interface. They are not editorial content and do not replace existin
 Live browser inspection at desktop `1440x1024` and mobile `390x844` confirmed the two different
 next links, the mixed-format transition, no standalone Series context and zero horizontal overflow.
 The earlier Library route-chip evidence below documents the superseded intermediate direction. The
-current owner contract is verified by the focused tests and replacement captures added with the
-final Reader/Library amendment.
+current owner contract is verified by focused tests and the replacement captures below. In the
+Library capture, the selected `Platform` Topic leaves the full Series section unchanged while the
+Materials count and cards reflect the local filter. Reader captures cover the real short guide,
+the real primary-Video path and the existing rich Storybook fixture at both viewport widths.
 The follow-up Home review used viewports positioned at the Notes section to confirm each note reads
 as an independent rounded mini-post at desktop and mobile widths without truncation or overflow.
 Axe reported zero WCAG A/AA findings in the application Home and Reader UI. The development-only
@@ -54,10 +56,17 @@ Compose stack and gave visual GO with no findings.
 - [Home Notes mini-posts mobile](home-notes-mobile.png)
 - [Library Topic chips desktop](library-topic-chips-desktop.png)
 - [Library Topic chips mobile](library-topic-chips-mobile.png)
+- [Library local Material filters desktop](library-material-filters-desktop.png)
+- [Library local Material filters mobile](library-material-filters-mobile.png)
 - [Harness Reader desktop](harness-reader-desktop.png)
 - [Mixed Reader desktop](mixed-reader-desktop.png)
 - [Mixed Reader mobile](mixed-reader-mobile.png)
 - [Standalone Reader mobile](standalone-mobile.png)
+- [Reading-first short guide desktop](reader-short-guide-desktop.png)
+- [Reading-first short guide mobile](reader-short-guide-mobile.png)
+- [Rich Reader fixture desktop](reader-rich-desktop.png)
+- [Rich Reader fixture mobile](reader-rich-mobile.png)
+- [Primary Video Reader desktop](reader-video-desktop.png)
 
 ## Verification
 

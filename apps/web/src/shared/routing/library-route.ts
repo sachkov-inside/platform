@@ -1,5 +1,6 @@
 import type { Route } from "next";
 
+import { collectionSlugSchema } from "./collection-slug";
 import { internalRoute } from "./internal-route";
 
 const MAX_QUERY_LENGTH = 120;
@@ -41,9 +42,8 @@ export function serializeLibraryRouteSearch(
 }
 
 function normalizeLibraryTopic(value: string | undefined): string | null {
-  return value !== undefined && value.length > 0 && value.length <= MAX_QUERY_LENGTH
-    ? value
-    : null;
+  const parsed = collectionSlugSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 export function libraryRouteHref(state: LibraryRouteState): Route {
