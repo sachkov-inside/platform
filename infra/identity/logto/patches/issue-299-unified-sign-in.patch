@@ -1,7 +1,6 @@
 --- a/packages/experience/src/pages/SignIn/index.tsx
 +++ b/packages/experience/src/pages/SignIn/index.tsx
-@@ -30,9 +30,7 @@
- 
+@@ -31,8 +31,6 @@
    const {
      signInMethods,
 -    signUpMethods,
