@@ -1,17 +1,21 @@
 # Workshop Tracks and Laboratories application specification
 
-Статус: accepted repository-local contract для
+Статус: **deferred**. Сохранённый repository-local contract для
 [Platform #275](https://github.com/sachkov-inside/platform/issues/275) и первого Kafka Track из
 [#274](https://github.com/sachkov-inside/platform/issues/274). Он реализует подтверждённую shared
 границу [Workspace #108](https://github.com/sachkov-inside/workspace/issues/108).
 
-Дата: 2026-09-04.
+Дата исходного контракта: 2026-09-04. Отложен в текущем этапе Materials/Series.
+Текущий scope задаёт [MVP brief](../product/platform-mvp-brief.md); этот документ не является
+поручением реализовать Workshop или обещанием текущей подписки. Существующие foundations
+сохраняются. Возобновление работы требует отдельной задачи, а не переименования Series в Tracks.
 
 ## 1. Результат и authority
 
-Platform представляет Workshop как практическую область активной подписки Inside. В ней
-опубликованные Workshop Tracks соединяют Materials, Laboratories и Production Cases в
-рекомендуемом порядке без обязательного линейного unlock.
+Отложенная модель Workshop описывает практическую область Inside, в которой опубликованные
+Workshop Tracks соединяют Materials, Laboratories и Production Cases в рекомендуемом порядке
+без обязательного линейного unlock. Приведённые ниже границы применяются при возобновлении этого
+направления; они не меняют текущую модель Materials/Series.
 
 Этот документ владеет Platform-specific model, authoring/publication boundary, access semantics,
 learner progress и requirements первого Kafka-среза. Shared product promise и cross-repository

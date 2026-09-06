@@ -19,9 +19,11 @@ web
 
 ## Product Purpose
 
-Platform — канонический дом полноценных материалов Sachkov Inside. Она объединяет discovery,
-reading и authoring так, чтобы current Material, опубликованные projections и Preview не
-расходились между разными инструментами.
+Platform показывает ценность подписки через продуманные Series смешанных Materials: видео,
+текстовые гайды и заметки связаны общей задачей. Самостоятельные материалы доступны в общей
+Базе знаний. Текущий scope и отношения сущностей определяет
+[product brief](../../docs/product/platform-mvp-brief.md), а поведение состава и Reader —
+[Series contract](../../docs/specifications/platform-v1.md#series-step-sequences).
 
 ## Positioning
 
@@ -33,14 +35,16 @@ reading и authoring так, чтобы current Material, опубликован
 
 - Публичные и member surfaces ориентированы на чтение и поиск; author surfaces — на выполнение
   точной editorial задачи.
-- Полные актуальные материалы создаются вручную в целевой структуре Platform. Telegram остаётся
-  местом community и анонсов, а не источником для import/migration.
+- Редакционные оригиналы готовятся локально в Git, Platform показывает опубликованное состояние.
+  Правила переноса и обратных правок задаёт
+  [content boundary](../../docs/product/platform-mvp-brief.md#контент). Telegram остаётся местом
+  community и анонсов. Автоматический импорт и двусторонняя синхронизация пока не реализованы.
 - Storybook является исполнимой design/review-системой. Production-owned UI modules имеют stories;
   fixtures и workshop composition не входят в production dependency graph.
 
 ## Capabilities and Constraints
 
-- Product terminology следует repository `CONTEXT.md`: Material, MaterialBody, publication state и
+- Product terminology следует repository [`CONTEXT.md`](../../CONTEXT.md): Material, MaterialBody, publication state и
   `contentVersion` не заменяются размытыми словами «post» или historical revision.
 - Preview всегда читает current saved Material и не меняет publication state. Технический
   `contentVersion` используется только для optimistic concurrency и не показывается в интерфейсе.

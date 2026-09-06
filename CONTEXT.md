@@ -1,7 +1,8 @@
 # Platform
 
-Platform is the canonical home of Inside materials and the application where visitors, Membership
-participants and Workshop learners use Inside products. This glossary names the durable concepts
+Platform publishes Inside Materials and Series for visitors and Membership participants. The
+[current product brief](docs/product/platform-mvp-brief.md) owns delivery scope and the boundary
+between editorial originals and published application state. This glossary names the concepts
 shared by product and application work.
 
 ## Language
@@ -132,7 +133,13 @@ A coarse resume position for one Account and one local Video identity. Replaceme
 starts independently, and playback progress never changes ReadingState.
 _Avoid_: Material completion, read status, Kinescope user profile
 
-## Production Workshop
+## Deferred Workshop vocabulary
+
+Workshop is deferred while the current platform develops Materials and Series. These terms retain
+the separate Workshop model and implemented foundations; they do not define Series modules or
+expand the current delivery scope. See the
+[deferred Workshop contract](docs/specifications/workshop-tracks.md).
+
 
 **Workshop**:
 Inside's practical learning area for active subscribers: thematic Workshop Tracks combine

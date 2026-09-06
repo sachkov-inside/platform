@@ -25,6 +25,10 @@ Snapshot источников: 2026-08-27. Repository-owned product/application 
 [`ed5b555a`](https://github.com/sachkov-inside/workspace/commit/ed5b555a0171a53ab17a5ed388d80575c8025f03)
 Workspace [PR #61](https://github.com/sachkov-inside/workspace/pull/61).
 
+Текущие Series composition, связи шагов и карточки определяет
+[Series contract](../specifications/platform-v1.md#series-step-sequences). Он имеет приоритет
+перед прежними wireframes и experiments ниже; повторять их как новый product contract не нужно.
+
 ## 1. Purpose и граница
 
 Platform v1 должна стать каноническим домом полноценных материалов Inside. Участник Membership
@@ -73,8 +77,9 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
    [Platform specification authority][platform-spec-authority],
    [Workspace authority rule][workspace-v1-authority])
 2. Repository-local MVP brief и application specification уже синхронизировали более поздние
-   owner decisions: Materials создаются вручную без import/migration, а individual discussion
-   relation не входит в обязательный v1 scope. UX не проектирует соответствующие surfaces;
+   owner decisions: оригиналы готовятся локально, а автоматический import пока не реализован;
+   individual discussion relation не входит в обязательный v1 scope. Текущую границу подготовки и
+   публикации задаёт [content contract](platform-mvp-brief.md#контент);
    Workspace links ниже остаются provenance, а не runtime/agent dependency.
    ([Platform application boundaries][platform-spec-boundaries],
    [publishing audit decisions][audit-decisions])
@@ -311,8 +316,8 @@ CTA.
 | R28 | Validation and current saved preview | Author checks publishability and rendered result | Editor + Preview | valid, warnings, structured errors, dependency unavailable; preview current saved state, no-store | [Workspace authoring flow][workspace-authoring-flow] |
 | R29 | Optimistic conflict | Author/MCP saves stale Material | Editor conflict state; MCP structured outcome | `expectedContentVersion`, `409`, current version, preserved local input, manual reapply/reload; no last-write-wins | [Workspace authoring flow][workspace-authoring-flow] |
 | R30 | Mutable lifecycle without history | Author manages lifecycle | Editor + Preview | `draft → published ↔ unpublished`; hard-delete only never-published draft; no revisions/compare/restore or mutation journal | [Workspace authoring flow][workspace-authoring-flow], [ADR 0009](../adr/0009-one-mutable-material.md) |
-| R31 | MCP parity and authority | Delegated agent creates/edits/previews/publishes content | `No UI` for MCP; outcomes visible in Author surfaces | same full-state Save, validation and `409`; user-delegated Account with `materials:manage`; no separate owner GO | [Workspace MCP flow][workspace-mcp-flow] |
-| R32 | Manual recreation, no Telegram import | Author recreates current content in target structure | Author editor only; `No UI` for importer/migration | no import wizard, mapping report, dedupe or migration progress | [Workspace v1 scope][workspace-v1-scope] |
+| R31 | MCP parity and authority | Delegated agent creates/edits/previews/publishes content | `No UI` for MCP; outcomes visible in Author surfaces | same full-state Save, validation and `409`; application permission and delegated editorial intent follow the canonical contract | [MCP contract](../specifications/platform-v1.md#mcp) |
+| R32 | Editorial preparation and publication | Author prepares originals locally and publishes through Platform authoring | Author editor; automatic import is deferred | Git originals and Platform publication follow the content contract | [Content contract](platform-mvp-brief.md#контент) |
 | R33 | Telegram announcements/community remain external | Reader follows existing community lifecycle outside Platform | `No UI` required for messaging/comments; optional external link only after separate decision | no Platform comments, notification center, bot commands or mandatory per-Material discussion link | [Workspace v1 scope][workspace-v1-scope] |
 | R34 | Platform does not bill/manage subscription | Visitor sees inline Membership offer and completes acquisition externally | Closed Material offer; `No UI` for checkout/subscription management | `Получить доступ` opens one Platform-configured Tribute URL; no per-Material URL, prices/plans/payment history/cancel controls or entitlement inference from click | [Platform actors][platform-brief-actors] |
 | R35 | Single author, no editorial team/UGC | Кирилл completes whole publish flow | Author surfaces | no role assignment, review queue, collaborative cursors/comments or contributor onboarding | [Platform author][platform-brief-author] |

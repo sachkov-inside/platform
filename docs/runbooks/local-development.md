@@ -42,7 +42,7 @@ an optional profile on <http://127.0.0.1:6006>. Integration tests continue to us
 temporary PostgreSQL and MinIO through Testcontainers and never share the Compose data services.
 
 The production API exposes health, OpenAPI, the published catalog and the Material Reader endpoint.
-The local MCP adapter exposes delegated Material, Topic, Playlist and ordered-composition authoring
+The local MCP adapter exposes delegated Material, Topic, Series and ordered-composition authoring
 over production application interfaces;
 production Logto client setup and public routing remain separate deployment work.
 
@@ -152,6 +152,8 @@ Individual adapters are `pnpm dev:web`, `pnpm dev:api` and `pnpm dev:mcp`. `pnpm
 host-pnpm convenience wrapper around the full detached Compose startup and smoke; it refuses to
 reuse a running singleton stack.
 
+### MCP authoring
+
 The MCP adapter uses stateless Streamable HTTP at `MCP_SERVER_URL` (local default
 `http://127.0.0.1:3002/mcp`). It verifies a short-lived Logto-compatible bearer token, resolves its
 issuer/subject to an existing Account and checks the Account's current `materials:manage`
@@ -162,12 +164,18 @@ The exposed tools are `material_create_draft`, `material_load`, `material_save`,
 `material_preview`, `content_collection_list`, `content_collection_create`,
 `content_collection_update`, `content_collection_set_archive`, `playlist_load_composition` and
 `playlist_save_composition`. Material Save replaces content, metadata, current relations, access
-and publication state atomically using `expectedContentVersion`; playlist composition Save replaces
+and publication state atomically using `expectedContentVersion`; Series composition Save replaces
 the full ordered composition using its optimistic version. Both can affect live content and have no
 server-side Undo/history. Preview uses canonical ContentAccess. MCP clients can discover the protected resource
 metadata at `/.well-known/oauth-protected-resource/mcp` and send the delegated token in the
 `Authorization: Bearer` header. Production provider setup and public routing remain outside this
 repository task.
+
+The `playlist_*` identifiers are stable protocol names for Series operations. For `stepGroups`,
+composition versions and the Git `step_groups` handoff, follow the
+[Series composition contract](../specifications/platform-v1.md#series-step-sequences).
+For editorial originals and publication ownership, follow the
+[content boundary](../product/platform-mvp-brief.md#контент).
 
 NestJS loads the optional repository `.env` through `@nestjs/config`, validates it with Zod, and
 injects one immutable `PlatformConfig`. Next.js validates one server-only `WebRuntimeConfig` during

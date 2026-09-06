@@ -109,6 +109,14 @@ components:
 
 # Design System: Sachkov Inside Platform
 
+## Authority
+
+This file records visual vocabulary and earlier component provenance. For current Home, Library,
+Series and Reader behavior, use the [product contract](../../docs/product/platform-mvp-brief.md)
+and [Series composition contract](../../docs/specifications/platform-v1.md#series-step-sequences).
+Production modules and their stories own the executable presentation. Token values live in
+[`app/globals.css`](app/globals.css); this document does not override them.
+
 ## Overview
 
 **Creative North Star: "Soft Technical Workshop"**
@@ -222,9 +230,11 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 
 ### Material Card
 
-- **Style:** accepted bounded Material preview with optional real `16:9` media, compact taxonomy, short title/summary, exact format/access facts and restrained elevation.
-- **Mixed-format rhythm:** cards stretch to the shared grid row so Guides and Videos do not leave broken gaps. A Guide stays content-first and never receives an artificial media placeholder.
-- **Metadata:** format and access occupy the top status row. Playlist memberships use separate readable rows with the full playlist name and ordinal; they never compete with the access label in one clipped footer.
+The production `MaterialCard` owns its grid, row and note-feed variants; reuse the variant used by
+the owning surface. Current Series card relationships, annotations and video descriptions follow
+the [Series contract](../../docs/specifications/platform-v1.md#series-step-sequences), with
+representative states in the production Library discovery stories. Earlier card experiments do
+not define a second layout or terminology.
 
 ### Discovery Copy
 

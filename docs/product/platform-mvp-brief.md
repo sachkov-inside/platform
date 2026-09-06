@@ -1,7 +1,7 @@
 # Sachkov Inside — brief первой версии платформы
 
-Статус: подтверждённые owner decisions по 2026-09-04. Документ фиксирует продуктовую границу
-первой версии будущего Inside-приложения. Он является входом в отдельные bootstrap, technical
+Статус: подтверждённые owner decisions по 2026-09-06. Документ фиксирует продуктовую границу
+текущей платформы Inside. Он является входом в отдельные bootstrap, technical
 discovery и delivery, но не выбирает stack, архитектуру или repository layout.
 
 Authority этого brief находится в этом Platform repository. Обычные Git commits и pull requests
@@ -93,9 +93,14 @@ payment/roster operator; technical integration boundary описана в
 
 ## Контент
 
-Платформа хранит каноническую версию материала. Исходник можно подготовить в Obsidian, Telegram,
-локальном файле, редакторе платформы или другом удобном месте, но после создания материала
-authority находится в платформе.
+Редакционные оригиналы, черновики и связи материалов готовятся локально и сохраняются в Git
+проекта Inside Content. Platform владеет опубликованным состоянием, доступом и показом материалов
+читателю. Публикация создаёт или обновляет runtime-состояние и сама по себе не заменяет Git-оригинал.
+Правки через editor/MCP относятся к состоянию Platform; их перенос обратно в оригиналы требует
+явного редакционного согласования. Автоматическая двусторонняя синхронизация не реализована.
+Контракт меток Серии описан в
+[application specification](../specifications/platform-v1.md#series-step-sequences); автоматический
+импорт остаётся отдельной работой #289.
 
 Первая версия поддерживает:
 
@@ -197,9 +202,9 @@ MCP является обязательной частью первой верс
 - одним full-state Save изменять content, metadata, `free | membership` и
   `draft | published | unpublished`.
 
-Агент с current `materials:manage` может самостоятельно выполнить тот же Save, включая первую или
-повторную публикацию, unpublish и изменение access. Отдельного owner GO внутри product workflow
-нет. Draft скрыт до первой публикации; после неё каждый успешный Save немедленно меняет живой
+MCP использует тот же Save; границу application permission и поручения агенту задаёт
+[MCP contract](../specifications/platform-v1.md#mcp). Draft скрыт до первой публикации; после неё
+каждый успешный Save немедленно меняет живой
 Material и его Library/search projection. Platform не хранит старые bodies, restore history или
 durable mutation journal; stale concurrent Save отклоняется по current content version.
 
@@ -212,9 +217,10 @@ Kinescope ID Video удалить через Platform нельзя. UI пока�
 
 ## Создание актуальных материалов
 
-Актуальные материалы вручную заново создаются в Platform в удобной целевой структуре. Telegram
-используется только как visual reference. Export, importer, source mapping, loss report,
-deduplication и migration pipeline не нужны.
+Подготовка оригиналов и публикация следуют [границе контента](#контент). Текущий authoring
+Save переносит подготовленный материал в Platform; автоматический импорт пока не реализован.
+Telegram может служить исходным материалом для редакционной подготовки, но отдельного Telegram
+migration pipeline в Platform нет.
 
 После запуска:
 
@@ -226,7 +232,7 @@ deduplication и migration pipeline не нужны.
 
 В первую версию входят:
 
-- публичная База знаний как стартовая поверхность, страницы тем и серий;
+- публичная Главная с Сериями, общая База знаний, страницы тем и серий;
 - публичные карточки закрытых материалов и полностью бесплатные материалы;
 - полнотекстовый поиск и фильтры;
 - email sign-in, private Account и связь с Telegram Membership;
@@ -250,20 +256,19 @@ deduplication и migration pipeline не нужны.
 - внутренние и email-уведомления;
 - AI-поиск и отдельный autonomous content generation workflow вне user-delegated MCP Save.
 
-Эта граница описывает исходный content/Membership MVP. Workshop переиспользует Account, Materials
-и ContentAccess и входит в текущий commercial bundle через отдельный WorkshopEntitlement, но не считается
-ретроактивной частью готовности Platform v1. Его первый Kafka slice отдельно задан
-[application specification](../specifications/workshop-tracks.md) и
-[Platform #274](https://github.com/sachkov-inside/platform/issues/274): публичный Track plan,
-бесплатная Laboratory, связанные Materials и Production Case. Submission/evaluation выбирается
-после готового CaseSpec, а не наследуется автоматически от прежнего Partner Webhooks flow.
+Текущий фокус — самостоятельные Materials, связанные смешанные Series и подписка на опубликованный
+контент. Отдельная Мастерская с Tracks, Laboratories и Production Cases отложена. Сохранённые
+Workshop foundations и отдельный WorkshopEntitlement не означают, что этот продукт уже предлагается
+участнику, и не превращают Series в Workshop Track.
+[Отложенный контракт](../specifications/workshop-tracks.md) сохраняет принятые границы будущей работы;
+её возобновление требует отдельной постановки задачи.
 
 ## Связанные application-документы
 
 - [Platform v1 application specification](../specifications/platform-v1.md) владеет modules,
   logical schema, flows, application NFR, production foundation order и ADR inputs.
 - [Workshop Tracks and Laboratories application specification](../specifications/workshop-tracks.md)
-  владеет Track/Laboratory model, access, progress и первым Kafka slice.
+  сохраняет отложенные Track/Laboratory model, access, progress и Kafka slice.
 - [Superseded case-first foundation](../specifications/production-workshop-v1.md) сохраняет ссылки
   на уже реализованные Workshop/Assignment/evaluator foundations без объявления их текущим
   product contract.
