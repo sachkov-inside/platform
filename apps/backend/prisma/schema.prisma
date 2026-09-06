@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["accounts", "assets", "materials", "member_profiles", "membership_entitlements", "telegram_membership", "videos", "workshop"]
+  schemas  = ["accounts", "assets", "communications", "materials", "member_profiles", "membership_entitlements", "telegram_membership", "videos", "workshop"]
 }
 
 model Account {
@@ -660,4 +660,17 @@ model VideoPlaybackProgress {
   @@id([accountId, videoId], map: "video_playback_progress_primary")
   @@map("playback_progress")
   @@schema("videos")
+}
+
+model CommunicationTrackingHit {
+  eventId String @id @map("event_id") @db.Uuid
+  token String @db.VarChar(128)
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(6)
+  traffic String @db.VarChar(32)
+  availableAt DateTime @map("available_at") @db.Timestamptz(6)
+  claimId String? @map("claim_id") @db.Uuid
+  deliveredAt DateTime? @map("delivered_at") @db.Timestamptz(6)
+  @@index([deliveredAt, availableAt], map: "tracking_hit_pending_idx")
+  @@map("tracking_hits")
+  @@schema("communications")
 }

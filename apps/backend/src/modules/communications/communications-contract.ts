@@ -1,9 +1,9 @@
+import { trackingBacklogSchema } from "./features/track-visit/track-visit.js";
 import { z } from "zod";
 import { requestSchema, responseSchema, errorSchema, type authorizationRequestSchema } from "./communications-schema.generated.js";
 
 export const COMMUNICATIONS_VERSION = "inside-communications-v1" as const;
-// Service-only tracking and Platform-owned eligibility belong to #310, never
-// to the delegated management surface.
+// Service-only tracking and eligibility never belong to delegated management.
 export const managementSchemas = requestSchema.options.filter(
   schema => !["tracking.resolve", "tracking.recordHit", "eligibility.check"].includes(schema.shape.operation.value),
 ).map(schema => schema.omit({ actor: true }));
@@ -23,7 +23,7 @@ export const communicationsFailureSchema = z.strictObject({
 const providerSuccessSchema = z.union(responseSchema.options.filter(
   (schema): schema is Exclude<(typeof responseSchema.options)[number], typeof errorSchema> => schema !== errorSchema,
 ));
-export const communicationsSuccessSchema = z.strictObject({ ok: z.literal(true), value: providerSuccessSchema });
+export const communicationsSuccessSchema = z.strictObject({ ok: z.literal(true), value: providerSuccessSchema, trackingBacklog: trackingBacklogSchema.optional() });
 export const communicationsResultSchema = z.union([
   communicationsSuccessSchema,
   communicationsFailureSchema,

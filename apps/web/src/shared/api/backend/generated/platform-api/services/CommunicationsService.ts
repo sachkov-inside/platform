@@ -658,9 +658,33 @@ export class CommunicationsService {
         deliveryId?: string;
         funnelId?: string;
       };
+    } | {
+      contractVersion: 'inside-communications-v1';
+      expectedRevision: number;
+      operation: 'broadcasts.list';
+      operationId: string;
+      payload: {
+        cursor?: string;
+      };
+    } | {
+      contractVersion: 'inside-communications-v1';
+      expectedRevision: number;
+      operation: 'entries.read';
+      operationId: string;
+      payload: {
+        contactId: string;
+        cursor?: string;
+      };
     }),
   }): CancelablePromise<{
     ok: boolean;
+    trackingBacklog?: ({
+      kind: 'ready';
+      oldestAgeSeconds: number;
+      pending: number;
+    } | {
+      kind: 'unavailable';
+    });
     value: ({
       contractVersion: 'inside-communications-v1';
       status: 'ok';
@@ -1348,10 +1372,16 @@ export class CommunicationsService {
           contactId: string;
           entries: Array<{
             enteredAt: string;
-            sourceId: string;
+            funnelId: (string | string | null);
+            outcome: string;
+            sourceCode: (string | string | null);
+            sourceId: (string | string | null);
           }>;
           firstSourceId: (string | string | null);
           latestSourceId: (string | string | null);
+          marketingEnabled: boolean;
+          nextEntryCursor: (string | string | null);
+          reachable: boolean;
         }>;
         deliveries: {
           failed: number;
@@ -1361,6 +1391,7 @@ export class CommunicationsService {
           suppressed: number;
           unknown: number;
         };
+        knownAutomationHits: number;
         marketingOff: number;
         nextCursor: (string | string | null);
         reachable: number;
@@ -1587,6 +1618,128 @@ export class CommunicationsService {
           partId: string;
         }>;
         stepId: (string | string | null);
+      }>;
+      nextCursor: (string | string | null);
+      status: 'ok';
+    } | {
+      broadcasts: Array<{
+        audience: ({
+          kind: 'all';
+        } | {
+          funnelIds: Array<string>;
+          kind: 'funnels';
+        });
+        audienceSnapshotId: (string | string | null);
+        broadcastId: string;
+        parts: Array<{
+          content: ({
+            buttons: Array<{
+              text: string;
+              url: string;
+            }>;
+            entities: Array<{
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            }>;
+            text: string;
+            type: 'text';
+          } | {
+            buttons: Array<{
+              text: string;
+              url: string;
+            }>;
+            entities: Array<{
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            }>;
+            fileId: string;
+            text: string;
+            type: 'photo';
+          } | {
+            buttons: Array<{
+              text: string;
+              url: string;
+            }>;
+            entities: Array<{
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            }>;
+            fileId: string;
+            text: string;
+            type: 'video';
+          } | {
+            buttons: Array<{
+              text: string;
+              url: string;
+            }>;
+            entities: Array<{
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            }>;
+            fileId: string;
+            text: string;
+            type: 'video_note';
+          } | {
+            buttons: Array<{
+              text: string;
+              url: string;
+            }>;
+            entities: Array<{
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            }>;
+            fileId: string;
+            text: string;
+            type: 'voice';
+          } | {
+            buttons: Array<{
+              text: string;
+              url: string;
+            }>;
+            entities: Array<{
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            }>;
+            fileId: string;
+            text: string;
+            type: 'document';
+          });
+          partId: string;
+        }>;
+        revision: number;
+        scheduledAt: (string | string | null);
+        snapshotSize: number;
+        state: 'draft' | 'scheduled' | 'running' | 'paused' | 'cancelled' | 'completed';
+      }>;
+      contractVersion: 'inside-communications-v1';
+      nextCursor: (string | string | null);
+      status: 'ok';
+    } | {
+      contractVersion: 'inside-communications-v1';
+      entries: Array<{
+        enteredAt: string;
+        funnelId: (string | string | null);
+        outcome: string;
+        sourceCode: (string | string | null);
+        sourceId: (string | string | null);
       }>;
       nextCursor: (string | string | null);
       status: 'ok';
@@ -1613,6 +1766,13 @@ export class CommunicationsService {
     },
   }): CancelablePromise<{
     ok: boolean;
+    trackingBacklog?: ({
+      kind: 'ready';
+      oldestAgeSeconds: number;
+      pending: number;
+    } | {
+      kind: 'unavailable';
+    });
     value: ({
       contractVersion: 'inside-communications-v1';
       status: 'ok';
@@ -2300,10 +2460,16 @@ export class CommunicationsService {
           contactId: string;
           entries: Array<{
             enteredAt: string;
-            sourceId: string;
+            funnelId: (string | string | null);
+            outcome: string;
+            sourceCode: (string | string | null);
+            sourceId: (string | string | null);
           }>;
           firstSourceId: (string | string | null);
           latestSourceId: (string | string | null);
+          marketingEnabled: boolean;
+          nextEntryCursor: (string | string | null);
+          reachable: boolean;
         }>;
         deliveries: {
           failed: number;
@@ -2313,6 +2479,7 @@ export class CommunicationsService {
           suppressed: number;
           unknown: number;
         };
+        knownAutomationHits: number;
         marketingOff: number;
         nextCursor: (string | string | null);
         reachable: number;
@@ -2539,6 +2706,128 @@ export class CommunicationsService {
           partId: string;
         }>;
         stepId: (string | string | null);
+      }>;
+      nextCursor: (string | string | null);
+      status: 'ok';
+    } | {
+      broadcasts: Array<{
+        audience: ({
+          kind: 'all';
+        } | {
+          funnelIds: Array<string>;
+          kind: 'funnels';
+        });
+        audienceSnapshotId: (string | string | null);
+        broadcastId: string;
+        parts: Array<{
+          content: ({
+            buttons: Array<{
+              text: string;
+              url: string;
+            }>;
+            entities: Array<{
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            }>;
+            text: string;
+            type: 'text';
+          } | {
+            buttons: Array<{
+              text: string;
+              url: string;
+            }>;
+            entities: Array<{
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            }>;
+            fileId: string;
+            text: string;
+            type: 'photo';
+          } | {
+            buttons: Array<{
+              text: string;
+              url: string;
+            }>;
+            entities: Array<{
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            }>;
+            fileId: string;
+            text: string;
+            type: 'video';
+          } | {
+            buttons: Array<{
+              text: string;
+              url: string;
+            }>;
+            entities: Array<{
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            }>;
+            fileId: string;
+            text: string;
+            type: 'video_note';
+          } | {
+            buttons: Array<{
+              text: string;
+              url: string;
+            }>;
+            entities: Array<{
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            }>;
+            fileId: string;
+            text: string;
+            type: 'voice';
+          } | {
+            buttons: Array<{
+              text: string;
+              url: string;
+            }>;
+            entities: Array<{
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            }>;
+            fileId: string;
+            text: string;
+            type: 'document';
+          });
+          partId: string;
+        }>;
+        revision: number;
+        scheduledAt: (string | string | null);
+        snapshotSize: number;
+        state: 'draft' | 'scheduled' | 'running' | 'paused' | 'cancelled' | 'completed';
+      }>;
+      contractVersion: 'inside-communications-v1';
+      nextCursor: (string | string | null);
+      status: 'ok';
+    } | {
+      contractVersion: 'inside-communications-v1';
+      entries: Array<{
+        enteredAt: string;
+        funnelId: (string | string | null);
+        outcome: string;
+        sourceCode: (string | string | null);
+        sourceId: (string | string | null);
       }>;
       nextCursor: (string | string | null);
       status: 'ok';

@@ -4,7 +4,7 @@ import { COMMUNICATIONS_VERSION, managementSchemas } from "../../communications-
 import type { Communications } from "../../facets/communications/communications.js";
 import { templateReferenceSchema } from "../../features/manage-communications/template-reference.js";
 
-const readOperations = new Set(["templates.read", "funnels.read", "funnels.list", "funnels.preview", "broadcasts.read", "intro.read", "deliveries.read", "statistics.read"]);
+const readOperations = new Set(["templates.read", "funnels.read", "funnels.list", "funnels.preview", "broadcasts.read", "broadcasts.list", "entries.read", "intro.read", "deliveries.read", "statistics.read"]);
 
 export function registerCommunicationsTools(server: McpServer, dependencies: { readonly accountId: string; readonly communications: Pick<Communications, "execute"> }): void {
   for (const schema of managementSchemas) {

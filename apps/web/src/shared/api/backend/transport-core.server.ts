@@ -101,11 +101,13 @@ export async function executeGeneratedRequest<T>(
   options: {
     readonly accessToken?: string;
     readonly signal?: AbortSignal;
+    readonly timeoutMs?: number;
   } = {},
 ): Promise<BackendTransportResult> {
   const request = new BackendHttpRequest(
     createBackendConfig(options.accessToken),
     options.signal,
+    options.timeoutMs,
   );
   try {
     const body = await invoke(request);
@@ -178,7 +180,7 @@ class BackendHttpRequest extends BaseHttpRequest {
   response: Response | undefined;
   readonly #externalSignal: AbortSignal | undefined;
 
-  constructor(config: OpenAPIConfig, externalSignal: AbortSignal | undefined) {
+  constructor(config: OpenAPIConfig, externalSignal: AbortSignal | undefined, private readonly timeoutMs = BACKEND_REQUEST_TIMEOUT_MS) {
     super(config);
     this.#externalSignal = externalSignal;
   }
@@ -205,7 +207,7 @@ class BackendHttpRequest extends BaseHttpRequest {
         method: options.method,
         signal: AbortSignal.any([
           cancellationSignal,
-          AbortSignal.timeout(BACKEND_REQUEST_TIMEOUT_MS),
+          AbortSignal.timeout(this.timeoutMs),
           ...(this.#externalSignal === undefined ? [] : [this.#externalSignal]),
         ]),
       }),

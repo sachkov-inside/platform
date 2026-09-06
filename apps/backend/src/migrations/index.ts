@@ -1,3 +1,4 @@
+import { name as trackingHitsName, statement as trackingHitsStatement } from "../modules/communications/infrastructure/postgres/migrations/0031-communication-tracking-hits.js";
 import { name as communicationsPermissionName, statement as communicationsPermissionStatement } from "../modules/accounts/infrastructure/postgres/migrations/0030-communications-permission.js";
 import { name as telegramSignInMigrationName, statement as telegramSignInMigrationStatement } from "../modules/accounts/infrastructure/postgres/migrations/0029-telegram-sign-in.js";
 import {
@@ -227,6 +228,7 @@ export const platformMigrations = [
   },
   { name: telegramSignInMigrationName, statement: telegramSignInMigrationStatement },
   { name: communicationsPermissionName, statement: communicationsPermissionStatement },
+  { name: trackingHitsName, statement: trackingHitsStatement },
 ] as const;
 
 export function migrateToLatest(

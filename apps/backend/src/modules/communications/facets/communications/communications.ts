@@ -1,3 +1,4 @@
+import type { TrackVisit } from "../../features/track-visit/track-visit.js";
 import type { Accounts } from "../../../accounts/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 import { communicationsFailure, managementRequestSchema, type CommunicationsResult } from "../../communications-contract.js";
@@ -9,6 +10,7 @@ export class Communications {
     private readonly accounts: Accounts,
     private readonly links: TelegramAccountLinks,
     private readonly provider: HttpCommunicationsProvider,
+    private readonly visits?: TrackVisit,
   ) {}
 
   async execute(accountId: string, input: unknown): Promise<CommunicationsResult> {
@@ -26,6 +28,8 @@ export class Communications {
     if (result.link === null) return communicationsFailure("link_required");
     // Both intake and management use the existing confirmed linking principal.
     // The browser/delegated agent cannot select this actor or a test recipient.
-    return this.provider.execute(requestSchema.parse({ ...request, actor: { accountRef: result.link.accountRef } }));
+    const response = await this.provider.execute(requestSchema.parse({ ...request, actor: { accountRef: result.link.accountRef } }));
+    if (response.ok && request.operation === "statistics.read" && this.visits) return { ...response, trackingBacklog: await this.visits.backlog() };
+    return response;
   }
 }
