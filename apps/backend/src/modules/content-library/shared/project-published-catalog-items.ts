@@ -120,7 +120,7 @@ function toCatalogItem(
     format: { ...projection.format },
     tags: projection.tags.map((tag) => ({ ...tag })),
     seriesMemberships: projection.seriesMemberships.map(
-      ({ ordinal, series }) => ({ ordinal, series: { ...series } }),
+      ({ ordinal, series, stepGroup }) => ({ ordinal, series: { ...series }, ...(stepGroup === undefined ? {} : { stepGroup }) }),
     ),
   };
 }

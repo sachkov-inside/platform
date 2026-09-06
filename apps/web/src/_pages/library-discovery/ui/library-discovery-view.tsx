@@ -31,6 +31,7 @@ import {
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import { PublicProductHeader } from "@/widgets/application-shell";
+import { seriesSteps } from "../model/series-steps";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
 type ResolvedDiscoveryResult = Exclude<
@@ -232,6 +233,7 @@ function SeriesMaterials({
   readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
 }) {
   const topics = result.topics;
+  const steps = seriesSteps(result.items, result.reference.slug);
 
   return (
     <section aria-labelledby="series-materials">
@@ -274,6 +276,7 @@ function SeriesMaterials({
             material.seriesMemberships.find(
               ({ slug }) => slug === result.reference.slug,
             )?.ordinal ?? index + 1;
+          const step = steps.get(material.slug);
           return (
             <li
               className="grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3"
@@ -285,12 +288,20 @@ function SeriesMaterials({
                   {ordinal}
                 </span>
               </div>
-              <MaterialCard
-                headingLevel="h3"
-                material={material}
-                returnHref={currentHref}
-                variant="row"
-              />
+              <div className="min-w-0">
+                {step !== undefined ? (
+                  <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-secondary px-4 py-2 text-sm" data-series-step>
+                    <span className="font-semibold text-foreground">Шаг {step.ordinal} из {step.total}</span>
+                    <span className="min-w-0 break-words font-medium">{step.label}</span>
+                  </div>
+                ) : null}
+                <MaterialCard
+                  headingLevel="h3"
+                  material={material}
+                  returnHref={currentHref}
+                  variant="row"
+                />
+              </div>
             </li>
           );
         })}

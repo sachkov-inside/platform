@@ -8,6 +8,7 @@ import type { Result } from "../../result.js";
 export interface SeriesOrderMaterialDto {
   readonly materialId: string;
   readonly ordinal: number;
+  readonly stepGroup: string | null;
   readonly publicationState: PublicationState;
   readonly title: string | null;
 }

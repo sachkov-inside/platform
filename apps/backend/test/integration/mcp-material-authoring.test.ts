@@ -325,6 +325,7 @@ describe("delegated Material authoring over MCP", () => {
       await callTool("playlist_save_composition", {
         expectedOrderVersion: initial.orderVersion,
         orderedMaterialIds: [materialId],
+        stepGroups: { [materialId]: "  MCP instruction  " },
         seriesId: playlist.id,
       }),
     ).toMatchObject({ structuredContent: { ok: true } });
@@ -333,7 +334,7 @@ describe("delegated Material authoring over MCP", () => {
     ).toMatchObject({
       structuredContent: {
         ok: true,
-        value: { items: [{ materialId, ordinal: 1 }] },
+        value: { items: [{ materialId, ordinal: 1, stepGroup: "MCP instruction" }] },
       },
     });
 

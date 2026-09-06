@@ -109,6 +109,7 @@ const publishedMaterialProjectionRowSchema = z.object({
       name: z.string(),
       slug: z.string(),
       ordinal: z.number().int(),
+      stepGroup: z.string().nullable(),
     }),
   ),
 });
@@ -253,11 +254,14 @@ function searchProjectionQuery(
               'id', series.id,
               'name', series.name,
               'slug', series.slug,
-              'ordinal', membership.ordinal
+              'ordinal', membership.ordinal,
+              'stepGroup', current_membership.step_group
             )
             order by series.name, membership.ordinal
           )
           from materials.published_material_series_memberships as membership
+          left join materials.series_memberships as current_membership
+            on current_membership.series_id = membership.series_id and current_membership.material_id = membership.material_id
           join materials.series as series on series.id = membership.series_id
           where membership.material_id = publication.material_id
         ),
@@ -930,11 +934,14 @@ function projectionQuery({
               'id', series.id,
               'name', series.name,
               'slug', series.slug,
-              'ordinal', membership.ordinal
+              'ordinal', membership.ordinal,
+              'stepGroup', current_membership.step_group
             )
             order by series.name, membership.ordinal
           )
           from materials.published_material_series_memberships as membership
+          left join materials.series_memberships as current_membership
+            on current_membership.series_id = membership.series_id and current_membership.material_id = membership.material_id
           join materials.series on series.id = membership.series_id
           where membership.material_id = publication.material_id
         ),
@@ -1002,8 +1009,9 @@ function toProjection(
     },
     tags: row.tags,
     seriesMemberships: row.series_memberships.map(
-      ({ id, name, ordinal, slug }) => ({
+      ({ id, name, ordinal, slug, stepGroup }) => ({
         ordinal,
+        stepGroup,
         series: { id, name, slug },
       }),
     ),

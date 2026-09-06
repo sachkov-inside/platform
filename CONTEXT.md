@@ -58,6 +58,13 @@ preserves its composition and canonical reader but removes it from new assignmen
 In the Russian product interface: «Серия».
 _Avoid_: Topic, Playlist, плейлист
 
+**Series Step Sequence**:
+An explicitly named connection between some Materials within one Series. Its steps follow the
+Series order even when other Materials appear between them. The same Material may have a different
+connection or none in another Series. It does not rank Materials by importance or create another
+reading path. In Russian product language: «Последовательность шагов».
+_Avoid_: Module, Track, main/optional role
+
 **NavigationPage**:
 An editorial page that introduces and connects other Platform destinations. Roadmap is a
 NavigationPage; Library is instead a generated view of Materials and is labelled «База знаний» in

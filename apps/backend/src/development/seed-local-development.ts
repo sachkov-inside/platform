@@ -12,6 +12,8 @@ const createIdempotencyKey = "72000000-0000-4000-8000-000000000004";
 const tagId = "72000000-0000-4000-8000-000000000006";
 const seriesId = "72000000-0000-4000-8000-000000000007";
 const demoHarnessSeriesId = "72000000-0000-4000-8000-000000000295";
+const demoStepsSeriesId = "72000000-0000-4000-8000-000000000298";
+const demoStepsSharedSeriesId = "72000000-0000-4000-8000-000000000299";
 const demoReviewSeriesId = "72000000-0000-4000-8000-000000000296";
 const slug = "kak-ustroen-inside-platform";
 const membershipSlug = "developer-pipeline-bez-poteri-konteksta";
@@ -38,6 +40,8 @@ const localVideoFixtures: ReadonlyMap<string, {
     durationSeconds: 754,
     title: "Продукт и инженерный контекст",
   }],
+  ["local-series-release-overview", { durationSeconds: 630, title: "Demo · Как устроен релиз" }],
+  ["local-series-release-docker", { durationSeconds: 810, title: "Demo · Docker на примере" }],
   ["local-series-review-video", {
     durationSeconds: 542,
     title: "Demo #295 · Видео-разбор",
@@ -338,6 +342,19 @@ async function ensureSeriesReaderScenario(
       slug: "demo-295-samostoyatelnaya-zametka",
       title: "Demo #295 · Самостоятельная заметка",
     },
+    ...[
+      { slug: "demo-298-release-overview", title: "Как устроен релиз моего проекта", formatId: videoFormatId, providerVideoId: "local-series-release-overview" },
+      { slug: "demo-298-prepare", title: "Подготовка приложения к релизу", formatId },
+      { slug: "demo-298-docker", title: "Разбираем Docker на реальном примере", formatId: videoFormatId, providerVideoId: "local-series-release-docker" },
+      { slug: "demo-298-secrets", title: "Что проверить перед передачей секретов", formatId: noteFormatId },
+      { slug: "demo-298-environment", title: "Настройка окружения", formatId },
+      { slug: "demo-298-deploy", title: "Первый деплой и проверка результата", formatId },
+    ].map((definition) => ({
+      ...definition,
+      title: `Demo · ${definition.title}`,
+      bodyText: "Тестовый материал серии о релизе. Демонстрирует общий порядок видео, заметок и связанных шагов инструкции.",
+      seriesIds: definition.slug === "demo-298-prepare" ? [demoStepsSeriesId, demoStepsSharedSeriesId] : [demoStepsSeriesId],
+    })),
   ] as const;
 
   const materialIds = new Map<string, string>();
@@ -419,6 +436,12 @@ async function ensureSeriesReaderScenario(
     materialIds.set(definition.slug, materialIdValue);
   }
 
+  const releaseSlugs = ["demo-298-release-overview", "demo-298-prepare", "demo-298-docker", "demo-298-secrets", "demo-298-environment", "demo-298-deploy"];
+  await ensureDevelopmentSeriesOrder(authoring, demoStepsSeriesId,
+    releaseSlugs.map((value) => requiredMaterialId(materialIds, value)),
+    Object.fromEntries(["demo-298-prepare", "demo-298-environment", "demo-298-deploy"].map((value) => [requiredMaterialId(materialIds, value), "От проекта до релиза"])),
+  );
+  await ensureDevelopmentSeriesOrder(authoring, demoStepsSharedSeriesId, [requiredMaterialId(materialIds, "demo-298-prepare")], {});
   await ensureDevelopmentSeriesOrder(authoring, demoHarnessSeriesId, [
     requiredMaterialId(materialIds, "demo-295-obshchiy-gayd"),
     requiredMaterialId(materialIds, "demo-295-finalnyy-gayd"),
@@ -434,6 +457,7 @@ async function ensureDevelopmentSeriesOrder(
   authoring: ReturnType<typeof assembleMaterials>["authoring"],
   seriesIdValue: string,
   orderedMaterialIds: readonly string[],
+  stepGroups?: Readonly<Record<string, string>>,
 ): Promise<void> {
   const current = await authoring.loadSeriesOrder({ actor, seriesId: seriesIdValue });
   if (!current.ok) {
@@ -441,7 +465,7 @@ async function ensureDevelopmentSeriesOrder(
   }
   if (
     current.value.items.map(({ materialId }) => materialId).join(",") ===
-    orderedMaterialIds.join(",")
+    orderedMaterialIds.join(",") && stepGroups === undefined
   ) {
     return;
   }
@@ -449,6 +473,7 @@ async function ensureDevelopmentSeriesOrder(
     actor,
     expectedOrderVersion: current.value.orderVersion,
     orderedMaterialIds,
+    stepGroups,
     seriesId: seriesIdValue,
   });
   if (!reordered.ok) {
@@ -827,6 +852,12 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
     },
     update: { summary: "Путь от продуктовой идеи до работающей Platform." },
   });
+  for (const data of [
+    { id: demoStepsSeriesId, slug: "demo-series-release", name: "Demo · Релиз своего проекта", summary: "Одна серия: видео, заметки и три связанных шага инструкции. Тестовые материалы для проверки интерфейса." },
+    { id: demoStepsSharedSeriesId, slug: "demo-series-release-shared", name: "Demo · Подготовка проекта", summary: "Тот же гайд в другой серии без отметки последовательности шагов." },
+  ]) {
+    await prisma.series.upsert({ where: { id: data.id }, create: data, update: {} });
+  }
   await prisma.series.upsert({
     where: { id: demoHarnessSeriesId },
     create: {

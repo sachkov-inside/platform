@@ -54,6 +54,7 @@ export class PublishedMaterialsService {
           name: string;
           slug: string;
         };
+        stepGroup?: string | null;
       }>;
       slug: string;
       summary: string;
@@ -103,6 +104,7 @@ export class PublishedMaterialsService {
           name: string;
           slug: string;
         };
+        stepGroup?: string | null;
       }>;
       slug: string;
       summary: string;

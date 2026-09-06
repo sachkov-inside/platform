@@ -46,6 +46,21 @@ describe("Series order web adapters", () => {
     });
   });
 
+  it("passes explicit step assignments and rejects malformed maps while keeping legacy omission", async () => {
+    const form = validFormData();
+    form.set("stepGroups", JSON.stringify({ [firstId]: "  Release  " }));
+    const save = vi.fn().mockResolvedValue({ body: { orderVersion, seriesId }, ok: true, response: Response.json({}) });
+    await expect(executeReorderSeries(form, "token", save)).resolves.toMatchObject({ kind: "saved" });
+    expect(save).toHaveBeenLastCalledWith({ expectedOrderVersion: orderVersion, orderedMaterialIds: [secondId, firstId], seriesId, stepGroups: { [firstId]: "Release" } }, "token");
+    form.set("stepGroups", "{}");
+    await executeReorderSeries(form, "token", save);
+    expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ stepGroups: {} }), "token");
+    save.mockClear();
+    form.set("stepGroups", JSON.stringify({ [firstId]: " " }));
+    await expect(executeReorderSeries(form, "token", save)).resolves.toEqual({ kind: "error", reference: "series-order-form" });
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it("submits one complete order and maps optimistic conflicts", async () => {
     const formData = validFormData();
     const save = vi.fn().mockResolvedValue({

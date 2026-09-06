@@ -259,3 +259,36 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
     canvasElement.ownerDocument.documentElement.scrollWidth,
   ).toBeLessThanOrEqual(storyWindow.innerWidth + 1);
 }
+
+const connectedStepsResult = {
+  ...seriesResult,
+  reference: { cover: null, name: "Релиз своего проекта", slug: "release", summary: "Видео, заметки и последовательные инструкции в одной серии." },
+  items: [
+    ["Как устроен релиз моего проекта", "Видео", null],
+    ["Подготовка приложения", "Гайд", "От проекта до релиза"],
+    ["Разбираем Docker на реальном примере", "Видео", null],
+    ["Памятка по секретам", "Заметка", null],
+    ["Настройка окружения", "Гайд", "От проекта до релиза"],
+    ["Первый деплой", "Гайд", "От проекта до релиза"],
+  ].map(([title, format, stepGroup], index) => ({
+    ...materials[0], title: title ?? "Материал", format: format ?? "Гайд", slug: `release-${String(index)}`, summary: "Материал общей серии: изучайте в предложенном порядке или возвращайтесь к нужному шагу.",
+    seriesMemberships: [{ name: "Релиз своего проекта", slug: "release", ordinal: index + 1, stepGroup: stepGroup ?? null }],
+  })),
+} satisfies LibraryDiscoveryResult;
+
+export const ConnectedStepsDesktop: Story = {
+  args: { result: connectedStepsResult },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Шаг 1 из 3")).toBeVisible();
+    await expect(canvas.getByText("Шаг 2 из 3")).toBeVisible();
+    await expect(canvas.getByText("Шаг 3 из 3")).toBeVisible();
+    await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(6);
+    await expect(canvasElement.querySelectorAll("[data-series-step]")).toHaveLength(3);
+  },
+};
+export const ConnectedStepsMobile: Story = {
+  ...ConnectedStepsDesktop,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};

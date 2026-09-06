@@ -25,7 +25,7 @@ export const publishedMaterialProjectionHttpSchema = z
     tags: z.array(z.object({ id: z.string(), name: z.string() }).strict()),
     seriesMemberships: z.array(
       z
-        .object({ ordinal: z.number().int().positive(), series: referenceSchema })
+        .object({ ordinal: z.number().int().positive(), series: referenceSchema, stepGroup: z.string().nullable().optional() })
         .strict(),
     ),
   })

@@ -3,6 +3,7 @@ import {
   type CallToolResult,
 } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
 
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 import {
@@ -319,6 +320,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
         .object({
           expectedOrderVersion: seriesOrderVersionSchema,
           orderedMaterialIds: z.array(materialIdWireSchema),
+          stepGroups: seriesStepGroupsSchema.optional(),
           seriesId: collectionIdSchema,
         })
         .strict(),
@@ -328,13 +330,14 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
         openWorldHint: false,
       },
     },
-    ({ expectedOrderVersion, orderedMaterialIds, seriesId }) =>
+    ({ expectedOrderVersion, orderedMaterialIds, seriesId, stepGroups }) =>
       toToolResult(
         dependencies.authoring.reorderSeries({
           actor: dependencies.accountId,
           expectedOrderVersion,
           orderedMaterialIds,
           seriesId,
+          stepGroups,
         }),
       ),
   );

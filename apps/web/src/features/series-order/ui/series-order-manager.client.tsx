@@ -52,7 +52,7 @@ export function SeriesOrderManager({
 }) {
   const [items, setItems] = useState(presentation.items);
   const [baseline, setBaseline] = useState(() => ({
-    ids: presentation.items.map(({ materialId }) => materialId),
+    entries: compositionEntries(presentation.items),
     orderVersion: presentation.orderVersion,
   }));
   const mutation = useMutation({
@@ -60,7 +60,7 @@ export function SeriesOrderManager({
     onSuccess: (next, submitted) => {
       if (next.kind !== "saved") return;
       setBaseline({
-        ids: [...submitted.orderedMaterialIds],
+        entries: submitted.orderedMaterialIds.map((id) => [id, submitted.stepGroups?.[id] ?? null]),
         orderVersion: next.orderVersion,
       });
     },
@@ -70,11 +70,11 @@ export function SeriesOrderManager({
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDialogElement>(null);
   const dirty =
-    items.length !== baseline.ids.length ||
-    items.some(({ materialId }, index) => materialId !== baseline.ids[index]);
+    JSON.stringify(compositionEntries(items)) !== JSON.stringify(baseline.entries);
   const expectedOrderVersion = baseline.orderVersion;
   const canSave =
     dirty &&
+    items.every(({ stepGroup }) => (stepGroup?.trim().length ?? 0) <= 120) &&
     !pending &&
     result?.kind !== "conflict" &&
     result?.kind !== "unauthorized";
@@ -122,7 +122,7 @@ export function SeriesOrderManager({
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                 Перемещайте материалы кнопками. Изменения появятся в публичном
-                серии после сохранения.
+                списке серии после сохранения. Свяжите шаги одинаковым названием последовательности; общий порядок остаётся единым.
               </p>
             </div>
           </div>
@@ -210,6 +210,7 @@ export function SeriesOrderManager({
             mutation.mutate({
               expectedOrderVersion,
               orderedMaterialIds,
+              stepGroups: Object.fromEntries(items.flatMap(({ materialId, stepGroup }) => stepGroup?.trim() ? [[materialId, stepGroup.trim()]] : [])),
               seriesId: presentation.seriesId,
             });
           }}
@@ -248,6 +249,21 @@ export function SeriesOrderManager({
                     >
                       {stateLabel(item.publicationState)}
                     </span>
+                    <label className="mt-3 block text-xs text-muted-foreground">
+                      Последовательность шагов
+                      <input
+                        className="mt-1 block min-h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-ring"
+                        disabled={pending}
+                        maxLength={120}
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
+                          mutation.reset();
+                          setItems((current) => current.map((entry) => entry.materialId === item.materialId ? { ...entry, stepGroup: value } : entry));
+                        }}
+                        placeholder="Без последовательности"
+                        value={item.stepGroup ?? ""}
+                      />
+                    </label>
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <Button
@@ -603,4 +619,8 @@ function stateClassName(
   return state === "published"
     ? "bg-secondary text-foreground"
     : "bg-muted text-muted-foreground";
+}
+
+function compositionEntries(items: readonly SeriesOrderItemPresentation[]): readonly (readonly [string, string | null])[] {
+  return items.map(({ materialId, stepGroup }) => [materialId, stepGroup?.trim() ? stepGroup.trim() : null]);
 }

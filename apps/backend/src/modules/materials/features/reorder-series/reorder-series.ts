@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
 
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import {
@@ -25,6 +26,7 @@ const commandSchema = z
     actor: accountId,
     expectedOrderVersion: z.string().regex(/^[a-f0-9]{64}$/u),
     orderedMaterialIds: z.array(entityId),
+    stepGroups: seriesStepGroupsSchema.optional(),
     seriesId: entityId,
   })
   .strict()
@@ -32,6 +34,10 @@ const commandSchema = z
     ({ orderedMaterialIds }) =>
       new Set(orderedMaterialIds).size === orderedMaterialIds.length,
     { path: ["orderedMaterialIds"], message: "Material IDs must be unique" },
+  )
+  .refine(
+    ({ orderedMaterialIds, stepGroups }) => Object.keys(stepGroups ?? {}).every((id) => orderedMaterialIds.includes(id)),
+    { path: ["stepGroups"], message: "Step groups must reference composition members" },
   );
 
 export function assembleReorderSeries(
@@ -66,8 +72,11 @@ export function assembleReorderSeries(
           return rollback({ code: "series_not_found" });
         }
         const currentIds = snapshot.items.map(({ materialId }) => materialId);
-        const currentOrderVersion = seriesOrderVersion(currentIds);
-        if (sameOrder(currentIds, command.orderedMaterialIds)) {
+        const currentGroups = Object.fromEntries(snapshot.items.flatMap(({ materialId, stepGroup }) => stepGroup === null ? [] : [[materialId, stepGroup]]));
+        const nextGroups = command.stepGroups ?? Object.fromEntries(command.orderedMaterialIds.flatMap((id) => currentGroups[id] === undefined ? [] : [[id, currentGroups[id]]]));
+        const currentOrderVersion = seriesOrderVersion(currentIds, currentGroups);
+        const nextOrderVersion = seriesOrderVersion(command.orderedMaterialIds, nextGroups);
+        if (currentOrderVersion === nextOrderVersion) {
           return { seriesId: command.seriesId, orderVersion: currentOrderVersion };
         }
         if (currentOrderVersion !== command.expectedOrderVersion) {
@@ -116,20 +125,14 @@ export function assembleReorderSeries(
           transaction,
           command.seriesId,
           command.orderedMaterialIds,
+          nextGroups,
         );
         return {
           seriesId: command.seriesId,
-          orderVersion: seriesOrderVersion(command.orderedMaterialIds),
+          orderVersion: nextOrderVersion,
         };
       },
       mapPostgresReadError,
     );
   };
-}
-
-function sameOrder(left: readonly string[], right: readonly string[]): boolean {
-  return (
-    left.length === right.length &&
-    left.every((value, index) => value === right[index])
-  );
 }
