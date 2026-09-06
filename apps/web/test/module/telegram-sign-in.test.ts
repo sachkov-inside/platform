@@ -113,6 +113,10 @@ it("keeps keyboard focus and control geometry across polls, reconnects, and retu
   const stoppedAt = requests;
   await page.clock.runFor(5000);
   expect(requests).toBe(stoppedAt);
+  // The visual fixture has no Logto interaction; assert the return destination without starting auth.
+  await page.route(`${origin}/sign-in`, async (route) => {
+    await route.fulfill({ contentType: "text/html", body: "<h1>Sign-in fixture</h1>" });
+  });
   await page.keyboard.press("Enter");
   await page.waitForURL(`${origin}/sign-in`);
   await page.close();
@@ -142,6 +146,10 @@ it("offers a keyboard-accessible return during persistent connection failure, in
   expect(await page.locator("#alternative").getAttribute("href")).toBe("/sign-in");
   await page.keyboard.press("Tab");
   expect(await page.locator("#alternative").evaluate((element) => element === document.activeElement)).toBe(true);
+  // The visual fixture has no Logto interaction; assert the return destination without starting auth.
+  await page.route(`${origin}/sign-in`, async (route) => {
+    await route.fulfill({ contentType: "text/html", body: "<h1>Sign-in fixture</h1>" });
+  });
   await page.keyboard.press("Enter");
   await page.waitForURL(`${origin}/sign-in`);
   await page.close();
