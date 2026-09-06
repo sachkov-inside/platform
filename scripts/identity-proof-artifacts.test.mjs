@@ -34,7 +34,7 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   assert.equal(versions.logto.version, "1.41.0");
   assert.match(versions.logto.digest, /^sha256:[0-9a-f]{64}$/u);
   assert.equal(versions.logto.upstreamRevision.length, 40);
-  assert.equal(versions.logto.forkRevision, "inside.2");
+  assert.equal(versions.logto.forkRevision, "inside.3");
   assert.match(dockerfile, new RegExp(versions.logto.digest, "u"));
   assert.match(dockerfile, new RegExp(versions.logto.upstreamRevision, "u"));
   assert.match(dockerfile, new RegExp(versions.logto.forkRevision, "u"));
@@ -477,3 +477,26 @@ function managementApiFake(state) {
     throw new Error(`Unhandled fake Management API call: ${method} ${path}`);
   };
 }
+
+test("disabling an existing Telegram connector preserves its identity for in-flight token claims", async () => {
+  const { ensureTelegramConnector } = await import("./identity-proof-bootstrap.mjs");
+  const requests = [];
+  const id = await ensureTelegramConnector(async (path, options) => {
+    requests.push({ path, options });
+    return options ? {} : [{ id: "telegram-id", connectorId: "inside-telegram", config: { enabled: true, providerUrl: "http://provider" } }];
+  });
+  assert.equal(id, "telegram-id");
+  assert.equal(requests[1].options.body.config.enabled, false);
+});
+
+test("Telegram establishment claims require the exact fresh social verification and never appear on refresh", async () => {
+  const source = (await readFile(new URL("custom-access-token.js", proofRoot), "utf8")).replace("__INSIDE_TELEGRAM_CONNECTOR_ID__", "telegram-id");
+  const claims = Function(`"use strict"; ${source}; return getCustomJwtClaims;`)();
+  const proof = { subjectRef: "31000000-0000-4000-8000-000000000001", requestRef: "31000000-0000-4000-8000-000000000002" };
+  const record = { type: "Social", connectorId: "telegram-id", socialUserInfo: { id: proof.subjectRef, rawData: { requestRef: proof.requestRef } } };
+  const context = { user: { identities: { "inside-telegram": { userId: proof.subjectRef } } }, interaction: { verificationRecords: [record] } };
+  assert.deepEqual(await claims({ token: { gty: "authorization_code" }, context }), { inside_telegram_sign_in: proof });
+  assert.deepEqual(await claims({ token: { gty: "refresh_token" }, context }), {});
+  assert.deepEqual(await claims({ token: { gty: "authorization_code" }, context: { ...context, interaction: { verificationRecords: [{ ...record, connectorId: "untrusted" }] } } }), {});
+  assert.deepEqual(await claims({ token: { gty: "authorization_code" }, context: { ...context, user: {} } }), {});
+});

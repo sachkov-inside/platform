@@ -6,9 +6,10 @@ interface LogtoIdentityKey {
   readonly [verifiedLogtoIdentity]: true;
 }
 
-export interface VerifiedAccountSignIn extends LogtoIdentityKey {
+interface VerifiedEmailAccountSignIn extends LogtoIdentityKey {
   readonly type: "account_sign_in";
   readonly verifiedEmail: string;
+  readonly telegram?: never;
 }
 
 export interface VerifiedAccountIdentity extends LogtoIdentityKey {
@@ -43,4 +44,22 @@ export function verifiedAccountIdentity(value: {
     type: "account_identity" as const,
     [verifiedLogtoIdentity]: true as const,
   });
+}
+
+export interface VerifiedTelegramAccountSignIn extends LogtoIdentityKey {
+  readonly type: "account_sign_in";
+  readonly verifiedEmail?: never;
+  readonly telegram: { readonly subjectRef: string; readonly requestRef: string };
+}
+export type VerifiedAccountSignIn = VerifiedEmailAccountSignIn | VerifiedTelegramAccountSignIn;
+
+export function verifiedTelegramAccountSignIn(value: {
+  readonly issuer: string;
+  readonly subject: string;
+  readonly telegram: { readonly subjectRef: string; readonly requestRef: string };
+}): { readonly identity: VerifiedAccountSignIn; readonly accountIdentity: VerifiedAccountIdentity } {
+  return {
+    identity: Object.freeze({ ...value, type: "account_sign_in" as const, [verifiedLogtoIdentity]: true as const }),
+    accountIdentity: verifiedAccountIdentity(value),
+  };
 }

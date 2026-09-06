@@ -7,6 +7,7 @@ import type {
 import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-locks.js";
 import { appendAccountAuditEvent } from "../../infrastructure/postgres/account-audit.js";
 import { fingerprintEmail, validLogtoIdentity } from "../../shared/account-input.js";
+import { establishTelegramAccount } from "../establish-telegram-account/establish-telegram-account.js";
 import { internalFailure } from "../../shared/internal-failure.js";
 
 export async function establishAccount(
@@ -14,6 +15,9 @@ export async function establishAccount(
   emailFingerprintKey: string,
   command: { readonly identity: VerifiedAccountSignIn },
 ): Promise<EstablishAccountResult> {
+  if (command.identity.telegram !== undefined) {
+    return establishTelegramAccount(prisma, command.identity);
+  }
   const emailFingerprint = fingerprintEmail(
     command.identity.verifiedEmail,
     emailFingerprintKey,

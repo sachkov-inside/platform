@@ -51,7 +51,8 @@
     "infra:down": "docker compose down",
     "smoke:health": "pnpm --filter @inside/backend smoke:health",
     "smoke:fullstack": "node scripts/full-stack-smoke.mjs",
-    "check:full": "pnpm check && pnpm test:integration && pnpm smoke:fullstack"
+    "check:full": "pnpm check && pnpm test:integration && pnpm smoke:fullstack",
+    "telegram:local:dev": "node scripts/telegram-sign-in-local.mjs"
   },
   "dependencies": {
     "zod": "4.4.3"

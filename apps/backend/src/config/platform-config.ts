@@ -57,6 +57,9 @@ const apiPortSchema = integerStringSchema(
 );
 const identitySchema = z
   .object({
+    telegramSignInEnabled: z.boolean().default(false),
+    telegramSignInProviderUrl: httpUrlSchema("TELEGRAM_SIGN_IN_PROVIDER_URL").default("http://127.0.0.1:3606"),
+    telegramSignInIntegrationSecret: z.string().min(32).optional(),
     issuer: httpUrlSchema("LOGTO_ISSUER").refine(
       (value) => new URL(value).protocol === "https:",
       { message: "LOGTO_ISSUER must use HTTPS" },
@@ -317,6 +320,9 @@ export function parsePlatformConfig(
       ),
     },
     identity: {
+      telegramSignInProviderUrl: environment.TELEGRAM_SIGN_IN_PROVIDER_URL,
+      telegramSignInIntegrationSecret: environment.TELEGRAM_SIGN_IN_INTEGRATION_SECRET,
+      telegramSignInEnabled: z.enum(["true", "false"]).default("false").parse(environment.TELEGRAM_SIGN_IN_ENABLED) === "true",
       issuer: readRuntimeValue(
         environment,
         "LOGTO_ISSUER",
@@ -514,6 +520,15 @@ export function parsePlatformConfig(
     throw new Error("TELEGRAM_LINKING_ENDPOINT is invalid");
   }
 
+  if (config.data.identity.telegramSignInEnabled) {
+    if (!config.data.identity.telegramSignInIntegrationSecret || !environment.TELEGRAM_SIGN_IN_PROVIDER_URL) {
+      throw new Error("Telegram sign-in requires TELEGRAM_SIGN_IN_PROVIDER_URL and TELEGRAM_SIGN_IN_INTEGRATION_SECRET");
+    }
+    const providerUrl = new URL(config.data.identity.telegramSignInProviderUrl);
+    if ((mode === "production" && providerUrl.protocol !== "https:") || providerUrl.username || providerUrl.password || providerUrl.search || providerUrl.hash) {
+      throw new Error("TELEGRAM_SIGN_IN_PROVIDER_URL is invalid");
+    }
+  }
   return config.data;
 }
 

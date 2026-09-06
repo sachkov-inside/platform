@@ -1,0 +1,93 @@
+--- a/packages/core/src/routes/init.ts
++++ b/packages/core/src/routes/init.ts
+@@ -37,6 +37,7 @@
+ import experienceApiRoutes from './experience/index.js';
+ import hookRoutes from './hook.js';
+ import interactionRoutes from './interaction/index.js';
++import insideTelegramRoutes from './inside-telegram.js';
+ import logRoutes from './log.js';
+ import logtoConfigRoutes from './logto-config/index.js';
+ import oneTimeTokenRoutes from './one-time-tokens.js';
+@@ -132,6 +133,7 @@
+   // General anonymous APIs - publicly accessible
+   wellKnownRoutes(anonymousRouter, tenant);
+   statusRoutes(anonymousRouter, tenant);
++  insideTelegramRoutes(anonymousRouter, tenant);
+   authnRoutes(anonymousRouter, tenant);
+   samlApplicationAnonymousRoutes(anonymousRouter, tenant);
+ 
+--- a/packages/core/src/queries/user.ts
++++ b/packages/core/src/queries/user.ts
+@@ -1,4 +1,5 @@
+ /* eslint-disable max-lines */
++
+ import type { User, CreateUser } from '@logto/schemas';
+ import { MfaFactor, Users } from '@logto/schemas';
+ import { PhoneNumberParser } from '@logto/shared';
+@@ -503,7 +504,20 @@
+       group by date(${fields.createdAt})
+     `);
+ 
++  const attachInsideTelegramIdentity = async (userId: string, subjectRef: string) =>
++    pool.maybeOne<User>(sql`
++      update ${table}
++      set ${fields.identities} = ${fields.identities} || ${sql.jsonb({
++        'inside-telegram': { userId: subjectRef, details: { id: subjectRef } },
++      })}
++      where ${fields.id} = ${userId}
++        and (${fields.identities}->'inside-telegram' is null
++          or ${fields.identities}->'inside-telegram'->>'userId' = ${subjectRef})
++      returning *
++    `);
++
+   return {
++    attachInsideTelegramIdentity,
+     findUserByUsername,
+     findUserByEmail,
+     findUserByPhone,
+@@ -531,4 +545,4 @@
+     getDailyNewUserCountsByTimeInterval,
+   };
+ };
+-/* eslint-enable max-lines */
++
+--- a/packages/core/src/routes/experience/classes/verifications/social-verification.ts
++++ b/packages/core/src/routes/experience/classes/verifications/social-verification.ts
+@@ -1,4 +1,6 @@
+ /* eslint-disable max-lines */
++
++import { z } from 'zod';
+ import {
+   type ConnectorSession,
+   type SocialUserInfo,
+@@ -334,6 +336,24 @@
+ 
+     const user = await findUserByIdentity(target, this.socialUserInfo.id);
+ 
++    if (target === 'inside-telegram' && this.socialUserInfo.rawData) {
++      const data = z.object({ existingLink: z.object({ accountRef: z.string().uuid(), telegramIdentityRef: z.string().uuid() }).nullable() }).parse(this.socialUserInfo.rawData);
++      if (data.existingLink) {
++        const connector = await this.getConnectorData();
++        const config = z.object({ enabled: z.literal(true), platformUrl: z.string().url(), issuer: z.string().url(), integrationSecret: z.string().min(32) }).parse(connector.dbEntry.config);
++        const response = await fetch(`${config.platformUrl}/integrations/telegram/v1/sign-in/linked-identity`, {
++          method: 'POST', redirect: 'error', signal: AbortSignal.timeout(5000),
++          headers: { authorization: `Bearer ${config.integrationSecret}`, 'content-type': 'application/json' },
++          body: JSON.stringify({ ...data.existingLink, subjectRef: this.socialUserInfo.id }),
++        });
++        assertThat(response.ok, new RequestError({ code: 'user.identity_already_in_use', status: 409 }));
++        const identity = z.object({ issuer: z.literal(config.issuer), subject: z.string().min(1) }).parse(await response.json());
++        assertThat(!user || user.id === identity.subject, 'user.identity_already_in_use');
++        const linked = await this.queries.users.attachInsideTelegramIdentity(identity.subject, this.socialUserInfo.id);
++        assertThat(linked, 'user.identity_already_in_use');
++        return linked;
++      }
++    }
+     return user ?? undefined;
+   }
+ 
+@@ -466,4 +486,4 @@
+     );
+   }
+ }
+-/* eslint-enable max-lines */
++

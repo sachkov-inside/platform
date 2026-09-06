@@ -1,5 +1,5 @@
 import LogtoClient from "@logto/next/server-actions";
-import { NextResponse } from "next/server";
+import { authNavigationResponse } from "@/shared/auth/auth-navigation-response.server";
 
 import {
   isSameOriginMutation,
@@ -39,8 +39,8 @@ async function readReturnTo(request: Request): Promise<FormDataEntryValue | unde
   return (await request.formData()).get("returnTo") ?? undefined;
 }
 
-function redirect(url: string): NextResponse {
-  return NextResponse.redirect(url, { status: 303, headers: privateHeaders() });
+function redirect(url: string): Response {
+  return authNavigationResponse(url);
 }
 
 function privateHeaders(): HeadersInit {

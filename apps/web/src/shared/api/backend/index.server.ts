@@ -1,6 +1,7 @@
 export {
   BackendConnectionError,
   establishAccount,
+  completeTelegramAccountSignIn,
   getBackendHealth,
   getBackendReadiness,
   readBackendBaseUrl,

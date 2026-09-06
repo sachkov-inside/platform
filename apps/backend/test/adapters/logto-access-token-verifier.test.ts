@@ -29,6 +29,18 @@ describe("Logto access token verifier", () => {
     };
   });
 
+  test("Telegram proof is explicit, feature-gated, and does not disable already-issued access tokens", async () => {
+    const telegram = { subjectRef: "29900000-0000-4000-8000-000000000001", requestRef: "29900000-0000-4000-8000-000000000002" };
+    const token = await signToken({ inside_telegram_sign_in: telegram }, { insideVerifiedEmail: undefined });
+    await expect(localVerifier(publicJwk).verifyAccountSignIn(token)).resolves.toMatchObject({ ok: false });
+    await expect(localVerifier(publicJwk).verifyAccount(token)).resolves.toMatchObject({ ok: true });
+    const enabled = createLogtoAccessTokenVerifier({ issuer, audience, jwks: { keys: [publicJwk] }, telegramSignInEnabled: true });
+    await expect(enabled.verifyAccountSignIn(token)).resolves.toMatchObject({ ok: true, identity: { telegram } });
+    for (const malformed of [null, {}, { ...telegram, subjectRef: "username" }, { ...telegram, admin: true }]) {
+      await expect(enabled.verifyAccountSignIn(await signToken({ inside_telegram_sign_in: malformed }))).resolves.toMatchObject({ ok: false });
+    }
+  });
+
   test("normalizes a verified human sign-in and discards provider authorization", async () => {
     const token = await signToken({
       inside_verified_email: "Member@Example.Test",

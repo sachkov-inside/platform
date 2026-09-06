@@ -4,6 +4,19 @@ const getCustomJwtClaims = async ({ token, context }) => {
     return {};
   }
 
+  const telegramVerification = context.interaction?.verificationRecords?.find(
+    (record) => record.type === 'Social' &&
+      record.connectorId === '__INSIDE_TELEGRAM_CONNECTOR_ID__' &&
+      record.socialUserInfo?.id === context.user?.identities?.['inside-telegram']?.userId &&
+      typeof record.socialUserInfo?.rawData?.requestRef === 'string'
+  );
+  if (telegramVerification) {
+    return { inside_telegram_sign_in: {
+      subjectRef: telegramVerification.socialUserInfo.id,
+      requestRef: telegramVerification.socialUserInfo.rawData.requestRef,
+    } };
+  }
+
   const emailVerification = context.interaction?.verificationRecords?.find(
     (record) =>
       record.type === 'EmailVerificationCode' &&
