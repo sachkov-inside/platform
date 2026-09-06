@@ -42,7 +42,16 @@ const contentFields = z.object({
       })),
   ),
   buttons: z
-    .array(z.object({ text: z.string().min(1).max(64), url: httpsUrl }))
+    .array(
+      z.object({
+        text: z.string().min(1).max(64),
+        url: httpsUrl,
+        row: z.number().int().min(0).max(19).optional(),
+      }).transform(({ row, ...button }) => ({
+        ...button,
+        ...(row === undefined ? {} : { row }),
+      })),
+    )
     .max(20),
 });
 export const contentSchema = z.discriminatedUnion("type", [

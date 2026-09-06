@@ -18,6 +18,7 @@ export const entitySchema = z.strictObject({
 export const buttonSchema = z.strictObject({
   "text": z.string().min(1).max(64),
   "url": z.url().max(2048).regex(new RegExp("^https://")),
+  "row": z.number().int().min(0).max(19).optional(),
 });
 
 export const contentSchema = z.union([z.strictObject({
@@ -375,6 +376,16 @@ z.strictObject({
   "cursor": z.string().min(1).max(128).optional(),
   "contactId": z.guid(),
 }),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "operation": z.literal("templates.list"),
+  "operationId": z.guid(),
+  "actor": actorSchema,
+  "expectedRevision": z.number().int().min(0).max(2147483647),
+  "payload": z.strictObject({
+  "cursor": z.string().min(1).max(128).optional(),
+}),
 })
 ]);
 
@@ -616,5 +627,11 @@ z.strictObject({
   "status": z.literal("ok"),
   "nextCursor": z.union([z.string().max(128), z.null()]),
   "entries": z.array(sourceEntrySchema).min(0).max(100),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "status": z.literal("ok"),
+  "nextCursor": z.union([z.string().max(128), z.null()]),
+  "templates": z.array(templateSchema).min(0).max(100),
 })
 ]);

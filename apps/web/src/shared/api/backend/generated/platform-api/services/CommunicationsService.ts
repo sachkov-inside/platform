@@ -30,6 +30,7 @@ export class CommunicationsService {
       payload: {
         content: ({
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -44,6 +45,7 @@ export class CommunicationsService {
           type: 'text';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -59,6 +61,7 @@ export class CommunicationsService {
           type: 'photo';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -74,6 +77,7 @@ export class CommunicationsService {
           type: 'video';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -89,6 +93,7 @@ export class CommunicationsService {
           type: 'video_note';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -104,6 +109,7 @@ export class CommunicationsService {
           type: 'voice';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -146,6 +152,7 @@ export class CommunicationsService {
           parts: Array<{
             content: ({
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -160,6 +167,7 @@ export class CommunicationsService {
               type: 'text';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -175,6 +183,7 @@ export class CommunicationsService {
               type: 'photo';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -190,6 +199,7 @@ export class CommunicationsService {
               type: 'video';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -205,6 +215,7 @@ export class CommunicationsService {
               type: 'video_note';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -220,6 +231,7 @@ export class CommunicationsService {
               type: 'voice';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -251,6 +263,7 @@ export class CommunicationsService {
           parts: Array<{
             content: ({
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -265,6 +278,7 @@ export class CommunicationsService {
               type: 'text';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -280,6 +294,7 @@ export class CommunicationsService {
               type: 'photo';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -295,6 +310,7 @@ export class CommunicationsService {
               type: 'video';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -310,6 +326,7 @@ export class CommunicationsService {
               type: 'video_note';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -325,6 +342,7 @@ export class CommunicationsService {
               type: 'voice';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -402,6 +420,7 @@ export class CommunicationsService {
         parts: Array<{
           content: ({
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -416,6 +435,7 @@ export class CommunicationsService {
             type: 'text';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -431,6 +451,7 @@ export class CommunicationsService {
             type: 'photo';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -446,6 +467,7 @@ export class CommunicationsService {
             type: 'video';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -461,6 +483,7 @@ export class CommunicationsService {
             type: 'video_note';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -476,6 +499,7 @@ export class CommunicationsService {
             type: 'voice';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -556,6 +580,7 @@ export class CommunicationsService {
         parts: Array<{
           content: ({
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -570,6 +595,7 @@ export class CommunicationsService {
             type: 'text';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -585,6 +611,7 @@ export class CommunicationsService {
             type: 'photo';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -600,6 +627,7 @@ export class CommunicationsService {
             type: 'video';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -615,6 +643,7 @@ export class CommunicationsService {
             type: 'video_note';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -630,6 +659,7 @@ export class CommunicationsService {
             type: 'voice';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -675,6 +705,14 @@ export class CommunicationsService {
         contactId: string;
         cursor?: string;
       };
+    } | {
+      contractVersion: 'inside-communications-v1';
+      expectedRevision: number;
+      operation: 'templates.list';
+      operationId: string;
+      payload: {
+        cursor?: string;
+      };
     }),
   }): CancelablePromise<{
     botStartUrl?: string;
@@ -698,6 +736,7 @@ export class CommunicationsService {
         botIdentity: string;
         content: ({
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -712,6 +751,7 @@ export class CommunicationsService {
           type: 'text';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -727,6 +767,7 @@ export class CommunicationsService {
           type: 'photo';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -742,6 +783,7 @@ export class CommunicationsService {
           type: 'video';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -757,6 +799,7 @@ export class CommunicationsService {
           type: 'video_note';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -772,6 +815,7 @@ export class CommunicationsService {
           type: 'voice';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -796,6 +840,7 @@ export class CommunicationsService {
           parts: Array<{
             content: ({
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -810,6 +855,7 @@ export class CommunicationsService {
               type: 'text';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -825,6 +871,7 @@ export class CommunicationsService {
               type: 'photo';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -840,6 +887,7 @@ export class CommunicationsService {
               type: 'video';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -855,6 +903,7 @@ export class CommunicationsService {
               type: 'video_note';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -870,6 +919,7 @@ export class CommunicationsService {
               type: 'voice';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -904,6 +954,7 @@ export class CommunicationsService {
           parts: Array<{
             content: ({
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -918,6 +969,7 @@ export class CommunicationsService {
               type: 'text';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -933,6 +985,7 @@ export class CommunicationsService {
               type: 'photo';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -948,6 +1001,7 @@ export class CommunicationsService {
               type: 'video';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -963,6 +1017,7 @@ export class CommunicationsService {
               type: 'video_note';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -978,6 +1033,7 @@ export class CommunicationsService {
               type: 'voice';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1005,6 +1061,7 @@ export class CommunicationsService {
           parts: Array<{
             content: ({
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1019,6 +1076,7 @@ export class CommunicationsService {
               type: 'text';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1034,6 +1092,7 @@ export class CommunicationsService {
               type: 'photo';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1049,6 +1108,7 @@ export class CommunicationsService {
               type: 'video';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1064,6 +1124,7 @@ export class CommunicationsService {
               type: 'video_note';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1079,6 +1140,7 @@ export class CommunicationsService {
               type: 'voice';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1113,6 +1175,7 @@ export class CommunicationsService {
           parts: Array<{
             content: ({
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1127,6 +1190,7 @@ export class CommunicationsService {
               type: 'text';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1142,6 +1206,7 @@ export class CommunicationsService {
               type: 'photo';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1157,6 +1222,7 @@ export class CommunicationsService {
               type: 'video';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1172,6 +1238,7 @@ export class CommunicationsService {
               type: 'video_note';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1187,6 +1254,7 @@ export class CommunicationsService {
               type: 'voice';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1241,6 +1309,7 @@ export class CommunicationsService {
         parts: Array<{
           content: ({
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1255,6 +1324,7 @@ export class CommunicationsService {
             type: 'text';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1270,6 +1340,7 @@ export class CommunicationsService {
             type: 'photo';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1285,6 +1356,7 @@ export class CommunicationsService {
             type: 'video';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1300,6 +1372,7 @@ export class CommunicationsService {
             type: 'video_note';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1315,6 +1388,7 @@ export class CommunicationsService {
             type: 'voice';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1414,6 +1488,7 @@ export class CommunicationsService {
         parts: Array<{
           content: ({
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1428,6 +1503,7 @@ export class CommunicationsService {
             type: 'text';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1443,6 +1519,7 @@ export class CommunicationsService {
             type: 'photo';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1458,6 +1535,7 @@ export class CommunicationsService {
             type: 'video';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1473,6 +1551,7 @@ export class CommunicationsService {
             type: 'video_note';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1488,6 +1567,7 @@ export class CommunicationsService {
             type: 'voice';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1533,6 +1613,7 @@ export class CommunicationsService {
         snapshot: Array<{
           content: ({
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1547,6 +1628,7 @@ export class CommunicationsService {
             type: 'text';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1562,6 +1644,7 @@ export class CommunicationsService {
             type: 'photo';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1577,6 +1660,7 @@ export class CommunicationsService {
             type: 'video';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1592,6 +1676,7 @@ export class CommunicationsService {
             type: 'video_note';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1607,6 +1692,7 @@ export class CommunicationsService {
             type: 'voice';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1640,6 +1726,7 @@ export class CommunicationsService {
         parts: Array<{
           content: ({
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1654,6 +1741,7 @@ export class CommunicationsService {
             type: 'text';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1669,6 +1757,7 @@ export class CommunicationsService {
             type: 'photo';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1684,6 +1773,7 @@ export class CommunicationsService {
             type: 'video';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1699,6 +1789,7 @@ export class CommunicationsService {
             type: 'video_note';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1714,6 +1805,7 @@ export class CommunicationsService {
             type: 'voice';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -1749,6 +1841,111 @@ export class CommunicationsService {
       }>;
       nextCursor: (string | string | null);
       status: 'ok';
+    } | {
+      contractVersion: 'inside-communications-v1';
+      nextCursor: (string | string | null);
+      status: 'ok';
+      templates: Array<{
+        botIdentity: string;
+        content: ({
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          text: string;
+          type: 'text';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'photo';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'video';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'video_note';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'voice';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'document';
+        });
+        revision: number;
+        templateId: string;
+      }>;
     });
   }> {
     return this.httpRequest.request({
@@ -1792,6 +1989,7 @@ export class CommunicationsService {
         botIdentity: string;
         content: ({
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -1806,6 +2004,7 @@ export class CommunicationsService {
           type: 'text';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -1821,6 +2020,7 @@ export class CommunicationsService {
           type: 'photo';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -1836,6 +2036,7 @@ export class CommunicationsService {
           type: 'video';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -1851,6 +2052,7 @@ export class CommunicationsService {
           type: 'video_note';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -1866,6 +2068,7 @@ export class CommunicationsService {
           type: 'voice';
         } | {
           buttons: Array<{
+            row?: number;
             text: string;
             url: string;
           }>;
@@ -1890,6 +2093,7 @@ export class CommunicationsService {
           parts: Array<{
             content: ({
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1904,6 +2108,7 @@ export class CommunicationsService {
               type: 'text';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1919,6 +2124,7 @@ export class CommunicationsService {
               type: 'photo';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1934,6 +2140,7 @@ export class CommunicationsService {
               type: 'video';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1949,6 +2156,7 @@ export class CommunicationsService {
               type: 'video_note';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1964,6 +2172,7 @@ export class CommunicationsService {
               type: 'voice';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -1998,6 +2207,7 @@ export class CommunicationsService {
           parts: Array<{
             content: ({
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2012,6 +2222,7 @@ export class CommunicationsService {
               type: 'text';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2027,6 +2238,7 @@ export class CommunicationsService {
               type: 'photo';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2042,6 +2254,7 @@ export class CommunicationsService {
               type: 'video';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2057,6 +2270,7 @@ export class CommunicationsService {
               type: 'video_note';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2072,6 +2286,7 @@ export class CommunicationsService {
               type: 'voice';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2099,6 +2314,7 @@ export class CommunicationsService {
           parts: Array<{
             content: ({
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2113,6 +2329,7 @@ export class CommunicationsService {
               type: 'text';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2128,6 +2345,7 @@ export class CommunicationsService {
               type: 'photo';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2143,6 +2361,7 @@ export class CommunicationsService {
               type: 'video';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2158,6 +2377,7 @@ export class CommunicationsService {
               type: 'video_note';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2173,6 +2393,7 @@ export class CommunicationsService {
               type: 'voice';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2207,6 +2428,7 @@ export class CommunicationsService {
           parts: Array<{
             content: ({
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2221,6 +2443,7 @@ export class CommunicationsService {
               type: 'text';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2236,6 +2459,7 @@ export class CommunicationsService {
               type: 'photo';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2251,6 +2475,7 @@ export class CommunicationsService {
               type: 'video';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2266,6 +2491,7 @@ export class CommunicationsService {
               type: 'video_note';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2281,6 +2507,7 @@ export class CommunicationsService {
               type: 'voice';
             } | {
               buttons: Array<{
+                row?: number;
                 text: string;
                 url: string;
               }>;
@@ -2335,6 +2562,7 @@ export class CommunicationsService {
         parts: Array<{
           content: ({
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2349,6 +2577,7 @@ export class CommunicationsService {
             type: 'text';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2364,6 +2593,7 @@ export class CommunicationsService {
             type: 'photo';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2379,6 +2609,7 @@ export class CommunicationsService {
             type: 'video';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2394,6 +2625,7 @@ export class CommunicationsService {
             type: 'video_note';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2409,6 +2641,7 @@ export class CommunicationsService {
             type: 'voice';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2508,6 +2741,7 @@ export class CommunicationsService {
         parts: Array<{
           content: ({
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2522,6 +2756,7 @@ export class CommunicationsService {
             type: 'text';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2537,6 +2772,7 @@ export class CommunicationsService {
             type: 'photo';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2552,6 +2788,7 @@ export class CommunicationsService {
             type: 'video';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2567,6 +2804,7 @@ export class CommunicationsService {
             type: 'video_note';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2582,6 +2820,7 @@ export class CommunicationsService {
             type: 'voice';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2627,6 +2866,7 @@ export class CommunicationsService {
         snapshot: Array<{
           content: ({
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2641,6 +2881,7 @@ export class CommunicationsService {
             type: 'text';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2656,6 +2897,7 @@ export class CommunicationsService {
             type: 'photo';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2671,6 +2913,7 @@ export class CommunicationsService {
             type: 'video';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2686,6 +2929,7 @@ export class CommunicationsService {
             type: 'video_note';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2701,6 +2945,7 @@ export class CommunicationsService {
             type: 'voice';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2734,6 +2979,7 @@ export class CommunicationsService {
         parts: Array<{
           content: ({
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2748,6 +2994,7 @@ export class CommunicationsService {
             type: 'text';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2763,6 +3010,7 @@ export class CommunicationsService {
             type: 'photo';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2778,6 +3026,7 @@ export class CommunicationsService {
             type: 'video';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2793,6 +3042,7 @@ export class CommunicationsService {
             type: 'video_note';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2808,6 +3058,7 @@ export class CommunicationsService {
             type: 'voice';
           } | {
             buttons: Array<{
+              row?: number;
               text: string;
               url: string;
             }>;
@@ -2843,6 +3094,111 @@ export class CommunicationsService {
       }>;
       nextCursor: (string | string | null);
       status: 'ok';
+    } | {
+      contractVersion: 'inside-communications-v1';
+      nextCursor: (string | string | null);
+      status: 'ok';
+      templates: Array<{
+        botIdentity: string;
+        content: ({
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          text: string;
+          type: 'text';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'photo';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'video';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'video_note';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'voice';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'document';
+        });
+        revision: number;
+        templateId: string;
+      }>;
     });
   }> {
     return this.httpRequest.request({

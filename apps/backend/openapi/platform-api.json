@@ -19928,6 +19928,11 @@
                                     "items": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "row": {
+                                          "maximum": 19,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
                                         "text": {
                                           "maxLength": 64,
                                           "minLength": 1,
@@ -20033,6 +20038,11 @@
                                     "items": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "row": {
+                                          "maximum": 19,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
                                         "text": {
                                           "maxLength": 64,
                                           "minLength": 1,
@@ -20142,6 +20152,11 @@
                                     "items": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "row": {
+                                          "maximum": 19,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
                                         "text": {
                                           "maxLength": 64,
                                           "minLength": 1,
@@ -20251,6 +20266,11 @@
                                     "items": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "row": {
+                                          "maximum": 19,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
                                         "text": {
                                           "maxLength": 64,
                                           "minLength": 1,
@@ -20360,6 +20380,11 @@
                                     "items": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "row": {
+                                          "maximum": 19,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
                                         "text": {
                                           "maxLength": 64,
                                           "minLength": 1,
@@ -20469,6 +20494,11 @@
                                     "items": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "row": {
+                                          "maximum": 19,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
                                         "text": {
                                           "maxLength": 64,
                                           "minLength": 1,
@@ -20734,6 +20764,11 @@
                                               "items": {
                                                 "additionalProperties": false,
                                                 "properties": {
+                                                  "row": {
+                                                    "maximum": 19,
+                                                    "minimum": 0,
+                                                    "type": "integer"
+                                                  },
                                                   "text": {
                                                     "maxLength": 64,
                                                     "minLength": 1,
@@ -20839,6 +20874,11 @@
                                               "items": {
                                                 "additionalProperties": false,
                                                 "properties": {
+                                                  "row": {
+                                                    "maximum": 19,
+                                                    "minimum": 0,
+                                                    "type": "integer"
+                                                  },
                                                   "text": {
                                                     "maxLength": 64,
                                                     "minLength": 1,
@@ -20948,6 +20988,11 @@
                                               "items": {
                                                 "additionalProperties": false,
                                                 "properties": {
+                                                  "row": {
+                                                    "maximum": 19,
+                                                    "minimum": 0,
+                                                    "type": "integer"
+                                                  },
                                                   "text": {
                                                     "maxLength": 64,
                                                     "minLength": 1,
@@ -21057,6 +21102,11 @@
                                               "items": {
                                                 "additionalProperties": false,
                                                 "properties": {
+                                                  "row": {
+                                                    "maximum": 19,
+                                                    "minimum": 0,
+                                                    "type": "integer"
+                                                  },
                                                   "text": {
                                                     "maxLength": 64,
                                                     "minLength": 1,
@@ -21166,6 +21216,11 @@
                                               "items": {
                                                 "additionalProperties": false,
                                                 "properties": {
+                                                  "row": {
+                                                    "maximum": 19,
+                                                    "minimum": 0,
+                                                    "type": "integer"
+                                                  },
                                                   "text": {
                                                     "maxLength": 64,
                                                     "minLength": 1,
@@ -21275,6 +21330,11 @@
                                               "items": {
                                                 "additionalProperties": false,
                                                 "properties": {
+                                                  "row": {
+                                                    "maximum": 19,
+                                                    "minimum": 0,
+                                                    "type": "integer"
+                                                  },
                                                   "text": {
                                                     "maxLength": 64,
                                                     "minLength": 1,
@@ -21472,6 +21532,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -21577,6 +21642,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -21686,6 +21756,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -21795,6 +21870,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -21904,6 +21984,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -22013,6 +22098,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -22523,6 +22613,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -22628,6 +22723,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -22737,6 +22837,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -22846,6 +22951,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -22955,6 +23065,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -23064,6 +23179,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -23584,6 +23704,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -23689,6 +23814,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -23798,6 +23928,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -23907,6 +24042,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -24016,6 +24156,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -24125,6 +24270,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -24421,6 +24571,52 @@
                       "payload"
                     ],
                     "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "contractVersion": {
+                        "enum": [
+                          "inside-communications-v1"
+                        ],
+                        "type": "string"
+                      },
+                      "expectedRevision": {
+                        "maximum": 2147483647,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "operation": {
+                        "enum": [
+                          "templates.list"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                        "type": "string"
+                      },
+                      "payload": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "cursor": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "contractVersion",
+                      "operation",
+                      "operationId",
+                      "expectedRevision",
+                      "payload"
+                    ],
+                    "type": "object"
                   }
                 ]
               }
@@ -24558,6 +24754,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -24663,6 +24864,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -24772,6 +24978,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -24881,6 +25092,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -24990,6 +25206,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -25099,6 +25320,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -25258,6 +25484,11 @@
                                                     "items": {
                                                       "additionalProperties": false,
                                                       "properties": {
+                                                        "row": {
+                                                          "maximum": 19,
+                                                          "minimum": 0,
+                                                          "type": "integer"
+                                                        },
                                                         "text": {
                                                           "maxLength": 64,
                                                           "minLength": 1,
@@ -25363,6 +25594,11 @@
                                                     "items": {
                                                       "additionalProperties": false,
                                                       "properties": {
+                                                        "row": {
+                                                          "maximum": 19,
+                                                          "minimum": 0,
+                                                          "type": "integer"
+                                                        },
                                                         "text": {
                                                           "maxLength": 64,
                                                           "minLength": 1,
@@ -25472,6 +25708,11 @@
                                                     "items": {
                                                       "additionalProperties": false,
                                                       "properties": {
+                                                        "row": {
+                                                          "maximum": 19,
+                                                          "minimum": 0,
+                                                          "type": "integer"
+                                                        },
                                                         "text": {
                                                           "maxLength": 64,
                                                           "minLength": 1,
@@ -25581,6 +25822,11 @@
                                                     "items": {
                                                       "additionalProperties": false,
                                                       "properties": {
+                                                        "row": {
+                                                          "maximum": 19,
+                                                          "minimum": 0,
+                                                          "type": "integer"
+                                                        },
                                                         "text": {
                                                           "maxLength": 64,
                                                           "minLength": 1,
@@ -25690,6 +25936,11 @@
                                                     "items": {
                                                       "additionalProperties": false,
                                                       "properties": {
+                                                        "row": {
+                                                          "maximum": 19,
+                                                          "minimum": 0,
+                                                          "type": "integer"
+                                                        },
                                                         "text": {
                                                           "maxLength": 64,
                                                           "minLength": 1,
@@ -25799,6 +26050,11 @@
                                                     "items": {
                                                       "additionalProperties": false,
                                                       "properties": {
+                                                        "row": {
+                                                          "maximum": 19,
+                                                          "minimum": 0,
+                                                          "type": "integer"
+                                                        },
                                                         "text": {
                                                           "maxLength": 64,
                                                           "minLength": 1,
@@ -26026,6 +26282,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -26131,6 +26392,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -26240,6 +26506,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -26349,6 +26620,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -26458,6 +26734,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -26567,6 +26848,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -26761,6 +27047,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -26866,6 +27157,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -26975,6 +27271,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -27084,6 +27385,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -27193,6 +27499,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -27302,6 +27613,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -27529,6 +27845,11 @@
                                                         "items": {
                                                           "additionalProperties": false,
                                                           "properties": {
+                                                            "row": {
+                                                              "maximum": 19,
+                                                              "minimum": 0,
+                                                              "type": "integer"
+                                                            },
                                                             "text": {
                                                               "maxLength": 64,
                                                               "minLength": 1,
@@ -27634,6 +27955,11 @@
                                                         "items": {
                                                           "additionalProperties": false,
                                                           "properties": {
+                                                            "row": {
+                                                              "maximum": 19,
+                                                              "minimum": 0,
+                                                              "type": "integer"
+                                                            },
                                                             "text": {
                                                               "maxLength": 64,
                                                               "minLength": 1,
@@ -27743,6 +28069,11 @@
                                                         "items": {
                                                           "additionalProperties": false,
                                                           "properties": {
+                                                            "row": {
+                                                              "maximum": 19,
+                                                              "minimum": 0,
+                                                              "type": "integer"
+                                                            },
                                                             "text": {
                                                               "maxLength": 64,
                                                               "minLength": 1,
@@ -27852,6 +28183,11 @@
                                                         "items": {
                                                           "additionalProperties": false,
                                                           "properties": {
+                                                            "row": {
+                                                              "maximum": 19,
+                                                              "minimum": 0,
+                                                              "type": "integer"
+                                                            },
                                                             "text": {
                                                               "maxLength": 64,
                                                               "minLength": 1,
@@ -27961,6 +28297,11 @@
                                                         "items": {
                                                           "additionalProperties": false,
                                                           "properties": {
+                                                            "row": {
+                                                              "maximum": 19,
+                                                              "minimum": 0,
+                                                              "type": "integer"
+                                                            },
                                                             "text": {
                                                               "maxLength": 64,
                                                               "minLength": 1,
@@ -28070,6 +28411,11 @@
                                                         "items": {
                                                           "additionalProperties": false,
                                                           "properties": {
+                                                            "row": {
+                                                              "maximum": 19,
+                                                              "minimum": 0,
+                                                              "type": "integer"
+                                                            },
                                                             "text": {
                                                               "maxLength": 64,
                                                               "minLength": 1,
@@ -28486,6 +28832,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -28591,6 +28942,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -28700,6 +29056,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -28809,6 +29170,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -28918,6 +29284,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -29027,6 +29398,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -29770,6 +30146,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -29875,6 +30256,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -29984,6 +30370,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -30093,6 +30484,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -30202,6 +30598,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -30311,6 +30712,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -30658,6 +31064,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -30763,6 +31174,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -30872,6 +31288,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -30981,6 +31402,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -31090,6 +31516,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -31199,6 +31630,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -31470,6 +31906,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -31575,6 +32016,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -31684,6 +32130,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -31793,6 +32244,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -31902,6 +32358,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -32011,6 +32472,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -32331,6 +32797,761 @@
                             "status",
                             "nextCursor",
                             "entries"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "contractVersion": {
+                              "enum": [
+                                "inside-communications-v1"
+                              ],
+                              "type": "string"
+                            },
+                            "nextCursor": {
+                              "anyOf": [
+                                {
+                                  "maxLength": 128,
+                                  "type": "string"
+                                },
+                                {
+                                  "enum": [
+                                    null
+                                  ],
+                                  "nullable": true,
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "status": {
+                              "enum": [
+                                "ok"
+                              ],
+                              "type": "string"
+                            },
+                            "templates": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "botIdentity": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "type": "string"
+                                  },
+                                  "content": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "buttons": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "row": {
+                                                  "maximum": 19,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "text": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "text",
+                                                "url"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 20,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "entities": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "language": {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                "length": {
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
+                                                  "type": "integer"
+                                                },
+                                                "offset": {
+                                                  "maximum": 2147483647,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "mention",
+                                                    "hashtag",
+                                                    "cashtag",
+                                                    "bot_command",
+                                                    "url",
+                                                    "email",
+                                                    "phone_number",
+                                                    "bold",
+                                                    "italic",
+                                                    "underline",
+                                                    "strikethrough",
+                                                    "spoiler",
+                                                    "code",
+                                                    "pre",
+                                                    "text_link",
+                                                    "blockquote",
+                                                    "expandable_blockquote"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "offset",
+                                                "length"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "text": {
+                                            "maxLength": 4096,
+                                            "minLength": 1,
+                                            "type": "string"
+                                          },
+                                          "type": {
+                                            "enum": [
+                                              "text"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text",
+                                          "entities",
+                                          "buttons"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "buttons": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "row": {
+                                                  "maximum": 19,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "text": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "text",
+                                                "url"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 20,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "entities": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "language": {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                "length": {
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
+                                                  "type": "integer"
+                                                },
+                                                "offset": {
+                                                  "maximum": 2147483647,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "mention",
+                                                    "hashtag",
+                                                    "cashtag",
+                                                    "bot_command",
+                                                    "url",
+                                                    "email",
+                                                    "phone_number",
+                                                    "bold",
+                                                    "italic",
+                                                    "underline",
+                                                    "strikethrough",
+                                                    "spoiler",
+                                                    "code",
+                                                    "pre",
+                                                    "text_link",
+                                                    "blockquote",
+                                                    "expandable_blockquote"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "offset",
+                                                "length"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "fileId": {
+                                            "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 1024,
+                                            "type": "string"
+                                          },
+                                          "type": {
+                                            "enum": [
+                                              "photo"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text",
+                                          "entities",
+                                          "buttons",
+                                          "fileId"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "buttons": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "row": {
+                                                  "maximum": 19,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "text": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "text",
+                                                "url"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 20,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "entities": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "language": {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                "length": {
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
+                                                  "type": "integer"
+                                                },
+                                                "offset": {
+                                                  "maximum": 2147483647,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "mention",
+                                                    "hashtag",
+                                                    "cashtag",
+                                                    "bot_command",
+                                                    "url",
+                                                    "email",
+                                                    "phone_number",
+                                                    "bold",
+                                                    "italic",
+                                                    "underline",
+                                                    "strikethrough",
+                                                    "spoiler",
+                                                    "code",
+                                                    "pre",
+                                                    "text_link",
+                                                    "blockquote",
+                                                    "expandable_blockquote"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "offset",
+                                                "length"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "fileId": {
+                                            "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 1024,
+                                            "type": "string"
+                                          },
+                                          "type": {
+                                            "enum": [
+                                              "video"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text",
+                                          "entities",
+                                          "buttons",
+                                          "fileId"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "buttons": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "row": {
+                                                  "maximum": 19,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "text": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "text",
+                                                "url"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 20,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "entities": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "language": {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                "length": {
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
+                                                  "type": "integer"
+                                                },
+                                                "offset": {
+                                                  "maximum": 2147483647,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "mention",
+                                                    "hashtag",
+                                                    "cashtag",
+                                                    "bot_command",
+                                                    "url",
+                                                    "email",
+                                                    "phone_number",
+                                                    "bold",
+                                                    "italic",
+                                                    "underline",
+                                                    "strikethrough",
+                                                    "spoiler",
+                                                    "code",
+                                                    "pre",
+                                                    "text_link",
+                                                    "blockquote",
+                                                    "expandable_blockquote"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "offset",
+                                                "length"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 0,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "fileId": {
+                                            "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 0,
+                                            "type": "string"
+                                          },
+                                          "type": {
+                                            "enum": [
+                                              "video_note"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text",
+                                          "entities",
+                                          "buttons",
+                                          "fileId"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "buttons": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "row": {
+                                                  "maximum": 19,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "text": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "text",
+                                                "url"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 20,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "entities": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "language": {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                "length": {
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
+                                                  "type": "integer"
+                                                },
+                                                "offset": {
+                                                  "maximum": 2147483647,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "mention",
+                                                    "hashtag",
+                                                    "cashtag",
+                                                    "bot_command",
+                                                    "url",
+                                                    "email",
+                                                    "phone_number",
+                                                    "bold",
+                                                    "italic",
+                                                    "underline",
+                                                    "strikethrough",
+                                                    "spoiler",
+                                                    "code",
+                                                    "pre",
+                                                    "text_link",
+                                                    "blockquote",
+                                                    "expandable_blockquote"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "offset",
+                                                "length"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "fileId": {
+                                            "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 1024,
+                                            "type": "string"
+                                          },
+                                          "type": {
+                                            "enum": [
+                                              "voice"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text",
+                                          "entities",
+                                          "buttons",
+                                          "fileId"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "buttons": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "row": {
+                                                  "maximum": 19,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "text": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "text",
+                                                "url"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 20,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "entities": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "language": {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                "length": {
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
+                                                  "type": "integer"
+                                                },
+                                                "offset": {
+                                                  "maximum": 2147483647,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "mention",
+                                                    "hashtag",
+                                                    "cashtag",
+                                                    "bot_command",
+                                                    "url",
+                                                    "email",
+                                                    "phone_number",
+                                                    "bold",
+                                                    "italic",
+                                                    "underline",
+                                                    "strikethrough",
+                                                    "spoiler",
+                                                    "code",
+                                                    "pre",
+                                                    "text_link",
+                                                    "blockquote",
+                                                    "expandable_blockquote"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "offset",
+                                                "length"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "fileId": {
+                                            "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 1024,
+                                            "type": "string"
+                                          },
+                                          "type": {
+                                            "enum": [
+                                              "document"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text",
+                                          "entities",
+                                          "buttons",
+                                          "fileId"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    ]
+                                  },
+                                  "revision": {
+                                    "maximum": 2147483647,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "templateId": {
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "templateId",
+                                  "revision",
+                                  "botIdentity",
+                                  "content"
+                                ],
+                                "type": "object"
+                              },
+                              "maxItems": 100,
+                              "minItems": 0,
+                              "type": "array"
+                            }
+                          },
+                          "required": [
+                            "contractVersion",
+                            "status",
+                            "nextCursor",
+                            "templates"
                           ],
                           "type": "object"
                         }
@@ -32952,6 +34173,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -33057,6 +34283,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -33166,6 +34397,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -33275,6 +34511,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -33384,6 +34625,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -33493,6 +34739,11 @@
                                           "items": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "row": {
+                                                "maximum": 19,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
                                               "text": {
                                                 "maxLength": 64,
                                                 "minLength": 1,
@@ -33652,6 +34903,11 @@
                                                     "items": {
                                                       "additionalProperties": false,
                                                       "properties": {
+                                                        "row": {
+                                                          "maximum": 19,
+                                                          "minimum": 0,
+                                                          "type": "integer"
+                                                        },
                                                         "text": {
                                                           "maxLength": 64,
                                                           "minLength": 1,
@@ -33757,6 +35013,11 @@
                                                     "items": {
                                                       "additionalProperties": false,
                                                       "properties": {
+                                                        "row": {
+                                                          "maximum": 19,
+                                                          "minimum": 0,
+                                                          "type": "integer"
+                                                        },
                                                         "text": {
                                                           "maxLength": 64,
                                                           "minLength": 1,
@@ -33866,6 +35127,11 @@
                                                     "items": {
                                                       "additionalProperties": false,
                                                       "properties": {
+                                                        "row": {
+                                                          "maximum": 19,
+                                                          "minimum": 0,
+                                                          "type": "integer"
+                                                        },
                                                         "text": {
                                                           "maxLength": 64,
                                                           "minLength": 1,
@@ -33975,6 +35241,11 @@
                                                     "items": {
                                                       "additionalProperties": false,
                                                       "properties": {
+                                                        "row": {
+                                                          "maximum": 19,
+                                                          "minimum": 0,
+                                                          "type": "integer"
+                                                        },
                                                         "text": {
                                                           "maxLength": 64,
                                                           "minLength": 1,
@@ -34084,6 +35355,11 @@
                                                     "items": {
                                                       "additionalProperties": false,
                                                       "properties": {
+                                                        "row": {
+                                                          "maximum": 19,
+                                                          "minimum": 0,
+                                                          "type": "integer"
+                                                        },
                                                         "text": {
                                                           "maxLength": 64,
                                                           "minLength": 1,
@@ -34193,6 +35469,11 @@
                                                     "items": {
                                                       "additionalProperties": false,
                                                       "properties": {
+                                                        "row": {
+                                                          "maximum": 19,
+                                                          "minimum": 0,
+                                                          "type": "integer"
+                                                        },
                                                         "text": {
                                                           "maxLength": 64,
                                                           "minLength": 1,
@@ -34420,6 +35701,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -34525,6 +35811,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -34634,6 +35925,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -34743,6 +36039,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -34852,6 +36153,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -34961,6 +36267,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -35155,6 +36466,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -35260,6 +36576,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -35369,6 +36690,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -35478,6 +36804,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -35587,6 +36918,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -35696,6 +37032,11 @@
                                                       "items": {
                                                         "additionalProperties": false,
                                                         "properties": {
+                                                          "row": {
+                                                            "maximum": 19,
+                                                            "minimum": 0,
+                                                            "type": "integer"
+                                                          },
                                                           "text": {
                                                             "maxLength": 64,
                                                             "minLength": 1,
@@ -35923,6 +37264,11 @@
                                                         "items": {
                                                           "additionalProperties": false,
                                                           "properties": {
+                                                            "row": {
+                                                              "maximum": 19,
+                                                              "minimum": 0,
+                                                              "type": "integer"
+                                                            },
                                                             "text": {
                                                               "maxLength": 64,
                                                               "minLength": 1,
@@ -36028,6 +37374,11 @@
                                                         "items": {
                                                           "additionalProperties": false,
                                                           "properties": {
+                                                            "row": {
+                                                              "maximum": 19,
+                                                              "minimum": 0,
+                                                              "type": "integer"
+                                                            },
                                                             "text": {
                                                               "maxLength": 64,
                                                               "minLength": 1,
@@ -36137,6 +37488,11 @@
                                                         "items": {
                                                           "additionalProperties": false,
                                                           "properties": {
+                                                            "row": {
+                                                              "maximum": 19,
+                                                              "minimum": 0,
+                                                              "type": "integer"
+                                                            },
                                                             "text": {
                                                               "maxLength": 64,
                                                               "minLength": 1,
@@ -36246,6 +37602,11 @@
                                                         "items": {
                                                           "additionalProperties": false,
                                                           "properties": {
+                                                            "row": {
+                                                              "maximum": 19,
+                                                              "minimum": 0,
+                                                              "type": "integer"
+                                                            },
                                                             "text": {
                                                               "maxLength": 64,
                                                               "minLength": 1,
@@ -36355,6 +37716,11 @@
                                                         "items": {
                                                           "additionalProperties": false,
                                                           "properties": {
+                                                            "row": {
+                                                              "maximum": 19,
+                                                              "minimum": 0,
+                                                              "type": "integer"
+                                                            },
                                                             "text": {
                                                               "maxLength": 64,
                                                               "minLength": 1,
@@ -36464,6 +37830,11 @@
                                                         "items": {
                                                           "additionalProperties": false,
                                                           "properties": {
+                                                            "row": {
+                                                              "maximum": 19,
+                                                              "minimum": 0,
+                                                              "type": "integer"
+                                                            },
                                                             "text": {
                                                               "maxLength": 64,
                                                               "minLength": 1,
@@ -36880,6 +38251,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -36985,6 +38361,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -37094,6 +38475,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -37203,6 +38589,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -37312,6 +38703,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -37421,6 +38817,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -38164,6 +39565,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -38269,6 +39675,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -38378,6 +39789,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -38487,6 +39903,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -38596,6 +40017,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -38705,6 +40131,11 @@
                                                 "items": {
                                                   "additionalProperties": false,
                                                   "properties": {
+                                                    "row": {
+                                                      "maximum": 19,
+                                                      "minimum": 0,
+                                                      "type": "integer"
+                                                    },
                                                     "text": {
                                                       "maxLength": 64,
                                                       "minLength": 1,
@@ -39052,6 +40483,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -39157,6 +40593,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -39266,6 +40707,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -39375,6 +40821,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -39484,6 +40935,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -39593,6 +41049,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -39864,6 +41325,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -39969,6 +41435,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -40078,6 +41549,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -40187,6 +41663,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -40296,6 +41777,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -40405,6 +41891,11 @@
                                                   "items": {
                                                     "additionalProperties": false,
                                                     "properties": {
+                                                      "row": {
+                                                        "maximum": 19,
+                                                        "minimum": 0,
+                                                        "type": "integer"
+                                                      },
                                                       "text": {
                                                         "maxLength": 64,
                                                         "minLength": 1,
@@ -40725,6 +42216,761 @@
                             "status",
                             "nextCursor",
                             "entries"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "contractVersion": {
+                              "enum": [
+                                "inside-communications-v1"
+                              ],
+                              "type": "string"
+                            },
+                            "nextCursor": {
+                              "anyOf": [
+                                {
+                                  "maxLength": 128,
+                                  "type": "string"
+                                },
+                                {
+                                  "enum": [
+                                    null
+                                  ],
+                                  "nullable": true,
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "status": {
+                              "enum": [
+                                "ok"
+                              ],
+                              "type": "string"
+                            },
+                            "templates": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "botIdentity": {
+                                    "maxLength": 128,
+                                    "minLength": 1,
+                                    "type": "string"
+                                  },
+                                  "content": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "buttons": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "row": {
+                                                  "maximum": 19,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "text": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "text",
+                                                "url"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 20,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "entities": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "language": {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                "length": {
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
+                                                  "type": "integer"
+                                                },
+                                                "offset": {
+                                                  "maximum": 2147483647,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "mention",
+                                                    "hashtag",
+                                                    "cashtag",
+                                                    "bot_command",
+                                                    "url",
+                                                    "email",
+                                                    "phone_number",
+                                                    "bold",
+                                                    "italic",
+                                                    "underline",
+                                                    "strikethrough",
+                                                    "spoiler",
+                                                    "code",
+                                                    "pre",
+                                                    "text_link",
+                                                    "blockquote",
+                                                    "expandable_blockquote"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "offset",
+                                                "length"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "text": {
+                                            "maxLength": 4096,
+                                            "minLength": 1,
+                                            "type": "string"
+                                          },
+                                          "type": {
+                                            "enum": [
+                                              "text"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text",
+                                          "entities",
+                                          "buttons"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "buttons": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "row": {
+                                                  "maximum": 19,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "text": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "text",
+                                                "url"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 20,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "entities": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "language": {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                "length": {
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
+                                                  "type": "integer"
+                                                },
+                                                "offset": {
+                                                  "maximum": 2147483647,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "mention",
+                                                    "hashtag",
+                                                    "cashtag",
+                                                    "bot_command",
+                                                    "url",
+                                                    "email",
+                                                    "phone_number",
+                                                    "bold",
+                                                    "italic",
+                                                    "underline",
+                                                    "strikethrough",
+                                                    "spoiler",
+                                                    "code",
+                                                    "pre",
+                                                    "text_link",
+                                                    "blockquote",
+                                                    "expandable_blockquote"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "offset",
+                                                "length"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "fileId": {
+                                            "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 1024,
+                                            "type": "string"
+                                          },
+                                          "type": {
+                                            "enum": [
+                                              "photo"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text",
+                                          "entities",
+                                          "buttons",
+                                          "fileId"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "buttons": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "row": {
+                                                  "maximum": 19,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "text": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "text",
+                                                "url"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 20,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "entities": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "language": {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                "length": {
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
+                                                  "type": "integer"
+                                                },
+                                                "offset": {
+                                                  "maximum": 2147483647,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "mention",
+                                                    "hashtag",
+                                                    "cashtag",
+                                                    "bot_command",
+                                                    "url",
+                                                    "email",
+                                                    "phone_number",
+                                                    "bold",
+                                                    "italic",
+                                                    "underline",
+                                                    "strikethrough",
+                                                    "spoiler",
+                                                    "code",
+                                                    "pre",
+                                                    "text_link",
+                                                    "blockquote",
+                                                    "expandable_blockquote"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "offset",
+                                                "length"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "fileId": {
+                                            "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 1024,
+                                            "type": "string"
+                                          },
+                                          "type": {
+                                            "enum": [
+                                              "video"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text",
+                                          "entities",
+                                          "buttons",
+                                          "fileId"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "buttons": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "row": {
+                                                  "maximum": 19,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "text": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "text",
+                                                "url"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 20,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "entities": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "language": {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                "length": {
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
+                                                  "type": "integer"
+                                                },
+                                                "offset": {
+                                                  "maximum": 2147483647,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "mention",
+                                                    "hashtag",
+                                                    "cashtag",
+                                                    "bot_command",
+                                                    "url",
+                                                    "email",
+                                                    "phone_number",
+                                                    "bold",
+                                                    "italic",
+                                                    "underline",
+                                                    "strikethrough",
+                                                    "spoiler",
+                                                    "code",
+                                                    "pre",
+                                                    "text_link",
+                                                    "blockquote",
+                                                    "expandable_blockquote"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "offset",
+                                                "length"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 0,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "fileId": {
+                                            "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 0,
+                                            "type": "string"
+                                          },
+                                          "type": {
+                                            "enum": [
+                                              "video_note"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text",
+                                          "entities",
+                                          "buttons",
+                                          "fileId"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "buttons": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "row": {
+                                                  "maximum": 19,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "text": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "text",
+                                                "url"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 20,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "entities": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "language": {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                "length": {
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
+                                                  "type": "integer"
+                                                },
+                                                "offset": {
+                                                  "maximum": 2147483647,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "mention",
+                                                    "hashtag",
+                                                    "cashtag",
+                                                    "bot_command",
+                                                    "url",
+                                                    "email",
+                                                    "phone_number",
+                                                    "bold",
+                                                    "italic",
+                                                    "underline",
+                                                    "strikethrough",
+                                                    "spoiler",
+                                                    "code",
+                                                    "pre",
+                                                    "text_link",
+                                                    "blockquote",
+                                                    "expandable_blockquote"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "offset",
+                                                "length"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "fileId": {
+                                            "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 1024,
+                                            "type": "string"
+                                          },
+                                          "type": {
+                                            "enum": [
+                                              "voice"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text",
+                                          "entities",
+                                          "buttons",
+                                          "fileId"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "buttons": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "row": {
+                                                  "maximum": 19,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "text": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "text",
+                                                "url"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 20,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "entities": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "language": {
+                                                  "maxLength": 64,
+                                                  "type": "string"
+                                                },
+                                                "length": {
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
+                                                  "type": "integer"
+                                                },
+                                                "offset": {
+                                                  "maximum": 2147483647,
+                                                  "minimum": 0,
+                                                  "type": "integer"
+                                                },
+                                                "type": {
+                                                  "enum": [
+                                                    "mention",
+                                                    "hashtag",
+                                                    "cashtag",
+                                                    "bot_command",
+                                                    "url",
+                                                    "email",
+                                                    "phone_number",
+                                                    "bold",
+                                                    "italic",
+                                                    "underline",
+                                                    "strikethrough",
+                                                    "spoiler",
+                                                    "code",
+                                                    "pre",
+                                                    "text_link",
+                                                    "blockquote",
+                                                    "expandable_blockquote"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "url": {
+                                                  "maxLength": 2048,
+                                                  "pattern": "^https:\\/\\/",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "type",
+                                                "offset",
+                                                "length"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "fileId": {
+                                            "pattern": "^[A-Za-z0-9_-]{1,1024}$",
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 1024,
+                                            "type": "string"
+                                          },
+                                          "type": {
+                                            "enum": [
+                                              "document"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text",
+                                          "entities",
+                                          "buttons",
+                                          "fileId"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    ]
+                                  },
+                                  "revision": {
+                                    "maximum": 2147483647,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "templateId": {
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "templateId",
+                                  "revision",
+                                  "botIdentity",
+                                  "content"
+                                ],
+                                "type": "object"
+                              },
+                              "maxItems": 100,
+                              "minItems": 0,
+                              "type": "array"
+                            }
+                          },
+                          "required": [
+                            "contractVersion",
+                            "status",
+                            "nextCursor",
+                            "templates"
                           ],
                           "type": "object"
                         }
