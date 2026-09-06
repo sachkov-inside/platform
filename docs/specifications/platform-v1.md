@@ -277,7 +277,7 @@ entities и invariants v1:
 | `SeriesMembership` | пара Series/Material уникальна; ordinal уникален внутри Series; nullable stepGroup связывает шаги только в контексте этой Series |
 | `ContentCover` | принадлежит ровно одному Material, Topic или Series; current cover не переиспользуется между owners; только normalized public WebP renditions, original/key/checksum не входят в read contract |
 | `MaterialAsset` | принадлежит ровно одному Material; current MaterialBody ссылается на 0..N immutable ready MaterialAssets; `pending | processing | ready | failed` |
-| `Video` | local identity с одним Kinescope provider mapping; current Material ссылается на 0..N Videos |
+| `Video` | local identity с одним Kinescope provider mapping; current Material ссылается на 0..1 primary Video вне body |
 | `ExternalLink` | typed label + normalized URL; current Material содержит 0..N links |
 | `NavigationPage` | editorial content и curated/query links; Roadmap использует эту роль |
 | `MembershipEntitlement` | не более одного current `inside_membership` projection на Account; validity bounded |

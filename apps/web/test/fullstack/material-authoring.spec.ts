@@ -13,6 +13,118 @@ import {
 
 const currentMaterialEditorUrl = /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
 
+for (const access of ["public", "membership"] as const) {
+  test(`media convergence: ${access} Material composes image, file and primary Video across Subjects`, async ({
+    context, page, request,
+  }, testInfo) => {
+    const suffix = String(Date.now());
+    const title = `Media acceptance ${access} ${suffix}`;
+    const slug = `media-acceptance-${access}-${suffix}`;
+    await addFullStackSession(context);
+    await installPlaybackProviderDouble(page);
+    await page.addLocatorHandler(page.getByRole("dialog", { name: "Подключите Telegram" }), async (dialog) => {
+      await dialog.getByRole("button", { name: "Закрыть подключение Telegram" }).click();
+    });
+    await page.goto("/authoring/materials/new");
+    await completeProfileOnboardingIfPresent(page);
+    await fillPublishableDraft(page, title);
+    if (access === "membership") {
+      await page.getByRole("combobox", { name: "Доступ" }).click();
+      await page.getByRole("option", { name: "Для участников" }).click();
+    }
+    await page.getByRole("button", { name: "Создать черновик" }).click();
+    await expect(page).toHaveURL(currentMaterialEditorUrl);
+    await page.getByLabel("Выбрать файлы").setInputFiles({
+      buffer: Buffer.from("Media convergence attachment\n"), mimeType: "text/plain", name: "media-proof.txt",
+    });
+    await dispatchFileEvent(page, "paste", {
+      base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      mimeType: "image/png", name: "media-proof.png",
+    });
+    const file = page.getByRole("listitem").filter({ hasText: "media-proof.txt" });
+    const diagram = page.getByRole("listitem").filter({ hasText: "media-proof.png" });
+    await expect(file.getByText("Готово к вставке")).toBeVisible({ timeout: 30_000 });
+    await expect(diagram.getByText("Готово к вставке")).toBeVisible({ timeout: 30_000 });
+    await insertReadyAsset(file);
+    await diagram.getByLabel("Описание изображения").fill("Изображение общей приёмки");
+    await insertReadyAsset(diagram);
+    await page.getByLabel(/ID существующего видео/u).fill(`media-proof-${access}-${suffix}`);
+    await page.getByRole("button", { name: "Привязать" }).click();
+    await expect(page.getByText("Готово к Save")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Убрать и удалить из Kinescope…" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Сохранить" }).click();
+    await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "Опубликовать" }).click();
+    await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+
+    // The ordinary member has no author permission; exercise the same live resource after switching Subject.
+    await addFullStackMemberSession(context);
+    await page.goto(`/materials/${slug}`);
+    const image = page.getByRole("img", { name: "Изображение общей приёмки" });
+    await expect(image).toBeVisible();
+    await expect.poll(() => image.evaluate((element) =>
+      element instanceof HTMLImageElement ? element.naturalWidth : 0,
+    )).toBeGreaterThan(0);
+    await expect(page.locator("[data-video-player-mount] iframe")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ресурсы" })).toHaveCount(0);
+    const href = await page.getByRole("link", { name: /media-proof.txt/u }).getAttribute("href");
+    const materialId = await page.locator("[data-material-reader-state][data-material-id]").getAttribute("data-material-id");
+    const videoId = await page.locator("section[data-video-id]").getAttribute("data-video-id");
+    if (href === null || materialId === null || videoId === null) throw new Error("Media references are missing");
+    const memberFile = await page.request.get(href);
+    expect(memberFile.status()).toBe(200);
+    expect(await memberFile.text()).toBe("Media convergence attachment\n");
+    expect(memberFile.headers()["content-disposition"]).toContain("attachment");
+    expect(memberFile.headers()["x-content-type-options"]).toBe("nosniff");
+    const wrongMaterial = await page.request.post("/api/material-video-playback-sessions", {
+      headers: { origin: new URL(page.url()).origin },
+      multipart: { materialId: crypto.randomUUID(), videoId },
+    });
+    expect(wrongMaterial.status()).toBe(403);
+    const accessibility = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(accessibility.violations.filter(({ impact }) => impact === "serious" || impact === "critical")).toEqual([]);
+    expect(await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-186");
+    await mkdir(evidenceDirectory, { recursive: true });
+    const viewport = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
+    await page.screenshot({ animations: "disabled", fullPage: true, path: resolve(evidenceDirectory, `${access}-${viewport}.png`) });
+
+    const anonymousFile = await request.get(href, { maxRedirects: 0 });
+    expect(anonymousFile.status()).toBe(access === "public" ? 200 : 404);
+    const anonymousPlayback = await request.post("/api/material-video-playback-sessions", {
+      headers: { origin: new URL(page.url()).origin }, multipart: { materialId, videoId },
+    });
+    expect(anonymousPlayback.status()).toBe(access === "public" ? 200 : 403);
+    // Reuse the member's browser cache after sign-out to expose accidental shared media caching.
+    await context.clearCookies();
+    const protectedRequests: string[] = [];
+    page.on("request", (outgoing) => {
+      const url = new URL(outgoing.url());
+      if (url.hostname.endsWith("kinescope.io") || url.pathname.includes("/assets/") || url.pathname.startsWith("/api/material-video")) {
+        protectedRequests.push(outgoing.url());
+      }
+    });
+    await page.reload();
+    if (access === "membership") {
+      await expect(image).toHaveCount(0);
+      await expect(page.getByRole("link", { name: /media-proof.txt/u })).toHaveCount(0);
+      await expect(page.locator("iframe")).toHaveCount(0);
+      expect(protectedRequests).toEqual([]);
+      expect(anonymousFile.headers()["cache-control"]).toContain("no-store");
+      await page.screenshot({ animations: "disabled", fullPage: true, path: resolve(evidenceDirectory, `denied-${viewport}.png`) });
+    } else {
+      await expect(image).toBeVisible();
+      await expect(page.locator("[data-video-player-mount] iframe")).toBeVisible();
+    }
+    await addFullStackSession(context);
+    await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
+    const row = page.getByRole("listitem").filter({ hasText: title });
+    await row.getByRole("button", { name: "Снять с публикации" }).click();
+    await expect(row.getByText("Снят с публикации", { exact: true })).toBeVisible({ timeout: 15_000 });
+  });
+}
+
 test("uploads, resumes and replaces one primary Video while keeping provider bytes behind authorization", async ({
   context,
   page,
