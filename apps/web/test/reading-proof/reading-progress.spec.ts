@@ -15,10 +15,12 @@ for (const scenario of ["text", "member", "video", "cards", "complete-series", "
     if (scenario === "text") {
       const action = page.getByRole("button", { name: "Отметить прочитанным", exact: true });
       const initial = await action.boundingBox();
+      const seriesBefore = await page.locator("[data-series-progress]").boundingBox();
       await action.click();
       const pending = await action.boundingBox();
       expect(pending?.width).toBe(initial?.width);
       expect(pending?.height).toBe(initial?.height);
+      expect((await page.locator("[data-series-progress]").boundingBox())?.y).toBe(seriesBefore?.y);
       await expect(page.getByRole("button", { name: "Снять отметку", exact: true })).toBeVisible();
       await expect(page.getByText("Изучено 3 из 6", { exact: true })).toBeVisible();
     }
@@ -27,3 +29,18 @@ for (const scenario of ["text", "member", "video", "cards", "complete-series", "
     await page.screenshot({ fullPage: true, animations: "disabled", path: resolve(`../../docs/evidence/issue-328/${scenario}-${testInfo.project.name}.png`) });
   });
 }
+
+
+test("loading, ready and pending reserve the same space above Series progress", async ({ page }) => {
+  const positions: number[] = [];
+  for (const scenario of ["loading", "text", "pending"] as const) {
+    await page.goto(`/iframe.html?id=pages-reading-progress--${scenario}&viewMode=story`);
+    const progress = page.locator("[data-series-progress]");
+    await expect(progress).toBeAttached();
+    await page.evaluate(() => document.fonts.ready);
+    const box = await progress.boundingBox();
+    if (box === null) throw new Error("Missing Series progress geometry");
+    positions.push(box.y);
+  }
+  expect(Math.max(...positions) - Math.min(...positions)).toBeLessThanOrEqual(1);
+});

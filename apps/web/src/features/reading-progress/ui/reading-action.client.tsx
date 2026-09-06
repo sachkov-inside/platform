@@ -10,7 +10,7 @@ import type { ReadingActionProps } from "../model/reading-progress-view";
 export function ReadingAction({ format, view, onSetReadingState, onRefresh }: ReadingActionProps) {
   const descriptionId = useId();
   const labels = materialReadingLabels(format);
-  const className = "mt-8 rounded-2xl border border-border bg-card px-5 py-4";
+  const className = "mt-8 min-h-[12rem] rounded-2xl border border-border bg-card px-5 py-4 sm:min-h-[8rem]";
   if (view.kind === "anonymous") return (
     <section aria-label="Отметка материала" className={className}>
       <p className="text-sm text-muted-foreground">Войдите, чтобы сохранить отметку об изучении.</p>
@@ -38,7 +38,7 @@ export function ReadingAction({ format, view, onSetReadingState, onRefresh }: Re
   return (
     <section aria-label="Отметка материала" className={className} data-reading-action-state={view.kind}>
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-h-5 min-w-0">
           {view.isRead ? <MaterialReadingStatus format={format} isRead /> : <p className="text-sm font-semibold">Ваш прогресс</p>}
         </div>
         <Button
@@ -52,7 +52,7 @@ export function ReadingAction({ format, view, onSetReadingState, onRefresh }: Re
           {view.kind === "error" ? "Повторить сохранение" : view.isRead ? "Снять отметку" : labels.action}
         </Button>
       </div>
-      <p aria-live={view.kind === "error" ? "assertive" : "polite"} className="mt-3 text-sm leading-5 text-muted-foreground" id={descriptionId} role={view.kind === "error" ? "alert" : "status"}>{message}</p>
+      <p aria-live={view.kind === "error" ? "assertive" : "polite"} className="mt-3 min-h-10 text-sm leading-5 text-muted-foreground sm:min-h-5" id={descriptionId} role={view.kind === "error" ? "alert" : "status"}>{message}</p>
       {view.kind === "conflict" ? <Button className="mt-2 min-h-11 px-0" onClick={onRefresh} variant="link">Обновить статус</Button> : null}
     </section>
   );

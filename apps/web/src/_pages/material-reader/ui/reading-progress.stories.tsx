@@ -47,8 +47,8 @@ function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true 
         <p className="mt-3 text-muted-foreground">{surface === "series" ? "От первого запроса до устойчивой работы в продакшене." : "Одна отметка видна в базе знаний, теме, серии и на главной."}</p>
         {progress}
         {surface === "cards" ? <div className="mt-8 grid gap-8 sm:grid-cols-2">
-          {(["default", "compact", "row", "feed"] as const).map((variant) => <div key={variant}><MaterialCard material={{ ...preview, format: formatName }} variant={variant} readingStatus={<MaterialReadingStatus format={format} isRead />} /></div>)}
-        </div> : <div className="mt-6 grid gap-3">{total > 0 ? <MaterialCard material={preview} variant="row" readingStatus={<MaterialReadingStatus format={format} isRead />} /> : <p className="text-muted-foreground">В этой серии пока нет опубликованных материалов.</p>}</div>}
+          {(["default", "compact", "row", "feed"] as const).map((variant) => <div key={variant}><MaterialCard material={{ ...preview, format: formatName }} variant={variant} readingStatus={<MaterialReadingStatus format={format} isRead={isRead} />} /></div>)}
+        </div> : <div className="mt-6 grid gap-3">{total > 0 ? <MaterialCard material={preview} variant="row" readingStatus={<MaterialReadingStatus format={format} isRead={isRead} />} /> : <p className="text-muted-foreground">В этой серии пока нет опубликованных материалов.</p>}</div>}
         {total > 0 ? action : null}
       </div>}
   </ApplicationShell>;
@@ -81,6 +81,16 @@ export const Failure: Story = { args: { initial: { kind: "error", isRead: false,
 } };
 export const Conflict: Story = { args: { initial: { kind: "conflict", isRead: true, canMark: true } } };
 export const Cards: Story = { args: { surface: "cards", initial: { kind: "ready", isRead: true, canMark: true } } };
+export const CardsMarkAndRemove: Story = { ...Cards, play: async ({ canvasElement }) => {
+  const canvas = within(canvasElement);
+  await expect(canvas.getAllByText("Прочитано", { exact: true })).toHaveLength(5);
+  await userEvent.click(canvas.getByRole("button", { name: /^Снять отметку$/ }));
+  await waitFor(() => expect(canvas.queryAllByText("Прочитано", { exact: true })).toHaveLength(0));
+  await expect(canvas.getByText("Изучено 2 из 6")).toBeVisible();
+  await userEvent.click(canvas.getByRole("button", { name: /^Отметить прочитанным$/ }));
+  await waitFor(() => expect(canvas.getAllByText("Прочитано", { exact: true })).toHaveLength(5));
+  await expect(canvas.getByText("Изучено 3 из 6")).toBeVisible();
+} };
 export const Series: Story = { args: { surface: "series" } };
 export const CompleteSeries: Story = { args: { surface: "series", read: 5, initial: { kind: "ready", isRead: true, canMark: true } } };
 export const EmptySeries: Story = { args: { surface: "series", read: 0, total: 0 }, play: async ({ canvasElement }) => {

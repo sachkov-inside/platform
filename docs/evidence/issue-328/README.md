@@ -24,7 +24,8 @@ pnpm --filter @inside/web exec playwright test --config playwright.reading-proof
 ```
 
 Автоматическая проверка снимает 390×844 и 1440×1024, проверяет отсутствие горизонтального
-переполнения, accessibility через Axe и устойчивый размер кнопки при pending. Agentation скрыт
+переполнения, accessibility через Axe, устойчивый размер кнопки при pending и положение
+счётчика серии при loading/ready/pending. Всего 18 browser-проверок и 19 Storybook-сценариев. Agentation скрыт
 только в автоматических снимках; интерактивный Storybook оставляет overlay включённым.
 
 Owner visual GO: ожидается. Эти снимки не означают завершение production integration #329.
