@@ -30,7 +30,6 @@ import {
   libraryMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
-import { PublicProductHeader } from "@/widgets/application-shell";
 import { seriesSteps } from "../model/series-steps";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
@@ -60,7 +59,6 @@ export function LibraryDiscoveryView({
       data-discovery-kind={result.discoveryKind}
       data-discovery-state={result.kind}
     >
-      <PublicProductHeader />
       <DiscoveryBreadcrumb
         kind={result.discoveryKind}
         name={result.reference.name}

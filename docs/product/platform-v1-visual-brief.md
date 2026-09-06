@@ -16,12 +16,20 @@ standalone concept/component gates #22/#23: visual language сначала пр�
 owner-controlled UI laboratory, затем принятые outputs — в production shell и реальных surfaces.
 
 Owner decision [#271](https://github.com/sachkov-inside/platform/issues/271) от 2026-09-04
-сужает текущий production visual contract: desktop Sidebar — Главная/База знаний, mobile floating
-dock — Главная/База знаний/Профиль с текстом только у active destination; Home не имеет search,
+сужает текущий production visual contract: Home не имеет отдельного поля поиска,
 history или `Продолжить`; Library оставляет один global search и material-only Topic/Format/sort;
 Reader не показывает related block или декоративную cover. Owner follow-up от 2026-09-06
 закрепляет независимые Series results и reading-first колонку. Более ранние противоречащие bullets
 ниже являются историческими.
+
+Owner выбрал верхнюю шапку A и словесный логотип C в
+[#311](https://github.com/sachkov-inside/platform/issues/311); production integration — #313.
+Это заменяет desktop sidebar. По уточнению владельца mobile сохраняет нижнюю навигацию без
+верхней шапки. Полное название **Sachkov Inside**, его цветовое
+разделение и поведение шапки заданы в
+[контракте навигации](platform-mvp-brief.md#поиск-и-навигация).
+Остальной принятый дизайн страниц сохраняется; production visual GO остаётся отдельным от
+выбора прототипа и merge GO.
 
 Текущие Series composition, связи шагов и карточки определяет
 [Series contract](../specifications/platform-v1.md#series-step-sequences). Он имеет приоритет
@@ -289,6 +297,9 @@ H1 задаёт starting point для первого production consumer. H2/H3 
 требуется.
 
 ## 6. Owner-approved UI laboratory baseline
+
+История принятых proofs. Описание desktop sidebar заменено решением #311/#313. Mobile dock сохранён по уточнению
+владельца; текущая граница навигации задаётся контрактом выше.
 
 Rendered review в [Platform #45](https://github.com/sachkov-inside/platform/issues/45) 2026-08-23
 подтвердил первую bounded baseline для продолжения laboratory. Это approval конкретных patterns,

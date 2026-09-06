@@ -16,7 +16,7 @@ test("capture the issue 49 real authenticated-shell evidence", async ({ page }, 
   const response = await page.goto("/");
 
   expect(response?.status()).toBe(200);
-  await expect(page.locator("button:visible", { hasText: "Выйти" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Аккаунт", exact: true })).toBeEnabled();
   await page.screenshot({
     animations: "disabled",
     fullPage: true,
