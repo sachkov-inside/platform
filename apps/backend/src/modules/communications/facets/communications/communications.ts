@@ -1,3 +1,4 @@
+import type { TrackingVisits } from "../tracking-visits/tracking-visits.js";
 import type { PublicContentTargets } from "../../../materials/index.js";
 import { validateTargets } from "../../features/validate-targets/validate-targets.js";
 import type { Accounts } from "../../../accounts/index.js";
@@ -20,6 +21,7 @@ export class Communications {
       publicOrigin: string | undefined;
       botStartUrl: string;
     },
+    private readonly visits?: TrackingVisits,
   ) {}
 
   async execute(
@@ -96,6 +98,9 @@ export class Communications {
     return response.ok
       ? {
           ...response,
+          ...(request.operation === "statistics.read" && this.visits
+            ? { trackingBacklog: await this.visits.backlog() }
+            : {}),
           ...(this.presentation
             ? { botStartUrl: this.presentation.botStartUrl }
             : {}),

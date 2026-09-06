@@ -65,7 +65,11 @@ function matchesOperation(request: ProviderRequest, value: Extract<ProviderRespo
     case "statistics.read": return "statistics" in value;
     case "deliveries.read": return "deliveries" in value;
     case "delivery.resolve": return "deliveryId" in value && sameId(value.deliveryId, request.payload.deliveryId) && sameId(value.partId, request.payload.partId) && value.outcome === (request.payload.action === "skip" ? "skipped" : "retry_requested");
-    case "eligibility.check": case "tracking.resolve": case "tracking.recordHit": return false;
+    case "broadcasts.list": return "broadcasts" in value;
+    case "entries.read": return "entries" in value;
+    case "tracking.resolve": return "safeUrl" in value;
+    case "tracking.recordHit": return "eventId" in value && sameId(value.eventId, request.payload.eventId);
+    case "eligibility.check": return false;
   }
 }
 

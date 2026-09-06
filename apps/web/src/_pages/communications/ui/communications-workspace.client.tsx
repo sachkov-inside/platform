@@ -234,6 +234,12 @@ export function CommunicationsWorkspace({
     >
       <div className="mx-auto max-w-5xl space-y-8">
         <header className="space-y-3">
+          <Link
+            className="underline"
+            href="/authoring/communications/broadcasts"
+          >
+            Рассылки и аналитика
+          </Link>
           <h1 className="text-3xl font-semibold tracking-tight">
             Воронки Telegram
           </h1>

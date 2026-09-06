@@ -13,6 +13,7 @@ export type { RecursiveSchema1schema0 } from './models/RecursiveSchema1schema0';
 
 export { AccountsService } from './services/AccountsService';
 export { CommunicationsService } from './services/CommunicationsService';
+export { CommunicationsTrackingService } from './services/CommunicationsTrackingService';
 export { ContentCoversService } from './services/ContentCoversService';
 export { ContentLibraryService } from './services/ContentLibraryService';
 export { KinescopeIntegrationService } from './services/KinescopeIntegrationService';

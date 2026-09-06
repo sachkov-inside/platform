@@ -22,3 +22,5 @@ export * from "./material-authoring.server";
 export * from "./material-videos.server";
 export * from "./member-profiles.server";
 export * from "./telegram-membership.server";
+
+export * from "./communications.server";

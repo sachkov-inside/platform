@@ -203,6 +203,10 @@ const platformConfigSchema = z
     objectStorage: objectStorageSchema,
     kinescope: kinescopeSchema,
     telegramMembership: telegramMembershipSchema,
+    communicationsTrackingOrigin: z.url().refine(value => {
+      const url = new URL(value);
+      return url.protocol === "https:" && url.pathname === "/" && !url.search && !url.hash && !url.username && !url.password;
+    }).optional(),
     communications: z.object({
       endpoint: httpUrlSchema("TELEGRAM_COMMUNICATIONS_ENDPOINT").refine(value => {
         const url = new URL(value);
@@ -316,6 +320,7 @@ export function parsePlatformConfig(
   const mode = parsePlatformMode(environment.NODE_ENV);
   const config = platformConfigSchema.safeParse({
     mode,
+    communicationsTrackingOrigin: environment.TELEGRAM_TRACKING_ORIGIN,
     communications: [environment.TELEGRAM_COMMUNICATIONS_ENDPOINT, environment.TELEGRAM_COMMUNICATIONS_SECRET,
       environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET, environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY].every(value => value === undefined)
       ? undefined : {

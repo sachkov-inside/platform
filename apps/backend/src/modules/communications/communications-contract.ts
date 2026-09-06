@@ -1,3 +1,4 @@
+import { trackingBacklogSchema } from "./facets/tracking-visits/tracking-visits.js";
 import { z } from "zod";
 import {
   requestSchema,
@@ -7,8 +8,7 @@ import {
 } from "./communications-schema.generated.js";
 
 export const COMMUNICATIONS_VERSION = "inside-communications-v1" as const;
-// Service-only tracking and Platform-owned eligibility belong to #310, never
-// to the delegated management surface.
+// Service-only tracking and eligibility never belong to delegated management.
 export const managementSchemas = requestSchema.options
   .filter(
     (schema) =>
@@ -63,6 +63,7 @@ export const targetErrorSchema = z.object({
 export const communicationsSuccessSchema = z.strictObject({
   ok: z.literal(true),
   value: providerSuccessSchema,
+  trackingBacklog: trackingBacklogSchema.optional(),
   botStartUrl: z.url().optional(),
   targetErrors: z.array(targetErrorSchema).optional(),
 });
