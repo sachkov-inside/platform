@@ -19,6 +19,7 @@ import {
 
 interface MaterialPrimaryVideoProps {
   readonly className?: string;
+  readonly showWatchedAction?: boolean;
   readonly materialId: string;
   readonly video: {
     readonly durationSeconds?: number | undefined;
@@ -31,7 +32,7 @@ interface MaterialPrimaryVideoProps {
 
 export type PlayerPhase = "idle" | "loading" | "playing" | "error";
 
-export function MaterialPrimaryVideo({ className, materialId, video }: MaterialPrimaryVideoProps) {
+export function MaterialPrimaryVideo({ className, materialId, video, showWatchedAction = true }: MaterialPrimaryVideoProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const playerRef = useRef<{ destroy(): Promise<void> } | null>(null);
   const progressInteractionRef = useRef(false);
@@ -219,6 +220,7 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
     title={video.title}
     videoId={video.videoId}
     watched={watched}
+    showWatchedAction={showWatchedAction}
     watchedDisabled={
       watchedPending ||
       (video.durationSeconds === undefined && measuredDuration === null)
@@ -228,6 +230,7 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
 
 export interface MaterialVideoPlayerViewProps {
   readonly className?: string;
+  readonly showWatchedAction?: boolean;
   readonly onLoad: () => void;
   readonly onToggleWatched?: () => void;
   readonly phase: PlayerPhase;
@@ -249,6 +252,7 @@ export function MaterialVideoPlayerView({
   videoId,
   watched = false,
   watchedDisabled = false,
+  showWatchedAction = true,
 }: MaterialVideoPlayerViewProps) {
   return (
     <section aria-labelledby="primary-video-heading" className={cn("mt-8 max-w-[56rem] sm:mt-10", className)} data-video-id={videoId} ref={sectionRef}>
@@ -289,7 +293,7 @@ export function MaterialVideoPlayerView({
             Управление, полноэкранный режим и Picture-in-Picture предоставляет Kinescope.
           </p>
         </div>
-        <Button
+        {showWatchedAction ? <Button
           aria-pressed={watched}
           className="min-h-10 w-[13.5rem] shrink-0 justify-center rounded-full"
           disabled={watchedDisabled || onToggleWatched === undefined}
@@ -299,7 +303,7 @@ export function MaterialVideoPlayerView({
         >
           <CheckCircle2 aria-hidden="true" />
           {watched ? "Просмотрено" : "Отметить просмотренным"}
-        </Button>
+        </Button> : null}
       </div>
     </section>
   );

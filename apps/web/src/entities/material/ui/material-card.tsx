@@ -21,6 +21,7 @@ export interface MaterialCardProps {
   readonly returnHref?: Route;
   /** Series-owned context rendered below the row title. */
   readonly rowAnnotation?: React.ReactNode;
+  readonly readingStatus?: React.ReactNode;
   readonly variant?: "compact" | "default" | "feed" | "row";
 }
 
@@ -30,6 +31,7 @@ export function MaterialCard({
   material,
   returnHref,
   rowAnnotation,
+  readingStatus,
   variant = "default",
 }: MaterialCardProps) {
   const Heading = headingLevel;
@@ -42,6 +44,7 @@ export function MaterialCard({
         material={material}
         readerHref={readerHref}
         rowAnnotation={rowAnnotation}
+        readingStatus={readingStatus}
         {...(returnHref === undefined ? {} : { returnHref })}
       />
     );
@@ -77,6 +80,7 @@ export function MaterialCard({
         <p className="col-start-2 mt-2 text-base leading-7 tracking-[-0.015em] text-body-muted md:text-lg">
           {material.summary}
         </p>
+        {readingStatus ? <span className="col-start-2 mt-3">{readingStatus}</span> : null}
         <span className="col-start-2 mt-3 inline-flex items-center gap-1 text-sm font-semibold text-action">
           Читать заметку
           <ChevronRight aria-hidden="true" className="size-4" />
@@ -136,6 +140,7 @@ export function MaterialCard({
           {material.title}
         </Link>
       </Heading>
+      {readingStatus ? <span className="mt-2 block">{readingStatus}</span> : null}
       {isCompact ? (
         <span className="mt-1 block text-xs font-medium text-muted-foreground md:text-sm">
           {material.topic}
@@ -156,12 +161,14 @@ function MaterialRow({
   readerHref,
   returnHref,
   rowAnnotation,
+  readingStatus,
 }: {
   readonly headingLevel: "h2" | "h3";
   readonly material: MaterialPreview;
   readonly readerHref: Route;
   readonly returnHref?: Route;
   readonly rowAnnotation?: React.ReactNode;
+  readonly readingStatus?: React.ReactNode;
 }) {
   const Heading = headingLevel;
   const isVideo = materialPreviewHasVideo(material);
@@ -208,6 +215,7 @@ function MaterialRow({
             {material.summary}
           </span>
         ) : null}
+        {readingStatus ? <span className="mt-2 block">{readingStatus}</span> : null}
         {rowAnnotation}
       </span>
       <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
