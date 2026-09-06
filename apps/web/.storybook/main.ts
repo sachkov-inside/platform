@@ -10,6 +10,8 @@ const config: StorybookConfig = {
   stories: [
     "../src/**/*.mdx",
     "../src/**/!(*.prototype).stories.@(js|jsx|mjs|ts|tsx)",
+    // Active owner comparison; historical prototypes stay out of the catalog.
+    "../src/_pages/home/ui/navigation.prototype.stories.tsx",
   ],
   addons: [
     "@storybook/addon-vitest",
