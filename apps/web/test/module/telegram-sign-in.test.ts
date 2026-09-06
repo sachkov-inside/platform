@@ -40,7 +40,7 @@ beforeAll(async () => {
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("Fixture server did not bind");
-  origin = `http://127.0.0.1:${String(address.port)}`;
+  origin = process.env.TELEGRAM_UI_ORIGIN ?? `http://127.0.0.1:${String(address.port)}`;
   browser = await chromium.launch();
 });
 
@@ -53,6 +53,13 @@ async function open(page: Page, status: InsideTelegramPresentation["status"]) {
   offline = false;
   requests = 0;
   state = { status, deepLink: botLink };
+  if (process.env.TELEGRAM_UI_ORIGIN) {
+    await page.unrouteAll();
+    await page.route(`${origin}/api/inside-telegram/status`, async (route) => {
+      requests += 1;
+      await route.fulfill({ status: offline ? 503 : 200, json: state });
+    });
+  }
   await page.goto(`${origin}/api/inside-telegram`);
   await page.waitForFunction(() => document.querySelector('[role="status"]')?.textContent !== "Готовим вход…");
   await page.evaluate(() => document.fonts.ready);
@@ -77,7 +84,7 @@ it("renders every production state without overflow or accessibility violations 
       }
       if (process.env.CAPTURE_TELEGRAM_EVIDENCE === "1") {
         await mkdir(evidence, { recursive: true });
-        await page.screenshot({ path: `${evidence}/${status}-${String(width)}.png`, fullPage: true });
+        await page.screenshot({ path: `${evidence}/${process.env.TELEGRAM_UI_ORIGIN ? "logto-" : ""}${status}-${String(width)}.png`, fullPage: true });
       }
     }
     await context.close();
@@ -97,7 +104,7 @@ it("keeps keyboard focus and control geometry across polls, reconnects, and retu
   offline = true;
   await page.clock.runFor(1600);
   await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor();
-  expect(await page.locator("#bot").evaluate((element) => element === document.activeElement)).toBe(true);
+  expect(await page.locator("#alternative").evaluate((element) => element === document.activeElement)).toBe(true);
   offline = false;
   state = { status: "denied" };
   await page.clock.runFor(1600);
@@ -121,4 +128,35 @@ it("automatically completes in the original tab after approval and respects redu
   await open(page, "approved");
   expect(await page.locator(".inside-telegram-progress").evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
   await page.close();
+});
+
+it("offers a keyboard-accessible return during persistent connection failure, including the first poll", async () => {
+  const page = await browser.newPage();
+  await page.clock.install();
+  await page.route(`${origin}/api/inside-telegram/status`, async (route) => {
+    await route.fulfill({ status: 503, body: "Service unavailable" });
+  });
+  await page.goto(`${origin}/api/inside-telegram`);
+  await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor();
+  await page.clock.runFor(10000);
+  expect(await page.locator("#alternative").getAttribute("href")).toBe("/sign-in");
+  await page.keyboard.press("Tab");
+  expect(await page.locator("#alternative").evaluate((element) => element === document.activeElement)).toBe(true);
+  await page.keyboard.press("Enter");
+  await page.waitForURL(`${origin}/sign-in`);
+  await page.close();
+});
+
+it.runIf(Boolean(process.env.STORYBOOK_UI_ORIGIN))("captures the exact Storybook presentation on desktop and mobile", async () => {
+  for (const width of [1440, 320]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
+    const page = await context.newPage();
+    await page.goto(`${process.env.STORYBOOK_UI_ORIGIN ?? ""}/iframe.html?id=patterns-identity-telegram-sign-in--pending&viewMode=story`);
+    await page.getByRole("heading", { name: "Вход через Telegram" }).waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    expect((await new AxeBuilder({ page }).include(".inside-telegram").withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+    await mkdir(evidence, { recursive: true });
+    await page.screenshot({ path: `${evidence}/storybook-pending-${String(width)}.png`, fullPage: true });
+    await context.close();
+  }
 });

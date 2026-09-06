@@ -27,7 +27,7 @@ export function renderTelegramSignInContent(view: InsideTelegramView): string {
     reconnecting: 'Нет связи. Пробуем ещё раз…',
   };
   const status = Object.hasOwn(copy, view.status) ? view.status : 'unavailable';
-  const waiting = status === 'pending' || status === 'reconnecting';
+  const waiting = status === 'pending';
   const busy = waiting || status === 'loading' || status === 'approved';
   let deepLink = '';
   if (waiting && view.deepLink) {
@@ -84,7 +84,6 @@ export const telegramSignInScript = `
 const render = ${renderTelegramSignInContent.toString()};
 const main = document.querySelector('main');
 let previousContent = main.innerHTML;
-let deepLink;
 function present(view) {
   const content = render(view);
   if (content === previousContent) return;
@@ -95,7 +94,7 @@ function present(view) {
   main.querySelector('[role="status"]').textContent = next.content.querySelector('[role="status"]').textContent;
   main.querySelector('.inside-telegram-actions').replaceChildren(...next.content.querySelector('.inside-telegram-actions').childNodes);
   previousContent = content;
-  if (focusedId) (document.getElementById(focusedId) || document.getElementById('alternative'))?.focus();
+  if (focusedId) (document.getElementById(focusedId) || document.getElementById('alternative') || document.getElementById('bot'))?.focus();
 }
 async function poll() {
   let stopped = false;
@@ -103,7 +102,6 @@ async function poll() {
     const response = await fetch('/api/inside-telegram/status', { cache: 'no-store' });
     if (!response.ok) throw new Error('Status unavailable');
     const state = await response.json();
-    deepLink = state.deepLink;
     present(state);
     if (state.status === 'approved' && state.callback) {
       stopped = true;
@@ -112,7 +110,7 @@ async function poll() {
       stopped = true;
     }
   } catch {
-    present({ status: 'reconnecting', deepLink });
+    present({ status: 'reconnecting' });
   }
   if (!stopped) setTimeout(poll, ${pollIntervalMilliseconds});
 }
