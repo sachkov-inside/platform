@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, mocked, userEvent, within } from "storybook/test";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { AuthoringShell } from "@/widgets/authoring-shell";
 import type { Funnel, Part, Preview } from "../model/communications";
 import {
@@ -173,6 +174,9 @@ const meta = {
   title: "Pages/Authoring/Воронки Telegram",
   component: CommunicationsWorkspace,
   args: { actions },
+  beforeEach: () => {
+    mocked(usePathname).mockReturnValue("/authoring/communications");
+  },
   decorators: [
     (Story) => (
       <QueryFixture>
