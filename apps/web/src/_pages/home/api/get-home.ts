@@ -77,7 +77,6 @@ export async function getHome(
     value: {
       guides: parsed.data.guides.map(toMaterialPreview),
       notes: parsed.data.notes.map(toMaterialPreview),
-      membership: parsed.data.membership,
       playlists: parsed.data.playlists.map(mapCollection),
       topics: parsed.data.topics.map(mapCollection),
       videos: parsed.data.videos.map(toMaterialPreview),
