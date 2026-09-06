@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { createPrismaClient, type PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
 import { assembleMaterials, assembleMaterialResourceFacts, PublishedSeriesComposition } from "../../src/modules/materials/index.js";
@@ -23,6 +23,7 @@ describe("ReadingActivity on PostgreSQL", () => {
   let materials: ReturnType<typeof assembleMaterials>;
   let membership: ReturnType<typeof assembleMembershipEntitlements>;
   let composition: PublishedSeriesComposition;
+  let membershipNow: Date | undefined;
 
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
@@ -32,6 +33,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: (id) => id === actor } });
     membership = assembleMembershipEntitlements({
       prisma: database.prisma,
+      clock: () => membershipNow ?? new Date(),
       workshopEntitlements: assembleWorkshopEntitlements({ prisma: database.prisma }),
     });
     composition = new PublishedSeriesComposition(database.prisma);
@@ -47,6 +49,7 @@ describe("ReadingActivity on PostgreSQL", () => {
         materialResourceFacts: assembleMaterialResourceFacts(materials.materialContent),
         accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
         membershipEntitlements: membership,
+        clock: () => membershipNow ?? new Date(),
       }),
       composition,
     });
@@ -151,7 +154,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     } finally { await admin.end(); }
   });
 
-  test("free non-member and expired member retain private marks; protected marks still require current access", async () => {
+  test("free non-member and revoked member retain private marks; protected marks still require current access", async () => {
     const free = await material();
     const protectedId = await material([], "membership");
     const memberId = checkedAccountId(randomUUID());
@@ -174,13 +177,43 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(await reading.getReadingStates({ accountId, materialIds: [protectedId] })).toMatchObject({ ok: true, value: [{ version: 0 }] });
   });
 
+  test("positive Membership evidence expires by time without deleting previous marks", async () => {
+    const memberId = checkedAccountId(randomUUID());
+    const id = await material([], "membership");
+    const checkedAt = new Date();
+    const validUntil = new Date(checkedAt.getTime() + 240_000);
+    const accepted = await membership.acceptEvidence({ accountId: memberId, deliveryId: randomUUID(), source: "link_time", evidence: {
+      contractVersion: "inside.membership-evidence.v1", principalRef: `principal-${memberId}`, decision: "member", reasonCode: "chat_member",
+      checkedAt: checkedAt.toISOString(), validUntil: validUntil.toISOString(), telegramIdentityRef: `telegram-${memberId}`, evidenceRef: randomUUID(), evidenceVersion: 1,
+    } });
+    expect(accepted).toMatchObject({ ok: true });
+    expect(await reading.setReadingState({ ...command(id), accountId: memberId })).toMatchObject({ ok: true });
+    try {
+      membershipNow = new Date(validUntil.getTime() + 1);
+      expect(await reading.setReadingState({ ...command(id, true, 1), accountId: memberId })).toEqual({ ok: false, error: { code: "access_denied" } });
+      expect(await reading.getReadingStates({ accountId: memberId, materialIds: [id] })).toMatchObject({ ok: true, value: [{ isRead: true, version: 1 }] });
+      expect(await reading.setReadingState({ ...command(id, false, 1), accountId: memberId })).toMatchObject({ ok: true, value: { state: { isRead: false, version: 2 } } });
+    } finally { membershipNow = undefined; }
+  });
+
   test("access is checked after pair serialization and rejects changed content or expired decisions without writes", async () => {
     const id = await material();
     const admin = new Pool({ connectionString: database.url });
     const session = await admin.connect();
     await session.query("BEGIN");
     await session.query("select pg_advisory_xact_lock(hashtextextended($1, 0::bigint))", [`reading-pair:${accountId}:${id}`]);
-    const pending = reading.setReadingState(command(id));
+    const access = assembleContentAccess({
+      materialResourceFacts: assembleMaterialResourceFacts(materials.materialContent),
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) }, membershipEntitlements: membership,
+    });
+    const authorize = vi.fn((input: Parameters<typeof access.authorize>[0]) => access.authorize(input));
+    const lockedReading = new ReadingActivity({ prisma: database.prisma, materialContent: materials.materialContent, contentAccess: { authorize }, composition });
+    const pending = lockedReading.setReadingState(command(id));
+    await expect.poll(async () => {
+      const result = await admin.query<{ waiting: boolean }>("select exists(select 1 from pg_locks where locktype = 'advisory' and not granted and database = (select oid from pg_database where datname = current_database())) as waiting");
+      return result.rows[0]?.waiting;
+    }).toBe(true);
+    expect(authorize).not.toHaveBeenCalled();
     await transition(id, "unpublished");
     await session.query("COMMIT");
     session.release();

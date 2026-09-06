@@ -1,4 +1,4 @@
-import { PublishedSeriesComposition } from "./facets/published-series-composition/published-series-composition.js";
+import { PublishedSeriesComposition } from "./features/read-published-series-composition/read-published-series-composition.js";
 import { PublicContentTargets } from "./facets/public-content-targets/public-content-targets.js";
 import { Module } from "@nestjs/common";
 

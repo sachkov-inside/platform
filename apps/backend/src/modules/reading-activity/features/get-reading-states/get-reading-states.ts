@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { toReadingState, type ReadingState } from "../../domain/reading-state.js";
+import type { ReadingState } from "../../domain/reading-state.js";
+import { toReadingState } from "../../shared/reading-state-mapping.js";
 
 export const getReadingStatesSchema = z.object({ materialIds: z.array(z.uuid()).min(1).max(100) }).strict();
 const querySchema = getReadingStatesSchema.extend({ accountId: z.uuid() });

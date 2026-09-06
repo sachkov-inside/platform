@@ -192,4 +192,4 @@ export {
 
 export { PublicContentTargets, type PublicContentTarget, type PublicContentTargetResult } from "./facets/public-content-targets/public-content-targets.js";
 
-export { PublishedSeriesComposition, type PublishedSeriesCompositionResult } from "./facets/published-series-composition/published-series-composition.js";
+export { PublishedSeriesComposition, type PublishedSeriesCompositionResult } from "./features/read-published-series-composition/read-published-series-composition.js";

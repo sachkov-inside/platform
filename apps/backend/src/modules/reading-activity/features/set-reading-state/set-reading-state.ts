@@ -4,8 +4,9 @@ import type { ReadingActivityPrismaClient } from "../../../../infrastructure/pri
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import { materialId, type MaterialContent } from "../../../materials/index.js";
-import { readingOutcomeSchema, toReadingState } from "../../domain/reading-state.js";
-import { lockReadingCommand, lockReadingPair } from "../../infrastructure/postgres/reading-locks.js";
+import { readingOutcomeSchema } from "../../domain/reading-state.js";
+import { toReadingState } from "../../shared/reading-state-mapping.js";
+import { lockReadingCommand, lockReadingPair } from "./reading-locks.js";
 import { setReadingStateSchema, type SetReadingStateCommand, type SetReadingStateResult } from "./set-reading-state.contract.js";
 
 const commandSchema = setReadingStateSchema.extend({ accountId: z.uuid(), materialId: z.uuid() });
