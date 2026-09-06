@@ -1,7 +1,5 @@
-/**
- * Temporary semantic UI for https://github.com/sachkov-inside/platform/issues/299.
- * Replace through https://github.com/sachkov-inside/platform/issues/303 after Storybook acceptance.
- */
+import { telegramSignInTheme } from './inside-telegram-theme.js';
+
 export interface InsideTelegramPresentation {
   status: 'pending' | 'approved' | 'denied' | 'expired' | 'consumed' | 'disabled' | 'unavailable';
   requestRef?: string;
@@ -10,6 +8,113 @@ export interface InsideTelegramPresentation {
   callback?: string;
 }
 
-export const telegramSignInPage = `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Вход через Telegram — Inside</title><style>[hidden]{display:none!important}body{font:16px/1.5 system-ui;background:#faf9f7;color:#252525;margin:0}main{max-width:360px;margin:12vh auto;padding:24px;text-align:center}h1{font-size:24px;line-height:1.3;margin:0 0 24px}#bot{display:block;padding:14px 20px;border-radius:8px;background:#252525;color:white;text-decoration:none;font-weight:600}p{margin:16px 0;color:#666}#alternative{color:inherit;text-underline-offset:3px}a:focus-visible{outline:3px solid #2879d0;outline-offset:4px}</style><main><h1>Вход через Telegram</h1><a id="bot" hidden target="_blank" rel="noreferrer">Открыть бота</a><p id="status" role="status">Загружаем…</p><a id="alternative" hidden href="/sign-in">Через почту</a></main><script src="/api/inside-telegram/script"></script></html>`;
+export type InsideTelegramView = {
+  status: InsideTelegramPresentation['status'] | 'loading' | 'reconnecting';
+  deepLink?: string;
+};
 
-export const telegramSignInScript = `let stopped=false;async function poll(){try{const r=await fetch('/api/inside-telegram/status',{cache:'no-store'});const s=await r.json();const copy={pending:'Подтвердите вход в Telegram',approved:'Входим…',denied:'Вы отклонили вход.',expired:'Время вышло. Начните вход заново.',consumed:'Этот запрос уже использован. Начните вход заново.',disabled:'Вход через Telegram сейчас отключён.',unavailable:'Вход сейчас недоступен. Начните заново.'};document.getElementById('status').textContent=copy[s.status]||copy.unavailable;if(s.deepLink){const a=document.getElementById('bot');a.href=s.deepLink;a.hidden=false;}if(s.status==='approved'&&s.callback){stopped=true;location.replace(s.callback);}else if(s.status!=='pending'){stopped=true;document.getElementById('bot').hidden=true;document.getElementById('alternative').hidden=false;}}catch{document.getElementById('status').textContent='Нет связи. Пробуем ещё раз…';}if(!stopped)setTimeout(poll,1500);}poll();`;
+// Also serialized into the identity-origin script: keep this function self-contained.
+export function renderTelegramSignInContent(view: InsideTelegramView): string {
+  const copy = {
+    loading: 'Готовим вход…',
+    pending: 'Подтвердите вход в Telegram.',
+    approved: 'Вход подтверждён. Возвращаемся на сайт…',
+    denied: 'Вы отменили вход. Можно попробовать снова.',
+    expired: 'Время ожидания вышло. Начните вход заново.',
+    consumed: 'Этот запрос уже использован. Начните вход заново.',
+    disabled: 'Вход через Telegram сейчас отключён.',
+    unavailable: 'Не удалось начать вход. Попробуйте ещё раз.',
+    reconnecting: 'Нет связи. Пробуем ещё раз…',
+  };
+  const status = Object.hasOwn(copy, view.status) ? view.status : 'unavailable';
+  const waiting = status === 'pending' || status === 'reconnecting';
+  const busy = waiting || status === 'loading' || status === 'approved';
+  let deepLink = '';
+  if (waiting && view.deepLink) {
+    try {
+      const url = new URL(view.deepLink);
+      if (url.protocol === 'https:' && url.hostname === 't.me' && !url.username && !url.password) {
+        deepLink = url.href.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+      }
+    } catch { /* An invalid link is never an actionable control. */ }
+  }
+  return `<div class="inside-telegram-brand" aria-label="Sachkov Inside">sachkov<span>inside</span></div>
+    <div class="inside-telegram-content">
+      <div class="inside-telegram-symbol" aria-hidden="true">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="m21 3-7.1 18-4-7-7-4L21 3Zm0 0L9.9 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h1>Вход через Telegram</h1>
+      <p class="inside-telegram-status" role="status" aria-live="polite" aria-atomic="true">${copy[status]}</p>
+      <div class="inside-telegram-actions">
+        ${deepLink ? `<a class="inside-telegram-button" id="bot" href="${deepLink}" target="_blank" rel="noopener noreferrer">Открыть бота</a>` : busy ? '<span class="inside-telegram-progress" aria-hidden="true"></span>' : '<a class="inside-telegram-button" id="alternative" href="/sign-in">Вернуться ко входу</a>'}
+      </div>
+    </div>`;
+}
+
+export const telegramSignInStyles = `${telegramSignInTheme}
+.inside-telegram,.inside-telegram *{box-sizing:border-box}
+.inside-telegram{margin:0;min-height:100svh;padding:32px 20px;display:grid;place-items:center;background:var(--background);color:var(--foreground);font:16px/1.5 'Inside Manrope',system-ui,sans-serif;color-scheme:light}
+.inside-telegram main{width:100%;max-width:540px;min-height:480px;padding:36px 48px 48px;border:1px solid var(--border);border-radius:16px;background:var(--card);box-shadow:var(--elevation-card)}
+.inside-telegram-brand{font-size:18px;font-weight:500;letter-spacing:-.7px;line-height:28px}
+.inside-telegram-brand span{font-weight:800;margin-left:4px}
+.inside-telegram-content{padding-top:52px;text-align:center}
+.inside-telegram-symbol{display:grid;place-items:center;width:64px;height:64px;margin:0 auto 24px;border-radius:20px;background:var(--secondary);color:var(--primary)}
+.inside-telegram h1{margin:0;font:700 26px/1.3 'Inside Manrope',system-ui,sans-serif;letter-spacing:-.8px}
+.inside-telegram-status{min-height:48px;margin:16px 0 24px;color:var(--muted-foreground);font-size:15px;line-height:24px;text-wrap:balance}
+.inside-telegram-actions{height:52px;display:grid;place-items:center}
+.inside-telegram-button{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;padding:12px 16px;border:1px solid transparent;border-radius:10px;background:var(--primary);color:var(--primary-foreground);font-weight:650;font-size:15px;line-height:24px;text-decoration:none}
+.inside-telegram-button:hover{filter:brightness(1.15)}
+.inside-telegram-button:focus-visible{outline:3px solid var(--ring);outline-offset:4px}
+.inside-telegram-progress{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:inside-telegram-spin 1s linear infinite}
+@keyframes inside-telegram-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.inside-telegram-progress{animation:none}}
+@media(max-width:580px){.inside-telegram{padding:0;display:block}.inside-telegram main{min-height:100svh;padding:28px 24px max(32px,env(safe-area-inset-bottom));border:0;border-radius:0;box-shadow:none;background:var(--background)}.inside-telegram-content{padding-top:72px}.inside-telegram h1{font-size:24px}}
+@media(max-height:600px){.inside-telegram-content{padding-top:28px}}
+@media(forced-colors:active){.inside-telegram-button{border-color:ButtonText}.inside-telegram-button:focus-visible{outline-color:Highlight}}
+`;
+
+export function renderTelegramSignInPage(view: InsideTelegramView): string {
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Вход через Telegram — Inside</title><style>${telegramSignInStyles}</style></head><body class="inside-telegram"><main>${renderTelegramSignInContent(view)}</main></body></html>`;
+}
+
+export const telegramSignInPage = renderTelegramSignInPage({ status: 'loading' }).replace('</body>', '<script src="/api/inside-telegram/script"></script></body>');
+
+const pollIntervalMilliseconds = 1500;
+export const telegramSignInScript = `
+const render = ${renderTelegramSignInContent.toString()};
+const main = document.querySelector('main');
+let previousContent = main.innerHTML;
+let deepLink;
+function present(view) {
+  const content = render(view);
+  if (content === previousContent) return;
+  const focusedId = document.activeElement?.id;
+  const next = document.createElement('template');
+  next.innerHTML = content;
+  // Keep the live region mounted so assistive technology hears state changes.
+  main.querySelector('[role="status"]').textContent = next.content.querySelector('[role="status"]').textContent;
+  main.querySelector('.inside-telegram-actions').replaceChildren(...next.content.querySelector('.inside-telegram-actions').childNodes);
+  previousContent = content;
+  if (focusedId) (document.getElementById(focusedId) || document.getElementById('alternative'))?.focus();
+}
+async function poll() {
+  let stopped = false;
+  try {
+    const response = await fetch('/api/inside-telegram/status', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Status unavailable');
+    const state = await response.json();
+    deepLink = state.deepLink;
+    present(state);
+    if (state.status === 'approved' && state.callback) {
+      stopped = true;
+      location.replace(state.callback);
+    } else if (state.status !== 'pending') {
+      stopped = true;
+    }
+  } catch {
+    present({ status: 'reconnecting', deepLink });
+  }
+  if (!stopped) setTimeout(poll, ${pollIntervalMilliseconds});
+}
+poll();
+`;
