@@ -47,3 +47,18 @@ test("configuration is opt-in, complete, credential-free in URLs and fails close
   expect(parsePlatformConfig({ NODE_ENV: "test" }).communications).toBeUndefined();
   expect(() => parsePlatformConfig({ NODE_ENV: "test", TELEGRAM_COMMUNICATIONS_ENDPOINT: "https://example.test" })).toThrow();
 });
+
+test("ordinary mentions of the Telegram API domain remain author content", async () => {
+  const value = { ...success, template: { ...success.template, content: { ...success.template.content, text: "Запрос отправляется на api.telegram.org" } } };
+  const provider = new HttpCommunicationsProvider(config, () => Promise.resolve(Response.json(value)));
+  await expect(provider.execute(request)).resolves.toEqual({ ok: true, value });
+});
+
+test("canonical UUID response spelling does not change the caller's retry envelope", async () => {
+  const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const input = requestSchema.parse({ ...request, payload: { templateId: id.toUpperCase() } });
+  const value = { ...success, template: { ...success.template, templateId: id } };
+  const fetcher = vi.fn<typeof fetch>().mockImplementation(() => Promise.resolve(Response.json(value)));
+  await expect(new HttpCommunicationsProvider(config, fetcher).execute(input)).resolves.toEqual({ ok: true, value });
+  expect(fetcher.mock.calls[0]?.[1]?.body).toBe(JSON.stringify(input));
+});

@@ -5,7 +5,7 @@ import addFormats from "ajv-formats";
 import fixtures from "../../src/modules/communications/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
 import schema from "../../src/modules/communications/contracts/inside-communications-v1/schema.json" with { type: "json" };
 import * as generated from "../../src/modules/communications/communications-schema.generated.js";
-import { managementRequestSchema } from "../../src/modules/communications/communications-contract.js";
+import { communicationsSuccessSchema, managementRequestSchema } from "../../src/modules/communications/communications-contract.js";
 
 const ajv = new Ajv({ strict: true });
 addFormats.default(ajv);
@@ -22,6 +22,10 @@ describe("vendored communications contract", () => {
       expect(validator?.safeParse(fixture.value).success).toBe(fixture.valid);
     });
   }
+  test("success contracts exclude provider and application failures", () => {
+    expect(communicationsSuccessSchema.safeParse({ ok: true, value: { contractVersion: "inside-communications-v1", status: "forbidden" } }).success).toBe(false);
+    expect(communicationsSuccessSchema.safeParse({ ok: false, error: { code: "forbidden" } }).success).toBe(false);
+  });
   test("public management refuses actors, service operations and destination overrides", () => {
     const request = {
       contractVersion: "inside-communications-v1", operation: "templates.testSend",

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requestSchema, responseSchema, type authorizationRequestSchema } from "./communications-schema.generated.js";
+import { requestSchema, responseSchema, errorSchema, type authorizationRequestSchema } from "./communications-schema.generated.js";
 
 export const COMMUNICATIONS_VERSION = "inside-communications-v1" as const;
 // Service-only tracking and Platform-owned eligibility belong to #310, never
@@ -20,8 +20,12 @@ export const communicationsFailureSchema = z.strictObject({
     "malformed", "unsupported_content", "revision_conflict", "operation_conflict", "not_implemented",
   ]) }),
 });
+const providerSuccessSchema = z.union(responseSchema.options.filter(
+  (schema): schema is Exclude<(typeof responseSchema.options)[number], typeof errorSchema> => schema !== errorSchema,
+));
+export const communicationsSuccessSchema = z.strictObject({ ok: z.literal(true), value: providerSuccessSchema });
 export const communicationsResultSchema = z.union([
-  z.strictObject({ ok: z.literal(true), value: responseSchema }),
+  communicationsSuccessSchema,
   communicationsFailureSchema,
 ]);
 export type CommunicationsResult = z.infer<typeof communicationsResultSchema>;

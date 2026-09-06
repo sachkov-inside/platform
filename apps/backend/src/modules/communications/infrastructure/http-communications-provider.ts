@@ -3,6 +3,9 @@ import { responseSchema } from "../communications-schema.generated.js";
 import { communicationsFailure, type CommunicationsResult, type ProviderRequest, type ProviderResponse } from "../communications-contract.js";
 
 const PROVIDER_REQUEST_TIMEOUT_MS = 5_000;
+// Telegram embeds bot credentials in API/download paths; a plain mention of the
+// API domain remains valid author content.
+const TELEGRAM_CREDENTIAL_URL = /\bapi\.telegram\.org\.?(?::[0-9]+)?\/(?:file\/)?bot[^/\s]+/iu;
 const errorStatuses = {
   unauthorized: 401, forbidden: 403, not_found: 404, malformed: 400,
   unsupported_content: 422, revision_conflict: 409, operation_conflict: 409,
@@ -36,7 +39,7 @@ export class HttpCommunicationsProvider {
       // The provider API host must never escape as a credential-bearing media URL.
       if (response.status !== 200 || !matchesOperation(request, value) ||
         ("template" in value && value.template.botIdentity !== this.config.botIdentity) ||
-        JSON.stringify(value).toLowerCase().includes("api.telegram.org")) return communicationsFailure("provider_invalid_response");
+        TELEGRAM_CREDENTIAL_URL.test(JSON.stringify(value))) return communicationsFailure("provider_invalid_response");
       return { ok: true, value };
     } catch {
       // A timeout may follow a committed mutation. Never regenerate an operation
@@ -49,19 +52,24 @@ export class HttpCommunicationsProvider {
 function matchesOperation(request: ProviderRequest, value: Extract<ProviderResponse, { status: "ok" }>): boolean {
   switch (request.operation) {
     case "templates.read": case "templates.save":
-      return "template" in value && value.template.templateId === request.payload.templateId;
+      return "template" in value && sameId(value.template.templateId, request.payload.templateId);
     case "templates.testSend": return "testDeliveryId" in value;
     case "funnels.read": case "funnels.save": case "funnels.publish": case "funnels.lifecycle": case "funnels.rollback":
-      return "funnel" in value && value.funnel.funnelId === request.payload.funnelId;
-    case "funnels.preview": return "preview" in value && value.preview.funnelId === request.payload.funnelId;
+      return "funnel" in value && sameId(value.funnel.funnelId, request.payload.funnelId);
+    case "funnels.preview": return "preview" in value && sameId(value.preview.funnelId, request.payload.funnelId);
     case "funnels.list": return "funnels" in value;
     case "broadcasts.read": case "broadcasts.save": case "broadcasts.launch": case "broadcasts.lifecycle":
-      return "broadcast" in value && value.broadcast.broadcastId === request.payload.broadcastId;
+      return "broadcast" in value && sameId(value.broadcast.broadcastId, request.payload.broadcastId);
     case "intro.read": return "intro" in value;
-    case "intro.save": return "intro" in value && value.intro.introId === request.payload.introId;
+    case "intro.save": return "intro" in value && sameId(value.intro.introId, request.payload.introId);
     case "statistics.read": return "statistics" in value;
     case "deliveries.read": return "deliveries" in value;
-    case "delivery.resolve": return "deliveryId" in value && value.deliveryId === request.payload.deliveryId && value.partId === request.payload.partId && value.outcome === (request.payload.action === "skip" ? "skipped" : "retry_requested");
+    case "delivery.resolve": return "deliveryId" in value && sameId(value.deliveryId, request.payload.deliveryId) && sameId(value.partId, request.payload.partId) && value.outcome === (request.payload.action === "skip" ? "skipped" : "retry_requested");
     case "eligibility.check": case "tracking.resolve": case "tracking.recordHit": return false;
   }
+}
+
+function sameId(left: string, right: string): boolean {
+  // UUID wire spelling may differ from PostgreSQL's canonical lowercase output.
+  return left.toLowerCase() === right.toLowerCase();
 }

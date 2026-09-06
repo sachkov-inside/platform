@@ -4,7 +4,7 @@ import { z } from "zod";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
 import { problemDetailsContent, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import { AccountGuard, AccountProblemDetailsFilter, CurrentAccount, accountProblemSchema, type AuthenticatedAccount } from "../../../accounts/index.js";
-import { communicationsFailureSchema, communicationsResultSchema, managementRequestSchema, type CommunicationsResult } from "../../communications-contract.js";
+import { communicationsFailureSchema, communicationsSuccessSchema, managementRequestSchema, type CommunicationsResult } from "../../communications-contract.js";
 import { Communications } from "../../facets/communications/communications.js";
 import { templateReferenceSchema } from "./template-reference.js";
 
@@ -33,7 +33,7 @@ export class ManageCommunicationsController {
   @HttpCode(200)
   @ApiOperation({ operationId: "manageCommunications", summary: "Manage Telegram communications as the authenticated Account" })
   @ApiBody({ schema: toOpenApiSchema(managementRequestSchema) })
-  @ApiOkResponse({ schema: toOpenApiSchema(communicationsResultSchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(communicationsSuccessSchema) })
   async execute(@CurrentAccount() account: AuthenticatedAccount, @Body() body: unknown) {
     return toHttpResult(await this.communications.execute(account.accountId, body));
   }
@@ -42,7 +42,7 @@ export class ManageCommunicationsController {
   @HttpCode(200)
   @ApiOperation({ operationId: "resolveCommunicationsTemplate", summary: "Read an authorized template by ID or reference link without fetching the link" })
   @ApiBody({ schema: toOpenApiSchema(templateLookupSchema) })
-  @ApiOkResponse({ schema: toOpenApiSchema(communicationsResultSchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(communicationsSuccessSchema) })
   async resolveTemplate(@CurrentAccount() account: AuthenticatedAccount, @Body() body: unknown) {
     const parsed = templateLookupSchema.safeParse(body);
     const reference = templateReferenceSchema.safeParse(parsed.success ? parsed.data.reference : undefined);

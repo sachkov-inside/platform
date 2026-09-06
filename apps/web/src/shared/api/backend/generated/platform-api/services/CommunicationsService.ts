@@ -659,12 +659,9 @@ export class CommunicationsService {
         funnelId?: string;
       };
     }),
-  }): CancelablePromise<({
+  }): CancelablePromise<{
     ok: boolean;
     value: ({
-      contractVersion: 'inside-communications-v1';
-      status: 'unauthorized' | 'forbidden' | 'not_found' | 'malformed' | 'unsupported_content' | 'revision_conflict' | 'operation_conflict' | 'authorization_unavailable' | 'not_implemented';
-    } | {
       contractVersion: 'inside-communications-v1';
       status: 'ok';
       template: {
@@ -1594,12 +1591,7 @@ export class CommunicationsService {
       nextCursor: (string | string | null);
       status: 'ok';
     });
-  } | {
-    error: {
-      code: 'forbidden' | 'invalid_input' | 'link_required' | 'authorization_unavailable' | 'provider_unavailable' | 'provider_invalid_response' | 'unauthorized' | 'not_found' | 'malformed' | 'unsupported_content' | 'revision_conflict' | 'operation_conflict' | 'not_implemented';
-    };
-    ok: boolean;
-  })> {
+  }> {
     return this.httpRequest.request({
       method: 'POST',
       url: '/communications',
@@ -1619,12 +1611,9 @@ export class CommunicationsService {
       operationId: string;
       reference: string;
     },
-  }): CancelablePromise<({
+  }): CancelablePromise<{
     ok: boolean;
     value: ({
-      contractVersion: 'inside-communications-v1';
-      status: 'unauthorized' | 'forbidden' | 'not_found' | 'malformed' | 'unsupported_content' | 'revision_conflict' | 'operation_conflict' | 'authorization_unavailable' | 'not_implemented';
-    } | {
       contractVersion: 'inside-communications-v1';
       status: 'ok';
       template: {
@@ -2554,12 +2543,7 @@ export class CommunicationsService {
       nextCursor: (string | string | null);
       status: 'ok';
     });
-  } | {
-    error: {
-      code: 'forbidden' | 'invalid_input' | 'link_required' | 'authorization_unavailable' | 'provider_unavailable' | 'provider_invalid_response' | 'unauthorized' | 'not_found' | 'malformed' | 'unsupported_content' | 'revision_conflict' | 'operation_conflict' | 'not_implemented';
-    };
-    ok: boolean;
-  })> {
+  }> {
     return this.httpRequest.request({
       method: 'POST',
       url: '/communications/templates/resolve',

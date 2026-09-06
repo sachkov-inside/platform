@@ -164,6 +164,7 @@ describe("Platform migrations", () => {
         "0026_video_duration",
         "0027_current_collection_search",
         "0028_series_step_groups",
+        "0029_communications_permission",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -675,6 +676,7 @@ describe("Platform migrations", () => {
           "0026_video_duration",
           "0027_current_collection_search",
         "0028_series_step_groups",
+        "0029_communications_permission",
         ],
       });
 
