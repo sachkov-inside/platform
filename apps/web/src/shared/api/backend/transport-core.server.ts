@@ -10,6 +10,7 @@ import { readWebRuntimeConfig } from "@/shared/config/runtime-config.server";
 
 import {
   AccountsService,
+  TelegramSignInService,
   ApiError,
   BaseHttpRequest,
   CancelablePromise,
@@ -345,6 +346,13 @@ export async function establishAccount(
   accessToken: string,
 ): Promise<AuthenticatedAccount> {
   return parseAccountResponse(await requestAccountEstablishment(accessToken));
+}
+
+export async function completeTelegramAccountSignIn(accessToken: string): Promise<AuthenticatedAccount> {
+  return parseAccountResponse(await executeGeneratedRequest(
+    (request) => new TelegramSignInService(request).completeTelegramAccountSignIn(),
+    200, { accessToken },
+  ));
 }
 
 export async function resolveAccount(

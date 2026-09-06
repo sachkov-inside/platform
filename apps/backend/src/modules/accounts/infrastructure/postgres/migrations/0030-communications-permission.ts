@@ -1,4 +1,4 @@
-export const name = "0029_communications_permission";
+export const name = "0030_communications_permission";
 
 export const statement = `
   alter table accounts.account_permissions

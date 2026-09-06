@@ -1,4 +1,5 @@
-import { name as communicationsPermissionName, statement as communicationsPermissionStatement } from "../modules/accounts/infrastructure/postgres/migrations/0029-communications-permission.js";
+import { name as communicationsPermissionName, statement as communicationsPermissionStatement } from "../modules/accounts/infrastructure/postgres/migrations/0030-communications-permission.js";
+import { name as telegramSignInMigrationName, statement as telegramSignInMigrationStatement } from "../modules/accounts/infrastructure/postgres/migrations/0029-telegram-sign-in.js";
 import {
   runMigrationsToLatest,
   type MigrationOutcome,
@@ -224,6 +225,7 @@ export const platformMigrations = [
     name: seriesStepGroupsMigrationName,
     statement: seriesStepGroupsMigrationStatement,
   },
+  { name: telegramSignInMigrationName, statement: telegramSignInMigrationStatement },
   { name: communicationsPermissionName, statement: communicationsPermissionStatement },
 ] as const;
 

@@ -101,8 +101,8 @@ describe("Logto BFF route orchestration", () => {
         headers: { origin: "https://inside.example.test" },
       }),
     );
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe(
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain(
       "https://identity.example.test/oidc/auth",
     );
     expect(fakes.handleSignIn).toHaveBeenCalledWith({
@@ -122,7 +122,7 @@ describe("Logto BFF route orchestration", () => {
       }),
     );
 
-    expect(response.status).toBe(303);
+    expect(response.status).toBe(200);
     expect(fakes.handleSignIn).toHaveBeenCalledWith({
       redirectUri: "https://inside.example.test/callback",
       postRedirectUri: "https://inside.example.test/authoring/playlists/playlist-id",
@@ -244,7 +244,7 @@ describe("Logto BFF route orchestration", () => {
         headers: { origin: "https://inside.example.test" },
       }),
     );
-    expect(response.status).toBe(303);
+    expect(response.status).toBe(200);
     expect(response.headers.get("clear-site-data")).toBe('"storage"');
     expect(fakes.handleSignOut).toHaveBeenCalledWith(fakes.config.baseUrl);
     expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);
@@ -260,7 +260,7 @@ describe("Logto BFF route orchestration", () => {
       }),
     );
 
-    expect(response.headers.get("location")).toBe(
+    expect(await response.text()).toContain(
       "https://inside.example.test/?authentication=logout-incomplete",
     );
     expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);

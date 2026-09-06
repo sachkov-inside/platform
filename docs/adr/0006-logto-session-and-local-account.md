@@ -22,3 +22,13 @@ Issue #116 subsequently verified this boundary against pinned Logto `1.41.0-insi
 send reservations and dependency failure behavior remain inside the IdP, while repeated real
 sign-ins converge on one `Account` and the retired Platform session table remains absent. This is
 operational evidence for the accepted decision, not a new authentication architecture.
+
+On 2026-09-06 the owner extended the establishment rule in
+[Platform #299](https://github.com/sachkov-inside/platform/issues/299): email-code and bot-confirmed
+Telegram sign-in both finish through Logto. The earlier email-only flow remains decision history.
+A Telegram-only Account has no fabricated email. A separate Logto-signed interaction claim proves
+Telegram establishment; matching the exact issuer and subject still resolves the Account. Explicit
+linking allows an email Account to use Telegram; automatic merging, first email attachment,
+identity replacement and recovery remain excluded. This extends the accepted session boundary
+without creating a second authentication mechanism. See the current
+[identity specification](../specifications/identity-principals-session-v1.md#telegram-sign-in--platform-299).

@@ -1,3 +1,7 @@
+import { TelegramAccountSignIn } from "../../src/modules/telegram-membership/features/complete-telegram-sign-in/telegram-account-sign-in.js";
+import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
+import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
+import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -70,6 +74,29 @@ describe("communications permission and confirmed author HTTP authorization", ()
     await database.prisma.telegramLinkTransaction.update({ where: { linkRef }, data: { status: "pending" } });
     expect((await request()).json()).toMatchObject({ status: "denied" });
     await database.prisma.telegramLinkTransaction.update({ where: { linkRef }, data: { status: "linked" } });
+  });
+
+  test("Telegram-only sign-in retains the author link and never restores a revoked permission", async () => {
+    const accounts = assembleAccounts({ prisma: database.prisma, emailFingerprintKey: "synthetic-sign-in-fingerprint-key" });
+    const entitlements = assembleMembershipEntitlements({ prisma: database.prisma, workshopEntitlements: assembleWorkshopEntitlements({ prisma: database.prisma }) });
+    const signIn = new TelegramAccountSignIn({ accounts, prisma: database.prisma, membershipEntitlements: entitlements,
+      provider: { bindAccount: () => Promise.resolve({ status: "linked", telegramIdentityRef: "telegram-only-identity" }) },
+    });
+    const subject = "telegram-only-author";
+    const identity = verifiedTelegramAccountSignIn({ issuer, subject, telegram: { requestRef: randomUUID(), subjectRef: randomUUID() } }).identity;
+    const result = await signIn.complete(identity);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected Telegram-only Account");
+    const accountId = result.account.accountId;
+    const link = await database.prisma.telegramLinkTransaction.findFirstOrThrow({ where: { accountId, status: "linked" } });
+    const author = { kind: "telegram", accountRef: link.principalRef, telegramIdentityRef: "telegram-only-identity", botIdentity };
+    expect((await request(author)).json()).toMatchObject({ status: "denied" });
+    await bootstrapOwnerAccount(database.prisma, { issuer, subject }, "communications:manage");
+    expect((await request(author)).json()).toMatchObject({ status: "allowed", accountRef: link.principalRef });
+    await database.prisma.accountPermission.delete({ where: { accountId_permission: { accountId, permission: "communications:manage" } } });
+    expect(await signIn.complete(identity)).toEqual(result);
+    expect((await request(author)).json()).toMatchObject({ status: "denied" });
+    expect(await database.prisma.telegramLinkTransaction.count({ where: { accountId } })).toBe(1);
   });
 
   test("revocation affects the next check without caching", async () => {

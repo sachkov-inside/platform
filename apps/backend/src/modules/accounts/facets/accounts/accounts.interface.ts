@@ -45,6 +45,8 @@ export type PermissionDecision =
   | { readonly ok: false; readonly error: PermissionError };
 
 export interface Accounts {
+  readIdentityForLink(accountId: string): Promise<{ readonly issuer: string; readonly subject: string; readonly telegramSubjectRef: string | null } | undefined>;
+
   establishAccount(command: {
     readonly identity: VerifiedAccountSignIn;
   }): Promise<EstablishAccountResult>;

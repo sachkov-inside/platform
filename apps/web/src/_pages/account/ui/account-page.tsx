@@ -7,7 +7,7 @@ export function AccountSignInRequired() {
       </p>
       <form action="/auth/sign-in" className="mt-7" method="post">
         <button className="min-h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground" type="submit">
-          Войти по email
+          Войти
         </button>
       </form>
     </section>

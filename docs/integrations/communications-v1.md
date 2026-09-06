@@ -19,8 +19,10 @@ The current linking protocol passes a private `principalRef` as its external `ac
 that same stable reference that Telegram intake uses to own templates. An absent or ambiguous link
 returns `link_required`; unavailable persistence fails closed. This preserves the existing exact
 Logto `(issuer, subject)` identity, account establishment and independent Membership checks. The
-separate sign-in delivery in [#299](https://github.com/sachkov-inside/platform/issues/299) must preserve
-this confirmed-link seam; #307 does not claim its unmerged Logto flow has been exercised.
+merged sign-in delivery in [#299](https://github.com/sachkov-inside/platform/issues/299) writes the
+same confirmed-link seam. Integration tests cover its Telegram-only Account and repeated sign-in
+without implicit communications grants. Real Logto/provider end-to-end sign-in remains separately
+verified by #299; #307 does not claim a new credentialed sign-in run.
 
 `POST /integrations/telegram/v1/communications/authorize` implements the vendored
 `authorizationRequest`/`authorizationResponse`. A separate service bearer credential authenticates

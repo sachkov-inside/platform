@@ -11,6 +11,7 @@ import { z } from "zod";
 import {
   verifiedAccountIdentity,
   verifiedAccountSignIn,
+  verifiedTelegramAccountSignIn,
   type VerifiedAccountIdentity,
 } from "../../../facets/accounts/verified-logto-identity.js";
 
@@ -47,6 +48,7 @@ export interface LogtoAccessTokenVerifier {
 }
 
 interface LogtoVerifierConfig {
+  readonly telegramSignInEnabled?: boolean;
   readonly issuer: string;
   readonly audience: string;
   readonly jwks?: JSONWebKeySet;
@@ -61,6 +63,14 @@ export function createLogtoAccessTokenVerifier(
     async verifyAccountSignIn(token) {
       const verified = await verifyToken(token, config, keyResolver);
       if (!verified.ok) return verified;
+      if (isMachineToken(verified.payload)) return invalidProof();
+      if (verified.payload.inside_telegram_sign_in !== undefined) {
+        const telegram = z.object({ subjectRef: z.uuid(), requestRef: z.uuid() }).strict().safeParse(verified.payload.inside_telegram_sign_in);
+        if (!config.telegramSignInEnabled || !telegram.success) return invalidProof();
+        return { ok: true, ...verifiedTelegramAccountSignIn({
+          issuer: verified.payload.iss, subject: verified.payload.sub, telegram: telegram.data,
+        }) };
+      }
       const email = verifiedEmailSchema.safeParse(
         verified.payload.inside_verified_email,
       );

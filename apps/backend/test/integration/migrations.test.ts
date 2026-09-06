@@ -164,7 +164,9 @@ describe("Platform migrations", () => {
         "0026_video_duration",
         "0027_current_collection_search",
         "0028_series_step_groups",
-        "0029_communications_permission",
+          "0029_telegram_sign_in",
+          "0030_communications_permission",
+
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -676,7 +678,9 @@ describe("Platform migrations", () => {
           "0026_video_duration",
           "0027_current_collection_search",
         "0028_series_step_groups",
-        "0029_communications_permission",
+          "0029_telegram_sign_in",
+          "0030_communications_permission",
+
         ],
       });
 
@@ -827,10 +831,12 @@ describe("Platform migrations", () => {
       await database.prisma.$executeRaw(Prisma.sql`
         insert into public.platform_migrations (name, position, checksum)
         values ('9999_unknown', ${platformMigrations.length + 1}, repeat('0', 64))
+
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
         `Migration ledger is not an exact registry prefix at position ${String(platformMigrations.length + 1)}`,
+
       );
     } finally {
       await database.dispose();

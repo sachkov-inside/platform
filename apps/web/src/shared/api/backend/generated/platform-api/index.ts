@@ -24,4 +24,5 @@ export { OperationsService } from './services/OperationsService';
 export { PublishedMaterialsService } from './services/PublishedMaterialsService';
 export { TelegramMembershipService } from './services/TelegramMembershipService';
 export { TelegramMembershipIntegrationService } from './services/TelegramMembershipIntegrationService';
+export { TelegramSignInService } from './services/TelegramSignInService';
 export { VideoPlaybackService } from './services/VideoPlaybackService';
