@@ -389,7 +389,8 @@ async function ensureSeriesReaderScenario(
       actor,
       body,
       idempotencyKey: `local-series-demo-create-${String(index + 1)}`,
-      metadata,
+      // Keep the original creation receipt stable; current demo copy is applied by Save below.
+      metadata: { ...metadata, summary: `${definition.bodyText} Не является контентом Кирилла.` },
     });
     if (!created.ok) {
       throw new Error(`Local Series demo draft failed: ${created.error.code}`);
