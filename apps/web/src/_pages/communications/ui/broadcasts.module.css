@@ -382,3 +382,15 @@
     gap: 1rem;
   }
 }
+
+.postLibrary {
+  min-width: 0;
+  color: var(--foreground);
+  background: var(--card);
+}
+.postLibrary button {
+  min-height: 2.75rem;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

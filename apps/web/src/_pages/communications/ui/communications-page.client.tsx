@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
 import styles from "./broadcasts.module.css";
 import { BroadcastList } from "./broadcast-list";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/shared/ui/button";
 import { communicationsQueries } from "../model/communications-queries";
@@ -23,6 +23,9 @@ import { AnalyticsPanel, EntryHistory } from "./analytics-panel";
 
 export function CommunicationsPage() {
   const queries = useQueryClient();
+  const sampleOperations = useRef(new Map<string, string>());
+  const [postCursor, setPostCursor] = useState<string>();
+  const postPage = useQuery(communicationsQueries.posts(postCursor));
   const [cursor, setCursor] = useState<string>();
   const [funnelCursor, setFunnelCursor] = useState<string>();
   const [knownFunnels, setKnownFunnels] = useState<Funnel[]>([]);
@@ -119,17 +122,7 @@ export function CommunicationsPage() {
                   broadcastId: crypto.randomUUID(),
                   revision: 0,
                   state: "draft",
-                  parts: [
-                    {
-                      partId: crypto.randomUUID(),
-                      content: {
-                        type: "text",
-                        text: "",
-                        entities: [],
-                        buttons: [],
-                      },
-                    },
-                  ],
+                  parts: [],
                   audience: { kind: "all" },
                   scheduledAt: null,
                   audienceSnapshotId: null,
@@ -187,6 +180,57 @@ export function CommunicationsPage() {
         {selected ? (
           <BroadcastEditor
             key={`${selected.broadcastId}:${String(selected.revision)}`}
+            library={{
+              posts:
+                postPage.data?.kind === "ready" ? postPage.data.templates : [],
+              loading: postPage.isFetching,
+              error:
+                postPage.data?.kind === "error"
+                  ? errorMessage(postPage.data.code)
+                  : null,
+              hasNext:
+                postPage.data?.kind === "ready" &&
+                postPage.data.nextCursor !== null,
+              onNext: () => {
+                if (postPage.data?.kind === "ready")
+                  setPostCursor(postPage.data.nextCursor ?? undefined);
+              },
+              onRefresh: () => {
+                setPostCursor(undefined);
+                void postPage.refetch();
+              },
+              onSave: async (post) => {
+                const result = await api.savePost({
+                  operationId: crypto.randomUUID(),
+                  expectedRevision: post.revision,
+                  payload: {
+                    templateId: post.templateId,
+                    content: post.content,
+                  },
+                });
+                if (result.kind === "ready") {
+                  void queries.invalidateQueries({
+                    queryKey: ["communications", "posts"],
+                  });
+                  return result.template;
+                }
+                return null;
+              },
+              onSample: async (post) => {
+                const key = `${post.templateId}:${String(post.revision)}`;
+                const operationId =
+                  sampleOperations.current.get(key) ?? crypto.randomUUID();
+                sampleOperations.current.set(key, operationId);
+                const result = await api.samplePost({
+                  operationId,
+                  expectedRevision: post.revision,
+                  payload: { templateId: post.templateId },
+                });
+                if (result.kind === "ready")
+                  sampleOperations.current.delete(key);
+                return result.kind === "ready";
+              },
+            }}
             broadcast={selected}
             funnels={funnels}
             pending={pending}

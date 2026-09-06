@@ -1,4 +1,5 @@
 "use client";
+import { PostLibrary, type PostLibraryProps } from "./post-library.client";
 import { useId, useState } from "react";
 import { BroadcastStatus } from "./broadcast-status";
 import styles from "./broadcasts.module.css";
@@ -15,6 +16,7 @@ import {
 } from "../model/broadcasts";
 
 export interface BroadcastEditorProps {
+  readonly library?: PostLibraryProps;
   readonly broadcast: Broadcast;
   readonly funnels: readonly Funnel[];
   readonly pending: boolean;
@@ -27,8 +29,8 @@ export interface BroadcastEditorProps {
   readonly onRefresh: () => void;
   readonly onTemplate: (reference: string) => Promise<Part | null>;
 }
-export const fieldClass =
-  "mt-1 block min-h-11 w-full min-w-0 rounded-lg border border-input bg-background p-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed";
+import { fieldClass } from "./communications-fields";
+export { fieldClass } from "./communications-fields";
 const mediaNames = {
   text: "Текст",
   photo: "Фото",
@@ -52,6 +54,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
   const [scheduled, setScheduled] = useState(localDate(broadcast.scheduledAt));
   const [reference, setReference] = useState("");
   const [preview, setPreview] = useState(false);
+  const [replaceIndex, setReplaceIndex] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const editable =
@@ -118,9 +121,40 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
         <div className={styles.messageColumn}>
           <h3 className={styles.sectionTitle}>Сообщение</h3>
           <p className={styles.hint}>
-            Добавьте текст или сохранённую в Telegram заготовку. Части
-            отправятся по порядку.
+            Выберите готовые посты из Telegram. Части отправятся по порядку.
+            Рассылка сохраняет свою версию: правка исходного поста её не меняет.
           </p>
+          {props.library ? (
+            <PostLibrary
+              {...props.library}
+              disabled={
+                !editable ||
+                disabled ||
+                (replaceIndex === null && parts.length >= 20)
+              }
+              chooseLabel={
+                replaceIndex === null
+                  ? "Добавить в рассылку"
+                  : `Заменить часть ${String(replaceIndex + 1)}`
+              }
+              onChoose={(part) => {
+                setParts((current) =>
+                  replaceIndex !== null
+                    ? current.map((value, i) =>
+                        i === replaceIndex
+                          ? { ...part, partId: value.partId }
+                          : value,
+                      )
+                    : current.length === 1 &&
+                        !current[0]?.content.text &&
+                        current[0]?.content.type === "text"
+                      ? [part]
+                      : [...current, part],
+                );
+                setReplaceIndex(null);
+              }}
+            />
+          ) : null}
           {parts.map((part, index) => (
             <div key={part.partId} className={styles.part}>
               <h3 className="font-semibold">
@@ -130,27 +164,19 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                 <label className="block text-sm">
                   {part.content.type === "text" ? "Текст" : "Подпись"}
                   <textarea
+                    aria-label={
+                      part.content.type === "text" ? "Текст" : "Подпись"
+                    }
                     className={fieldClass}
                     rows={6}
                     value={part.content.text}
                     maxLength={part.content.type === "text" ? 4096 : 1024}
-                    onChange={(event) => {
-                      change(index, {
-                        ...part,
-                        content: {
-                          ...part.content,
-                          text: event.target.value,
-                          entities: [],
-                        },
-                      });
-                    }}
+                    readOnly
                   />
-                  {part.content.entities.length ? (
-                    <span className={styles.hint}>
-                      Заготовка содержит форматирование. При изменении текста
-                      оно будет снято; исходная заготовка сохранится.
-                    </span>
-                  ) : null}
+                  <span className={styles.hint}>
+                    Текст и оформление сохранены из Telegram. Для правки
+                    замените часть готовым постом.
+                  </span>
                 </label>
               ) : (
                 <p>
@@ -202,6 +228,29 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                       }}
                     />
                   </label>
+                  <label>
+                    Ряд кнопки
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      className={fieldClass}
+                      value={(button.row ?? buttonIndex) + 1}
+                      onChange={(event) => {
+                        change(index, {
+                          ...part,
+                          content: {
+                            ...part.content,
+                            buttons: part.content.buttons.map((b, i) =>
+                              i === buttonIndex
+                                ? { ...b, row: Number(event.target.value) - 1 }
+                                : b,
+                            ),
+                          },
+                        });
+                      }}
+                    />
+                  </label>
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -221,6 +270,16 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                 </div>
               ))}
               <div className="flex flex-wrap gap-2">
+                {props.library ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setReplaceIndex(index);
+                    }}
+                  >
+                    Заменить часть {index + 1}
+                  </Button>
+                ) : null}
                 <Button
                   variant="outline"
                   disabled={part.content.buttons.length >= 20}
@@ -271,27 +330,8 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
               </div>
             </div>
           ))}
-          <Button
-            variant="outline"
-            disabled={parts.length >= 20}
-            onClick={() => {
-              setParts((current) => [
-                ...current,
-                {
-                  partId: crypto.randomUUID(),
-                  content: {
-                    type: "text",
-                    text: "",
-                    entities: [],
-                    buttons: [],
-                  },
-                },
-              ]);
-            }}
-          >
-            Добавить текст
-          </Button>
-          <div className={styles.template}>
+          <details className={styles.template}>
+            <summary>Добавить пост по ID или ссылке</summary>
             <label className="block text-sm font-medium">
               ID или ссылка заготовки
               <input
@@ -333,7 +373,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
             >
               {importing ? "Загружаем заготовку…" : "Добавить заготовку"}
             </Button>
-          </div>
+          </details>
         </div>
         <div className={styles.settingsColumn}>
           <fieldset className={styles.audience}>

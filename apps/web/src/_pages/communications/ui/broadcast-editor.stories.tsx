@@ -54,7 +54,7 @@ export const Draft: Story = {
     ).toBeVisible();
     await expect(args.onLaunch).not.toHaveBeenCalled();
     await userEvent.type(
-      canvas.getByLabelText("Текст", { exact: true }),
+      canvas.getByLabelText("Текст кнопки", { exact: true }),
       " Изменение",
     );
     await expect(
@@ -112,7 +112,7 @@ export const CorrectInvalidDraft: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    const text = canvas.getByLabelText("Текст", { exact: true });
+    const text = canvas.getByLabelText("Текст кнопки", { exact: true });
     await expect(text).toBeEnabled();
     await userEvent.type(text, " Исправлено");
     await userEvent.click(
@@ -136,7 +136,7 @@ export const EditPausedBeforeLaunch: Story = {
       canvas.getByRole("button", { name: "Возобновить" }),
     ).toBeEnabled();
     await userEvent.type(
-      canvas.getByRole("textbox", { name: "Текст" }),
+      canvas.getByRole("textbox", { name: "Текст кнопки" }),
       " Правка",
     );
     await expect(
@@ -194,6 +194,7 @@ export const TemplateAndPreview: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText("Добавить пост по ID или ссылке"));
     await userEvent.type(
       canvas.getByLabelText("ID или ссылка заготовки"),
       "https://t.me/example/42",
@@ -213,4 +214,42 @@ export const TemplateAndPreview: Story = {
     ).toHaveTextContent("Кружок");
     await expect(args.onLaunch).not.toHaveBeenCalled();
   },
+};
+
+export const TelegramPosts: Story = {
+  args: {
+    broadcast: { ...broadcastFixture, revision: 0, parts: [] },
+    library: {
+      posts: [
+        {
+          templateId: "10000000-0000-4000-8000-000000000017",
+          revision: 1,
+          content: broadcastFixture.parts[0]?.content ?? {
+            type: "text",
+            text: "Пост из Telegram",
+            entities: [],
+            buttons: [],
+          },
+        },
+      ],
+      loading: false,
+      error: null,
+      hasNext: false,
+      onNext: fn(),
+      onRefresh: fn(),
+      onSave: (post) =>
+        Promise.resolve({ ...post, revision: post.revision + 1 }),
+      onSample: () => Promise.resolve(true),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Почему очередь/ }),
+    );
+  },
+};
+export const TelegramPostsMobile: Story = {
+  ...TelegramPosts,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };

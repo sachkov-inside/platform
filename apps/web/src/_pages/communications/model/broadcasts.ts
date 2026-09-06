@@ -4,6 +4,7 @@ const id = z.guid();
 const buttonSchema = z.object({
   text: z.string().min(1).max(64),
   url: z.url().startsWith("https://"),
+  row: z.number().int().min(0).max(19).optional(),
 });
 const entitySchema = z.object({
   type: z.enum([
@@ -231,3 +232,25 @@ export function errorMessage(code: string): string {
     return "Запись не найдена или недоступна этому автору.";
   return "Сервис временно недоступен. Результат операции мог сохраниться; обновите данные перед новым действием.";
 }
+
+export const savedPostSchema = z.object({
+  templateId: id,
+  revision: count,
+  content: contentSchema,
+});
+export type SavedPost = z.infer<typeof savedPostSchema>;
+export const savedPostListSchema = success({
+  templates: z.array(savedPostSchema),
+  nextCursor: z.string().nullable(),
+});
+export const savedPostActionSchema = z.object({
+  operationId: id,
+  expectedRevision: count,
+  payload: z.object({ templateId: id }),
+});
+export const savedPostSaveSchema = z.object({
+  operationId: id,
+  expectedRevision: count,
+  payload: z.object({ templateId: id, content: contentSchema }),
+});
+export const savedPostSampleSchema = success({ testDeliveryId: id });

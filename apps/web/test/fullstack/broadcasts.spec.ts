@@ -48,8 +48,31 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
   ).toBeVisible();
   await page.getByRole("button", { name: "Новая рассылка" }).click();
   await page
-    .getByRole("textbox", { name: "Текст", exact: true })
-    .fill("Тестовая рассылка browser parity");
+    .getByRole("button", {
+      name: /^Тестовая рассылка browser parity · v[0-9]+$/,
+    })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Название кнопки 1", exact: true })
+    .fill(`Открыть материал · ${testInfo.project.name}`);
+  await page
+    .getByRole("button", { name: "Сохранить пост", exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      "Пост сохранён. Уже выбранные части рассылки не изменились.",
+    ),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Образец себе", exact: true }).click();
+  await expect(
+    page.getByText("Образец поставлен в очередь только вам в Telegram."),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Добавить в рассылку", exact: true })
+    .click();
+  await expect(
+    page.getByRole("textbox", { name: "Текст", exact: true }),
+  ).toHaveAttribute("readonly", "");
   await page
     .getByRole("radio", { name: "Участники выбранных воронок" })
     .check();
@@ -83,13 +106,15 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
     fullPage: true,
   });
   const editor = page.getByRole("region", { name: "Рассылка · Черновик" });
-  const identifier = editor.locator("summary");
+  const identifier = editor
+    .locator("summary")
+    .filter({ hasText: "ID рассылки" });
   await identifier.focus();
   await page.keyboard.press("Enter");
-  await expect(editor.locator("details")).toHaveAttribute("open", "");
+  await expect(editor.locator("details").first()).toHaveAttribute("open", "");
   await page.keyboard.press("Tab");
   await expect(
-    page.getByRole("textbox", { name: "Текст", exact: true }),
+    page.getByRole("button", { name: "Обновить посты", exact: true }),
   ).toBeFocused();
   await identifier.click();
   await editor.locator("h2").evaluate((element) => {
@@ -138,6 +163,8 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
   const captured: unknown = await (
     await page.request.get(`${provider}/captured`)
   ).json();
+  expect(JSON.stringify(captured)).toContain('"row":0');
+  expect(JSON.stringify(captured)).toContain('"type":"bold"');
   const operations = z
     .array(
       z.object({
@@ -158,7 +185,7 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
     operations.some(
       (operation) => operation.operation === "templates.testSend",
     ),
-  ).toBe(false);
+  ).toBe(true);
   const failures = (
     await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])

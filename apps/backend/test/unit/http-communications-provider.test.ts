@@ -62,3 +62,12 @@ test("canonical UUID response spelling does not change the caller's retry envelo
   await expect(new HttpCommunicationsProvider(config, fetcher).execute(input)).resolves.toEqual({ ok: true, value });
   expect(fetcher.mock.calls[0]?.[1]?.body).toBe(JSON.stringify(input));
 });
+
+test("saved post lists enforce bot identity for every returned snapshot", async () => {
+  const input = requestSchema.parse({ ...request, operation: "templates.list", payload: {} });
+  for (const botIdentity of ["synthetic-bot", "foreign-bot"]) {
+    const value = { contractVersion: "inside-communications-v1", status: "ok", templates: [{ ...success.template, botIdentity }], nextCursor: null };
+    const provider = new HttpCommunicationsProvider(config, () => Promise.resolve(Response.json(value)));
+    expect((await provider.execute(input)).ok).toBe(botIdentity === "synthetic-bot");
+  }
+});
