@@ -60,7 +60,7 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
     .click();
   await expect(
     page.getByText(
-      "Пост сохранён. Уже выбранные части рассылки не изменились.",
+      "Пост сохранён. Уже выбранные сообщения рассылок и воронок не изменились.",
     ),
   ).toBeVisible();
   // The provider accepts the first request, but the browser loses its acknowledgement.

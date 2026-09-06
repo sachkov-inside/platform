@@ -43,14 +43,16 @@ const contentFields = z.object({
   ),
   buttons: z
     .array(
-      z.object({
-        text: z.string().min(1).max(64),
-        url: httpsUrl,
-        row: z.number().int().min(0).max(19).optional(),
-      }).transform(({ row, ...button }) => ({
-        ...button,
-        ...(row === undefined ? {} : { row }),
-      })),
+      z
+        .object({
+          text: z.string().min(1).max(64),
+          url: httpsUrl,
+          row: z.number().int().min(0).max(19).optional(),
+        })
+        .transform(({ row, ...button }) => ({
+          ...button,
+          ...(row === undefined ? {} : { row }),
+        })),
     )
     .max(20),
 });
@@ -265,12 +267,6 @@ export const lifecycleLabels = {
   paused: "На паузе",
   archived: "В архиве",
 };
-export function newPart(): Part {
-  return {
-    partId: crypto.randomUUID(),
-    content: { type: "text", text: "", entities: [], buttons: [] },
-  };
-}
 export function newFunnel(): Funnel {
   return {
     funnelId: crypto.randomUUID(),
@@ -279,7 +275,7 @@ export function newFunnel(): Funnel {
     lifecycle: "draft",
     name: "",
     isDefault: false,
-    entryResponse: { stepId: crypto.randomUUID(), parts: [newPart()] },
+    entryResponse: { stepId: crypto.randomUUID(), parts: [] },
     steps: [],
     sources: [],
   };

@@ -225,3 +225,22 @@ Delegated MCP получает `communications_templates_list` и те же save
 [Telegram #39](https://github.com/sachkov-inside/inside-telegram/pull/39), shared decision —
 [Workspace #125](https://github.com/sachkov-inside/workspace/issues/125). Schema snapshot pinned
 на commit из `contracts/inside-communications-v1/snapshot.json`; production enablement не меняется.
+
+## Создание воронок из сохранённых постов (#316)
+
+Веб-редактор использует общую библиотеку постов рассылок: `templates.list/read/save/testSend`.
+Выбор добавляет копию содержимого в первый ответ, общий вводный блок или отложенный шаг.
+Оформление и медиа готовятся в Telegram; в библиотеке можно поправить кнопки и отправить образец
+только подтверждённому автору. Карточки воронки показывают выбранное содержимое и ряды кнопок.
+Явная замена сохраняет `partId`, добавление создаёт новый. Правка исходного поста не меняет
+черновик или публикацию. Задержки задаются в секундах, минутах, часах или днях.
+
+Telegram [#40](https://github.com/sachkov-inside/inside-telegram/pull/40) использует сервисный
+`POST /integrations/telegram/v1/communications/validate-content` перед публикацией из бота.
+Контракт `contentValidationRequest/Response` передаёт выбранные сообщения вместе с подтверждённым
+автором. Endpoint проверяет bearer credential, актуальную связь и `communications:manage`, затем
+доступность Material/Series через `PublicContentTargets`. Он не обращается к Telegram; поэтому
+проверка безопасна при удерживаемых ботом блокировках определения. Ошибка конфигурации или базы
+возвращает 503, недоступные цели — структурированные причины. Для установки требуются
+`TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` в Platform и `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL` в
+Telegram. Используется существующий secret авторизации, новый credential не создаётся.

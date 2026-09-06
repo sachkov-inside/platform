@@ -3247,4 +3247,147 @@ export class CommunicationsService {
       mediaType: 'application/json',
     });
   }
+  /**
+   * Check public Material and Series targets in an immutable author content snapshot
+   * @returns any
+   * @throws ApiError
+   */
+  public validateTelegramAuthorContent({
+    requestBody,
+  }: {
+    requestBody: {
+      contractVersion: 'inside-communications-v1';
+      parts: Array<{
+        content: ({
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          text: string;
+          type: 'text';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'photo';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'video';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'video_note';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'voice';
+        } | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<{
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          }>;
+          fileId: string;
+          text: string;
+          type: 'document';
+        });
+        partId: string;
+      }>;
+      permission: 'communications:manage';
+      requestId: string;
+      subject: ({
+        accountRef: string;
+        kind: 'account';
+      } | {
+        accountRef: string;
+        botIdentity: string;
+        kind: 'telegram';
+        telegramIdentityRef: string;
+      });
+    },
+  }): CancelablePromise<({
+    accountRef: string;
+    contractVersion: 'inside-communications-v1';
+    requestId: string;
+    status: 'ok';
+    targetErrors: Array<{
+      reason: 'not_found' | 'not_published' | 'not_free' | 'incomplete';
+      targetId: (string | string | null);
+      url: string;
+    }>;
+  } | {
+    contractVersion: 'inside-communications-v1';
+    requestId: string;
+    status: 'denied';
+  })> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/integrations/telegram/v1/communications/validate-content',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
 }

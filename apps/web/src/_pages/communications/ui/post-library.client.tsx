@@ -6,6 +6,15 @@ import { type SavedPost, type Part } from "../model/broadcasts";
 import { fieldClass } from "./communications-fields";
 import styles from "./broadcasts.module.css";
 
+const contentLabels = {
+  text: "Текст",
+  photo: "Фото",
+  video: "Видео",
+  video_note: "Кружок",
+  voice: "Голосовое сообщение",
+  document: "Документ",
+};
+
 export interface PostLibraryProps {
   posts: readonly SavedPost[];
   loading: boolean;
@@ -32,9 +41,11 @@ export function PostLibrary(
       <h3 className={styles.sectionTitle}>Посты из Telegram</h3>
       <p className={styles.hint}>
         Откройте /admin в боте и создайте пост. Текст, медиа и форматирование
-        сохранятся. Здесь можно настроить кнопки и выбрать пост для рассылки.
+        сохранятся. Здесь можно настроить кнопки и выбрать пост для рассылки или
+        воронки.
       </p>
       <Button
+        type="button"
         variant="outline"
         disabled={props.loading}
         onClick={props.onRefresh}
@@ -51,6 +62,7 @@ export function PostLibrary(
         <div className="grid gap-2">
           {props.posts.map((post) => (
             <Button
+              type="button"
               key={post.templateId}
               variant={
                 selected?.templateId === post.templateId
@@ -62,14 +74,15 @@ export function PostLibrary(
                 setSelected(post);
               }}
             >
-              {post.content.text.slice(0, 90) || post.content.type} · v
-              {post.revision}
+              {post.content.text.slice(0, 90) ||
+                contentLabels[post.content.type]}{" "}
+              · v{post.revision}
             </Button>
           ))}
         </div>
       )}
       {props.hasNext ? (
-        <Button variant="outline" onClick={props.onNext}>
+        <Button type="button" variant="outline" onClick={props.onNext}>
           Следующие посты
         </Button>
       ) : null}
@@ -109,7 +122,7 @@ function PostDetails({
   return (
     <div className="min-w-0 space-y-3 rounded-xl border border-border p-3">
       <p className="whitespace-pre-wrap break-words">
-        {saved.content.text || saved.content.type}
+        {saved.content.text || contentLabels[saved.content.type]}
       </p>
       <p className={styles.hint}>
         Сохранённая версия {saved.revision}. Текст и медиа меняются через
@@ -173,6 +186,7 @@ function PostDetails({
               />
             </label>
             <Button
+              type="button"
               variant="outline"
               onClick={() => {
                 setButtons((values) => values.filter((_, i) => i !== index));
@@ -184,6 +198,7 @@ function PostDetails({
         ))}
         <div className="flex flex-wrap gap-2">
           <Button
+            type="button"
             variant="outline"
             disabled={buttons.length >= 20}
             onClick={() => {
@@ -196,6 +211,7 @@ function PostDetails({
             Добавить кнопку поста
           </Button>
           <Button
+            type="button"
             disabled={!dirty}
             onClick={() => {
               void (async () => {
@@ -210,7 +226,7 @@ function PostDetails({
                     setSaved(result);
                     setButtons(result.content.buttons);
                     setMessage(
-                      "Пост сохранён. Уже выбранные части рассылки не изменились.",
+                      "Пост сохранён. Уже выбранные сообщения рассылок и воронок не изменились.",
                     );
                   } else
                     setMessage(
@@ -228,6 +244,7 @@ function PostDetails({
       </fieldset>
       <div className="flex flex-wrap gap-2">
         <Button
+          type="button"
           variant="outline"
           disabled={pending || dirty}
           onClick={() => {
@@ -250,6 +267,7 @@ function PostDetails({
           Образец себе
         </Button>
         <Button
+          type="button"
           disabled={pending || dirty || disabled}
           onClick={() => {
             onChoose({ partId: crypto.randomUUID(), content: saved.content });
