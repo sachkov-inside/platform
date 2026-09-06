@@ -13,8 +13,9 @@
 Сквозные Playwright tests проверяют регистрацию, refresh после 60-секундного access token,
 выход, повторный вход, отказ, чужой browser context, email → явную Telegram-привязку → вход
 в тот же приватный профиль и два одновременных первых Logto interaction для одной identity.
-Скриншоты содержат только видимую страницу. Число подтверждения не является секретом;
-start tokens, browser secret, credentials, callback URLs и traces не сохраняются.
+Скриншоты обновлены после решения владельца 2026-09-06: одна кнопка «Открыть бота»,
+короткий статус, без длинных предупреждений и сверки числа. Start tokens, browser secret,
+credentials, callback URLs и traces не сохраняются.
 
 Визуальная интеграция: [#303](https://github.com/sachkov-inside/platform/issues/303).
 Воспроизведение: [runbook](../../verification/telegram-sign-in-local.md).

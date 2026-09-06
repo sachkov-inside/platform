@@ -223,7 +223,10 @@ email linking cannot take it between proof consumption and finalization. The res
 a lost response and a fresh bot proof repairs it. If email linking wins first, consume returns
 that confirmed link instead. Linking does not issue Membership
 or permissions. First email attachment to Telegram-only Accounts, merging, replacement and recovery
-are excluded. The pre-registration screen explains these limits and the existing-email path.
+are excluded. The owner simplified the sign-in UI on 2026-09-06: one bot-opening action,
+a short waiting status, and explicit “Это я” / “Это не я” bot buttons. Approval automatically
+returns the original browser to Platform. The screen omits account/recovery explanations and
+number matching; this changes presentation, not browser binding or one-time proof checks.
 
 `TELEGRAM_SIGN_IN_ENABLED` defaults off in Platform, connector provisioning and the provider.
 Disabling blocks start, waiting, proof consumption and callback completion, including returning
