@@ -854,9 +854,9 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
   });
   for (const data of [
     { id: demoStepsSeriesId, slug: "demo-series-release", name: "Demo · Релиз своего проекта", summary: "Одна серия: видео, заметки и три связанных шага инструкции. Тестовые материалы для проверки интерфейса." },
-    { id: demoStepsSharedSeriesId, slug: "demo-series-release-shared", name: "Demo · Подготовка проекта", summary: "Тот же гайд в другой серии без отметки последовательности шагов." },
+    { id: demoStepsSharedSeriesId, slug: "demo-series-release-shared", name: "Учебный пример · Подготовка проекта", summary: "Тот же гайд в другой серии без отметки последовательности шагов." },
   ]) {
-    await prisma.series.upsert({ where: { id: data.id }, create: data, update: {} });
+    await prisma.series.upsert({ where: { id: data.id }, create: data, update: { name: data.name } });
   }
   await prisma.series.upsert({
     where: { id: demoHarnessSeriesId },

@@ -62,7 +62,7 @@ describe("Content Library discovery", () => {
         slug: "platform",
         summary: "Platform boundaries, delivery and operations.",
       },
-      hasNext: false,
+      hasNext: true,
     });
     expect(
       result.value.relatedSeries.find(({ slug }) => slug === "platform-inside"),
