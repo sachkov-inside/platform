@@ -1,7 +1,7 @@
 # Sachkov Inside — brief первой версии платформы
 
-Статус: подтверждённые owner decisions по 2026-09-04. Документ фиксирует продуктовую границу
-первой версии будущего Inside-приложения. Он является входом в отдельные bootstrap, technical
+Статус: подтверждённые owner decisions по 2026-09-06. Документ фиксирует продуктовую границу
+текущей платформы Inside. Он является входом в отдельные bootstrap, technical
 discovery и delivery, но не выбирает stack, архитектуру или repository layout.
 
 Authority этого brief находится в этом Platform repository. Обычные Git commits и pull requests
@@ -93,9 +93,14 @@ payment/roster operator; technical integration boundary описана в
 
 ## Контент
 
-Платформа хранит каноническую версию материала. Исходник можно подготовить в Obsidian, Telegram,
-локальном файле, редакторе платформы или другом удобном месте, но после создания материала
-authority находится в платформе.
+Редакционные оригиналы, черновики и связи материалов готовятся локально и сохраняются в Git
+проекта Inside Content. Platform владеет опубликованным состоянием, доступом и показом материалов
+читателю. Публикация создаёт или обновляет runtime-состояние и сама по себе не заменяет Git-оригинал.
+Правки через editor/MCP относятся к состоянию Platform; их перенос обратно в оригиналы требует
+явного редакционного согласования. Автоматическая двусторонняя синхронизация не реализована.
+Контракт меток Серии описан в
+[application specification](../specifications/platform-v1.md#series-step-sequences); автоматический
+импорт остаётся отдельной работой #289.
 
 Первая версия поддерживает:
 
@@ -250,20 +255,19 @@ deduplication и migration pipeline не нужны.
 - внутренние и email-уведомления;
 - AI-поиск и отдельный autonomous content generation workflow вне user-delegated MCP Save.
 
-Эта граница описывает исходный content/Membership MVP. Workshop переиспользует Account, Materials
-и ContentAccess и входит в текущий commercial bundle через отдельный WorkshopEntitlement, но не считается
-ретроактивной частью готовности Platform v1. Его первый Kafka slice отдельно задан
-[application specification](../specifications/workshop-tracks.md) и
-[Platform #274](https://github.com/sachkov-inside/platform/issues/274): публичный Track plan,
-бесплатная Laboratory, связанные Materials и Production Case. Submission/evaluation выбирается
-после готового CaseSpec, а не наследуется автоматически от прежнего Partner Webhooks flow.
+Текущий фокус — самостоятельные Materials, связанные смешанные Series и подписка на опубликованный
+контент. Отдельная Мастерская с Tracks, Laboratories и Production Cases отложена. Сохранённые
+Workshop foundations и отдельный WorkshopEntitlement не означают, что этот продукт уже предлагается
+участнику, и не превращают Series в Workshop Track.
+[Отложенный контракт](../specifications/workshop-tracks.md) сохраняет принятые границы будущей работы;
+её возобновление требует отдельной постановки задачи.
 
 ## Связанные application-документы
 
 - [Platform v1 application specification](../specifications/platform-v1.md) владеет modules,
   logical schema, flows, application NFR, production foundation order и ADR inputs.
 - [Workshop Tracks and Laboratories application specification](../specifications/workshop-tracks.md)
-  владеет Track/Laboratory model, access, progress и первым Kafka slice.
+  сохраняет отложенные Track/Laboratory model, access, progress и Kafka slice.
 - [Superseded case-first foundation](../specifications/production-workshop-v1.md) сохраняет ссылки
   на уже реализованные Workshop/Assignment/evaluator foundations без объявления их текущим
   product contract.

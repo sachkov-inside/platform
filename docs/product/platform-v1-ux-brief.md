@@ -25,6 +25,10 @@ Snapshot источников: 2026-08-27. Repository-owned product/application 
 [`ed5b555a`](https://github.com/sachkov-inside/workspace/commit/ed5b555a0171a53ab17a5ed388d80575c8025f03)
 Workspace [PR #61](https://github.com/sachkov-inside/workspace/pull/61).
 
+Текущие Series composition, связи шагов и карточки определяет
+[Series contract](../specifications/platform-v1.md#series-step-sequences). Он имеет приоритет
+перед прежними wireframes и experiments ниже; повторять их как новый product contract не нужно.
+
 ## 1. Purpose и граница
 
 Platform v1 должна стать каноническим домом полноценных материалов Inside. Участник Membership

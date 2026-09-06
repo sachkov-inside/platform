@@ -100,8 +100,10 @@ Telegram Membership exposes authenticated Account link begin at
 
 The stateless Streamable HTTP MCP resource server listens on `127.0.0.1:3002/mcp`. It accepts only
 a short-lived Logto-compatible bearer token for an existing Account; every tool call independently
-requires the current database-backed `materials:manage` permission. Its four tools create a draft,
-load current full state, atomically Save full state and Preview through canonical ContentAccess.
+requires the current database-backed `materials:manage` permission. It supports Material and
+Topic/Series authoring, including ordered composition and Preview through canonical ContentAccess.
+See the [MCP authoring contract](docs/runbooks/local-development.md#mcp-authoring) for current
+operations and the Series metadata boundary.
 The local adapter does not provision Logto clients, service identities or production routing.
 
 ## Docker-only smoke and shutdown

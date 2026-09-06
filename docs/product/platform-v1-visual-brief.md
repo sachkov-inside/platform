@@ -23,6 +23,10 @@ Reader не показывает related block или декоративную c
 закрепляет независимые Series results и reading-first колонку. Более ранние противоречащие bullets
 ниже являются историческими.
 
+Текущие Series composition, связи шагов и карточки определяет
+[Series contract](../specifications/platform-v1.md#series-step-sequences). Он имеет приоритет
+перед прежними wireframes и experiments ниже; повторять их как новый product contract не нужно.
+
 ## 1. Subject, audience и jobs
 
 Platform — живая инженерная мастерская и канонический дом полноценных Materials Inside, а не

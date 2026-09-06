@@ -35,7 +35,7 @@ docker compose down
 Run optional host process adapters through the root `dev:web`, `dev:api` and `dev:mcp` scripts.
 Keep Compose shutdown in the verification path after a successful or failed smoke.
 Before an agent runs repository Compose commands from any worktree, it must read and follow the
-[singleton Compose ownership rule](docs/runbooks/local-development.md#parallel-worktrees-and-compose-ownership).
+[singleton Compose ownership rule](docs/runbooks/local-development.md#parallel-worktrees-and-singleton-ownership).
 
 <!-- inside-product-harness:start -->
 ## Inside product harness

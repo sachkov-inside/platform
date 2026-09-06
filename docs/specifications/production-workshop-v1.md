@@ -6,6 +6,9 @@
 
 Дата изменения статуса: 2026-09-04.
 
+Successor Workshop contract также отложен относительно текущего этапа Materials/Series;
+[current MVP brief](../product/platform-mvp-brief.md) определяет сегодняшний delivery scope.
+
 ## Почему документ заменён
 
 Первоначальная specification задавала один `Partner Webhooks` Case как весь первый Workshop
@@ -35,7 +38,7 @@ Cases. Первый Track посвящён Kafka, а evaluation выбирает
 Открытые delivery tickets прежнего vertical slice закрыты как `not planned`. Это не откатывает
 смёрженный код и не объявляет его текущим Kafka solution.
 
-## Текущий authority
+## Authority сохранённого Workshop направления
 
 - Shared product contract: Workspace
   [`production-workshop-v1.md`](https://github.com/sachkov-inside/workspace/blob/main/docs/specifications/production-workshop-v1.md).

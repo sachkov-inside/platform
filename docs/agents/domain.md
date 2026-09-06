@@ -13,4 +13,8 @@ Platform-specific consequence once:
 - an implementation contract in the technical specification;
 - a hard-to-reverse technical trade-off in an application ADR.
 
+For Material/Series authoring or Git preparation handoffs, also read the
+[editorial/publication boundary](../product/platform-mvp-brief.md#контент) and
+[Series composition contract](../specifications/platform-v1.md#series-step-sequences).
+
 Keep build, test, deploy and agent runtime dependent only on files in this repository.

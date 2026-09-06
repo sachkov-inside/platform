@@ -10,7 +10,7 @@ production frontend integration, а также отдельным
 Member Profile track и [Platform #132](https://github.com/sachkov-inside/platform/issues/132)
 mutable Material/access decision.
 
-Дата: 2026-09-04.
+Дата: 2026-09-06.
 
 ## Результат и authority
 
@@ -24,10 +24,9 @@ application-level NFR, порядком production foundations и ADR inputs. П
 [MVP brief](../product/platform-mvp-brief.md), а канонические термины — в [`CONTEXT.md`](../../CONTEXT.md).
 Код, tests и возможные application ADR принадлежат этому repository.
 
-[Workshop Tracks and Laboratories](workshop-tracks.md) является successor application contract под
-[Platform #274](https://github.com/sachkov-inside/platform/issues/274). Workshop переиспользует
-Platform v1 foundations и входит в текущую подписку через отдельный WorkshopEntitlement, но не
-расширяет задним числом completion scope этого content/Membership документа.
+Текущий delivery scope задан [MVP brief](../product/platform-mvp-brief.md): Materials, Series и
+Membership. [Workshop Tracks and Laboratories](workshop-tracks.md) сохраняет отдельный отложенный
+контракт. Его модели и существующие foundations не расширяют Series или текущую подписку.
 
 Specification синхронизирует принятую cross-repository
 [Workspace #40](https://github.com/sachkov-inside/workspace/issues/40), отдельную
@@ -305,6 +304,34 @@ Published membership projection доступна Library/internal search и exte
 Published body читается только для current `published` state; draft/unpublished недоступны через
 обычные read/download/play paths.
 
+### Series step sequences
+
+`SeriesMembership.stepGroup` is a nullable exact label after ECMAScript `trim()`, 1–120 UTF-16 code
+units. Identical case-sensitive labels connect entries within that Series only; there is no second
+stored order or group entity. Current membership owns the label. Published projections enrich only
+published memberships with that current label; draft-only labels and entries never enter public
+step counts. Web derives the badge ordinal and total from the complete published Series composition.
+Reader previous/next still follows every published entry in its one existing order.
+
+The Series list connects every overall ordinal with one dashed rail, first marker to last marker.
+All formats use the same dark filled ordinal marker. The explicit step label appears inside the
+existing Material row below its title; video rows render the existing published summary as plain
+text, limited to three visible lines so long descriptions do not dominate the mixed list. The presentation neither invents descriptions nor reads body content for previews.
+
+Existing `reorderSeries` / REST `PUT /authoring/series/:seriesId/order` /
+MCP `playlist_save_composition` accept optional `stepGroups: Record<MaterialId, string>` alongside
+`orderedMaterialIds`. Every key must belong to that submitted composition. Omission preserves labels
+for surviving members (legacy-client compatibility); `{}` clears them; a supplied map replaces all
+assignments. New members without an assignment have no label. The optimistic `orderVersion` covers
+both the composition order and its labels. Full-state Material Save preserves labels for retained
+Series memberships; removing then re-adding membership does not restore a removed label.
+
+The local Git authoring contract uses optional `step_groups: { local-material-id: label }` on a
+Series, alongside its existing `materials` list. A full authoring snapshot maps absent/empty
+`step_groups` to an explicit empty API map; absence of the API field is reserved for preserving
+assignments. Resolve local Material IDs before sending the map. This is a contract for the future
+importer, not an implemented automatic import or publication flow.
+
 ## Application flows
 
 ### Authoring и publish
@@ -490,10 +517,12 @@ Published body читается только для current `published` state; d
   body/headings/asset labels остаются отдельным server-side protected index;
 - PostgreSQL FTS ранжирует title выше description/headings, затем taxonomy/body/assets и проверяется на
   bounded representative RU/EN corpus;
-- Home получает одну bounded body-free проекцию: Topics, Series и секции Videos/Guides/Notes;
-- Library имеет один search по Material, Topic, Series и Tag; публичное URL-state ограничено
-  `q`, `format`, `sort`, а cursor хранится только внутри TanStack Infinite Query;
-- filters появляются только из реально используемых Format;
+- Home получает одну bounded body-free проекцию с Series первыми, затем Topics и секциями
+  Videos/Guides/Notes;
+- Library имеет один текстовый search, независимо сопоставляющий Series по name/summary и Materials
+  по их search projection. Series results не зависят от фильтров и pagination материалов;
+- Topic/Format/sort находятся в секции Materials и влияют только на её выдачу. Публичное URL-state
+  хранит `q`, `topic`, `format`, `sort`, а Material cursor — только TanStack Infinite Query;
 - anonymous/non-member search сопоставляет только public projection и всё равно показывает
   membership results с замком; active Membership или `materials:manage` дополнительно включает
   protected body index. Одна current Membership применяется ко всем membership-материалам, без
@@ -511,8 +540,9 @@ Published body читается только для current `published` state; d
   `materials:manage`; отдельная technical identity не создаётся без independent consumer;
 - tools вызывают тот же full-state Save, validation results и conflicts, что admin;
 - read/preview resources проходят `ContentAccess`;
-- current `materials:manage` разрешает agent менять content, metadata, access и publication state
-  без отдельного owner GO.
+- current `materials:manage` технически разрешает full-state Save, включая publication state.
+  Это application permission, а не поручение агенту публиковать: агент выполняет уже согласованное
+  с владельцем editorial действие в пределах текущего задания.
 
 ## Application NFR
 
@@ -705,31 +735,3 @@ choice, неочевидный контекст и реальный trade-off. �
 - [Workspace #41: Telegram Membership boundary](https://github.com/sachkov-inside/workspace/issues/41)
 - [Workspace #42: Kinescope lifecycle](https://github.com/sachkov-inside/workspace/issues/42)
 - [Workspace #54: provider-neutral ContentAccess](https://github.com/sachkov-inside/workspace/issues/54)
-
-### Series step sequences
-
-`SeriesMembership.stepGroup` is a nullable exact label after ECMAScript `trim()`, 1–120 UTF-16 code
-units. Identical case-sensitive labels connect entries within that Series only; there is no second
-stored order or group entity. Current membership owns the label. Published projections enrich only
-published memberships with that current label; draft-only labels and entries never enter public
-step counts. Web derives the badge ordinal and total from the complete published Series composition.
-Reader previous/next still follows every published entry in its one existing order.
-
-The Series list connects every overall ordinal with one dashed rail, first marker to last marker.
-All formats use the same dark filled ordinal marker. The explicit step label appears inside the
-existing Material row below its title; video rows render the existing published summary as plain
-text, limited to three visible lines so long descriptions do not dominate the mixed list. The presentation neither invents descriptions nor reads body content for previews.
-
-Existing `reorderSeries` / REST `PUT /authoring/series/:seriesId/order` /
-MCP `playlist_save_composition` accept optional `stepGroups: Record<MaterialId, string>` alongside
-`orderedMaterialIds`. Every key must belong to that submitted composition. Omission preserves labels
-for surviving members (legacy-client compatibility); `{}` clears them; a supplied map replaces all
-assignments. New members without an assignment have no label. The optimistic `orderVersion` covers
-both the composition order and its labels. Full-state Material Save preserves labels for retained
-Series memberships; removing then re-adding membership does not restore a removed label.
-
-The local Git authoring contract uses optional `step_groups: { local-material-id: label }` on a
-Series, alongside its existing `materials` list. A full authoring snapshot maps absent/empty
-`step_groups` to an explicit empty API map; absence of the API field is reserved for preserving
-assignments. Resolve local Material IDs before sending the map. This is a contract for the future
-importer, not an implemented automatic import or publication flow.
