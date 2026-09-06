@@ -224,7 +224,7 @@ a lost response and a fresh bot proof repairs it. If email linking wins first, c
 that confirmed link instead. Linking does not issue Membership
 or permissions. First email attachment to Telegram-only Accounts, merging, replacement and recovery
 are excluded. The owner simplified the sign-in UI on 2026-09-06: one bot-opening action,
-a short waiting status, and explicit “Это я” / “Это не я” bot buttons. Approval automatically
+a short waiting status, and explicit “Подтвердить вход” / “Отменить” bot buttons. Approval automatically
 returns the original browser to Platform. The screen omits account/recovery explanations and
 number matching; this changes presentation, not browser binding or one-time proof checks.
 

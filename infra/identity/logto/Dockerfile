@@ -9,9 +9,11 @@ COPY fork/packages/experience/src/Layout/AppLayout/index.module.scss packages/ex
 COPY fork/packages/experience/src/containers/VerificationCode/use-sign-in-flow-code-verification.ts packages/experience/src/containers/VerificationCode/use-sign-in-flow-code-verification.ts
 COPY fork/packages/experience/src/utils/sign-in-experience.ts packages/experience/src/utils/sign-in-experience.ts
 COPY patches/issue-116-logto-proof.patch /tmp/issue-116-logto-proof.patch
+COPY patches/issue-299-unified-sign-in.patch /tmp/issue-299-unified-sign-in.patch
 
 RUN apk add --no-cache --virtual .inside-patch-tools patch \
   && patch --fuzz=0 -p1 < /tmp/issue-116-logto-proof.patch \
+  && patch --fuzz=0 -p1 < /tmp/issue-299-unified-sign-in.patch \
   && apk del .inside-patch-tools \
   && cd packages/connectors/connector-smtp \
   && npm run check \

@@ -19,3 +19,10 @@ credentials, callback URLs и traces не сохраняются.
 
 Визуальная интеграция: [#303](https://github.com/sachkov-inside/platform/issues/303).
 Воспроизведение: [runbook](../../verification/telegram-sign-in-local.md).
+
+
+Дополнение: `unified-sign-in-desktop.png` (1440 × 1000) и
+`unified-sign-in-mobile.png` (390 × 844) показывают общий экран входа после удаления
+«Ещё не зарегистрированы?» / «Создать аккаунт». Новый email через Mailpit проверен до
+создания Account, входа и выхода; отдельного шага регистрации нет. Эти два снимка получены
+на локальном стенде с подключённым тестовым ботом, без отправки сообщений Telegram.
