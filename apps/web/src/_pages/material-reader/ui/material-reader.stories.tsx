@@ -200,6 +200,7 @@ type ReaderStoryMode =
   | "error"
   | "loading"
   | "mobile"
+  | "short"
   | "not-found"
   | "playlist-return"
   | "unavailable"
@@ -220,6 +221,8 @@ function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
 
 function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
   switch (mode) {
+    case "short":
+      return <MaterialReaderView body={[]} material={{ ...material, title: "Короткая заметка", summary: "Одна небольшая мысль.", tags: [], seriesMemberships: [] }} primaryVideo={null} />;
     case "mobile":
       return <MaterialReaderView
         body={body}
@@ -347,14 +350,14 @@ export const Mobile: Story = {
     const readerBody = canvasElement.querySelector<HTMLElement>("[data-reader-body]");
     const readerMetadata = canvasElement.querySelector<HTMLElement>("[data-reader-metadata]");
     if (readerBody === null || readerMetadata === null) throw new Error("Reader structure is missing");
-    await expect(getComputedStyle(heading).fontSize).toBe("28px");
+    await expect(getComputedStyle(heading).fontSize).toBe("24px");
     await expect(getComputedStyle(heading).overflowWrap).toBe("break-word");
     await expect(getComputedStyle(readerBody).color).toBe(getComputedStyle(heading).color);
     await expect(
       getComputedStyle(
         canvas.getByRole("heading", { name: "Сначала найдите устойчивый seam", level: 2 }),
       ).fontSize,
-    ).toBe("24px");
+    ).toBe("20px");
     await expect(
       Boolean(readerBody.compareDocumentPosition(readerMetadata) & Node.DOCUMENT_POSITION_FOLLOWING),
     ).toBe(true);
@@ -365,22 +368,29 @@ export const Mobile: Story = {
     if (scrollRoot === null) throw new Error("Mobile document scroll is missing");
     await expect(canvasElement.querySelector("[data-public-header]")).not.toBeVisible();
     const back = canvas.getByRole("link", { name: "Назад в Базу знаний" });
+    await expect(canvasElement.querySelector('[data-reader-return="top"]')?.contains(back)).toBe(true);
     const originalFontSize = document.documentElement.style.fontSize;
     try {
       for (const fontSize of ["100%", "200%"]) {
         document.documentElement.style.fontSize = fontSize;
-        scrollRoot.scrollTop = 900;
-        await waitFor(async () => {
-          await expect(scrollRoot.scrollTop).toBeGreaterThan(0);
-          await expect(back.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
-          await expect(back.getBoundingClientRect().top).toBeLessThan(40);
-        });
+        await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(document.documentElement.clientWidth);
       }
     } finally {
       document.documentElement.style.fontSize = originalFontSize;
       scrollRoot.scrollTop = 0;
     }
-
+    await expect(canvasElement.querySelector('[data-reader-return="bottom"]')).toBeNull();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    scrollRoot.scrollTop = scrollRoot.scrollHeight;
+    await waitFor(async () => {
+      await expect(canvasElement.querySelector('[data-reader-return="bottom"]')).not.toBeNull();
+    });
+    await expect(back.getBoundingClientRect().bottom).toBeLessThan(0);
+    scrollRoot.scrollTop = 0;
+    await waitFor(async () => {
+      await expect(canvasElement.querySelector('[data-reader-return="bottom"]')).toBeNull();
+    });
   },
 };
 
@@ -400,15 +410,15 @@ export const Desktop: Story = {
       if (block === null) throw new Error(`Reader ${kind} block is missing`);
       await expect(Number.parseFloat(getComputedStyle(block).marginTop)).toBeGreaterThanOrEqual(32);
     }
-    await expect(canvas.getByRole("button", { name: "Загрузить видео" })).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Отметить просмотренным" })).toBeEnabled();
+    await expect(canvas.queryByRole("button", { name: "Загрузить видео" })).not.toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Просмотрено" })).toBeEnabled();
     await expect(canvasElement.querySelector("iframe")).toBeNull();
     const title = canvas.getByRole("heading", { name: "Публичные skills для agent-first setup", level: 1 });
     const video = canvasElement.querySelector<HTMLElement>("[data-video-id]");
     const h2 = canvas.getByRole("heading", { name: "Сначала найдите устойчивый seam", level: 2 });
     const h3 = canvas.getByRole("heading", { name: "Проверьте instruction на двух задачах", level: 3 });
     if (video === null) throw new Error("Primary video is missing");
-    await expect(getComputedStyle(title).fontSize).toBe("32px");
+    await expect(getComputedStyle(title).fontSize).toBe("28px");
     await expect(
       Boolean(title.compareDocumentPosition(video) & Node.DOCUMENT_POSITION_FOLLOWING),
     ).toBe(true);
@@ -451,7 +461,7 @@ export const PlaylistReturn: Story = {
   args: { mode: "playlist-return" },
   play: async ({ canvasElement }) => {
     const links = within(canvasElement).getAllByRole("link", {
-      name: "Назад к серии",
+      name: "Все материалы серии",
     });
     await expect(links).toHaveLength(1);
     await expect(links[0]).toHaveAttribute("href", "/series/platform-inside");
@@ -464,16 +474,12 @@ export const PlaylistReturn: Story = {
     await expect(
       Boolean(readerBody.compareDocumentPosition(seriesNavigation) & Node.DOCUMENT_POSITION_FOLLOWING),
     ).toBe(true);
-    await expect(
-      Boolean(seriesNavigation.compareDocumentPosition(readerMetadata) & Node.DOCUMENT_POSITION_FOLLOWING),
-    ).toBe(true);
-    await expect(seriesNavigation.className).toContain("border-t");
-    const navigationClasses = seriesNavigation.className.split(" ");
-    await expect(navigationClasses).not.toContain("border-y");
-    await expect(navigationClasses).not.toContain("border-b");
+    await expect(readerMetadata.contains(seriesNavigation)).toBe(true);
+    await expect(within(canvasElement).getByRole("link", { name: "Назад к серии" })).toHaveAttribute("href", "/series/platform-inside");
+    await expect(within(canvasElement).queryByText(/· №/u)).not.toBeInTheDocument();
     await expect(
       within(seriesNavigation).getByRole("link", {
-        name: /Следующий материал Видео-разбор проверки/u,
+        name: "Дальше",
       }),
     ).toHaveAttribute(
       "href",
@@ -553,5 +559,16 @@ export const UnexpectedError: Story = {
       canvas.getByRole("heading", { name: "Материал сейчас недоступен" }),
     ).toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
+  },
+};
+
+export const ShortMaterial: Story = {
+  args: { mode: "short" },
+  globals: { viewport: { isRotated: false, value: "mobile320" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("link", { name: "Назад в Базу знаний" })).toBeVisible();
+    await expect(canvasElement.querySelector('[data-reader-return="bottom"]')).toBeNull();
+    await expect(document.documentElement.scrollHeight).toBeLessThanOrEqual(window.innerHeight);
   },
 };
