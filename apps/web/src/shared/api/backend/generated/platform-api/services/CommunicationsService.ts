@@ -660,7 +660,13 @@ export class CommunicationsService {
       };
     }),
   }): CancelablePromise<{
+    botStartUrl?: string;
     ok: boolean;
+    targetErrors?: Array<{
+      reason: 'not_found' | 'not_published' | 'not_free' | 'incomplete';
+      targetId: string | null;
+      url: string;
+    }>;
     value: ({
       contractVersion: 'inside-communications-v1';
       status: 'ok';
@@ -1612,7 +1618,13 @@ export class CommunicationsService {
       reference: string;
     },
   }): CancelablePromise<{
+    botStartUrl?: string;
     ok: boolean;
+    targetErrors?: Array<{
+      reason: 'not_found' | 'not_published' | 'not_free' | 'incomplete';
+      targetId: string | null;
+      url: string;
+    }>;
     value: ({
       contractVersion: 'inside-communications-v1';
       status: 'ok';
