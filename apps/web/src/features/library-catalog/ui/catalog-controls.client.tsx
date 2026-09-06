@@ -36,52 +36,120 @@ export function CatalogControls({
   readonly resetQuery: LibrarySearchQuery;
   readonly totalCount?: number;
 }) {
-  const activeFilterCount = query.formatSlugs.length;
+  return (
+    <div className="mt-7">
+      <LibrarySearchControl onQueryChange={onQueryChange} query={query} />
+      <MaterialCatalogControls
+        facets={facets}
+        isRefreshing={isRefreshing}
+        onQueryChange={onQueryChange}
+        query={query}
+        resetQuery={resetQuery}
+        showTopics={false}
+        {...(totalCount === undefined ? {} : { totalCount })}
+      />
+    </div>
+  );
+}
 
+export function LibrarySearchControl({
+  onQueryChange,
+  query,
+}: {
+  readonly onQueryChange: (query: LibrarySearchQuery) => void;
+  readonly query: LibrarySearchQuery;
+}) {
   return (
     <form
-      className="mt-7"
       onSubmit={(event) => {
         event.preventDefault();
       }}
+      role="search"
     >
       <div>
         <label className="sr-only" htmlFor="library-search">
           Поиск по Базе знаний
         </label>
         <div className="relative flex min-h-14 items-center gap-3 rounded-2xl bg-muted px-4">
-            <Search
-              aria-hidden="true"
-              className="size-5 shrink-0 text-muted-foreground"
-            />
-            <input
-              className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:outline-none"
-              id="library-search"
-              maxLength={120}
-              name="q"
-              onChange={(event) => {
-                onQueryChange(changeLibraryQuery(query, { q: event.currentTarget.value }));
+          <Search
+            aria-hidden="true"
+            className="size-5 shrink-0 text-muted-foreground"
+          />
+          <input
+            className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:outline-none"
+            id="library-search"
+            maxLength={120}
+            name="q"
+            onChange={(event) => {
+              onQueryChange(
+                changeLibraryQuery(query, { q: event.currentTarget.value }),
+              );
+            }}
+            placeholder="Материал, серия, тема или тег"
+            type="search"
+            value={query.q}
+          />
+          {query.q.length > 0 ? (
+            <button
+              aria-label="Очистить поиск"
+              className="grid size-8 shrink-0 place-items-center rounded-full bg-white text-muted-foreground"
+              onClick={() => {
+                onQueryChange(changeLibraryQuery(query, { q: "" }));
               }}
-              placeholder="Материал, серия, тема или тег"
-              type="search"
-              value={query.q}
-            />
-            {query.q.length > 0 ? (
-              <button
-                aria-label="Очистить поиск"
-                className="grid size-8 shrink-0 place-items-center rounded-full bg-white text-muted-foreground"
-                onClick={() => {
-                  onQueryChange(changeLibraryQuery(query, { q: "" }));
-                }}
-                type="button"
-              >
-                <X aria-hidden="true" className="size-4" />
-              </button>
-            ) : null}
+              type="button"
+            >
+              <X aria-hidden="true" className="size-4" />
+            </button>
+          ) : null}
         </div>
       </div>
+    </form>
+  );
+}
 
-      <div className="-mx-4 mt-5 overflow-hidden sm:mx-0">
+export function MaterialCatalogControls({
+  facets,
+  isRefreshing,
+  onQueryChange,
+  query,
+  resetQuery,
+  showTopics = true,
+  totalCount,
+}: {
+  readonly facets: {
+    readonly formats: readonly LibraryCatalogFacet[];
+    readonly topics: readonly LibraryCatalogFacet[];
+  };
+  readonly isRefreshing: boolean;
+  readonly onQueryChange: (query: LibrarySearchQuery) => void;
+  readonly query: LibrarySearchQuery;
+  readonly resetQuery: LibrarySearchQuery;
+  readonly showTopics?: boolean;
+  readonly totalCount?: number;
+}) {
+  const activeFilterCount =
+    query.formatSlugs.length + (query.topicSlug === null ? 0 : 1);
+  return (
+    <form
+      className="mt-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+      }}
+    >
+      {showTopics ? (
+        <div className="-mx-4 overflow-hidden sm:mx-0">
+          <div className="public-horizontal-rail flex items-center gap-2 overflow-x-auto px-4 sm:px-0">
+            <CatalogTopicFieldset
+              facets={facets.topics}
+              onQueryChange={onQueryChange}
+              query={query}
+            />
+          </div>
+        </div>
+      ) : null}
+      <div
+        className={`-mx-4 overflow-hidden sm:mx-0 ${showTopics ? "mt-5" : ""}`}
+      >
         <div className="public-horizontal-rail flex items-center gap-2 overflow-x-auto px-4 sm:px-0">
           <CatalogFormatFieldset
             facets={facets.formats}
@@ -91,7 +159,7 @@ export function CatalogControls({
         </div>
       </div>
 
-      <div className="mt-4 flex min-h-10 items-center justify-between gap-3">
+      <div className="mt-4 flex min-h-10 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 shrink">
           <span className="sr-only" id="library-sort-label">
             Сортировка
@@ -126,7 +194,7 @@ export function CatalogControls({
                 ? "Фильтры применены"
                 : `Найдено: ${String(totalCount)}`}
           </p>
-          {query.q.length > 0 || activeFilterCount > 0 ? (
+          {activeFilterCount > 0 || query.sort !== resetQuery.sort ? (
             <Button
               className="h-auto min-h-0 shrink-0 p-0 text-xs font-semibold text-action hover:bg-transparent hover:text-action-hover"
               onClick={() => {
@@ -135,12 +203,85 @@ export function CatalogControls({
               type="button"
               variant="ghost"
             >
-              Сбросить всё
+              Сбросить фильтры материалов
             </Button>
           ) : null}
         </div>
       </div>
     </form>
+  );
+}
+
+function CatalogTopicFieldset({
+  facets,
+  onQueryChange,
+  query,
+}: {
+  readonly facets: readonly LibraryCatalogFacet[];
+  readonly onQueryChange: (query: LibrarySearchQuery) => void;
+  readonly query: LibrarySearchQuery;
+}) {
+  return (
+    <fieldset className="shrink-0 border-0 p-0">
+      <legend className="sr-only">Тема материала</legend>
+      <div className="flex gap-2">
+        <TopicOption
+          checked={query.topicSlug === null}
+          label="Все темы"
+          onChange={() => {
+            onQueryChange(changeLibraryQuery(query, { topicSlug: null }));
+          }}
+          value=""
+        />
+        {facets.map((topic) => (
+          <TopicOption
+            checked={query.topicSlug === topic.slug}
+            count={topic.count}
+            key={topic.slug}
+            label={topic.name}
+            onChange={() => {
+              onQueryChange(
+                changeLibraryQuery(query, { topicSlug: topic.slug }),
+              );
+            }}
+            value={topic.slug}
+          />
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function TopicOption({
+  checked,
+  count,
+  label,
+  onChange,
+  value,
+}: {
+  readonly checked: boolean;
+  readonly count?: number;
+  readonly label: string;
+  readonly onChange: () => void;
+  readonly value: string;
+}) {
+  return (
+    <label className="relative cursor-pointer">
+      <input
+        checked={checked}
+        className="peer sr-only"
+        name="topic"
+        onChange={(event) => {
+          if (event.currentTarget.checked) onChange();
+        }}
+        type="radio"
+        value={value}
+      />
+      <span className="inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-muted px-4 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-white peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
+        {label}
+        {count === undefined ? null : <span className="text-xs">{count}</span>}
+      </span>
+    </label>
   );
 }
 
@@ -165,7 +306,7 @@ function CatalogFormatFieldset({
       <legend className="sr-only">Формат</legend>
       <div className="flex gap-2">
         {options.map((option) => (
-          <label className="cursor-pointer" key={option.slug ?? "all"}>
+          <label className="relative cursor-pointer" key={option.slug ?? "all"}>
             <input
               checked={
                 option.slug === null

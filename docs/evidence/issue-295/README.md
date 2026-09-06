@@ -12,9 +12,13 @@
 - Home presents shortcuts, the real membership-state invitation, Series, compact Topic filters,
   videos, guides, notes and the independent catalog in that order. Active members and unknown
   membership state do not receive the invitation.
-- Owner follow-up keeps Library Topic navigation visually aligned with Home: compact wrapping chips
-  open the existing Topic discovery routes, while «Все темы» keeps the canonical Library
-  `q`/`format`/`sort` context. No Topic query field or backend contract was added.
+- Owner follow-up keeps one global Library search above independent Series results. Series match
+  their own name/summary and ignore material Topic/Format/sort/pagination; compact Topic chips,
+  Format and sort sit inside Materials and filter its complete server-side query. Canonical
+  `q`/`topic`/`format`/`sort` survives reload/back/share while `/topics/:slug` remains available.
+- Reader is reading-first: decorative covers are absent, the compact header and optional primary
+  Video precede one `43rem` column, body text uses foreground contrast and distinct heading levels,
+  Series navigation follows the body, and tags/all memberships remain in a quiet footer.
 - Home Notes render as separate rounded mini-post cards with token border/background, comfortable
   padding and vertical spacing instead of horizontal row separators. Their author line, title,
   summary and reader link are unchanged.
@@ -31,10 +35,9 @@ application interface. They are not editorial content and do not replace existin
 
 Live browser inspection at desktop `1440x1024` and mobile `390x844` confirmed the two different
 next links, the mixed-format transition, no standalone Series context and zero horizontal overflow.
-The follow-up Library review confirmed the compact Topic navigation at both viewports, the explicit
-«Все темы» current state, and the canonical round trip from a filtered Library through Topic
-discovery and back. The return context preserved `q`/`format`/`sort` and intentionally dropped the
-pagination cursor.
+The earlier Library route-chip evidence below documents the superseded intermediate direction. The
+current owner contract is verified by the focused tests and replacement captures added with the
+final Reader/Library amendment.
 The follow-up Home review used viewports positioned at the Notes section to confirm each note reads
 as an independent rounded mini-post at desktop and mobile widths without truncation or overflow.
 Axe reported zero WCAG A/AA findings in the application Home and Reader UI. The development-only

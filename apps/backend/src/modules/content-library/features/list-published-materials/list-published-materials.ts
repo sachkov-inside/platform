@@ -139,6 +139,7 @@ export async function listPublishedMaterials(
       ? {}
       : { canonicalTopicSlug: normalized.canonicalTopicSlug }),
     first: parsed.data.first,
+    facetScope: "library",
     formatSlugs: normalized.formatSlugs,
     seriesSlugs: normalized.seriesSlugs,
     sort: normalized.sort,

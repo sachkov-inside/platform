@@ -19,6 +19,7 @@ export interface LibrarySearchQuery {
   readonly formatSlugs: readonly LibraryRouteFormat[];
   readonly q: string;
   readonly sort: LibraryCatalogSort;
+  readonly topicSlug: string | null;
 }
 
 export interface ParsedLibrarySearchParams {
@@ -41,6 +42,7 @@ export function parseLibrarySearchParams(
     formatSlugs: route.formatSlug === null ? [] : [route.formatSlug],
     q: route.q,
     sort: route.sort,
+    topicSlug: route.topicSlug,
   } satisfies LibrarySearchQuery;
   return {
     query,
@@ -61,6 +63,7 @@ export function serializeLibrarySearchQuery(
       formatSlug: query.formatSlugs[0] ?? null,
       q: query.q,
       sort: query.sort,
+      topicSlug: query.topicSlug,
     }),
   );
   if (options.includeCursor === true && query.after !== null) {
@@ -78,6 +81,7 @@ export function libraryHref(query: LibrarySearchQuery): Route {
     formatSlug: query.formatSlugs[0] ?? null,
     q: query.q,
     sort: query.sort,
+    topicSlug: query.topicSlug,
   });
 }
 
@@ -85,6 +89,7 @@ export function hasActiveLibrarySearch(query: LibrarySearchQuery): boolean {
   return (
     query.q.length > 0 ||
     query.formatSlugs.length > 0 ||
+    query.topicSlug !== null ||
     query.sort !== defaultLibraryRouteSort(query.q)
   );
 }

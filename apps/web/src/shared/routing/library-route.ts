@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { internalRoute } from "./internal-route";
 
 const MAX_QUERY_LENGTH = 120;
+const COLLECTION_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 
 export type LibraryRouteFormat = "guide" | "note" | "video";
 export type LibraryRouteSort = "newest" | "relevance" | "title";
@@ -11,6 +12,7 @@ export interface LibraryRouteState {
   readonly formatSlug: LibraryRouteFormat | null;
   readonly q: string;
   readonly sort: LibraryRouteSort;
+  readonly topicSlug: string | null;
 }
 
 export function parseLibraryRouteSearch(
@@ -21,6 +23,7 @@ export function parseLibraryRouteSearch(
     formatSlug: normalizeLibraryFormat(search.getAll("format")[0]),
     q,
     sort: normalizeLibrarySort(search.getAll("sort")[0], q),
+    topicSlug: normalizeLibraryTopic(search.getAll("topic")[0]),
   };
 }
 
@@ -29,11 +32,21 @@ export function serializeLibraryRouteSearch(
 ): string {
   const search = new URLSearchParams();
   if (state.q.length > 0) search.set("q", state.q);
+  const topicSlug = normalizeLibraryTopic(state.topicSlug ?? undefined);
+  if (topicSlug !== null) search.set("topic", topicSlug);
   if (state.formatSlug !== null) search.set("format", state.formatSlug);
   if (state.sort !== defaultLibraryRouteSort(state.q)) {
     search.set("sort", state.sort);
   }
   return search.toString();
+}
+
+function normalizeLibraryTopic(value: string | undefined): string | null {
+  return value !== undefined &&
+    value.length <= MAX_QUERY_LENGTH &&
+    COLLECTION_SLUG.test(value)
+    ? value
+    : null;
 }
 
 export function libraryRouteHref(state: LibraryRouteState): Route {

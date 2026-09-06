@@ -393,41 +393,43 @@ describe("ListPublishedMaterials", () => {
     if (!english.ok) {
       throw new Error("Expected the English search fixture");
     }
-    expect(english.value.facets).toMatchObject({
-      topics: [
-        expect.objectContaining({ count: 2, slug: "platform" }),
-        expect.objectContaining({ count: 1, slug: "career" }),
-      ],
-      formats: [
-        expect.objectContaining({ count: 2, slug: "guide" }),
-        expect.objectContaining({ count: 1, slug: "video" }),
-      ],
-      series: [expect.objectContaining({ count: 3, slug: "career-path" })],
-    });
-    expect(english.value.facets.series[0]?.previewItems.map(({ slug }) => slug))
-      .toEqual([
-        "career-roadmap",
-        "career-roadmap-summary",
-        "career-roadmap-taxonomy",
-      ]);
+    expect(english.value.facets.series).toEqual([]);
+    expect(english.value.facets.topics.map(({ slug }) => slug)).toEqual(
+      expect.arrayContaining(["career", "platform"]),
+    );
+    expect(english.value.facets.formats.map(({ slug }) => slug)).toEqual(
+      expect.arrayContaining(["guide", "note", "video"]),
+    );
 
-    await expect(
-      listPublishedMaterials(publishedMaterialReader, contentAccess, emptyCatalogVideos, {
+    const locallyFiltered = await listPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      emptyCatalogVideos,
+      {
         subject: anonymousSubject,
         first: 12,
-        q: "career roadmap",
         topicSlugs: ["career", "platform"],
         formatSlugs: ["video"],
-        seriesSlugs: ["career-path"],
-        sort: "relevance",
-      }),
-    ).resolves.toMatchObject({
-      ok: true,
-      value: {
-        items: [expect.objectContaining({ slug: "career-roadmap" })],
-        totalCount: 1,
       },
-    });
+    );
+    if (!locallyFiltered.ok) throw new Error(locallyFiltered.error.code);
+    expect(locallyFiltered.value.items.map(({ slug }) => slug)).toContain(
+      "career-roadmap",
+    );
+    expect(
+      locallyFiltered.value.facets.series.find(
+        ({ slug }) => slug === "career-path",
+      ),
+    ).toMatchObject({ count: 3, slug: "career-path" });
+    expect(
+      locallyFiltered.value.facets.series
+        .find(({ slug }) => slug === "career-path")
+        ?.previewItems.map(({ slug }) => slug),
+    ).toEqual([
+      "career-roadmap",
+      "career-roadmap-summary",
+      "career-roadmap-taxonomy",
+    ]);
 
     const russian = await listPublishedMaterials(
       publishedMaterialReader,
@@ -454,16 +456,18 @@ describe("ListPublishedMaterials", () => {
           expect.objectContaining({ slug: "karernyi-marshrut-summary" }),
         ],
         facets: {
-          topics: [
-            expect.objectContaining({ count: 1, slug: "platform" }),
-            expect.objectContaining({ count: 1, slug: "career" }),
-          ],
-          formats: [expect.objectContaining({ count: 2, slug: "guide" })],
           series: [],
         },
         totalCount: 2,
       },
     });
+    if (!russian.ok) throw new Error(russian.error.code);
+    expect(russian.value.facets.topics.map(({ slug }) => slug)).toEqual(
+      expect.arrayContaining(["career", "platform"]),
+    );
+    expect(russian.value.facets.formats.map(({ slug }) => slug)).toEqual(
+      expect.arrayContaining(["guide", "note", "video"]),
+    );
     expect(JSON.stringify([english, russian])).not.toContain("schemaVersion");
     expect(JSON.stringify([english, russian])).not.toContain("blocks");
     expect(JSON.stringify([english, russian])).not.toContain(
@@ -540,6 +544,35 @@ describe("ListPublishedMaterials", () => {
         totalCount: 3,
       },
     });
+
+    const seriesWithoutMaterialMatches = await listPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      emptyCatalogVideos,
+      {
+        subject: anonymousSubject,
+        first: 12,
+        formatSlugs: ["note"],
+        q: "cohort sequence signal",
+        topicSlugs: ["platform"],
+      },
+    );
+    expect(seriesWithoutMaterialMatches).toMatchObject({
+      ok: true,
+      value: {
+        facets: { series: [expect.objectContaining({ slug: "career-path" })] },
+        items: [],
+        totalCount: 0,
+      },
+    });
+    if (!seriesWithoutMaterialMatches.ok) {
+      throw new Error(seriesWithoutMaterialMatches.error.code);
+    }
+    expect(
+      seriesWithoutMaterialMatches.value.facets.topics.find(
+        ({ slug }) => slug === "platform",
+      ),
+    ).toMatchObject({ slug: "platform" });
   });
 
   test("binds stable cursors to the normalized facet and sort state", async () => {

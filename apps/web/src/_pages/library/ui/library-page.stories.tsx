@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { expect, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import {
   createLibraryCatalogQueryOptions,
@@ -85,6 +85,7 @@ const defaultQuery = {
   formatSlugs: [],
   q: "",
   sort: "newest",
+  topicSlug: null,
 } as const satisfies LibrarySearchQuery;
 
 const catalogFacets = {
@@ -291,7 +292,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Production-owned client Library presentation and Storybook fixtures, including immediate filters plus canonical Topic and Series links.",
+          "Production-owned Library with one global search, independent Series results, and material-only Topic, Format, and sort filters.",
       },
     },
     nextjs: { appDirectory: true },
@@ -339,13 +340,17 @@ export const ReadyDesktop: Story = {
       "/topics/product-engineering?from=%2Flibrary",
     );
     await expect(canvas.queryByText("Бесплатно")).not.toBeInTheDocument();
-    const topicNavigation = canvas.getByRole("navigation", { name: "Фильтр по теме" });
+    const seriesHeading = canvas.getByRole("heading", { name: "Серии" });
+    const materialsHeading = canvas.getByRole("heading", { name: "Материалы" });
     await expect(
-      within(topicNavigation).getByRole("link", { name: "Все темы" }),
-    ).toHaveAttribute("aria-current", "page");
+      canvas.getByRole("radio", { name: "Все темы" }),
+    ).toBeChecked();
     await expect(
-      within(topicNavigation).getByRole("link", { name: "Product engineering" }),
-    ).toHaveAttribute("href", "/topics/product-engineering?from=%2Flibrary");
+      canvas.getByRole("radio", { name: /Product engineering/u }),
+    ).not.toBeChecked();
+    await expect(
+      seriesHeading.compareDocumentPosition(materialsHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     await expect(canvasElement.querySelector("[data-topic-card]")).not.toBeInTheDocument();
     await expect(
       canvasElement.querySelectorAll('[data-access-cover="locked"]'),
@@ -406,7 +411,9 @@ export const SearchResultsDesktop: Story = {
       formatSlugs: ["video"],
       q: "developer pipeline",
       sort: "title",
+      topicSlug: "product-engineering",
     },
+    onQueryChange: fn(),
     result: {
       facets: catalogFacets,
       items: [catalogItems[0]],
@@ -417,21 +424,27 @@ export const SearchResultsDesktop: Story = {
   },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Search results · desktop",
-  play: async ({ canvasElement }) => {
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByLabelText("Поиск по Базе знаний")).toHaveValue(
       "developer pipeline",
     );
     await expect(canvas.getByRole("radio", { name: /Гайды/u })).not.toBeChecked();
     await expect(canvas.getByText("1 материал найден")).toBeInTheDocument();
+    await expect(canvas.getByRole("radio", { name: /Product engineering/u })).toBeChecked();
+    await userEvent.click(canvas.getByRole("radio", { name: /Карьера/u }));
+    await expect(args.onQueryChange).toHaveBeenCalledWith({
+      after: null,
+      formatSlugs: ["video"],
+      q: "developer pipeline",
+      sort: "title",
+      topicSlug: "career",
+    });
     await expect(
-      within(canvas.getByRole("navigation", { name: "Фильтр по теме" })).getByRole(
-        "link",
-        { name: "Product engineering" },
-      ),
+      canvas.getByRole("link", { name: "Product engineering" }),
     ).toHaveAttribute(
       "href",
-      "/topics/product-engineering?from=%2Flibrary%3Fq%3Ddeveloper%2Bpipeline%26format%3Dvideo%26sort%3Dtitle",
+      "/topics/product-engineering?from=%2Flibrary%3Fq%3Ddeveloper%2Bpipeline%26topic%3Dproduct-engineering%26format%3Dvideo%26sort%3Dtitle",
     );
   },
 };
@@ -444,9 +457,9 @@ export const SearchResultsMobile: Story = {
 
 export const NoSearchResults: Story = {
   args: {
-    query: { ...defaultQuery, q: "nothing can match" },
+    query: { ...defaultQuery, q: "nothing can match", sort: "relevance" },
     result: {
-      facets: catalogFacets,
+      facets: { ...catalogFacets, formats: [], topics: [] },
       items: [],
       kind: "ready",
       nextCursor: null,
@@ -456,15 +469,11 @@ export const NoSearchResults: Story = {
   name: "Search · no results",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(canvas.getByRole("heading", { name: "Серии" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Открыть серию Создание Platform Inside" })).toBeVisible();
     await expect(
-      within(canvas.getByRole("navigation", { name: "Фильтр по теме" })).getByRole(
-        "link",
-        { name: "Все темы" },
-      ),
-    ).toHaveAttribute("aria-current", "page");
-    await expect(
-      canvas.getByRole("button", { name: "Сбросить поиск и фильтры" }),
-    ).toBeVisible();
+      canvas.getAllByRole("button", { name: "Очистить поиск" }),
+    ).toHaveLength(2);
   },
 };
 

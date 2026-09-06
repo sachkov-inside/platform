@@ -667,7 +667,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   const playlistBackLinks = page.getByRole("link", {
     name: "Назад к серии",
   });
-  await expect(playlistBackLinks).toHaveCount(2);
+  await expect(playlistBackLinks).toHaveCount(1);
   await expect(playlistBackLinks.first()).toHaveAttribute(
     "href",
     "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",

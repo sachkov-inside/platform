@@ -245,9 +245,13 @@ describe("published Material HTTP contract", () => {
       ],
       totalCount: 1,
       facets: {
+        formats: [
+          expect.objectContaining({ slug: "guide" }),
+          expect.objectContaining({ slug: "video" }),
+          expect.objectContaining({ slug: "note" }),
+        ],
         topics: [expect.objectContaining({ slug: "platform" })],
-        formats: [expect.objectContaining({ slug: "guide" })],
-        series: [expect.objectContaining({ slug: "platform-inside" })],
+        series: [],
       },
     });
     expect(response.body).not.toContain("schemaVersion");

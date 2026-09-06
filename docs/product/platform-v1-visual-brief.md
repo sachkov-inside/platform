@@ -18,8 +18,10 @@ owner-controlled UI laboratory, затем принятые outputs — в produ
 Owner decision [#271](https://github.com/sachkov-inside/platform/issues/271) от 2026-09-04
 сужает текущий production visual contract: desktop Sidebar — Главная/База знаний, mobile floating
 dock — Главная/База знаний/Профиль с текстом только у active destination; Home не имеет search,
-history или `Продолжить`; Library оставляет один search, Format filters и Material sort; Reader не
-показывает related block. Более ранние противоречащие bullets ниже являются историческими.
+history или `Продолжить`; Library оставляет один global search и material-only Topic/Format/sort;
+Reader не показывает related block или декоративную cover. Owner follow-up от 2026-09-06
+закрепляет независимые Series results и reading-first колонку. Более ранние противоречащие bullets
+ниже являются историческими.
 
 ## 1. Subject, audience и jobs
 
@@ -331,15 +333,19 @@ rendered visual/component GO остаётся отдельным от PR и merg
 - Reader показывает только подтверждённые actions: `Назад` и вручную переключаемое
   `Прочитано / Не прочитано`; save и like не моделируются, а переход к следующему Material
   появляется только при реальном membership текущего Material в Series;
-- Library оставляет один search по Material/Topic/Series/Tag, Format filters и Material sort;
-  эти query filters применяются без page navigation, cursor остаётся внутри infinite query;
-  Topics повторяют компактный wrapping-chip pattern Главной, но остаются обычными ссылками на
-  существующие Topic discovery pages с каноническим Library return context и «Все темы» reset;
+- Library оставляет один общий search над Series и Materials; Series cards показываются первыми и
+  меняются только от `q`, а компактные Topic chips, Format и sort стоят внутри секции Materials и
+  влияют только на её полный server-side query. `q`/`topic`/`format`/`sort` переживают
+  reload/back/share, material cursor остаётся внутри infinite query; `/topics/:slug` остаются
+  отдельными discovery routes;
 - Material Card показывает title и ordinal Series только при реальном membership; карточка без
   Series не резервирует под него место;
 - video Material cards образуют компактную media-grid с одинаковым `16:9` preview и стабильной
-  геометрией metadata; Material без cover использует стабильный fallback, а Reader не содержит
-  related cards;
+  геометрией metadata; Material без cover использует стабильный fallback. Reader полностью убирает
+  декоративную cover, но сохраняет primary Video под компактным header и inline body media;
+- Reader использует одну колонку около `43rem`: title `28/32px`, foreground body `17–18px` с
+  line-height около `1.7`, различимые h2/h3/h4 и локальный overflow для code/table. Series
+  previous/next идёт сразу после body; tags и все Series memberships — ниже в тихом metadata footer;
 - accepted component foundation состоит из реально используемых `Button`, `Select`, `Tooltip` и
   surface patterns `ApplicationShell`, `MaterialCard`, `LibraryFilters`; story-only `Sheet`,
   неподтверждённая header topology и внешний avatar dependency в baseline не сохраняются;

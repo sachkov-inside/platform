@@ -144,6 +144,7 @@ export function LibraryCatalogQueryView({
           pages={catalog.readyPages}
           returnHref={returnHref}
           totalCount={firstPage.totalCount}
+          withoutHeading
         />
       }
       isRefreshing={

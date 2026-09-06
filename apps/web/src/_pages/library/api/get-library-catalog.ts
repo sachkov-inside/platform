@@ -174,6 +174,7 @@ function toBackendQuery(
       ? {}
       : { canonicalTopic: canonicalTopicSlug }),
     format: query.formatSlugs,
+    ...(query.topicSlug == null ? {} : { topic: [query.topicSlug] }),
     sort: query.sort,
     ...(after === undefined ? {} : { after }),
     ...(query.q.length === 0 ? {} : { q: query.q }),

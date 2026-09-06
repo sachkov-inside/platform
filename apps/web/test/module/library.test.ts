@@ -7,6 +7,7 @@ const defaultQuery = {
   formatSlugs: [],
   q: "",
   sort: "relevance",
+  topicSlug: null,
 } as const;
 const facets = {
   formats: [

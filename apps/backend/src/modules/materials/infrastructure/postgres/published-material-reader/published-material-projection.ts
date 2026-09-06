@@ -18,6 +18,7 @@ interface PublishedMaterialProjectionSearchValues {
   readonly canonicalTopicSlug?: string;
   readonly first: number;
   readonly formatSlugs: readonly string[];
+  readonly facetScope?: "library" | "material-results";
   readonly q?: string;
   readonly seriesSlugs: readonly string[];
   readonly sort: PublishedMaterialProjectionSort;
@@ -172,7 +173,12 @@ export async function selectPublishedMaterialProjectionPage(
   const filters = projectionFiltersSql(values);
   const [rawRows, metadata] = await Promise.all([
     prisma.$queryRaw(searchProjectionQuery(values, filters, searchRank)),
-    selectProjectionMetadata(prisma, filters),
+    selectProjectionMetadata(
+      prisma,
+      filters,
+      values.facetScope === "library" ? values.q : undefined,
+      values.facetScope === "library",
+    ),
   ]);
   const rows = searchedPublishedMaterialProjectionRowSchema
     .array()
@@ -375,8 +381,15 @@ function orderSql(sort: PublishedMaterialProjectionSort): Prisma.Sql {
 async function selectProjectionMetadata(
   prisma: MaterialsPrisma,
   filters: Prisma.Sql,
+  q: string | undefined,
+  useLibraryFacets: boolean,
 ): Promise<z.infer<typeof projectionMetadataRowSchema>> {
   const filteredPublications = filteredPublicationsSql(filters);
+  const independentPublications = useLibraryFacets
+    ? filteredPublicationsSql(Prisma.sql`publication.access <> 'workshop'`)
+    : filteredPublications;
+  const facetPublications = independentPublications;
+  const seriesPublications = independentPublications;
   const rows = projectionMetadataRowSchema.array().parse(
     await prisma.$queryRaw(Prisma.sql`
       select
@@ -402,7 +415,7 @@ async function selectProjectionMetadata(
               select topic.id, topic.name, topic.slug, topic.summary,
                 ${coverProjectionSql(Prisma.sql`topic.cover_id`)} as cover,
                 count(*)::integer as count
-              from (${filteredPublications}) as publication
+              from (${facetPublications}) as publication
               join materials.topics as topic on topic.id = publication.topic_id
               where topic.archived_at is null
               group by topic.id, topic.name, topic.slug, topic.summary, topic.cover_id
@@ -426,7 +439,7 @@ async function selectProjectionMetadata(
             )
             from (
               select format.id, format.name, format.slug, count(*)::integer as count
-              from (${filteredPublications}) as publication
+              from (${facetPublications}) as publication
               join materials.formats as format on format.id = publication.format_id
               group by format.id, format.name, format.slug
             ) as option
@@ -453,7 +466,7 @@ async function selectProjectionMetadata(
                 array(
                   select preview_membership.material_id
                   from materials.published_material_series_memberships as preview_membership
-                  join (${filteredPublications}) as preview_publication
+                  join (${seriesPublications}) as preview_publication
                     on preview_publication.material_id = preview_membership.material_id
                   where preview_membership.series_id = series.id
                   order by preview_membership.ordinal, preview_membership.material_id
@@ -462,9 +475,10 @@ async function selectProjectionMetadata(
                 count(*)::integer as count
               from materials.published_material_series_memberships as membership
               join materials.series as series on series.id = membership.series_id
-              join (${filteredPublications}) as publication
+              join (${seriesPublications}) as publication
                 on publication.material_id = membership.material_id
               where series.archived_at is null
+                ${seriesSearchSql(q)}
               group by series.id, series.name, series.slug, series.summary, series.cover_id
             ) as option
           ),
@@ -477,6 +491,27 @@ async function selectProjectionMetadata(
     throw new TypeError("Published Material projection metadata is missing");
   }
   return row;
+}
+
+function seriesSearchSql(q: string | undefined): Prisma.Sql {
+  return q === undefined
+    ? Prisma.empty
+    : Prisma.sql`
+        and (
+          to_tsvector(
+            'russian'::regconfig,
+            concat_ws(' ', series.name, series.summary)
+          ) @@ websearch_to_tsquery('russian'::regconfig, ${q})
+          or to_tsvector(
+            'english'::regconfig,
+            concat_ws(' ', series.name, series.summary)
+          ) @@ websearch_to_tsquery('english'::regconfig, ${q})
+          or to_tsvector(
+            'simple'::regconfig,
+            concat_ws(' ', series.name, series.summary)
+          ) @@ websearch_to_tsquery('simple'::regconfig, ${q})
+        )
+      `;
 }
 
 function filteredPublicationsSql(filters: Prisma.Sql): Prisma.Sql {

@@ -137,9 +137,10 @@ Series в `from` и показывает предыдущий/следующий
   Серии первыми, компактное приглашение в Membership только для visitor/non-member, компактные
   Темы, затем новые Видео → Гайды → Заметки и переход в общий каталог; history и `Продолжить`
   отсутствуют;
-- **База знаний** — единый real-data экран тем, серий и материалов; один поиск сопоставляет
-  Material, Topic, Series и Tag, а публичный URL хранит только `q`, `format` и Material sort;
-  cursor остаётся внутренним состоянием infinite query;
+- **База знаний** — единый real-data экран: один global search независимо сопоставляет Series по
+  name/summary и Materials по public search projection; Series идут первыми и не зависят от
+  material-only Topic/Format/sort/pagination. Публичный URL хранит `q`, `topic`, `format` и
+  Material sort; cursor остаётся внутренним состоянием infinite query;
 - **страница темы** — metadata направления, полный derived-список серий и paginated
   опубликованные материалы;
 - **страница серии** — metadata, полный упорядоченный состав материалов и полный derived-список
