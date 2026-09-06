@@ -28,6 +28,7 @@ export interface MaterialReaderViewProps {
   readonly primaryVideo: PrimaryVideoPresentation | null;
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly seriesContext?: SeriesReaderContext | null;
+  readonly readingAction?: ReactNode;
 }
 
 interface OutlineItem {
@@ -43,6 +44,7 @@ export function MaterialReaderView({
   primaryVideo,
   returnTarget = libraryMaterialReaderReturnTarget,
   seriesContext = null,
+  readingAction,
 }: MaterialReaderViewProps) {
   const outline = collectOutline(body);
 
@@ -61,6 +63,7 @@ export function MaterialReaderView({
               key={primaryVideo.videoId}
               materialId={material.materialId}
               video={primaryVideo}
+              showWatchedAction={readingAction === undefined}
             />
           )}
           <ReaderOutline items={outline} />
@@ -75,6 +78,7 @@ export function MaterialReaderView({
               path={[]}
             />
           </article>
+          {readingAction}
           <MaterialReaderMetadataFooter material={material} seriesContext={seriesContext} returnTarget={returnTarget} />
         </div>
       </ReaderReturnNavigation>

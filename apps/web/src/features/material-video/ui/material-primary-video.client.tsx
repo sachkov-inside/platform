@@ -18,6 +18,7 @@ import {
 } from "../model/video";
 
 interface MaterialPrimaryVideoProps {
+  readonly showWatchedAction?: boolean;
   readonly className?: string;
   readonly materialId: string;
   readonly video: {
@@ -31,7 +32,7 @@ interface MaterialPrimaryVideoProps {
 
 export type PlayerPhase = "loading" | "playing" | "error";
 
-export function MaterialPrimaryVideo({ className, materialId, video }: MaterialPrimaryVideoProps) {
+export function MaterialPrimaryVideo({ className, materialId, video, showWatchedAction = true }: MaterialPrimaryVideoProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const progressInteractionRef = useRef(false);
   const progressContextRef = useRef<{
@@ -215,6 +216,7 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
     onToggleWatched={() => { void toggleWatched(); }}
     {...(className === undefined ? {} : { className })}
     phase={phase}
+    showWatchedAction={showWatchedAction}
     sectionRef={sectionRef}
     title={video.title}
     videoId={video.videoId}
@@ -227,6 +229,7 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
 }
 
 export interface MaterialVideoPlayerViewProps {
+  readonly showWatchedAction?: boolean;
   readonly className?: string;
   readonly onLoad: () => void;
   readonly onToggleWatched?: () => void;
@@ -249,6 +252,7 @@ export function MaterialVideoPlayerView({
   videoId,
   watched = false,
   watchedDisabled = false,
+  showWatchedAction = true,
 }: MaterialVideoPlayerViewProps) {
   return (
     <section aria-labelledby="primary-video-heading" className={cn("mt-8 max-w-[56rem] sm:mt-10", className)} data-video-id={videoId} ref={sectionRef}>
@@ -273,7 +277,7 @@ export function MaterialVideoPlayerView({
           </div>
         )}
       </div>
-      <div className="mt-3 flex justify-end">
+      {showWatchedAction ? <div className="mt-3 flex justify-end">
         <Button
           aria-pressed={watched}
           className="h-auto min-h-10 w-40 max-w-full shrink-0 justify-center whitespace-normal rounded-full py-2"
@@ -285,7 +289,7 @@ export function MaterialVideoPlayerView({
           {watched ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}
           Просмотрено
         </Button>
-      </div>
+      </div> : null}
     </section>
   );
 }
