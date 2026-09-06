@@ -854,6 +854,11 @@ export function CommunicationsWorkspace({
                             ))}
                           </ul>
                         </div>
+                      ) : intro.data?.kind !== "ready" ? (
+                        <p role="status">
+                          Перед публикацией создайте и сохраните общее
+                          знакомство.
+                        </p>
                       ) : (
                         <Button
                           type="button"

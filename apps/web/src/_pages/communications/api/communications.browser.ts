@@ -33,18 +33,7 @@ export async function listFunnels(
     "POST",
     form,
   );
-  if (!response.ok)
-    return {
-      kind: "error",
-      code:
-        response.status === 401
-          ? "unauthorized"
-          : response.status === 403
-            ? "forbidden"
-            : "unavailable",
-    };
-  const parsed = resultSchema(listFunnelsOutputSchema).safeParse(response.body);
-  return parsed.success ? parsed.data : { kind: "error", code: "unavailable" };
+  return decodeResponse(response, listFunnelsOutputSchema);
 }
 
 const readFunnelInputSchema = z.object({ funnelId: z.guid() });
@@ -61,18 +50,7 @@ export async function readFunnel(
     "POST",
     form,
   );
-  if (!response.ok)
-    return {
-      kind: "error",
-      code:
-        response.status === 401
-          ? "unauthorized"
-          : response.status === 403
-            ? "forbidden"
-            : "unavailable",
-    };
-  const parsed = resultSchema(readFunnelOutputSchema).safeParse(response.body);
-  return parsed.success ? parsed.data : { kind: "error", code: "unavailable" };
+  return decodeResponse(response, readFunnelOutputSchema);
 }
 
 const saveFunnelInputSchema = saveSchema;
@@ -89,18 +67,7 @@ export async function saveFunnel(
     "POST",
     form,
   );
-  if (!response.ok)
-    return {
-      kind: "error",
-      code:
-        response.status === 401
-          ? "unauthorized"
-          : response.status === 403
-            ? "forbidden"
-            : "unavailable",
-    };
-  const parsed = resultSchema(saveFunnelOutputSchema).safeParse(response.body);
-  return parsed.success ? parsed.data : { kind: "error", code: "unavailable" };
+  return decodeResponse(response, saveFunnelOutputSchema);
 }
 
 const previewFunnelInputSchema = commandSchema;
@@ -117,20 +84,7 @@ export async function previewFunnel(
     "POST",
     form,
   );
-  if (!response.ok)
-    return {
-      kind: "error",
-      code:
-        response.status === 401
-          ? "unauthorized"
-          : response.status === 403
-            ? "forbidden"
-            : "unavailable",
-    };
-  const parsed = resultSchema(previewFunnelOutputSchema).safeParse(
-    response.body,
-  );
-  return parsed.success ? parsed.data : { kind: "error", code: "unavailable" };
+  return decodeResponse(response, previewFunnelOutputSchema);
 }
 
 const publishFunnelInputSchema = commandSchema;
@@ -147,20 +101,7 @@ export async function publishFunnel(
     "POST",
     form,
   );
-  if (!response.ok)
-    return {
-      kind: "error",
-      code:
-        response.status === 401
-          ? "unauthorized"
-          : response.status === 403
-            ? "forbidden"
-            : "unavailable",
-    };
-  const parsed = resultSchema(publishFunnelOutputSchema).safeParse(
-    response.body,
-  );
-  return parsed.success ? parsed.data : { kind: "error", code: "unavailable" };
+  return decodeResponse(response, publishFunnelOutputSchema);
 }
 
 const changeFunnelLifecycleInputSchema = lifecycleSchema;
@@ -177,20 +118,7 @@ export async function changeFunnelLifecycle(
     "POST",
     form,
   );
-  if (!response.ok)
-    return {
-      kind: "error",
-      code:
-        response.status === 401
-          ? "unauthorized"
-          : response.status === 403
-            ? "forbidden"
-            : "unavailable",
-    };
-  const parsed = resultSchema(changeFunnelLifecycleOutputSchema).safeParse(
-    response.body,
-  );
-  return parsed.success ? parsed.data : { kind: "error", code: "unavailable" };
+  return decodeResponse(response, changeFunnelLifecycleOutputSchema);
 }
 
 const readIntroInputSchema = z.object({});
@@ -207,18 +135,7 @@ export async function readIntro(
     "POST",
     form,
   );
-  if (!response.ok)
-    return {
-      kind: "error",
-      code:
-        response.status === 401
-          ? "unauthorized"
-          : response.status === 403
-            ? "forbidden"
-            : "unavailable",
-    };
-  const parsed = resultSchema(readIntroOutputSchema).safeParse(response.body);
-  return parsed.success ? parsed.data : { kind: "error", code: "unavailable" };
+  return decodeResponse(response, readIntroOutputSchema);
 }
 
 const saveIntroInputSchema = saveIntroSchema;
@@ -235,18 +152,7 @@ export async function saveIntro(
     "POST",
     form,
   );
-  if (!response.ok)
-    return {
-      kind: "error",
-      code:
-        response.status === 401
-          ? "unauthorized"
-          : response.status === 403
-            ? "forbidden"
-            : "unavailable",
-    };
-  const parsed = resultSchema(saveIntroOutputSchema).safeParse(response.body);
-  return parsed.success ? parsed.data : { kind: "error", code: "unavailable" };
+  return decodeResponse(response, saveIntroOutputSchema);
 }
 
 const readDeliveriesInputSchema = z.object({
@@ -266,20 +172,7 @@ export async function readDeliveries(
     "POST",
     form,
   );
-  if (!response.ok)
-    return {
-      kind: "error",
-      code:
-        response.status === 401
-          ? "unauthorized"
-          : response.status === 403
-            ? "forbidden"
-            : "unavailable",
-    };
-  const parsed = resultSchema(readDeliveriesOutputSchema).safeParse(
-    response.body,
-  );
-  return parsed.success ? parsed.data : { kind: "error", code: "unavailable" };
+  return decodeResponse(response, readDeliveriesOutputSchema);
 }
 
 const skipDeliveryInputSchema = resolveDeliverySchema;
@@ -300,20 +193,7 @@ export async function skipDelivery(
     "POST",
     form,
   );
-  if (!response.ok)
-    return {
-      kind: "error",
-      code:
-        response.status === 401
-          ? "unauthorized"
-          : response.status === 403
-            ? "forbidden"
-            : "unavailable",
-    };
-  const parsed = resultSchema(skipDeliveryOutputSchema).safeParse(
-    response.body,
-  );
-  return parsed.success ? parsed.data : { kind: "error", code: "unavailable" };
+  return decodeResponse(response, skipDeliveryOutputSchema);
 }
 
 const retryDeliveryInputSchema = resolveDeliverySchema;
@@ -334,20 +214,7 @@ export async function retryDelivery(
     "POST",
     form,
   );
-  if (!response.ok)
-    return {
-      kind: "error",
-      code:
-        response.status === 401
-          ? "unauthorized"
-          : response.status === 403
-            ? "forbidden"
-            : "unavailable",
-    };
-  const parsed = resultSchema(retryDeliveryOutputSchema).safeParse(
-    response.body,
-  );
-  return parsed.success ? parsed.data : { kind: "error", code: "unavailable" };
+  return decodeResponse(response, retryDeliveryOutputSchema);
 }
 
 const resolveTemplateInputSchema = templateReferenceSchema;
@@ -364,6 +231,13 @@ export async function resolveTemplate(
     "POST",
     form,
   );
+  return decodeResponse(response, resolveTemplateOutputSchema);
+}
+
+function decodeResponse<Schema extends z.ZodType>(
+  response: Awaited<ReturnType<typeof requestSameOriginMutation>>,
+  schema: Schema,
+): Result<z.infer<Schema>> {
   if (!response.ok)
     return {
       kind: "error",
@@ -374,8 +248,6 @@ export async function resolveTemplate(
             ? "forbidden"
             : "unavailable",
     };
-  const parsed = resultSchema(resolveTemplateOutputSchema).safeParse(
-    response.body,
-  );
+  const parsed = resultSchema(schema).safeParse(response.body);
   return parsed.success ? parsed.data : { kind: "error", code: "unavailable" };
 }

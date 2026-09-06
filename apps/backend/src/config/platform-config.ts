@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-const DEFAULT_DATABASE_URL = "postgresql://inside:inside@127.0.0.1:5432/inside";
+const DEFAULT_DATABASE_URL =
+  "postgresql://inside:inside@127.0.0.1:5432/inside";
 const DEFAULT_API_HOST = "127.0.0.1";
 const DEFAULT_API_PORT = "3001";
 const DEFAULT_LOGTO_ISSUER = "https://identity.inside.localhost:3301/oidc";
@@ -31,14 +32,12 @@ const DEFAULT_KINESCOPE_API_BASE_URL = "https://api.kinescope.io";
 const DEFAULT_KINESCOPE_UPLOADER_BASE_URL = "https://uploader.kinescope.io";
 const DEFAULT_KINESCOPE_API_TOKEN = "inside-local-kinescope-api-token";
 const DEFAULT_KINESCOPE_PUBLIC_PROJECT_ID = "inside-local-public-project";
-const DEFAULT_KINESCOPE_MEMBERSHIP_PROJECT_ID =
-  "inside-local-membership-project";
+const DEFAULT_KINESCOPE_MEMBERSHIP_PROJECT_ID = "inside-local-membership-project";
 const DEFAULT_KINESCOPE_CALLBACK_USERNAME = "inside-local-callback";
 const DEFAULT_KINESCOPE_CALLBACK_PASSWORD = "inside-local-callback-password";
 const DEFAULT_KINESCOPE_WEBHOOK_USERNAME = "inside-local-webhook";
 const DEFAULT_KINESCOPE_WEBHOOK_PASSWORD = "inside-local-webhook-password";
-const DEFAULT_KINESCOPE_PLAYBACK_JWT_SECRET =
-  "inside-local-kinescope-playback-secret";
+const DEFAULT_KINESCOPE_PLAYBACK_JWT_SECRET = "inside-local-kinescope-playback-secret";
 const DEFAULT_KINESCOPE_PLAYBACK_JWT_TTL_SECONDS = "60";
 
 export const PLATFORM_CONFIG = Symbol("PLATFORM_CONFIG");
@@ -59,9 +58,7 @@ const apiPortSchema = integerStringSchema(
 const identitySchema = z
   .object({
     telegramSignInEnabled: z.boolean().default(false),
-    telegramSignInProviderUrl: httpUrlSchema(
-      "TELEGRAM_SIGN_IN_PROVIDER_URL",
-    ).default("http://127.0.0.1:3606"),
+    telegramSignInProviderUrl: httpUrlSchema("TELEGRAM_SIGN_IN_PROVIDER_URL").default("http://127.0.0.1:3606"),
     telegramSignInIntegrationSecret: z.string().min(32).optional(),
     issuer: httpUrlSchema("LOGTO_ISSUER").refine(
       (value) => new URL(value).protocol === "https:",
@@ -91,7 +88,9 @@ const objectStorageSchema = z
     }),
     buckets: z
       .object({
-        protected: objectStorageBucketSchema("OBJECT_STORAGE_PROTECTED_BUCKET"),
+        protected: objectStorageBucketSchema(
+          "OBJECT_STORAGE_PROTECTED_BUCKET",
+        ),
         public: objectStorageBucketSchema("OBJECT_STORAGE_PUBLIC_BUCKET"),
         quarantine: objectStorageBucketSchema(
           "OBJECT_STORAGE_QUARANTINE_BUCKET",
@@ -133,17 +132,11 @@ const telegramSecretSchema = (name: string) =>
     message: `${name} must be a base64url credential of at least 16 characters`,
   });
 const kinescopeUrlSchema = (name: string) =>
-  httpUrlSchema(name).refine(
-    (value) => {
-      const url = new URL(value);
-      return (
-        url.protocol === "https:" &&
-        (url.hostname === "kinescope.io" ||
-          url.hostname.endsWith(".kinescope.io"))
-      );
-    },
-    { message: `${name} must use HTTPS on a Kinescope host` },
-  );
+  httpUrlSchema(name).refine((value) => {
+    const url = new URL(value);
+    return url.protocol === "https:" &&
+      (url.hostname === "kinescope.io" || url.hostname.endsWith(".kinescope.io"));
+  }, { message: `${name} must use HTTPS on a Kinescope host` });
 const telegramMembershipSchema = z
   .object({
     botStartUrl: httpUrlSchema("TELEGRAM_BOT_START_URL").refine(
@@ -158,7 +151,8 @@ const telegramMembershipSchema = z
         );
       },
       {
-        message: "TELEGRAM_BOT_START_URL must be a t.me bot deep-link base URL",
+        message:
+          "TELEGRAM_BOT_START_URL must be a t.me bot deep-link base URL",
       },
     ),
     evidenceIngressSecret: telegramSecretSchema(
@@ -174,26 +168,24 @@ const telegramMembershipSchema = z
     supportUrl: httpUrlSchema("MEMBERSHIP_SUPPORT_URL").optional(),
   })
   .readonly();
-const kinescopeSchema = z
-  .object({
-    apiBaseUrl: kinescopeUrlSchema("KINESCOPE_API_BASE_URL"),
-    apiToken: z.string().min(16),
-    callbackPassword: z.string().min(16),
-    callbackUsername: z.string().min(1),
-    membershipProjectId: z.string().min(1).max(128),
-    playbackJwtSecret: z.string().min(32),
-    playbackJwtTtlSeconds: integerStringSchema(
-      "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS must be an integer between 30 and 300",
-      30,
-      300,
-    ),
-    providerMode: z.enum(["real", "test"]),
-    publicProjectId: z.string().min(1).max(128),
-    uploaderBaseUrl: kinescopeUrlSchema("KINESCOPE_UPLOADER_BASE_URL"),
-    webhookPassword: z.string().min(16),
-    webhookUsername: z.string().min(1),
-  })
-  .readonly();
+const kinescopeSchema = z.object({
+  apiBaseUrl: kinescopeUrlSchema("KINESCOPE_API_BASE_URL"),
+  apiToken: z.string().min(16),
+  callbackPassword: z.string().min(16),
+  callbackUsername: z.string().min(1),
+  membershipProjectId: z.string().min(1).max(128),
+  playbackJwtSecret: z.string().min(32),
+  playbackJwtTtlSeconds: integerStringSchema(
+    "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS must be an integer between 30 and 300",
+    30,
+    300,
+  ),
+  providerMode: z.enum(["real", "test"]),
+  publicProjectId: z.string().min(1).max(128),
+  uploaderBaseUrl: kinescopeUrlSchema("KINESCOPE_UPLOADER_BASE_URL"),
+  webhookPassword: z.string().min(16),
+  webhookUsername: z.string().min(1),
+}).readonly();
 const platformConfigSchema = z
   .object({
     mode: platformModeSchema,
@@ -211,33 +203,18 @@ const platformConfigSchema = z
     objectStorage: objectStorageSchema,
     kinescope: kinescopeSchema,
     telegramMembership: telegramMembershipSchema,
-    communications: z
-      .object({
-        endpoint: httpUrlSchema("TELEGRAM_COMMUNICATIONS_ENDPOINT").refine(
-          (value) => {
-            const url = new URL(value);
-            return (
-              (url.protocol === "https:" ||
-                ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)) &&
-              !url.username &&
-              !url.password &&
-              !url.search &&
-              !url.hash &&
-              url.pathname === "/integrations/platform/v1/communications"
-            );
-          },
-        ),
-        secret: telegramSecretSchema("TELEGRAM_COMMUNICATIONS_SECRET"),
-        publicOrigin: httpUrlSchema(
-          "TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN",
-        ).optional(),
-        authorizationSecret: telegramSecretSchema(
-          "TELEGRAM_AUTHOR_AUTHORIZATION_SECRET",
-        ),
-        botIdentity: z.string().min(1).max(128),
-      })
-      .readonly()
-      .optional(),
+    communications: z.object({
+      endpoint: httpUrlSchema("TELEGRAM_COMMUNICATIONS_ENDPOINT").refine(value => {
+        const url = new URL(value);
+        return (url.protocol === "https:" || ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)) &&
+          !url.username && !url.password && !url.search && !url.hash &&
+          url.pathname === "/integrations/platform/v1/communications";
+      }),
+      secret: telegramSecretSchema("TELEGRAM_COMMUNICATIONS_SECRET"),
+      publicOrigin: httpUrlSchema("TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN").optional(),
+      authorizationSecret: telegramSecretSchema("TELEGRAM_AUTHOR_AUTHORIZATION_SECRET"),
+      botIdentity: z.string().min(1).max(128),
+    }).readonly().optional(),
   })
   .readonly();
 const platformDatabaseConfigSchema = z
@@ -276,8 +253,7 @@ const unusedProductionGroups = {
     KINESCOPE_CALLBACK_PASSWORD: "unused-callback-password",
     KINESCOPE_CALLBACK_USERNAME: "unused-callback-user",
     KINESCOPE_MEMBERSHIP_PROJECT_ID: "unused-membership-project",
-    KINESCOPE_PLAYBACK_JWT_SECRET:
-      "unused-playback-secret-at-least-32-characters",
+    KINESCOPE_PLAYBACK_JWT_SECRET: "unused-playback-secret-at-least-32-characters",
     KINESCOPE_PLAYBACK_JWT_TTL_SECONDS: "60",
     KINESCOPE_PROVIDER_MODE: "real",
     KINESCOPE_PUBLIC_PROJECT_ID: "unused-public-project",
@@ -340,34 +316,34 @@ export function parsePlatformConfig(
   const mode = parsePlatformMode(environment.NODE_ENV);
   const config = platformConfigSchema.safeParse({
     mode,
-    communications: [
-      environment.TELEGRAM_COMMUNICATIONS_ENDPOINT,
-      environment.TELEGRAM_COMMUNICATIONS_SECRET,
-      environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET,
-      environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY,
-    ].every((value) => value === undefined)
-      ? undefined
-      : {
-          endpoint: environment.TELEGRAM_COMMUNICATIONS_ENDPOINT,
-          secret: environment.TELEGRAM_COMMUNICATIONS_SECRET,
-          publicOrigin: environment.TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN,
-          authorizationSecret: environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET,
-          botIdentity: environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY,
-        },
+    communications: [environment.TELEGRAM_COMMUNICATIONS_ENDPOINT, environment.TELEGRAM_COMMUNICATIONS_SECRET,
+      environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET, environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY].every(value => value === undefined)
+      ? undefined : {
+        endpoint: environment.TELEGRAM_COMMUNICATIONS_ENDPOINT,
+        secret: environment.TELEGRAM_COMMUNICATIONS_SECRET,
+        publicOrigin: environment.TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN,
+        authorizationSecret: environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET,
+        botIdentity: environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY,
+      },
     database: parsePlatformDatabaseConfig(environment, mode),
     api: {
-      host: readRuntimeValue(environment, "API_HOST", mode, DEFAULT_API_HOST),
-      port: readRuntimeValue(environment, "API_PORT", mode, DEFAULT_API_PORT),
+      host: readRuntimeValue(
+        environment,
+        "API_HOST",
+        mode,
+        DEFAULT_API_HOST,
+      ),
+      port: readRuntimeValue(
+        environment,
+        "API_PORT",
+        mode,
+        DEFAULT_API_PORT,
+      ),
     },
     identity: {
       telegramSignInProviderUrl: environment.TELEGRAM_SIGN_IN_PROVIDER_URL,
-      telegramSignInIntegrationSecret:
-        environment.TELEGRAM_SIGN_IN_INTEGRATION_SECRET,
-      telegramSignInEnabled:
-        z
-          .enum(["true", "false"])
-          .default("false")
-          .parse(environment.TELEGRAM_SIGN_IN_ENABLED) === "true",
+      telegramSignInIntegrationSecret: environment.TELEGRAM_SIGN_IN_INTEGRATION_SECRET,
+      telegramSignInEnabled: z.enum(["true", "false"]).default("false").parse(environment.TELEGRAM_SIGN_IN_ENABLED) === "true",
       issuer: readRuntimeValue(
         environment,
         "LOGTO_ISSUER",
@@ -469,75 +445,18 @@ export function parsePlatformConfig(
       ),
     },
     kinescope: {
-      apiBaseUrl: readRuntimeValue(
-        environment,
-        "KINESCOPE_API_BASE_URL",
-        mode,
-        DEFAULT_KINESCOPE_API_BASE_URL,
-      ),
-      apiToken: readRuntimeValue(
-        environment,
-        "KINESCOPE_API_TOKEN",
-        mode,
-        DEFAULT_KINESCOPE_API_TOKEN,
-      ),
-      callbackPassword: readRuntimeValue(
-        environment,
-        "KINESCOPE_CALLBACK_PASSWORD",
-        mode,
-        DEFAULT_KINESCOPE_CALLBACK_PASSWORD,
-      ),
-      callbackUsername: readRuntimeValue(
-        environment,
-        "KINESCOPE_CALLBACK_USERNAME",
-        mode,
-        DEFAULT_KINESCOPE_CALLBACK_USERNAME,
-      ),
-      membershipProjectId: readRuntimeValue(
-        environment,
-        "KINESCOPE_MEMBERSHIP_PROJECT_ID",
-        mode,
-        DEFAULT_KINESCOPE_MEMBERSHIP_PROJECT_ID,
-      ),
-      playbackJwtSecret: readRuntimeValue(
-        environment,
-        "KINESCOPE_PLAYBACK_JWT_SECRET",
-        mode,
-        DEFAULT_KINESCOPE_PLAYBACK_JWT_SECRET,
-      ),
-      playbackJwtTtlSeconds: readRuntimeValue(
-        environment,
-        "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS",
-        mode,
-        DEFAULT_KINESCOPE_PLAYBACK_JWT_TTL_SECONDS,
-      ),
-      providerMode:
-        environment.KINESCOPE_PROVIDER_MODE?.trim() ||
-        (mode === "production" ? "real" : DEFAULT_KINESCOPE_PROVIDER_MODE),
-      publicProjectId: readRuntimeValue(
-        environment,
-        "KINESCOPE_PUBLIC_PROJECT_ID",
-        mode,
-        DEFAULT_KINESCOPE_PUBLIC_PROJECT_ID,
-      ),
-      uploaderBaseUrl: readRuntimeValue(
-        environment,
-        "KINESCOPE_UPLOADER_BASE_URL",
-        mode,
-        DEFAULT_KINESCOPE_UPLOADER_BASE_URL,
-      ),
-      webhookPassword: readRuntimeValue(
-        environment,
-        "KINESCOPE_WEBHOOK_PASSWORD",
-        mode,
-        DEFAULT_KINESCOPE_WEBHOOK_PASSWORD,
-      ),
-      webhookUsername: readRuntimeValue(
-        environment,
-        "KINESCOPE_WEBHOOK_USERNAME",
-        mode,
-        DEFAULT_KINESCOPE_WEBHOOK_USERNAME,
-      ),
+      apiBaseUrl: readRuntimeValue(environment, "KINESCOPE_API_BASE_URL", mode, DEFAULT_KINESCOPE_API_BASE_URL),
+      apiToken: readRuntimeValue(environment, "KINESCOPE_API_TOKEN", mode, DEFAULT_KINESCOPE_API_TOKEN),
+      callbackPassword: readRuntimeValue(environment, "KINESCOPE_CALLBACK_PASSWORD", mode, DEFAULT_KINESCOPE_CALLBACK_PASSWORD),
+      callbackUsername: readRuntimeValue(environment, "KINESCOPE_CALLBACK_USERNAME", mode, DEFAULT_KINESCOPE_CALLBACK_USERNAME),
+      membershipProjectId: readRuntimeValue(environment, "KINESCOPE_MEMBERSHIP_PROJECT_ID", mode, DEFAULT_KINESCOPE_MEMBERSHIP_PROJECT_ID),
+      playbackJwtSecret: readRuntimeValue(environment, "KINESCOPE_PLAYBACK_JWT_SECRET", mode, DEFAULT_KINESCOPE_PLAYBACK_JWT_SECRET),
+      playbackJwtTtlSeconds: readRuntimeValue(environment, "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS", mode, DEFAULT_KINESCOPE_PLAYBACK_JWT_TTL_SECONDS),
+      providerMode: environment.KINESCOPE_PROVIDER_MODE?.trim() || (mode === "production" ? "real" : DEFAULT_KINESCOPE_PROVIDER_MODE),
+      publicProjectId: readRuntimeValue(environment, "KINESCOPE_PUBLIC_PROJECT_ID", mode, DEFAULT_KINESCOPE_PUBLIC_PROJECT_ID),
+      uploaderBaseUrl: readRuntimeValue(environment, "KINESCOPE_UPLOADER_BASE_URL", mode, DEFAULT_KINESCOPE_UPLOADER_BASE_URL),
+      webhookPassword: readRuntimeValue(environment, "KINESCOPE_WEBHOOK_PASSWORD", mode, DEFAULT_KINESCOPE_WEBHOOK_PASSWORD),
+      webhookUsername: readRuntimeValue(environment, "KINESCOPE_WEBHOOK_USERNAME", mode, DEFAULT_KINESCOPE_WEBHOOK_USERNAME),
     },
     telegramMembership: {
       botStartUrl: readRuntimeValue(
@@ -592,9 +511,7 @@ export function parsePlatformConfig(
     mode === "production" &&
     new URL(config.data.objectStorage.endpoint).protocol !== "https:"
   ) {
-    throw new Error(
-      "OBJECT_STORAGE_ENDPOINT must use HTTPS in production mode",
-    );
+    throw new Error("OBJECT_STORAGE_ENDPOINT must use HTTPS in production mode");
   }
 
   if (new Set(Object.values(config.data.objectStorage.buckets)).size !== 3) {
@@ -604,44 +521,32 @@ export function parsePlatformConfig(
   if (mode === "production" && config.data.kinescope.providerMode !== "real") {
     throw new Error("KINESCOPE_PROVIDER_MODE must be real in production mode");
   }
-  if (
-    config.data.kinescope.publicProjectId ===
-    config.data.kinescope.membershipProjectId
-  ) {
-    throw new Error(
-      "Public and membership Kinescope projects must be distinct",
-    );
+  if (config.data.kinescope.publicProjectId === config.data.kinescope.membershipProjectId) {
+    throw new Error("Public and membership Kinescope projects must be distinct");
   }
 
-  const linkingUrl = new URL(config.data.telegramMembership.linkingEndpoint);
+  const linkingUrl = new URL(
+    config.data.telegramMembership.linkingEndpoint,
+  );
   if (
     (mode === "production" && linkingUrl.protocol !== "https:") ||
     linkingUrl.username.length > 0 ||
     linkingUrl.password.length > 0 ||
     linkingUrl.search.length > 0 ||
     linkingUrl.hash.length > 0 ||
-    !linkingUrl.pathname.endsWith("/integrations/platform/v1/identity-links")
+    !linkingUrl.pathname.endsWith(
+      "/integrations/platform/v1/identity-links",
+    )
   ) {
     throw new Error("TELEGRAM_LINKING_ENDPOINT is invalid");
   }
 
   if (config.data.identity.telegramSignInEnabled) {
-    if (
-      !config.data.identity.telegramSignInIntegrationSecret ||
-      !environment.TELEGRAM_SIGN_IN_PROVIDER_URL
-    ) {
-      throw new Error(
-        "Telegram sign-in requires TELEGRAM_SIGN_IN_PROVIDER_URL and TELEGRAM_SIGN_IN_INTEGRATION_SECRET",
-      );
+    if (!config.data.identity.telegramSignInIntegrationSecret || !environment.TELEGRAM_SIGN_IN_PROVIDER_URL) {
+      throw new Error("Telegram sign-in requires TELEGRAM_SIGN_IN_PROVIDER_URL and TELEGRAM_SIGN_IN_INTEGRATION_SECRET");
     }
     const providerUrl = new URL(config.data.identity.telegramSignInProviderUrl);
-    if (
-      (mode === "production" && providerUrl.protocol !== "https:") ||
-      providerUrl.username ||
-      providerUrl.password ||
-      providerUrl.search ||
-      providerUrl.hash
-    ) {
+    if ((mode === "production" && providerUrl.protocol !== "https:") || providerUrl.username || providerUrl.password || providerUrl.search || providerUrl.hash) {
       throw new Error("TELEGRAM_SIGN_IN_PROVIDER_URL is invalid");
     }
   }
@@ -746,11 +651,7 @@ function httpUrlSchema(name: string) {
   );
 }
 
-function integerStringSchema(
-  message: string,
-  minimum: number,
-  maximum: number,
-) {
+function integerStringSchema(message: string, minimum: number, maximum: number) {
   return z
     .string()
     .refine(

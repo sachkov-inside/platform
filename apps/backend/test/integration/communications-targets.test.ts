@@ -148,6 +148,26 @@ describe("communications promised public targets against Materials PostgreSQL", 
         },
       },
     ];
+    const bare = [
+      {
+        partId: randomUUID(),
+        content: {
+          type: "text" as const,
+          text: "inside.example/materials/missing",
+          entities: [{ type: "url", offset: 0, length: 32 }],
+          buttons: [],
+        },
+      },
+    ];
+    expect(
+      await validateTargets(bare, "https://inside.example", targets),
+    ).toEqual([
+      {
+        url: "https://inside.example/materials/missing",
+        targetId: null,
+        reason: "not_found",
+      },
+    ]);
     const malformed = [
       {
         partId: randomUUID(),

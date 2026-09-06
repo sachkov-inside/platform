@@ -27,7 +27,7 @@ export async function validateTargets(
   for (const value of urls) {
     const url = (() => {
       try {
-        return new URL(value);
+        return new URL(value.includes("://") ? value : `https://${value}`);
       } catch {
         return null;
       }
@@ -45,7 +45,7 @@ export async function validateTargets(
       }
     })();
     if (!slug || slug.length > 120) {
-      errors.push({ url: value, reason: "not_found", targetId: null });
+      errors.push({ url: url.href, reason: "not_found", targetId: null });
       continue;
     }
     const result = await targets.check({
@@ -54,7 +54,7 @@ export async function validateTargets(
     });
     if (result.reason !== "eligible")
       errors.push({
-        url: value,
+        url: url.href,
         reason: result.reason,
         targetId: result.targetId,
       });

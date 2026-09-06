@@ -1,5 +1,8 @@
 export type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
-export { materialId, type MaterialId } from "./domain/material-identifiers.js";
+export {
+  materialId,
+  type MaterialId,
+} from "./domain/material-identifiers.js";
 export type {
   MaterialAccessFacts,
   MaterialContent,
@@ -136,10 +139,7 @@ export {
   VideoProgressController,
 } from "./adapters/nest/video-playback.controller.js";
 export { KinescopeVideoAuthorizationController } from "./adapters/nest/kinescope-video-authorization.controller.js";
-export {
-  VIDEO_PLAYBACK,
-  assembleVideoPlayback,
-} from "./facets/video-playback/video-playback.js";
+export { VIDEO_PLAYBACK, assembleVideoPlayback } from "./facets/video-playback/video-playback.js";
 export { MaterialAssetMaintenanceModule } from "./material-asset-maintenance.module.js";
 export { assembleMaterialAuthoringMcpServer } from "./adapters/mcp/material-authoring-mcp.js";
 export {
@@ -190,7 +190,4 @@ export {
   type MaterialAssetMaintenance,
 } from "./features/cleanup-material-assets/cleanup-material-assets.js";
 
-export {
-  PublicContentTargets,
-  type PublicContentTargetResult,
-} from "./facets/public-content-targets/public-content-targets.js";
+export { PublicContentTargets, type PublicContentTarget, type PublicContentTargetResult } from "./facets/public-content-targets/public-content-targets.js";

@@ -128,12 +128,15 @@ Common intro Save updates the block for future recipients immediately, explicitl
 funnel Save never publishes. Media templates keep their snapshot and formatting. Editing formatted
 text requires an explicit remove-formatting action, avoiding silent entity loss. Preview never
 sends a Telegram message. Actual bot entry and credentialed messages require separate owner approval.
-Rollback remains an API capability and is outside this editor's lifecycle controls.
+Rollback remains an API capability and is outside this editor's lifecycle controls. The existing
+rollback path does not run this new validation: the provider contract cannot yet expose a historical
+snapshot for Platform validation. Closing that integration gap is tracked by #310; validation here
+covers fresh preview/publish only.
 
 Set `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` to the canonical public Platform origin, matching
 `WEB_BASE_URL`. Without it publication/preview fail closed. The Materials-owned `PublicContentTargets`
 facet checks linked Materials and Series for publication, free access and complete composition;
-Communications validates Platform URLs in buttons and Telegram URL/text_link entities before a fresh
+Communications validates Platform URLs in plain text, buttons and Telegram URL/text_link entities (including bare-domain entities) before a fresh
 publish and adds URL-specific failures to preview. An already committed publish replay stays owned
 by the provider receipt. Content access is still checked by the public Reader; this point-in-time
 validation does not grant access or promise availability after a later unpublish.

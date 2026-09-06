@@ -105,7 +105,7 @@ export const previewSchema = z.object({
   completedParticipantsReceivingNewSteps: z.number().int().nonnegative(),
   targetErrors: z.array(
     z.object({
-      url: httpsUrl,
+      url: z.url(),
       targetId: id.nullable(),
       reason: z.enum(["not_found", "not_published", "not_free", "incomplete"]),
     }),
