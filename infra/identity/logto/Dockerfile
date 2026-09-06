@@ -1,7 +1,7 @@
 FROM ghcr.io/logto-io/logto:1.41.0@sha256:7f79547e3d1fe569a3ecae757968a7cfc579687aa8164eec35113c0adc983c5b
 
 LABEL org.opencontainers.image.source="https://github.com/sachkov-inside/platform"
-LABEL org.opencontainers.image.version="1.41.0-inside.3"
+LABEL org.opencontainers.image.version="1.41.0-inside.4"
 LABEL inside.logto.upstream-revision="91e55698a42f99438cd41ec2b16a1fc51dbdab8a"
 
 COPY fork/packages/experience/src/Layout/AppLayout/index.tsx packages/experience/src/Layout/AppLayout/index.tsx
@@ -34,6 +34,7 @@ RUN apk add --no-cache --virtual .inside-patch-tools patch \
 
 
 COPY connector-inside-telegram /tmp/inside-telegram-connector
+COPY fork/packages/core/src/routes/inside-telegram-theme.ts packages/core/src/routes/inside-telegram-theme.ts
 COPY fork/packages/core/src/routes/inside-telegram-view.ts packages/core/src/routes/inside-telegram-view.ts
 COPY fork/packages/core/src/routes/inside-telegram.ts packages/core/src/routes/inside-telegram.ts
 COPY patches/issue-299-telegram-sign-in.patch /tmp/issue-299-telegram-sign-in.patch

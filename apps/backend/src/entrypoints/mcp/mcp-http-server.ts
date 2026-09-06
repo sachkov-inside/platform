@@ -1,3 +1,4 @@
+import { registerCommunicationsTools, type Communications } from "../../modules/communications/index.js";
 import { createServer, type Server as NodeHttpServer } from "node:http";
 
 import {
@@ -34,6 +35,7 @@ export interface McpHttpServer {
 export function createMcpHttpServer(dependencies: {
   readonly accounts: Accounts;
   readonly authoring: MaterialAuthoring;
+  readonly communications: Pick<Communications, "execute">;
   readonly config: McpConfig;
   readonly identityIssuer: string;
   readonly readiness: Pick<OperationalReadiness, "check" | "live">;
@@ -48,18 +50,19 @@ export function createMcpHttpServer(dependencies: {
     resourceMetadataUrl: metadataUrl,
   });
   const handler = createMcpHandler(
-    ({ authInfo }) =>
-      assembleMaterialAuthoringMcpServer({
-        accountId: authenticatedAccountId(authInfo?.extra),
-        authoring: dependencies.authoring,
-      }),
+    ({ authInfo }) => {
+      const accountId = authenticatedAccountId(authInfo?.extra);
+      const server = assembleMaterialAuthoringMcpServer({ accountId, authoring: dependencies.authoring });
+      registerCommunicationsTools(server, { accountId, communications: dependencies.communications });
+      return server;
+    },
     { responseMode: "json" },
   );
   const metadata: OAuthProtectedResourceMetadata = {
     resource: resourceUrlFromServerUrl(configuredUrl).href,
     authorization_servers: [dependencies.identityIssuer],
     bearer_methods_supported: ["header"],
-    resource_name: "Sachkov Inside Platform Material authoring",
+    resource_name: "Sachkov Inside Platform authoring",
   };
   const fetchHandler = {
     async fetch(request: Request): Promise<Response> {

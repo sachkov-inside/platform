@@ -1,3 +1,4 @@
+import type { PlatformPermission } from "../../facets/accounts/accounts.interface.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { newAccountId, parseAccountId } from "../../domain/account-identifiers.js";
 import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-locks.js";
@@ -13,8 +14,9 @@ export interface OwnerBootstrapResult {
 export async function bootstrapOwnerAccount(
   prisma: AccountsPrismaClient,
   identity: { readonly issuer: string; readonly subject: string },
+  permission: PlatformPermission = "materials:manage",
 ): Promise<OwnerBootstrapResult> {
-  if (!validLogtoIdentity(identity)) {
+  if (!validLogtoIdentity(identity) || !["materials:manage", "communications:manage"].includes(permission)) {
     throw new TypeError("owner Logto identity is invalid");
   }
 
@@ -52,7 +54,7 @@ export async function bootstrapOwnerAccount(
       where: {
         accountId_permission: {
           accountId,
-          permission: "materials:manage",
+          permission,
         },
       },
       select: { accountId: true },
@@ -60,9 +62,9 @@ export async function bootstrapOwnerAccount(
     const permissionGranted = existingGrant === null;
     if (permissionGranted) {
       await transaction.accountPermission.create({
-        data: { accountId, permission: "materials:manage" },
+        data: { accountId, permission },
       });
-      await appendAccountAuditEvent(transaction, "permission_granted", accountId);
+      await appendAccountAuditEvent(transaction, "permission_granted", accountId, permission);
     }
     if (existing === null || permissionGranted) {
       await appendAccountAuditEvent(

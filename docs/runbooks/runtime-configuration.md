@@ -102,3 +102,10 @@ unsafe Telegram-link recovery. Leave it empty when no approved support channel e
 shows owner-handoff copy without rendering a broken link. It is presentation configuration only;
 it never changes link uniqueness, recovery policy or `ContentAccess`. `MEMBERSHIP_ACQUISITION_URL`
 remains the independent destination for obtaining Membership.
+
+## Optional Telegram communications
+
+API and MCP share the opt-in communications configuration and author permission contract in
+[Platform communications integration](../integrations/communications-v1.md#configuration-and-owner-bootstrap).
+All four settings are absent by default; partial configuration fails startup. Configure service
+credentials only in the owning private runtime environment files.

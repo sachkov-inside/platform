@@ -69,7 +69,19 @@ redacts sensitive audit/webhook fields, removes raw SMTP provider errors and pro
 Russian rate-limit copy. Platform does not add a mail relay, quota table, attempt cookie, CAPTCHA,
 reauthentication protocol or second authentication session.
 
-All other appearance stays provider-configured. The Management API bootstrap owns the empty logo,
+Fork revision `inside.4` integrates the Telegram confirmation screen from #303. The identity-owned
+presentation in `fork/packages/core/src/routes/inside-telegram-view.ts` renders both the Logto route
+and the Storybook fixture adapter (`Patterns/Identity/Telegram sign-in`). Polling, connector
+sessions and the callback remain on the existing identity origin.
+
+The generated `inside-telegram-theme.ts` embeds the current Platform light tokens and the pinned
+Manrope Latin/Cyrillic fonts so the identity origin needs no third-party font request. After a
+foundation or font update run `node scripts/telegram-sign-in-theme.mjs`; the tooling test rejects
+drift. Its inputs are `apps/web/app/globals.css` and the installed, lockfile-pinned font package.
+Regenerate before building the isolated Logto Docker context. The Storybook adapter imports this
+same presentation, while production has no dependency on the Storybook fixture.
+
+Other appearance stays provider-configured. The Management API bootstrap owns the empty logo,
 forced Russian language, Platform accent and light-mode settings; this keeps the source delta small
 and reviewable.
 

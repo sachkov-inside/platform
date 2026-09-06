@@ -14,7 +14,7 @@ export async function checkPermission(
   },
 ): Promise<PermissionDecision> {
   const accountId = parseAccountId(query.accountId);
-  if (accountId === undefined || query.permission !== "materials:manage") {
+  if (accountId === undefined || !(["materials:manage", "communications:manage"] as const).includes(query.permission)) {
     return { ok: false, error: { code: "invalid_input" } };
   }
   try {

@@ -42,7 +42,8 @@ an optional profile on <http://127.0.0.1:6006>. Integration tests continue to us
 temporary PostgreSQL and MinIO through Testcontainers and never share the Compose data services.
 
 The production API exposes health, OpenAPI, the published catalog and the Material Reader endpoint.
-The local MCP adapter exposes delegated Material, Topic, Series and ordered-composition authoring
+The local MCP adapter exposes delegated Material, Topic, Series, ordered-composition authoring and
+[communications management](../integrations/communications-v1.md)
 over production application interfaces;
 production Logto client setup and public routing remain separate deployment work.
 
@@ -157,7 +158,8 @@ reuse a running singleton stack.
 The MCP adapter uses stateless Streamable HTTP at `MCP_SERVER_URL` (local default
 `http://127.0.0.1:3002/mcp`). It verifies a short-lived Logto-compatible bearer token, resolves its
 issuer/subject to an existing Account and checks the Account's current `materials:manage`
-permission inside each production authoring operation. Provider roles and scopes do not grant
+permission inside each Materials authoring operation. Communications tools independently check
+`communications:manage` and a confirmed Telegram link. Provider roles and scopes do not grant
 access, and the adapter has no service identity or provider secret.
 
 The exposed tools are `material_create_draft`, `material_load`, `material_save`,
@@ -312,7 +314,9 @@ OWNER_LOGTO_SUBJECT=<opaque-logto-subject> \
 pnpm --filter @inside/backend release:bootstrap-owner
 ```
 
-The command ensures one Account and `materials:manage`, writes only redacted Account audit events,
+The command ensures one Account and `materials:manage` by default. Explicitly set
+`OWNER_PERMISSION=communications:manage` to grant only communications management instead. It writes
+redacted Account audit events including the selected permission,
 and prints a JSON summary. It does not run from an application startup hook or public route and does
 not need the owner's email. Repeating it reports that no Account or permission was created.
 

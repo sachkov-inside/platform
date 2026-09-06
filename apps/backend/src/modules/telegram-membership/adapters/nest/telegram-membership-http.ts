@@ -1,4 +1,3 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 
 import { HttpException } from "@nestjs/common";
 import { z } from "zod";
@@ -119,27 +118,6 @@ export const evidenceAcceptanceSchema = z.discriminatedUnion("outcome", [
     .strict(),
 ]);
 
-export function bearerCredential(
-  authorization: string | undefined,
-): string | undefined {
-  const prefix = "Bearer ";
-  return authorization?.startsWith(prefix)
-    ? authorization.slice(prefix.length)
-    : undefined;
-}
-
-export function credentialsMatch(
-  received: string | undefined,
-  expected: string,
-): boolean {
-  if (received === undefined) {
-    return false;
-  }
-  const receivedDigest = createHash("sha256").update(received).digest();
-  const expectedDigest = createHash("sha256").update(expected).digest();
-  return timingSafeEqual(receivedDigest, expectedDigest);
-}
-
 export function throwTelegramLinkError(
   result: Extract<TelegramLinkResult, { readonly ok: false }>,
 ): never {
@@ -211,3 +189,5 @@ function problem(status: number, code: string, title: string): HttpException {
     status,
   );
 }
+
+export { bearerCredential, credentialsMatch } from "../../../../infrastructure/http/bearer-credentials.js";
