@@ -174,7 +174,7 @@ function MaterialRow({
   const isVideo = materialPreviewHasVideo(material);
   return (
     <article
-      className="group/row relative grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none"
+      className="group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none"
       data-material-id={material.slug}
       data-material-slug={material.slug}
       data-material-variant="row"
@@ -186,7 +186,7 @@ function MaterialRow({
           cover={material.cover ?? null}
           fallbackKind={isVideo ? "video" : "material"}
           fallbackSeed={material.slug}
-          sizes="5.5rem"
+          sizes="(min-width: 640px) 5.5rem, 3.5rem"
         />
       </AccessCover>
       <span className="min-w-0">
@@ -201,7 +201,7 @@ function MaterialRow({
             {material.topic}
           </Link>
         </span>
-        <Heading className="mt-1 line-clamp-2 text-base font-semibold leading-5 tracking-[-0.02em]">
+        <Heading className="mt-1 line-clamp-3 text-sm font-semibold leading-5 tracking-[-0.02em] sm:line-clamp-2 sm:text-base">
           <Link
             className="no-underline after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
             href={readerHref}

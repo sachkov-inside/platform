@@ -21,9 +21,8 @@ export function HomePage({ result }: { readonly result: HomeResult }) {
 
 function HomeReady({ home }: { readonly home: HomeView }) {
   return (
-    <div className="@container/home min-w-0" data-home-membership={home.membership.kind}>
+    <div className="@container/home min-w-0">
       <h1 className="sr-only">Главная</h1>
-      <MembershipInvitation membership={home.membership} />
       <PlaylistSection playlists={home.playlists} />
       <TopicSection topics={home.topics} />
       <MaterialSection
@@ -42,33 +41,6 @@ function HomeReady({ home }: { readonly home: HomeView }) {
       <NoteFeed items={home.notes} />
       <CatalogInvitation />
     </div>
-  );
-}
-
-function MembershipInvitation({
-  membership,
-}: {
-  readonly membership: HomeView["membership"];
-}) {
-  if (membership.kind !== "inactive") return null;
-  return (
-    <aside
-      aria-label="Подписка Inside"
-      className="mt-2 grid gap-5 rounded-[1.5rem] bg-muted px-5 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6"
-    >
-      <div className="min-w-0">
-        <strong className="text-lg tracking-[-0.02em]">Внутри — весь процесс разработки</strong>
-        <p className="mt-1 max-w-[65ch] text-sm leading-6 text-muted-foreground">
-          Видео, гайды и рабочие решения с контекстом. Обсуждаем и применяем вместе в закрытом сообществе.
-        </p>
-      </div>
-      <Button asChild className="w-full rounded-full sm:w-auto">
-        <a href={membership.acquisitionUrl} rel="noopener noreferrer" target="_blank">
-          Что даёт подписка
-          <ArrowRight aria-hidden="true" />
-        </a>
-      </Button>
-    </aside>
   );
 }
 
@@ -157,6 +129,7 @@ function PlaylistSection({
     <section aria-labelledby="home-series">
       <SectionHeading
         action="Все серии"
+        className="mt-2"
         href="/library#series-heading"
         id="home-series"
         title="Серии"
@@ -217,11 +190,13 @@ function NoteFeed({ items }: { readonly items: HomeView["notes"] }) {
 
 function SectionHeading({
   action,
+  className = "mt-10 md:mt-12",
   href,
   id,
   title,
 }: {
   readonly action: string;
+  readonly className?: string;
   readonly href: Route;
   readonly id: string;
   readonly title: string;
@@ -237,7 +212,7 @@ function SectionHeading({
           {action}
         </Link>
       }
-      className="mt-10 md:mt-12"
+      className={className}
       id={id}
       title={title}
     />

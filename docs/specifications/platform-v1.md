@@ -498,12 +498,13 @@ importer, not an implemented automatic import or publication flow.
     published references под Material concurrency guard, ждёт terminal provider state для active
     upload/processing, выполняет bounded retry и сохраняет audit/tombstone. UI показывает
     `deletion_requested | deleting | deleted | delete_failed` и не обещает provider restore.
-11. Reader сначала получает только safe Video presentation. До явного click нет iframe, provider
-    script/request, locator или token. Playback session повторно вызывает exact `ContentAccess`
+11. Reader сначала получает только safe Video presentation. При открытии страницы автоматически
+    запрашивается playback session; до её allow нет iframe, provider script/request, locator или token.
+    Playback session повторно вызывает exact `ContentAccess`
     `play`; membership Video получает short-lived JWT, а strict provider authorization callback ещё
     раз проверяет token, Video mapping и current access. Mismatch, tampering, expiry и outage deny.
-    Platform-owned responsive frame оставляет playback controls Kinescope; если выпуск не заявляет
-    captions, Reader сообщает это явно, а subtitles/transcripts остаются вне V1.
+    Platform-owned responsive frame загружает плеер без дополнительной кнопки и без autoplay;
+    controls остаются в Kinescope, технические пояснения не выводятся. Subtitles/transcripts вне V1.
 12. Account resume хранится coarse server-side по `(accountId, videoId)` и работает между
     устройствами. Anonymous public resume хранится versioned по local Video ID в `localStorage`;
     replacement не наследует позицию. Ни один resume path не меняет manual `ReadingState` и не

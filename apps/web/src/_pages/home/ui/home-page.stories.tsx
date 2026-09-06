@@ -26,10 +26,6 @@ const note = material({
 const home = {
   guides: [guide],
   notes: [note],
-  membership: {
-    acquisitionUrl: "https://t.me/tribute/app?startapp=inside",
-    kind: "inactive",
-  },
   playlists: [
     {
       count: 3,
@@ -100,7 +96,7 @@ export const RealDataReady: Story = {
     await expect(canvas.getByText("12:34")).toBeVisible();
     const topicLink = canvas.getByRole("link", { name: "Platform" });
     await expect(topicLink).toHaveAttribute("href", "/topics/platform?from=%2F");
-    await expect(canvas.getByRole("complementary", { name: "Подписка Inside" })).toBeVisible();
+    await expect(canvas.queryByRole("complementary", { name: "Подписка Inside" })).not.toBeInTheDocument();
     await expect(canvas.queryByText(/продолжить/iu)).not.toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "Все видео" })).toHaveAttribute(
       "href",
@@ -131,22 +127,6 @@ export const RealDataReady: Story = {
           Node.DOCUMENT_POSITION_FOLLOWING,
       ),
     ).toBe(true);
-  },
-};
-
-export const ActiveMember: Story = {
-  args: {
-    result: {
-      kind: "ready",
-      value: { ...home, membership: { kind: "active" } },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).queryByRole("complementary", {
-        name: "Подписка Inside",
-      }),
-    ).not.toBeInTheDocument();
   },
 };
 
