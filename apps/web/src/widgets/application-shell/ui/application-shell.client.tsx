@@ -28,7 +28,7 @@ export interface ApplicationShellProps {
   readonly children: ReactNode;
   readonly currentPath: string;
   readonly navigationItems: readonly ApplicationNavigationItem[];
-  readonly mobileNavigationItems?: readonly ApplicationNavigationItem[];
+  readonly mobileNavigationItems: readonly ApplicationNavigationItem[];
   /** Desktop identity presentation supplied by the app adapter. */
   readonly accountSlot?: ReactNode;
 }
@@ -47,10 +47,7 @@ export function ApplicationShell({
   currentPath,
   navigationItems,
   accountSlot,
-  mobileNavigationItems = [
-    ...navigationItems,
-    { href: "/account", icon: "profile", label: "Профиль" },
-  ],
+  mobileNavigationItems,
 }: ApplicationShellProps) {
   return (
     <div

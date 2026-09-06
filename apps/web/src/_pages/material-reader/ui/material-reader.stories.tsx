@@ -211,6 +211,7 @@ function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
     <ApplicationShell
       currentPath={`/materials/${material.slug}`}
       navigationItems={navigationItems}
+      mobileNavigationItems={[...navigationItems, { href: "/account", icon: "profile", label: "Профиль" }]}
     >
       <MaterialReaderState mode={mode} />
     </ApplicationShell>

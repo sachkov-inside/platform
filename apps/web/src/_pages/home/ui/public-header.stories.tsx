@@ -38,6 +38,7 @@ const meta = {
   args: {
     currentPath: "/",
     navigationItems,
+    mobileNavigationItems: [...navigationItems, { href: "/account", icon: "profile", label: "Профиль" }],
     children: null,
     accountSlot: <HeaderAuthControl state="guest" />,
   },

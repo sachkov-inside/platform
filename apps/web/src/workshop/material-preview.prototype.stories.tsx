@@ -70,6 +70,7 @@ function WorkshopShell({ children }: { readonly children: ReactNode }) {
     <ApplicationShell
       currentPath="/library"
       navigationItems={navigationItems}
+      mobileNavigationItems={[...navigationItems, { href: "/account", icon: "profile", label: "Профиль" }]}
     >
       {children}
     </ApplicationShell>

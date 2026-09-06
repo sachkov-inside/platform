@@ -105,6 +105,7 @@ function ProductionShell({ children }: { readonly children: React.ReactNode }) {
     <ApplicationShell
       currentPath="/topics/platform"
       navigationItems={navigationItems}
+      mobileNavigationItems={[...navigationItems, { href: "/account", icon: "profile", label: "Профиль" }]}
     >
       {children}
     </ApplicationShell>

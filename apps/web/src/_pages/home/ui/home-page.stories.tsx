@@ -69,6 +69,11 @@ const meta = {
     (Story) => (
       <ApplicationShell
         currentPath="/"
+        mobileNavigationItems={[
+          { href: "/", icon: "home", label: "Главная" },
+          { href: "/library", icon: "library", label: "База знаний" },
+          { href: "/account", icon: "profile", label: "Профиль" },
+        ]}
         navigationItems={[
           { href: "/", icon: "home", label: "Главная" },
           { href: "/library", icon: "library", label: "База знаний" },
