@@ -125,8 +125,20 @@ Resource to an Account or visitor.
 _Avoid_: Paywall middleware, UI lock state, Membership role
 
 **ReadingState**:
-The current read or unread relationship between an Account and a Material.
-_Avoid_: Progress, completion percentage
+The current manual read or unread relationship between an Account and a Material, independent of
+Membership and the Series from which it was opened. It records personal acknowledgement, not
+verified understanding.
+_Avoid_: Playback position, verified mastery, completion percentage
+
+**ReadingActivity**:
+An Account's private material acknowledgement and opening activity. Opening and marking a Material
+read are different facts.
+_Avoid_: Product analytics, ContentAccess, learning assessment
+
+**Series Progress**:
+The number of currently published Materials in a Series that an Account has marked read. A
+non-empty Series is currently all read only when every such Material is marked.
+_Avoid_: Historical completion certificate, stored course percentage
 
 **VideoPlaybackProgress**:
 A coarse resume position for one Account and one local Video identity. Replacement Video therefore

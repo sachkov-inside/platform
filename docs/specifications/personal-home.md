@@ -1,0 +1,83 @@
+# Персональная главная: продолжить изучение
+
+Статус: направление и границы согласованы 2026-09-06; визуальная композиция ожидает proof/owner GO.
+Delivery: [Specification #324](https://github.com/sachkov-inside/platform/issues/324).
+Основа: [ReadingActivity](reading-activity.md), текущие ContentLibrary и VideoPlaybackProgress.
+
+## Результат и границы
+
+Главная помогает авторизованному Account вернуться к незавершённым материалам независимо от
+Membership. Публичный хаб, поиск, библиотека и серии остаются доступны; personal failure не
+скрывает их. Учитывать [#320](https://github.com/sachkov-inside/platform/issues/320): приглашение
+подписаться на Home не возвращается, доступ к закрытому материалу объясняет Reader.
+
+Anonymous видит публичный Home. Его существующее локальное video resume не теряется, но сбор
+анонимной истории Home, её перенос после login и точная позиция текста сейчас не входят.
+Нет fake activity, time-learning counters, рейтингов, достижений и публичного профиля активности.
+
+## Что означает «начал»
+
+ReadingActivity хранит отдельно `material_visits`: одна строка на Account/Material, first_opened_at
+и last_opened_at по времени сервера. Обновление — после visible Reader с успешно полученным body;
+SSR, prefetch, карточка/teaser, denied или failed body не записывают начало изучения. Browser
+отправляет authenticated bounded signal с доступным material/version binding; сервер повторно
+проверяет ContentAccess. Это пользовательский сигнал открытия, не доказательство внимательного чтения.
+
+Повтор открытия обновляет recency, но не ReadingState/version и не добавляет completion event.
+Повторы одного navigation signal не сдвигают recency повторно: bounded idempotency key определяется
+контрактом backend child. Активность не хранит body, URLs с секретами и текст заметок. Снятие ручной
+отметки не создаёт искусственное открытие. History не претендует на аналитический журнал всех views.
+
+Read-only consumer получает bounded список последних доступных незавершённых материалов и
+batch states. Отсутствие данных до rollout — пустое состояние, без backfill из предположений.
+Personal history обслуживает полезную функцию и не должна зависеть от разрешения на необязательную
+аналитику; её точные storage/lifecycle обязанности проверяются отдельно от metrics tracking.
+
+## Выбор карточек и продолжение
+
+Предлагаемые bounded defaults для реализации: до 6 карточек, latest-open descending с MaterialId
+как tie-breaker. Персональная проекция фильтрует по published visibility и актуальному ContentAccess,
+затем ограничивает число; bounded scan/pagination не превращается в unbounded N+1. Недоступные или
+Unpublished материалы не показываются, факты не удаляются; после восстановления доступа снова
+могут попасть в выборку. При ошибке access authority защищённые карточки не допускаются по предположению.
+
+- Только открытые ранее и не отмеченные прочитанными материалы.
+- Текст/гайд без точной позиции: «Открыть материал», начало Reader; не обещать сохранённый абзац.
+- Для текущего Video использовать existing Videos-owned resume и его access contract. При
+  `0 < position < duration` показать timecode и продолжить; новая local Video identity не наследует
+  позицию заменённого Video.
+- При `position >= duration` и отсутствии ручной отметки не писать «недосмотрено»: показать
+  «Видео просмотрено до конца — можно отметить материал» с ручным действием. Конец playback не
+  гарантирует внимание и не меняет ReadingState.
+- Если resume отсутствует, duration неизвестна или Videos недоступен, разрешённая карточка
+  открывает материал без обещания точной позиции. Отказ одного adapter не ломает весь Home.
+- Mark-read убирает карточку; unmark возвращает её только при уже существующей истории открытия.
+
+Composition использует interfaces ContentLibrary, ReadingActivity, Videos и ContentAccess;
+не читает чужие schemas. При необходимости Videos получает один bounded batch interface по
+реальному consumer. Public Home response/cache остаётся публичным; отдельный personal response
+изолирован и очищается при logout. Подписка — доступ, а не условие иметь прогресс.
+
+## Delivery и приёмка
+
+Три самостоятельных tickets: private opens/resume projection; Storybook proof; production
+integration. Backend ждёт ReadingActivity foundation; proof может идти параллельно после docs.
+Integration ждёт оба и работающие отметки. Результат #320 учитывается перед production integration,
+не требует изменения чужой ветки и не блокирует независимый backend/proof.
+
+Proof охватывает anonymous, signed-in empty, free non-member, member, expired, text, partial video,
+reached-end-unmarked, completed exclusion, partial/error. Существующие tokens/shell и один
+production-owned presentation interface; никакого импорта stories/workshop/fixtures в runtime.
+Два отдельных visual GO: proof и реальная production-композиция на точном SHA.
+
+Приёмка: открыть free текст без подписки → вернуться на Home → открыть его; частично посмотреть
+видео → продолжить с позиции; отметить → карточка исчезает; logout/другой Account не видит историю;
+expiry скрывает недоступное без удаления; no-progress и dependency failure сохраняют публичный хаб.
+Проверить responsive 390×844/1440×1024, keyboard, screen reader и meaningful browser/DB tests.
+Root pnpm check при коде, docs:check и Standards/Spec review обязательны. Merge/deploy отдельно.
+
+## Задачи поставки
+
+- [#330](https://github.com/sachkov-inside/platform/issues/330) — Главная получает реальные незавершённые материалы текущего Account и доступную позицию видео.
+- [#331](https://github.com/sachkov-inside/platform/issues/331) — Владелец принимает главную для людей с прогрессом и без него, с подпиской и без подписки.
+- [#332](https://github.com/sachkov-inside/platform/issues/332) — Пользователь возвращается к незавершённому с главной и продолжает видео с сохранённого места.

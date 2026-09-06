@@ -17,7 +17,8 @@ owner-controlled UI laboratory, затем принятые outputs — в produ
 
 Owner decision [#271](https://github.com/sachkov-inside/platform/issues/271) от 2026-09-04
 сужает текущий production visual contract: Home не имеет отдельного поля поиска,
-history или `Продолжить`; Library оставляет один global search и material-only Topic/Format/sort;
+выдуманной history; [Personal Home](../specifications/personal-home.md) от 2026-09-06
+добавляет реальное продолжение отдельным proof/integration этапом; Library оставляет один global search и material-only Topic/Format/sort;
 Reader не показывает related block или декоративную cover. Owner follow-up от 2026-09-06
 закрепляет независимые Series results и reading-first колонку. Более ранние противоречащие bullets
 ниже являются историческими.
@@ -390,7 +391,7 @@ production-owned implementation этих решений; story fixtures пост
 presentation state.
 
 Prototype fixtures, button-owned navigation, hardcoded audience decisions, personalised
-`Продолжить`/history и порядок секций, который расходится с issue #271, не являются product
+Выдуманная `Продолжить`/history и несогласованный порядок секций не являются product
 authority. Production сохраняет реальные RSC/TanStack Query/BFF seams, ContentAccess outcomes и
 порядок Home `Серии → Темы → Видео → Гайды → Заметки → общий каталог`; компактное приглашение в
 Membership показывается только visitor/non-member по реальному Membership state.
@@ -455,3 +456,12 @@ production surfaces. Каждый stage показывает owner rendered mobi
 visual direction. Exact ticket graph и integration boundaries принадлежат application
 specification; отменённые concept/component gates #22/#23 и superseded shell-only design ticket
 #40 остаются provenance, а не альтернативной delivery model.
+
+## Personal experience: отдельная визуальная приёмка
+
+[ReadingActivity](../specifications/reading-activity.md) и
+[Personal Home](../specifications/personal-home.md) от 2026-09-06 добавляют реальные отметки и
+продолжение незавершённого поверх принятого хаба. Это уточняет ранний запрет Home history/Continue,
+но не разрешает fake progress. Конкретная композиция, тексты и состояния проходят отдельный
+Storybook proof и production visual GO. [Аналитика автора](author-analytics-plan.md) имеет собственные
+measurement/proof/integration задачи и не вводит dashboard-стиль в пользовательскую главную.

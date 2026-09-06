@@ -12,7 +12,8 @@ Material lifecycle и access presentation уточнены owner decision #132 �
 
 Owner decision [#271](https://github.com/sachkov-inside/platform/issues/271) от 2026-09-04
 заменяет все более ранние Home/global-navigation/Library-filter/Reader-related фрагменты этого
-brief: `/` — реальная Home-витрина без history и `Продолжить`; Library URL хранит
+brief: `/` — реальная Home-витрина; отдельное расширение от 2026-09-06 добавляет
+[Personal Home](../specifications/personal-home.md) после собственной приёмки. Library URL хранит
 `q`, material-only `topic`/`format`/`sort`; Reader не запрашивает related Materials. Owner
 follow-up от 2026-09-06 также закрепляет reading-first Reader без декоративной cover и независимую
 выдачу Серий по общему текстовому поиску. Старые wireframes ниже сохраняются
@@ -115,7 +116,8 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
 - Home одинаково опирается на текущие published данные для visitor/member: Серии идут первыми,
   затем компактные Темы, новые Видео → Гайды → Заметки и переход в общий каталог. Компактное
   приглашение в Membership показывается только visitor/non-member по реальному account Membership
-  state; active member его не видит. `Продолжить` и history не входят в Home.
+  state; active member его не видит. Персональное продолжение добавляется отдельно по
+  [контракту Personal Home](../specifications/personal-home.md); убрать invitation поручено #320.
 - Library имеет один общий поиск, который независимо сопоставляет Серии по их name/summary и
   Materials по публичной поисковой проекции. Серии идут перед каталогом и не зависят от
   material-only Topic/Format/sort filters или material pagination. Компактные Topic chips живут у
@@ -289,12 +291,12 @@ CTA.
 
 | ID | Requirement / invariant | Actor journey | Surface или `No UI` | Обязательные observable states/actions | Source |
 |---|---|---|---|---|---|
-| R01 | Public mobile-first Home на real data | Visitor/member открывает Platform и выбирает направление | Home | Серии первыми; guest-only Membership; компактные Темы; новые Видео → Гайды → Заметки; общий каталог; no Continue/history | [Platform navigation][platform-brief-navigation] |
+| R01 | Public mobile-first Home на real data | Visitor/member открывает Platform и выбирает направление | Home | Серии первыми; guest-only Membership; компактные Темы; новые Видео → Гайды → Заметки; общий каталог; personal continue отдельным этапом по Personal Home | [Platform navigation][platform-brief-navigation] |
 | R02 | Полный published catalog | Любой actor просматривает все карточки | Library | client-owned loading, populated, empty; card free/closed status; cursor continuation через automatic infinite scroll и явный fallback | [Workspace v1 scope][workspace-v1-scope] |
 | R03 | Full-text search | Любой actor ищет RU/EN terms | Library/search | query, loading, results, no results, controlled failure; typo/normalization fixture | [Workspace search flow][workspace-search-flow] |
 | R04 | Search и filters только из real metadata | Любой actor уточняет выдачу | Library/search | Один общий search; Series сопоставляются по собственным name/summary, Materials — по public search projection; Topic/Format/sort влияют только на Materials | [Publishing audit navigation][audit-navigation] |
 | R05 | Topic navigation | Любой actor открывает направление | Topic | description/context, Series и Material cards, empty/partial | [Platform navigation][platform-brief-navigation] |
-| R06 | Ordered Series, включая closed Series visibility | Visitor видит description/order/cards; member читает материалы | Series → Material | один explicit order всех memberships; selected Series определяет previous/next через весь published composition; independent open не выбирает Series; no main/optional inference или invented progress | [Platform actors][platform-brief-actors] |
+| R06 | Ordered Series, включая closed Series visibility | Visitor видит description/order/cards; member читает материалы | Series → Material | один explicit order всех memberships; selected Series определяет previous/next через весь published composition; independent open не выбирает Series; no main/optional inference; только реальный N из M по ReadingActivity | [Platform actors][platform-brief-actors] |
 | R07 | Editorial Roadmap | Любой actor понимает product directions и переходит к content | Roadmap | editorial body + curated/query links; partial links fail independently | [Workspace navigation roles][workspace-navigation-roles] |
 | R08 | Public card/teaser каждого published Material | Visitor оценивает состав до покупки | Cards на Home/Library/Topic/Series/Roadmap и Material | free/closed label, title, description, cover, author, taxonomy/series, `publishedAt`; no closed body bytes | [Workspace public projection][workspace-public-projection] |
 | R09 | Полное чтение free Material без account | Visitor открывает free card | Material | компактный reading-first header без декоративной cover; body, code/table/callout/media/file; optional primary Video под header; Series next/previous сразу после body, вторичные metadata ниже; loading/error; no related request | [ContentAccess matrix][access-matrix] |
@@ -307,7 +309,7 @@ CTA.
 | R16 | Explicit Telegram link after login | Authenticated human links identity | Account → short-lived Telegram bot `/start` → Account confirmation/result | unlinked, linking, linked+member, linked+not-member, expired/replayed, conflict, unavailable, recovery-required | [Membership UX][membership-ux], [membership failures][membership-failures] |
 | R17 | Membership projection/rejoin | Linked non-member/expired member rejoins externally | Account | local current state, automatic update after accepted event/reconciliation evidence, stale/unavailable fail-closed; optional `Обновить состояние` only repeats local read; locked Material keeps only acquisition CTA | [Membership states][membership-states] |
 | R18 | Secure unlink/recovery boundary | Authenticated human handles exceptional link problem | Account/support handoff | no casual replace; explicit confirmation/recent re-auth where allowed; conflict requires audited owner recovery | [Telegram link invariants][membership-link-invariants] |
-| R19 | Read/unread state | Member explicitly toggles status for a Material | Material card/page; personal history | manual read/unread with mutation feedback; no auto-scroll/time/video trigger, percent, position or achievements | [Platform navigation][platform-brief-navigation] |
+| R19 | Read/unread state | Authenticated Account explicitly sets read/unread for an accessible Material | Material card/page; personal history | manual read/unread with mutation feedback; no auto-scroll/time/video trigger, percent or achievements; Video resume independently owned by Videos | [Platform navigation][platform-brief-navigation] |
 | R20 | Minimal recent history | Member returns to recently viewed content | Short Home layer + full Account history | empty/populated; survives Membership expiry; length/retention and unpublish behavior remain implementation inputs | [Platform actors][platform-brief-actors] |
 | R21 | Related Materials | Reader continues to relevant content | Material | metadata-generated links + explicit author pins; empty/partial | [Workspace search flow][workspace-search-flow] |
 | R22 | Text/guides/images/links/files + one primary Video | Reader consumes all v1 content shapes | Material | long-form body; code/table bounded overflow; callout; image alt/caption; file label/download; separate Video frame before body | [Authoring schema][authoring-schema] |
@@ -367,7 +369,7 @@ CTA.
 
 | Surface | Actor | Observable state | Разрешённые действия | Запрещённое следствие |
 |---|---|---|---|---|
-| Root / Home | Любой browser actor | RSC ready / empty sections / controlled failure | Открыть Topic, Playlist или Material | Не использовать frontend fixtures, history или `Продолжить` |
+| Root / Home | Любой browser actor | RSC ready / empty sections / controlled failure | Открыть Topic, Playlist или Material | Не использовать frontend fixtures/fake history; personal continue по отдельному контракту |
 | Library/search | Все | Client loading / searching / results / no results / controlled failure; published membership cards locked без доступа и unlocked для active member/manager | Мгновенно применить/сбросить real-data filters без page navigation, ввести debounced query, автоматически догрузить cursor continuation, открыть card | Не искать client-side по закрытому body, не выдумывать facets и не публиковать cursor в URL |
 | Topic | Все | Ready / empty / partial | Открыть Series или Material, перейти в Library с Topic context | Не хранить отдельную копию Material metadata |
 | Series | Все | Ready / empty / partial / long ordered list | Открыть episode; authenticated actor видит read/unread | Не скрывать порядок closed Series и не вычислять percent complete |
@@ -937,3 +939,20 @@ Workspace provenance is pinned to exact commits. GitHub issues remain the primar
 [audit-boundary]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-current-publishing-audit.md#L274-L290
 [audit-navigation]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-current-publishing-audit.md#L211-L237
 [audit-limitations]: https://github.com/sachkov-inside/workspace/blob/ed5b555a0171a53ab17a5ed388d80575c8025f03/docs/research/platform-current-publishing-audit.md#L292-L312
+
+## Расширение personal journeys от 2026-09-06
+
+Следующие owning contracts уточняют прежнюю границу personal activity только в Account и
+отложенного прогресса; delivery идёт отдельными specifications, visual acceptance ещё предстоит:
+
+- [ReadingActivity](../specifications/reading-activity.md): ручное действие на Reader любого
+  формата, согласованные статусы карточек, N из M по Series без процента и проверки знаний.
+- [Personal Home](../specifications/personal-home.md): реальные незавершённые материалы для
+  authenticated non-member/member/expired, existing video resume, без точной позиции текста;
+  anonymous/empty/error сохраняют публичный хаб.
+- [Аналитика автора](author-analytics-plan.md): самостоятельные measurement/proof/integration
+  задачи; personal state не превращается в публичную активность или доказательство оплаты.
+
+Proof и production integration получают отдельные owner visual GO; existing tokens/shell и
+production-owned presentation modules остаются единой реализацией. Эти расширения не разрешают
+fake history, автоматическое прочтение по scroll/time, achievements или gamification.
