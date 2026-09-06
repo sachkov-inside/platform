@@ -165,6 +165,7 @@ describe("Platform migrations", () => {
         "0027_current_collection_search",
         "0028_series_step_groups",
           "0029_telegram_sign_in",
+          "0030_communications_permission",
 
       ],
     });
@@ -678,6 +679,7 @@ describe("Platform migrations", () => {
           "0027_current_collection_search",
         "0028_series_step_groups",
           "0029_telegram_sign_in",
+          "0030_communications_permission",
 
         ],
       });

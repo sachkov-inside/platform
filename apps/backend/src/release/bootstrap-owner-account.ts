@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { loadRepositoryEnvironment } from "../config/load-repository-environment.js";
 import { parsePlatformConfig } from "../config/platform-config.js";
 import { createPrismaClient } from "../infrastructure/prisma/index.js";
@@ -11,10 +13,13 @@ async function main(): Promise<void> {
   if (issuer !== config.identity.issuer) {
     throw new Error("OWNER_LOGTO_ISSUER must exactly match LOGTO_ISSUER");
   }
+  const permission = z.enum(["materials:manage", "communications:manage"]).parse(
+    process.env.OWNER_PERMISSION ?? "materials:manage",
+  );
   const prisma = createPrismaClient(config.database.url);
   try {
-    const result = await bootstrapOwnerAccount(prisma, { issuer, subject });
-    process.stdout.write(`${JSON.stringify(result)}\n`);
+    const result = await bootstrapOwnerAccount(prisma, { issuer, subject }, permission);
+    process.stdout.write(`${JSON.stringify({ ...result, permission })}\n`);
   } finally {
     await prisma.$disconnect();
   }

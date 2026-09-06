@@ -1,3 +1,4 @@
+import { CommunicationsModule } from "../modules/communications/index.js";
 import { type DynamicModule, Module } from "@nestjs/common";
 
 import { PlatformConfigModule } from "../config/platform-config.module.js";
@@ -18,6 +19,7 @@ export class McpModule {
         RuntimeIdentityModule,
         PrismaModule,
         AccountsModule,
+        CommunicationsModule,
         MaterialsModule,
       ],
     };

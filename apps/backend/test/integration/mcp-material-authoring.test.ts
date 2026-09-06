@@ -1,3 +1,4 @@
+import { Communications } from "../../src/modules/communications/index.js";
 import { createServer, type Server } from "node:http";
 
 import type { INestApplicationContext } from "@nestjs/common";
@@ -97,6 +98,7 @@ describe("delegated Material authoring over MCP", () => {
     mcpServer = createMcpHttpServer({
       accounts: application.get<Accounts>(ACCOUNTS),
       authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
+      communications: application.get(Communications),
       config: {
         host: "127.0.0.1",
         port: 0,

@@ -538,8 +538,11 @@ importer, not an implemented automatic import or publication flow.
 
 ### MCP
 
-- MCP сначала аутентифицируется user-delegated OAuth token владельца Account с
-  `materials:manage`; отдельная technical identity не создаётся без independent consumer;
+- MCP аутентифицируется user-delegated OAuth token существующего Account. Materials operations
+  проверяют `materials:manage`, communications operations — отдельное `communications:manage` и
+  подтверждённую Telegram-связь; отдельная technical identity для агента не создаётся;
+- communications tools используют [серверный фасад Telegram](../integrations/communications-v1.md),
+  включая явные publish/launch без дополнительного UI gate;
 - tools вызывают тот же full-state Save, validation results и conflicts, что admin;
 - read/preview resources проходят `ContentAccess`;
 - current `materials:manage` технически разрешает full-state Save, включая publication state.
