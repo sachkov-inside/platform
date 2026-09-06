@@ -1,3 +1,4 @@
+import { name as communicationsPermissionName, statement as communicationsPermissionStatement } from "../modules/accounts/infrastructure/postgres/migrations/0029-communications-permission.js";
 import {
   runMigrationsToLatest,
   type MigrationOutcome,
@@ -223,6 +224,7 @@ export const platformMigrations = [
     name: seriesStepGroupsMigrationName,
     statement: seriesStepGroupsMigrationStatement,
   },
+  { name: communicationsPermissionName, statement: communicationsPermissionStatement },
 ] as const;
 
 export function migrateToLatest(

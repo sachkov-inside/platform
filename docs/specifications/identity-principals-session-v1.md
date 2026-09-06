@@ -36,7 +36,7 @@ email code -> Logto -> official Next BFF cookie
 Application module `Accounts` имеет только три runtime operations:
 
 ```ts
-type PlatformPermission = "materials:manage";
+type PlatformPermission = "materials:manage" | "communications:manage";
 
 interface AuthenticatedAccount {
   readonly accountId: string;
@@ -87,10 +87,14 @@ on the same unique Account.
 
 ## Authorization boundary
 
-`materials:manage` is the only v1 Platform permission. It covers create, full-state Save, validate,
+`materials:manage` covers create, full-state Save, validate,
 preview, publish, unpublish, access change and never-published draft deletion. Materials still owns
 validation, publication-state and stale-content-version rules; no separate owner GO exists inside
 the product workflow.
+`communications:manage` independently permits Telegram communications management. It never follows
+from `materials:manage`; a confirmed author link is also required. The server-side actor mapping,
+author callback and HTTP/MCP parity are defined in the
+[communications integration contract](../integrations/communications-v1.md).
 There are no roles and no `identity:admin`, `materials:author` or `materials:publish` grants.
 
 The protected Materials operation calls `Accounts.checkPermission(accountId,
@@ -121,8 +125,9 @@ consumer exists.
 ## Owner release bootstrap
 
 After migrations and before traffic, an explicit release job receives `OWNER_LOGTO_ISSUER` and
-`OWNER_LOGTO_SUBJECT`. It idempotently ensures the Account and `materials:manage`, then appends
-redacted audit facts. It is not a schema migration, application startup side effect or public HTTP
+`OWNER_LOGTO_SUBJECT`. It idempotently ensures the Account and one selected permission:
+`OWNER_PERMISSION` defaults to `materials:manage`; `communications:manage` requires that explicit
+selection. It appends redacted audit facts including the granted permission. It is not a schema migration, application startup side effect or public HTTP
 route. The Logto owner must exist before the release is promoted.
 
 ## Audit and privacy

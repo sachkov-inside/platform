@@ -28,13 +28,15 @@
     "smoke:grant-full-stack-membership": "tsx src/development/grant-full-stack-membership.ts",
     "db:schema:check": "pnpm prisma:validate && pnpm prisma:generate",
     "typecheck": "pnpm prisma:generate && tsc -p tsconfig.json --noEmit && tsc -p test/tsconfig.json --noEmit",
-    "guardrails": "node scripts/check-backend-architecture.mjs src && node scripts/check-negative-guardrails.mjs",
+    "guardrails": "pnpm communications:check && node scripts/check-backend-architecture.mjs src && node scripts/check-negative-guardrails.mjs",
     "openapi:generate": "tsx scripts/generate-openapi.ts",
     "openapi:check": "tsx scripts/generate-openapi.ts --check",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "smoke:mcp-authoring": "tsx scripts/mcp-authoring-smoke.ts",
-    "smoke:health": "vitest run --config vitest.smoke.config.mts"
+    "smoke:health": "vitest run --config vitest.smoke.config.mts",
+    "communications:generate": "node scripts/generate-communications-contract.mjs",
+    "communications:check": "node scripts/generate-communications-contract.mjs --check"
   },
   "dependencies": {
     "@inside/runtime-identity": "workspace:*",

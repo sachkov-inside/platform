@@ -3,7 +3,7 @@ import type {
   VerifiedAccountSignIn,
 } from "./verified-logto-identity.js";
 
-export type PlatformPermission = "materials:manage";
+export type PlatformPermission = "materials:manage" | "communications:manage";
 
 export interface AuthenticatedAccount {
   readonly accountId: string;

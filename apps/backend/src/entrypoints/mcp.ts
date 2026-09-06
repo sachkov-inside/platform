@@ -1,3 +1,4 @@
+import { Communications } from "../modules/communications/index.js";
 import "reflect-metadata";
 
 import { parseMcpConfig } from "../config/mcp-config.js";
@@ -33,6 +34,7 @@ async function bootstrap(): Promise<void> {
   const server = createMcpHttpServer({
     accounts: application.get<Accounts>(ACCOUNTS),
     authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
+    communications: application.get(Communications),
     config: mcpConfig,
     identityIssuer: config.identity.issuer,
     readiness: application.get(OperationalReadiness),

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { AccountsPrisma } from "../../../../infrastructure/prisma/index.js";
+import type { PlatformPermission } from "../../facets/accounts/accounts.interface.js";
 import type { AccountId } from "../../domain/account-identifiers.js";
 
 export type AccountAuditEvent =
@@ -14,8 +15,9 @@ export async function appendAccountAuditEvent(
   prisma: AccountsPrisma,
   event: AccountAuditEvent,
   accountId?: AccountId,
+  permission?: PlatformPermission,
 ): Promise<void> {
   await prisma.accountAuditEvent.create({
-    data: { id: randomUUID(), event, accountId: accountId ?? null },
+    data: { id: randomUUID(), event, accountId: accountId ?? null, permission: permission ?? null },
   });
 }
