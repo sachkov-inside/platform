@@ -12,6 +12,7 @@ if (!process.env.WEB_BASE_URL || !process.env.LOGTO_ENDPOINT)
     "Explicit isolated WEB_BASE_URL and LOGTO_ENDPOINT are required",
   );
 
+const webBaseUrl = process.env.WEB_BASE_URL;
 const statusSchema = z.object({
   status: z.string(),
   requestRef: z.uuid().optional(),
@@ -322,7 +323,7 @@ test("two fresh Logto interactions for one Telegram identity converge on one Acc
 }) => {
   const otherContext = await browser.newContext({
     ignoreHTTPSErrors: true,
-    baseURL: process.env.WEB_BASE_URL,
+    baseURL: webBaseUrl,
   });
   const other = await otherContext.newPage();
   const userId = 39910000 + (Date.now() % 1_000_000);

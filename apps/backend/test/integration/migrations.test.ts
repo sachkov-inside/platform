@@ -828,7 +828,7 @@ describe("Platform migrations", () => {
       `);
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        "Migration ledger is not an exact registry prefix at position 28",
+        "Migration ledger is not an exact registry prefix at position 29",
       );
     } finally {
       await database.dispose();
