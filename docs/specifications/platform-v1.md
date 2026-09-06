@@ -41,8 +41,9 @@ MVP brief задаёт product scope; здесь зафиксированы то
 consequences:
 
 - один mutable Material является единственным canonical content write/read path;
-- актуальные Materials создаются вручную, поэтому application model не содержит Telegram source
-  identity, import mapping, migration pipeline, deduplication или loss report;
+- текущая публикация использует Material authoring Save; автоматический importer ещё не реализован.
+  Application model не содержит Telegram source identity, import mapping, migration pipeline,
+  deduplication или loss report; редакционные оригиналы следуют [content boundary](../product/platform-mvp-brief.md#контент);
 - material-specific Telegram discussion relation не является обязательным полем или application
   invariant;
 - admin, REST и MCP используют один full-state Save contract, validation и conflict policy;

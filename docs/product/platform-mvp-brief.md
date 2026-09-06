@@ -202,9 +202,9 @@ MCP является обязательной частью первой верс
 - одним full-state Save изменять content, metadata, `free | membership` и
   `draft | published | unpublished`.
 
-Агент с current `materials:manage` может самостоятельно выполнить тот же Save, включая первую или
-повторную публикацию, unpublish и изменение access. Отдельного owner GO внутри product workflow
-нет. Draft скрыт до первой публикации; после неё каждый успешный Save немедленно меняет живой
+MCP использует тот же Save; границу application permission и поручения агенту задаёт
+[MCP contract](../specifications/platform-v1.md#mcp). Draft скрыт до первой публикации; после неё
+каждый успешный Save немедленно меняет живой
 Material и его Library/search projection. Platform не хранит старые bodies, restore history или
 durable mutation journal; stale concurrent Save отклоняется по current content version.
 
@@ -217,9 +217,10 @@ Kinescope ID Video удалить через Platform нельзя. UI пока�
 
 ## Создание актуальных материалов
 
-Актуальные материалы вручную заново создаются в Platform в удобной целевой структуре. Telegram
-используется только как visual reference. Export, importer, source mapping, loss report,
-deduplication и migration pipeline не нужны.
+Подготовка оригиналов и публикация следуют [границе контента](#контент). Текущий authoring
+Save переносит подготовленный материал в Platform; автоматический импорт пока не реализован.
+Telegram может служить исходным материалом для редакционной подготовки, но отдельного Telegram
+migration pipeline в Platform нет.
 
 После запуска:
 
@@ -231,7 +232,7 @@ deduplication и migration pipeline не нужны.
 
 В первую версию входят:
 
-- публичная База знаний как стартовая поверхность, страницы тем и серий;
+- публичная Главная с Сериями, общая База знаний, страницы тем и серий;
 - публичные карточки закрытых материалов и полностью бесплатные материалы;
 - полнотекстовый поиск и фильтры;
 - email sign-in, private Account и связь с Telegram Membership;
