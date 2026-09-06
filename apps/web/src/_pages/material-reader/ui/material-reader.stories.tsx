@@ -27,11 +27,6 @@ const navigationItems = [
   { href: "/library", icon: "library", label: "База знаний" },
 ] satisfies readonly ApplicationNavigationItem[];
 
-const mobileNavigationItems = [
-  ...navigationItems,
-  { href: "/account", icon: "profile", label: "Профиль" },
-] satisfies readonly ApplicationNavigationItem[];
-
 const material = {
   materialId: "02000000-0000-4000-8000-000000000010",
   contentVersion: 7,
@@ -214,11 +209,8 @@ type ReaderStoryMode =
 function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
   return (
     <ApplicationShell
-      accountLabel="Кирилл"
       currentPath={`/materials/${material.slug}`}
-      mobileNavigationItems={mobileNavigationItems}
       navigationItems={navigationItems}
-      sidebarDefaultPinned
     >
       <MaterialReaderState mode={mode} />
     </ApplicationShell>

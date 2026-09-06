@@ -26,11 +26,6 @@ const navigationItems = [
   { href: "/library", icon: "library", label: "База знаний" },
 ] satisfies readonly ApplicationNavigationItem[];
 
-const mobileNavigationItems = [
-  ...navigationItems,
-  { href: "/account", icon: "profile", label: "Профиль" },
-] satisfies readonly ApplicationNavigationItem[];
-
 const catalogItems = [
   {
     access: "membership",
@@ -267,11 +262,8 @@ function CachedCatalogNavigationHarness() {
 function ProductionShell({ children }: { readonly children: React.ReactNode }) {
   return (
     <ApplicationShell
-      accountLabel="Гость"
       currentPath="/library"
-      mobileNavigationItems={mobileNavigationItems}
       navigationItems={navigationItems}
-      sidebarDefaultPinned
     >
       {children}
     </ApplicationShell>

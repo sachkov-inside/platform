@@ -1,4 +1,4 @@
-import { ArrowRight, DatabaseZap, Search } from "lucide-react";
+import { ArrowRight, DatabaseZap } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -10,7 +10,6 @@ import {
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
-import { PublicProductHeader } from "@/widgets/application-shell";
 import type { HomeResult, HomeView } from "../model/home-view";
 
 export function HomePage({ result }: { readonly result: HomeResult }) {
@@ -23,9 +22,7 @@ export function HomePage({ result }: { readonly result: HomeResult }) {
 function HomeReady({ home }: { readonly home: HomeView }) {
   return (
     <div className="@container/home min-w-0" data-home-membership={home.membership.kind}>
-      <PublicProductHeader />
       <h1 className="sr-only">Главная</h1>
-      <HomeShortcuts />
       <MembershipInvitation membership={home.membership} />
       <PlaylistSection playlists={home.playlists} />
       <TopicSection topics={home.topics} />
@@ -45,36 +42,6 @@ function HomeReady({ home }: { readonly home: HomeView }) {
       <NoteFeed items={home.notes} />
       <CatalogInvitation />
     </div>
-  );
-}
-
-function HomeShortcuts() {
-  return (
-    <nav
-      aria-label="Разделы главной"
-      className="public-horizontal-rail flex items-center gap-5 overflow-x-auto py-3 text-sm font-semibold text-muted-foreground"
-    >
-      <a className="min-h-11 shrink-0 content-center hover:text-action" href="#home-series">
-        Серии
-      </a>
-      <a className="min-h-11 shrink-0 content-center hover:text-action" href="#home-videos">
-        Новое
-      </a>
-      <a className="min-h-11 shrink-0 content-center hover:text-action" href="#home-guides">
-        Гайды
-      </a>
-      <a className="min-h-11 shrink-0 content-center hover:text-action" href="#home-notes">
-        Заметки
-      </a>
-      <Link
-        aria-label="Найти материал"
-        className="ml-auto inline-flex min-h-11 shrink-0 items-center gap-2 no-underline hover:text-action"
-        href="/library"
-      >
-        <Search aria-hidden="true" className="size-4" />
-        <span className="hidden sm:inline">Найти материал</span>
-      </Link>
-    </nav>
   );
 }
 
@@ -307,7 +274,6 @@ function EmptyCollection({ label }: { readonly label: string }) {
 function HomeUnavailable() {
   return (
     <>
-      <PublicProductHeader />
       <section className="mt-9 rounded-[2rem] bg-muted px-6 py-9" data-home-state="unavailable">
         <DatabaseZap aria-hidden="true" className="size-7 text-accent" />
         <h1 className="mt-5 text-3xl font-semibold tracking-[-0.035em]">

@@ -7,7 +7,7 @@ import {
   ApplicationShell,
   type ApplicationNavigationItem,
 } from "@/widgets/application-shell";
-import { DesktopAuthControl } from "@/widgets/auth-control";
+import { HeaderAuthControl } from "@/widgets/auth-control";
 import { AccountTelegramOnboarding } from "@/features/account-access";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import { useAuthStatus } from "./auth-status-control.client";
@@ -19,12 +19,6 @@ interface AppShellProps {
 const publicNavigationItems = [
   { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
-] satisfies readonly ApplicationNavigationItem[];
-
-const mobileNavigationItems = [
-  { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "База знаний" },
-  { href: "/account", icon: "profile", label: "Профиль" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const authoringNavigationItem = {
@@ -43,10 +37,8 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <ApplicationShell
-      accountLabel="Гость"
       currentPath={pathname}
-      desktopAccountSlot={<DesktopAuthControl state={authStatus.state} />}
-      mobileNavigationItems={mobileNavigationItems}
+      accountSlot={<HeaderAuthControl state={authStatus.state} />}
       navigationItems={navigationItems}
     >
       {children}

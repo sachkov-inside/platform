@@ -12,12 +12,15 @@ Material lifecycle и access presentation уточнены owner decision #132 �
 
 Owner decision [#271](https://github.com/sachkov-inside/platform/issues/271) от 2026-09-04
 заменяет все более ранние Home/global-navigation/Library-filter/Reader-related фрагменты этого
-brief: `/` — реальная Home-витрина без history и `Продолжить`; desktop navigation содержит
-Главную и Базу знаний, mobile dock — Главную, Базу знаний и Профиль; Library URL хранит
+brief: `/` — реальная Home-витрина без history и `Продолжить`; Library URL хранит
 `q`, material-only `topic`/`format`/`sort`; Reader не запрашивает related Materials. Owner
 follow-up от 2026-09-06 также закрепляет reading-first Reader без декоративной cover и независимую
 выдачу Серий по общему текстовому поиску. Старые wireframes ниже сохраняются
 только как историческая provenance.
+
+Выбор верхней шапки и логотипа в #311, реализуемый через #313, заменяет прежние sidebar/dock
+решения. Текущую структуру и поведение задаёт
+[контракт навигации](platform-mvp-brief.md#поиск-и-навигация).
 
 Snapshot источников: 2026-08-27. Repository-owned product/application contract и glossary
 ссылаются на current relative files и синхронизируются этим change; cross-repository provenance

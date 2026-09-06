@@ -515,6 +515,10 @@ importer, not an implemented automatic import or publication flow.
 
 ### Home, search и navigation
 
+Публичная шапка, название и вход следуют текущему
+[контракту навигации](../product/platform-mvp-brief.md#поиск-и-навигация), принятому в #311/#313.
+Storybook и реальные маршруты используют один production-компонент шапки.
+
 - Save transaction обновляет public search projection из title, description и current metadata;
   body/headings/asset labels остаются отдельным server-side protected index;
 - PostgreSQL FTS ранжирует title выше description/headings, затем taxonomy/body/assets и проверяется на

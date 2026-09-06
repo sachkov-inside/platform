@@ -486,10 +486,8 @@ export function PlaylistPagePrototype({
 function PrototypeShell({ children }: { readonly children: React.ReactNode }) {
   return (
     <ApplicationShell
-      accountLabel="Кирилл"
       currentPath="/library"
       navigationItems={navigationItems}
-      sidebarDefaultPinned
     >
       {children}
     </ApplicationShell>

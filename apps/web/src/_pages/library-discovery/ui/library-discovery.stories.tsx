@@ -20,11 +20,6 @@ const navigationItems = [
   { href: "/library", icon: "library", label: "База знаний" },
 ] satisfies readonly ApplicationNavigationItem[];
 
-const mobileNavigationItems = [
-  ...navigationItems,
-  { href: "/account", icon: "profile", label: "Профиль" },
-] satisfies readonly ApplicationNavigationItem[];
-
 const materials = [
   {
     access: "free",
@@ -108,11 +103,8 @@ const seriesResult = {
 function ProductionShell({ children }: { readonly children: React.ReactNode }) {
   return (
     <ApplicationShell
-      accountLabel="Гость"
       currentPath="/topics/platform"
-      mobileNavigationItems={mobileNavigationItems}
       navigationItems={navigationItems}
-      sidebarDefaultPinned
     >
       {children}
     </ApplicationShell>

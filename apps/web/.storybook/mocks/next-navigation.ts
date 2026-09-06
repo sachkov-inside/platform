@@ -14,3 +14,7 @@ export function usePathname(): string {
 export function useRouter() {
   return router;
 }
+
+export function useSearchParams(): URLSearchParams {
+  return new URLSearchParams();
+}

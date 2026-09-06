@@ -107,7 +107,7 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
     "href",
     "/materials/developer-pipeline-bez-poteri-konteksta?from=%2Flibrary",
   );
-  await expect(page).toHaveTitle("База знаний · Inside");
+  await expect(page).toHaveTitle("База знаний · Sachkov Inside");
   await captureIssue195Evidence(page, testInfo, "library");
   await captureIssue271Evidence(page, testInfo, "library");
 
@@ -317,7 +317,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   await expect(
     page.getByRole("heading", { name: "Первый вертикальный срез", level: 2 }),
   ).toBeVisible();
-  await expect(page).toHaveTitle("Как устроен Inside Platform · Inside");
+  await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Inside");
   await expect(page.getByRole("link", { name: "Назад в Базу знаний" }).first()).toBeVisible();
   await expect(page.getByRole("main")).toContainText("PostgreSQL хранит current Material");
   await expect(page.locator("[data-reader-body]")).toHaveCount(1);
@@ -587,7 +587,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     "/library",
   );
   await expect(page.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
-  await expect(page).toHaveTitle("Platform — тема · Inside");
+  await expect(page).toHaveTitle("Platform — тема · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);
   await expect(page.locator('[data-access-cover="locked"]')).toBeVisible();
   const topicMaterialHref = await page
@@ -628,7 +628,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
   ).toBeVisible();
-  await expect(page).toHaveTitle("Создание Platform Inside — серия · Inside");
+  await expect(page).toHaveTitle("Создание Platform Inside — серия · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);
   await expect(
     page.locator("[data-series-order] [data-series-ordinal]").evaluateAll((items) =>
@@ -677,7 +677,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(readerSeriesLink).toHaveText(expectedSeriesLabel);
   await expect(page.locator("[data-related-state]")).toHaveCount(0);
 
-  await expect(page).toHaveTitle("Как устроен Inside Platform · Inside");
+  await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
@@ -727,11 +727,13 @@ test("uses the selected Series order for a shared Material and leaves standalone
 
 async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
   if (testInfo.project.name !== "mobile-chromium") return;
+  await page.getByRole("button", { name: "Открыть меню" }).click();
   await expect(
     page
       .getByRole("navigation", { name: "Мобильная навигация" })
       .getByRole("link", { name: "База знаний" }),
   ).toHaveAttribute("aria-current", "page");
+  await page.getByRole("button", { name: "Закрыть меню" }).click();
 }
 
 async function expectNoSeriousAccessibilityFindings(page: Page) {
@@ -860,9 +862,9 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({ pag
     }).observe({ type: "layout-shift", buffered: true });
   });
   await page.goto("/materials/kak-ustroen-inside-platform");
-  const sidebar = page.getByRole("complementary", { name: "Боковая панель" });
+  const header = page.getByRole("banner");
   const main = page.getByRole("main");
-  const collapsedMainRect = await main.evaluate((element) => {
+  const initialMainRect = await main.evaluate((element) => {
     const { width, x } = element.getBoundingClientRect();
     return { width, x };
   });
@@ -874,7 +876,7 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({ pag
       }
     ).__shellCls.value = 0;
   });
-  await sidebar.hover();
+  await header.hover();
   await expect
     .poll(() =>
       main.evaluate((element) => {
@@ -882,7 +884,7 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({ pag
         return { width, x };
       }),
     )
-    .toEqual(collapsedMainRect);
+    .toEqual(initialMainRect);
   await page.waitForTimeout(500);
   expect(
     await page.evaluate(
