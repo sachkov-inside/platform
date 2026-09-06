@@ -15,7 +15,7 @@ const currentMaterialEditorUrl = /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4
 
 for (const access of ["public", "membership"] as const) {
   test(`media convergence: ${access} Material composes image, file and primary Video across Subjects`, async ({
-    context, page, request,
+    browser, context, page, request,
   }, testInfo) => {
     const suffix = String(Date.now());
     const title = `Media acceptance ${access} ${suffix}`;
@@ -96,7 +96,26 @@ for (const access of ["public", "membership"] as const) {
       headers: { origin: new URL(page.url()).origin }, multipart: { materialId, videoId },
     });
     expect(anonymousPlayback.status()).toBe(access === "public" ? 200 : 403);
-    // Reuse the member's browser cache after sign-out to expose accidental shared media caching.
+    const protectedImageSource = await image.getAttribute("src");
+    if (protectedImageSource === null) throw new Error("Image URL is missing");
+    if (access === "membership") {
+      // A separate unrouted context keeps the real HTTP cache enabled; player doubles disable it.
+      const cacheContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+      try {
+        await addFullStackMemberSession(cacheContext);
+        const cachePage = await cacheContext.newPage();
+        const allowed = await cachePage.goto(protectedImageSource);
+        expect(allowed?.status()).toBe(200);
+        expect(allowed?.headers()["content-type"]).toContain("image/");
+        await cacheContext.clearCookies();
+        const denied = await cachePage.goto(protectedImageSource);
+        expect(denied?.status()).toBe(404);
+        expect(denied?.headers()["cache-control"]).toContain("no-store");
+      } finally {
+        await cacheContext.close();
+      }
+    }
+    // Reauthorize the same Reader after switching Subject; do not accept its loading skeleton as denial.
     await context.clearCookies();
     const protectedRequests: string[] = [];
     page.on("request", (outgoing) => {
@@ -107,12 +126,34 @@ for (const access of ["public", "membership"] as const) {
     });
     await page.reload();
     if (access === "membership") {
+      await expect(page.locator('[data-material-reader-state="access-required"]')).toBeVisible();
       await expect(image).toHaveCount(0);
       await expect(page.getByRole("link", { name: /media-proof.txt/u })).toHaveCount(0);
       await expect(page.locator("iframe")).toHaveCount(0);
       expect(protectedRequests).toEqual([]);
       expect(anonymousFile.headers()["cache-control"]).toContain("no-store");
       await page.screenshot({ animations: "disabled", fullPage: true, path: resolve(evidenceDirectory, `denied-${viewport}.png`) });
+      for (const sessionName of ["FULLSTACK_LOGTO_NON_MEMBER_SESSION", "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION", "FULLSTACK_LOGTO_STALE_MEMBER_SESSION"] as const) {
+        await addSessionCookie(context, sessionName);
+        protectedRequests.length = 0;
+        await page.reload();
+        await expect(page.locator('[data-material-reader-state="access-required"]')).toBeVisible();
+        await expect(image).toHaveCount(0);
+        await expect(page.getByText("Текущее сохранённое содержимое из PostgreSQL.")).toHaveCount(0);
+        await expect(page.getByRole("link", { name: /media-proof.txt/u })).toHaveCount(0);
+        await expect(page.locator("iframe")).toHaveCount(0);
+        expect(protectedRequests).toEqual([]);
+        const deniedFile = await page.request.get(href, { maxRedirects: 0 });
+        expect(deniedFile.status()).toBe(404);
+        expect(deniedFile.headers()["cache-control"]).toContain("no-store");
+        const deniedImage = await page.request.get(protectedImageSource, { maxRedirects: 0 });
+        expect(deniedImage.status()).toBe(404);
+        const deniedPlayback = await page.request.post("/api/material-video-playback-sessions", {
+          headers: { origin: new URL(page.url()).origin }, multipart: { materialId, videoId },
+        });
+        expect(deniedPlayback.status()).toBe(403);
+        expect(await deniedPlayback.json()).not.toHaveProperty("drmAuthToken");
+      }
     } else {
       await expect(image).toBeVisible();
       await expect(page.locator("[data-video-player-mount] iframe")).toBeVisible();
@@ -942,7 +983,7 @@ async function addFullStackMemberSession(context: BrowserContext) {
 
 async function addSessionCookie(
   context: BrowserContext,
-  environmentName: "FULLSTACK_LOGTO_MEMBER_SESSION" | "FULLSTACK_LOGTO_SESSION",
+  environmentName: "FULLSTACK_LOGTO_MEMBER_SESSION" | "FULLSTACK_LOGTO_SESSION" | "FULLSTACK_LOGTO_NON_MEMBER_SESSION" | "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION" | "FULLSTACK_LOGTO_STALE_MEMBER_SESSION",
 ) {
   const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
   const session = process.env[environmentName];
