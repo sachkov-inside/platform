@@ -154,7 +154,7 @@ describe("communications promised public targets against Materials PostgreSQL", 
         content: {
           type: "text" as const,
           text: "inside.example/materials/missing",
-          entities: [{ type: "url", offset: 0, length: 32 }],
+          entities: [{ type: "url" as const, offset: 0, length: 32 }],
           buttons: [],
         },
       },
