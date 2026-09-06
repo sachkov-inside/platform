@@ -4,7 +4,7 @@
 /* oxlint-disable next/no-img-element */
 
 // Owner selected header A in #311. Compare identity before promoting the header.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavigationPrototype } from "./navigation.prototype";
 import "./brand.prototype.css";
 
@@ -60,8 +60,56 @@ export function BrandPrototype({
   readonly initialDirection?: Direction;
   readonly initialView?: "board" | "header";
 }) {
-  const [direction, setDirection] = useState<Direction>(initialDirection);
-  const [view, setView] = useState(initialView);
+  const [direction, setDirection] = useState<Direction>(() => {
+    const saved = new URL(window.location.href).searchParams.get("logo");
+    return saved === "monogram" || saved === "frame" || saved === "type"
+      ? saved
+      : initialDirection;
+  });
+  const [view, setView] = useState(() => {
+    const saved = new URL(window.location.href).searchParams.get("brandView");
+    return saved === "board" || saved === "header" ? saved : initialView;
+  });
+
+  function select(nextDirection: Direction, nextView: "board" | "header") {
+    setDirection(nextDirection);
+    setView(nextView);
+    const url = new URL(window.location.href);
+    url.searchParams.set("logo", nextDirection);
+    url.searchParams.set("brandView", nextView);
+    window.history.replaceState(null, "", url);
+  }
+
+  useEffect(() => {
+    function keydown(event: KeyboardEvent) {
+      if (
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        document.querySelector('[role="dialog"]')
+      )
+        return;
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest("input, textarea, select, [contenteditable]")
+      )
+        return;
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const step = event.key === "ArrowLeft" ? -1 : 1;
+      select(
+        directions[
+          (directions.indexOf(direction) + step + directions.length) %
+            directions.length
+        ] ?? "monogram",
+        "header",
+      );
+    }
+    window.addEventListener("keydown", keydown);
+    return () => {
+      window.removeEventListener("keydown", keydown);
+    };
+  });
 
   return (
     <div data-public-shell data-brand-study>
@@ -112,8 +160,7 @@ export function BrandPrototype({
                 <div className="si-actions">
                   <button
                     onClick={() => {
-                      setDirection(item);
-                      setView("header");
+                      select(item, "header");
                     }}
                   >
                     Посмотреть в шапке <span aria-hidden="true">↗</span>
@@ -146,8 +193,7 @@ export function BrandPrototype({
               aria-label={concepts[item].name}
               aria-pressed={direction === item}
               onClick={() => {
-                setDirection(item);
-                setView("header");
+                select(item, "header");
               }}
             >
               <span className="si-control-full">{concepts[item].name}</span>
@@ -158,7 +204,7 @@ export function BrandPrototype({
         <button
           className="si-view-toggle"
           onClick={() => {
-            setView(view === "board" ? "header" : "board");
+            select(direction, view === "board" ? "header" : "board");
           }}
         >
           {view === "board" ? "В шапке ↗" : "Все логотипы"}

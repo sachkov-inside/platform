@@ -420,8 +420,9 @@ export function NavigationPrototype({
             </Dialog.Title>
             <Dialog.Description className="mt-4 text-sm leading-6 text-muted-foreground">
               Это просмотр навигации. Настоящий вход, подписка и страницы
-              материалов здесь не открываются. Состояние после входа можно
-              включить в «Условиях сравнения» внизу.
+              материалов здесь не открываются.
+              {showNavigationControls &&
+                " Состояние после входа можно включить в «Условиях сравнения» внизу."}
             </Dialog.Description>
             <Dialog.Close className="np-close" aria-label="Закрыть">
               <X aria-hidden="true" />
