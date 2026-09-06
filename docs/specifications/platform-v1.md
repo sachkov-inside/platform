@@ -715,6 +715,11 @@ published memberships with that current label; draft-only labels and entries nev
 step counts. Web derives the badge ordinal and total from the complete published Series composition.
 Reader previous/next still follows every published entry in its one existing order.
 
+The Series list connects every overall ordinal with one dashed rail, first marker to last marker.
+All formats use the same dark filled ordinal marker. The explicit step label appears inside the
+existing Material row below its title; video rows render the existing published summary as plain
+text. The presentation neither invents descriptions nor reads body content for previews.
+
 Existing `reorderSeries` / REST `PUT /authoring/series/:seriesId/order` /
 MCP `playlist_save_composition` accept optional `stepGroups: Record<MaterialId, string>` alongside
 `orderedMaterialIds`. Every key must belong to that submitted composition. Omission preserves labels

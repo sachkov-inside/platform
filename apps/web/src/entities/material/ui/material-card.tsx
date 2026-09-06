@@ -19,6 +19,8 @@ export interface MaterialCardProps {
   readonly headingLevel?: "h2" | "h3";
   readonly material: MaterialPreview;
   readonly returnHref?: Route;
+  /** Series-owned context rendered below the row title. */
+  readonly rowAnnotation?: React.ReactNode;
   readonly variant?: "compact" | "default" | "feed" | "row";
 }
 
@@ -27,6 +29,7 @@ export function MaterialCard({
   headingLevel = "h2",
   material,
   returnHref,
+  rowAnnotation,
   variant = "default",
 }: MaterialCardProps) {
   const Heading = headingLevel;
@@ -38,6 +41,7 @@ export function MaterialCard({
         headingLevel={headingLevel}
         material={material}
         readerHref={readerHref}
+        rowAnnotation={rowAnnotation}
         {...(returnHref === undefined ? {} : { returnHref })}
       />
     );
@@ -151,11 +155,13 @@ function MaterialRow({
   material,
   readerHref,
   returnHref,
+  rowAnnotation,
 }: {
   readonly headingLevel: "h2" | "h3";
   readonly material: MaterialPreview;
   readonly readerHref: Route;
   readonly returnHref?: Route;
+  readonly rowAnnotation?: React.ReactNode;
 }) {
   const Heading = headingLevel;
   const isVideo = materialPreviewHasVideo(material);
@@ -197,6 +203,12 @@ function MaterialRow({
             {material.title}
           </Link>
         </Heading>
+        {isVideo && material.summary.length > 0 ? (
+          <span className="mt-2 block break-words text-sm leading-5 text-body-muted">
+            {material.summary}
+          </span>
+        ) : null}
+        {rowAnnotation}
       </span>
       <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
     </article>

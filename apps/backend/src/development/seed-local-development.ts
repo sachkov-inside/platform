@@ -343,9 +343,9 @@ async function ensureSeriesReaderScenario(
       title: "Demo #295 · Самостоятельная заметка",
     },
     ...[
-      { slug: "demo-298-release-overview", title: "Как устроен релиз моего проекта", formatId: videoFormatId, providerVideoId: "local-series-release-overview" },
+      { slug: "demo-298-release-overview", title: "Как устроен релиз моего проекта", formatId: videoFormatId, providerVideoId: "local-series-release-overview", summary: "Разбираем путь от коммита до работающего сервиса: сборку, проверку конфигурации, публикацию и откат релиза." },
       { slug: "demo-298-prepare", title: "Подготовка приложения к релизу", formatId },
-      { slug: "demo-298-docker", title: "Разбираем Docker на реальном примере", formatId: videoFormatId, providerVideoId: "local-series-release-docker" },
+      { slug: "demo-298-docker", title: "Разбираем Docker на реальном примере", formatId: videoFormatId, providerVideoId: "local-series-release-docker", summary: "Собираем образ приложения и разбираем Docker Compose: сеть сервисов, переменные окружения, тома и диагностику неудачного запуска." },
       { slug: "demo-298-secrets", title: "Что проверить перед передачей секретов", formatId: noteFormatId },
       { slug: "demo-298-environment", title: "Настройка окружения", formatId },
       { slug: "demo-298-deploy", title: "Первый деплой и проверка результата", formatId },
@@ -363,7 +363,9 @@ async function ensureSeriesReaderScenario(
       access: "free" as const,
       formatId: definition.formatId,
       seriesIds: definition.seriesIds,
-      summary: `${definition.bodyText} Не является контентом Кирилла.`,
+      summary: "summary" in definition && definition.summary !== undefined
+        ? `${definition.summary} Учебный пример, не является контентом Кирилла.`
+        : `${definition.bodyText} Не является контентом Кирилла.`,
       tagIds: [tagId],
       title: definition.title,
       topicId,
@@ -416,6 +418,7 @@ async function ensureSeriesReaderScenario(
     if (
       loaded.value.publicationState !== "published" ||
       loaded.value.primaryVideoId !== primaryVideoId ||
+      loaded.value.metadata.summary !== metadata.summary ||
       actualSeriesIds.length !== definition.seriesIds.length ||
       definition.seriesIds.some((seriesIdValue) => !actualSeriesIds.includes(seriesIdValue))
     ) {
