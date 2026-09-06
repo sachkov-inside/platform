@@ -38,10 +38,10 @@ function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true 
     setTimeout(() => { setView({ kind: "ready", isRead: desiredIsRead, canMark: view.canMark }); }, 350);
   };
   const action = <ReadingAction format={format} view={view} onSetReadingState={onSetReadingState} onRefresh={() => { setView({ kind: "ready", isRead, canMark: true }); }} />;
-  const progress = <div className="mt-5">{surface === "reader" ? <p className="mb-1 text-sm font-semibold">Серия «Надёжное приложение»</p> : null}<SeriesProgress view={{ kind: "ready", total, read: displayedRead }} /></div>;
+  const progress = <div className="mt-5"><SeriesProgress view={{ kind: "ready", total, read: displayedRead }} /></div>;
   const formatName = format === "video" ? "Видео" : format === "text" ? "Текст" : "Гайд";
   return <ApplicationShell currentPath="/library" navigationItems={navigation} mobileNavigationItems={navigation}>
-    {surface === "reader" ? <MaterialReaderView body={body} material={{ ...metadata, format: { name: formatName, slug: format } }} primaryVideo={format === "video" ? { state: "ready", videoId: "02000000-0000-4000-8000-000000000015", title: metadata.title } : null} readingAction={action} seriesProgress={view.kind === "anonymous" ? null : progress} /> :
+    {surface === "reader" ? <MaterialReaderView body={body} material={{ ...metadata, format: { name: formatName, slug: format } }} primaryVideo={format === "video" ? { state: "ready", videoId: "02000000-0000-4000-8000-000000000015", title: metadata.title } : null} readingAction={action} /> :
       <div className="mx-auto max-w-5xl">
         <h1 className="text-2xl font-semibold">{surface === "series" ? "Надёжное приложение" : "Изученные материалы"}</h1>
         <p className="mt-3 text-muted-foreground">{surface === "series" ? "От первого запроса до устойчивой работы в продакшене." : "Одна отметка видна в базе знаний, теме, серии и на главной."}</p>
@@ -69,25 +69,25 @@ export const FreeNonMember: Story = { args: { initial: { kind: "ready", isRead: 
 export const Member: Story = { args: { initial: { kind: "ready", isRead: true, canMark: true } } };
 export const ExpiredMarked: Story = { args: { initial: { kind: "ready", isRead: true, canMark: false } } };
 export const UnavailableAccess: Story = { args: { initial: { kind: "ready", isRead: false, canMark: false } }, play: async ({ canvasElement }) => {
-  const button = within(canvasElement).getByRole("button", { name: "Отметить прочитанным" });
+  const button = within(canvasElement).getByRole("button", { name: "Прочитано" });
   await expect(button).toHaveAttribute("aria-disabled", "true");
 } };
 export const Loading: Story = { args: { initial: { kind: "loading" } } };
 export const Pending: Story = { args: { initial: { kind: "pending", isRead: false, canMark: true, desiredIsRead: true } } };
 export const Failure: Story = { args: { initial: { kind: "error", isRead: false, canMark: true, desiredIsRead: true } }, play: async ({ canvasElement }) => {
   const canvas = within(canvasElement);
-  await expect(canvas.getByRole("alert")).toHaveTextContent("Не удалось сохранить");
-  await expect(canvas.queryByText("Прочитано", { exact: true })).not.toBeInTheDocument();
+  await expect(canvas.getByRole("alert")).toHaveTextContent("Не сохранено");
+  await expect(canvas.getByRole("button", { name: "Прочитано" })).toHaveAttribute("aria-pressed", "false");
 } };
 export const Conflict: Story = { args: { initial: { kind: "conflict", isRead: true, canMark: true } } };
 export const Cards: Story = { args: { surface: "cards", initial: { kind: "ready", isRead: true, canMark: true } } };
 export const CardsMarkAndRemove: Story = { ...Cards, play: async ({ canvasElement }) => {
   const canvas = within(canvasElement);
   await expect(canvas.getAllByText("Прочитано", { exact: true })).toHaveLength(5);
-  await userEvent.click(canvas.getByRole("button", { name: /^Снять отметку$/ }));
-  await waitFor(() => expect(canvas.queryAllByText("Прочитано", { exact: true })).toHaveLength(0));
+  await userEvent.click(canvas.getByRole("button", { name: "Прочитано" }));
+  await waitFor(() => expect(canvas.queryAllByText("Прочитано", { exact: true })).toHaveLength(1));
   await expect(canvas.getByText("Изучено 2 из 6")).toBeVisible();
-  await userEvent.click(canvas.getByRole("button", { name: /^Отметить прочитанным$/ }));
+  await userEvent.click(canvas.getByRole("button", { name: "Прочитано" }));
   await waitFor(() => expect(canvas.getAllByText("Прочитано", { exact: true })).toHaveLength(5));
   await expect(canvas.getByText("Изучено 3 из 6")).toBeVisible();
 } };
@@ -100,13 +100,12 @@ export const EmptySeries: Story = { args: { surface: "series", read: 0, total: 0
 } };
 export const MarkAndRemove: Story = { play: async ({ canvasElement }) => {
   const canvas = within(canvasElement);
-  const button = canvas.getByRole("button", { name: "Отметить прочитанным" });
+  const button = canvas.getByRole("button", { name: "Прочитано" });
+  await expect(button).toHaveAttribute("aria-pressed", "false");
   button.focus();
   await userEvent.keyboard("{Enter}");
-  await waitFor(() => expect(canvas.getByRole("button", { name: "Снять отметку" })).toBeInTheDocument());
-  await expect(canvas.getByText("Прочитано", { exact: true })).toBeVisible();
-  await expect(canvas.getByText("Изучено 3 из 6")).toBeVisible();
-  await userEvent.click(canvas.getByRole("button", { name: "Снять отметку" }));
-  await waitFor(() => expect(canvas.getByRole("button", { name: "Отметить прочитанным" })).toBeInTheDocument());
-  await expect(canvas.getByText("Изучено 2 из 6")).toBeVisible();
+  await waitFor(() => expect(button).toHaveAttribute("aria-pressed", "true"));
+  await expect(button).toHaveFocus();
+  await userEvent.click(button);
+  await waitFor(() => expect(button).toHaveAttribute("aria-pressed", "false"));
 } };
