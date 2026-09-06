@@ -279,7 +279,7 @@ export const ReplaceAfterReorder: Story = {
   },
 };
 export const DeleteReplacementTarget: Story = {
-  args: ReplaceAfterReorder.args,
+  args: { ...ReplaceAfterReorder.args },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Заменить часть 2" }));
