@@ -44,7 +44,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
           <nav aria-label="Редактор" className="mt-7 grid gap-1">
             <AuthoringLink current={current === "materials"} href={materialsHref} icon={<Files aria-hidden="true" />} label="Материалы" />
             <AuthoringLink current={current === "topics"} href="/authoring/topics" icon={<Tags aria-hidden="true" />} label="Темы" />
-            <AuthoringLink current={current === "playlists"} href="/authoring/playlists" icon={<ListOrdered aria-hidden="true" />} label="Плейлисты" />
+            <AuthoringLink current={current === "playlists"} href="/authoring/playlists" icon={<ListOrdered aria-hidden="true" />} label="Серии" />
             {current === "preview" ? (
               <div aria-current="page" className="flex min-h-11 items-center gap-3 rounded-xl bg-sidebar-accent px-3 text-sm font-medium text-sidebar-accent-foreground">
                 <Eye aria-hidden="true" className="size-5 text-sidebar-primary" />
@@ -63,7 +63,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
         <div className="grid grid-cols-5 px-2 pt-1">
           <MobileLink current={current === "materials"} href={materialsHref} label="Материалы"><Files aria-hidden="true" /></MobileLink>
           <MobileLink current={current === "topics"} href="/authoring/topics" label="Темы"><Tags aria-hidden="true" /></MobileLink>
-          <MobileLink current={current === "playlists"} href="/authoring/playlists" label="Плейлисты"><ListOrdered aria-hidden="true" /></MobileLink>
+          <MobileLink current={current === "playlists"} href="/authoring/playlists" label="Серии"><ListOrdered aria-hidden="true" /></MobileLink>
           <MobileLink href="/library" label="База знаний"><LibraryBig aria-hidden="true" /></MobileLink>
           <MobileLink href="/" label="Сайт"><Globe2 aria-hidden="true" /></MobileLink>
         </div>

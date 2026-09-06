@@ -1,7 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
-import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
+import {
+  discoverPublishedMaterials,
+  listPublishedMaterials,
+} from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
@@ -51,7 +54,7 @@ describe("local development seed", () => {
       { slug: "kak-ustroen-inside-platform", access: "free" },
     ]);
     expect(typeof catalog.value.nextCursor).toBe("string");
-    expect(await testDatabase.prisma.publishedMaterial.count()).toBe(18);
+    expect(await testDatabase.prisma.publishedMaterial.count()).toBe(23);
     await expect(
       testDatabase.prisma.video.findMany({
         orderBy: { providerVideoId: "asc" },
@@ -61,6 +64,7 @@ describe("local development seed", () => {
       { durationSeconds: 481, providerVideoId: "local-home-deep-modules", state: "ready" },
       { durationSeconds: 628, providerVideoId: "local-home-developer-pipeline", state: "ready" },
       { durationSeconds: 754, providerVideoId: "local-home-product-context", state: "ready" },
+      { durationSeconds: 542, providerVideoId: "local-series-review-video", state: "ready" },
     ]);
 
     await expect(
@@ -79,5 +83,67 @@ describe("local development seed", () => {
         },
       },
     });
+
+    const [harness, review, standalone] = await Promise.all([
+      discoverPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        emptyCatalogVideos,
+        {
+          first: null,
+          kind: "series",
+          slug: "demo-series-harness",
+          subject: anonymousSubject,
+        },
+      ),
+      discoverPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        emptyCatalogVideos,
+        {
+          first: null,
+          kind: "series",
+          slug: "demo-series-review",
+          subject: anonymousSubject,
+        },
+      ),
+      listPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        emptyCatalogVideos,
+        {
+          first: 10,
+          q: "standalone #295",
+          subject: anonymousSubject,
+        },
+      ),
+    ]);
+
+    expect(harness).toMatchObject({
+      ok: true,
+      value: {
+        items: [
+          { slug: "demo-295-obshchiy-gayd" },
+          { slug: "demo-295-finalnyy-gayd" },
+        ],
+      },
+    });
+    expect(review).toMatchObject({
+      ok: true,
+      value: {
+        items: [
+          { slug: "demo-295-obshchiy-gayd" },
+          { slug: "demo-295-video-razbor" },
+          { slug: "demo-295-itogovaya-zametka" },
+        ],
+      },
+    });
+    if (!standalone.ok) throw new Error(standalone.error.code);
+    expect(standalone.value.items).toContainEqual(
+      expect.objectContaining({
+        seriesMemberships: [],
+        slug: "demo-295-samostoyatelnaya-zametka",
+      }),
+    );
   });
 });

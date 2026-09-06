@@ -246,9 +246,9 @@ function SeriesSelector({
 
   return (
     <fieldset className="min-w-0 sm:col-span-2 @min-[68rem]/material-authoring:col-span-1">
-      <legend className="text-sm font-medium">Плейлисты</legend>
+      <legend className="text-sm font-medium">Серии</legend>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">
-        Новый материал добавится в конец выбранного плейлиста.
+        Новый материал добавится в конец выбранной серии.
       </p>
       <div className="mt-2 grid gap-2">
         {presentation.availableSeries.map((series) => {

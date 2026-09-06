@@ -692,7 +692,7 @@ test("trusted author sees a typed not-found state for a missing current Preview"
   await expect(page.getByRole("link", { name: "Вернуться в редактор" })).toBeVisible();
 });
 
-test("trusted author reorders a PostgreSQL playlist with keyboard controls", async ({
+test("trusted author reorders a PostgreSQL series with keyboard controls", async ({
   context,
   page,
 }) => {
@@ -700,7 +700,11 @@ test("trusted author reorders a PostgreSQL playlist with keyboard controls", asy
 
   const response = await page.goto("/authoring/playlists");
   expect(response?.status()).toBe(200);
-  await page.getByRole("link", { name: "Состав" }).click();
+  await page
+    .getByRole("article")
+    .filter({ has: page.locator('input[value="Создание Platform Inside"]') })
+    .getByRole("link", { name: "Состав" })
+    .click();
   await expect(page).toHaveURL(/\/authoring\/playlists\/[0-9a-f-]+$/u);
   await expect(
     page.getByRole("heading", { name: "Создание Platform Inside", level: 1 }),
@@ -712,17 +716,18 @@ test("trusted author reorders a PostgreSQL playlist with keyboard controls", asy
   await expect(picker.getByText("Результаты появятся после ввода запроса.")).toBeVisible();
   await picker
     .getByRole("searchbox", { name: "Поиск материала для добавления" })
-    .fill("Lifecycle из списка");
-  await expect(
-    picker
-      .getByRole("button", { name: /Добавить «Lifecycle из списка/u })
-      .first(),
-  ).toBeVisible();
+    .fill("Самостоятельная заметка");
+  const addStandalone = picker
+    .getByRole("button", { name: /Добавить «Demo #295 · Самостоятельная заметка/u })
+    .first();
+  await expect(addStandalone).toBeVisible();
+  await addStandalone.click();
   await picker.getByRole("button", { name: "Закрыть выбор материала" }).click();
   await expect(picker).toBeHidden();
 
-  const items = page.getByRole("list", { name: "Материалы плейлиста" }).getByRole("listitem");
-  await expect(items.nth(1)).toBeVisible();
+  const items = page.getByRole("list", { name: "Материалы серии" }).getByRole("listitem");
+  const countAfterAdd = await items.count();
+  expect(countAfterAdd).toBeGreaterThan(2);
   const firstTitle = await items.first().locator("p").first().innerText();
   const secondTitle = await items.nth(1).locator("p").first().innerText();
   const moveDown = items.first().getByRole("button", {
@@ -747,6 +752,14 @@ test("trusted author reorders a PostgreSQL playlist with keyboard controls", asy
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
+  await page.getByRole("button", { name: "Сохранить", exact: true }).first().click();
+  await expect(page.getByText("Порядок сохранён.")).toBeVisible();
+
+  const standaloneItem = items.filter({ hasText: "Demo #295 · Самостоятельная заметка" });
+  await standaloneItem
+    .getByRole("button", { name: /Убрать «Demo #295 · Самостоятельная заметка/u })
+    .click();
+  await expect(items).toHaveCount(countAfterAdd - 1);
   await page.getByRole("button", { name: "Сохранить", exact: true }).first().click();
   await expect(page.getByText("Порядок сохранён.")).toBeVisible();
   await page.reload();

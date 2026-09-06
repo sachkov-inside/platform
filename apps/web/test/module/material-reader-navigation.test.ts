@@ -23,7 +23,8 @@ describe("Material Reader navigation", () => {
     expect(parseMaterialReaderReturnTarget(seriesHref)).toEqual({
       href: "/series/platform-inside",
       kind: "series",
-      label: "Назад к плейлисту",
+      label: "Назад к серии",
+      seriesSlug: "platform-inside",
     });
 
     expect(parseMaterialReaderReturnTarget("/topics/platform")).toEqual({

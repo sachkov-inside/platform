@@ -63,15 +63,15 @@ describe("Content Library discovery", () => {
         summary: "Platform boundaries, delivery and operations.",
       },
       hasNext: false,
-      relatedSeries: [
-        expect.objectContaining({
-          matchingMaterialCount: 2,
-          name: "Создание Platform Inside",
-          slug: "platform-inside",
-          summary: "Build the platform in a deliberate order.",
-          totalMaterialCount: 2,
-        }),
-      ],
+    });
+    expect(
+      result.value.relatedSeries.find(({ slug }) => slug === "platform-inside"),
+    ).toMatchObject({
+      matchingMaterialCount: 2,
+      name: "Создание Platform Inside",
+      slug: "platform-inside",
+      summary: "Build the platform in a deliberate order.",
+      totalMaterialCount: 2,
     });
     expect(
       result.value.items.find(
@@ -89,7 +89,7 @@ describe("Content Library discovery", () => {
     expect(JSON.stringify(result)).not.toContain("schemaVersion");
   });
 
-  test("derives every related Playlist beyond the current Topic material page", async () => {
+  test("derives every related Series beyond the current Topic material page", async () => {
     const topic = await testDatabase.prisma.topic.findUniqueOrThrow({
       where: { slug: "platform" },
       select: { id: true },
@@ -414,6 +414,12 @@ describe("Content Library discovery", () => {
       expect(
         canonicalTopic.value.items.every(({ topic }) => topic.slug === "platform"),
       ).toBe(true);
+      expect(
+        canonicalTopic.value.facets.formats.reduce(
+          (count, format) => count + format.count,
+          0,
+        ),
+      ).toBe(canonicalTopic.value.totalCount);
     } finally {
       await Promise.all([
         testDatabase.prisma.topic.update({

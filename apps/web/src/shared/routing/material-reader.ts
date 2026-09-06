@@ -17,8 +17,9 @@ export interface MaterialReaderReturnTarget {
     | "Назад в Базу знаний"
     | "Назад в профиль"
     | "Назад на Главную"
-    | "Назад к плейлисту"
+    | "Назад к серии"
     | "Назад к теме";
+  readonly seriesSlug?: string;
 }
 
 const applicationOrigin = "https://inside.local";
@@ -134,7 +135,12 @@ function readReturnTarget(
 
   const href = internalRoute(`${url.pathname}${url.search}`);
   if (routeKind === "series") {
-    return { href, kind: "series", label: "Назад к плейлисту" };
+    return {
+      href,
+      kind: "series",
+      label: "Назад к серии",
+      seriesSlug: match[2],
+    };
   }
   if (routeKind === "topics") {
     return { href, kind: "topic", label: "Назад к теме" };

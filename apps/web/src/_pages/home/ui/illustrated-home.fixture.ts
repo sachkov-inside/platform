@@ -58,6 +58,10 @@ const guides = [
 ] as const satisfies readonly MaterialPreview[];
 
 export const illustratedHome: HomeView = {
+  membership: {
+    acquisitionUrl: "https://t.me/tribute/app?startapp=inside",
+    kind: "inactive",
+  },
   guides,
   videos,
   topics: topics.map((topic, index) => ({

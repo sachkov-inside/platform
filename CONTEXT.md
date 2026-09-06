@@ -55,8 +55,8 @@ An ordered collection of Materials with its own meaning and reading sequence. A 
 to any number of Series, including none. Its Topic relation is derived from published Materials,
 never authored directly. A Series has an immutable slug plus mutable name and summary; archiving
 preserves its composition and canonical reader but removes it from new assignments and discovery.
-In the Russian product interface: «Плейлист».
-_Avoid_: Topic, Playlist as a domain term
+In the Russian product interface: «Серия».
+_Avoid_: Topic, Playlist, плейлист
 
 **NavigationPage**:
 An editorial page that introduces and connects other Platform destinations. Roadmap is a

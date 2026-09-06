@@ -258,13 +258,17 @@ docker compose run --rm migrations
 docker compose run --rm seed
 ```
 
-The seed refuses non-development mode, uses stable idempotency keys, and creates twelve free
-published Materials for catalog pagination: `kak-ustroen-inside-platform` plus eleven architecture
-notes. It also creates one Membership Material whose body remains absent from the public catalog.
-Repeating the seed keeps the same Materials and upgrades the representative fixture without
-resetting the named volume. Materials are created and published through the Materials application
-interface; only fixed local Topic/Format/Tag/Series prerequisites use Prisma model operations
-because Platform has no product taxonomy-authoring capability yet.
+The seed refuses non-development mode, uses stable idempotency keys, and creates 22 free published
+Materials plus one Membership Material whose body remains absent from the public catalog. The free
+fixtures cover catalog pagination, Home formats and one explicit Series-reading scenario:
+`demo-series-harness` orders a shared guide before a final guide,
+`demo-series-review` orders the same shared guide before a video and note, and
+`demo-295-samostoyatelnaya-zametka` belongs to no Series. Their titles and summaries identify them
+as development examples rather than editorial content. Repeating the seed keeps the same Materials
+and upgrades the representative fixture without resetting the named volume. Materials are created
+and published through the Materials application interface; only fixed local Topic/Format/Tag/Series
+prerequisites use Prisma model operations because Platform has no product taxonomy-authoring
+capability yet.
 
 ## Migration and Prisma schema checks
 

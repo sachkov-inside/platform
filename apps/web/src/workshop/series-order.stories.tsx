@@ -19,7 +19,7 @@ const loadMaterialsSpy = fn((_input: {
       {
         materialId: "95000000-0000-4000-8000-000000000004",
         publicationState: "draft" as const,
-        title: "Материал вне плейлиста",
+        title: "Материал вне серии",
       },
     ],
     kind: "ready" as const,
@@ -80,7 +80,7 @@ const meta = {
   },
   component: SeriesOrderManager,
   parameters: { nextjs: { appDirectory: true } },
-  title: "Pages/Authoring/Плейлисты",
+  title: "Pages/Authoring/Серии",
 } satisfies Meta<typeof SeriesOrderManager>;
 
 export default meta;
@@ -129,7 +129,7 @@ export const AddMaterial: Story = {
     );
     await expect(
       await within(dialog).findByRole("button", {
-        name: "Добавить «Материал вне плейлиста»",
+        name: "Добавить «Материал вне серии»",
       }),
     ).toBeVisible();
     await expect(loadMaterialsSpy).toHaveBeenCalledOnce();

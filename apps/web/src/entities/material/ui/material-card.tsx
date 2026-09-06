@@ -46,7 +46,7 @@ export function MaterialCard({
   if (variant === "feed") {
     return (
       <article
-        className="group/card relative grid w-full max-w-[48rem] grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 py-6"
+        className="group/card relative grid w-full max-w-[48rem] grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 rounded-[1.5rem] border border-border bg-card p-5 md:p-6"
         data-material-id={material.slug}
         data-material-slug={material.slug}
         data-material-variant={variant}

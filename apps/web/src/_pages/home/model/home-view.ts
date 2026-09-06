@@ -16,6 +16,10 @@ export interface HomeView {
   readonly playlists: readonly HomeCollection[];
   readonly topics: readonly HomeCollection[];
   readonly videos: readonly MaterialPreview[];
+  readonly membership:
+    | Readonly<{ kind: "active" }>
+    | Readonly<{ acquisitionUrl: string; kind: "inactive" }>
+    | Readonly<{ kind: "unknown" }>;
 }
 
 export type HomeResult =

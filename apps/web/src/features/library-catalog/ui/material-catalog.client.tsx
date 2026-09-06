@@ -26,6 +26,7 @@ export function InfiniteMaterialCatalog({
   pages,
   returnHref,
   totalCount,
+  withoutHeading = false,
 }: {
   readonly hasNextPage: boolean;
   readonly isFetchNextPageError: boolean;
@@ -34,6 +35,7 @@ export function InfiniteMaterialCatalog({
   readonly pages: readonly ReadyLibraryCatalogPage[];
   readonly returnHref?: Route;
   readonly totalCount: number;
+  readonly withoutHeading?: boolean;
 }) {
   const loadSentinelRef = useRef<HTMLDivElement>(null);
   const materialCount = pages.reduce((count, page) => count + page.items.length, 0);
@@ -60,17 +62,8 @@ export function InfiniteMaterialCatalog({
     };
   }, [hasNextPage, isFetchNextPageError, isFetchingNextPage, onLoadNextPage]);
 
-  return (
-    <section aria-labelledby="materials-heading" className="mt-11" data-library-state="ready">
-      <PublicSectionHeading
-        aside={
-          <p className="text-sm font-semibold text-muted-foreground">
-            {formatFoundMaterialCount(totalCount)} · {formatLoadedMaterialCount(materialCount)}
-          </p>
-        }
-        id="materials-heading"
-        title="Материалы"
-      />
+  const catalog = (
+    <>
       {pages.map((page, pageIndex) => (
         <MaterialCatalogGrid
           className="mt-4"
@@ -103,6 +96,23 @@ export function InfiniteMaterialCatalog({
           <p className="text-sm text-muted-foreground">Все материалы загружены</p>
         ) : null}
       </div>
+    </>
+  );
+  if (withoutHeading) {
+    return <div data-library-state="ready">{catalog}</div>;
+  }
+  return (
+    <section aria-labelledby="materials-heading" className="mt-11" data-library-state="ready">
+      <PublicSectionHeading
+        aside={
+          <p className="text-sm font-semibold text-muted-foreground">
+            {formatFoundMaterialCount(totalCount)} · {formatLoadedMaterialCount(materialCount)}
+          </p>
+        }
+        id="materials-heading"
+        title="Материалы"
+      />
+      {catalog}
     </section>
   );
 }

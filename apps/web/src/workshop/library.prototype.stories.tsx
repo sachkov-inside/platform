@@ -437,7 +437,7 @@ function SeriesNavigation({
   return (
     <section aria-labelledby="playlists-heading" className="mt-6 sm:mt-7">
       <h2 className="text-lg font-semibold tracking-[-0.025em] @min-[30rem]/library:text-xl" id="playlists-heading">
-        Плейлисты
+        Серии
       </h2>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         {series.map((item) => {
@@ -731,7 +731,7 @@ export const NarrowDesktop: Story = {
     await expect(canvas.queryByRole("dialog", { name: "Фильтры" })).not.toBeInTheDocument();
     await expect(within(filters).getByRole("group", { name: "Тема" })).toBeInTheDocument();
     await expect(within(filters).getByRole("group", { name: "Формат" })).toBeInTheDocument();
-    await expect(within(filters).getByRole("group", { name: "Плейлисты" })).toBeInTheDocument();
+    await expect(within(filters).getByRole("group", { name: "Серии" })).toBeInTheDocument();
     await expect(within(filters).queryByRole("group", { name: "Теги" })).not.toBeInTheDocument();
   },
 };
@@ -785,7 +785,7 @@ export const Desktop: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "AI-first engineering" }));
     await expect(canvasElement.querySelectorAll("article")).toHaveLength(1);
     await expect(
-      canvas.queryByRole("heading", { name: "Плейлисты" }),
+      canvas.queryByRole("heading", { name: "Серии" }),
     ).not.toBeInTheDocument();
     await userEvent.click(
       canvas.getByRole("button", { name: "Сбросить контекст: AI-first engineering" }),

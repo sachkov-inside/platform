@@ -31,6 +31,14 @@ import {
   type PublishedMaterialReader,
 } from "../../../materials/index.js";
 import { VIDEOS, type Videos } from "../../../videos/index.js";
+import {
+  MEMBERSHIP_ENTITLEMENTS,
+  type MembershipEntitlements,
+} from "../../../membership-entitlements/index.js";
+import {
+  PLATFORM_CONFIG,
+  type PlatformConfig,
+} from "../../../../config/platform-config.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
 import {
   publishedCatalogFacetHttpSchema,
@@ -45,6 +53,13 @@ const homeContentHttpSchema = z
     videos: z.array(publishedCatalogItemHttpSchema),
     guides: z.array(publishedCatalogItemHttpSchema),
     notes: z.array(publishedCatalogItemHttpSchema),
+    membership: z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("active") }).strict(),
+      z
+        .object({ acquisitionUrl: z.url(), kind: z.literal("inactive") })
+        .strict(),
+      z.object({ kind: z.literal("unknown") }).strict(),
+    ]),
   })
   .strict();
 
@@ -63,6 +78,13 @@ export class ReadHomeContentController {
     private readonly contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
     @Inject(VIDEOS)
     private readonly videos: Pick<Videos, "loadReadyDurations">,
+    @Inject(MEMBERSHIP_ENTITLEMENTS)
+    private readonly membershipEntitlements: Pick<
+      MembershipEntitlements,
+      "resolveForAccess"
+    >,
+    @Inject(PLATFORM_CONFIG)
+    private readonly config: PlatformConfig,
   ) {}
 
   @Get("home")
@@ -92,6 +114,8 @@ export class ReadHomeContentController {
       this.publishedMaterialReader,
       this.contentAccess,
       this.videos,
+      this.membershipEntitlements,
+      this.config.contentAccess.membershipAcquisitionUrl,
       account === undefined
         ? anonymousSubject
         : { kind: "account", accountId: accountId(account.accountId) },

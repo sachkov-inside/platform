@@ -62,16 +62,16 @@ export const BackNavigationFlow: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "AI-first" }));
     await expect(canvas.getByRole("button", { name: "Назад: На главную" })).toBeVisible();
 
-    await userEvent.click(canvas.getByRole("button", { name: "Открыть плейлист AI-first работа" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Открыть серия AI-first работа" }));
     await expect(canvas.getByRole("button", { name: "Назад: К теме" })).toBeVisible();
 
     const materialTitle = canvas.getByText("Мой AI-first контур");
     const materialButton = materialTitle.closest("button");
     if (!materialButton) throw new Error("Материал в маршруте не является кнопкой");
     await userEvent.click(materialButton);
-    await expect(canvas.getByRole("button", { name: "Назад: К плейлисту" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Назад: К серияу" })).toBeVisible();
 
-    await userEvent.click(canvas.getByRole("button", { name: "Назад: К плейлисту" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Назад: К серияу" }));
     await userEvent.click(canvas.getByRole("button", { name: "Назад: К теме" }));
     await userEvent.click(canvas.getByRole("button", { name: "Назад: На главную" }));
     await expect(canvas.getByRole("heading", { name: "Новые видео" })).toBeVisible();
@@ -86,7 +86,7 @@ export const LibraryMobile: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.queryByRole("tablist")).not.toBeInTheDocument();
     await expect(canvas.getByRole("heading", { name: "Темы" })).toBeVisible();
-    await expect(canvas.getByRole("heading", { name: "Плейлисты" })).toBeVisible();
+    await expect(canvas.getByRole("heading", { name: "Серии" })).toBeVisible();
     await expect(canvas.getByRole("heading", { name: "Материалы" })).toBeVisible();
     await expect(canvasElement.querySelectorAll("[data-playlist-card]")).toHaveLength(3);
 
@@ -111,7 +111,7 @@ export const TopicMobile: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { level: 1, name: "AI-first" })).toBeVisible();
-    const playlistsHeading = canvas.getByRole("heading", { name: "Плейлисты" });
+    const playlistsHeading = canvas.getByRole("heading", { name: "Серии" });
     const materialsHeading = canvas.getByRole("heading", { name: "Материалы" });
     await expect(playlistsHeading.compareDocumentPosition(materialsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   },

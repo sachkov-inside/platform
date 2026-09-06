@@ -122,7 +122,7 @@ export function SeriesOrderManager({
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                 Перемещайте материалы кнопками. Изменения появятся в публичном
-                плейлисте после сохранения.
+                серии после сохранения.
               </p>
             </div>
           </div>
@@ -132,7 +132,7 @@ export function SeriesOrderManager({
                 className="mb-2 block text-sm font-medium"
                 htmlFor="playlist-switcher"
               >
-                Плейлист
+                Серия
               </label>
               <Select
                 onValueChange={(value) => {
@@ -216,23 +216,23 @@ export function SeriesOrderManager({
         >
           {presentation.archived ? (
             <div className="mb-7 rounded-2xl bg-muted p-5 text-sm leading-6">
-              <p className="font-semibold">Плейлист находится в архиве</p>
+              <p className="font-semibold">Серия находится в архиве</p>
               <p className="mt-1 text-muted-foreground">
                 Можно изменить порядок или удалить существующие материалы. Новые
-                назначения станут доступны после восстановления плейлиста.
+                назначения станут доступны после восстановления серии.
               </p>
             </div>
           ) : null}
 
           {items.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card px-5 py-14 text-center">
-              <h2 className="text-lg font-semibold">Плейлист пока пуст</h2>
+              <h2 className="text-lg font-semibold">Серия пока пуста</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 Нажмите «Добавить материал» и найдите нужную запись.
               </p>
             </div>
           ) : (
-            <ol className="grid gap-2" aria-label="Материалы плейлиста">
+            <ol className="grid gap-2" aria-label="Материалы серии">
               {items.map((item, index) => (
                 <li
                   className="flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-card p-3 sm:p-4"

@@ -11,6 +11,8 @@ const formatId = "72000000-0000-4000-8000-000000000003";
 const createIdempotencyKey = "72000000-0000-4000-8000-000000000004";
 const tagId = "72000000-0000-4000-8000-000000000006";
 const seriesId = "72000000-0000-4000-8000-000000000007";
+const demoHarnessSeriesId = "72000000-0000-4000-8000-000000000295";
+const demoReviewSeriesId = "72000000-0000-4000-8000-000000000296";
 const slug = "kak-ustroen-inside-platform";
 const membershipSlug = "developer-pipeline-bez-poteri-konteksta";
 const membershipCreateIdempotencyKey = "72000000-0000-4000-8000-000000000033";
@@ -35,6 +37,10 @@ const localVideoFixtures: ReadonlyMap<string, {
   ["local-home-product-context", {
     durationSeconds: 754,
     title: "Продукт и инженерный контекст",
+  }],
+  ["local-series-review-video", {
+    durationSeconds: 542,
+    title: "Demo #295 · Видео-разбор",
   }],
 ]);
 
@@ -64,6 +70,7 @@ export async function seedLocalDevelopment(
   });
   await ensureCatalogContinuationMaterials(prisma, authoring);
   await ensureHomeMaterials(prisma, authoring, videos);
+  await ensureSeriesReaderScenario(authoring, videos);
   const representativeMaterial = {
     metadata: {
       title: "Как устроен Inside Platform",
@@ -288,6 +295,174 @@ export async function seedLocalDevelopment(
   await ensureRelatedPin(prisma, materialIdValue);
 
   return Object.freeze({ materialId: materialIdValue, contentVersion, slug });
+}
+
+async function ensureSeriesReaderScenario(
+  authoring: ReturnType<typeof assembleMaterials>["authoring"],
+  videos: ReturnType<typeof assembleVideos>,
+): Promise<void> {
+  const definitions = [
+    {
+      bodyText: "Development-образец общей точки для проверки разных контекстов Серий.",
+      formatId,
+      seriesIds: [demoHarnessSeriesId, demoReviewSeriesId],
+      slug: "demo-295-obshchiy-gayd",
+      title: "Demo #295 · Общий гайд",
+    },
+    {
+      bodyText: "Development-образец завершения основной Серии.",
+      formatId,
+      seriesIds: [demoHarnessSeriesId],
+      slug: "demo-295-finalnyy-gayd",
+      title: "Demo #295 · Финальный гайд",
+    },
+    {
+      bodyText: "Development-образец видео внутри смешанной Серии.",
+      formatId: videoFormatId,
+      providerVideoId: "local-series-review-video",
+      seriesIds: [demoReviewSeriesId],
+      slug: "demo-295-video-razbor",
+      title: "Demo #295 · Видео-разбор",
+    },
+    {
+      bodyText: "Development-образец заметки внутри смешанной Серии.",
+      formatId: noteFormatId,
+      seriesIds: [demoReviewSeriesId],
+      slug: "demo-295-itogovaya-zametka",
+      title: "Demo #295 · Итоговая заметка",
+    },
+    {
+      bodyText: "Development standalone #295: материал открывается без случайного контекста Серии.",
+      formatId: noteFormatId,
+      seriesIds: [],
+      slug: "demo-295-samostoyatelnaya-zametka",
+      title: "Demo #295 · Самостоятельная заметка",
+    },
+  ] as const;
+
+  const materialIds = new Map<string, string>();
+  for (const [index, definition] of definitions.entries()) {
+    const metadata = {
+      access: "free" as const,
+      formatId: definition.formatId,
+      seriesIds: definition.seriesIds,
+      summary: `${definition.bodyText} Не является контентом Кирилла.`,
+      tagIds: [tagId],
+      title: definition.title,
+      topicId,
+    };
+    const body = {
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            attrs: {
+              nodeId: `76000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+            },
+            content: [{ type: "text", text: definition.bodyText }],
+            type: "paragraph",
+          },
+        ],
+      },
+    } as const;
+    const created = await authoring.createDraft({
+      actor,
+      body,
+      idempotencyKey: `local-series-demo-create-${String(index + 1)}`,
+      metadata,
+    });
+    if (!created.ok) {
+      throw new Error(`Local Series demo draft failed: ${created.error.code}`);
+    }
+    const materialIdValue = created.value.materialId;
+    const loaded = await authoring.loadMaterial({ actor, materialId: materialIdValue });
+    if (!loaded.ok) {
+      throw new Error(`Local Series demo load failed: ${loaded.error.code}`);
+    }
+    let primaryVideoId: string | null = null;
+    if ("providerVideoId" in definition) {
+      const attached = await videos.attachExisting({
+        access: "free",
+        actor,
+        materialId: materialIdValue,
+        providerVideoId: definition.providerVideoId,
+      });
+      if (!attached.ok) {
+        throw new Error(`Local Series demo video failed: ${attached.error.code}`);
+      }
+      primaryVideoId = attached.value.videoId;
+    }
+    const actualSeriesIds = loaded.value.metadata.seriesMemberships.map(
+      ({ seriesId }) => seriesId,
+    );
+    if (
+      loaded.value.publicationState !== "published" ||
+      loaded.value.primaryVideoId !== primaryVideoId ||
+      actualSeriesIds.length !== definition.seriesIds.length ||
+      definition.seriesIds.some((seriesIdValue) => !actualSeriesIds.includes(seriesIdValue))
+    ) {
+      const saved = await authoring.saveMaterial({
+        actor,
+        body,
+        expectedContentVersion: loaded.value.contentVersion,
+        idempotencyKey: `local-series-demo-save-${String(index + 1)}-${String(loaded.value.contentVersion)}`,
+        materialId: materialIdValue,
+        metadata,
+        primaryVideoId,
+        publicationState: "published",
+      });
+      if (!saved.ok) {
+        throw new Error(`Local Series demo Save failed: ${saved.error.code}`);
+      }
+    }
+    materialIds.set(definition.slug, materialIdValue);
+  }
+
+  await ensureDevelopmentSeriesOrder(authoring, demoHarnessSeriesId, [
+    requiredMaterialId(materialIds, "demo-295-obshchiy-gayd"),
+    requiredMaterialId(materialIds, "demo-295-finalnyy-gayd"),
+  ]);
+  await ensureDevelopmentSeriesOrder(authoring, demoReviewSeriesId, [
+    requiredMaterialId(materialIds, "demo-295-obshchiy-gayd"),
+    requiredMaterialId(materialIds, "demo-295-video-razbor"),
+    requiredMaterialId(materialIds, "demo-295-itogovaya-zametka"),
+  ]);
+}
+
+async function ensureDevelopmentSeriesOrder(
+  authoring: ReturnType<typeof assembleMaterials>["authoring"],
+  seriesIdValue: string,
+  orderedMaterialIds: readonly string[],
+): Promise<void> {
+  const current = await authoring.loadSeriesOrder({ actor, seriesId: seriesIdValue });
+  if (!current.ok) {
+    throw new Error(`Local Series demo order load failed: ${current.error.code}`);
+  }
+  if (
+    current.value.items.map(({ materialId }) => materialId).join(",") ===
+    orderedMaterialIds.join(",")
+  ) {
+    return;
+  }
+  const reordered = await authoring.reorderSeries({
+    actor,
+    expectedOrderVersion: current.value.orderVersion,
+    orderedMaterialIds,
+    seriesId: seriesIdValue,
+  });
+  if (!reordered.ok) {
+    throw new Error(`Local Series demo reorder failed: ${reordered.error.code}`);
+  }
+}
+
+function requiredMaterialId(
+  materialIds: ReadonlyMap<string, string>,
+  slugValue: string,
+): string {
+  const value = materialIds.get(slugValue);
+  if (value === undefined) throw new Error(`Local Series demo Material ${slugValue} is missing`);
+  return value;
 }
 
 async function ensureCatalogContinuationMaterials(
@@ -651,5 +826,25 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
       summary: "Путь от продуктовой идеи до работающей Platform.",
     },
     update: { summary: "Путь от продуктовой идеи до работающей Platform." },
+  });
+  await prisma.series.upsert({
+    where: { id: demoHarnessSeriesId },
+    create: {
+      id: demoHarnessSeriesId,
+      slug: "demo-series-harness",
+      name: "Demo #295 · основная серия",
+      summary: "Development-образец A → B для проверки выбранного контекста. Не является контентом Кирилла.",
+    },
+    update: {},
+  });
+  await prisma.series.upsert({
+    where: { id: demoReviewSeriesId },
+    create: {
+      id: demoReviewSeriesId,
+      slug: "demo-series-review",
+      name: "Demo #295 · смешанная серия",
+      summary: "Development-образец гайд → видео → заметка. Не является контентом Кирилла.",
+    },
+    update: {},
   });
 }

@@ -205,7 +205,7 @@ function HomeShellFixture() {
           Главная
         </h1>
         <p className="mt-4 max-w-[66ch] text-pretty text-base leading-7 text-muted-foreground sm:text-lg">
-          Новые видео, плейлисты, практические гайды и заметки Inside.
+          Новые видео, серии, практические гайды и заметки Inside.
         </p>
       </header>
 

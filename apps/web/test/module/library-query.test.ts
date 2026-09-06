@@ -11,6 +11,7 @@ import {
   topicLibraryCatalogQueryOptions,
 } from "../../src/features/library-catalog/api/library-catalog.browser";
 import {
+  changeLibraryQuery,
   parseLibrarySearchParams,
   serializeLibrarySearchQuery,
 } from "../../src/features/library-catalog/model/library-search-query";
@@ -40,6 +41,7 @@ const defaultQuery = {
   formatSlugs: [],
   q: "",
   sort: "newest",
+  topicSlug: null,
 } as const;
 
 describe("Library TanStack Query interface", () => {
@@ -48,7 +50,7 @@ describe("Library TanStack Query interface", () => {
     vi.unstubAllGlobals();
   });
 
-  it("keeps only search, Format and Material sort in the canonical URL", () => {
+  it("keeps global search and material-only filters in the canonical URL", () => {
     const parsed = parseLibrarySearchParams({
       after: ["cursor-one", "cursor-two"],
       format: ["video", "INVALID", "video"],
@@ -64,11 +66,36 @@ describe("Library TanStack Query interface", () => {
       formatSlugs: ["video"],
       q: "карьерный маршрут",
       sort: "relevance",
+      topicSlug: "platform",
     });
     expect(parsed.wasNormalized).toBe(true);
     expect(serializeLibrarySearchQuery(parsed.query)).toBe(
-      "q=%D0%BA%D0%B0%D1%80%D1%8C%D0%B5%D1%80%D0%BD%D1%8B%D0%B9+%D0%BC%D0%B0%D1%80%D1%88%D1%80%D1%83%D1%82&format=video",
+      "q=%D0%BA%D0%B0%D1%80%D1%8C%D0%B5%D1%80%D0%BD%D1%8B%D0%B9+%D0%BC%D0%B0%D1%80%D1%88%D1%80%D1%83%D1%82&topic=platform&format=video",
     );
+  });
+
+  it("normalizes one safe Topic filter and resets the cursor when it changes", () => {
+    const initial = parseLibrarySearchParams({
+      after: "cursor-one",
+      q: "platform",
+      topic: ["product-engineering", "career"],
+    }).query;
+
+    expect(initial).toMatchObject({
+      after: "cursor-one",
+      q: "platform",
+      topicSlug: "product-engineering",
+    });
+    expect(
+      changeLibraryQuery(initial, { topicSlug: "career" }),
+    ).toMatchObject({
+      after: null,
+      q: "platform",
+      topicSlug: "career",
+    });
+    expect(
+      serializeLibrarySearchQuery({ ...initial, topicSlug: "INVALID topic" }),
+    ).toBe("q=platform");
   });
 
   it("uses newest by default and relevance while searching", () => {
@@ -279,6 +306,38 @@ describe("Library TanStack Query interface", () => {
       "https://platform-api.example.test/library/materials?sort=newest&after=next_cursor",
     );
     expect(backendRequest.cache).toBe("no-store");
+  });
+
+  it("forwards the canonical material Topic filter without changing the Series contract", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          facets: { formats: [], series: [], topics: [] },
+          items: [],
+          nextCursor: null,
+          totalCount: 0,
+        }),
+      ),
+    );
+
+    const response = await GET(
+      new Request(
+        "https://platform-web.example.test/api/library/materials?q=platform&topic=product-engineering&format=video&sort=title",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    const backendRequest = vi.mocked(fetch).mock.calls[0]?.[0];
+    expect(backendRequest).toBeInstanceOf(Request);
+    const backendUrl = new URL((backendRequest as Request).url);
+    expect(backendUrl.searchParams.get("q")).toBe("platform");
+    expect(backendUrl.searchParams.getAll("topic")).toEqual([
+      "product-engineering",
+    ]);
+    expect(backendUrl.searchParams.getAll("format")).toEqual(["video"]);
+    expect(backendUrl.searchParams.get("sort")).toBe("title");
   });
 
   it("rejects ambiguous BFF cursors before calling NestJS", async () => {

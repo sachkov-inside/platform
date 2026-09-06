@@ -5,8 +5,10 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import {
-  CatalogControls,
+  LibrarySearchControl,
+  MaterialCatalogControls,
   MaterialCatalogGrid,
+  changeLibraryQuery,
   formatFoundMaterialCount,
   libraryHref,
   parseLibrarySearchParams,
@@ -15,7 +17,6 @@ import {
 } from "@/features/library-catalog";
 import {
   PlaylistCard,
-  TopicCard,
   formatMaterialCount,
 } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
@@ -40,46 +41,59 @@ export function LibraryPage({
   readonly result: LibraryCatalogPage;
 }) {
   const effectiveReturnHref = returnHref ?? libraryHref(query);
-  const facets =
-    result.kind === "ready"
-      ? result.facets
-      : { formats: [], series: [], topics: [] };
   return (
     <div
       aria-busy={isRefreshing}
-      className="@container/library min-w-0"
+      className="@container/library min-w-0 overflow-x-clip"
     >
       <LibraryHeader />
       <div>
-        <CatalogControls
-          facets={facets}
-          isRefreshing={isRefreshing}
-          onQueryChange={onQueryChange}
-          query={query}
-          resetQuery={emptyLibraryQuery()}
-          {...(result.kind === "ready" ? { totalCount: result.totalCount } : {})}
-        />
+        <div className="mt-7">
+          <LibrarySearchControl
+            onQueryChange={onQueryChange}
+            query={query}
+          />
+        </div>
         {result.kind === "ready" ? (
-          <LibraryCollections
-            facets={result.facets}
+          <LibrarySeries
+            q={query.q}
             returnHref={effectiveReturnHref}
+            series={result.facets.series}
           />
         ) : null}
-        {result.kind === "ready"
-          ? result.totalCount === 0
-            ? <LibraryNoResults
-                onReset={() => {
-                  onQueryChange(emptyLibraryQuery());
-                }}
+        {result.kind === "ready" ? (
+          <LibraryMaterials
+            controls={
+              <MaterialCatalogControls
+                facets={result.facets}
+                isRefreshing={isRefreshing}
+                onQueryChange={onQueryChange}
+                query={query}
+                resetQuery={materialResetQuery(query)}
+                totalCount={result.totalCount}
               />
-            : catalog ?? (
-                <LibraryCatalog
-                  items={result.items}
-                  returnHref={effectiveReturnHref}
-                  totalCount={result.totalCount}
-                />
-              )
-          : null}
+            }
+            totalCount={result.totalCount}
+          >
+            {result.totalCount === 0 ? (
+              <LibraryNoResults
+                hasMaterialFilters={hasMaterialFilters(query)}
+                onClearFilters={() => {
+                  onQueryChange(materialResetQuery(query));
+                }}
+                onClearSearch={() => {
+                  onQueryChange(changeLibraryQuery(query, { q: "" }));
+                }}
+                q={query.q}
+              />
+            ) : catalog ?? (
+              <LibraryCatalog
+                items={result.items}
+                returnHref={effectiveReturnHref}
+              />
+            )}
+          </LibraryMaterials>
+        ) : null}
         {result.kind === "empty" ? <LibraryEmpty /> : null}
         {result.kind === "unavailable" ? (
           <LibraryUnavailable
@@ -156,70 +170,58 @@ function LibraryHeader() {
     <>
       <PublicProductHeader />
       <header className="mt-9 md:mt-12">
-      <h1 className="text-[2.25rem] font-semibold leading-none tracking-[-0.055em] md:text-6xl">
-        База знаний
-      </h1>
+        <h1 className="text-[2.25rem] font-semibold leading-none tracking-[-0.055em] md:text-6xl">
+          База знаний
+        </h1>
       </header>
     </>
   );
 }
 
-function LibraryCollections({
-  facets,
+function LibrarySeries({
+  q,
   returnHref,
+  series,
 }: {
-  readonly facets: Extract<LibraryCatalogPage, { readonly kind: "ready" }>["facets"];
+  readonly q: string;
   readonly returnHref: Route;
+  readonly series: Extract<
+    LibraryCatalogPage,
+    { readonly kind: "ready" }
+  >["facets"]["series"];
 }) {
   return (
-    <>
-      <section aria-labelledby="topics-heading">
-        <CollectionHeading count={facets.topics.length} id="topics-heading" title="Темы" />
-        {facets.topics.length === 0 ? (
-          <CollectionEmpty label="Тем пока нет" />
-        ) : (
-          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-7 @min-[48rem]/library:grid-cols-5 @min-[68rem]/library:grid-cols-6">
-            {facets.topics.map((topic) => (
-              <TopicCard
-                key={topic.slug}
-                returnHref={returnHref}
-                topic={{
-                  count: topic.count,
-                  cover: topic.cover,
-                  name: topic.name,
-                  slug: topic.slug,
-                  summary: topic.summary ?? "",
-                }}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section aria-labelledby="playlists-heading">
-        <CollectionHeading count={facets.series.length} id="playlists-heading" title="Плейлисты" />
-        {facets.series.length === 0 ? (
-          <CollectionEmpty label="Плейлистов пока нет" />
-        ) : (
-          <div className="mt-4 grid gap-4 @min-[48rem]/library:grid-cols-2">
-            {facets.series.map((playlist) => (
-              <PlaylistCard
-                key={playlist.slug}
-                returnHref={returnHref}
-                playlist={{
-                  countLabel: formatMaterialCount(playlist.count),
-                  cover: playlist.cover,
-                  name: playlist.name,
-                  previewItems: playlist.previewItems ?? [],
-                  slug: playlist.slug,
-                  summary: playlist.summary ?? "",
-                }}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-    </>
+    <section aria-labelledby="series-heading">
+      <CollectionHeading
+        count={series.length}
+        id="series-heading"
+        title="Серии"
+      />
+      {series.length === 0 ? (
+        <CollectionEmpty
+          label={
+            q.length === 0 ? "Серий пока нет" : "Серии по запросу не найдены"
+          }
+        />
+      ) : (
+        <div className="mt-4 grid gap-4 @min-[48rem]/library:grid-cols-2">
+          {series.map((playlist) => (
+            <PlaylistCard
+              key={playlist.slug}
+              returnHref={returnHref}
+              playlist={{
+                countLabel: formatMaterialCount(playlist.count),
+                cover: playlist.cover,
+                name: playlist.name,
+                previewItems: playlist.previewItems ?? [],
+                slug: playlist.slug,
+                summary: playlist.summary ?? "",
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -255,30 +257,56 @@ function CollectionHeading({
 export function LibraryCatalog({
   items,
   returnHref = "/library",
-  totalCount,
 }: {
   readonly items: Extract<LibraryCatalogPage, { readonly kind: "ready" }>["items"];
   readonly returnHref?: Route;
+}) {
+  return (
+    <MaterialCatalogGrid className="mt-4" items={items} returnHref={returnHref} />
+  );
+}
+
+function LibraryMaterials({
+  children,
+  controls,
+  totalCount,
+}: {
+  readonly children: React.ReactNode;
+  readonly controls: React.ReactNode;
   readonly totalCount: number;
 }) {
   return (
-    <section aria-labelledby="materials-heading" data-library-state="ready">
+    <section
+      aria-labelledby="materials-heading"
+      className="mt-11"
+      data-library-state="ready"
+    >
       <PublicSectionHeading
         aside={
           <p className="text-sm font-semibold text-muted-foreground">
             {formatFoundMaterialCount(totalCount)}
           </p>
         }
-        className="mt-11"
         id="materials-heading"
         title="Материалы"
       />
-      <MaterialCatalogGrid className="mt-4" items={items} returnHref={returnHref} />
+      {controls}
+      {children}
     </section>
   );
 }
 
-function LibraryNoResults({ onReset }: { readonly onReset: () => void }) {
+function LibraryNoResults({
+  hasMaterialFilters,
+  onClearFilters,
+  onClearSearch,
+  q,
+}: {
+  readonly hasMaterialFilters: boolean;
+  readonly onClearFilters: () => void;
+  readonly onClearSearch: () => void;
+  readonly q: string;
+}) {
   return (
     <section
       aria-labelledby="library-no-results-heading"
@@ -291,21 +319,34 @@ function LibraryNoResults({ onReset }: { readonly onReset: () => void }) {
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
         Измените запрос или сбросьте фильтры.
       </p>
-      <Button
-        aria-label="Сбросить поиск и фильтры"
-        className="mt-5 min-h-11 px-4"
-        onClick={onReset}
-        type="button"
-        variant="outline"
-      >
-        Показать все материалы
-      </Button>
+      <div className="mt-5 flex flex-wrap justify-center gap-3">
+        {hasMaterialFilters ? (
+          <Button onClick={onClearFilters} type="button" variant="outline">
+            Сбросить фильтры материалов
+          </Button>
+        ) : null}
+        {q.length > 0 ? (
+          <Button onClick={onClearSearch} type="button" variant="outline">
+            Очистить поиск
+          </Button>
+        ) : null}
+      </div>
     </section>
   );
 }
 
-function emptyLibraryQuery(): LibrarySearchQuery {
-  return parseLibrarySearchParams(new URLSearchParams()).query;
+function materialResetQuery(query: LibrarySearchQuery): LibrarySearchQuery {
+  const defaults = parseLibrarySearchParams({ q: query.q }).query;
+  return changeLibraryQuery(query, {
+    formatSlugs: [],
+    sort: defaults.sort,
+    topicSlug: null,
+  });
+}
+
+function hasMaterialFilters(query: LibrarySearchQuery): boolean {
+  const reset = materialResetQuery(query);
+  return query.formatSlugs.length > 0 || query.topicSlug !== null || query.sort !== reset.sort;
 }
 
 function LibraryEmpty() {

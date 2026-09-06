@@ -109,6 +109,11 @@ test("creates or edits the Account Profile and preserves the member projection",
 }, testInfo) => {
   await addFullStackSession(context, "FULLSTACK_LOGTO_MEMBER_SESSION");
 
+  const home = await page.goto("/");
+  expect(home?.status()).toBe(200);
+  await expect(page.locator('[data-home-membership="active"]')).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Подписка Inside" })).toHaveCount(0);
+
   const profileStateResponse = await page.request.get("/api/account/profile");
   expect(profileStateResponse.status()).toBe(200);
   const profileState = (await profileStateResponse.json()) as {
@@ -174,11 +179,14 @@ test("creates or edits the Account Profile and preserves the member projection",
     path: resolve(avatarEvidenceDirectory, `account-${viewportName}.png`),
   });
 
-  const bio =
+  const bioInput = page.getByLabel("О себе · необязательно");
+  const preferredBio =
     testInfo.project.name === "mobile-chromium"
       ? "Развиваю инженерные команды и проверяю agent-first delivery на практике."
       : "Развиваю инженерные команды и изучаю agent-first delivery.";
-  await page.getByLabel("О себе · необязательно").fill(bio);
+  const alternateBio = `${preferredBio} Проверка повторного запуска.`;
+  const bio = (await bioInput.inputValue()) === preferredBio ? alternateBio : preferredBio;
+  await bioInput.fill(bio);
   await page.getByRole("button", { name: /Создать|Сохранить/u }).click();
   await expect(page.getByText("Профиль сохранён.")).toBeVisible();
   await expect(page.getByRole("article").getByText(bio)).toBeVisible();

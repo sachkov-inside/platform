@@ -34,11 +34,11 @@ export const TopicDesktop: Story = {
     await expect(
       canvas.getByRole("heading", { level: 1, name: "Продуктовая разработка" }),
     ).toBeVisible();
-    await expect(canvas.getByRole("heading", { level: 2, name: "Плейлисты по теме" })).toBeVisible();
+    await expect(canvas.getByRole("heading", { level: 2, name: "Серии по теме" })).toBeVisible();
     await expect(canvas.getByRole("heading", { level: 2, name: "Материалы" })).toBeVisible();
     await expect(canvasElement.querySelectorAll("[data-playlist-card]")).toHaveLength(3);
     await expect(canvas.queryByText(/без скрытого ограничения/u)).not.toBeInTheDocument();
-    await expect(canvas.queryByText(/Плейлист может продолжаться/u)).not.toBeInTheDocument();
+    await expect(canvas.queryByText(/Серия может продолжаться/u)).not.toBeInTheDocument();
 
     for (const card of canvasElement.querySelectorAll<HTMLElement>("[data-playlist-card]")) {
       await expect(card.getBoundingClientRect().width).toBeLessThanOrEqual(540);
@@ -114,7 +114,7 @@ export const TopicEmpty: Story = {
   name: "Topic · empty",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Плейлистов по теме пока нет")).toBeVisible();
+    await expect(canvas.getByText("Серий по теме пока нет")).toBeVisible();
     await expect(canvas.getByText("В теме пока нет материалов")).toBeVisible();
   },
 };
@@ -138,8 +138,8 @@ export const PlaylistDesktop: Story = {
     await expect(
       canvas.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
     ).toBeVisible();
-    await expect(canvas.getByRole("navigation", { name: "Темы плейлиста" })).toBeVisible();
-    await expect(canvas.queryByText(/Плейлист открывается целиком/u)).not.toBeInTheDocument();
+    await expect(canvas.getByRole("navigation", { name: "Темы серии" })).toBeVisible();
+    await expect(canvas.queryByText(/Серия открывается целиком/u)).not.toBeInTheDocument();
     await expect(
       [...canvasElement.querySelectorAll("[data-playlist-ordinal]")].map((item) =>
         item.getAttribute("data-playlist-ordinal"),
@@ -194,7 +194,7 @@ export const PlaylistEmpty: Story = {
   name: "Playlist · empty",
   render: (args) => <PlaylistPagePrototype {...args} />,
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByText("Плейлист пока пуст")).toBeVisible();
+    await expect(within(canvasElement).getByText("Серия пока пуст")).toBeVisible();
   },
 };
 
