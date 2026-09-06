@@ -185,6 +185,15 @@ export function PartsEditor({
           {renderLibrary(
             (part) => {
               if (disabled) return;
+              if (
+                (choosing === "new" && parts.length >= maxParts) ||
+                (choosing !== "new" &&
+                  !parts.some((prior) => prior.partId === choosing))
+              ) {
+                setNotice("Список сообщений изменился. Выберите часть заново.");
+                setChoosing(null);
+                return;
+              }
               onChange(
                 choosing === "new"
                   ? [...parts, part]

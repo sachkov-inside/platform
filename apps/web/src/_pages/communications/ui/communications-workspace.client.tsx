@@ -196,7 +196,11 @@ export function CommunicationsWorkspace({
       });
     },
   });
+  const savePostMutation = useMutation({ mutationFn: actions.savePost });
+  const samplePostMutation = useMutation({ mutationFn: actions.samplePost });
   const busy =
+    savePostMutation.isPending ||
+    samplePostMutation.isPending ||
     reload.isPending ||
     save.isPending ||
     publish.isPending ||
@@ -217,7 +221,7 @@ export function CommunicationsWorkspace({
       expectedRevision: post.revision,
       payload: { templateId: post.templateId, content: post.content },
     };
-    const result = await actions.savePost({
+    const result = await savePostMutation.mutateAsync({
       ...input,
       operationId: operationId(["post-save", input]),
     });
@@ -253,7 +257,7 @@ export function CommunicationsWorkspace({
             payload: { templateId: post.templateId },
           };
           const key = ["post-sample", input];
-          const result = await actions.samplePost({
+          const result = await samplePostMutation.mutateAsync({
             ...input,
             operationId: operationId(key),
           });
@@ -519,6 +523,7 @@ export function CommunicationsWorkspace({
                     className="space-y-4"
                   >
                     <PartsEditor
+                      key={activeIntro.introId}
                       label="Части общего знакомства"
                       maxParts={100}
                       parts={activeIntro.parts}
@@ -619,6 +624,7 @@ export function CommunicationsWorkspace({
                     </div>
                     <div className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6">
                       <PartsEditor
+                        key={`${selected.funnelId}:${selected.entryResponse.stepId}`}
                         label="Непосредственный ответ по ссылке"
                         maxParts={100}
                         parts={selected.entryResponse.parts}

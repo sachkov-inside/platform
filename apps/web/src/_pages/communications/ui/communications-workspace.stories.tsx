@@ -480,3 +480,104 @@ export const Dark: Story = {
     await openFunnel(canvasElement);
   },
 };
+
+export const SavedPostPagination: Story = {
+  args: {
+    actions: {
+      ...actions,
+      saveIntro: fn<CommunicationsActions["saveIntro"]>(actions.saveIntro),
+      saveFunnel: fn<CommunicationsActions["saveFunnel"]>(actions.saveFunnel),
+      readSavedPosts: fn<CommunicationsActions["readSavedPosts"]>((cursor) =>
+        Promise.resolve({
+          kind: "ready",
+          templates: [{ templateId: id, revision: 1, content: part.content }],
+          nextCursor: cursor ? null : "next-page",
+        }),
+      ),
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = await openFunnel(canvasElement);
+    await userEvent.click(
+      canvas.getByText("Общее знакомство · один раз на человека"),
+    );
+    for (const name of [
+      "Части общего знакомства",
+      "Непосредственный ответ по ссылке",
+    ]) {
+      const group = within(canvas.getByRole("group", { name }));
+      await userEvent.click(
+        group.getByRole("button", { name: "Добавить сохранённый пост" }),
+      );
+      await userEvent.click(
+        group.getByRole("button", { name: "Обновить посты" }),
+      );
+      await userEvent.click(
+        await group.findByRole("button", { name: "Следующие посты" }),
+      );
+      await expect(args.actions.readSavedPosts).toHaveBeenCalledWith(
+        "next-page",
+      );
+      await expect(args.actions.saveIntro).not.toHaveBeenCalled();
+      await expect(args.actions.saveFunnel).not.toHaveBeenCalled();
+      await userEvent.click(
+        group.getByRole("button", { name: "Закрыть выбор" }),
+      );
+    }
+  },
+};
+
+export const SwitchFunnelWhileChoosing: Story = {
+  args: {
+    actions: {
+      ...actions,
+      listFunnels: fn<CommunicationsActions["listFunnels"]>(() =>
+        Promise.resolve({
+          kind: "ready",
+          value: {
+            funnels: [
+              funnel,
+              {
+                ...funnel,
+                funnelId: "30800000-0000-4000-8000-000000000020",
+                name: "Другая воронка",
+                entryResponse: {
+                  stepId: "30800000-0000-4000-8000-000000000021",
+                  parts: [
+                    { ...part, partId: "30800000-0000-4000-8000-000000000022" },
+                  ],
+                },
+              },
+            ],
+            nextCursor: null,
+            botStartUrl: "https://t.me/inside_synthetic_bot",
+          },
+        }),
+      ),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = await openFunnel(canvasElement);
+    const group = within(
+      canvas.getByRole("group", { name: "Непосредственный ответ по ссылке" }),
+    );
+    await userEvent.click(
+      group.getByRole("button", {
+        name: "Заменить часть 1 из сохранённых постов",
+      }),
+    );
+    await expect(group.getByText("Замена выбранной части")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть Другая воронка" }),
+    );
+    await expect(
+      canvas.queryByText("Замена выбранной части"),
+    ).not.toBeInTheDocument();
+    await expect(canvas.getByLabelText("Название воронки")).toHaveValue(
+      "Другая воронка",
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Отменить несохранённые правки" }),
+    ).toBeDisabled();
+  },
+};

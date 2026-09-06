@@ -82,7 +82,7 @@ export function PostLibrary(
         </div>
       )}
       {props.hasNext ? (
-        <Button variant="outline" onClick={props.onNext}>
+        <Button type="button" variant="outline" onClick={props.onNext}>
           Следующие посты
         </Button>
       ) : null}
