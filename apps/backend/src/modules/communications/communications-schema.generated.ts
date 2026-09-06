@@ -18,6 +18,7 @@ export const entitySchema = z.strictObject({
 export const buttonSchema = z.strictObject({
   "text": z.string().min(1).max(64),
   "url": z.url().max(2048).regex(new RegExp("^https://")),
+  "row": z.number().int().min(0).max(19).optional(),
 });
 
 export const contentSchema = z.union([z.strictObject({
@@ -375,6 +376,16 @@ z.strictObject({
   "cursor": z.string().min(1).max(128).optional(),
   "contactId": z.guid(),
 }),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "operation": z.literal("templates.list"),
+  "operationId": z.guid(),
+  "actor": actorSchema,
+  "expectedRevision": z.number().int().min(0).max(2147483647),
+  "payload": z.strictObject({
+  "cursor": z.string().min(1).max(128).optional(),
+}),
 })
 ]);
 
@@ -616,5 +627,54 @@ z.strictObject({
   "status": z.literal("ok"),
   "nextCursor": z.union([z.string().max(128), z.null()]),
   "entries": z.array(sourceEntrySchema).min(0).max(100),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "status": z.literal("ok"),
+  "nextCursor": z.union([z.string().max(128), z.null()]),
+  "templates": z.array(templateSchema).min(0).max(100),
+})
+]);
+
+export const contentValidationRequestSchema = z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "requestId": z.guid(),
+  "permission": z.literal("communications:manage"),
+  "subject": z.union([
+z.strictObject({
+  "kind": z.literal("account"),
+  "accountRef": z.string().min(1).max(128),
+}),
+z.strictObject({
+  "kind": z.literal("telegram"),
+  "accountRef": z.string().min(1).max(128),
+  "telegramIdentityRef": z.string().min(1).max(128),
+  "botIdentity": z.string().min(1).max(128),
+})
+]),
+  "parts": z.array(partSchema).min(1).max(2100),
+});
+
+export const contentTargetErrorSchema = z.strictObject({
+  "url": z.url(),
+  "reason": z.enum(["not_found","not_published","not_free","incomplete"]),
+  "targetId": z.union([
+z.guid(),
+z.null()
+]),
+});
+
+export const contentValidationResponseSchema = z.union([
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "requestId": z.guid(),
+  "status": z.literal("ok"),
+  "accountRef": z.string().min(1).max(128),
+  "targetErrors": z.array(contentTargetErrorSchema),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "requestId": z.guid(),
+  "status": z.literal("denied"),
 })
 ]);

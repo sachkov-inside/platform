@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, mocked, userEvent, within } from "storybook/test";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { AuthoringShell } from "@/widgets/authoring-shell";
 import type { Funnel, Part, Preview } from "../model/communications";
 import {
   CommunicationsWorkspace,
@@ -57,6 +59,38 @@ const preview: Preview = {
   targetErrors: [],
 };
 const actions: CommunicationsActions = {
+  readSavedPosts: fn<CommunicationsActions["readSavedPosts"]>(() =>
+    Promise.resolve({
+      kind: "ready",
+      templates: [
+        {
+          templateId: id,
+          revision: 1,
+          content: {
+            type: "video_note",
+            text: "",
+            entities: [],
+            buttons: [],
+            fileId: "synthetic_file",
+          },
+        },
+      ],
+      nextCursor: null,
+    }),
+  ),
+  savePost: fn<CommunicationsActions["savePost"]>((input) =>
+    Promise.resolve({
+      kind: "ready",
+      template: {
+        templateId: input.payload.templateId,
+        revision: input.expectedRevision + 1,
+        content: input.payload.content,
+      },
+    }),
+  ),
+  samplePost: fn<CommunicationsActions["samplePost"]>(() =>
+    Promise.resolve({ kind: "ready", testDeliveryId: id }),
+  ),
   listFunnels: fn<CommunicationsActions["listFunnels"]>(() =>
     Promise.resolve({
       kind: "ready",
@@ -172,14 +206,28 @@ const meta = {
   title: "Pages/Authoring/Воронки Telegram",
   component: CommunicationsWorkspace,
   args: { actions },
+  beforeEach: () => {
+    mocked(usePathname).mockReturnValue("/authoring/communications");
+  },
   decorators: [
     (Story) => (
       <QueryFixture>
-        <Story />
+        <AuthoringShell>
+          <Story />
+        </AuthoringShell>
       </QueryFixture>
     ),
   ],
-  parameters: { layout: "fullscreen", nextjs: { appDirectory: true } },
+  parameters: {
+    layout: "fullscreen",
+    nextjs: { appDirectory: true },
+    docs: {
+      description: {
+        component:
+          "Редактор воронок использует тот же компонент и AuthoringShell, что и /authoring/communications. Сохранение черновика, проверка охвата и публикация — отдельные действия. Все данные здесь синтетические; сообщения не отправляются. Визуальное принятие: #316.",
+      },
+    },
+  },
   tags: ["autodocs"],
 } satisfies Meta<typeof CommunicationsWorkspace>;
 export default meta;
@@ -316,14 +364,19 @@ export const MultipartMobile: Story = {
     const editor = within(
       canvas.getByRole("region", { name: "Редактор воронки" }),
     );
-    const field = editor.getAllByLabelText("ID или ссылка заготовки")[0];
-    if (!field) throw new Error("Missing template field");
-    await userEvent.type(field, id);
     const button = editor.getAllByRole("button", {
-      name: "Добавить заготовку",
+      name: "Добавить сохранённый пост",
     })[0];
-    if (!button) throw new Error("Missing template button");
+    if (!button) throw new Error("Missing post picker");
     await userEvent.click(button);
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /Кружок · v1/ }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Добавить в последовательность",
+      }),
+    );
     await expect(await canvas.findByText("Часть 2 · Кружок")).toBeVisible();
   },
 };
@@ -381,5 +434,150 @@ export const UnknownDelivery: Story = {
       }),
     );
     await expect(retry).toBeEnabled();
+  },
+};
+
+export const LoadError: Story = {
+  args: {
+    actions: {
+      ...actions,
+      listFunnels: fn<CommunicationsActions["listFunnels"]>(() =>
+        Promise.resolve({ kind: "error", code: "unavailable" }),
+      ),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "Не удалось открыть воронки",
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Повторить загрузку" }),
+    ).toBeEnabled();
+  },
+};
+export const Keyboard: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = await openFunnel(canvasElement);
+    await userEvent.click(canvas.getByLabelText("Название воронки"));
+    await userEvent.tab();
+    await expect(
+      canvas.getByRole("checkbox", {
+        name: "Стандартная воронка для обычного запуска бота",
+      }),
+    ).toHaveFocus();
+  },
+};
+export const NarrowMobile: Story = {
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await openFunnel(canvasElement);
+  },
+};
+export const Dark: Story = {
+  globals: { theme: "dark" },
+  play: async ({ canvasElement }) => {
+    await openFunnel(canvasElement);
+  },
+};
+
+export const SavedPostPagination: Story = {
+  args: {
+    actions: {
+      ...actions,
+      saveIntro: fn<CommunicationsActions["saveIntro"]>(actions.saveIntro),
+      saveFunnel: fn<CommunicationsActions["saveFunnel"]>(actions.saveFunnel),
+      readSavedPosts: fn<CommunicationsActions["readSavedPosts"]>((cursor) =>
+        Promise.resolve({
+          kind: "ready",
+          templates: [{ templateId: id, revision: 1, content: part.content }],
+          nextCursor: cursor ? null : "next-page",
+        }),
+      ),
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = await openFunnel(canvasElement);
+    await userEvent.click(
+      canvas.getByText("Общее знакомство · один раз на человека"),
+    );
+    for (const name of [
+      "Части общего знакомства",
+      "Непосредственный ответ по ссылке",
+    ]) {
+      const group = within(canvas.getByRole("group", { name }));
+      await userEvent.click(
+        group.getByRole("button", { name: "Добавить сохранённый пост" }),
+      );
+      await userEvent.click(
+        group.getByRole("button", { name: "Обновить посты" }),
+      );
+      await userEvent.click(
+        await group.findByRole("button", { name: "Следующие посты" }),
+      );
+      await expect(args.actions.readSavedPosts).toHaveBeenCalledWith(
+        "next-page",
+      );
+      await expect(args.actions.saveIntro).not.toHaveBeenCalled();
+      await expect(args.actions.saveFunnel).not.toHaveBeenCalled();
+      await userEvent.click(
+        group.getByRole("button", { name: "Закрыть выбор" }),
+      );
+    }
+  },
+};
+
+export const SwitchFunnelWhileChoosing: Story = {
+  args: {
+    actions: {
+      ...actions,
+      listFunnels: fn<CommunicationsActions["listFunnels"]>(() =>
+        Promise.resolve({
+          kind: "ready",
+          value: {
+            funnels: [
+              funnel,
+              {
+                ...funnel,
+                funnelId: "30800000-0000-4000-8000-000000000020",
+                name: "Другая воронка",
+                entryResponse: {
+                  stepId: "30800000-0000-4000-8000-000000000021",
+                  parts: [
+                    { ...part, partId: "30800000-0000-4000-8000-000000000022" },
+                  ],
+                },
+              },
+            ],
+            nextCursor: null,
+            botStartUrl: "https://t.me/inside_synthetic_bot",
+          },
+        }),
+      ),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = await openFunnel(canvasElement);
+    const group = within(
+      canvas.getByRole("group", { name: "Непосредственный ответ по ссылке" }),
+    );
+    await userEvent.click(
+      group.getByRole("button", {
+        name: "Заменить часть 1 из сохранённых постов",
+      }),
+    );
+    await expect(group.getByText("Замена выбранной части")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть Другая воронка" }),
+    );
+    await expect(
+      canvas.queryByText("Замена выбранной части"),
+    ).not.toBeInTheDocument();
+    await expect(canvas.getByLabelText("Название воронки")).toHaveValue(
+      "Другая воронка",
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Отменить несохранённые правки" }),
+    ).toBeDisabled();
   },
 };

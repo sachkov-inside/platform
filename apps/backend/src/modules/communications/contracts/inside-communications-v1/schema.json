@@ -79,6 +79,11 @@
           "format": "uri",
           "maxLength": 2048,
           "pattern": "^https://"
+        },
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 19
         }
       },
       "required": ["text", "url"]
@@ -1456,6 +1461,50 @@
             "expectedRevision",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "enum": ["inside-communications-v1"]
+            },
+            "operation": {
+              "enum": ["templates.list"]
+            },
+            "operationId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "actor": {
+              "$ref": "#/definitions/actor"
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "payload": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cursor": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "required": []
+            }
+          },
+          "required": [
+            "contractVersion",
+            "operation",
+            "operationId",
+            "actor",
+            "expectedRevision",
+            "payload"
+          ]
         }
       ]
     },
@@ -2307,6 +2356,31 @@
             }
           },
           "required": ["contractVersion", "status", "entries", "nextCursor"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "enum": ["inside-communications-v1"]
+            },
+            "status": {
+              "enum": ["ok"]
+            },
+            "nextCursor": {
+              "type": ["string", "null"],
+              "maxLength": 128
+            },
+            "templates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/template"
+              },
+              "minItems": 0,
+              "maxItems": 100
+            }
+          },
+          "required": ["contractVersion", "status", "templates", "nextCursor"]
         }
       ]
     },
@@ -2509,6 +2583,166 @@
         }
       },
       "required": ["sourceId", "sourceCode", "funnelId", "enteredAt", "outcome"]
+    },
+    "contentValidationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contractVersion": {
+          "enum": ["inside-communications-v1"]
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "permission": {
+          "enum": ["communications:manage"]
+        },
+        "subject": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "enum": ["account"]
+                },
+                "accountRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "required": ["kind", "accountRef"]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "enum": ["telegram"]
+                },
+                "accountRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "telegramIdentityRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "botIdentity": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "required": [
+                "kind",
+                "accountRef",
+                "telegramIdentityRef",
+                "botIdentity"
+              ]
+            }
+          ]
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/part"
+          },
+          "minItems": 1,
+          "maxItems": 2100
+        }
+      },
+      "required": [
+        "contractVersion",
+        "requestId",
+        "permission",
+        "subject",
+        "parts"
+      ]
+    },
+    "contentTargetError": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "reason": {
+          "enum": ["not_found", "not_published", "not_free", "incomplete"]
+        },
+        "targetId": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": ["url", "reason", "targetId"]
+    },
+    "contentValidationResponse": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "enum": ["inside-communications-v1"]
+            },
+            "requestId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "enum": ["ok"]
+            },
+            "accountRef": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "targetErrors": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/contentTargetError"
+              }
+            }
+          },
+          "required": [
+            "contractVersion",
+            "requestId",
+            "status",
+            "accountRef",
+            "targetErrors"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "enum": ["inside-communications-v1"]
+            },
+            "requestId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "enum": ["denied"]
+            }
+          },
+          "required": ["contractVersion", "requestId", "status"]
+        }
+      ]
     }
   },
   "oneOf": [

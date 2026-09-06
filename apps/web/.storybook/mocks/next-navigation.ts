@@ -1,3 +1,5 @@
+import { fn } from "storybook/test";
+
 const router = {
   back: () => undefined,
   forward: () => undefined,
@@ -7,9 +9,7 @@ const router = {
   replace: () => undefined,
 };
 
-export function usePathname(): string {
-  return "/";
-}
+export const usePathname = fn((): string => "/");
 
 export function useRouter() {
   return router;
