@@ -31,6 +31,7 @@ describe("MCP Streamable HTTP adapter", () => {
     server = createMcpHttpServer({
       accounts: fakeAccounts(),
       authoring: stubMaterialAuthoring(),
+      communications: { execute: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }) },
       config: {
         host: "127.0.0.1",
         port: 0,
@@ -59,7 +60,7 @@ describe("MCP Streamable HTTP adapter", () => {
     try {
       await client.connect(transport);
       const { tools } = await client.listTools();
-      expect(tools.map(({ name }) => name)).toEqual([
+      expect(tools.map(({ name }) => name).filter(name => !name.startsWith("communications_"))).toEqual([
         "material_create_draft",
         "material_load",
         "material_save",
@@ -112,7 +113,7 @@ describe("MCP Streamable HTTP adapter", () => {
       resource: "http://127.0.0.1:0/mcp",
       authorization_servers: [issuer],
       bearer_methods_supported: ["header"],
-      resource_name: "Sachkov Inside Platform Material authoring",
+      resource_name: "Sachkov Inside Platform authoring",
     });
   });
 

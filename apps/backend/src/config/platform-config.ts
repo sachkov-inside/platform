@@ -203,6 +203,17 @@ const platformConfigSchema = z
     objectStorage: objectStorageSchema,
     kinescope: kinescopeSchema,
     telegramMembership: telegramMembershipSchema,
+    communications: z.object({
+      endpoint: httpUrlSchema("TELEGRAM_COMMUNICATIONS_ENDPOINT").refine(value => {
+        const url = new URL(value);
+        return (url.protocol === "https:" || ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)) &&
+          !url.username && !url.password && !url.search && !url.hash &&
+          url.pathname === "/integrations/platform/v1/communications";
+      }),
+      secret: telegramSecretSchema("TELEGRAM_COMMUNICATIONS_SECRET"),
+      authorizationSecret: telegramSecretSchema("TELEGRAM_AUTHOR_AUTHORIZATION_SECRET"),
+      botIdentity: z.string().min(1).max(128),
+    }).readonly().optional(),
   })
   .readonly();
 const platformDatabaseConfigSchema = z
@@ -304,6 +315,14 @@ export function parsePlatformConfig(
   const mode = parsePlatformMode(environment.NODE_ENV);
   const config = platformConfigSchema.safeParse({
     mode,
+    communications: [environment.TELEGRAM_COMMUNICATIONS_ENDPOINT, environment.TELEGRAM_COMMUNICATIONS_SECRET,
+      environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET, environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY].every(value => value === undefined)
+      ? undefined : {
+        endpoint: environment.TELEGRAM_COMMUNICATIONS_ENDPOINT,
+        secret: environment.TELEGRAM_COMMUNICATIONS_SECRET,
+        authorizationSecret: environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET,
+        botIdentity: environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY,
+      },
     database: parsePlatformDatabaseConfig(environment, mode),
     api: {
       host: readRuntimeValue(

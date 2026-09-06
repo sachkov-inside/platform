@@ -35,6 +35,7 @@ model AccountPermission {
 }
 
 model AccountAuditEvent {
+  permission String?
   id        String   @id @db.Uuid
   event     String
   accountId String?  @map("account_id") @db.Uuid

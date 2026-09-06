@@ -11,3 +11,5 @@ export type {
   TelegramLinkStatus,
   TelegramMembership,
 } from "./facets/telegram-membership/telegram-membership.interface.js";
+export { TelegramAccountLinks, type TelegramAccountLinkResult } from "./facets/telegram-account-links/telegram-account-links.js";
+export { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
