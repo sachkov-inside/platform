@@ -267,12 +267,6 @@ export const lifecycleLabels = {
   paused: "На паузе",
   archived: "В архиве",
 };
-export function newPart(): Part {
-  return {
-    partId: crypto.randomUUID(),
-    content: { type: "text", text: "", entities: [], buttons: [] },
-  };
-}
 export function newFunnel(): Funnel {
   return {
     funnelId: crypto.randomUUID(),

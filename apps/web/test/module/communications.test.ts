@@ -31,9 +31,10 @@ const form = (input: unknown) => {
 describe("communications browser and presentation boundary", () => {
   it("preserves operation identity and stale revision on repeated save without publishing", async () => {
     const draft = { ...newFunnel(), name: "Test" };
-    const first = draft.entryResponse.parts[0];
-    if (!first) throw new Error("Missing part");
-    first.content.text = "Hello";
+    draft.entryResponse.parts.push({
+      partId: id,
+      content: { type: "text", text: "Hello", entities: [], buttons: [] },
+    });
     const fetcher = vi.fn(() =>
       Promise.resolve(
         Response.json({ kind: "ready", value: { ...draft, revision: 1 } }),
