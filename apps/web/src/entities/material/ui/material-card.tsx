@@ -17,6 +17,8 @@ import { ContentCoverImage } from "./content-cover-image.client";
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
   readonly headingLevel?: "h2" | "h3";
+  /** #301 prototype: only the step annotation varies; row presentation stays shared. */
+  readonly rowAnnotation?: React.ReactNode;
   readonly material: MaterialPreview;
   readonly returnHref?: Route;
   readonly variant?: "compact" | "default" | "feed" | "row";
@@ -25,6 +27,7 @@ export interface MaterialCardProps {
 /** Safe published Material summary rendered in the accepted public visual language. */
 export function MaterialCard({
   headingLevel = "h2",
+  rowAnnotation,
   material,
   returnHref,
   variant = "default",
@@ -35,6 +38,7 @@ export function MaterialCard({
   if (variant === "row") {
     return (
       <MaterialRow
+        rowAnnotation={rowAnnotation}
         headingLevel={headingLevel}
         material={material}
         readerHref={readerHref}
@@ -147,11 +151,13 @@ export function MaterialCard({
 }
 
 function MaterialRow({
+  rowAnnotation,
   headingLevel,
   material,
   readerHref,
   returnHref,
 }: {
+  readonly rowAnnotation?: React.ReactNode;
   readonly headingLevel: "h2" | "h3";
   readonly material: MaterialPreview;
   readonly readerHref: Route;
@@ -197,6 +203,7 @@ function MaterialRow({
             {material.title}
           </Link>
         </Heading>
+        {rowAnnotation}
       </span>
       <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
     </article>
