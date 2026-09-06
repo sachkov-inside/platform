@@ -59,6 +59,38 @@ const preview: Preview = {
   targetErrors: [],
 };
 const actions: CommunicationsActions = {
+  readSavedPosts: fn<CommunicationsActions["readSavedPosts"]>(() =>
+    Promise.resolve({
+      kind: "ready",
+      templates: [
+        {
+          templateId: id,
+          revision: 1,
+          content: {
+            type: "video_note",
+            text: "",
+            entities: [],
+            buttons: [],
+            fileId: "synthetic_file",
+          },
+        },
+      ],
+      nextCursor: null,
+    }),
+  ),
+  savePost: fn<CommunicationsActions["savePost"]>((input) =>
+    Promise.resolve({
+      kind: "ready",
+      template: {
+        templateId: input.payload.templateId,
+        revision: input.expectedRevision + 1,
+        content: input.payload.content,
+      },
+    }),
+  ),
+  samplePost: fn<CommunicationsActions["samplePost"]>(() =>
+    Promise.resolve({ kind: "ready", testDeliveryId: id }),
+  ),
   listFunnels: fn<CommunicationsActions["listFunnels"]>(() =>
     Promise.resolve({
       kind: "ready",
@@ -332,14 +364,19 @@ export const MultipartMobile: Story = {
     const editor = within(
       canvas.getByRole("region", { name: "Редактор воронки" }),
     );
-    const field = editor.getAllByLabelText("ID или ссылка заготовки")[0];
-    if (!field) throw new Error("Missing template field");
-    await userEvent.type(field, id);
     const button = editor.getAllByRole("button", {
-      name: "Добавить заготовку",
+      name: "Добавить сохранённый пост",
     })[0];
-    if (!button) throw new Error("Missing template button");
+    if (!button) throw new Error("Missing post picker");
     await userEvent.click(button);
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /Кружок · v1/ }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Добавить в последовательность",
+      }),
+    );
     await expect(await canvas.findByText("Часть 2 · Кружок")).toBeVisible();
   },
 };

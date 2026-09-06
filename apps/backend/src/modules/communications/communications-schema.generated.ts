@@ -635,3 +635,46 @@ z.strictObject({
   "templates": z.array(templateSchema).min(0).max(100),
 })
 ]);
+
+export const contentValidationRequestSchema = z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "requestId": z.guid(),
+  "permission": z.literal("communications:manage"),
+  "subject": z.union([
+z.strictObject({
+  "kind": z.literal("account"),
+  "accountRef": z.string().min(1).max(128),
+}),
+z.strictObject({
+  "kind": z.literal("telegram"),
+  "accountRef": z.string().min(1).max(128),
+  "telegramIdentityRef": z.string().min(1).max(128),
+  "botIdentity": z.string().min(1).max(128),
+})
+]),
+  "parts": z.array(partSchema).min(1).max(2100),
+});
+
+export const contentTargetErrorSchema = z.strictObject({
+  "url": z.url(),
+  "reason": z.enum(["not_found","not_published","not_free","incomplete"]),
+  "targetId": z.union([
+z.guid(),
+z.null()
+]),
+});
+
+export const contentValidationResponseSchema = z.union([
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "requestId": z.guid(),
+  "status": z.literal("ok"),
+  "accountRef": z.string().min(1).max(128),
+  "targetErrors": z.array(contentTargetErrorSchema),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "requestId": z.guid(),
+  "status": z.literal("denied"),
+})
+]);

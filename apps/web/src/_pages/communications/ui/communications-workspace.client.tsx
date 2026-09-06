@@ -7,16 +7,20 @@ import { Button } from "@/shared/ui/button";
 import type * as Browser from "../api/communications.browser";
 import {
   draftSchema,
+  partSchema,
   lifecycleLabels,
   messages,
   newFunnel,
-  newPart,
   type Failure,
   type Funnel,
   type Intro,
   type Preview,
   type Result,
 } from "../model/communications";
+import { PostLibrary } from "./post-library.client";
+import { FunnelDelay } from "./funnel-delay.client";
+import type { Part } from "../model/communications";
+import type { SavedPost } from "../model/broadcasts";
 import { DeliveryHistory } from "./delivery-history.client";
 import { fieldClass, moveItem, PartsEditor } from "./parts-editor.client";
 
@@ -37,6 +41,7 @@ export function CommunicationsWorkspace({
   const [preview, setPreview] = useState<Preview | null>(null);
   const [notice, setNotice] = useState("");
   const [failure, setFailure] = useState<Failure | null>(null);
+  const [postCursor, setPostCursor] = useState<string | undefined>();
   const [cursor, setCursor] = useState<string | undefined>();
   const [deliveryCursor, setDeliveryCursor] = useState<string | undefined>();
   // Retain an operation identity for the same attempted payload, including after an ambiguous response.
@@ -157,12 +162,7 @@ export function CommunicationsWorkspace({
       });
     },
   });
-  const resolveTemplate = useMutation({
-    mutationFn: actions.resolveTemplate,
-    onSuccess: (result) => {
-      if (result.kind === "error") setFailure(result);
-    },
-  });
+
   const skip = useMutation({
     mutationFn: actions.skipDelivery,
     onSuccess: (result) => {
@@ -203,16 +203,74 @@ export function CommunicationsWorkspace({
     previewMutation.isPending ||
     lifecycle.isPending ||
     saveIntro.isPending ||
-    resolveTemplate.isPending ||
     skip.isPending ||
     retry.isPending;
   const activeIntro =
     introDraft ?? (intro.data?.kind === "ready" ? intro.data.value : null);
-  const resolve = (reference: string) =>
-    resolveTemplate.mutateAsync({
-      reference,
-      operationId: crypto.randomUUID(),
+  const posts = useQuery({
+    queryKey: ["communications", "posts", postCursor],
+    queryFn: () => actions.readSavedPosts(postCursor),
+    retry: false,
+  });
+  async function savePost(post: SavedPost) {
+    const input = {
+      expectedRevision: post.revision,
+      payload: { templateId: post.templateId, content: post.content },
+    };
+    const result = await actions.savePost({
+      ...input,
+      operationId: operationId(["post-save", input]),
     });
+    if (result.kind !== "ready") return null;
+    void cache.invalidateQueries({ queryKey: ["communications", "posts"] });
+    return result.template;
+  }
+  function renderLibrary(choose: (part: Part) => void, chooseLabel: string) {
+    return (
+      <PostLibrary
+        posts={posts.data?.kind === "ready" ? posts.data.templates : []}
+        loading={posts.isPending || posts.isFetching}
+        error={
+          posts.isError || posts.data?.kind === "error"
+            ? "Не удалось загрузить посты. Обновите список и проверьте доступ."
+            : null
+        }
+        hasNext={posts.data?.kind === "ready" && posts.data.nextCursor !== null}
+        onNext={() => {
+          if (posts.data?.kind === "ready")
+            setPostCursor(posts.data.nextCursor ?? undefined);
+        }}
+        onRefresh={() => {
+          setPostCursor(undefined);
+          void cache.invalidateQueries({
+            queryKey: ["communications", "posts"],
+          });
+        }}
+        onSave={savePost}
+        onSample={async (post) => {
+          const input = {
+            expectedRevision: post.revision,
+            payload: { templateId: post.templateId },
+          };
+          const key = ["post-sample", input];
+          const result = await actions.samplePost({
+            ...input,
+            operationId: operationId(key),
+          });
+          if (result.kind === "ready")
+            operationIds.current.delete(JSON.stringify(key));
+          return result.kind === "ready";
+        }}
+        onChoose={(part) => {
+          const parsed = partSchema.safeParse(part);
+          if (parsed.success) choose(parsed.data);
+          else setFailure({ kind: "error", code: "invalid" });
+        }}
+        chooseLabel={chooseLabel}
+        disabled={busy}
+      />
+    );
+  }
   function edit(value: Funnel) {
     setSelected(value);
     setPreview(null);
@@ -251,9 +309,9 @@ export function CommunicationsWorkspace({
             Воронки Telegram
           </h1>
           <p className="max-w-2xl text-muted-foreground">
-            Настройте знакомство, ответ по ссылке и последовательность
-            сообщений. Сохраните черновик, проверьте охват и опубликуйте
-            изменения.
+            Создайте посты в меню /admin вашего Telegram-бота. Здесь соберите из
+            них знакомство, первый ответ и шаги воронки, проверьте охват и
+            опубликуйте изменения.
           </p>
         </header>
         <div
@@ -462,14 +520,19 @@ export function CommunicationsWorkspace({
                   >
                     <PartsEditor
                       label="Части общего знакомства"
+                      maxParts={100}
                       parts={activeIntro.parts}
                       disabled={busy}
-                      resolveTemplate={resolve}
+                      renderLibrary={renderLibrary}
                       onChange={(parts) => {
                         setIntroDraft({ ...activeIntro, parts });
                       }}
                     />
-                    <Button type="submit" className="min-h-12" disabled={busy}>
+                    <Button
+                      type="submit"
+                      className="min-h-12"
+                      disabled={busy || !activeIntro.parts.length}
+                    >
                       Сохранить общее знакомство
                     </Button>
                   </form>
@@ -481,7 +544,7 @@ export function CommunicationsWorkspace({
                       setIntroDraft({
                         introId: crypto.randomUUID(),
                         revision: 0,
-                        parts: [newPart()],
+                        parts: [],
                       });
                     }}
                   >
@@ -557,8 +620,9 @@ export function CommunicationsWorkspace({
                     <div className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6">
                       <PartsEditor
                         label="Непосредственный ответ по ссылке"
+                        maxParts={100}
                         parts={selected.entryResponse.parts}
-                        resolveTemplate={resolve}
+                        renderLibrary={renderLibrary}
                         onChange={(parts) => {
                           edit({
                             ...selected,
@@ -638,40 +702,26 @@ export function CommunicationsWorkspace({
                               </Button>
                             </div>
                           </div>
-                          <label className="block max-w-xs text-sm font-medium">
-                            Задержка после предыдущего шага, секунд
-                            <input
-                              className={fieldClass}
-                              name={`delay-${step.stepId}`}
-                              type="number"
-                              min={0}
-                              max={2147483647}
-                              step={1}
-                              required
-                              value={step.delaySeconds}
-                              onChange={(e) => {
-                                edit({
-                                  ...selected,
-                                  steps: selected.steps.map((s, at) =>
-                                    at === index
-                                      ? {
-                                          ...s,
-                                          delaySeconds: e.target.valueAsNumber,
-                                        }
-                                      : s,
-                                  ),
-                                });
-                              }}
-                            />
-                          </label>
+                          <FunnelDelay
+                            name={`delay-${step.stepId}`}
+                            value={step.delaySeconds}
+                            onChange={(delaySeconds) => {
+                              edit({
+                                ...selected,
+                                steps: selected.steps.map((s, at) =>
+                                  at === index ? { ...s, delaySeconds } : s,
+                                ),
+                              });
+                            }}
+                          />
                           <p className="text-sm text-muted-foreground">
-                            86 400 секунд = 1 день. Для нового шага прежним
-                            участникам отсчёт начнётся не раньше публикации.
+                            Для нового шага прежним участникам отсчёт начнётся
+                            не раньше публикации.
                           </p>
                           <PartsEditor
                             label={`Части шага ${String(index + 1)}`}
                             parts={step.parts}
-                            resolveTemplate={resolve}
+                            renderLibrary={renderLibrary}
                             onChange={(parts) => {
                               edit({
                                 ...selected,
@@ -696,7 +746,7 @@ export function CommunicationsWorkspace({
                               {
                                 stepId: crypto.randomUUID(),
                                 delaySeconds: 86400,
-                                parts: [newPart()],
+                                parts: [],
                               },
                             ],
                           });

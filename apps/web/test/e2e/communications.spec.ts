@@ -87,6 +87,34 @@ test("funnel editor fits the live route and keeps keyboard controls reachable", 
       },
     }),
   );
+  await page.route("**/api/communications/templates?*", (route) =>
+    route.fulfill({
+      json: {
+        kind: "ready",
+        templates: [
+          {
+            templateId: part.partId,
+            revision: 1,
+            content: {
+              ...part.content,
+              type: "photo",
+              fileId: "synthetic-photo",
+              text: "Новый пост из Telegram",
+              entities: [{ type: "bold", offset: 0, length: 5 }],
+              buttons: [
+                {
+                  text: "Материал",
+                  url: "https://inside.test/materials/example",
+                  row: 0,
+                },
+              ],
+            },
+          },
+        ],
+        nextCursor: null,
+      },
+    }),
+  );
   await page.goto("/authoring/communications");
   await page
     .getByRole("button", { name: "Открыть Знакомство с Inside", exact: true })
@@ -110,7 +138,9 @@ test("funnel editor fits the live route and keeps keyboard controls reachable", 
       name: "Стандартная воронка для обычного запуска бота",
     });
     await expect(checkbox).toBeFocused();
-    await page.screenshot({ path: `${output}/live-${String(width)}-keyboard.png` });
+    await page.screenshot({
+      path: `${output}/live-${String(width)}-keyboard.png`,
+    });
     await page
       .getByRole("button", { name: "Проверить изменения и охват", exact: true })
       .click();
@@ -123,7 +153,9 @@ test("funnel editor fits the live route and keeps keyboard controls reachable", 
     await page
       .getByRole("heading", { name: "Проверка и публикация", exact: true })
       .scrollIntoViewIfNeeded();
-    await page.screenshot({ path: `${output}/live-${String(width)}-preview.png` });
+    await page.screenshot({
+      path: `${output}/live-${String(width)}-preview.png`,
+    });
     const overflow = await page.locator("#authoring-content").evaluate((root) =>
       [
         ...root.querySelectorAll<HTMLElement>(
@@ -147,4 +179,81 @@ test("funnel editor fits the live route and keeps keyboard controls reachable", 
         .violations,
     ).toEqual([]);
   }
+  let savedDraft: typeof funnel | undefined;
+  await page.route("**/api/communications/funnels/save", async (route) => {
+    const request = route.request();
+    const contentType = request.headers()["content-type"];
+    const body = request.postData();
+    if (!contentType || !body) throw new Error("Missing mutation body");
+    const form = await new Request(request.url(), {
+      method: "POST",
+      headers: { "content-type": contentType },
+      body,
+    }).formData();
+    const raw = form.get("input");
+    if (typeof raw !== "string") throw new Error("Missing form input");
+    const input = JSON.parse(raw) as {
+      draft: typeof funnel;
+    };
+    savedDraft = input.draft;
+    return route.fulfill({
+      json: {
+        kind: "ready",
+        value: {
+          ...input.draft,
+          revision: 4,
+          publishedRevision: 2,
+          lifecycle: "published",
+        },
+      },
+    });
+  });
+  const entry = page.getByRole("group", {
+    name: "Непосредственный ответ по ссылке",
+    exact: true,
+  });
+  await entry
+    .getByRole("button", {
+      name: "Заменить часть 1 из сохранённых постов",
+      exact: true,
+    })
+    .click();
+  await entry
+    .getByRole("button", { name: "Новый пост из Telegram · v1", exact: true })
+    .click();
+  expect(savedDraft).toBeUndefined();
+  await expect(
+    entry.getByRole("textbox", { name: "Название кнопки 1", exact: true }),
+  ).toHaveValue("Материал");
+  await page.screenshot({
+    path: `${output}/live-${testInfo.project.name}-post-picker.png`,
+  });
+  expect(
+    (await new AxeBuilder({ page }).include("#authoring-content").analyze())
+      .violations,
+  ).toEqual([]);
+  await entry
+    .getByRole("button", { name: "Заменить выбранную часть", exact: true })
+    .click();
+  await expect(
+    entry.getByText("Новый пост из Telegram", { exact: true }),
+  ).toBeVisible();
+  await expect(entry.getByRole("textbox")).toHaveCount(0);
+  expect(savedDraft).toBeUndefined();
+  await page
+    .getByRole("button", { name: "Сохранить черновик", exact: true })
+    .click();
+  await expect(
+    page.getByText("Черновик сохранён. Опубликованные сообщения не изменены.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(savedDraft?.entryResponse.parts[0]?.partId).toBe(part.partId);
+  expect(savedDraft?.entryResponse.parts[0]?.content).toMatchObject({
+    type: "photo",
+    fileId: "synthetic-photo",
+    entities: [{ type: "bold", offset: 0, length: 5 }],
+    buttons: [{ row: 0 }],
+  });
+  expect(savedDraft?.steps[0]?.delaySeconds).toBe(86400);
 });

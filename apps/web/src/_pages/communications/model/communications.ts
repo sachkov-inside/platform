@@ -276,7 +276,7 @@ export function newFunnel(): Funnel {
     lifecycle: "draft",
     name: "",
     isDefault: false,
-    entryResponse: { stepId: crypto.randomUUID(), parts: [newPart()] },
+    entryResponse: { stepId: crypto.randomUUID(), parts: [] },
     steps: [],
     sources: [],
   };
