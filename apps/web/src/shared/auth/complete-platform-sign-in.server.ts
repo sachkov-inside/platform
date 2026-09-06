@@ -1,14 +1,21 @@
 import "server-only";
 
+import { decodeJwt } from "jose";
+
 import {
   BackendConnectionError,
   establishAccount,
+  completeTelegramAccountSignIn,
   resolveAccount,
 } from "@/shared/api/backend/index.server";
 
 export async function completePlatformSignIn(
   accessToken: string,
 ): Promise<"complete" | "retryable"> {
+  if (decodeJwt(accessToken).inside_telegram_sign_in !== undefined) {
+    try { await completeTelegramAccountSignIn(accessToken); return "complete"; }
+    catch (error) { return handleCompletionError(error); }
+  }
   try {
     await resolveAccount(accessToken);
     return "complete";

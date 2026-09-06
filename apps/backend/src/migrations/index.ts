@@ -1,3 +1,4 @@
+import { name as telegramSignInMigrationName, statement as telegramSignInMigrationStatement } from "../modules/accounts/infrastructure/postgres/migrations/0028-telegram-sign-in.js";
 import {
   runMigrationsToLatest,
   type MigrationOutcome,
@@ -214,6 +215,7 @@ export const platformMigrations = [
     name: currentCollectionSearchMigrationName,
     statement: currentCollectionSearchMigrationStatement,
   },
+  { name: telegramSignInMigrationName, statement: telegramSignInMigrationStatement },
 ] as const;
 
 export function migrateToLatest(

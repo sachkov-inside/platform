@@ -82,8 +82,9 @@ async function main() {
   await ensureResource(api);
   const application = await ensureApplication(api);
   await ensureEmailConnector(api);
+  const telegramConnectorId = await ensureTelegramConnector(api);
   await ensureSignInExperience(api);
-  await ensureJwtCustomizer(api);
+  await ensureJwtCustomizer(api, telegramConnectorId);
   const applicationSecret = await readApplicationSecret(api, application.id);
   await writeRuntimeEnvironment(application.id, applicationSecret);
   if (process.argv.includes("--email-smoke")) {
@@ -266,19 +267,45 @@ export async function ensureSignInExperience(api) {
       },
       signUp: { identifiers: ["email"], password: false, verify: true },
       signInMode: "SignInAndRegister",
+      socialSignIn: { skipRequiredIdentifiers: true },
+      socialSignInConnectorTargets: process.env.TELEGRAM_SIGN_IN_ENABLED === "true" ? ["inside-telegram"] : [],
     },
   });
 }
 
-async function ensureJwtCustomizer(api) {
+async function ensureJwtCustomizer(api, telegramConnectorId) {
   const script = await readFile(
     resolve(root, "infra/identity/logto/custom-access-token.js"),
     "utf8",
   );
   await api("/configs/jwt-customizer/access-token", {
     method: "PUT",
-    body: { script, blockIssuanceOnError: true },
+    body: { script: script.replace("__INSIDE_TELEGRAM_CONNECTOR_ID__", telegramConnectorId ?? "disabled"), blockIssuanceOnError: true },
   });
+}
+
+export async function ensureTelegramConnector(api) {
+  const connectors = z.array(connectorSchema.extend({ config: z.record(z.string(), z.unknown()).optional() })).parse(await api("/connectors"));
+  const existing = connectors.find((connector) => connector.connectorId === "inside-telegram");
+  if (process.env.TELEGRAM_SIGN_IN_ENABLED !== "true") {
+    if (existing) await api(`/connectors/${existing.id}`, { method: "PATCH", body: { config: { ...existing.config, enabled: false } } });
+    return undefined;
+  }
+  // This is the disposable Logto owner's migration, never a Platform runtime DB access.
+  execFileSync("docker", ["compose", "--env-file", composeEnvironment, "-f", composeFile, "exec", "-T", "logto-postgres", "psql", "-U", "logto", "-d", "logto", "-v", "ON_ERROR_STOP=1"], {
+    cwd: root, input: await readFile(resolve(root, "infra/identity/logto/telegram-identity.sql")), stdio: ["pipe", "pipe", "pipe"],
+  });
+  const config = {
+    enabled: true,
+    issuer: `${endpoint}/oidc`,
+    platformUrl: process.env.TELEGRAM_SIGN_IN_PLATFORM_URL,
+    providerUrl: process.env.TELEGRAM_SIGN_IN_PROVIDER_URL,
+    integrationSecret: process.env.TELEGRAM_SIGN_IN_INTEGRATION_SECRET,
+    botUsername: process.env.TELEGRAM_SIGN_IN_BOT_USERNAME,
+  };
+  if (existing) { await api(`/connectors/${existing.id}`, { method: "PATCH", body: { config } }); return existing.id; }
+  const created = connectorSchema.parse(await api("/connectors", { method: "POST", body: { connectorId: "inside-telegram", config } }));
+  return created.id;
 }
 
 async function readApplicationSecret(api, applicationId) {
@@ -307,6 +334,7 @@ async function writeRuntimeEnvironment(applicationId, applicationSecret) {
   const existing = parseEnv(current);
   const updates = {
     NODE_ENV: "development",
+    TELEGRAM_SIGN_IN_ENABLED: process.env.TELEGRAM_SIGN_IN_ENABLED ?? "false",
     DATABASE_URL: `postgresql://inside:inside@127.0.0.1:${platformPostgresPort}/inside`,
     BACKEND_BASE_URL: platformResource,
     LOGTO_ENDPOINT: endpoint,

@@ -34,7 +34,7 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   assert.equal(versions.logto.version, "1.41.0");
   assert.match(versions.logto.digest, /^sha256:[0-9a-f]{64}$/u);
   assert.equal(versions.logto.upstreamRevision.length, 40);
-  assert.equal(versions.logto.forkRevision, "inside.2");
+  assert.equal(versions.logto.forkRevision, "inside.3");
   assert.match(dockerfile, new RegExp(versions.logto.digest, "u"));
   assert.match(dockerfile, new RegExp(versions.logto.upstreamRevision, "u"));
   assert.match(dockerfile, new RegExp(versions.logto.forkRevision, "u"));

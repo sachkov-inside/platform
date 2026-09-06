@@ -34,3 +34,5 @@ export {
 } from "./facets/accounts/accounts.interface.js";
 export type { LogtoAccessTokenVerifier } from "./infrastructure/idp/logto/logto-access-token-verifier.js";
 export { assembleDelegatedAccountTokenVerifier } from "./adapters/mcp/delegated-account-token-verifier.js";
+
+export type { VerifiedAccountSignIn } from "./facets/accounts/accounts.interface.js";

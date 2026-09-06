@@ -17,6 +17,10 @@ export function assembleAccounts({
     throw new TypeError("emailFingerprintKey must contain at least 32 characters");
   }
   const accounts: Accounts = {
+    async readIdentityForLink(accountId) {
+      const row = await prisma.account.findUnique({ where: { id: accountId } });
+      return row === null ? undefined : { issuer: row.logtoIssuer, subject: row.logtoSubject, telegramSubjectRef: row.telegramSubjectRef };
+    },
     establishAccount: (command) =>
       establishAccount(prisma, emailFingerprintKey, command),
     resolveAccount: (query) => resolveAccount(prisma, query),

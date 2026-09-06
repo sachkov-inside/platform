@@ -8,7 +8,7 @@
 
 ## Решение
 
-Logto владеет аутентификацией, email-code interaction, OAuth/OIDC protocol, provider session,
+Logto владеет аутентификацией по email-коду и подтверждению Telegram, OAuth/OIDC protocol, provider session,
 refresh и logout. Platform владеет одним локальным `Account`, business permissions и будущим
 `MembershipEntitlement`. Browser JavaScript не получает provider access/refresh tokens.
 
@@ -18,7 +18,7 @@ Logto access JWT для exact Platform audience, проверяет его и р
 `(issuer, subject)`.
 
 ```text
-email code -> Logto -> official Next BFF cookie
+email code / Telegram proof -> Logto -> official Next BFF cookie
                          |
                          | short-lived audience-bound access JWT
                          v
@@ -33,7 +33,8 @@ email code -> Logto -> official Next BFF cookie
 
 ## Public interface
 
-Application module `Accounts` имеет только три runtime operations:
+Application module `Accounts` предоставляет операции установления и разрешения Account, проверки
+прав и серверного разрешения identity для подтверждённой Telegram-связи:
 
 ```ts
 type PlatformPermission = "materials:manage";
@@ -50,6 +51,10 @@ interface Accounts {
   resolveAccount(query: {
     readonly identity: VerifiedAccountIdentity;
   }): Promise<ResolveAccountResult>;
+
+  readIdentityForLink(accountId: string): Promise<{
+    issuer: string; subject: string; telegramSubjectRef: string | null;
+  } | undefined>;
 
   checkPermission(query: {
     readonly accountId: string;
@@ -68,7 +73,8 @@ contains only `accountId`; permissions and Membership are not token/session snap
 2. Exact `(logto_issuer, logto_subject)` is unique and authoritative. Subject is opaque and
    case-sensitive; issuer is an exact allowlisted HTTPS identifier.
 3. First interactive callback may create Account only when the same validated access JWT contains
-   Logto-signed `inside_verified_email`.
+   Logto-signed `inside_verified_email` либо `inside_telegram_sign_in` из проверенного social
+   connector. Telegram-proof принимается только при включённом серверном флаге.
 4. Ordinary protected requests only resolve an existing Account and never provision one.
 5. Verified email is normalized, stored only as versioned keyed HMAC fingerprint and never becomes
    the identity key.
@@ -105,12 +111,14 @@ Account with entitlement, and Account with `materials:manage`.
 
 The `accounts` PostgreSQL schema owns exactly:
 
-- `accounts`: UUID, Logto issuer, Logto subject, nullable keyed email fingerprint, creation time;
+- `accounts`: UUID, Logto issuer, Logto subject, nullable keyed email fingerprint, nullable unique
+  opaque Telegram subject reference, creation time;
 - `account_permissions`: exact Account/permission grants;
 - `account_audit_events`: append-only redacted events.
 
-Nullable email fingerprint supports owner bootstrap before the first interactive email proof. The
-first verified owner callback fills it under the same duplicate-email rules.
+Nullable email fingerprint supports both owner bootstrap and Telegram-only Accounts. No synthetic
+email is created. The first verified owner email callback fills the fingerprint under the existing
+duplicate-email rules.
 
 Applied migration `0002_identity_principals` remains immutable history. Forward migration
 `0004_accounts` preserves human mappings, converts either legacy Materials grant to
@@ -188,3 +196,33 @@ requests resolve it through the same Logto proof boundary, logout uses only offi
 semantics, and current Platform authorization facts are checked by their owning modules. This does
 not declare production Logto operations, email delivery, backup, monitoring or incident response
 ready.
+
+## Telegram sign-in — Platform #299
+
+The owner extended the email-only establishment rule on 2026-09-06 in
+[Platform #299](https://github.com/sachkov-inside/platform/issues/299). Logto stays the sole session
+issuer. `inside_telegram_sign_in` contains opaque `subjectRef` and `requestRef`, only for a fresh
+verified interaction from the exact configured connector. Refresh tokens never create this claim.
+The Nest verifier retains ES384, exact issuer/audience, lifetime and human-token checks.
+
+The connector retains the browser secret in Logto interaction storage, checks state and expiry,
+and consumes `inside.bot-sign-in.v1` once. The bot URL contains only the short-lived start token.
+Provider status and proof are obtained server-to-server. A different browser cannot finish the
+interaction. Account establishment serializes the Logto and Telegram identity keys; a conflict
+never transfers ownership. The Logto fork also enforces unique Telegram identities in its own DB.
+
+An email Account connects Telegram through the existing authenticated linking flow. On later bot
+sign-in the provider supplies its confirmed link, and the trusted Logto connector resolves its
+opaque principal through Platform before attaching the social identity to that exact Logto user.
+Client-selected subjects, usernames and email coincidence are never ownership evidence.
+
+The Account and stable linking principal are persisted before provider account-link finalization.
+A lost response is repaired by retrying with the same principal. Linking does not issue Membership
+or permissions. First email attachment to Telegram-only Accounts, merging, replacement and recovery
+are excluded. The pre-registration screen explains these limits and the existing-email path.
+
+`TELEGRAM_SIGN_IN_ENABLED` defaults off in Platform, connector provisioning and the provider.
+Disabling blocks start, waiting, proof consumption and callback completion, including returning
+Accounts. Ordinary session resolution and email remain unchanged. The local setup and synthetic
+versus real message boundary are documented in
+[`telegram-sign-in-local.md`](../verification/telegram-sign-in-local.md).

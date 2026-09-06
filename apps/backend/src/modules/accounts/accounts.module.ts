@@ -43,6 +43,7 @@ import {
       inject: [PLATFORM_CONFIG],
       useFactory: (config: PlatformConfig): LogtoAccessTokenVerifier =>
         createLogtoAccessTokenVerifier({
+          telegramSignInEnabled: config.identity.telegramSignInEnabled,
           issuer: config.identity.issuer,
           audience: config.identity.audience,
           jwksUrl: config.identity.jwksUrl,

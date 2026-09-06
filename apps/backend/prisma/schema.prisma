@@ -15,6 +15,7 @@ model Account {
   id               String   @id @db.Uuid
   logtoIssuer      String   @map("logto_issuer")
   logtoSubject     String   @map("logto_subject")
+  telegramSubjectRef String? @unique(map: "accounts_telegram_subject_unique") @map("telegram_subject_ref") @db.Uuid
   emailFingerprint String?  @unique(map: "accounts_email_fingerprint_unique") @map("email_fingerprint") @db.VarChar(67)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 

@@ -1,3 +1,6 @@
+import { TelegramAccountSignIn } from "./features/complete-telegram-sign-in/telegram-account-sign-in.js";
+import { HttpTelegramSignInProvider } from "./features/complete-telegram-sign-in/telegram-sign-in-provider.js";
+import { TelegramAccountSignInController } from "./features/complete-telegram-sign-in/telegram-account-sign-in.controller.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -8,7 +11,7 @@ import {
   PrismaClientProvider,
   PrismaModule,
 } from "../../infrastructure/prisma/index.js";
-import { AccountsModule } from "../accounts/index.js";
+import { AccountsModule, ACCOUNTS, type Accounts } from "../accounts/index.js";
 import {
   MEMBERSHIP_ENTITLEMENTS,
   MembershipEntitlementsModule,
@@ -29,11 +32,20 @@ import {
 @Module({
   imports: [AccountsModule, MembershipEntitlementsModule, PrismaModule],
   controllers: [
+    TelegramAccountSignInController,
     AccountTelegramMembershipController,
     TelegramLinkController,
     TelegramEvidenceController,
   ],
   providers: [
+    {
+      provide: TelegramAccountSignIn,
+      inject: [ACCOUNTS, PrismaClientProvider, MEMBERSHIP_ENTITLEMENTS, PLATFORM_CONFIG],
+      useFactory: (accounts: Accounts, prisma: PrismaClientProvider, membershipEntitlements: MembershipEntitlements, config: PlatformConfig) => new TelegramAccountSignIn({
+        accounts, prisma, membershipEntitlements,
+        provider: new HttpTelegramSignInProvider(config.identity.telegramSignInProviderUrl, config.identity.telegramSignInIntegrationSecret),
+      }),
+    },
     {
       provide: TELEGRAM_LINK_PROVIDER,
       inject: [PLATFORM_CONFIG],

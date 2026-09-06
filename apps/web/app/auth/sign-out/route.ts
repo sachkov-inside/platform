@@ -1,5 +1,5 @@
 import LogtoClient from "@logto/next/server-actions";
-import { NextResponse } from "next/server";
+import { authNavigationResponse } from "@/shared/auth/auth-navigation-response.server";
 
 import {
   clearLogtoSessionCookie,
@@ -27,11 +27,8 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-function signOutRedirect(url: string): NextResponse {
-  return NextResponse.redirect(url, {
-    status: 303,
-    headers: { ...privateHeaders(), "clear-site-data": '"storage"' },
-  });
+function signOutRedirect(url: string): Response {
+  return authNavigationResponse(url, { "clear-site-data": '"storage"' });
 }
 
 function incompleteLogoutUrl(baseUrl: string): string {

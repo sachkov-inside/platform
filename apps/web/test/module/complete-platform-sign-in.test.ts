@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as BackendModule from "@/shared/api/backend/index.server";
 
+const token = "eyJhbGciOiJub25lIn0.e30.test";
+
 const fakes = vi.hoisted(() => ({
   establishAccount: vi.fn(() => Promise.resolve()),
   resolveAccount: vi.fn(() => Promise.resolve()),
@@ -22,8 +24,8 @@ describe("completePlatformSignIn", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("resolves a returning Account without requiring fresh email proof", async () => {
-    await expect(completePlatformSignIn("access-token")).resolves.toBe("complete");
-    expect(fakes.resolveAccount).toHaveBeenCalledWith("access-token");
+    await expect(completePlatformSignIn(token)).resolves.toBe("complete");
+    expect(fakes.resolveAccount).toHaveBeenCalledWith(token);
     expect(fakes.establishAccount).not.toHaveBeenCalled();
   });
 
@@ -32,8 +34,8 @@ describe("completePlatformSignIn", () => {
       new BackendConnectionError("rejected", "Account not found"),
     );
 
-    await expect(completePlatformSignIn("access-token")).resolves.toBe("complete");
-    expect(fakes.establishAccount).toHaveBeenCalledWith("access-token");
+    await expect(completePlatformSignIn(token)).resolves.toBe("complete");
+    expect(fakes.establishAccount).toHaveBeenCalledWith(token);
   });
 
   it("keeps provider outages retryable without attempting establishment", async () => {
@@ -41,7 +43,7 @@ describe("completePlatformSignIn", () => {
       new BackendConnectionError("unavailable", "Provider unavailable"),
     );
 
-    await expect(completePlatformSignIn("access-token")).resolves.toBe("retryable");
+    await expect(completePlatformSignIn(token)).resolves.toBe("retryable");
     expect(fakes.establishAccount).not.toHaveBeenCalled();
   });
 
@@ -50,7 +52,7 @@ describe("completePlatformSignIn", () => {
       new BackendConnectionError("invalid-response", "Invalid response"),
     );
 
-    await expect(completePlatformSignIn("access-token")).rejects.toMatchObject({
+    await expect(completePlatformSignIn(token)).rejects.toMatchObject({
       code: "invalid-response",
     });
   });
