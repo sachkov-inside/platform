@@ -51,6 +51,8 @@ Storybook fixtures не отправляют сообщения; кнопки п
 axe и доступность публикации после Preview. Дополнительно он заменяет часть из библиотеки и
 проверяет сохранение partId, photo fileId, entities, ряда кнопок и задержки. Выбор поста не сохраняет
 родительскую форму до явного Save. Снимки сохраняются в `ci-artifacts/316`.
+Отдельный сценарий теряет ответ запроса образца, обновляет страницу и проверяет повтор с тем же
+operationId; после подтверждения новый явный запрос получает новый ID.
 Это визуальная проверка страницы, а не новый end-to-end результат backend/provider.
 
 ```bash
@@ -64,7 +66,8 @@ PLAYWRIGHT_PORT=3416 pnpm check
 
 - Focused Storybook: 15 состояний прошли, включая pagination/no-submit и переключение воронки.
 - Storybook responsive capture: 18 сценариев (9 состояний × 2 ширины), axe и отсутствие overflow.
-- Реальная страница: два browser tests, по две ширины в каждом, прошли.
+- Реальная страница: четыре browser tests прошли — responsive editor и повтор образца после reload
+  на desktop/mobile; редактор дополнительно проверен на двух ширинах в каждом проекте.
 - Standards и Spec review от `ae37b7b` закрыты. Исправлены submit при пагинации, перенос выбора
   замены между воронками и mutation lifecycle библиотеки.
 - Backend PostgreSQL: 176 integration tests прошли. Новый endpoint проверен по HTTP с настоящими

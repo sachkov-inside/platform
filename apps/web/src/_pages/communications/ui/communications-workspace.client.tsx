@@ -21,6 +21,7 @@ import { PostLibrary } from "./post-library.client";
 import { FunnelDelay } from "./funnel-delay.client";
 import type { Part } from "../model/communications";
 import type { SavedPost } from "../model/broadcasts";
+import { sampleOperation } from "../model/sample-operation";
 import { DeliveryHistory } from "./delivery-history.client";
 import { fieldClass, moveItem, PartsEditor } from "./parts-editor.client";
 
@@ -248,17 +249,13 @@ export function CommunicationsWorkspace({
         }}
         onSave={savePost}
         onSample={async (post) => {
-          const input = {
+          const operation = sampleOperation(post, window.localStorage);
+          const result = await samplePostMutation.mutateAsync({
             expectedRevision: post.revision,
             payload: { templateId: post.templateId },
-          };
-          const key = ["post-sample", input];
-          const result = await samplePostMutation.mutateAsync({
-            ...input,
-            operationId: operationId(key),
+            operationId: operation.id,
           });
-          if (result.kind === "ready")
-            operationIds.current.delete(JSON.stringify(key));
+          if (result.kind === "ready") operation.confirm();
           return result.kind === "ready";
         }}
         onChoose={(part) => {

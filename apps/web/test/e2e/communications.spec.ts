@@ -40,9 +40,7 @@ const funnel = {
   ],
 };
 
-test("funnel editor fits the live route and keeps keyboard controls reachable", async ({
-  page,
-}, testInfo) => {
+test.beforeEach(async ({ page }) => {
   await page.route("**/api/communications/funnels/list", (route) =>
     route.fulfill({
       json: {
@@ -115,6 +113,11 @@ test("funnel editor fits the live route and keeps keyboard controls reachable", 
       },
     }),
   );
+});
+
+test("funnel editor fits the live route and keeps keyboard controls reachable", async ({
+  page,
+}, testInfo) => {
   await page.goto("/authoring/communications");
   await page
     .getByRole("button", { name: "Открыть Знакомство с Inside", exact: true })
@@ -256,4 +259,66 @@ test("funnel editor fits the live route and keeps keyboard controls reachable", 
     buttons: [{ row: 0 }],
   });
   expect(savedDraft?.steps[0]?.delaySeconds).toBe(86400);
+});
+
+test("funnel sample keeps its operation after a lost response and reload", async ({
+  page,
+}) => {
+  const operationIds: string[] = [];
+  await page.route("**/api/communications/templates/sample", async (route) => {
+    const request = route.request();
+    const body = request.postData();
+    const contentType = request.headers()["content-type"];
+    if (!body || !contentType) throw new Error("Missing sample request");
+    const form = await new Request(request.url(), {
+      method: "POST",
+      headers: { "content-type": contentType },
+      body,
+    }).formData();
+    const raw = form.get("input");
+    if (typeof raw !== "string") throw new Error("Missing sample input");
+    const input = JSON.parse(raw) as { operationId: string };
+    operationIds.push(input.operationId);
+    if (operationIds.length === 1) return route.abort("failed");
+    return route.fulfill({
+      json: { kind: "ready", testDeliveryId: part.partId },
+    });
+  });
+  await page.goto("/authoring/communications");
+  for (const attempt of [0, 1]) {
+    if (attempt === 1) await page.reload();
+    await page
+      .getByRole("button", { name: "Открыть Знакомство с Inside", exact: true })
+      .click();
+    const entry = page.getByRole("group", {
+      name: "Непосредственный ответ по ссылке",
+      exact: true,
+    });
+    await entry
+      .getByRole("button", {
+        name: "Заменить часть 1 из сохранённых постов",
+        exact: true,
+      })
+      .click();
+    await entry
+      .getByRole("button", { name: "Новый пост из Telegram · v1", exact: true })
+      .click();
+    await entry
+      .getByRole("button", { name: "Образец себе", exact: true })
+      .click();
+    await expect(
+      entry.getByText(
+        attempt === 0
+          ? "Результат запроса образца не подтверждён. Повторите запрос: повтор не создаст вторую отправку."
+          : "Образец поставлен в очередь только вам в Telegram.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+  }
+  expect(operationIds).toHaveLength(2);
+  expect(operationIds[0]).toMatch(/^[0-9a-f-]{36}$/u);
+  expect(operationIds[1]).toBe(operationIds[0]);
+  await page.getByRole("button", { name: "Образец себе", exact: true }).click();
+  await expect.poll(() => operationIds.length).toBe(3);
+  expect(operationIds[2]).not.toBe(operationIds[0]);
 });
