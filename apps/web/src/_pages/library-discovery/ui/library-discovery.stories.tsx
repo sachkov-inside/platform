@@ -310,6 +310,11 @@ export const ConnectedStepsDesktop: Story = {
     await expect(within(guide).getByText("Шаг 1 из 3")).toBeVisible();
     await expect(canvas.getByText(overviewVideo.summary)).toBeVisible();
     await expect(canvas.getByText(dockerVideo.summary)).toBeVisible();
+    for (const summary of [overviewVideo.summary, dockerVideo.summary]) {
+      const element = canvas.getByText(summary);
+      const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight);
+      await expect(element.getBoundingClientRect().height).toBeLessThanOrEqual(lineHeight * 3 + 1);
+    }
     await expectNoHorizontalOverflow(canvasElement);
   },
 };

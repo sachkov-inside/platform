@@ -204,7 +204,7 @@ function MaterialRow({
           </Link>
         </Heading>
         {isVideo && material.summary.length > 0 ? (
-          <span className="mt-2 block break-words text-sm leading-5 text-body-muted">
+          <span className="mt-2 line-clamp-3 break-words text-sm leading-5 text-body-muted">
             {material.summary}
           </span>
         ) : null}
