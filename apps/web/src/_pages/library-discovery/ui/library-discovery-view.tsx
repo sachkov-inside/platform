@@ -114,7 +114,7 @@ function DiscoveryHero({
               "Тема"
             )}
           </p>
-          <h1 className="mt-3 max-w-3xl break-words text-[2.35rem] font-semibold leading-none tracking-[-0.055em] md:text-6xl">
+          <h1 className="mt-3 max-w-3xl break-words text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.035em] md:text-4xl">
             {result.reference.name}
           </h1>
           {result.reference.summary ? (
@@ -129,9 +129,8 @@ function DiscoveryHero({
           ) : null}
         </div>
         {isSeries && result.kind === "ready" ? (
-          <div className="grid w-full max-w-xl grid-cols-3 gap-2 md:w-[24rem]">
-            {Array.from({ length: 3 }, (_, index) => {
-              const material = result.items[index];
+          <div className="grid w-full max-w-xl shrink-0 grid-cols-3 gap-2 md:w-[18rem]">
+            {result.items.slice(0, 3).map((material, index) => {
               const collectionCover = index === 0
                 ? result.reference.cover ?? null
                 : null;
@@ -139,20 +138,20 @@ function DiscoveryHero({
                 <ContentCoverImage
                   alt=""
                   className="aspect-[4/3] min-h-0 rounded-2xl"
-                  cover={collectionCover ?? material?.cover ?? null}
+                  cover={collectionCover ?? material.cover ?? null}
                   fallbackKind={
                     collectionCover !== null
                       ? "playlist"
-                      : material !== undefined && materialPreviewHasVideo(material)
+                      : materialPreviewHasVideo(material)
                       ? "video"
                       : "material"
                   }
                   fallbackSeed={
                     collectionCover === null
-                      ? material?.slug ?? `${result.reference.slug}-${String(index)}`
+                      ? material.slug
                       : result.reference.slug
                   }
-                  key={material?.slug ?? index}
+                  key={material.slug}
                   sizes="10rem"
                 />
               );
@@ -230,40 +229,11 @@ function SeriesMaterials({
   readonly currentHref: Route;
   readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
 }) {
-  const topics = result.topics;
   const steps = seriesSteps(result.items, result.reference.slug);
 
   return (
     <section aria-labelledby="series-materials">
       <PublicSectionHeading
-        aside={
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <p className="text-sm font-semibold text-muted-foreground">
-              {result.items.length}
-            </p>
-            {topics.length > 0 ? (
-              <nav aria-label="Темы серии">
-                <ul className="flex flex-wrap gap-2" role="list">
-                  {topics.map((topic) => (
-                    <li key={topic.slug}>
-                      <Link
-                        className="inline-flex min-h-9 items-center rounded-full bg-muted px-3 text-sm font-semibold text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
-                        href={collectionDiscoveryHref(
-                          "topic",
-                          topic.slug,
-                          currentHref,
-                        )}
-                        prefetch={false}
-                      >
-                        {topic.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            ) : null}
-          </div>
-        }
         className="mt-11 flex-wrap"
         id="series-materials"
         title="Маршрут"
