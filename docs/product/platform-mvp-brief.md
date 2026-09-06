@@ -160,8 +160,8 @@ Series в `from` и показывает предыдущий/следующий
 
 - **Главная** — public entry point `/` и bounded mobile-first витрина из текущих published данных:
   Серии первыми, компактное приглашение в Membership только для visitor/non-member, компактные
-  Темы, затем новые Видео → Гайды → Заметки и переход в общий каталог; history и `Продолжить`
-  отсутствуют;
+  Темы, затем новые Видео → Гайды → Заметки и переход в общий каталог. [Personal Home](../specifications/personal-home.md)
+  добавляет реальное продолжение отдельным этапом; удаление invitation принадлежит #320;
 - **База знаний** — единый real-data экран: один global search независимо сопоставляет Series по
   name/summary и Materials по public search projection; Series идут первыми и не зависят от
   material-only Topic/Format/sort/pagination. Публичный URL хранит `q`, `topic`, `format` и
