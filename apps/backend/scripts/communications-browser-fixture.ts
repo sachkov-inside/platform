@@ -39,6 +39,7 @@ const sourceId = "10000000-0000-4000-8000-000000000004";
 const contactId = "10000000-0000-4000-8000-000000000005";
 let savedPost = { templateId: "10000000-0000-4000-8000-000000000017", revision: 1, botIdentity: "synthetic-bot", content: { type: "text" as const, text: "Тестовая рассылка browser parity", entities: [{ type: "bold" as const, offset: 0, length: 8 }], buttons: [{ text: "Открыть", url: "https://inside.test/material", row: 0 }] } };
 const operations: unknown[] = [];
+const samples = new Map<string, string>();
 provider.get("/jwks", () => ({ keys: [jwk] }));
 provider.get("/captured", () => operations);
 provider.post("/integrations/platform/v1/communications", (request, reply) => {
@@ -58,7 +59,11 @@ provider.post("/integrations/platform/v1/communications", (request, reply) => {
     savedPost = { ...candidate, content: { type: "text", text: candidate.content.text, entities: savedPost.content.entities, buttons: candidate.content.buttons.map(b => ({ ...b, row: b.row ?? 0 })) } };
     return { ...version, template: savedPost };
   }
-  if (command.operation === "templates.testSend") return { ...version, testDeliveryId: randomUUID() };
+  if (command.operation === "templates.testSend") {
+    const testDeliveryId = samples.get(command.operationId) ?? randomUUID();
+    samples.set(command.operationId, testDeliveryId);
+    return { ...version, testDeliveryId };
+  }
   if (command.operation === "broadcasts.list")
     return {
       ...version,

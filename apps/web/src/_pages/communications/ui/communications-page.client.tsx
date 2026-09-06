@@ -3,11 +3,12 @@ import Link from "next/link";
 import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
 import styles from "./broadcasts.module.css";
 import { BroadcastList } from "./broadcast-list";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/shared/ui/button";
 import { communicationsQueries } from "../model/communications-queries";
 import * as api from "../api/broadcasts.browser";
+import { sampleOperation } from "../model/sample-operation";
 import {
   type Broadcast,
   type Contact,
@@ -23,7 +24,6 @@ import { AnalyticsPanel, EntryHistory } from "./analytics-panel";
 
 export function CommunicationsPage() {
   const queries = useQueryClient();
-  const sampleOperations = useRef(new Map<string, string>());
   const [postCursor, setPostCursor] = useState<string>();
   const postPage = useQuery(communicationsQueries.posts(postCursor));
   const [cursor, setCursor] = useState<string>();
@@ -68,6 +68,8 @@ export function CommunicationsPage() {
   const resume = useMutation({ mutationFn: api.resumeBroadcast, onSuccess });
   const cancel = useMutation({ mutationFn: api.cancelBroadcast, onSuccess });
   const load = useMutation({ mutationFn: api.readBroadcast, onSuccess });
+  const savePost = useMutation({ mutationFn: api.savePost });
+  const samplePost = useMutation({ mutationFn: api.samplePost });
   const template = useMutation({ mutationFn: api.resolveTemplate });
   const pending =
     save.isPending ||
@@ -200,7 +202,7 @@ export function CommunicationsPage() {
                 void postPage.refetch();
               },
               onSave: async (post) => {
-                const result = await api.savePost({
+                const result = await savePost.mutateAsync({
                   operationId: crypto.randomUUID(),
                   expectedRevision: post.revision,
                   payload: {
@@ -217,17 +219,14 @@ export function CommunicationsPage() {
                 return null;
               },
               onSample: async (post) => {
-                const key = `${post.templateId}:${String(post.revision)}`;
-                const operationId =
-                  sampleOperations.current.get(key) ?? crypto.randomUUID();
-                sampleOperations.current.set(key, operationId);
-                const result = await api.samplePost({
-                  operationId,
+                const operation = sampleOperation(post, window.localStorage);
+                const result = await samplePost.mutateAsync({
+                  operationId: operation.id,
                   expectedRevision: post.revision,
                   payload: { templateId: post.templateId },
                 });
                 if (result.kind === "ready")
-                  sampleOperations.current.delete(key);
+                  operation.confirm();
                 return result.kind === "ready";
               },
             }}

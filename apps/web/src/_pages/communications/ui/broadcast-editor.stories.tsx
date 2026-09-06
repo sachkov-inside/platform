@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, mocked, userEvent, within } from "storybook/test";
 import {
   BroadcastEditor,
   type BroadcastEditorProps,
@@ -25,7 +25,7 @@ const meta = {
     funnels: [funnelFixture],
     pending: false,
     error: null,
-    onSave: fn(),
+    onSave: fn<BroadcastEditorProps["onSave"]>(),
     onLaunch: fn(),
     onPause: fn(),
     onResume: fn(),
@@ -252,4 +252,48 @@ export const TelegramPosts: Story = {
 export const TelegramPostsMobile: Story = {
   ...TelegramPosts,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+const firstPart = broadcastFixture.parts[0];
+if (!firstPart) throw new Error("Broadcast fixture must have a part");
+
+export const ReplaceAfterReorder: Story = {
+  args: {
+    ...TelegramPosts.args,
+    broadcast: { ...broadcastFixture, parts: [firstPart, mediaFixture] },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Заменить часть 2" }));
+    const up = canvas.getAllByRole("button", { name: "Выше" })[1];
+    if (!up) throw new Error("Missing second part");
+    await userEvent.click(up);
+    await userEvent.click(canvas.getByRole("button", { name: /Почему очередь/ }));
+    const choose = canvas.getAllByRole("button", { name: "Заменить часть 1" })[0];
+    if (!choose) throw new Error("Missing replacement action");
+    await userEvent.click(choose);
+    await userEvent.click(canvas.getByRole("button", { name: "Сохранить черновик" }));
+    await expect(mocked(args.onSave).mock.calls[0]?.[0].payload.parts).toEqual([
+      { ...firstPart, partId: mediaFixture.partId }, firstPart,
+    ]);
+  },
+};
+export const DeleteReplacementTarget: Story = {
+  args: ReplaceAfterReorder.args,
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Заменить часть 2" }));
+    const remove = canvas.getAllByRole("button", { name: "Удалить часть" })[1];
+    if (!remove) throw new Error("Missing second part");
+    await userEvent.click(remove);
+    await expect(canvas.queryByRole("button", { name: "Отменить замену" })).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: /Почему очередь/ }));
+    await userEvent.click(canvas.getByRole("button", { name: "Добавить в рассылку" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Сохранить черновик" }));
+    const saved = mocked(args.onSave).mock.calls[0]?.[0].payload.parts;
+    await expect(saved).toHaveLength(2);
+    await expect(saved?.[0]).toEqual(firstPart);
+    await expect(saved?.[1]?.content).toEqual(firstPart.content);
+    await expect(saved?.[1]?.partId).not.toBe(firstPart.partId);
+  },
 };
