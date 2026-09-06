@@ -18,8 +18,6 @@ import {
 import {
   MaterialReaderHeader,
   MaterialReaderMetadataFooter,
-  ReaderBackAction,
-  SeriesReaderNavigation,
 } from "./material-reader-view";
 
 export function MaterialReaderLoading() {
@@ -84,7 +82,6 @@ export function MaterialReaderAccess({
 }) {
   return (
     <div data-material-reader-state="access-required">
-      <ReaderBackAction sticky target={returnTarget} />
       <div className="mx-auto mt-8 max-w-[43rem] md:mt-10">
         <MaterialReaderHeader material={material} />
         <section
@@ -134,8 +131,7 @@ export function MaterialReaderAccess({
             </div>
           </div>
         </section>
-        <SeriesReaderNavigation context={seriesContext} />
-        <MaterialReaderMetadataFooter material={material} />
+        <MaterialReaderMetadataFooter material={material} seriesContext={seriesContext} returnTarget={returnTarget} />
       </div>
     </div>
   );

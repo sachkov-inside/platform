@@ -678,7 +678,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
   );
   const playlistBackLinks = page.getByRole("link", {
-    name: "Назад к серии",
+    name: "Все материалы серии",
   });
   await expect(playlistBackLinks).toHaveCount(1);
   await expect(playlistBackLinks.first()).toHaveAttribute(
@@ -688,13 +688,8 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(
     page.getByRole("link", { name: "Platform", exact: true }),
   ).toHaveAttribute("href", "/topics/platform");
-  const expectedSeriesLabel =
-    `Создание Platform Inside · № ${representativeOrdinal ?? ""}`;
-  const readerSeriesLink = page
-    .getByRole("list", { name: "Серии материала" })
-    .getByRole("link", { exact: true, name: expectedSeriesLabel });
-  await expect(readerSeriesLink).toHaveAttribute("href", "/series/platform-inside");
-  await expect(readerSeriesLink).toHaveText(expectedSeriesLabel);
+  await expect(page.getByRole("link", { name: "Назад к серии" })).toHaveCount(0);
+  await expect(page.locator("[data-reader-metadata]")).not.toContainText("· №");
   await expect(page.locator("[data-related-state]")).toHaveCount(0);
 
   await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Inside");
@@ -712,7 +707,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await page.getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" }).click();
   await expect(page.locator("[data-series-reader-navigation]")).toContainText("1 из 2");
   await expect(
-    page.getByRole("link", { name: /Следующий материал Demo #295 · Финальный гайд/u }),
+    page.getByRole("link", { name: "Дальше" }),
   ).toHaveAttribute(
     "href",
     "/materials/demo-295-finalnyy-gayd?from=%2Fseries%2Fdemo-series-harness%3Ffrom%3D%252Flibrary",
@@ -721,14 +716,14 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await expect(page).toHaveURL(/\/series\/demo-series-harness$/u);
   await page.goForward();
   await expect(
-    page.getByRole("link", { name: /Следующий материал Demo #295 · Финальный гайд/u }),
+    page.getByRole("link", { name: "Дальше" }),
   ).toBeVisible();
 
   await page.goto("/series/demo-series-review");
   await page.getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" }).click();
   await expect(page.locator("[data-series-reader-navigation]")).toContainText("1 из 3");
   const mixedNext = page.getByRole("link", {
-    name: /Следующий материал Demo #295 · Видео-разбор/u,
+    name: "Дальше",
   });
   await expect(mixedNext).toHaveAttribute(
     "href",
@@ -736,7 +731,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
   );
   await mixedNext.click();
   await expect(
-    page.getByRole("link", { name: /Следующий материал Demo #295 · Итоговая заметка/u }),
+    page.getByRole("link", { name: "Дальше" }),
   ).toBeVisible();
 
   await page.goto("/materials/demo-295-samostoyatelnaya-zametka");

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, LoaderCircle, Play, RotateCcw, VideoOff } from "lucide-react";
+import { CheckCircle2, LoaderCircle, RotateCcw, VideoOff } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { type Ref, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
@@ -29,17 +29,17 @@ interface MaterialPrimaryVideoProps {
   };
 }
 
-export type PlayerPhase = "idle" | "loading" | "playing" | "error";
+export type PlayerPhase = "loading" | "playing" | "error";
 
 export function MaterialPrimaryVideo({ className, materialId, video }: MaterialPrimaryVideoProps) {
   const sectionRef = useRef<HTMLElement>(null);
-  const playerRef = useRef<{ destroy(): Promise<void> } | null>(null);
   const progressInteractionRef = useRef(false);
   const progressContextRef = useRef<{
     readonly durationSeconds: number;
     readonly scope: "account" | "anonymous";
   } | null>(null);
-  const [phase, setPhase] = useState<PlayerPhase>("idle");
+  const [phase, setPhase] = useState<PlayerPhase>("loading");
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const [measuredDuration, setMeasuredDuration] = useState<number | null>(null);
   const anonymousWatched = useSyncExternalStore(subscribeAnonymousProgress, () => {
     const positionSeconds = readAnonymousProgress(video.videoId);
@@ -54,37 +54,107 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
   const { mutate: persistAccountProgress, mutateAsync: persistAccountProgressAsync } = useMutation({ mutationFn: saveMaterialVideoProgress });
 
   useEffect(() => {
-    const durationSeconds = video.durationSeconds;
-    if (video.state !== "ready" || durationSeconds === undefined) return;
+    if (video.state !== "ready") return;
     let active = true;
-    const initializeProgress = async () => {
-      const session = await createPlaybackSession({ materialId, videoId: video.videoId });
-      if (
-        !active ||
-        progressInteractionRef.current ||
-        session === null ||
-        session.videoId !== video.videoId
-      ) return;
-      const positionSeconds = session.progressScope === "anonymous"
-        ? readAnonymousProgress(video.videoId) ?? session.resumeSeconds
-        : session.resumeSeconds;
-      progressContextRef.current = {
-        durationSeconds,
-        scope: session.progressScope,
-      };
-      setWatchedOverride(
-        positionSeconds !== null && isVideoWatchedPosition(positionSeconds, durationSeconds),
-      );
+    let mountedPlayer: { destroy(): Promise<void> } | null = null;
+    const loadPlayer = async () => {
+      try {
+        const session = await createPlaybackSession({ materialId, videoId: video.videoId });
+        if (!active) return;
+        if (session === null || session.videoId !== video.videoId) {
+          throw new Error("Playback session is unavailable");
+        }
+        const mount = sectionRef.current?.querySelector<HTMLElement>("[data-video-player-mount]") ?? null;
+        if (mount === null) throw new Error("Player mount is unavailable");
+        const source = new URL(session.embedLocator);
+        source.searchParams.set("dnt", "1");
+        if (session.drmAuthToken !== null) {
+          source.searchParams.set("drmauthtoken", session.drmAuthToken);
+        }
+        const savedPositionSeconds = session.progressScope === "anonymous"
+          ? readAnonymousProgress(video.videoId) ?? session.resumeSeconds
+          : session.resumeSeconds;
+        const iframeApi = await import("@kinescope/player-iframe-api-loader");
+        if (!active) return;
+        const factory = await iframeApi.load();
+        if (!active) return;
+        const player = await factory.create(mount, {
+          behavior: {
+            autoPlay: false,
+            keyboard: true,
+            localStorage: false,
+            playsInline: true,
+            preload: "metadata",
+          },
+          size: { height: "100%", width: "100%" },
+          ui: { controls: true, fullscreenButton: true, language: "ru" },
+          url: source.toString(),
+        });
+        if (!active) {
+          await player.destroy();
+          return;
+        }
+        mountedPlayer = player;
+        const iframe = mount.querySelector("iframe");
+        iframe?.setAttribute("allow", "autoplay; fullscreen; picture-in-picture; encrypted-media");
+        iframe?.setAttribute("allowfullscreen", "true");
+        iframe?.setAttribute("title", video.title);
+        const duration = Math.max(1, Math.round(await player.getDuration()));
+        if (!active) return;
+        const playbackProgress = resolveVideoPlaybackProgress(savedPositionSeconds, duration);
+        const resumeSeconds = playbackProgress.resumeSeconds;
+        if (resumeSeconds !== null && resumeSeconds > 5) {
+          await player.seekTo(resumeSeconds);
+        }
+        if (!active) return;
+        setMeasuredDuration(duration);
+        progressContextRef.current = {
+          durationSeconds: duration,
+          scope: session.progressScope,
+        };
+        if (!progressInteractionRef.current) setWatchedOverride(playbackProgress.watched);
+        let lastPersisted = resumeSeconds ?? 0;
+        let currentTime = resumeSeconds ?? 0;
+        const persist = (position: number) => {
+          if (!active) return;
+          const rounded = Math.max(0, Math.min(duration, Math.round(position)));
+          lastPersisted = rounded;
+          if (session.progressScope === "anonymous") {
+            writeAnonymousProgress(video.videoId, rounded, duration);
+            return;
+          }
+          persistAccountProgress({
+            durationSeconds: duration,
+            materialId,
+            positionSeconds: rounded,
+            videoId: video.videoId,
+          });
+        };
+        player.on(player.Events.TimeUpdate, ({ data: { currentTime: nextTime } }) => {
+          currentTime = nextTime;
+          if (Math.abs(currentTime - lastPersisted) >= 15) persist(currentTime);
+        });
+        player.on(player.Events.Pause, () => { persist(currentTime); });
+        player.on(player.Events.Ended, () => {
+          if (!active) return;
+          persist(duration);
+          setWatchedOverride(true);
+        });
+        setPhase("playing");
+      } catch {
+        if (active) {
+          void mountedPlayer?.destroy();
+          mountedPlayer = null;
+          setPhase("error");
+        }
+      }
     };
-    void initializeProgress().catch(() => {
-      // The explicit action can retry when progress initialization is unavailable.
-    });
-    return () => { active = false; };
-  }, [createPlaybackSession, materialId, video.durationSeconds, video.state, video.videoId]);
-
-  useEffect(() => () => {
-    void playerRef.current?.destroy();
-  }, []);
+    void loadPlayer();
+    return () => {
+      active = false;
+      void mountedPlayer?.destroy();
+    };
+  }, [createPlaybackSession, materialId, persistAccountProgress, retryAttempt, video.state, video.title, video.videoId]);
 
   if (video.state !== "ready") {
     return (
@@ -94,86 +164,6 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
       />
     );
   }
-
-  const loadPlayer = async () => {
-    if (phase === "loading" || phase === "playing") return;
-    setPhase("loading");
-    try {
-      const session = await createPlaybackSession({ materialId, videoId: video.videoId });
-      if (session === null || session.videoId !== video.videoId) {
-        throw new Error("Playback session is unavailable");
-      }
-      const mount = sectionRef.current?.querySelector<HTMLElement>("[data-video-player-mount]") ?? null;
-      if (mount === null) throw new Error("Player mount is unavailable");
-      const source = new URL(session.embedLocator);
-      source.searchParams.set("dnt", "1");
-      if (session.drmAuthToken !== null) {
-        source.searchParams.set("drmauthtoken", session.drmAuthToken);
-      }
-      const savedPositionSeconds = session.progressScope === "anonymous"
-        ? readAnonymousProgress(video.videoId) ?? session.resumeSeconds
-        : session.resumeSeconds;
-      const iframeApi = await import("@kinescope/player-iframe-api-loader");
-      const factory = await iframeApi.load();
-      const player = await factory.create(mount, {
-        behavior: {
-          autoPlay: false,
-          keyboard: true,
-          localStorage: false,
-          playsInline: true,
-          preload: "none",
-        },
-        size: { height: "100%", width: "100%" },
-        ui: { controls: true, fullscreenButton: true, language: "ru" },
-        url: source.toString(),
-      });
-      playerRef.current = player;
-      const iframe = mount.querySelector("iframe");
-      iframe?.setAttribute("allow", "autoplay; fullscreen; picture-in-picture; encrypted-media");
-      iframe?.setAttribute("allowfullscreen", "true");
-      iframe?.setAttribute("title", video.title);
-      const duration = Math.max(1, Math.round(await player.getDuration()));
-      const playbackProgress = resolveVideoPlaybackProgress(savedPositionSeconds, duration);
-      const resumeSeconds = playbackProgress.resumeSeconds;
-      if (resumeSeconds !== null && resumeSeconds > 5) {
-        await player.seekTo(resumeSeconds);
-      }
-      setMeasuredDuration(duration);
-      progressContextRef.current = {
-        durationSeconds: duration,
-        scope: session.progressScope,
-      };
-      setWatchedOverride(playbackProgress.watched);
-      let lastPersisted = resumeSeconds ?? 0;
-      let currentTime = resumeSeconds ?? 0;
-      const persist = (position: number) => {
-        const rounded = Math.max(0, Math.min(duration, Math.round(position)));
-        lastPersisted = rounded;
-        if (session.progressScope === "anonymous") {
-          writeAnonymousProgress(video.videoId, rounded, duration);
-          return;
-        }
-        persistAccountProgress({
-          durationSeconds: duration,
-          materialId,
-          positionSeconds: rounded,
-          videoId: video.videoId,
-        });
-      };
-      player.on(player.Events.TimeUpdate, ({ data: { currentTime: nextTime } }) => {
-        currentTime = nextTime;
-        if (Math.abs(currentTime - lastPersisted) >= 15) persist(currentTime);
-      });
-      player.on(player.Events.Pause, () => { persist(currentTime); });
-      player.on(player.Events.Ended, () => {
-        persist(duration);
-        setWatchedOverride(true);
-      });
-      setPhase("playing");
-    } catch {
-      setPhase("error");
-    }
-  };
 
   const toggleWatched = async () => {
     if (watchedPending) return;
@@ -211,7 +201,7 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
   };
 
   return <MaterialVideoPlayerView
-    onLoad={() => { void loadPlayer(); }}
+    onLoad={() => { setPhase("loading"); setRetryAttempt((attempt) => attempt + 1); }}
     onToggleWatched={() => { void toggleWatched(); }}
     {...(className === undefined ? {} : { className })}
     phase={phase}
@@ -258,40 +248,25 @@ export function MaterialVideoPlayerView({
         {phase === "playing" ? null : (
           <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(circle_at_70%_20%,color-mix(in_oklch,var(--accent)_18%,transparent),transparent_42%),linear-gradient(145deg,var(--sidebar),color-mix(in_oklch,var(--sidebar)_84%,black))] p-3 text-center sm:p-6">
             <div className="max-w-md">
-              <span className="mx-auto grid size-11 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm sm:size-14 sm:rounded-2xl">
-                {phase === "loading" ? <LoaderCircle aria-hidden="true" className="size-6 animate-spin motion-reduce:animate-none" /> : <Play aria-hidden="true" className="size-6 fill-current" />}
-              </span>
-              <p className="mt-5 hidden text-balance text-lg font-semibold sm:block">{title}</p>
-              <p aria-live="polite" className="mt-2 hidden text-sm leading-6 text-sidebar-foreground/70 sm:block">
-                {phase === "loading"
-                  ? "Проверяем доступ и загружаем видео…"
-                  : phase === "error"
-                    ? "Видео сейчас недоступно. Можно безопасно повторить."
-                    : "Видеоплеер подключится только после вашего действия."}
+              {phase === "loading" ? (
+                <LoaderCircle aria-hidden="true" className="mx-auto size-7 animate-spin motion-reduce:animate-none" />
+              ) : null}
+              <p aria-live="polite" className="mt-3 text-sm leading-6 text-sidebar-foreground/80">
+                {phase === "loading" ? "Загружаем видео…" : "Не удалось загрузить видео"}
               </p>
-              <Button
-                className="mt-3 sm:mt-5"
-                disabled={phase === "loading"}
-                onClick={onLoad}
-                type="button"
-              >
-                {phase === "error" ? <RotateCcw aria-hidden="true" /> : <Play aria-hidden="true" />}
-                {phase === "error" ? "Повторить" : "Загрузить видео"}
-              </Button>
+              {phase === "error" ? (
+                <Button className="mt-3" onClick={onLoad} type="button">
+                  <RotateCcw aria-hidden="true" /> Повторить
+                </Button>
+              ) : null}
             </div>
           </div>
         )}
       </div>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground sm:hidden">{title}</p>
-          <p className="mt-1 max-w-[62ch] text-xs leading-5 text-muted-foreground">
-            Управление, полноэкранный режим и Picture-in-Picture предоставляет Kinescope.
-          </p>
-        </div>
+      <div className="mt-3 flex justify-end">
         <Button
           aria-pressed={watched}
-          className="min-h-10 w-[13.5rem] shrink-0 justify-center rounded-full"
+          className="h-auto min-h-10 w-[13.5rem] max-w-full shrink-0 justify-center whitespace-normal rounded-full py-2"
           disabled={watchedDisabled || onToggleWatched === undefined}
           onClick={onToggleWatched}
           type="button"
@@ -316,7 +291,7 @@ function UnavailableVideoState({ className, video }: { readonly className?: stri
         {processing ? "Видео обрабатывается" : "Видео временно недоступно"}
       </h2>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        {processing ? "Можно продолжить чтение и вернуться к видео позже." : "Текст материала остаётся доступен. Мы сохранили ошибку провайдера без раскрытия технических данных."}
+        {processing ? "Можно продолжить чтение и вернуться к видео позже." : "Текст материала остаётся доступен. Попробуйте открыть видео позже."}
       </p>
     </section>
   );

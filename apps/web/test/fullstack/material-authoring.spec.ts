@@ -49,21 +49,29 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await page.getByRole("button", { name: "Опубликовать" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
 
+  await installPlaybackProviderDouble(page);
+  const { promise: playbackGate, resolve: releasePlayback } = Promise.withResolvers<undefined>();
+  const { promise: playbackRequested, resolve: requestedPlayback } = Promise.withResolvers<undefined>();
+  await page.route("**/api/material-video-playback-sessions", async (route) => {
+    requestedPlayback(undefined);
+    await playbackGate;
+    await route.continue();
+  });
   const readerResponse = await page.goto(`/materials/${slug}`);
   expect(readerResponse?.headers()["content-security-policy"]).toContain("frame-src https://kinescope.io");
   expect(readerResponse?.headers()["content-security-policy"]).toContain("script-src 'self' 'unsafe-inline' https://player.kinescope.io");
   await expect(page.getByRole("region", { name: "Видео" })).toBeVisible();
-  await expect(page.locator("p:visible", { hasText: `test-video-${suffix}` })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Загрузить видео" })).toBeVisible();
+  await playbackRequested;
+  await expect(page.getByRole("button", { name: "Загрузить видео" })).toHaveCount(0);
   await expect(page.locator("iframe")).toHaveCount(0);
   expect(providerRequests).toEqual([]);
-
-  const materialId = await page.getByRole("button", { name: "Загрузить видео" }).evaluate((button) =>
-    button.closest("main")?.querySelector<HTMLElement>("[data-material-id]")?.dataset.materialId ?? null,
-  );
-  const videoId = await page.getByRole("button", { name: "Загрузить видео" }).evaluate((button) =>
-    button.closest("section")?.getAttribute("data-video-id"),
-  );
+  releasePlayback(undefined);
+  const player = page.locator("[data-video-player-mount] iframe");
+  await expect(player).toBeVisible();
+  await expect(player).toHaveAttribute("data-autoplay", "false");
+  await expect(player).toHaveAttribute("data-preload", "metadata");
+  const materialId = await page.locator("[data-material-id]").getAttribute("data-material-id");
+  const videoId = await page.locator("[data-video-id]").getAttribute("data-video-id");
   if (typeof materialId !== "string" || typeof videoId !== "string") {
     throw new Error("Video identity evidence is missing");
   }
@@ -105,7 +113,22 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     resumeSeconds: 37,
     videoId,
   });
-  await captureVideoEvidence(page, testInfo, "reader-privacy-facade");
+  await page.reload();
+  await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "37");
+  await captureVideoEvidence(page, testInfo, "reader-automatic-player");
+
+  await page.unroute("**/api/material-video-playback-sessions");
+  await page.route("**/api/material-video-playback-sessions", (route) =>
+    route.fulfill({ status: 403, json: { code: "playback_unavailable" } }),
+  );
+  providerRequests.length = 0;
+  await page.reload();
+  await expect(page.getByText("Не удалось загрузить видео")).toBeVisible();
+  await expect(page.locator("iframe")).toHaveCount(0);
+  expect(providerRequests).toEqual([]);
+  await page.unroute("**/api/material-video-playback-sessions");
+  await page.getByRole("button", { name: "Повторить", exact: true }).click();
+  await expect(page.locator("[data-video-player-mount] iframe")).toBeVisible();
 
   await page.goto(editorUrl);
   await page.getByLabel(/ID существующего видео/u).fill(`test-outage-once-${suffix}`);
@@ -121,9 +144,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
   await page.goto(`/materials/${slug}`);
-  const replacementVideoId = await page.getByRole("button", { name: "Загрузить видео" }).evaluate((button) =>
-    button.closest("section")?.getAttribute("data-video-id"),
-  );
+  const replacementVideoId = await page.locator("[data-video-id]").getAttribute("data-video-id");
   if (typeof replacementVideoId !== "string") {
     throw new Error("Replacement Video identity is missing");
   }
@@ -931,5 +952,38 @@ async function captureVideoDeletionEvidence(
     animations: "disabled",
     fullPage: true,
     path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+  });
+}
+
+/** Replace only the external player SDK; access/session/progress still use the real BFF and backend. */
+async function installPlaybackProviderDouble(page: Page): Promise<void> {
+  await page.route("https://kinescope.io/**", (route) => route.fulfill({
+    contentType: "text/html",
+    body: "<!doctype html><html lang='ru'><title>Test video</title><body>Test video</body></html>",
+  }));
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "Kinescope", { value: {
+      IframePlayer: {
+        version: "1.0.0",
+        create: (mount: HTMLElement, options: {
+          url: string;
+          behavior: { autoPlay: boolean; preload: string };
+        }) => {
+          const iframe = document.createElement("iframe");
+          iframe.src = options.url;
+          iframe.style.cssText = "width:100%;height:100%;border:0";
+          iframe.dataset.autoplay = String(options.behavior.autoPlay);
+          iframe.dataset.preload = options.behavior.preload;
+          mount.append(iframe);
+          return Promise.resolve({
+            Events: { TimeUpdate: "time", Pause: "pause", Ended: "ended" },
+            destroy: () => { iframe.remove(); return Promise.resolve(); },
+            getDuration: () => Promise.resolve(120),
+            on: () => undefined,
+            seekTo: (seconds: number) => { iframe.dataset.seekSeconds = String(seconds); return Promise.resolve(); },
+          });
+        },
+      },
+    } });
   });
 }
