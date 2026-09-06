@@ -405,6 +405,10 @@
   }
   .np-header-brand .np-wordmark {
     display: inline;
+    max-width: 85px;
+    font-size: 16px;
+    line-height: 1.1;
+    text-align: left;
   }
   .np-search {
     margin-left: auto;

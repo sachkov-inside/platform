@@ -5,6 +5,7 @@ import { mergeConfig } from "vite";
 
 const config: StorybookConfig = {
   staticDirs: [
+    { from: "../../../docs/evidence/issue-311/brand", to: "/brand-study" },
     { from: "../../../docs/evidence/issue-271/covers", to: "/api/content-covers" },
   ],
   stories: [
@@ -12,6 +13,7 @@ const config: StorybookConfig = {
     "../src/**/!(*.prototype).stories.@(js|jsx|mjs|ts|tsx)",
     // Active owner comparison; historical prototypes stay out of the catalog.
     "../src/_pages/home/ui/navigation.prototype.stories.tsx",
+    "../src/_pages/home/ui/brand.prototype.stories.tsx",
   ],
   addons: [
     "@storybook/addon-vitest",

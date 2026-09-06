@@ -17,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 
 import type { MaterialPreview } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
@@ -61,15 +61,20 @@ const home: HomeView = {
 };
 
 export interface NavigationPrototypeProps {
+  readonly brandContent?: ReactNode;
+  readonly showNavigationControls?: boolean;
   readonly initialVariant?: Variant;
   readonly initialExpanded?: boolean;
 }
 
 export function NavigationPrototype({
+  brandContent,
+  showNavigationControls = true,
   initialVariant = "header",
   initialExpanded = false,
 }: NavigationPrototypeProps) {
   const [variant, setVariant] = useState<Variant>(() => {
+    if (!showNavigationControls) return initialVariant;
     const saved = new URL(window.location.href).searchParams.get("variant");
     return saved === "header" || saved === "compact" || saved === "sidebar"
       ? saved
@@ -98,6 +103,7 @@ export function NavigationPrototype({
 
   useEffect(() => {
     function keydown(event: KeyboardEvent) {
+      if (!showNavigationControls) return;
       if (
         event.target instanceof HTMLElement &&
         event.target.closest(
@@ -146,10 +152,14 @@ export function NavigationPrototype({
       onClick={() => {
         navigate("Главная");
       }}
-      aria-label="Внутри — на главную"
+      aria-label="Sachkov Inside — на главную"
     >
-      <span className="np-monogram">S</span>
-      <span className="np-wordmark">Внутри</span>
+      {brandContent ?? (
+        <>
+          <span className="np-monogram">S</span>
+          <span className="np-wordmark">Sachkov Inside</span>
+        </>
+      )}
     </button>
   );
   const account = (
@@ -317,83 +327,85 @@ export function NavigationPrototype({
       {variant === "compact" && (
         <div className="np-bottom">{navigation("нижняя панель")}</div>
       )}
-      <aside className="np-controls" aria-label="Сравнение вариантов">
-        {settings && (
-          <div className="np-settings">
-            <strong>Условия сравнения</strong>
-            <label>
-              <input
-                type="checkbox"
-                checked={expanded}
-                onChange={(event) => {
-                  setExpanded(event.target.checked);
-                  navigate("Главная");
-                }}
-              />
-              Будущие разделы · всего 5
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={anchors}
-                onChange={(event) => {
-                  setAnchors(event.target.checked);
-                }}
-              />
-              Якоря главной страницы
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={member}
-                onChange={(event) => {
-                  setMember(event.target.checked);
-                }}
-              />
-              Пользователь вошёл
-            </label>
-            <p>
-              Прототип #311. Карточки и оформление — из текущей главной. Выбор
-              пока открыт.
-            </p>
+      {showNavigationControls && (
+        <aside className="np-controls" aria-label="Сравнение вариантов">
+          {settings && (
+            <div className="np-settings">
+              <strong>Условия сравнения</strong>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={expanded}
+                  onChange={(event) => {
+                    setExpanded(event.target.checked);
+                    navigate("Главная");
+                  }}
+                />
+                Будущие разделы · всего 5
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={anchors}
+                  onChange={(event) => {
+                    setAnchors(event.target.checked);
+                  }}
+                />
+                Якоря главной страницы
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={member}
+                  onChange={(event) => {
+                    setMember(event.target.checked);
+                  }}
+                />
+                Пользователь вошёл
+              </label>
+              <p>
+                Прототип #311. Выбрана верхняя шапка. Логотип прорабатывается
+                отдельно.
+              </p>
+            </div>
+          )}
+          <div className="np-switcher">
+            <button
+              aria-label="Предыдущий вариант"
+              onClick={() => {
+                switchVariant(-1);
+              }}
+            >
+              <ArrowLeft aria-hidden="true" />
+            </button>
+            <span aria-live="polite">
+              <strong>{labels[variant]}</strong>
+              <small>
+                {expanded ? "5 разделов" : "2 раздела"} ·{" "}
+                {member ? "участник" : "гость"} · якоря{" "}
+                {anchors ? "вкл." : "выкл."}
+              </small>
+            </span>
+            <button
+              aria-label="Следующий вариант"
+              onClick={() => {
+                switchVariant(1);
+              }}
+            >
+              <ArrowRight aria-hidden="true" />
+            </button>
+            <button
+              aria-label="Условия сравнения"
+              aria-expanded={settings}
+              onClick={() => {
+                setSettings(!settings);
+              }}
+            >
+              <Settings2 aria-hidden="true" />
+            </button>
           </div>
-        )}
-        <div className="np-switcher">
-          <button
-            aria-label="Предыдущий вариант"
-            onClick={() => {
-              switchVariant(-1);
-            }}
-          >
-            <ArrowLeft aria-hidden="true" />
-          </button>
-          <span aria-live="polite">
-            <strong>{labels[variant]}</strong>
-            <small>
-              {expanded ? "5 разделов" : "2 раздела"} ·{" "}
-              {member ? "участник" : "гость"} · якоря{" "}
-              {anchors ? "вкл." : "выкл."}
-            </small>
-          </span>
-          <button
-            aria-label="Следующий вариант"
-            onClick={() => {
-              switchVariant(1);
-            }}
-          >
-            <ArrowRight aria-hidden="true" />
-          </button>
-          <button
-            aria-label="Условия сравнения"
-            aria-expanded={settings}
-            onClick={() => {
-              setSettings(!settings);
-            }}
-          >
-            <Settings2 aria-hidden="true" />
-          </button>
-        </div>
-      </aside>
+        </aside>
+      )}
       <Dialog.Root
         open={notice !== null}
         onOpenChange={(open) => {
