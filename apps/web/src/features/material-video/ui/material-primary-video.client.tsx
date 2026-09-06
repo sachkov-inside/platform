@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, LoaderCircle, RotateCcw, VideoOff } from "lucide-react";
+import { CheckCircle2, Circle, LoaderCircle, RotateCcw, VideoOff } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { type Ref, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
@@ -276,14 +276,14 @@ export function MaterialVideoPlayerView({
       <div className="mt-3 flex justify-end">
         <Button
           aria-pressed={watched}
-          className="h-auto min-h-15 w-[13.5rem] max-w-full shrink-0 justify-center whitespace-normal rounded-full py-2"
+          className="h-auto min-h-10 w-40 max-w-full shrink-0 justify-center whitespace-normal rounded-full py-2"
           disabled={watchedDisabled || onToggleWatched === undefined}
           onClick={onToggleWatched}
           type="button"
           variant={watched ? "default" : "outline"}
         >
-          <CheckCircle2 aria-hidden="true" />
-          {watched ? "Просмотрено" : "Отметить просмотренным"}
+          {watched ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}
+          Просмотрено
         </Button>
       </div>
     </section>

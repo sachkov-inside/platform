@@ -688,7 +688,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(
     page.getByRole("link", { name: "Platform", exact: true }),
   ).toHaveAttribute("href", "/topics/platform");
-  await expect(page.getByRole("link", { name: "Назад к серии" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Назад к серии" })).toHaveCount(1);
   await expect(page.locator("[data-reader-metadata]")).not.toContainText("· №");
   await expect(page.locator("[data-related-state]")).toHaveCount(0);
 

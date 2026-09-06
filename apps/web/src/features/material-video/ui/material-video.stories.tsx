@@ -250,7 +250,7 @@ export const PlayerWatchedToggle: Story = {
   name: "Player · watched toggle",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const markWatched = canvas.getByRole("button", { name: "Отметить просмотренным" });
+    const markWatched = canvas.getByRole("button", { name: "Просмотрено" });
     await expect(markWatched).toHaveAttribute("aria-pressed", "false");
     const initialWidth = markWatched.getBoundingClientRect().width;
     const initialHeight = markWatched.getBoundingClientRect().height;

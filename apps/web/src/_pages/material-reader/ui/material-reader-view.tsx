@@ -20,6 +20,8 @@ import {
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 
+import { ReaderReturnNavigation } from "./reader-return-navigation.client";
+
 export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
@@ -50,30 +52,32 @@ export function MaterialReaderView({
       data-material-id={material.materialId}
       data-material-reader-state="available"
     >
-      <div className="mx-auto min-w-0 max-w-[43rem]">
-        <MaterialReaderHeader material={material} />
-        {primaryVideo === null ? null : (
-          <MaterialPrimaryVideo
-            className="max-w-none"
-            key={primaryVideo.videoId}
-            materialId={material.materialId}
-            video={primaryVideo}
-          />
-        )}
-        <ReaderOutline items={outline} />
-        <article
-          className="mt-10 min-w-0 break-words text-pretty text-[1.0625rem] leading-[1.7] text-foreground md:text-lg"
-          data-reader-body
-        >
-          <ReaderBlocks
-            blocks={body}
-            contentVersion={material.contentVersion}
-            materialId={material.materialId}
-            path={[]}
-          />
-        </article>
-        <MaterialReaderMetadataFooter material={material} seriesContext={seriesContext} returnTarget={returnTarget} />
-      </div>
+      <ReaderReturnNavigation repeatAtBottom={seriesContext === null} target={returnTarget}>
+        <div className="mx-auto min-w-0 max-w-[43rem]">
+          <MaterialReaderHeader material={material} />
+          {primaryVideo === null ? null : (
+            <MaterialPrimaryVideo
+              className="max-w-none"
+              key={primaryVideo.videoId}
+              materialId={material.materialId}
+              video={primaryVideo}
+            />
+          )}
+          <ReaderOutline items={outline} />
+          <article
+            className="mt-10 min-w-0 break-words text-pretty text-[1.0625rem] leading-[1.7] text-foreground md:text-lg"
+            data-reader-body
+          >
+            <ReaderBlocks
+              blocks={body}
+              contentVersion={material.contentVersion}
+              materialId={material.materialId}
+              path={[]}
+            />
+          </article>
+          <MaterialReaderMetadataFooter material={material} seriesContext={seriesContext} returnTarget={returnTarget} />
+        </div>
+      </ReaderReturnNavigation>
     </div>
   );
 }
@@ -168,6 +172,8 @@ export function MaterialReaderMetadataFooter({
     seriesContext === null || returnTarget.seriesSlug !== series.slug,
   );
 
+  if (seriesContext === null && material.tags.length === 0 && otherSeries.length === 0) return null;
+
   return (
     <footer
       aria-label="Дополнительная информация о материале"
@@ -175,7 +181,6 @@ export function MaterialReaderMetadataFooter({
       data-reader-metadata
     >
       <SeriesReaderNavigation context={seriesContext} />
-      {seriesContext === null ? <ReaderBackAction target={returnTarget} /> : null}
       {material.tags.length > 0 ? (
         <ul
           aria-label="Теги материала"
@@ -211,30 +216,6 @@ export function MaterialReaderMetadataFooter({
         </ul>
       ) : null}
     </footer>
-  );
-}
-
-export function ReaderBackAction({
-  className = "",
-  target,
-}: {
-  readonly className?: string;
-  readonly target: MaterialReaderReturnTarget;
-}) {
-  const action = (
-    <Button asChild className="h-auto min-h-11 max-w-full whitespace-normal rounded-full border-0 bg-black/5 px-3 text-xs font-semibold shadow-none" size="lg" variant="outline">
-      <Link href={target.href}>
-        <ArrowLeft aria-hidden="true" />
-        {target.label}
-      </Link>
-    </Button>
-  );
-
-
-  return (
-    <div className={cn("mx-auto flex min-h-11 max-w-[43rem] items-center", className)}>
-      {action}
-    </div>
   );
 }
 
