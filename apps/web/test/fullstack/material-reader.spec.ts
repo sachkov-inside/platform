@@ -3,6 +3,26 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
+for (const width of [320, 390, 1440]) {
+  test(`Home series lift stays visible at ${String(width)}px`, async ({ page }, testInfo) => {
+    // Narrow desktop pointer reproduces hovering a phone-sized Storybook preview.
+    test.skip(testInfo.project.name !== "desktop-chromium");
+    await page.setViewportSize({ width, height: 1000 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/");
+    const card = page.locator("[data-playlist-card]").first();
+    await card.scrollIntoViewIfNeeded();
+    await card.hover();
+    await expect(card).toHaveCSS("translate", "0px -2px");
+    // Probe the lifted top edge: an overflow ancestor must not remove it from hit testing.
+    await expect.poll(() => card.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const painted = document.elementFromPoint(rect.x + rect.width / 2, rect.y + 0.5);
+      return painted !== null && element.contains(painted);
+    })).toBe(true);
+  });
+}
+
 test("server-renders the mobile-first Home showcase from ContentLibrary", async ({
   page,
   request,
@@ -107,7 +127,7 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
     "href",
     "/materials/developer-pipeline-bez-poteri-konteksta?from=%2Flibrary",
   );
-  await expect(page).toHaveTitle("База знаний · Inside");
+  await expect(page).toHaveTitle("База знаний · Sachkov Inside");
   await captureIssue195Evidence(page, testInfo, "library");
   await captureIssue271Evidence(page, testInfo, "library");
 
@@ -317,7 +337,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   await expect(
     page.getByRole("heading", { name: "Первый вертикальный срез", level: 2 }),
   ).toBeVisible();
-  await expect(page).toHaveTitle("Как устроен Inside Platform · Inside");
+  await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Inside");
   await expect(page.getByRole("link", { name: "Назад в Базу знаний" }).first()).toBeVisible();
   await expect(page.getByRole("main")).toContainText("PostgreSQL хранит current Material");
   await expect(page.locator("[data-reader-body]")).toHaveCount(1);
@@ -587,7 +607,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     "/library",
   );
   await expect(page.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
-  await expect(page).toHaveTitle("Platform — тема · Inside");
+  await expect(page).toHaveTitle("Platform — тема · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);
   await expect(page.locator('[data-access-cover="locked"]')).toBeVisible();
   const topicMaterialHref = await page
@@ -628,7 +648,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
   ).toBeVisible();
-  await expect(page).toHaveTitle("Создание Platform Inside — серия · Inside");
+  await expect(page).toHaveTitle("Создание Platform Inside — серия · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);
   await expect(
     page.locator("[data-series-order] [data-series-ordinal]").evaluateAll((items) =>
@@ -677,7 +697,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(readerSeriesLink).toHaveText(expectedSeriesLabel);
   await expect(page.locator("[data-related-state]")).toHaveCount(0);
 
-  await expect(page).toHaveTitle("Как устроен Inside Platform · Inside");
+  await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
@@ -860,9 +880,9 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({ pag
     }).observe({ type: "layout-shift", buffered: true });
   });
   await page.goto("/materials/kak-ustroen-inside-platform");
-  const sidebar = page.getByRole("complementary", { name: "Боковая панель" });
+  const header = page.getByRole("banner");
   const main = page.getByRole("main");
-  const collapsedMainRect = await main.evaluate((element) => {
+  const initialMainRect = await main.evaluate((element) => {
     const { width, x } = element.getBoundingClientRect();
     return { width, x };
   });
@@ -874,7 +894,7 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({ pag
       }
     ).__shellCls.value = 0;
   });
-  await sidebar.hover();
+  await header.hover();
   await expect
     .poll(() =>
       main.evaluate((element) => {
@@ -882,7 +902,7 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({ pag
         return { width, x };
       }),
     )
-    .toEqual(collapsedMainRect);
+    .toEqual(initialMainRect);
   await page.waitForTimeout(500);
   expect(
     await page.evaluate(

@@ -110,10 +110,9 @@ export function KnowledgeBasePrototype({
 
   return (
     <ApplicationShell
-      accountLabel="Кирилл"
       currentPath="/library"
       navigationItems={navigationItems}
-      sidebarDefaultPinned
+      mobileNavigationItems={[...navigationItems, { href: "/account", icon: "profile", label: "Профиль" }]}
     >
       <div
         className="@container/knowledge -mx-5 -mb-7 overflow-clip bg-background sm:-mx-8 sm:-mb-10 md:m-0 md:overflow-visible md:bg-transparent"

@@ -68,10 +68,9 @@ function MediaCardBoard() {
 function WorkshopShell({ children }: { readonly children: ReactNode }) {
   return (
     <ApplicationShell
-      accountLabel="Кирилл"
       currentPath="/library"
       navigationItems={navigationItems}
-      sidebarDefaultPinned
+      mobileNavigationItems={[...navigationItems, { href: "/account", icon: "profile", label: "Профиль" }]}
     >
       {children}
     </ApplicationShell>
