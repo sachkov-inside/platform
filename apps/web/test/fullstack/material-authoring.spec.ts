@@ -116,6 +116,14 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await page.reload();
   await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "37");
   await captureVideoEvidence(page, testInfo, "reader-automatic-player");
+  await page.getByRole("button", { name: "Отметить просмотренным" }).click();
+  await expect(page.getByRole("button", { name: "Просмотрено", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.evaluate(() => { sessionStorage.setItem("test-player-unavailable", "1"); });
+  await page.reload();
+  await expect(page.getByText("Не удалось загрузить видео")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Просмотрено", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.evaluate(() => { sessionStorage.removeItem("test-player-unavailable"); });
+
 
   await page.unroute("**/api/material-video-playback-sessions");
   await page.route("**/api/material-video-playback-sessions", (route) =>
@@ -969,6 +977,9 @@ async function installPlaybackProviderDouble(page: Page): Promise<void> {
           url: string;
           behavior: { autoPlay: boolean; preload: string };
         }) => {
+          if (sessionStorage.getItem("test-player-unavailable") === "1") {
+            return Promise.reject(new Error("Test provider outage"));
+          }
           const iframe = document.createElement("iframe");
           iframe.src = options.url;
           iframe.style.cssText = "width:100%;height:100%;border:0";

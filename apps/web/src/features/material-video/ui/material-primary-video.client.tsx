@@ -74,6 +74,16 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
         const savedPositionSeconds = session.progressScope === "anonymous"
           ? readAnonymousProgress(video.videoId) ?? session.resumeSeconds
           : session.resumeSeconds;
+        if (video.durationSeconds !== undefined) {
+          progressContextRef.current = {
+            durationSeconds: video.durationSeconds,
+            scope: session.progressScope,
+          };
+          if (!progressInteractionRef.current) {
+            setWatchedOverride(savedPositionSeconds !== null &&
+              isVideoWatchedPosition(savedPositionSeconds, video.durationSeconds));
+          }
+        }
         const iframeApi = await import("@kinescope/player-iframe-api-loader");
         if (!active) return;
         const factory = await iframeApi.load();
@@ -154,7 +164,7 @@ export function MaterialPrimaryVideo({ className, materialId, video }: MaterialP
       active = false;
       void mountedPlayer?.destroy();
     };
-  }, [createPlaybackSession, materialId, persistAccountProgress, retryAttempt, video.state, video.title, video.videoId]);
+  }, [createPlaybackSession, materialId, persistAccountProgress, retryAttempt, video.durationSeconds, video.state, video.title, video.videoId]);
 
   if (video.state !== "ready") {
     return (

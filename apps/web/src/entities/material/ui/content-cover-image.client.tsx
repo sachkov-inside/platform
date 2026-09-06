@@ -68,7 +68,7 @@ export function ContentCoverImage({
       ) : (
         <span
           aria-hidden="true"
-          className="absolute left-1/2 top-1/2 grid aspect-square h-[70%] max-h-20 -translate-x-1/2 -translate-y-1/2 rotate-[-5deg] place-items-center rounded-[1.4rem] border border-white/35 bg-white/78 text-foreground shadow-cover backdrop-blur-sm"
+          className="absolute left-1/2 top-1/2 grid aspect-square h-[70%] max-h-20 -translate-x-1/2 -translate-y-1/2 rotate-[-5deg] place-items-center rounded-[28%] border border-white/35 bg-white/78 text-foreground shadow-cover backdrop-blur-sm"
         >
           <FallbackIcon className="size-1/2" strokeWidth={1.7} />
         </span>
