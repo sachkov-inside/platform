@@ -1,50 +1,65 @@
 # Connected steps within mixed Series — #298
 
 Production implementation: [PR #300](https://github.com/sachkov-inside/platform/pull/300).
-Core implementation `474a4a2`; final fixture assertions `ce06d8d`.
-Content contract alignment: [Inside Content #5](https://github.com/sachkov-inside/inside-content/pull/5).
+Accepted visual decision: [#301](https://github.com/sachkov-inside/platform/issues/301), with the
+owner's final equal-marker refinement recorded in [#298](https://github.com/sachkov-inside/platform/issues/298).
+Final application source: `fe4c5f3`; evidence-only changes follow it.
+Content contract alignment: [merged Inside Content #5](https://github.com/sachkov-inside/inside-content/pull/5).
 
-## Observed result
+## Final presentation
 
 The live `/series/demo-series-release` contains six ordered entries: video, preparation guide,
 Docker video, note, environment guide, deployment guide. The three guides explicitly belong to
 “От проекта до релиза” and show steps 1/3, 2/3 and 3/3 at overall positions 2, 5 and 6.
-The same preparation guide in `/series/demo-series-release-shared` has no step mark. Reader for
-that guide in the release Series remains position 2/6 and goes next to the Docker video.
-There is no second Reader path, format-based inference, or main/optional role.
 
-Root coordinator independently reviewed the live Series, shared Series and Reader, then reviewed
-the rebuilt foreground label and mobile screenshot: visual GO. Browser was released afterward.
+All six entries have the same dark filled ordinal marker. A dashed line passes through their common
+axis from the first marker to the last. Step labels sit inside the original MaterialCard below its
+title. Video rows use their published summary as plain text, limited to three visible lines; the
+full summary remains in Reader. Covers, card metadata and the mixed reading order are preserved.
+There are no primary/optional roles or a second Reader path.
 
-## Responsive evidence
+The first mobile review caught unbounded video summaries making rows disproportionately tall.
+The final source limits them to three lines and gives the two demo videos concise, concrete
+summaries. Storybook verifies the rendered height against the three-line limit.
 
-Captured from the real Compose API/web after rebuilding the foreground-contrast correction.
-All application data comes from development seed through the production adapter, not Storybook.
+## Current responsive evidence
 
-- [Desktop, 1440 × 1024](series-desktop.png)
-- [Desktop lower steps](series-desktop-steps.png)
-- [Mobile, 390 × 844](series-mobile.png)
-- [Mobile lower steps](series-mobile-steps.png)
-- [Same guide in another Series](shared-series-desktop.png)
-- [Reader retains the mixed Series next item](reader-desktop.png)
+- [Final desktop, 1440 px wide](series-desktop.png)
+- [Final mobile, 390 px wide](series-mobile.png)
 
-Mobile DOM measurement: document scrollWidth = innerWidth = 390. All three badges present in
-published order. Shared Series badge count = 0. Temporary viewport override was reset, evidence
-tab closed; the coordinator's deliverable tab remains available.
+The root coordinator captures these images from the real Compose API/web using the documented
+isolated Playwright screenshot CLI, then inspects the images. CUA was unavailable in both sessions
+(native pipe startup failure / browser unavailable); no final interactive CUA inspection is claimed.
+Root independent visual inspection: desktop and mobile GO on `fe4c5f3`. All six markers have equal
+weight, labels are inside cards, and video summaries remain compact. The mobile full-page image
+shows the fixed shell at its initial viewport position; that is a full-page capture artifact.
 
-## Verification
+The production route and Storybook import the same implementation. Stories verify step labels
+inside the guide cards, equal marker appearance, line/marker alignment, summary height, literal
+HTML-like summary text and absence of horizontal overflow on desktop/mobile.
 
-Pinned Node 24.19.0 / pnpm 11.22.0 root `pnpm check` passed: backend 296 tests, Web/module/Storybook
-341 tests, Playwright 39 passed / 3 environment-conditional skipped, builds and guardrails green.
-PostgreSQL suite: all 152 tests passed after updating demo cardinality and migration-registry
-expectations. Hosted Integration separately passed on the corrected commit. MCP round-trip includes
-a normalized step assignment.
+## Unchanged navigation evidence
 
-Storybook uses the production public and authoring modules, with connected steps desktop/mobile
-and real composition-mutation form assertions. Its accessibility checks caught accent-on-secondary
-contrast 4.3:1 in the first iteration; the corrected foreground text passed the unmodified checks.
-Live CUA console showed only the known development Agentation localhost session fallback warning.
-Final full-stack and CI closure are recorded in the PR.
+These earlier images document the already-verified context behavior before the visual refinement;
+they do not represent the final Series card styling:
+
+- [Same guide in another Series](shared-series-desktop.png): no step assignment in that Series.
+- [Reader retains the mixed Series next item](reader-desktop.png): preparation guide is entry 2/6
+  and advances to the Docker video, not directly to guide step 2.
+
+The superseded external-label screenshots were removed; Git history preserves them.
+
+## Verification and compatibility
+
+The final checks and exact-head CI outcome are recorded in the PR. Focused tests cover labels,
+legacy omission, clearing, optimistic composition versions, draft exclusion and MCP round-trip.
+The full authoring flow previously passed the isolated full-stack suite; this visual amendment
+changes no authoring, Reader, API or composition contract.
+
+On the existing local database, changing demo summaries initially exposed an old creation receipt
+fingerprint. The seed now retains the original createDraft payload and updates current summary
+through ordinary Material Save. Existing-volume upgrade and repeated fresh seed pass without a
+reset. API/web container source hashes match the committed application files.
 
 ## Limits and runtime
 
