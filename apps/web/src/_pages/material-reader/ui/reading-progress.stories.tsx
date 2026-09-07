@@ -39,7 +39,7 @@ function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true 
   };
   const action = <ReadingAction format={format} view={view} onSetReadingState={onSetReadingState} onRefresh={() => { setView({ kind: "ready", isRead, canMark: true }); }} />;
   const progress = <div className="mt-5"><SeriesProgress view={{ kind: "ready", total, read: displayedRead }} /></div>;
-  const formatName = format === "video" ? "Видео" : format === "text" ? "Текст" : "Гайд";
+  const formatName = format === "video" ? "Видео" : format === "text" ? "Текст" : format === "note" ? "Заметка" : "Гайд";
   return <ApplicationShell currentPath="/library" navigationItems={navigation} mobileNavigationItems={navigation}>
     {surface === "reader" ? <MaterialReaderView body={body} material={{ ...metadata, format: { name: formatName, slug: format } }} primaryVideo={format === "video" ? { state: "ready", videoId: "02000000-0000-4000-8000-000000000015", title: metadata.title } : null} readingAction={action} /> :
       <div className="mx-auto max-w-5xl">
@@ -108,4 +108,12 @@ export const MarkAndRemove: Story = { play: async ({ canvasElement }) => {
   await expect(button).toHaveFocus();
   await userEvent.click(button);
   await waitFor(() => expect(button).toHaveAttribute("aria-pressed", "false"));
+} };
+
+export const Note: Story = { args: { format: "note" }, play: async ({ canvasElement }) => {
+  const canvas = within(canvasElement);
+  const button = canvas.getByRole("button", { name: "Прочитано" });
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+  await userEvent.click(button);
+  await waitFor(async () => { await expect(button).toHaveAttribute("aria-pressed", "true"); });
 } };

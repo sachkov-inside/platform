@@ -1,5 +1,8 @@
 import "server-only";
 
+import { materialFormatSchema, type MaterialFormat } from "@/shared/api/material-format";
+
+
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 
@@ -18,7 +21,7 @@ import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
   document: z.string().min(1).max(1_048_576),
-  formatId: z.enum(["video", "guide", "note", "unassigned"]),
+  formatId: materialFormatSchema.or(z.literal("unassigned")),
   submissionId: z.uuid(),
   seriesIds: z.string().max(100_000),
   summary: z.string().trim().min(1).max(500),
@@ -50,7 +53,7 @@ const problemSchema = z
 interface ParsedDraftForm {
   readonly access: "free" | "membership";
   readonly document: JSONContent;
-  readonly formatId: "video" | "guide" | "note" | null;
+  readonly formatId: MaterialFormat | null;
   readonly idempotencyKey: string;
   readonly seriesIds: readonly string[];
   readonly summary: string;

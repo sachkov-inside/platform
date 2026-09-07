@@ -1,5 +1,8 @@
 import "server-only";
 
+import { type MaterialFormat } from "@/shared/api/material-format";
+
+
 import { MaterialAuthoringService } from "./generated/platform-api";
 import { executeGeneratedRequest, type BackendTransportResult } from "./transport-core.server";
 
@@ -56,7 +59,7 @@ export function requestContentCollectionArchive(input: { readonly archived: bool
   );
 }
 
-export function requestMaterialDraftCreation(input: { readonly access: "free" | "membership"; readonly document: Record<string, unknown>; readonly formatId: "video" | "guide" | "note" | null; readonly idempotencyKey: string; readonly seriesIds: readonly string[]; readonly summary: string; readonly tagIds: readonly string[]; readonly title: string; readonly topicId: string | null }, accessToken: string): Promise<BackendTransportResult> {
+export function requestMaterialDraftCreation(input: { readonly access: "free" | "membership"; readonly document: Record<string, unknown>; readonly formatId: MaterialFormat | null; readonly idempotencyKey: string; readonly seriesIds: readonly string[]; readonly summary: string; readonly tagIds: readonly string[]; readonly title: string; readonly topicId: string | null }, accessToken: string): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) => new MaterialAuthoringService(request).createMaterialDraft({
       idempotencyKey: input.idempotencyKey,
@@ -74,7 +77,7 @@ export function requestCurrentMaterial(materialId: string, accessToken: string):
   return executeGeneratedRequest((request) => new MaterialAuthoringService(request).loadCurrentMaterial({ materialId }), 200, { accessToken });
 }
 
-export function requestMaterialSave(input: { readonly access: "free" | "membership"; readonly deleteVideoId: string | null; readonly document: Record<string, unknown>; readonly expectedContentVersion: number; readonly formatId: "video" | "guide" | "note" | null; readonly idempotencyKey: string; readonly materialId: string; readonly publicationState: "draft" | "published" | "unpublished"; readonly primaryVideoId: string | null; readonly seriesIds: readonly string[]; readonly summary: string | null; readonly tagIds: readonly string[]; readonly title: string | null; readonly topicId: string | null }, accessToken: string): Promise<BackendTransportResult> {
+export function requestMaterialSave(input: { readonly access: "free" | "membership"; readonly deleteVideoId: string | null; readonly document: Record<string, unknown>; readonly expectedContentVersion: number; readonly formatId: MaterialFormat | null; readonly idempotencyKey: string; readonly materialId: string; readonly publicationState: "draft" | "published" | "unpublished"; readonly primaryVideoId: string | null; readonly seriesIds: readonly string[]; readonly summary: string | null; readonly tagIds: readonly string[]; readonly title: string | null; readonly topicId: string | null }, accessToken: string): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) => new MaterialAuthoringService(request).saveCurrentMaterial({
       idempotencyKey: input.idempotencyKey,
