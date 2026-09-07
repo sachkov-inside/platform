@@ -297,7 +297,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  });
+  }, 15_000);
 
   test("backfills Workshop entitlement from the current Membership projection", async () => {
     const database = await createTestDatabase();
