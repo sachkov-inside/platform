@@ -1,2 +1,2 @@
 /** Server-only public interface for the Home page slice. */
-export { getHome, HomePage } from "./home/index.server";
+export { getHome, HomePage, PersonalHome, handlePersonalHome } from "./home/index.server";

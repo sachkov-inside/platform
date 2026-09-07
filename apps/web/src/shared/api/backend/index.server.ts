@@ -26,3 +26,4 @@ export * from "./telegram-membership.server";
 export * from "./communications.server";
 
 export * from "./reading-activity.server";
+export { requestContinueMaterials, requestRecordMaterialOpen } from "./personal-home.server";
