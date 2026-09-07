@@ -68,8 +68,9 @@ for (const access of ["public", "membership"] as const) {
     await expect(page.locator("[data-video-player-mount] iframe")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Ресурсы" })).toHaveCount(0);
     const href = await page.getByRole("link", { name: /media-proof.txt/u }).getAttribute("href");
-    const materialId = await page.locator("[data-material-reader-state][data-material-id]").getAttribute("data-material-id");
-    const videoId = await page.locator("section[data-video-id]").getAttribute("data-video-id");
+    // Next.js streaming retains hidden HTML outside the active main landmark.
+    const materialId = await page.getByRole("main").locator("[data-material-reader-state][data-material-id]").getAttribute("data-material-id");
+    const videoId = await page.getByRole("main").locator("section[data-video-id]").getAttribute("data-video-id");
     if (href === null || materialId === null || videoId === null) throw new Error("Media references are missing");
     const memberFile = await page.request.get(href);
     expect(memberFile.status()).toBe(200);
@@ -126,7 +127,7 @@ for (const access of ["public", "membership"] as const) {
     });
     await page.reload();
     if (access === "membership") {
-      await expect(page.locator('[data-material-reader-state="access-required"]')).toBeVisible();
+      await expect(page.getByRole("main").locator('[data-material-reader-state="access-required"]')).toBeVisible();
       await expect(image).toHaveCount(0);
       await expect(page.getByRole("link", { name: /media-proof.txt/u })).toHaveCount(0);
       await expect(page.locator("iframe")).toHaveCount(0);
@@ -137,7 +138,7 @@ for (const access of ["public", "membership"] as const) {
         await addSessionCookie(context, sessionName);
         protectedRequests.length = 0;
         await page.reload();
-        await expect(page.locator('[data-material-reader-state="access-required"]')).toBeVisible();
+        await expect(page.getByRole("main").locator('[data-material-reader-state="access-required"]')).toBeVisible();
         await expect(image).toHaveCount(0);
         await expect(page.getByText("Текущее сохранённое содержимое из PostgreSQL.")).toHaveCount(0);
         await expect(page.getByRole("link", { name: /media-proof.txt/u })).toHaveCount(0);
@@ -226,8 +227,8 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await expect(player).toBeVisible();
   await expect(player).toHaveAttribute("data-autoplay", "false");
   await expect(player).toHaveAttribute("data-preload", "metadata");
-  const materialId = await page.locator("[data-material-id]:visible").getAttribute("data-material-id");
-  const videoId = await page.locator("[data-video-id]:visible").getAttribute("data-video-id");
+  const materialId = await page.getByRole("main").locator("[data-material-id]").getAttribute("data-material-id");
+  const videoId = await page.getByRole("main").locator("[data-video-id]").getAttribute("data-video-id");
   if (typeof materialId !== "string" || typeof videoId !== "string") {
     throw new Error("Video identity evidence is missing");
   }
@@ -310,7 +311,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
   await page.goto(`/materials/${slug}`);
-  const replacementVideoId = await page.locator("[data-video-id]:visible").getAttribute("data-video-id");
+  const replacementVideoId = await page.getByRole("main").locator("[data-video-id]").getAttribute("data-video-id");
   if (typeof replacementVideoId !== "string") {
     throw new Error("Replacement Video identity is missing");
   }
@@ -403,8 +404,8 @@ test("member primary Video denies anonymous playback and issues a DRM proof to a
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
 
   await page.goto(`/materials/${slug}`);
-  const videoSection = page.locator("section[data-video-id]");
-  const materialId = await page.locator("[data-material-reader-state][data-material-id]")
+  const videoSection = page.getByRole("main").locator("section[data-video-id]");
+  const materialId = await page.getByRole("main").locator("[data-material-reader-state][data-material-id]")
     .getAttribute("data-material-id");
   const videoId = await videoSection.getAttribute("data-video-id");
   if (materialId === null || videoId === null) throw new Error("Member Video identity is missing");
@@ -626,7 +627,7 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   await expect(
     page.getByRole("heading", { name: "Current Preview без fake data", level: 1 }),
   ).toBeVisible();
-  await expect(page.getByText("Текущее сохранённое содержимое из PostgreSQL.")).toBeVisible();
+  await expect(page.getByRole("main").getByText("Текущее сохранённое содержимое из PostgreSQL.")).toBeVisible();
   await expect(page.getByText("Гайд")).toBeVisible();
   await expect(page.getByText("Платформа")).toBeVisible();
   await expect(page.getByText("Full stack")).toBeVisible();
@@ -775,7 +776,7 @@ test("full-state Save is live and a stale editor preserves local input through l
   await expect(
     publicPage.getByRole("heading", { name: winnerTitle, level: 1 }),
   ).toBeVisible();
-  await expect(publicPage.getByText("Текущее сохранённое содержимое из PostgreSQL.")).toBeVisible();
+  await expect(publicPage.getByRole("main").getByText("Текущее сохранённое содержимое из PostgreSQL.")).toBeVisible();
 
   await page.getByRole("button", { name: "Снять с публикации" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });

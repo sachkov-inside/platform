@@ -46,7 +46,7 @@ test("reading progress persists for a free non-member, reconciles lost responses
   await page.screenshot({ path: resolve(directory, `${testInfo.project.name}-reader.png`) });
   const accessibility = await new AxeBuilder({ page }).include("[data-reading-action-state]").analyze();
   expect(accessibility.violations).toEqual([]);
-  await page.goto("/library");
+  await page.goto(`/library?q=${encodeURIComponent("Как устроен Inside Platform")}`);
   const card = page.getByRole("article").filter({ has: page.getByRole("link", { name: "Как устроен Inside Platform", exact: true }) });
   await expect(card.locator("[data-material-reading-status]")).toHaveText("Изучено");
   await page.screenshot({ path: resolve(directory, `${testInfo.project.name}-library.png`) });
