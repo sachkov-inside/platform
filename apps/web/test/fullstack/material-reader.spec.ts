@@ -405,7 +405,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
 test("requires sign-in to save a video reading mark and does not create anonymous progress", async ({ page }) => {
   const readingWrites: string[] = [];
   page.on("request", (request) => {
-    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/reading-progress/state") {
+    if (request.method() === "PUT" && new URL(request.url()).pathname === "/api/reading-progress/state") {
       readingWrites.push(request.url());
     }
   });
