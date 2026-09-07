@@ -14,6 +14,8 @@ import {
 import { materialTaxonomyLabel } from "../model/material-taxonomy-label";
 import { ContentCoverImage } from "./content-cover-image.client";
 
+import { SavedMaterialReadingStatus } from "./saved-material-reading-status.client";
+
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
   readonly headingLevel?: "h2" | "h3";
@@ -31,7 +33,7 @@ export function MaterialCard({
   material,
   returnHref,
   rowAnnotation,
-  readingStatus,
+  readingStatus = material.materialId === undefined ? undefined : <SavedMaterialReadingStatus materialId={material.materialId} format={material.format} />,
   variant = "default",
 }: MaterialCardProps) {
   const Heading = headingLevel;

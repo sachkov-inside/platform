@@ -249,6 +249,7 @@ describe("published Material HTTP contract", () => {
           expect.objectContaining({ slug: "guide" }),
           expect.objectContaining({ slug: "video" }),
           expect.objectContaining({ slug: "note" }),
+          expect.objectContaining({ slug: "text" }),
         ],
         topics: [expect.objectContaining({ slug: "platform" })],
         series: [],

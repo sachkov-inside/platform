@@ -1,3 +1,7 @@
+import { randomUUID } from "node:crypto";
+import { assembleMaterials, assembleMaterialResourceFacts, PublishedSeriesComposition } from "../modules/materials/index.js";
+import { assembleContentAccess } from "../modules/content-access/index.js";
+import { ReadingActivity } from "../modules/reading-activity/index.js";
 import { loadPlatformConfig } from "../config/load-platform-config.js";
 import { createPrismaClient } from "../infrastructure/prisma/index.js";
 import { accountId } from "../modules/accounts/index.js";
@@ -58,6 +62,21 @@ async function main(): Promise<void> {
         where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: fixtureSubject } },
         select: { id: true },
       });
+      if (state === "expired") {
+        const membership = assembleMembershipEntitlements({ prisma, workshopEntitlements: assembleWorkshopEntitlements({ prisma }) });
+        const prior = new Date(checkedAt.getTime() - 1);
+        const granted = await membership.acceptEvidence({ accountId: accountId(fixtureMember.id), deliveryId: `full-stack-expired-before-${checkedAt.toISOString()}`, source: "link_time", evidence: {
+          checkedAt: prior.toISOString(), contractVersion: "inside.membership-evidence.v1", decision: "member", evidenceRef: "full-stack-expired-before", evidenceVersion: prior.getTime(), principalRef: "full-stack-expired-principal", reasonCode: "chat_member", telegramIdentityRef: "full-stack-expired-telegram-identity", validUntil: new Date(prior.getTime() + FULL_STACK_MEMBERSHIP_LIFETIME_MS).toISOString(),
+        } });
+        if (!granted.ok || granted.outcome !== "applied") throw new Error(`Prior active Membership fixture failed: ${JSON.stringify(granted)}`);
+        const materials = assembleMaterials({ prisma, authorPolicy: { canManage: () => false } });
+        const reading = new ReadingActivity({ prisma, materialContent: materials.materialContent, composition: new PublishedSeriesComposition(prisma), contentAccess: assembleContentAccess({ materialResourceFacts: assembleMaterialResourceFacts(materials.materialContent), accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) }, membershipEntitlements: membership }) });
+        const material = await prisma.material.findUniqueOrThrow({ where: { slug: "developer-pipeline-bez-poteri-konteksta" }, select: { id: true } });
+        const states = await reading.getReadingStates({ accountId: fixtureMember.id, materialIds: [material.id] });
+        if (!states.ok || states.value[0] === undefined) throw new Error("Prior ReadingState fixture failed");
+        const marked = await reading.setReadingState({ accountId: fixtureMember.id, materialId: material.id, expectedVersion: states.value[0].version, isRead: true, commandId: randomUUID() });
+        if (!marked.ok) throw new Error(`Prior reading mark failed: ${marked.error.code}`);
+      }
       // Distinguish confirmed loss of Membership from an observation whose validity elapsed.
       const observedAt = state === "expired" ? checkedAt
         : new Date(checkedAt.getTime() - 2 * FULL_STACK_MEMBERSHIP_LIFETIME_MS);

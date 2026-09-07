@@ -19,11 +19,11 @@ export async function GET(): Promise<Response> {
   const config = readLogtoBffConfig();
   try {
     const accessToken = await getPlatformAccessToken(config);
-    const [, authoringAccess] = await Promise.all([
+    const [account, authoringAccess] = await Promise.all([
       resolveAccount(accessToken),
       requestMaterialAuthoringReferences(accessToken).catch(() => undefined),
     ]);
-    return statusResponse("authenticated", authoringAccess?.ok === true);
+    return statusResponse("authenticated", authoringAccess?.ok === true, account.accountId);
   } catch (error) {
     if (error instanceof LogtoSessionUnavailableError) {
       return statusResponse("guest");
@@ -50,9 +50,10 @@ function isInvalidGrant(error: unknown): error is Error & {
 function statusResponse(
   state: "authenticated" | "guest" | "unavailable",
   canManageMaterials = false,
+  accountId: string | null = null,
 ): NextResponse {
   return NextResponse.json(
-    { canManageMaterials, state },
+    { accountId, canManageMaterials, state },
     { headers: { "cache-control": "no-store, private" } },
   );
 }
