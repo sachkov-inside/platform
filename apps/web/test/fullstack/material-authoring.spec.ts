@@ -226,8 +226,8 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await expect(player).toBeVisible();
   await expect(player).toHaveAttribute("data-autoplay", "false");
   await expect(player).toHaveAttribute("data-preload", "metadata");
-  const materialId = await page.locator("[data-material-id]").getAttribute("data-material-id");
-  const videoId = await page.locator("[data-video-id]").getAttribute("data-video-id");
+  const materialId = await page.locator("[data-material-id]:visible").getAttribute("data-material-id");
+  const videoId = await page.locator("[data-video-id]:visible").getAttribute("data-video-id");
   if (typeof materialId !== "string" || typeof videoId !== "string") {
     throw new Error("Video identity evidence is missing");
   }
@@ -272,12 +272,14 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await page.reload();
   await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "37");
   await captureVideoEvidence(page, testInfo, "reader-automatic-player");
-  await page.getByRole("button", { name: "Просмотрено" }).click();
-  await expect(page.getByRole("button", { name: "Просмотрено", exact: true })).toHaveAttribute("aria-pressed", "true");
+  // This fixture is a Guide containing Video: the saved completion belongs to the Material.
+  await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "ready");
+  await page.locator("[data-reading-action-state]:visible").getByRole("button", { name: "Изучено", exact: true }).click();
+  await expect(page.locator("[data-reading-action-state]:visible").getByRole("button", { name: "Изучено", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.evaluate(() => { sessionStorage.setItem("test-player-unavailable", "1"); });
   await page.reload();
   await expect(page.getByText("Не удалось загрузить видео")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Просмотрено", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("[data-reading-action-state]:visible").getByRole("button", { name: "Изучено", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.evaluate(() => { sessionStorage.removeItem("test-player-unavailable"); });
 
 
@@ -308,7 +310,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
   await page.goto(`/materials/${slug}`);
-  const replacementVideoId = await page.locator("[data-video-id]").getAttribute("data-video-id");
+  const replacementVideoId = await page.locator("[data-video-id]:visible").getAttribute("data-video-id");
   if (typeof replacementVideoId !== "string") {
     throw new Error("Replacement Video identity is missing");
   }
