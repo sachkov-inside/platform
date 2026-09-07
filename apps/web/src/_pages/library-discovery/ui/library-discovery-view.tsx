@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import type {
   LibraryDiscoveryKind,
@@ -42,9 +43,11 @@ type ResolvedDiscoveryResult = Exclude<
 export function LibraryDiscoveryView({
   result,
   returnTarget = libraryMaterialReaderReturnTarget,
+  seriesProgress,
 }: {
   readonly result: ResolvedDiscoveryResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
+  readonly seriesProgress?: ReactNode;
 }) {
   const isSeries = result.discoveryKind === "series";
   const Icon = isSeries ? ListVideo : Tags;
@@ -66,7 +69,7 @@ export function LibraryDiscoveryView({
         returnTarget={returnTarget}
       />
       <DiscoveryHero Icon={Icon} isSeries={isSeries} result={result} />
-      {isSeries && result.reference.id !== undefined ? <SavedSeriesProgress seriesId={result.reference.id} /> : null}
+      {isSeries ? seriesProgress ?? (result.reference.id !== undefined ? <SavedSeriesProgress seriesId={result.reference.id} /> : null) : null}
 
       {result.kind === "empty" ? (
         <DiscoveryEmpty kind={result.discoveryKind} />
