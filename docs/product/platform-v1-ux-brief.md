@@ -291,7 +291,7 @@ CTA.
 
 | ID | Requirement / invariant | Actor journey | Surface или `No UI` | Обязательные observable states/actions | Source |
 |---|---|---|---|---|---|
-| R01 | Public mobile-first Home на real data | Visitor/member открывает Platform и выбирает направление | Home | Серии первыми; guest-only Membership; компактные Темы; новые Видео → Гайды → Заметки; общий каталог; personal continue отдельным этапом по Personal Home | [Platform navigation][platform-brief-navigation] |
+| R01 | Public mobile-first Home на real data | Visitor/member открывает Platform и выбирает направление | Home | Серии первыми; без приглашения подписаться для всех посетителей; компактные Темы; новые Видео → Гайды → Заметки; общий каталог; personal continue отдельным этапом по Personal Home | [Platform navigation][platform-brief-navigation] |
 | R02 | Полный published catalog | Любой actor просматривает все карточки | Library | client-owned loading, populated, empty; card free/closed status; cursor continuation через automatic infinite scroll и явный fallback | [Workspace v1 scope][workspace-v1-scope] |
 | R03 | Full-text search | Любой actor ищет RU/EN terms | Library/search | query, loading, results, no results, controlled failure; typo/normalization fixture | [Workspace search flow][workspace-search-flow] |
 | R04 | Search и filters только из real metadata | Любой actor уточняет выдачу | Library/search | Один общий search; Series сопоставляются по собственным name/summary, Materials — по public search projection; Topic/Format/sort влияют только на Materials | [Publishing audit navigation][audit-navigation] |
