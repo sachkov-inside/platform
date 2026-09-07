@@ -519,6 +519,10 @@ if [[ "$library_response" != *"База знаний"* ]]; then
   exit 1
 fi
 assert_public_status POST /integrations/telegram/v1/membership-evidence 401
+assert_public_status POST /integrations/telegram/v1/sign-in/linked-identity 401
+assert_public_status GET /integrations/telegram/v1/sign-in/linked-identity 404
+assert_public_status POST /integrations/telegram/v1/sign-in/complete 404
+assert_public_status POST /integrations/telegram/v1/sign-in/unknown 404
 assert_public_status POST /integrations/kinescope/v1/webhook 401
 assert_public_status POST /integrations/kinescope/v1/authorize 401
 assert_public_status GET /mcp 401
