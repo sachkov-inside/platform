@@ -1,3 +1,4 @@
+import { expectImmediateMobileNavigation } from "../support/immediate-mobile-navigation";
 import { expect, test } from "@playwright/test";
 
 test("mobile navigation keeps real catalog context and public canvas", async ({ page }, testInfo) => {
@@ -77,4 +78,10 @@ test("home notes show publication dates and an accessible catalog link over the 
   await allNotes.click();
   await expect(page).toHaveURL(/\/library\?format=note$/u);
   await expect(page.getByRole("radio", { name: /Заметки/u })).toBeChecked();
+});
+
+
+test("mobile navigation displays a cold destination before the server responds", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith("mobile"));
+  await expectImmediateMobileNavigation(page);
 });
