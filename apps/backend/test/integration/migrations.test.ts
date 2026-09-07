@@ -170,8 +170,7 @@ describe("Platform migrations", () => {
           "0033_material_visits",
           "0034_content_cover_cleanup",
           "0035_domain_material_formats",
-
-          "0035_video_upload_rejections",
+          "0036_video_upload_rejections",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -734,7 +733,7 @@ describe("Platform migrations", () => {
           "0033_material_visits",
           "0034_content_cover_cleanup",
           "0035_domain_material_formats",
-          "0035_video_upload_rejections",
+          "0036_video_upload_rejections",
         ],
       });
 

@@ -129,8 +129,12 @@ the migrated database.
 ## Kinescope upload authorization
 
 The production Kinescope token needs both the existing API permissions and an `upload` scope
-with `write` permission for the configured public and Membership projects. API read success does
-not prove upload authorization: the uploader rejects an API-only token with HTTP 401.
+with `read`, `write`, and `delete` permissions limited to the configured public and Membership
+projects. Project entity restrictions also affect video lookup: a write-only entity grant can
+initialize and transfer a video while its direct API lookup returns 403, even though the project
+and video list are readable. Verify both upload authorization and direct lookup of the same
+agreed video. API read success alone does not prove upload authorization: the uploader rejects
+an API-only token with HTTP 401.
 
 An explicit uploader 401/403 records a `rejected` upload attempt and returns
 `upload_not_authorized`. The same idempotency key replays that rejection; after the credential is

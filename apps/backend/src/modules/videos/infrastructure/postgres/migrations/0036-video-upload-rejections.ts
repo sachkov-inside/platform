@@ -1,4 +1,4 @@
-export const name = "0035_video_upload_rejections";
+export const name = "0036_video_upload_rejections";
 
 export const statement = `
 alter table videos.upload_attempts
