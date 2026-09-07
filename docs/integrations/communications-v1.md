@@ -183,10 +183,14 @@ Common intro Save updates the block for future recipients immediately, explicitl
 funnel Save never publishes. Media templates keep their snapshot and formatting. Editing formatted
 text requires an explicit remove-formatting action, avoiding silent entity loss. Preview never
 sends a Telegram message. Actual bot entry and credentialed messages require separate owner approval.
-Rollback remains an API capability and is outside this editor's lifecycle controls. The existing
-rollback path does not run this new validation: the provider contract cannot yet expose a historical
-snapshot for Platform validation. Closing that integration gap is tracked by #310; validation here
-covers fresh preview/publish only.
+Rollback remains an API capability and is outside this editor's lifecycle controls. Historical rollback validation is owned by Telegram #41: after checking the operation receipt and
+expected revision, the provider sends the exact restored parts to Platform's existing authenticated
+`validate-content` endpoint under its definition lock. Unpublished/paid/incomplete targets reject a
+new publication; unavailable validation fails closed. A successful receipt replays without another
+content check or publication. This requires the provider version with #41 and its content-validation
+URL/secret configuration. No new historical-read protocol or copy of Telegram history is introduced.
+[The #310 acceptance runbook](../verification/telegram-communications-acceptance.md) records the
+compatible revisions, simulated coverage, and the separate credentialed gate.
 
 Set `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` to the canonical public Platform origin, matching
 `WEB_BASE_URL`. Without it publication/preview fail closed. The Materials-owned `PublicContentTargets`
@@ -244,3 +248,20 @@ Telegram [#40](https://github.com/sachkov-inside/inside-telegram/pull/40) исп
 возвращает 503, недоступные цели — структурированные причины. Для установки требуются
 `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` в Platform и `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL` в
 Telegram. Используется существующий secret авторизации, новый credential не создаётся.
+
+## Telegram sequential authoring timing (#310 / Telegram #43)
+
+Telegram now collects one native message and its time before the next. The public v1 schema adds
+optional `sendAfterSeconds` to broadcast parts (integer 0..2147483647, default 0), measured from
+actual launch. Offsets cannot decrease. The scheduler preserves ordering, retry/unknown protection,
+pause without resetting the clock, and cancellation of future messages.
+
+New funnel steps may carry `delayAnchor: "entry"`: `delaySeconds` is elapsed from the recipient's
+entry. Existing steps without the field retain their previous relative semantics. Platform vendors
+the provider schema and generates the same validation for HTTP and delegated MCP; native content
+and timing round-trip without stripping fields. Saving never launches or publishes.
+
+The bot has no agent button or saved-post browser in its ordinary authoring flow. A terminal agent
+uses authenticated list/read/save operations with current expectedRevision and operationId. The
+bot rereads canonical provider drafts. Live management still requires the owner's Account permission;
+the bot token alone does not authorize it.

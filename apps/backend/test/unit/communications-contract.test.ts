@@ -37,4 +37,19 @@ describe("vendored communications contract", () => {
     expect(managementRequestSchema.safeParse({ ...request, payload: { ...request.payload, chatId: "foreign" } }).success).toBe(false);
     expect(managementRequestSchema.safeParse({ ...request, operation: "tracking.resolve", payload: { token: "a".repeat(32) } }).success).toBe(false);
   });
+  test("management timing survives parsing and remains closed to invalid fields", () => {
+    const fixture = fixtures.find(f => f.name === "broadcasts.save-elapsed-timing");
+    if (!fixture) throw new Error("Missing elapsed broadcast fixture");
+    const input = { ...fixture.value } as Record<string, unknown>;
+    delete input.actor;
+    const parsed = managementRequestSchema.parse(input);
+    expect(parsed.payload).toEqual(input.payload);
+    const funnelFixture = fixtures.find(f => f.name === "funnels.save-entry-anchor");
+    if (!funnelFixture) throw new Error("Missing entry anchor fixture");
+    const funnelInput = { ...funnelFixture.value } as Record<string, unknown>;
+    delete funnelInput.actor;
+    expect(managementRequestSchema.parse(funnelInput).payload).toEqual(funnelInput.payload);
+    expect(managementRequestSchema.safeParse({ ...input, payload: { ...parsed.payload, sendAfterSeconds: 1 } }).success).toBe(false);
+  });
+
 });
