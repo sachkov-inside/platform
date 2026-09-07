@@ -108,7 +108,10 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   const browserResponse = await page.goto("/library");
   expect(browserResponse?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "База знаний", level: 1 })).toBeVisible();
-  await expect(page.locator('[data-access-cover="locked"]')).toHaveCount(1);
+  const membershipCard = page.getByRole("article").filter({
+    has: page.getByRole("link", { name: "Developer Pipeline без потери контекста", exact: true }),
+  });
+  await expect(membershipCard.locator('[data-access-cover="locked"]')).toBeVisible();
   await expect(page.getByText("Бесплатно")).toHaveCount(0);
   const materialSection = page.getByRole("region", { name: "Материалы", exact: true });
   const topicFilters = materialSection.getByRole("group", { name: "Тема материала" });
@@ -399,30 +402,26 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   expect(browserErrors).toEqual([]);
 });
 
-test("marks an anonymous video as watched without shifting the action", async ({ page }) => {
+test("requires sign-in to save a video reading mark and does not create anonymous progress", async ({ page }) => {
+  const readingWrites: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/reading-progress/state") {
+      readingWrites.push(request.url());
+    }
+  });
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
-  const markWatched = page.getByRole("button", { name: "Просмотрено", exact: true });
-  await expect(markWatched).toBeEnabled();
-  await expect(markWatched).toHaveAttribute("aria-pressed", "false");
-  const initialBox = await markWatched.boundingBox();
-  expect(initialBox).not.toBeNull();
-
-  await markWatched.click();
-  const watched = page.getByRole("button", { name: "Просмотрено" });
-  await expect(watched).toHaveAttribute("aria-pressed", "true");
-  const watchedBox = await watched.boundingBox();
-  expect(watchedBox).not.toBeNull();
-  expect(watchedBox?.width).toBe(initialBox?.width);
-  expect(watchedBox?.height).toBe(initialBox?.height);
-  await expect.poll(() => page.evaluate(() => (
+  const action = page.getByRole("main").locator("[data-reading-action-state]");
+  await expect(action).toHaveAttribute("data-reading-action-state", "anonymous");
+  const signIn = action.getByRole("link", { name: "Просмотрено", exact: true });
+  await expect(signIn).toHaveAttribute("href", "/account");
+  await expect(action.getByRole("button", { name: "Просмотрено", exact: true })).toHaveCount(0);
+  await signIn.click();
+  await expect(page).toHaveURL(/\/account$/u);
+  await expect(page.getByRole("main").getByRole("button", { name: "Войти", exact: true })).toBeVisible();
+  expect(readingWrites).toEqual([]);
+  expect(await page.evaluate(() => (
     Object.keys(localStorage).some((key) => key.startsWith("inside.video-progress.v1:"))
-  ))).toBe(true);
-
-  await page.reload();
-  await expect(page.getByRole("button", { name: "Просмотрено" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  ))).toBe(false);
 });
 
 test("renders a locked teaser with the configured CTA and fails closed on invalid proof", async ({
@@ -518,7 +517,7 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
       level: 1,
     }),
   ).toBeVisible();
-  await expect(page.getByText("Закрытое содержимое для участников.")).toBeVisible();
+  await expect(page.getByRole("main").getByText("Закрытое содержимое для участников.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Получить доступ" })).toHaveCount(0);
 
   await page.goto("/library");
@@ -614,7 +613,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(page.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
   await expect(page).toHaveTitle("Platform — тема · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);
-  await expect(page.locator('[data-access-cover="locked"]')).toBeVisible();
+  await expect(membershipCard.locator('[data-access-cover="locked"]')).toBeVisible();
   const topicMaterialHref = await page
     .locator("[data-material-grid]")
     .getByRole("link", {
