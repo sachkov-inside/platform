@@ -241,6 +241,88 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Safari's canvas/overscroll must match the public page, including the first paint. */
+html:has([data-public-shell]),
+body:has([data-public-shell]) {
+  background: #fff;
+  color-scheme: light;
+}
+
+.mobile-navigation-items {
+  transition: grid-template-columns var(--motion-duration-shell) var(--motion-ease-out);
+}
+
+.mobile-navigation-indicator {
+  transition: transform var(--motion-duration-shell) var(--motion-ease-out), opacity var(--motion-duration-fast);
+}
+
+.mobile-navigation-link {
+  transition: color var(--motion-duration-fast), transform var(--motion-duration-fast) var(--motion-ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-navigation-link:active {
+  transform: scale(0.94);
+}
+
+.mobile-navigation-label {
+  grid-template-columns: 0fr;
+  opacity: 0;
+  transition: grid-template-columns var(--motion-duration-shell) var(--motion-ease-out), opacity var(--motion-duration-fast);
+}
+
+.mobile-navigation-link[aria-current="page"] .mobile-navigation-label {
+  grid-template-columns: 1fr;
+  opacity: 1;
+}
+
+.mobile-navigation-pending {
+  opacity: 0;
+}
+
+.mobile-navigation-pending[data-pending="true"] {
+  animation: navigation-pending 1s ease-in-out 160ms infinite;
+}
+
+@keyframes navigation-pending {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-old(.public-page) {
+  animation: public-page-fade var(--motion-duration-fast) ease-out reverse both;
+}
+
+::view-transition-new(.public-page) {
+  animation: public-page-fade var(--motion-duration-fast) ease-out both;
+}
+
+@keyframes public-page-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-navigation *,
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation: none !important;
+    transition: none !important;
+  }
+  .mobile-navigation-link:active { transform: none; }
+  .mobile-navigation-pending[data-pending="true"] { opacity: 1; }
+}
+
 @media (width < 48rem) {
   html,
   body {

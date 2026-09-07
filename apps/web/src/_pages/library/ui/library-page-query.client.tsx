@@ -1,9 +1,9 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import {
   useEffect,
   useMemo,
-  useSyncExternalStore,
 } from "react";
 
 import {
@@ -24,24 +24,12 @@ import {
 } from "./library-page";
 
 export function LibraryPageQuery() {
-  const locationSearch = useSyncExternalStore(
-    subscribeToInitialLocation,
-    readLocationSearch,
-    readServerLocationSearch,
-  );
+  const searchParams = useSearchParams();
+  const locationSearch = searchParams.toString();
   const initialQuery = useMemo(
-    () =>
-      locationSearch === null
-        ? null
-        : withoutLibraryCursor(
-            parseLibrarySearchParams(new URLSearchParams(locationSearch)).query,
-          ),
+    () => withoutLibraryCursor(parseLibrarySearchParams(new URLSearchParams(locationSearch)).query),
     [locationSearch],
   );
-
-  if (initialQuery === null) {
-    return <LibraryLoading />;
-  }
 
   return (
     <LibraryCatalogQueryView
@@ -49,18 +37,6 @@ export function LibraryPageQuery() {
       initialQuery={initialQuery}
     />
   );
-}
-
-function subscribeToInitialLocation(): () => void {
-  return () => undefined;
-}
-
-function readLocationSearch(): string | null {
-  return window.location.search;
-}
-
-function readServerLocationSearch(): null {
-  return null;
 }
 
 export function LibraryCatalogQueryView({
