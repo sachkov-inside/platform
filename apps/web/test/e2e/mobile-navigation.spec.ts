@@ -147,7 +147,7 @@ test("a newer tab selection wins over an unfinished route request", async ({ pag
   await page.goto("/library");
   await expect(page.getByRole("searchbox")).toBeVisible();
   let started = false;
-  let release = () => {};
+  let release: () => void = () => undefined;
   const held = new Promise<void>((resolve) => { release = resolve; });
   await page.route(/\/account\?_rsc=/u, async (route) => {
     started = true;
