@@ -1,4 +1,4 @@
-import { ChevronRight, Clock3, LockKeyhole } from "lucide-react";
+import { ChevronRight, Clock3, LockKeyhole, Play } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -123,6 +123,12 @@ export function MaterialCard({
             {duration}
           </span>
         ) : null}
+        {isCompact && resumeLabel !== undefined ? (
+          <span className="absolute left-2 top-2 inline-flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full bg-accent px-2 py-1 text-[0.625rem] font-semibold leading-4 text-accent-foreground shadow-sm sm:left-3 sm:top-3 sm:gap-1.5 sm:px-2.5 sm:text-[0.6875rem]">
+            <Play aria-hidden="true" className="size-3 shrink-0 fill-current" />
+            Продолжить просмотр
+          </span>
+        ) : null}
       </AccessCover>
       {isCompact ? null : (
         <span className="mt-3 block text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-eyebrow">
@@ -138,6 +144,7 @@ export function MaterialCard({
         )}
       >
         <Link
+          aria-label={isCompact && resumeLabel !== undefined ? `${material.title}. ${resumeLabel}` : undefined}
           className="no-underline after:absolute after:inset-0 after:rounded-[1.5rem] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
           href={readerHref}
           prefetch={false}

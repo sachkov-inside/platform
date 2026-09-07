@@ -1,5 +1,6 @@
 export { ReadingAction } from "./ui/reading-action.client";
 export { SeriesProgress } from "./ui/series-progress";
+export { SeriesMaterialMarker } from "./ui/series-material-marker.client";
 export type { ReadingActionProps, ReadingActionView, SeriesProgressView } from "./model/reading-progress-view";
 
 export { ReadingProgressProvider } from "./ui/reading-provider.client";

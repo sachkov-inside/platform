@@ -1,4 +1,4 @@
-import { ArrowRight, LockKeyhole } from "lucide-react";
+import { ArrowRight, LockKeyhole, Play } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -92,8 +92,9 @@ export function PlaylistCard({
       prefetch={false}
     >
       <span className="flex items-start justify-between gap-3">
-        <span className="inline-flex rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/75">
-          {playlist.continuation === undefined ? `Серия · ${playlist.countLabel}` : `Продолжить · изучено ${String(playlist.continuation.read)} из ${String(playlist.continuation.total)}`}
+        <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold", playlist.continuation === undefined ? "bg-white/10 text-white/75" : "bg-accent text-accent-foreground")}>
+          {playlist.continuation === undefined ? null : <Play aria-hidden="true" className="size-3 shrink-0 fill-current" />}
+          <span>{playlist.continuation === undefined ? `Серия · ${playlist.countLabel}` : `Продолжить · изучено ${String(playlist.continuation.read)} из ${String(playlist.continuation.total)}`}</span>
         </span>
         <span
           aria-hidden="true"

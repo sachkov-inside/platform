@@ -31,7 +31,7 @@ import {
   libraryMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
-import { SavedSeriesProgress } from "@/features/reading-progress";
+import { SavedSeriesProgress, SeriesMaterialMarker } from "@/features/reading-progress";
 import { seriesSteps } from "../model/series-steps";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
@@ -268,9 +268,7 @@ function SeriesMaterials({
                 />
               ) : null}
               <div className="relative z-10 flex min-h-11 items-center font-semibold text-muted-foreground">
-                <span className="grid size-8 place-items-center rounded-full bg-primary text-xs font-bold text-white ring-4 ring-background" data-series-marker>
-                  {ordinal}
-                </span>
+                <SeriesMaterialMarker {...(material.materialId === undefined ? {} : { materialId: material.materialId })} ordinal={ordinal} />
               </div>
               <div className="min-w-0">
                 <MaterialCard
