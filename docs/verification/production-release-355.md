@@ -2,8 +2,8 @@
 
 Дата проверки: 7 сентября 2026, время — UTC. Общая приёмка **не завершена**:
 рабочая инфраструктура и отдельные реальные сценарии подтверждены, но обязательные
-проверки второго аккаунта, стартового контента и видео ещё остаются. Также открыты
-замечания владельца к мобильной кнопке входа и задержке Telegram.
+проверки второго аккаунта, стартового контента и воспроизведения видео ещё остаются.
+Мобильный вход и задержка Telegram ведутся в другой сессии; этот проход их не принимает.
 
 Задачи: [Platform #355](https://github.com/sachkov-inside/platform/issues/355),
 [Workspace #137](https://github.com/sachkov-inside/workspace/issues/137),
@@ -14,7 +14,9 @@
 
 ## Текущий runtime и история деплоя
 
-На 14:15:27 UTC production обновлён до **v5**. Исправление входа
+На 21:47:39 UTC production обновлён до **v6**: доменные форматы
+и обработка отказа при загрузке видео. Все шесть процессов healthy, схема содержит
+36 миграций. Исправление входа
 [PR #375](https://github.com/sachkov-inside/platform/pull/375) подтверждено реальными
 email и Telegram-сессиями, в том числе обновлением после истечения токена.
 
@@ -24,6 +26,7 @@ email и Telegram-сессиями, в том числе обновлением 
 | [v3](https://github.com/sachkov-inside/platform/releases/tag/v3) | `654c60e42453e141b80c21e8eefe34b7a8309848` | Деплой 12:03:32; регрессия выдачи refresh token; возврат на v2. |
 | [v4](https://github.com/sachkov-inside/platform/releases/tag/v4) | `7c4131ad4aafe6217c54e3c82992eedc7cbb89c1` | Деплой 13:00:05; реальные email и Telegram-вход и refresh прошли. |
 | [v5](https://github.com/sachkov-inside/platform/releases/tag/v5) | `42f086edb6a5086cdffbbfeb613bbf9036089a6b` | Деплой 14:15:27; шесть процессов healthy, сессия и Editor сохранены, новая обложка загружена. |
+| [v6](https://github.com/sachkov-inside/platform/releases/tag/v6) | `82fdc092e8d82dd66ac450a5a6fa1f62a6f34eba` | Деплой 21:47:39; доменные форматы, отдельный отказ загрузки, шесть процессов healthy. |
 
 v2: backend `sha256:7682417bc4f16e87b36f2d4714b897f7bbb504d931b6d556b5f9caf4ceb19f9e`,
 web `sha256:82126cb22e2b7680a29d16aa0eaa37a3e1b9676ed4a1f372979d3e4722502507`.
@@ -42,6 +45,11 @@ web `sha256:09a92e6ec838cc58b5193210cc6cc9df625b906082b042e9c2b4c71a9ac607b2`.
 34 миграции, schema identity
 `sha256:d2ba2d71e5c93742388ddca42bd3381aead6c21f3e99a65d2a633a0d29855fdc`.
 
+v6: backend `sha256:96977f7dbe31af1809e968f72d603c58873647fc1082e48f54257853a9946e16`,
+web `sha256:4e044ca8cfbeea24fd214f5c05fb33094182298f88e796a23d70ff333cfeb46d`.
+36 миграций, schema identity
+`sha256:a21454a5f96a141c8c9dbafad6ef9916a4df55b873513d69b76e33c3364a2d7d`.
+
 Workflow evidence:
 [v2 release](https://github.com/sachkov-inside/platform/actions/runs/34113479698),
 [v2 deploy](https://github.com/sachkov-inside/platform/actions/runs/34114665857),
@@ -51,7 +59,9 @@ Workflow evidence:
 [v4 release](https://github.com/sachkov-inside/platform/actions/runs/34123757988),
 [v4 deploy](https://github.com/sachkov-inside/platform/actions/runs/34124855384),
 [v5 release](https://github.com/sachkov-inside/platform/actions/runs/34130882977),
-[v5 deploy](https://github.com/sachkov-inside/platform/actions/runs/34131887519).
+[v5 deploy](https://github.com/sachkov-inside/platform/actions/runs/34131887519),
+[v6 release](https://github.com/sachkov-inside/platform/actions/runs/34163657112),
+[v6 deploy](https://github.com/sachkov-inside/platform/actions/runs/34164356131).
 Все перечисленные операции завершены успешно. Отдельный ошибочный dispatch
 34118665177 был отменён до публикации; повторной версии или скрытого деплоя не было.
 
@@ -97,6 +107,48 @@ Logto завершал идентификацию, но без refresh token п�
 Тест строит OIDC URL настоящим SDK из фактических route options; отрицательная
 подмена на login-only ломает тест. Контракт дополнен реальным production-доказательством
 входа и refresh на v4, приведённым ниже.
+
+## Форматы и загрузка видео: продолжение приёмки
+
+[PR #394](https://github.com/sachkov-inside/platform/pull/394) заменяет управляемый
+справочник форматов закрытым доменным набором `video`, `guide`, `note`
+(«Видео», «Гайд», «Заметка»). Материал хранит код; отдельная таблица форматов удалена.
+Production-проверка работающего v6 подтвердила три значения из кода, отсутствие
+таблицы и сохранность существующего материала. Выбор и сохранение формата в браузере
+владельца ещё не приняты.
+
+Причиной отказа загрузки был Kinescope token без `upload` scope: uploader возвращал
+401. HTTP 200 в Network относился к BFF-ответу редактора, а не к успешной загрузке.
+После исправления scope владелец повторил загрузку в 20:31:53 UTC. Промежуточное
+ограничение project entity только правом `write` позволило загрузить файл, но прямой
+запрос видео возвращал 403. В 21:02:02 token получил `read/write/delete` в `upload`
+для двух проектов Platform при сохранении API permissions. Сервисы стали healthy.
+
+Прямой Kinescope GET и действующий Platform adapter на v6 подтверждают `done`,
+ожидаемый публичный project, embed locator и длительность 1800 секунд. Агент не
+загружал файл вместо владельца и не удалял видео. Подтверждённая старая неудачная
+попытка без provider video была архивирована и сброшена адресно после проверки
+пустого проекта; успешная попытка сохранена.
+
+[PR #392](https://github.com/sachkov-inside/platform/pull/392) отличает явный отказ
+401/403 (`rejected`, `upload_not_authorized`) от неизвестного результата. Новый ключ
+разрешён после подтверждённого отказа; неизвестный исход сохраняет защиту от дубликатов.
+Миграция 36 не переопределяет старые `unknown` автоматически. Права, состояния и retry
+описаны в [runtime runbook](../runbooks/runtime-configuration.md#kinescope-upload-authorization).
+CSP warning не установлен как причина загрузочного отказа; `unsafe-eval` не добавлялся.
+
+Итоговые Standards и Spec прошли для обоих PR. PostgreSQL после их объединения:
+215 passed в 34 файлах; полный локальный smoke прошёл на отдельных PostgreSQL/Minio.
+CI текущих коммитов и повторный CI релиза прошли. Первый CI форматов повторён после
+сбоя существующего keyboard-focus сценария Telegram; его код здесь не менялся.
+Состояния интерфейса проверены в Storybook при 390 и 1440 px.
+
+На проверке 21:48:42 сохранённого `primaryVideo` у материала ещё нет; Platform хранит
+состояние `uploading`, хотя провайдер уже сообщает `done`. Следующий сценарий владельца:
+в существующей вкладке «Проверить» → «Сохранить» → «Предпросмотр» → воспроизведение.
+Повторная загрузка не нужна. Playback и Membership video не подтверждены;
+[#390](https://github.com/sachkov-inside/platform/issues/390) переоткрыта после merge
+до выполнения этого условия. #355 и #184 остаются открытыми.
 
 ## Реальные пользовательские результаты
 
@@ -151,7 +203,10 @@ Telegram ingress остаётся проблемой приёмки: `getWebhook
 также успешен. Первый CI этой правки выявил timeout нового migration test;
 для него установлен тот же предел 15 секунд, что у соседних upgrade-сценариев.
 
-## Замечания владельца и мощность сервера
+## Замечания другой сессии и мощность сервера
+
+Следующие наблюдения относятся к проходу до 15:19 UTC; мобильный вход и Telegram
+latency в этом продолжении не перепроверялись. Их актуальная приёмка ведётся отдельно.
 
 Снимок iPhone с обрезанной кнопкой и жалоба на медленную загрузку сохранены в
 закрытом evidence. [#382](https://github.com/sachkov-inside/platform/issues/382)
@@ -215,7 +270,11 @@ transport config — root:65532, 0640. На исходной проверке с
 
 ## Backup, миграции и восстановление
 
-Финальная проверка 15:19:55 подтвердила Platform v5, Logto inside.5 и Telegram healthy,
+Проверка v6 в 21:48:41 подтвердила шесть healthy процессов,
+публичные home/discovery/JWKS — 200, WAL failures — 0 и full backup
+`20260907-213619F`.
+
+Предыдущая проверка 15:19:55 подтвердила Platform v5, Logto inside.5 и Telegram healthy,
 публичные маршруты — 200 и последний full backup `20260907-151926F`.
 
 Full/diff/incremental timers активны, `pgbackrest check` прошёл, WAL failed_count=0
@@ -238,6 +297,12 @@ Full/diff/incremental timers активны, `pgbackrest check` прошёл, WA
 Временные ресурсы удалены. Post-deploy 14:16:07 подтвердил все шесть healthy,
 home/discovery/JWKS 200 и WAL failures 0. v5 → v4 несовместим по схеме 34/33.
 
+Перед v6 backup `20260907-213619F` восстановлен на изолированной копии;
+миграции 35 и 36 применены один раз, повтор — 0. Хэши содержимого материалов
+и всех Video совпали до и после миграции. Точная схема v6 подтверждена, временные
+ресурсы удалены; проверка заняла 16.54 секунды. v6 → v5 несовместим
+по схеме 36/34; применяется штатный retry/repair-forward.
+
 Перед Logto inside.5 backup `20260907-150705F` восстановлен в изолированной сети.
 Схема Platform v5/34 подтверждена без новых миграций; точный amd64 image Logto
 дал discovery/script 200 и новый bounded status request. Весь proof — 39,6 секунды,
@@ -250,15 +315,23 @@ v4 включает уже merged PR #365 с таблицей `reading_activity.
 [delivery runbook](../runbooks/production-delivery.md).
 
 Recovery custody остаётся на Mac владельца с FileVault и существующим recovery
-key. Снимок 7 сентября зашифрован через age этим ключом: аутентифицированная
+key. Предыдущий снимок 7 сентября зашифрован через age этим ключом: аутентифицированная
 расшифровка и SHA-256 всех 144 файлов проверены в 15:34:09. Архив содержит
-актуальную конфигурацию, ключи восстановления, release evidence и фактический
+конфигурацию на тот момент, ключи восстановления, release evidence и фактический
 amd64 image Logto inside.5; загрузка image из сохранённого файла подтвердила
 точные image/source identity. Незашифрованный промежуточный tar не создавался.
 Прежний AES-256 DMG от 6 сентября и его пароль сохранены: обновление DMG
 потребовало недоступного автоматизации диалога Keychain. Рабочие базы
 восстанавливаются из pgBackRest. Внешняя копия не создавалась; полная потеря
 Mac остаётся ограничением выбранного custody.
+
+Актуальный снимок `inside-production-2026-09-08-v6.tar.age` проверен в
+21:49:05 UTC 7 сентября (8 сентября по Москве): аутентифицированная
+расшифровка и хэши всех 168 файлов совпали. Включены v6 manifest/runtime,
+результаты восстановления и деплоя, действующая конфигурация Kinescope и согласованные
+с ней encrypted copies. SHA-256 архива:
+`3781298d9b17d01c6be9bc81480c57c0516ffa59cc2bc3a3b5e165e386cf4e50`.
+Прежние архивы сохранены; незашифрованный промежуточный tar не создавался.
 
 ## Краткая передача эксплуатации
 
