@@ -1,10 +1,10 @@
 ---
-status: superseded by ADR-0018
+status: superseded by ADR-0020
 ---
 
 # Run the Workshop evaluator as a pinned native Go CLI
 
-[ADR 0018](0018-defer-kafka-case-evaluation-until-casespec.md) supersedes this decision for current
+[ADR 0020](0020-defer-kafka-case-evaluation-until-casespec.md) supersedes this decision for current
 Workshop delivery. This document is historical evidence for the implemented Partner Webhooks
 case-first foundation; it must not be used to select the evaluator for the Kafka Track before
 CaseSpec-driven research #278.
