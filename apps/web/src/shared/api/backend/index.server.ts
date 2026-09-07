@@ -24,3 +24,5 @@ export * from "./member-profiles.server";
 export * from "./telegram-membership.server";
 
 export * from "./communications.server";
+
+export * from "./reading-activity.server";

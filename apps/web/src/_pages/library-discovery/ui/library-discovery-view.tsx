@@ -30,6 +30,7 @@ import {
   libraryMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
+import { SavedSeriesProgress } from "@/features/reading-progress";
 import { seriesSteps } from "../model/series-steps";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
@@ -65,6 +66,7 @@ export function LibraryDiscoveryView({
         returnTarget={returnTarget}
       />
       <DiscoveryHero Icon={Icon} isSeries={isSeries} result={result} />
+      {isSeries && result.reference.id !== undefined ? <SavedSeriesProgress seriesId={result.reference.id} /> : null}
 
       {result.kind === "empty" ? (
         <DiscoveryEmpty kind={result.discoveryKind} />

@@ -1,6 +1,7 @@
 import type { ContentCover } from "./content-cover";
 
 export interface MaterialPreview {
+  readonly materialId?: string | undefined;
   readonly access: "free" | "membership" | "workshop";
   readonly availability: "available" | "locked" | "unavailable";
   readonly cover?: ContentCover | null | undefined;
