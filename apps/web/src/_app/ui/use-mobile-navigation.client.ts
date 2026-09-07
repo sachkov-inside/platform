@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Route } from "next";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { accountPresentationQueryKey } from "@/features/account-access";
 import { libraryCatalogQueryOptions, parseLibrarySearchParams } from "@/features/library-catalog";
 
 const rootPaths = ["/", "/library", "/account"] as const;
@@ -22,15 +23,22 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
   const previousAccount = useRef<string | null | undefined>(undefined);
   const queryClient = useQueryClient();
 
-  const saveCurrent = useCallback(() => {
-    const path = rootPaths.find((root) => root === window.location.pathname);
+  const recordLocation = useCallback((pathname: string, search: string) => {
+    const path = rootPaths.find((root) => root === pathname);
     if (path === undefined) return;
-    const href = `${path}${window.location.search}` as Route;
-    const position = { href, top: readScrollTop() };
+    const href = `${path}${search.length > 0 ? `?${search}` : ""}` as Route;
     const previous = positions.current[path];
+    const top = pending.current?.href.split("?")[0] === path
+      ? pending.current.top
+      : path === window.location.pathname ? readScrollTop() : previous?.top ?? 0;
+    const position = { href, top };
     positions.current = { ...positions.current, [path]: position };
     if (previous?.href !== href) setLinks(positions.current);
   }, []);
+
+  const saveCurrent = useCallback(() => {
+    recordLocation(window.location.pathname, window.location.search.slice(1));
+  }, [recordLocation]);
 
   useEffect(() => {
     const capture = (event: MouseEvent) => {
@@ -40,7 +48,12 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
       saveCurrent();
     };
     document.addEventListener("click", capture, true);
-    return () => { document.removeEventListener("click", capture, true); };
+    // Record before native Back/Forward changes the URL; popstate is already too late.
+    document.addEventListener("scroll", saveCurrent, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener("click", capture, true);
+      document.removeEventListener("scroll", saveCurrent, true);
+    };
   }, [saveCurrent]);
 
   useLayoutEffect(() => {
@@ -51,7 +64,7 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
       positions.current = {};
       setLinks({});
       // Account presentation is shared by Profile and onboarding; never reuse the old identity.
-      void queryClient.resetQueries({ queryKey: ["account", "presentation"] });
+      void queryClient.resetQueries({ queryKey: accountPresentationQueryKey() });
     }
     previousAccount.current = accountId;
   }, [accountId, authResolved, queryClient]);
@@ -103,7 +116,8 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
     window.addEventListener("keydown", stop);
     window.addEventListener("popstate", stop);
     stopRestoring.current = stop;
-    restore();
+    // Restore after the route commit so browser scroll anchoring cannot offset this write.
+    frame = window.requestAnimationFrame(restore);
     return stop;
   }, [pathname]);
 
@@ -114,7 +128,7 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
     pending.current = root === undefined ? null : positions.current[root] ?? { href, top: 0 };
   }, [saveCurrent]);
 
-  return { libraryHref: links["/library"]?.href ?? "/library", onNavigate };
+  return { libraryHref: links["/library"]?.href ?? "/library", onNavigate, recordLocation };
 }
 
 function readScrollTop(): number {

@@ -22,3 +22,11 @@ test("mobile navigation keeps real catalog context and public canvas", async ({ 
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(600);
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(255, 255, 255)");
 });
+
+
+test("mobile navigation public route evidence", async ({ page }, testInfo) => {
+  await page.goto("/library");
+  await expect(page.getByRole("list", { name: "Материалы, страница 1" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
+  await testInfo.attach("library-public-route", { body: await page.screenshot(), contentType: "image/png" });
+});

@@ -123,3 +123,72 @@ test("background Profile failure retains data but lost authorization removes it"
     }
   }
 });
+
+
+test("native Back preserves the latest Library filter and scroll for the next tab visit", async ({ page }) => {
+  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
+  await page.goto("/account");
+  await navigation(page).getByRole("link", { name: "База знаний" }).click();
+  await page.getByRole("searchbox").fill("навигация");
+  await expect(page).toHaveURL(/q=/u);
+  await expect(page.getByRole("heading", { name: "Навигация 1", exact: true })).toBeVisible();
+  await page.getByRole("searchbox").blur();
+  await page.evaluate(() => { window.scrollTo(0, 700); });
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/account$/u);
+  await navigation(page).getByRole("link", { name: "База знаний" }).click();
+  await expect(page.getByRole("searchbox")).toHaveValue("навигация");
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
+});
+
+test("a newer tab selection wins over an unfinished route request", async ({ page }) => {
+  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
+  await page.goto("/library");
+  await expect(page.getByRole("searchbox")).toBeVisible();
+  let started = false;
+  let release = () => {};
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await page.route(/\/account\?_rsc=/u, async (route) => {
+    started = true;
+    await held;
+    await route.continue().catch(() => undefined);
+  });
+  try {
+    await navigation(page).getByRole("link", { name: "Профиль" }).click();
+    await expect.poll(() => started).toBe(true);
+    await expect(page).toHaveURL(/\/library$/u);
+    await navigation(page).getByRole("link", { name: "Главная" }).click();
+    await expect(page).toHaveURL(/\/$/u);
+  } finally {
+    release();
+  }
+  await expect(navigation(page).getByRole("link", { name: "Главная" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { name: "Войдите в аккаунт" })).toHaveCount(0);
+});
+
+test("changing account identity clears remembered tabs and the old Profile form", async ({ page }) => {
+  let accountId = "11111111-1111-4111-8111-111111111111";
+  let accountRequests = 0;
+  await page.route("**/auth/status", (route) => route.fulfill({ json: { state: "authenticated", canManageMaterials: false, accountId } }));
+  await page.route("**/api/account", (route) => {
+    accountRequests++;
+    return route.fulfill({ json: {
+      profile: { kind: "missing" },
+      telegramMembership: { link: { kind: "linked" }, membership: { kind: "active" } },
+    } });
+  });
+  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
+  await page.goto("/library?q=навигация");
+  await expect(page.getByRole("searchbox")).toHaveValue("навигация");
+  await navigation(page).getByRole("link", { name: "Профиль" }).click();
+  const name = page.getByRole("textbox", { name: "Имя", exact: true });
+  await name.fill("Старый аккаунт");
+  await expect(navigation(page).getByRole("link", { name: "База знаний" })).toHaveAttribute("href", /q=/u);
+  const before = accountRequests;
+  accountId = "22222222-2222-4222-8222-222222222222";
+  await page.evaluate(() => { window.dispatchEvent(new Event("focus")); });
+  await expect.poll(() => accountRequests).toBeGreaterThan(before);
+  await expect(name).toHaveValue("");
+  await expect(navigation(page).getByRole("link", { name: "База знаний" })).toHaveAttribute("href", "/library");
+});

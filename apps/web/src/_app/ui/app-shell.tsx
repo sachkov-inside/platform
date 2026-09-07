@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import {
   ApplicationShell,
@@ -12,6 +12,7 @@ import { AccountTelegramOnboarding } from "@/features/account-access";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import { ReadingProgressProvider } from "@/features/reading-progress";
 import { useAuthStatus } from "./auth-status-control.client";
+import { MobileNavigationLocation } from "./mobile-navigation-location.client";
 import { useMobileNavigation } from "./use-mobile-navigation.client";
 
 interface AppShellProps {
@@ -51,6 +52,9 @@ export function AppShell({ children }: AppShellProps) {
       mobileNavigationItems={mobileNavigationItems.map((item) => item.href === "/library" ? { ...item, href: mobileNavigation.libraryHref } : item)}
       onMobileNavigate={mobileNavigation.onNavigate}
     >
+      <Suspense fallback={null}>
+        <MobileNavigationLocation onChange={mobileNavigation.recordLocation} />
+      </Suspense>
       <ReadingProgressProvider key={authStatus.accountId ?? "guest"} accountId={authStatus.accountId} resolved={authStatus.resolved}>
         {children}
       </ReadingProgressProvider>
