@@ -25,7 +25,8 @@ export async function POST(request: Request): Promise<Response> {
     const { url } = await client.handleSignIn({
       redirectUri: `${config.baseUrl}/callback`,
       // Account establishment needs a fresh email or Telegram verification after a failed callback.
-      prompt: Prompt.Login,
+      // Preserve consent as well: Logto needs it to issue the refresh token used by the BFF.
+      prompt: [Prompt.Login, Prompt.Consent],
       ...(postRedirectUri === undefined ? {} : { postRedirectUri }),
     });
     return redirect(url);

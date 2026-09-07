@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import LogtoClient from "@logto/node/edge";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fakes = vi.hoisted(() => ({
   config: {
@@ -16,7 +17,7 @@ const fakes = vi.hoisted(() => ({
     Promise.resolve("complete"),
   ),
   getAccessToken: vi.fn(() => Promise.resolve("platform-access-token")),
-  handleSignIn: vi.fn(() =>
+  handleSignIn: vi.fn<(options: Parameters<LogtoClient["signIn"]>[0]) => Promise<{ url: string }>>(() =>
     Promise.resolve({ url: "https://identity.example.test/oidc/auth" }),
   ),
   handleSignInCallback: vi.fn<() => Promise<string | undefined>>(() =>
@@ -93,6 +94,7 @@ import { GET as callback } from "../../app/callback/route";
 
 describe("Logto BFF route orchestration", () => {
   beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
 
   it("starts a same-origin official Logto flow without a custom attempt cookie", async () => {
     const response = await signIn(
@@ -107,8 +109,41 @@ describe("Logto BFF route orchestration", () => {
     );
     expect(fakes.handleSignIn).toHaveBeenCalledWith({
       redirectUri: "https://inside.example.test/callback",
-      prompt: "login",
+      prompt: ["login", "consent"],
     });
+  });
+
+  it("keeps fresh verification and offline access in the real SDK authorization URL", async () => {
+    const storage = new Map<string, string>();
+    let authorizationUrl = "";
+    const client = new LogtoClient(fakes.config, {
+      navigate: (url) => { authorizationUrl = url; },
+      storage: {
+        getItem: (key) => Promise.resolve(storage.get(key) ?? null),
+        setItem: (key, value) => { storage.set(key, value); return Promise.resolve(); },
+        removeItem: (key) => { storage.delete(key); return Promise.resolve(); },
+      },
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      authorization_endpoint: "https://identity.example.test/oidc/auth",
+    }), { headers: { "content-type": "application/json" } }));
+    fakes.handleSignIn.mockImplementationOnce(async (options) => {
+      await client.signIn(options);
+      return { url: authorizationUrl };
+    });
+
+    const response = await signIn(new Request("https://inside.example.test/auth/sign-in", {
+      method: "POST",
+      headers: { origin: "https://inside.example.test" },
+    }));
+
+    expect(response.status).toBe(200);
+    const parameters = new URL(authorizationUrl).searchParams;
+    expect(new Set(parameters.get("prompt")?.split(" "))).toEqual(new Set(["login", "consent"]));
+    expect(parameters.get("scope")?.split(" ")).toContain("offline_access");
+    expect(parameters.get("resource")).toBe(fakes.config.audience);
+    expect(parameters.get("code_challenge_method")).toBe("S256");
+    expect(parameters.get("state")).toBeTruthy();
   });
 
   it("round-trips a same-origin authoring destination through the official Logto flow", async () => {
@@ -126,7 +161,7 @@ describe("Logto BFF route orchestration", () => {
     expect(response.status).toBe(200);
     expect(fakes.handleSignIn).toHaveBeenCalledWith({
       redirectUri: "https://inside.example.test/callback",
-      prompt: "login",
+      prompt: ["login", "consent"],
       postRedirectUri: "https://inside.example.test/authoring/playlists/playlist-id",
     });
 
