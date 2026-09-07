@@ -32,7 +32,7 @@ Issue: https://github.com/sachkov-inside/platform/issues/380
 `production/assets/presenter/POSES.md` and `REFERENCE.md`. No new image generation was used.
 The source repository remains unchanged. CSS crops/fades the torso with the head extending above the 224 px mobile banner. The desktop
 label sits just above the palm. Code, Git-branch and terminal icons float from the avatar and fade;
-the pause control stops them, and `prefers-reduced-motion: reduce` hides the animation.
+`prefers-reduced-motion: reduce` hides the animation. Playback controls are omitted at the owner’s request.
 
 ## Verification
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Code2, GitBranch, Terminal, Pause, Play, MessageCircle, Users } from "lucide-react";
+import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Code2, GitBranch, Terminal, MessageCircle, Users } from "lucide-react";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import Link from "next/link";
@@ -116,11 +116,10 @@ export function VariantA({ subscribe }: { readonly subscribe: () => void }) {
 }
 export function VariantB({ subscribe }: { readonly subscribe: () => void }) {
   const [topic, setTopic] = useState("Все");
-  const [motionPaused, setMotionPaused] = useState(false);
   const filtered = topic === "Все" ? materials : materials.filter((material) => material.topic === topic);
   return <>
     <h1 className="sr-only">Главная Inside</h1>
-    <section className="gh-featured" aria-labelledby="featured-title" data-motion-paused={motionPaused}>
+    <section className="gh-featured" aria-labelledby="featured-title">
       <div className="gh-featured-copy"><p className="gh-featured-label">С чего начать · Серия</p><h2 id="featured-title">Создаём реальный<br />продукт с ИИ</h2><p className="gh-featured-description">От идеи и архитектуры до кода и деплоя.<br />На примере самой платформы Inside.</p><div className="gh-featured-bottom"><span>Гайды · Код · Решения</span><Link href="/series/inside-with-ai?from=%2F">Изучить серию <ArrowRight aria-hidden="true" /></Link></div></div>
       <div className="gh-presenter" aria-hidden="true">
         <div className="gh-presenter-crop">
@@ -133,7 +132,6 @@ export function VariantB({ subscribe }: { readonly subscribe: () => void }) {
         <span className="gh-particle gh-particle-branch"><GitBranch /></span>
         <span className="gh-particle gh-particle-terminal"><Terminal /></span>
       </div>
-      <button className="gh-motion-toggle" aria-label={motionPaused ? "Включить анимацию" : "Приостановить анимацию"} aria-pressed={motionPaused} onClick={() => { setMotionPaused(!motionPaused); }}>{motionPaused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}</button>
     </section>
     <div className="gh-topic-filters" aria-label="Темы материалов">{["Все", "Разработка с ИИ", "Архитектура", "Инфраструктура"].map((name) => <button key={name} aria-pressed={topic === name} onClick={() => { setTopic(name); }}>{name}</button>)}</div>
     <section className="gh-access-strip"><BookOpen aria-hidden="true" /><div><strong>Гайды, серии и общение с автором</strong><p>Изучай открытые материалы. Подписка откроет Inside целиком.</p></div><CTA onClick={subscribe} label="Полный доступ" /></section>
