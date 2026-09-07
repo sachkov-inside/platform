@@ -117,7 +117,7 @@ The authoring `formatId` field contains this domain code, not a UUID. A draft ma
 null; publishing requires a format. Authoring references are available on an empty
 production database without running the development seed.
 
-Migration `0036_domain_material_formats` converts existing UUID references to their
+Migration `0035_domain_material_formats` converts existing UUID references to their
 codes in both current and published Materials, maps legacy `text` to `note`, refreshes
 public search metadata, and removes `materials.formats`. Referenced legacy formats
 with other slugs stop the migration transaction and require an explicit conversion

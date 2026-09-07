@@ -1,4 +1,4 @@
-export const name = "0036_domain_material_formats";
+export const name = "0035_domain_material_formats";
 
 export const statement = `
 do $$ begin

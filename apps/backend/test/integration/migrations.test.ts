@@ -169,7 +169,7 @@ describe("Platform migrations", () => {
           "0032_reading_activity",
           "0033_material_visits",
           "0034_content_cover_cleanup",
-          "0036_domain_material_formats",
+          "0035_domain_material_formats",
 
       ],
     });
@@ -732,7 +732,7 @@ describe("Platform migrations", () => {
           "0032_reading_activity",
           "0033_material_visits",
           "0034_content_cover_cleanup",
-          "0036_domain_material_formats",
+          "0035_domain_material_formats",
         ],
       });
 

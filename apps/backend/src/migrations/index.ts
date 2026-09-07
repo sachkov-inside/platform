@@ -1,4 +1,4 @@
-import { name as domainMaterialFormatsName, statement as domainMaterialFormatsStatement } from "../modules/materials/infrastructure/postgres/migrations/0036-domain-material-formats.js";
+import { name as domainMaterialFormatsName, statement as domainMaterialFormatsStatement } from "../modules/materials/infrastructure/postgres/migrations/0035-domain-material-formats.js";
 import { name as materialVisitsName, statement as materialVisitsStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0033-material-visits.js";
 import { name as contentCoverCleanupName, statement as contentCoverCleanupStatement } from "../modules/materials/infrastructure/postgres/migrations/0034-content-cover-cleanup.js";
 import { name as readingActivityName, statement as readingActivityStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0032-reading-activity.js";
