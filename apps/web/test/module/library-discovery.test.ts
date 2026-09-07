@@ -88,6 +88,7 @@ describe("Library discovery server adapter", () => {
             cover: null,
             format: "Гайд",
             formatSlug: "guide",
+            publishedAt: "2026-08-25T05:00:00.000Z",
           materialId: "72000000-0000-4000-8000-000000000020",
             seriesMemberships: [
               {

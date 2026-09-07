@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
-import Link, { useLinkStatus } from "next/link";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
@@ -185,7 +185,11 @@ function MobileBottomNavigation({
               key={item.href}
               prefetch={true}
               scroll={onNavigate === undefined}
-              onNavigate={() => onNavigate?.(item.href)}
+              onNavigate={(event) => {
+                if (onNavigate === undefined) return;
+                event.preventDefault();
+                onNavigate(item.href);
+              }}
             >
               <Icon
                 aria-hidden="true"
@@ -194,18 +198,12 @@ function MobileBottomNavigation({
               <span aria-hidden="true" className="mobile-navigation-label grid min-w-0">
                 <span className="min-w-0 overflow-hidden"><span className="block truncate pl-2">{item.label}</span></span>
               </span>
-              <NavigationPending />
             </Link>
           );
         })}
       </div>
     </nav>
   );
-}
-
-function NavigationPending() {
-  const { pending } = useLinkStatus();
-  return <span aria-hidden="true" data-pending={pending} className="mobile-navigation-pending pointer-events-none absolute bottom-1 size-1 rounded-full bg-accent-bright" />;
 }
 
 function isCurrentPath(pathname: string, href: Route): boolean {

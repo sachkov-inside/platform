@@ -192,3 +192,24 @@ test("changing account identity clears remembered tabs and the old Profile form"
   await expect(name).toHaveValue("");
   await expect(navigation(page).getByRole("link", { name: "База знаний" })).toHaveAttribute("href", "/library");
 });
+
+test("a cold tab shows its destination immediately while the route response is still pending", async ({ page }) => {
+  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await page.route(/\/account\?_rsc=/u, async (route) => {
+    await held;
+    await route.continue().catch(() => undefined);
+  });
+  await page.goto("/library");
+  await expect(page.getByRole("searchbox")).toBeVisible();
+  try {
+    await navigation(page).getByRole("link", { name: "Профиль" }).click();
+    await expect(page.getByRole("heading", { name: "Ваш профиль" })).toBeVisible({ timeout: 500 });
+    await expect(navigation(page).getByRole("link", { name: "Профиль" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("searchbox")).not.toBeVisible();
+  } finally {
+    release();
+  }
+  await expect(page.getByRole("heading", { name: "Войдите в аккаунт" })).toBeVisible();
+});

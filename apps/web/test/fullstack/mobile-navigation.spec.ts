@@ -63,3 +63,18 @@ test("mobile navigation stays mounted without fading the document during tab cha
   await expect(page.getByRole("heading", { name: "Войдите в аккаунт" })).toBeVisible();
   expect(await observation).toEqual([]);
 });
+
+test("home notes show publication dates and an accessible catalog link over the blurred preview", async ({ page }, testInfo) => {
+  await page.goto("/");
+  const notes = page.getByRole("region", { name: "Заметки", exact: true });
+  const allNotes = notes.getByRole("link", { name: "Все заметки", exact: true });
+  await expect(allNotes).toHaveAttribute("href", "/library?format=note");
+  await expect(notes.locator("time").first()).toHaveAttribute("datetime", /T/u);
+  await expect(notes.locator("[inert]")).toHaveAttribute("aria-hidden", "true");
+  await allNotes.scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
+  await page.screenshot({ path: testInfo.outputPath("home-notes.png"), animations: "disabled" });
+  await allNotes.click();
+  await expect(page).toHaveURL(/\/library\?format=note$/u);
+  await expect(page.getByRole("radio", { name: /Заметки/u })).toBeChecked();
+});

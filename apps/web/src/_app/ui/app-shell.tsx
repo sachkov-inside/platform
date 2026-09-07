@@ -12,6 +12,7 @@ import { AccountTelegramOnboarding } from "@/features/account-access";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import { ReadingProgressProvider } from "@/features/reading-progress";
 import { useAuthStatus } from "./auth-status-control.client";
+import { PublicNavigationPending } from "./public-navigation-pending";
 import { MobileNavigationLocation } from "./mobile-navigation-location.client";
 import { useMobileNavigation } from "./use-mobile-navigation.client";
 
@@ -46,7 +47,7 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <ApplicationShell
-      currentPath={pathname}
+      currentPath={mobileNavigation.pendingHref?.split("?")[0] ?? pathname}
       accountSlot={<HeaderAuthControl state={authStatus.state} />}
       navigationItems={navigationItems}
       mobileNavigationItems={mobileNavigationItems.map((item) => item.href === "/library" ? { ...item, href: mobileNavigation.libraryHref } : item)}
@@ -56,7 +57,10 @@ export function AppShell({ children }: AppShellProps) {
         <MobileNavigationLocation onChange={mobileNavigation.recordLocation} />
       </Suspense>
       <ReadingProgressProvider key={authStatus.accountId ?? "guest"} accountId={authStatus.accountId} resolved={authStatus.resolved}>
-        {children}
+        <div aria-hidden={mobileNavigation.pendingHref !== null || undefined} inert={mobileNavigation.pendingHref !== null} className={mobileNavigation.pendingHref !== null ? "invisible" : undefined}>
+          {children}
+        </div>
+        {mobileNavigation.pendingHref !== null ? <PublicNavigationPending href={mobileNavigation.pendingHref} /> : null}
       </ReadingProgressProvider>
       <AccountTelegramOnboarding
         authenticated={authStatus.state === "authenticated"}

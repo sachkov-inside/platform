@@ -2,7 +2,8 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import type { Route } from "next";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 
 import { accountPresentationQueryKey } from "@/features/account-access";
 import { libraryCatalogQueryOptions, parseLibrarySearchParams } from "@/features/library-catalog";
@@ -22,6 +23,10 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
   const stopRestoring = useRef<() => void>(() => undefined);
   const previousAccount = useRef<string | null | undefined>(undefined);
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const [isNavigating, startNavigation] = useTransition();
+  const [selectedHref, setSelectedHref] = useState<Route | null>(null);
+  const pendingHref = isNavigating && selectedHref?.split("?")[0] !== pathname ? selectedHref : null;
 
   const recordLocation = useCallback((pathname: string, search: string) => {
     const path = rootPaths.find((root) => root === pathname);
@@ -47,10 +52,13 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
       pending.current = null;
       saveCurrent();
     };
+    const cancelSelection = () => { setSelectedHref(null); };
+    window.addEventListener("popstate", cancelSelection);
     document.addEventListener("click", capture, true);
     // Record before native Back/Forward changes the URL; popstate is already too late.
     document.addEventListener("scroll", saveCurrent, { capture: true, passive: true });
     return () => {
+      window.removeEventListener("popstate", cancelSelection);
       document.removeEventListener("click", capture, true);
       document.removeEventListener("scroll", saveCurrent, true);
     };
@@ -126,9 +134,11 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
     saveCurrent();
     const root = rootPaths.find((path) => path === href.split("?")[0]);
     pending.current = root === undefined ? null : positions.current[root] ?? { href, top: 0 };
-  }, [saveCurrent]);
+    setSelectedHref(href);
+    startNavigation(() => { router.push(href, { scroll: false }); });
+  }, [router, saveCurrent]);
 
-  return { libraryHref: links["/library"]?.href ?? "/library", onNavigate, recordLocation };
+  return { libraryHref: links["/library"]?.href ?? "/library", onNavigate, recordLocation, pendingHref };
 }
 
 function readScrollTop(): number {

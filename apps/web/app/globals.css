@@ -276,26 +276,12 @@ body:has([data-public-shell]) {
   opacity: 1;
 }
 
-.mobile-navigation-pending {
-  opacity: 0;
-}
-
-.mobile-navigation-pending[data-pending="true"] {
-  animation: navigation-pending 1s ease-in-out 160ms infinite;
-}
-
-@keyframes navigation-pending {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .mobile-navigation * {
     animation: none !important;
     transition: none !important;
   }
   .mobile-navigation-link:active { transform: none; }
-  .mobile-navigation-pending[data-pending="true"] { opacity: 1; }
 }
 
 @media (width < 48rem) {
