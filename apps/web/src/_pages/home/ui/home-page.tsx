@@ -1,6 +1,7 @@
 import { ArrowRight, DatabaseZap } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { MaterialCard } from "@/entities/material";
 import {
@@ -12,17 +13,18 @@ import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import type { HomeResult, HomeView } from "../model/home-view";
 
-export function HomePage({ result }: { readonly result: HomeResult }) {
+export function HomePage({ result, personal }: { readonly result: HomeResult; readonly personal?: ReactNode }) {
   if (result.kind === "unavailable") {
-    return <HomeUnavailable />;
+    return <>{personal}<HomeUnavailable /></>;
   }
-  return <HomeReady home={result.value} />;
+  return <HomeReady home={result.value} personal={personal} />;
 }
 
-function HomeReady({ home }: { readonly home: HomeView }) {
+function HomeReady({ home, personal }: { readonly home: HomeView; readonly personal: ReactNode }) {
   return (
     <div className="@container/home min-w-0">
       <h1 className="sr-only">Главная</h1>
+      {personal}
       <PlaylistSection playlists={home.playlists} />
       <TopicSection topics={home.topics} />
       <MaterialSection
