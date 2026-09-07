@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { AccountPageQuery } from "@/_pages/account";
-import { PublicRouteTransition } from "@/_app";
 
 export const metadata: Metadata = {
   title: "Аккаунт",
@@ -8,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function AccountRoute() {
-  return <PublicRouteTransition><AccountPageQuery /></PublicRouteTransition>;
+  return <AccountPageQuery />;
 }

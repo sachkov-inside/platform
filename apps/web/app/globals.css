@@ -289,33 +289,8 @@ body:has([data-public-shell]) {
   50% { opacity: 1; }
 }
 
-::view-transition {
-  pointer-events: none;
-}
-
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-}
-
-::view-transition-old(.public-page) {
-  animation: public-page-fade var(--motion-duration-fast) ease-out reverse both;
-}
-
-::view-transition-new(.public-page) {
-  animation: public-page-fade var(--motion-duration-fast) ease-out both;
-}
-
-@keyframes public-page-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .mobile-navigation *,
-  ::view-transition-old(*),
-  ::view-transition-new(*),
-  ::view-transition-group(*) {
+  .mobile-navigation * {
     animation: none !important;
     transition: none !important;
   }

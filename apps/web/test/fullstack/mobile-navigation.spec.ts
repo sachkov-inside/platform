@@ -30,3 +30,36 @@ test("mobile navigation public route evidence", async ({ page }, testInfo) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
   await testInfo.attach("library-public-route", { body: await page.screenshot(), contentType: "image/png" });
 });
+
+test("mobile navigation stays mounted without fading the document during tab changes", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith("mobile"));
+  await page.goto("/library");
+  await expect(page.getByRole("list", { name: "Материалы, страница 1" })).toBeVisible();
+  const observation = page.evaluate(async () => {
+    const navigation = document.querySelector('nav[aria-label="Мобильная навигация"]');
+    if (navigation === null) throw new Error("Mobile navigation is missing");
+    const top = navigation.getBoundingClientRect().top;
+    const failures = new Set<string>();
+    const started = performance.now();
+    await new Promise<void>((resolve) => {
+      const sample = () => {
+        if (!navigation.isConnected) failures.add("navigation unmounted");
+        const style = getComputedStyle(navigation);
+        if (style.visibility !== "visible" || Number(style.opacity) < 1) failures.add("navigation hidden");
+        if (Math.abs(navigation.getBoundingClientRect().top - top) > 1) failures.add("navigation moved");
+        for (const animation of document.getAnimations()) {
+          if (animation instanceof CSSAnimation && /public-page-fade|view-transition/u.test(animation.animationName)) {
+            failures.add(animation.animationName);
+          }
+        }
+        if (performance.now() - started < 1_000) requestAnimationFrame(sample);
+        else resolve();
+      };
+      sample();
+    });
+    return [...failures];
+  });
+  await page.getByRole("navigation", { name: "Мобильная навигация" }).getByRole("link", { name: "Профиль" }).click();
+  await expect(page.getByRole("heading", { name: "Войдите в аккаунт" })).toBeVisible();
+  expect(await observation).toEqual([]);
+});
