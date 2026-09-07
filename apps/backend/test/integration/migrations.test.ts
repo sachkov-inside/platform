@@ -263,7 +263,6 @@ describe("Platform migrations", () => {
     try {
       const migrationIndex = platformMigrations.findIndex(
         ({ name }) => name === "0034_content_cover_cleanup",
-        "0035_video_upload_rejections",
       );
       expect(migrationIndex).toBeGreaterThan(0);
       await runMigrationsToLatest(database.url, platformMigrations.slice(0, migrationIndex));
