@@ -283,6 +283,55 @@ describe("ContentCovers", () => {
     await covers.change({ actor, owner, kind: "remove", expectedCoverId: replacement.value.cover.coverId });
   });
 
+  test.each(["confirmed", "ambiguous"] as const)("keeps a durable ledger for a late %s PUT", async (outcome) => {
+    const id = randomUUID();
+    await database.prisma.topic.create({ data: { id, name: "Late upload", slug: `late-${id}` } });
+    const started = deferredSignal();
+    const resume = deferredSignal();
+    const writes: Promise<Awaited<ReturnType<ObjectStorage["putImmutable"]>>>[] = [];
+    const covers = assembleContentCovers({
+      prisma: database.prisma,
+      authorPolicy: { canManage: () => true },
+      objectStorage: {
+        ...objectStorage,
+        putImmutable(input) {
+          const write = resume.promise.then(() => objectStorage.putImmutable(input));
+          writes.push(write);
+          if (writes.length === 3) started.resolve();
+          return outcome === "confirmed" ? write : Promise.reject(new Error("PUT outcome unknown"));
+        },
+      },
+    });
+    const upload = covers.change({
+      actor, owner: { id, kind: "topic" }, kind: "upload", expectedCoverId: null,
+      ...(await coverUpload("#667788")),
+    });
+    await started.promise;
+    if (outcome === "ambiguous") await upload;
+    const cover = await database.prisma.contentCover.findFirstOrThrow({
+      where: { topicId: id }, include: { renditions: true },
+    });
+    const maintenance = assembleContentCoverMaintenance({ prisma: database.prisma, objectStorage });
+    const now = new Date(Date.now() + 2_000);
+    try {
+      await maintenance.cleanup({ graceMs: 1_000, now });
+      await expect(database.prisma.contentCoverRendition.findMany({ where: { coverId: cover.id } }))
+        .resolves.toEqual(cover.renditions);
+    } finally {
+      resume.resolve();
+      await Promise.all(writes);
+    }
+    await expect(upload).resolves.toMatchObject({ ok: false, error: { code: "dependency_unavailable" } });
+    await expect(database.prisma.topic.findUniqueOrThrow({ where: { id } }))
+      .resolves.toMatchObject({ coverId: null });
+    expect(cover.renditions.every(({ publicObjectKey }) => stored.has(publicObjectKey))).toBe(true);
+    await maintenance.cleanup({ graceMs: 1_000, now: new Date(now.getTime() + 1) });
+    expect(cover.renditions.every(({ publicObjectKey }) => !stored.has(publicObjectKey))).toBe(true);
+    const remaining = await database.prisma.contentCover.findUnique({ where: { id: cover.id } });
+    if (outcome === "confirmed") expect(remaining).toBeNull();
+    else expect(remaining).not.toBeNull();
+  });
+
   test.each(["topic", "series"] as const)("retains cleanup records after deleting a %s", async (kind) => {
     const id = randomUUID();
     const row = { id, name: "Disposable cover owner", slug: `cleanup-${id}` };

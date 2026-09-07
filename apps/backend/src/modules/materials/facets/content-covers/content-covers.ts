@@ -190,6 +190,12 @@ export function assembleContentCovers(dependencies: {
           ) {
             throw new Error("Content cover storage failed");
           }
+          // A rejected/unknown PUT can still complete remotely. Confirm only
+          // successful writes, even when cleanup has already claimed this row.
+          await dependencies.prisma.contentCover.update({
+            where: { id: coverId },
+            data: { uploadConfirmed: true },
+          });
         } catch {
           await dependencies.prisma.contentCover.updateMany({
             data: {

@@ -257,6 +257,48 @@ describe("Platform migrations", () => {
     ]);
   });
 
+  test("preserves uncertain legacy cover uploads during cleanup migration", async () => {
+    const database = await createTestDatabase();
+    try {
+      const migrationIndex = platformMigrations.findIndex(
+        ({ name }) => name === "0034_content_cover_cleanup",
+      );
+      expect(migrationIndex).toBeGreaterThan(0);
+      await runMigrationsToLatest(database.url, platformMigrations.slice(0, migrationIndex));
+      const topic = await database.prisma.topic.create({
+        data: {
+          id: "8a000000-0000-4000-8000-000000000034",
+          name: "Legacy cover",
+          slug: "legacy-cover",
+        },
+      });
+      await database.prisma.$executeRaw(Prisma.sql`
+        insert into materials.content_covers (id, topic_id, state, failure_code)
+        select gen_random_uuid(), ${topic.id}::uuid, state, failure_code
+        from (values
+          ('ready', null), ('processing', null), ('failed', 'storage_failure'),
+          ('failed', 'owner_not_found'), ('failed', 'conflict')
+        ) as uploads(state, failure_code)
+      `);
+      await migrateToLatest(database.url);
+      await expect(database.prisma.contentCover.findMany({
+        orderBy: [{ state: "asc" }, { failureCode: "asc" }],
+        select: { state: true, failureCode: true, uploadConfirmed: true },
+      })).resolves.toEqual([
+        { state: "failed", failureCode: "conflict", uploadConfirmed: true },
+        { state: "failed", failureCode: "owner_not_found", uploadConfirmed: true },
+        { state: "failed", failureCode: "storage_failure", uploadConfirmed: false },
+        { state: "processing", failureCode: null, uploadConfirmed: false },
+        { state: "ready", failureCode: null, uploadConfirmed: true },
+      ]);
+      await database.prisma.topic.delete({ where: { id: topic.id } });
+      await expect(database.prisma.contentCover.count()).resolves.toBe(5);
+      await expect(migrateToLatest(database.url)).resolves.toEqual({ appliedMigrations: [] });
+    } finally {
+      await database.dispose();
+    }
+  });
+
   test("backfills Workshop entitlement from the current Membership projection", async () => {
     const database = await createTestDatabase();
     try {

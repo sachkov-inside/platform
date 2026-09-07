@@ -68,7 +68,11 @@ export function assembleContentCoverMaintenance(dependencies: {
             where: candidate,
             data: { state: "failed", failureCode: CLEANUP_CLAIM, updatedAt: now },
           });
-          return { kind: "claimed" as const, keys: cover.renditions.map((row) => row.publicObjectKey) };
+          return {
+            kind: "claimed" as const,
+            uploadConfirmed: cover.uploadConfirmed,
+            keys: cover.renditions.map((row) => row.publicObjectKey),
+          };
         });
         if (claim === null) continue;
         if (claim.kind === "retained") {
@@ -78,8 +82,23 @@ export function assembleContentCoverMaintenance(dependencies: {
         // Deletion is idempotent. Retain every key if any call fails, including
         // a crash after S3 succeeds but before the database row is removed.
         for (const key of claim.keys) await objectStorage.delete("public", key);
+        // Use the claim-time value: a PUT may finish after DELETE and before
+        // this database update. Keep its keys for another deletion pass.
+        if (!claim.uploadConfirmed) {
+          await prisma.contentCover.updateMany({
+            where: { id: candidate.id, failureCode: CLEANUP_CLAIM },
+            data: { orphanedAt: now, updatedAt: now },
+          });
+          retained += 1;
+          continue;
+        }
         const deleted = await prisma.contentCover.deleteMany({
-          where: { id: candidate.id, failureCode: CLEANUP_CLAIM, currentlyReferenced: false },
+          where: {
+            id: candidate.id,
+            failureCode: CLEANUP_CLAIM,
+            currentlyReferenced: false,
+            uploadConfirmed: true,
+          },
         });
         cleaned += deleted.count;
       }
