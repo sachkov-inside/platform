@@ -211,6 +211,13 @@ mobile through Playwright, exercises the server-only adapter against the live AP
 signed delegated owner token to create/reload, publish, Preview and unpublish one stable Material
 through the live MCP process.
 
+The full-stack launcher also establishes separate active-member, non-member, expired-member and stale-member
+Accounts. Confirmed loss of Membership resolves as `expired`; a formerly valid observation accepted
+through the normal facet with a historical fixture clock resolves as `stale` at the real clock. The media convergence scenarios exercise one
+Material with image, file and primary Video, direct resource denials and an unrouted browser image
+cache after sign-out. Kinescope remains the deterministic test adapter; real-provider release
+acceptance belongs to #184.
+
 ## Repository verification
 
 With pinned host Node.js and pnpm:
@@ -297,7 +304,7 @@ pnpm --filter @inside/backend prisma:generate
 ```
 
 The Prisma schema maps the product-owned `materials`, `assets`, `accounts`, `member_profiles`,
-`membership_entitlements` and `telegram_membership` schemas. Checked-in,
+`membership_entitlements`, `reading_activity` and `telegram_membership` schemas. Checked-in,
 append-only SQL migrations remain the database authority. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
 generated client files are not committed or edited. A pre-Prisma local volume must be recreated

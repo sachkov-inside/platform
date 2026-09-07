@@ -401,8 +401,9 @@ test("server-renders the representative PostgreSQL Material through Nest", async
 
 test("marks an anonymous video as watched without shifting the action", async ({ page }) => {
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
-  const markWatched = page.getByRole("button", { name: "Отметить просмотренным" });
+  const markWatched = page.getByRole("button", { name: "Просмотрено", exact: true });
   await expect(markWatched).toBeEnabled();
+  await expect(markWatched).toHaveAttribute("aria-pressed", "false");
   const initialBox = await markWatched.boundingBox();
   expect(initialBox).not.toBeNull();
 
@@ -489,8 +490,12 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   });
   await expect(onboardingDismiss).toBeVisible({ timeout: 10_000 });
   await onboardingDismiss.click();
-  const markWatched = page.getByRole("button", { name: "Отметить просмотренным" });
+  const markWatched = page.getByRole("button", { name: "Просмотрено", exact: true });
   await expect(markWatched).toBeEnabled();
+  if (await markWatched.getAttribute("aria-pressed") === "true") {
+    await markWatched.click();
+  }
+  await expect(markWatched).toHaveAttribute("aria-pressed", "false");
   await markWatched.click();
   await expect(page.getByRole("button", { name: "Просмотрено" })).toHaveAttribute(
     "aria-pressed",
@@ -500,7 +505,7 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   const watched = page.getByRole("button", { name: "Просмотрено" });
   await expect(watched).toBeEnabled();
   await watched.click();
-  await expect(page.getByRole("button", { name: "Отметить просмотренным" })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "Просмотрено", exact: true })).toHaveAttribute(
     "aria-pressed",
     "false",
   );

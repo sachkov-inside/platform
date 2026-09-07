@@ -49,6 +49,46 @@ async function main(): Promise<void> {
     if (!result.ok || result.outcome !== "applied") {
       throw new Error(`Full-stack Membership fixture failed: ${JSON.stringify(result)}`);
     }
+    for (const state of ["expired", "stale"] as const) {
+      const fixtureSubject = process.env[state === "expired"
+        ? "FULLSTACK_EXPIRED_MEMBER_LOGTO_SUBJECT"
+        : "FULLSTACK_STALE_MEMBER_LOGTO_SUBJECT"];
+      if (fixtureSubject === undefined) continue;
+      const fixtureMember = await prisma.account.findUniqueOrThrow({
+        where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: fixtureSubject } },
+        select: { id: true },
+      });
+      // Distinguish confirmed loss of Membership from an observation whose validity elapsed.
+      const observedAt = state === "expired" ? checkedAt
+        : new Date(checkedAt.getTime() - 2 * FULL_STACK_MEMBERSHIP_LIFETIME_MS);
+      const deniedResult = await assembleMembershipEntitlements({
+        prisma,
+        workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
+        clock: () => observedAt,
+      }).acceptEvidence({
+        accountId: accountId(fixtureMember.id),
+        deliveryId: `full-stack-${state}-${checkedAt.toISOString()}`,
+        evidence: {
+          checkedAt: observedAt.toISOString(),
+          contractVersion: "inside.membership-evidence.v1",
+          decision: state === "expired" ? "not_member" : "member",
+          evidenceRef: `full-stack-${state}-evidence`,
+          evidenceVersion: observedAt.getTime(),
+          principalRef: `full-stack-${state}-principal`,
+          reasonCode: state === "expired" ? "chat_not_member" : "chat_member",
+          telegramIdentityRef: `full-stack-${state}-telegram-identity`,
+          validUntil: new Date(observedAt.getTime() + FULL_STACK_MEMBERSHIP_LIFETIME_MS).toISOString(),
+        },
+        source: "link_time",
+      });
+      if (!deniedResult.ok || deniedResult.outcome !== "applied") {
+        throw new Error(`${state} Membership fixture failed: ${JSON.stringify(deniedResult)}`);
+      }
+      const resolved = await assembleMembershipEntitlements({
+        prisma, workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
+      }).resolveForAccess(accountId(fixtureMember.id));
+      if (resolved.kind !== state) throw new Error(`Membership fixture must resolve as ${state}`);
+    }
   } finally {
     await prisma.$disconnect();
   }
