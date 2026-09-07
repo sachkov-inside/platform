@@ -2,6 +2,8 @@ import { BadRequestException, Controller, Get, Inject, Query } from "@nestjs/com
 import { ApiOkResponse, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { z } from "zod";
 
+import { materialFormatSchema } from "../../domain/material-format.js";
+
 import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import { CurrentAccount, type AuthenticatedAccount } from "../../../accounts/index.js";
 import { ApiMaterialAuthoringErrors, MaterialAuthoringEndpoint } from "../../adapters/nest/material-authoring-endpoint.js";
@@ -18,7 +20,7 @@ const itemSchema = z
   .object({
     canDelete: z.boolean(),
     contentVersion: contentVersionSchema,
-    format: referenceSchema.nullable(),
+    format: referenceSchema.extend({ id: materialFormatSchema }).nullable(),
     materialId: z.uuid(),
     publicationState: publicationStateSchema,
     title: z.string().nullable(),

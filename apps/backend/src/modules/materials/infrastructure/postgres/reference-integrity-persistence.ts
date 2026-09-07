@@ -29,13 +29,6 @@ export async function findReferenceIssues(
           where: { id: metadata.topicId },
           select: { archivedAt: true, id: true },
         });
-  const format =
-    metadata.formatId === null
-      ? null
-      : await transaction.format.findUnique({
-          where: { id: metadata.formatId },
-          select: { id: true },
-        });
   const tags =
     metadata.tagIds.length === 0
       ? []
@@ -63,9 +56,6 @@ export async function findReferenceIssues(
     currentMaterial?.topicId !== metadata.topicId
   ) {
     issues.push({ code: "topic_archived", path: "/metadata/topicId" });
-  }
-  if (metadata.formatId !== null && format === null) {
-    issues.push({ code: "format_not_found", path: "/metadata/formatId" });
   }
   const foundTags = new Set(tags.map(({ id }) => id));
   metadata.tagIds.forEach((tagId, index) => {

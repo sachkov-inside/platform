@@ -31,7 +31,7 @@ const currentMaterialSchema = z
     metadata: z
       .object({
         access: z.enum(["free", "membership"]),
-        formatId: z.uuid().nullable(),
+        formatId: z.enum(["video", "guide", "note"]).nullable(),
         seriesMemberships: z.array(seriesMembershipSchema),
         slug: z.string().nullable(),
         summary: z.string().nullable(),

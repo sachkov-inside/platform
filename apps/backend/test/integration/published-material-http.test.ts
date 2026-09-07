@@ -114,7 +114,7 @@ describe("published Material HTTP contract", () => {
           slug: "platform",
         },
         format: {
-          name: "Guide",
+          name: "Гайд",
           slug: "guide",
         },
         tags: [{ name: "Full stack" }],
@@ -247,10 +247,9 @@ describe("published Material HTTP contract", () => {
       totalCount: 1,
       facets: {
         formats: [
-          expect.objectContaining({ slug: "guide" }),
           expect.objectContaining({ slug: "video" }),
+          expect.objectContaining({ slug: "guide" }),
           expect.objectContaining({ slug: "note" }),
-          expect.objectContaining({ slug: "text" }),
         ],
         topics: [expect.objectContaining({ slug: "platform" })],
         series: [],

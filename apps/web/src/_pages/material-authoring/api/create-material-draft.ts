@@ -18,7 +18,7 @@ import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
   document: z.string().min(1).max(1_048_576),
-  formatId: z.union([z.uuid(), z.literal("unassigned")]),
+  formatId: z.enum(["video", "guide", "note", "unassigned"]),
   submissionId: z.uuid(),
   seriesIds: z.string().max(100_000),
   summary: z.string().trim().min(1).max(500),
@@ -50,7 +50,7 @@ const problemSchema = z
 interface ParsedDraftForm {
   readonly access: "free" | "membership";
   readonly document: JSONContent;
-  readonly formatId: string | null;
+  readonly formatId: "video" | "guide" | "note" | null;
   readonly idempotencyKey: string;
   readonly seriesIds: readonly string[];
   readonly summary: string;

@@ -9,7 +9,7 @@ import {
 
 const actor = "89000000-0000-4000-8000-000000000001";
 const topicId = "89000000-0000-4000-8000-000000000002";
-const formatId = "89000000-0000-4000-8000-000000000003";
+const formatId = "guide";
 const seriesId = "89000000-0000-4000-8000-000000000004";
 
 describe("Series order", () => {
@@ -20,9 +20,7 @@ describe("Series order", () => {
     await testDatabase.prisma.topic.create({
       data: { id: topicId, slug: "series-order", name: "Series order" },
     });
-    await testDatabase.prisma.format.create({
-      data: { id: formatId, slug: "series-guide", name: "Guide" },
-    });
+
     await testDatabase.prisma.series.create({
       data: { id: seriesId, slug: "platform", name: "Platform" },
     });

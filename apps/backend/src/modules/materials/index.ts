@@ -1,3 +1,4 @@
+export { materialFormatSchema, materialFormats, materialFormatPresentation, type MaterialFormat } from "./domain/material-format.js";
 export type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
 export {
   materialId,

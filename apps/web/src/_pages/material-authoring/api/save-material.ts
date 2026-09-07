@@ -18,7 +18,7 @@ const formSchema = z.object({
   deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
   document: z.string().min(1).max(1_048_576),
   expectedContentVersion: z.coerce.number().int().positive(),
-  formatId: z.union([z.uuid(), z.literal("unassigned")]),
+  formatId: z.enum(["video", "guide", "note", "unassigned"]),
   materialId: z.uuid(),
   publicationState: z.enum(["draft", "published", "unpublished"]),
   primaryVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),

@@ -1,8 +1,11 @@
+import { materialFormatsSql } from "../material-formats.js";
 import {
   Prisma,
   type MaterialsPrisma,
 } from "../../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
+
+import { materialFormatSchema } from "../../../domain/material-format.js";
 
 import type { PublishedMaterialProjectionDto } from "../../../facets/published-material-reader/published-material.contract.js";
 import type { ContentCoverProjection } from "../../../facets/content-covers/content-covers.js";
@@ -99,7 +102,7 @@ const publishedMaterialProjectionRowSchema = z.object({
   topic_id: z.uuid(),
   topic_name: z.string(),
   topic_slug: z.string(),
-  format_id: z.uuid(),
+  format_id: materialFormatSchema,
   format_name: z.string(),
   format_slug: z.string(),
   tags: z.array(z.object({ id: z.uuid(), name: z.string() })),
@@ -135,7 +138,7 @@ const facetOptionSchema = z
 
 const projectionMetadataRowSchema = z
   .object({
-    formats: z.array(facetOptionSchema),
+    formats: z.array(facetOptionSchema.extend({ id: materialFormatSchema, slug: materialFormatSchema })),
     series: z.array(facetOptionSchema),
     topics: z.array(facetOptionSchema),
     total_count: z.coerce.number().int().nonnegative(),
@@ -269,7 +272,7 @@ function searchProjectionQuery(
       ) as series_memberships
     from materials.published_materials as publication
     join materials.topics as topic on topic.id = publication.topic_id
-    join materials.formats as format on format.id = publication.format_id
+    join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id
     ${seriesSortJoinsSql(values, sort)}
     where ${filters}
       ${cursorSql(values.after, sort, searchRank)}
@@ -443,7 +446,7 @@ async function selectProjectionMetadata(
             from (
               select format.id, format.name, format.slug, count(*)::integer as count
               from (${facetPublications}) as publication
-              join materials.formats as format on format.id = publication.format_id
+              join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id
               group by format.id, format.name, format.slug
             ) as option
           ),
@@ -522,7 +525,7 @@ function filteredPublicationsSql(filters: Prisma.Sql): Prisma.Sql {
     select publication.material_id, publication.topic_id, publication.format_id
     from materials.published_materials as publication
     join materials.topics as topic on topic.id = publication.topic_id
-    join materials.formats as format on format.id = publication.format_id
+    join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id
     where ${filters}
   `;
 }
@@ -822,7 +825,7 @@ export async function selectRelatedPublishedMaterialProjections(
             and (
               related_pin.target_material_id is not null
               or publication.topic_id = ${source.topic.id}::uuid
-              or publication.format_id = ${source.format.id}::uuid
+              or publication.format_id = ${source.format.id}
               or exists (
                 select 1
                 from materials.published_material_tags as candidate_tag
@@ -847,7 +850,7 @@ export async function selectRelatedPublishedMaterialProjections(
             related_pin.ordinal,
             (
               case when publication.topic_id = ${source.topic.id}::uuid then 8 else 0 end
-              + case when publication.format_id = ${source.format.id}::uuid then 1 else 0 end
+              + case when publication.format_id = ${source.format.id} then 1 else 0 end
               + 2 * (
                 select count(*)::integer
                 from materials.published_material_tags as candidate_tag
@@ -949,7 +952,7 @@ function projectionQuery({
       ) as series_memberships
     from materials.published_materials as publication
     join materials.topics as topic on topic.id = publication.topic_id
-    join materials.formats as format on format.id = publication.format_id
+    join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id
     ${joins}
     ${where}
     ${order}

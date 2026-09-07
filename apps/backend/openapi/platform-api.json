@@ -8795,8 +8795,11 @@
                             "nullable": true,
                             "properties": {
                               "id": {
-                                "format": "uuid",
-                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               },
                               "name": {
@@ -9416,9 +9419,12 @@
                         "type": "string"
                       },
                       "formatId": {
-                        "format": "uuid",
+                        "enum": [
+                          "video",
+                          "guide",
+                          "note"
+                        ],
                         "nullable": true,
-                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                         "type": "string"
                       },
                       "seriesIds": {
@@ -11136,9 +11142,12 @@
                           "type": "string"
                         },
                         "formatId": {
-                          "format": "uuid",
+                          "enum": [
+                            "video",
+                            "guide",
+                            "note"
+                          ],
                           "nullable": true,
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
                         "seriesMemberships": {
@@ -12018,9 +12027,12 @@
                         "type": "string"
                       },
                       "formatId": {
-                        "format": "uuid",
+                        "enum": [
+                          "video",
+                          "guide",
+                          "note"
+                        ],
                         "nullable": true,
-                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                         "type": "string"
                       },
                       "seriesIds": {
@@ -13460,9 +13472,12 @@
                           "type": "string"
                         },
                         "formatId": {
-                          "format": "uuid",
+                          "enum": [
+                            "video",
+                            "guide",
+                            "note"
+                          ],
                           "nullable": true,
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
                         "seriesMemberships": {
@@ -16948,8 +16963,11 @@
                             "type": "boolean"
                           },
                           "id": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "enum": [
+                              "video",
+                              "guide",
+                              "note"
+                            ],
                             "type": "string"
                           },
                           "name": {
@@ -46993,12 +47011,22 @@
                             "additionalProperties": false,
                             "properties": {
                               "id": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               },
                               "name": {
                                 "type": "string"
                               },
                               "slug": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               }
                             },
@@ -47266,12 +47294,22 @@
                             "additionalProperties": false,
                             "properties": {
                               "id": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               },
                               "name": {
                                 "type": "string"
                               },
                               "slug": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               }
                             },
@@ -47543,12 +47581,22 @@
                                   "additionalProperties": false,
                                   "properties": {
                                     "id": {
+                                      "enum": [
+                                        "video",
+                                        "guide",
+                                        "note"
+                                      ],
                                       "type": "string"
                                     },
                                     "name": {
                                       "type": "string"
                                     },
                                     "slug": {
+                                      "enum": [
+                                        "video",
+                                        "guide",
+                                        "note"
+                                      ],
                                       "type": "string"
                                     }
                                   },
@@ -47843,12 +47891,22 @@
                                   "additionalProperties": false,
                                   "properties": {
                                     "id": {
+                                      "enum": [
+                                        "video",
+                                        "guide",
+                                        "note"
+                                      ],
                                       "type": "string"
                                     },
                                     "name": {
                                       "type": "string"
                                     },
                                     "slug": {
+                                      "enum": [
+                                        "video",
+                                        "guide",
+                                        "note"
+                                      ],
                                       "type": "string"
                                     }
                                   },
@@ -48085,12 +48143,22 @@
                             "additionalProperties": false,
                             "properties": {
                               "id": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               },
                               "name": {
                                 "type": "string"
                               },
                               "slug": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               }
                             },
@@ -48605,8 +48673,11 @@
                                 "type": "object"
                               },
                               "id": {
-                                "format": "uuid",
-                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               },
                               "name": {
@@ -48683,12 +48754,22 @@
                                       "additionalProperties": false,
                                       "properties": {
                                         "id": {
+                                          "enum": [
+                                            "video",
+                                            "guide",
+                                            "note"
+                                          ],
                                           "type": "string"
                                         },
                                         "name": {
                                           "type": "string"
                                         },
                                         "slug": {
+                                          "enum": [
+                                            "video",
+                                            "guide",
+                                            "note"
+                                          ],
                                           "type": "string"
                                         }
                                       },
@@ -48832,8 +48913,11 @@
                                 "type": "array"
                               },
                               "slug": {
-                                "maxLength": 120,
-                                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               },
                               "summary": {
@@ -48983,12 +49067,22 @@
                                       "additionalProperties": false,
                                       "properties": {
                                         "id": {
+                                          "enum": [
+                                            "video",
+                                            "guide",
+                                            "note"
+                                          ],
                                           "type": "string"
                                         },
                                         "name": {
                                           "type": "string"
                                         },
                                         "slug": {
+                                          "enum": [
+                                            "video",
+                                            "guide",
+                                            "note"
+                                          ],
                                           "type": "string"
                                         }
                                       },
@@ -49283,12 +49377,22 @@
                                       "additionalProperties": false,
                                       "properties": {
                                         "id": {
+                                          "enum": [
+                                            "video",
+                                            "guide",
+                                            "note"
+                                          ],
                                           "type": "string"
                                         },
                                         "name": {
                                           "type": "string"
                                         },
                                         "slug": {
+                                          "enum": [
+                                            "video",
+                                            "guide",
+                                            "note"
+                                          ],
                                           "type": "string"
                                         }
                                       },
@@ -49533,12 +49637,22 @@
                             "additionalProperties": false,
                             "properties": {
                               "id": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               },
                               "name": {
                                 "type": "string"
                               },
                               "slug": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               }
                             },
@@ -50045,12 +50159,22 @@
                             "additionalProperties": false,
                             "properties": {
                               "id": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               },
                               "name": {
                                 "type": "string"
                               },
                               "slug": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               }
                             },
@@ -50811,12 +50935,22 @@
                             "additionalProperties": false,
                             "properties": {
                               "id": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               },
                               "name": {
                                 "type": "string"
                               },
                               "slug": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               }
                             },
@@ -51577,12 +51711,22 @@
                             "additionalProperties": false,
                             "properties": {
                               "id": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               },
                               "name": {
                                 "type": "string"
                               },
                               "slug": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               }
                             },
@@ -53703,12 +53847,22 @@
                               "additionalProperties": false,
                               "properties": {
                                 "id": {
+                                  "enum": [
+                                    "video",
+                                    "guide",
+                                    "note"
+                                  ],
                                   "type": "string"
                                 },
                                 "name": {
                                   "type": "string"
                                 },
                                 "slug": {
+                                  "enum": [
+                                    "video",
+                                    "guide",
+                                    "note"
+                                  ],
                                   "type": "string"
                                 }
                               },
@@ -53966,12 +54120,22 @@
                               "additionalProperties": false,
                               "properties": {
                                 "id": {
+                                  "enum": [
+                                    "video",
+                                    "guide",
+                                    "note"
+                                  ],
                                   "type": "string"
                                 },
                                 "name": {
                                   "type": "string"
                                 },
                                 "slug": {
+                                  "enum": [
+                                    "video",
+                                    "guide",
+                                    "note"
+                                  ],
                                   "type": "string"
                                 }
                               },
@@ -55153,12 +55317,22 @@
                             "additionalProperties": false,
                             "properties": {
                               "id": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               },
                               "name": {
                                 "type": "string"
                               },
                               "slug": {
+                                "enum": [
+                                  "video",
+                                  "guide",
+                                  "note"
+                                ],
                                 "type": "string"
                               }
                             },
@@ -55679,12 +55853,22 @@
                                     "additionalProperties": false,
                                     "properties": {
                                       "id": {
+                                        "enum": [
+                                          "video",
+                                          "guide",
+                                          "note"
+                                        ],
                                         "type": "string"
                                       },
                                       "name": {
                                         "type": "string"
                                       },
                                       "slug": {
+                                        "enum": [
+                                          "video",
+                                          "guide",
+                                          "note"
+                                        ],
                                         "type": "string"
                                       }
                                     },
@@ -56016,12 +56200,22 @@
                               "additionalProperties": false,
                               "properties": {
                                 "id": {
+                                  "enum": [
+                                    "video",
+                                    "guide",
+                                    "note"
+                                  ],
                                   "type": "string"
                                 },
                                 "name": {
                                   "type": "string"
                                 },
                                 "slug": {
+                                  "enum": [
+                                    "video",
+                                    "guide",
+                                    "note"
+                                  ],
                                   "type": "string"
                                 }
                               },
@@ -57747,12 +57941,22 @@
                                 "additionalProperties": false,
                                 "properties": {
                                   "id": {
+                                    "enum": [
+                                      "video",
+                                      "guide",
+                                      "note"
+                                    ],
                                     "type": "string"
                                   },
                                   "name": {
                                     "type": "string"
                                   },
                                   "slug": {
+                                    "enum": [
+                                      "video",
+                                      "guide",
+                                      "note"
+                                    ],
                                     "type": "string"
                                   }
                                 },

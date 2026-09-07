@@ -11,7 +11,7 @@ import {
 const referenceSchema = z.object({ archived: z.boolean(), id: z.uuid(), name: z.string().min(1) }).strict();
 const referencesSchema = z
   .object({
-    formats: z.array(referenceSchema),
+    formats: z.array(referenceSchema.extend({ id: z.enum(["video", "guide", "note"]) })),
     series: z.array(referenceSchema),
     tags: z.array(referenceSchema),
     topics: z.array(referenceSchema),

@@ -73,9 +73,9 @@ describe("ReadingActivity HTTP", () => {
     for (const bearer of [token, token2]) {
       expect((await server.inject({ method: "POST", url: "/accounts", headers: { authorization: `Bearer ${bearer}` } })).statusCode).toBe(201);
     }
-    const topicId = randomUUID(); const formatId = randomUUID(); const actor = randomUUID(); const seriesId = randomUUID();
+    const topicId = randomUUID(); const formatId = "note"; const actor = randomUUID(); const seriesId = randomUUID();
     await database.prisma.topic.create({ data: { id: topicId, name: "Reading", slug: "reading" } });
-    await database.prisma.format.create({ data: { id: formatId, name: "Text", slug: "text" } });
+
     await database.prisma.series.create({ data: { id: seriesId, name: "Series", slug: "series" } });
     const materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: () => true } });
     const created = await materials.authoring.createDraft({ actor, idempotencyKey: randomUUID(),

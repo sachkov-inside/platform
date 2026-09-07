@@ -24,7 +24,7 @@ const responseSchema = z
         .object({
           canDelete: z.boolean(),
           contentVersion: z.number().int().positive(),
-          format: referenceSchema.nullable(),
+          format: referenceSchema.extend({ id: z.enum(["video", "guide", "note"]) }).nullable(),
           materialId: z.uuid(),
           publicationState: publicationStateSchema,
           title: z.string().nullable(),

@@ -255,7 +255,7 @@ export class MaterialAuthoringService {
       canDelete: boolean;
       contentVersion: number;
       format: {
-        id: string;
+        id: 'video' | 'guide' | 'note';
         name: string;
       } | null;
       materialId: string;
@@ -299,7 +299,7 @@ export class MaterialAuthoringService {
       };
       metadata: {
         access: 'free' | 'membership' | 'workshop';
-        formatId: string | null;
+        formatId: 'video' | 'guide' | 'note' | null;
         seriesIds: Array<string>;
         summary: string | null;
         tagIds: Array<string>;
@@ -389,7 +389,7 @@ export class MaterialAuthoringService {
     materialId: string;
     metadata: {
       access: 'free' | 'membership' | 'workshop';
-      formatId: string | null;
+      formatId: 'video' | 'guide' | 'note' | null;
       seriesMemberships: Array<{
         ordinal: number;
         seriesId: string;
@@ -441,7 +441,7 @@ export class MaterialAuthoringService {
       expectedContentVersion: number;
       metadata: {
         access: 'free' | 'membership' | 'workshop';
-        formatId: string | null;
+        formatId: 'video' | 'guide' | 'note' | null;
         seriesIds: Array<string>;
         summary: string | null;
         tagIds: Array<string>;
@@ -534,7 +534,7 @@ export class MaterialAuthoringService {
     materialId: string;
     metadata: {
       access: 'free' | 'membership' | 'workshop';
-      formatId: string | null;
+      formatId: 'video' | 'guide' | 'note' | null;
       seriesMemberships: Array<{
         ordinal: number;
         seriesId: string;
@@ -645,7 +645,7 @@ export class MaterialAuthoringService {
   public listMaterialAuthoringReferences(): CancelablePromise<{
     formats: Array<{
       archived: boolean;
-      id: string;
+      id: 'video' | 'guide' | 'note';
       name: string;
     }>;
     series: Array<{

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { materialFormats } from "../../domain/material-format.js";
+
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
@@ -26,11 +28,7 @@ export function assembleListAuthoringReferences(
     }
 
     try {
-      const [formats, series, tags, topics] = await Promise.all([
-        dependencies.prisma.format.findMany({
-          orderBy: [{ name: "asc" }, { id: "asc" }],
-          select: { id: true, name: true },
-        }),
+      const [series, tags, topics] = await Promise.all([
         dependencies.prisma.series.findMany({
           orderBy: [{ name: "asc" }, { id: "asc" }],
           select: { archivedAt: true, id: true, name: true },
@@ -47,7 +45,7 @@ export function assembleListAuthoringReferences(
       return {
         ok: true,
         value: {
-          formats: formats.map((item) => ({ ...item, archived: false })),
+          formats: materialFormats.map(({ id, name }) => ({ id, name, archived: false })),
           series: series.map(({ archivedAt, ...item }) => ({
             ...item,
             archived: archivedAt !== null,

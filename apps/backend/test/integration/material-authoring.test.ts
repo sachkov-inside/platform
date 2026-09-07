@@ -227,13 +227,7 @@ describe("MaterialAuthoring", () => {
           { id: "94000000-0000-4000-8000-000000000032", name: "AI", slug: "ai" },
         ],
       }),
-      testDatabase.prisma.format.create({
-        data: {
-          id: "94000000-0000-4000-8000-000000000033",
-          name: "Гайд",
-          slug: "guide",
-        },
-      }),
+
       testDatabase.prisma.series.create({
         data: {
           id: "94000000-0000-4000-8000-000000000035",
@@ -257,11 +251,11 @@ describe("MaterialAuthoring", () => {
     await expect(owner.authoring.listReferences({ actor })).resolves.toEqual({
       ok: true,
       value: {
-        formats: [{
-          archived: false,
-          id: "94000000-0000-4000-8000-000000000033",
-          name: "Гайд",
-        }],
+        formats: [
+          { archived: false, id: "video", name: "Видео" },
+          { archived: false, id: "guide", name: "Гайд" },
+          { archived: false, id: "note", name: "Заметка" },
+        ],
         series: [{
           archived: false,
           id: "94000000-0000-4000-8000-000000000035",
@@ -299,14 +293,12 @@ describe("MaterialAuthoring", () => {
 
   test("lists the complete authoring corpus with search, state filtering, and stable pages", async () => {
     const topicId = "95000000-0000-4000-8000-000000000031";
-    const formatId = "95000000-0000-4000-8000-000000000032";
+    const formatId = "guide";
     await Promise.all([
       testDatabase.prisma.topic.create({
         data: { id: topicId, name: "Admin topic", slug: "admin-topic" },
       }),
-      testDatabase.prisma.format.create({
-        data: { id: formatId, name: "Admin format", slug: "admin-format" },
-      }),
+
     ]);
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
@@ -424,7 +416,7 @@ describe("MaterialAuthoring", () => {
           {
             canDelete: true,
             contentVersion: 1,
-            format: { id: formatId, name: "Admin format" },
+            format: { id: formatId, name: "Гайд" },
             materialId: materialIds[2],
             publicationState: "draft",
             title: "Admin corpus Новый",
@@ -434,7 +426,7 @@ describe("MaterialAuthoring", () => {
           {
             canDelete: true,
             contentVersion: 1,
-            format: { id: formatId, name: "Admin format" },
+            format: { id: formatId, name: "Гайд" },
             materialId: materialIds[1],
             publicationState: "draft",
             title: "Admin corpus Средний",
@@ -522,16 +514,14 @@ describe("MaterialAuthoring", () => {
 
   test("fails closed on Video validation and changes published playback only after a successful Save", async () => {
     const topicId = "96000000-0000-4000-8000-000000000031";
-    const formatId = "96000000-0000-4000-8000-000000000032";
+    const formatId = "guide";
     const firstVideoId = "96000000-0000-4000-8000-000000000033";
     const replacementVideoId = "96000000-0000-4000-8000-000000000034";
     await Promise.all([
       testDatabase.prisma.topic.create({
         data: { id: topicId, name: "Video topic", slug: "video-topic" },
       }),
-      testDatabase.prisma.format.create({
-        data: { id: formatId, name: "Video guide", slug: "video-guide" },
-      }),
+
     ]);
     const metadata = {
       access: "free" as const,

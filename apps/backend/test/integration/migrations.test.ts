@@ -29,7 +29,6 @@ const materialTables = [
   "authoring_idempotency",
   "content_cover_renditions",
   "content_covers",
-  "formats",
   "material_related_pins",
   "material_search_documents",
   "material_tags",
@@ -170,6 +169,7 @@ describe("Platform migrations", () => {
           "0032_reading_activity",
           "0033_material_visits",
           "0034_content_cover_cleanup",
+          "0036_domain_material_formats",
 
       ],
     });
@@ -732,7 +732,7 @@ describe("Platform migrations", () => {
           "0032_reading_activity",
           "0033_material_visits",
           "0034_content_cover_cleanup",
-
+          "0036_domain_material_formats",
         ],
       });
 
