@@ -247,7 +247,7 @@ Entry points вызывают одни application use cases и не созда�
 | `MembershipEntitlements` | принять MembershipEvidence и построить Platform-owned entitlement | state, validity и monotonic evidence application |
 | `Assets` | начать/finalize upload, связать с current Material и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
-| `ReadingActivity` | idempotently mark read/unread и вернуть recent history | Account-to-Material reading state; не content access |
+| `ReadingActivity` | установить manual read/unread, пакетно читать состояния и private recent opens | Account-to-Material state и atomic transition history; не content access/analytics |
 
 Transaction semantics принадлежат единому
 [write atomicity contract](#validation-results-and-write-atomicity), а verification seams —
@@ -286,7 +286,8 @@ entities и invariants v1:
 `Material` содержит current application-owned versioned document, metadata и local Asset/Video
 references. `contentVersion` является concurrency/binding token, а не исторической редакцией.
 HTML, React tree, search text, signed URLs, provider tokens и editor state являются производными
-или ephemeral. Platform не хранит старые bodies, restore history или durable mutation journal.
+или ephemeral. Для Material authoring Platform не хранит старые bodies, restore history или durable mutation journal;
+это не ограничивает отдельную историю ReadingActivity.
 
 Publication lifecycle finite: never-published `draft` скрыт и может быть hard-deleted; `published`
 видим; `unpublished` раньше был видим, теперь скрыт и сохраняет identity/ReadingState. Slug можно
@@ -746,3 +747,12 @@ choice, неочевидный контекст и реальный trade-off. �
 - [Workspace #41: Telegram Membership boundary](https://github.com/sachkov-inside/workspace/issues/41)
 - [Workspace #42: Kinescope lifecycle](https://github.com/sachkov-inside/workspace/issues/42)
 - [Workspace #54: provider-neutral ContentAccess](https://github.com/sachkov-inside/workspace/issues/54)
+
+## Progress и personal discovery: согласованное расширение 2026-09-06
+
+[ReadingActivity](reading-activity.md) владеет ручными отметками всех форматов, атомарной историей
+переходов и вычисляемым результатом Series. [Personal Home](personal-home.md) владеет продолжением
+незавершённого по реальным открытиям и Videos-owned resume для любого authenticated Account.
+[План аналитики автора](../product/author-analytics-plan.md) отделяет будущие посещения/views от
+reading state, Telegram clicks и оплаты. Контракты ещё не означают runtime delivery; их native
+Specification/Tickets содержат порядок и owner gates.
