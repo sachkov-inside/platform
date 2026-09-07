@@ -6,6 +6,12 @@ inside.sachkov.dev {
 		@telegram_evidence path /integrations/telegram/v1/membership-evidence
 		reverse_proxy @telegram_evidence {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
+		@telegram_sign_in {
+			method POST
+			path /integrations/telegram/v1/sign-in/linked-identity
+		}
+		reverse_proxy @telegram_sign_in {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
 		@kinescope_webhook path /integrations/kinescope/v1/webhook
 		reverse_proxy @kinescope_webhook {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
