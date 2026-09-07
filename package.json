@@ -57,13 +57,13 @@
     "conformance:communications": "pnpm --filter @inside/backend conformance:communications"
   },
   "dependencies": {
-    "zod": "4.4.3"
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "@logto/node": "3.1.10",
-    "jose": "6.2.10",
-    "oxc-parser": "0.147.0",
-    "oxlint": "1.80.0",
+    "jose": "6.2.11",
+    "oxc-parser": "0.148.0",
+    "oxlint": "1.81.0",
     "oxlint-tsgolint": "7.0.2001",
     "proper-lockfile": "4.1.2",
     "typescript": "7.0.2"
