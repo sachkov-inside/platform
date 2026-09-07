@@ -1,6 +1,8 @@
 # Telegram communications acceptance — Platform #310
 
-Status: local adapter acceptance; credentialed Telegram acceptance is **not complete**.
+Status: automated cross-provider and local acceptance delivered in #310. The complete credentialed
+Telegram matrix remains **not complete** and is tracked by [#367](https://github.com/sachkov-inside/platform/issues/367)
+as a required gate before production. The parent Specification #304 remains open until that gate closes.
 The [shared specification](https://github.com/sachkov-inside/workspace/blob/1553211220c44882dbacce7519dd50e35493090e/docs/specifications/telegram-communications-v1.md)
 is the sole product contract. This runbook records evidence and operations, not a competing brief.
 
@@ -11,7 +13,7 @@ is the sole product contract. This runbook records evidence and operations, not 
 - Telegram base: `449f0c696fd851448dc82b6e69d9924c215de52e`; provider fix and adapter environment:
   [Telegram #41](https://github.com/sachkov-inside/inside-telegram/issues/41). Record its final SHA too.
 - Both own their source, migrations, database and dependencies. They communicate over authenticated
-  HTTP; neither build reads a neighboring checkout. No new communications wire schema is needed.
+  HTTP; neither build reads a neighboring checkout. The additive message timing schema is vendored by Platform; Telegram owns scheduling.
 
 `pnpm conformance:communications` in Platform pairs with `pnpm conformance:communications-provider`
 in Telegram. The provider checks restored historical content through Platform `validate-content`;
@@ -88,7 +90,8 @@ zero new marketing attempts and functioning service responses before declaring t
 
 ## Credentialed proof and launch prerequisites
 
-The remaining #310 blocker is an explicitly approved controlled recipient and live test scope.
+The remaining live acceptance is tracked in #367. The owner selected a test bot and authorized the
+local stack; retain exact controlled recipients and bounded live test scope for the outstanding matrix.
 Before asking to send, prepare a dedicated test bot/database or an audited isolated audience, real
 file references for all six formats, test Material/Series reachable at the configured public origin,
 compatible deployed SHAs, configured authorization/content-validation/tracking callbacks, and rollback
@@ -104,5 +107,6 @@ and after feature disable. Review mobile/desktop owner UI against the same provi
 Not tested by local acceptance: real Telegram delivery/rendering/file_id validity; real recipient
 consent and privacy/retention; credentialed sign-in/link flow; production callbacks, ingress, TLS and
 secrets; production enablement; payments; audience launch. None is implied by passing fake transport
-checks. Keep #310 open until the required credentialed evidence exists. Merge, deploy and audience
-activation remain separate owner actions.
+checks. Keep #367 and the parent acceptance open until the required credentialed evidence exists. #310
+closes the automated/local integration stage without claiming this live matrix. Merge, deploy and
+audience activation remain separate owner actions.
