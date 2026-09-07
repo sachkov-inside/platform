@@ -24,6 +24,8 @@ export interface MaterialCardProps {
   /** Series-owned context rendered below the row title. */
   readonly rowAnnotation?: React.ReactNode;
   readonly readingStatus?: React.ReactNode;
+  /** Existing video card with a short continuation caption supplied by its page. */
+  readonly resumeLabel?: string;
   readonly variant?: "compact" | "default" | "feed" | "row";
 }
 
@@ -34,6 +36,7 @@ export function MaterialCard({
   returnHref,
   rowAnnotation,
   readingStatus = material.materialId === undefined ? undefined : <SavedMaterialReadingStatus materialId={material.materialId} format={material.format} />,
+  resumeLabel,
   variant = "default",
 }: MaterialCardProps) {
   const Heading = headingLevel;
@@ -144,8 +147,8 @@ export function MaterialCard({
       </Heading>
       {readingStatus ? <span className="mt-2 block">{readingStatus}</span> : null}
       {isCompact ? (
-        <span className="mt-1 block text-xs font-medium text-muted-foreground md:text-sm">
-          {material.topic}
+        <span className={cn("mt-1 block text-xs font-medium md:text-sm", resumeLabel === undefined ? "text-muted-foreground" : "text-action")}>
+          {resumeLabel ?? material.topic}
         </span>
       ) : duration === undefined ? null : (
         <span className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">

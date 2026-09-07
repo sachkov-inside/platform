@@ -28,9 +28,10 @@ function PersonalHomeProof({ view }: { readonly view: PersonalHomeView }) {
 }
 const meta = {
   component: PersonalHomeProof,
-  title: "Pages/Personal Home",
+  id: "pages-personal-home",
+  title: "Archive/Personal Home — отдельный блок",
   decorators: [(Story) => <ApplicationShell currentPath="/" mobileNavigationItems={[{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }, { href: "/account", icon: "profile", label: "Профиль" }]} navigationItems={[{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }]}><Story /></ApplicationShell>],
-  parameters: { layout: "fullscreen" },
+  parameters: { layout: "fullscreen", docs: { description: { component: "Прежний вариант, отклонён владельцем 2026-09-07. Текущая проверка: Pages/Progress walkthrough — продолжение внутри существующих секций серий и видео." } } },
 } satisfies Meta<typeof PersonalHomeProof>;
 export default meta;
 type Story = StoryObj<typeof meta>;
