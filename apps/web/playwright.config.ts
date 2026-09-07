@@ -6,7 +6,9 @@ const captureEvidence = process.env.CAPTURE_EVIDENCE === "1";
 
 export default defineConfig({
   testDir: "./test/e2e",
-  testMatch: captureEvidence ? "evidence.spec.ts" : "routes.spec.ts",
+  testMatch: captureEvidence
+    ? "evidence.spec.ts"
+    : ["routes.spec.ts", "communications.spec.ts"],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,

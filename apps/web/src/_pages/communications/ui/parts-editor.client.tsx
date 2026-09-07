@@ -1,15 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
-import {
-  newPart,
-  type Part,
-  type Result,
-  type Template,
-} from "../model/communications";
+import type { Part } from "../model/communications";
 
-export const fieldClass =
-  "mt-2 min-h-12 w-full rounded-lg border border-input bg-background px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+export { fieldClass } from "./communications-fields";
 const types = {
   text: "Текст",
   photo: "Фото",
@@ -30,30 +24,38 @@ export function moveItem<T>(items: T[], index: number, offset: number): T[] {
 export function PartsEditor({
   parts,
   onChange,
-  resolveTemplate,
+  renderLibrary,
   disabled = false,
   label,
+  maxParts = 20,
 }: {
   parts: Part[];
   onChange: (parts: Part[]) => void;
-  resolveTemplate: (reference: string) => Promise<Result<Template>>;
+  renderLibrary: (
+    choose: (part: Part) => void,
+    chooseLabel: string,
+  ) => ReactNode;
   disabled?: boolean;
   label: string;
+  maxParts?: number;
 }) {
-  const [reference, setReference] = useState("");
-  const [pending, setPending] = useState(false);
+  const [choosing, setChoosing] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const changePart = (index: number, part: Part) => {
-    onChange(parts.map((old, at) => (at === index ? part : old)));
-  };
   return (
-    <fieldset disabled={disabled || pending} className="min-w-0 space-y-4">
+    <fieldset disabled={disabled} className="min-w-0 space-y-4">
       <legend className="text-base font-semibold">{label}</legend>
-      <ol className="divide-y divide-border">
+      <p className="text-sm text-muted-foreground">
+        Подготовьте текст, медиа и оформление в Telegram. Здесь соберите порядок
+        сохранённых постов.
+      </p>
+      <ol className="space-y-4">
         {parts.map((part, index) => (
-          <li key={part.partId} className="space-y-3 py-4">
+          <li
+            key={part.partId}
+            className="min-w-0 space-y-4 rounded-lg border border-border bg-background p-4"
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-medium">
+              <p className="rounded-md bg-secondary px-2.5 py-1.5 text-xs font-semibold">
                 Часть {index + 1} · {types[part.content.type]}
               </p>
               <div className="flex flex-wrap gap-1">
@@ -85,212 +87,144 @@ export function PartsEditor({
                   type="button"
                   variant="ghost"
                   className="min-h-11"
-                  disabled={parts.length === 1}
                   aria-label={`Удалить часть ${String(index + 1)}`}
                   onClick={() => {
                     onChange(parts.filter((_, at) => at !== index));
+                    if (choosing === part.partId) setChoosing(null);
                   }}
                 >
                   Удалить
                 </Button>
               </div>
             </div>
-            {part.content.type !== "text" ? (
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+              {part.content.text ||
+                `Сохранено из Telegram: ${types[part.content.type]}`}
+            </p>
+            {part.content.entities.length ? (
               <p className="text-sm text-muted-foreground">
-                Медиа сохранено из Telegram. Для замены удалите часть и добавьте
-                другую заготовку.
+                Форматирование Telegram сохранено. Точный вид можно проверить
+                образцом в боте.
               </p>
             ) : null}
-            {part.content.type !== "video_note" ? (
-              <label className="block text-sm font-medium">
-                {part.content.type === "text" ? "Текст сообщения" : "Подпись"}
-                <textarea
-                  className={`${fieldClass} min-h-28 resize-y`}
-                  name={`text-${part.partId}`}
-                  required={part.content.type === "text"}
-                  maxLength={part.content.type === "text" ? 4096 : 1024}
-                  value={part.content.text}
-                  readOnly={part.content.entities.length > 0}
-                  onChange={(event) => {
-                    changePart(index, {
-                      ...part,
-                      content: { ...part.content, text: event.target.value },
-                    });
-                  }}
-                />
-              </label>
-            ) : null}
-            {part.content.entities.length > 0 ? (
-              <div className="space-y-2 text-sm">
-                <p>
-                  Форматирование заготовки сохранено. Для правки текста сначала
-                  явно уберите форматирование.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-11"
-                  onClick={() => {
-                    changePart(index, {
-                      ...part,
-                      content: { ...part.content, entities: [] },
-                    });
-                  }}
-                >
-                  Редактировать без форматирования
-                </Button>
+            {part.content.buttons.length ? (
+              <div aria-label="Кнопки сообщения" className="space-y-2">
+                {Array.from(
+                  new Set(
+                    part.content.buttons.map((button, i) => button.row ?? i),
+                  ),
+                )
+                  .sort((a, b) => a - b)
+                  .map((row) => (
+                    <div key={row} className="flex flex-wrap gap-2">
+                      {part.content.buttons
+                        .filter((button, i) => (button.row ?? i) === row)
+                        .map((button, i) => (
+                          <a
+                            key={i}
+                            href={button.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-11 min-w-0 items-center rounded-lg border border-border px-3 py-2 text-sm break-words [overflow-wrap:anywhere]"
+                          >
+                            {button.text}
+                          </a>
+                        ))}
+                    </div>
+                  ))}
               </div>
             ) : null}
-            {part.content.buttons.map((button, bi) => (
-              <div key={bi} className="grid gap-3 sm:grid-cols-[1fr_2fr_auto]">
-                <label className="text-sm">
-                  Текст кнопки
-                  <input
-                    className={fieldClass}
-                    name={`button-text-${part.partId}-${String(bi)}`}
-                    required
-                    maxLength={64}
-                    value={button.text}
-                    onChange={(e) => {
-                      changePart(index, {
-                        ...part,
-                        content: {
-                          ...part.content,
-                          buttons: part.content.buttons.map((b, at) =>
-                            at === bi ? { ...b, text: e.target.value } : b,
-                          ),
-                        },
-                      });
-                    }}
-                  />
-                </label>
-                <label className="min-w-0 text-sm">
-                  HTTPS-ссылка
-                  <input
-                    className={fieldClass}
-                    type="url"
-                    name={`button-url-${part.partId}-${String(bi)}`}
-                    required
-                    value={button.url}
-                    onChange={(e) => {
-                      changePart(index, {
-                        ...part,
-                        content: {
-                          ...part.content,
-                          buttons: part.content.buttons.map((b, at) =>
-                            at === bi ? { ...b, url: e.target.value } : b,
-                          ),
-                        },
-                      });
-                    }}
-                  />
-                </label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="min-h-12 sm:self-end"
-                  aria-label={`Удалить кнопку ${String(bi + 1)}`}
-                  onClick={() => {
-                    changePart(index, {
-                      ...part,
-                      content: {
-                        ...part.content,
-                        buttons: part.content.buttons.filter(
-                          (_, at) => at !== bi,
-                        ),
-                      },
-                    });
-                  }}
-                >
-                  Удалить
-                </Button>
-              </div>
-            ))}
             <Button
               type="button"
               variant="outline"
               className="min-h-11"
-              disabled={part.content.buttons.length >= 20}
               onClick={() => {
-                changePart(index, {
-                  ...part,
-                  content: {
-                    ...part.content,
-                    buttons: [...part.content.buttons, { text: "", url: "" }],
-                  },
-                });
+                setChoosing(part.partId);
               }}
+              aria-label={`Заменить часть ${String(index + 1)} из сохранённых постов`}
             >
-              Добавить кнопку
+              Заменить из сохранённых постов
             </Button>
           </li>
         ))}
       </ol>
-      <div className="flex flex-wrap gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          className="min-h-12"
-          disabled={parts.length >= 20}
-          onClick={() => {
-            onChange([...parts, newPart()]);
-          }}
-        >
-          Добавить текстовую часть
-        </Button>
-      </div>
-      <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto]">
-        <label className="text-sm font-medium">
-          ID или ссылка заготовки
-          <input
-            className={fieldClass}
-            name={`template-${label}`}
-            value={reference}
-            onChange={(e) => {
-              setReference(e.target.value);
-            }}
-          />
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          className="min-h-12"
-          disabled={!reference.trim() || parts.length >= 20}
-          onClick={() => {
-            void (async () => {
-              setPending(true);
-              setNotice("");
-              try {
-                const result = await resolveTemplate(reference.trim());
-                if (result.kind === "ready") {
-                  onChange([
-                    ...parts,
-                    {
-                      partId: crypto.randomUUID(),
-                      content: result.value.content,
-                    },
-                  ]);
-                  setReference("");
-                  setNotice(
-                    "Заготовка добавлена снимком. Изменения исходного сообщения не изменят эту часть.",
-                  );
-                }
-              } finally {
-                setPending(false);
+      {!parts.length ? (
+        <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+          Сообщений пока нет. Выберите первый сохранённый пост.
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        variant="outline"
+        className="min-h-12"
+        disabled={parts.length >= maxParts}
+        onClick={() => {
+          setChoosing("new");
+        }}
+      >
+        Добавить сохранённый пост
+      </Button>
+      {choosing ? (
+        <div className="min-w-0 space-y-3 rounded-xl border border-border p-3 sm:p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-medium">
+              {choosing === "new"
+                ? "Новое сообщение"
+                : "Замена выбранной части"}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setChoosing(null);
+              }}
+            >
+              Закрыть выбор
+            </Button>
+          </div>
+          {renderLibrary(
+            (part) => {
+              if (disabled) return;
+              if (
+                (choosing === "new" && parts.length >= maxParts) ||
+                (choosing !== "new" &&
+                  !parts.some((prior) => prior.partId === choosing))
+              ) {
+                setNotice("Список сообщений изменился. Выберите часть заново.");
+                setChoosing(null);
+                return;
               }
-            })();
-          }}
-        >
-          {pending ? "Проверяем доступ…" : "Добавить заготовку"}
-        </Button>
-      </div>
-      <p role="status" className="min-h-5 text-sm text-muted-foreground">
-        {notice}
+              onChange(
+                choosing === "new"
+                  ? [...parts, part]
+                  : parts.map((prior) =>
+                      prior.partId === choosing
+                        ? { ...prior, content: part.content }
+                        : prior,
+                    ),
+              );
+              setNotice(
+                choosing === "new"
+                  ? "Пост добавлен. Сохраните изменения воронки."
+                  : "Выбранное содержимое заменено. Идентификатор части сохранён.",
+              );
+              setChoosing(null);
+            },
+            choosing === "new"
+              ? "Добавить в последовательность"
+              : "Заменить выбранную часть",
+          )}
+        </div>
+      ) : null}
+      <p className="text-xs text-muted-foreground">
+        Изменение исходного поста не меняет уже выбранную часть. Чтобы применить
+        новую версию, замените её явно.
       </p>
-      <p className="text-sm text-muted-foreground">
-        Части отправляются по порядку как один шаг. Предпросмотр в браузере не
-        отправляет сообщения.
-      </p>
+      {notice ? (
+        <p role="status" className="text-sm">
+          {notice}
+        </p>
+      ) : null}
     </fieldset>
   );
 }

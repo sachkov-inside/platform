@@ -53,6 +53,29 @@ try {
   assertEqual(
     toolNames,
     [
+      "communications_broadcasts_launch",
+      "communications_broadcasts_lifecycle",
+      "communications_broadcasts_list",
+      "communications_broadcasts_read",
+      "communications_broadcasts_save",
+      "communications_deliveries_read",
+      "communications_delivery_resolve",
+      "communications_entries_read",
+      "communications_funnels_lifecycle",
+      "communications_funnels_list",
+      "communications_funnels_preview",
+      "communications_funnels_publish",
+      "communications_funnels_read",
+      "communications_funnels_rollback",
+      "communications_funnels_save",
+      "communications_intro_read",
+      "communications_intro_save",
+      "communications_statistics_read",
+      "communications_templates_list",
+      "communications_templates_read",
+      "communications_templates_resolve",
+      "communications_templates_save",
+      "communications_templates_testSend",
       "content_collection_create",
       "content_collection_list",
       "content_collection_set_archive",
@@ -66,6 +89,19 @@ try {
     ],
     "MCP tool surface",
   );
+
+  // Tool discovery does not grant communications authority to a Material author.
+  const denied = await callTool("communications_templates_list", {
+    operationId: "73000000-0000-4000-8000-000000000003",
+    expectedRevision: 0,
+    payload: {},
+  });
+  assertField(denied, "isError", true, "communications permission denial");
+  const denial = z.strictObject({
+    ok: z.literal(false),
+    error: z.strictObject({ code: z.literal("forbidden") }),
+  });
+  denial.parse(denied.structuredContent);
 
   const initialMetadata = metadata("free");
   const created = successfulValue(

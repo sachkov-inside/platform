@@ -20,12 +20,15 @@ import {
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 
+import { ReaderReturnNavigation } from "./reader-return-navigation.client";
+
 export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
   readonly primaryVideo: PrimaryVideoPresentation | null;
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly seriesContext?: SeriesReaderContext | null;
+  readonly readingAction?: ReactNode;
 }
 
 interface OutlineItem {
@@ -41,6 +44,7 @@ export function MaterialReaderView({
   primaryVideo,
   returnTarget = libraryMaterialReaderReturnTarget,
   seriesContext = null,
+  readingAction,
 }: MaterialReaderViewProps) {
   const outline = collectOutline(body);
 
@@ -50,31 +54,34 @@ export function MaterialReaderView({
       data-material-id={material.materialId}
       data-material-reader-state="available"
     >
-      <ReaderBackAction sticky target={returnTarget} />
-      <div className="mx-auto mt-8 min-w-0 max-w-[43rem] md:mt-10">
-        <MaterialReaderHeader material={material} />
-        {primaryVideo === null ? null : (
-          <MaterialPrimaryVideo
-            className="max-w-none"
-            materialId={material.materialId}
-            video={primaryVideo}
-          />
-        )}
-        <ReaderOutline items={outline} />
-        <article
-          className="mt-10 min-w-0 break-words text-pretty text-[1.0625rem] leading-[1.7] text-foreground md:text-lg"
-          data-reader-body
-        >
-          <ReaderBlocks
-            blocks={body}
-            contentVersion={material.contentVersion}
-            materialId={material.materialId}
-            path={[]}
-          />
-        </article>
-        <SeriesReaderNavigation context={seriesContext} />
-        <MaterialReaderMetadataFooter material={material} />
-      </div>
+      <ReaderReturnNavigation repeatAtBottom={seriesContext === null} target={returnTarget}>
+        <div className="mx-auto min-w-0 max-w-[43rem]">
+          <MaterialReaderHeader material={material} />
+          {primaryVideo === null ? null : (
+            <MaterialPrimaryVideo
+              className="max-w-none"
+              key={primaryVideo.videoId}
+              materialId={material.materialId}
+              video={primaryVideo}
+              showWatchedAction={readingAction === undefined}
+            />
+          )}
+          <ReaderOutline items={outline} />
+          <article
+            className="mt-10 min-w-0 break-words text-pretty text-[1.0625rem] leading-[1.7] text-foreground md:text-lg"
+            data-reader-body
+          >
+            <ReaderBlocks
+              blocks={body}
+              contentVersion={material.contentVersion}
+              materialId={material.materialId}
+              path={[]}
+            />
+          </article>
+          {readingAction}
+          <MaterialReaderMetadataFooter material={material} seriesContext={seriesContext} returnTarget={returnTarget} />
+        </div>
+      </ReaderReturnNavigation>
     </div>
   );
 }
@@ -89,62 +96,31 @@ export function SeriesReaderNavigation({
   return (
     <nav
       aria-label={`Навигация по серии «${context.series.name}»`}
-      className="mx-auto mt-12 max-w-[43rem] border-t border-border py-6"
+      className="max-w-[43rem]"
       data-series-reader-navigation
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <Link
-          className="min-w-0 break-words font-semibold no-underline hover:text-action focus-visible:outline-ring"
-          href={context.series.href}
-        >
-          {context.series.name}
-        </Link>
-        <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-          {context.currentPosition} из {context.totalMaterials}
-        </span>
-      </div>
+      <p className="font-semibold">
+        Материал {context.currentPosition} из {context.totalMaterials}
+      </p>
+      <p className="mt-1 break-words text-sm text-muted-foreground">{context.series.name}</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <SeriesReaderStep direction="previous" item={context.previous} />
-        <SeriesReaderStep direction="next" item={context.next} />
+        <Button asChild className="h-auto min-h-12 whitespace-normal rounded-xl px-5 py-3 text-center" variant="secondary">
+          <Link href={context.series.href}>Все материалы серии</Link>
+        </Button>
+        {context.next === null ? null : (
+          <Button asChild className="h-auto min-h-12 whitespace-normal rounded-xl px-5 py-3 text-center">
+            <Link href={context.next.href}>
+              Дальше <ArrowRight aria-hidden="true" />
+            </Link>
+          </Button>
+        )}
       </div>
+      {context.previous === null ? null : (
+        <Link className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring" href={context.previous.href}>
+          <ArrowLeft aria-hidden="true" className="size-4" /> Предыдущий материал
+        </Link>
+      )}
     </nav>
-  );
-}
-
-function SeriesReaderStep({
-  direction,
-  item,
-}: {
-  readonly direction: "next" | "previous";
-  readonly item: SeriesReaderContext["next"];
-}) {
-  if (item === null) {
-    return <span aria-hidden="true" className="hidden sm:block" />;
-  }
-  const isNext = direction === "next";
-  return (
-    <Link
-      className={cn(
-        "group flex min-h-20 min-w-0 items-center gap-3 rounded-xl bg-muted px-4 py-3 no-underline focus-visible:outline-ring",
-        isNext && "sm:text-right",
-      )}
-      href={item.href}
-    >
-      {isNext ? null : (
-        <ArrowLeft aria-hidden="true" className="size-4 shrink-0 text-action" />
-      )}
-      <span className="min-w-0 flex-1">
-        <span className="block text-xs font-semibold text-muted-foreground">
-          {isNext ? "Следующий материал" : "Предыдущий материал"}
-        </span>
-        <span className="mt-1 block break-words text-sm font-semibold leading-5">
-          {item.title}
-        </span>
-      </span>
-      {isNext ? (
-        <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-action" />
-      ) : null}
-    </Link>
   );
 }
 
@@ -175,9 +151,9 @@ export function MaterialReaderHeader({
           {material.topic.name}
         </Link>
         <span aria-hidden="true">·</span>
-        <time dateTime={material.publishedAt}>Опубликовано {publicationDate}</time>
+        <time dateTime={material.publishedAt}>{publicationDate}</time>
       </div>
-      <h1 className="mt-4 break-words text-balance text-[1.75rem] font-semibold leading-[1.18] tracking-[-0.025em] md:text-[2rem] md:leading-[1.2]">
+      <h1 className="mt-4 break-words text-balance text-2xl font-semibold leading-[1.18] tracking-[-0.025em] md:text-[1.75rem] md:leading-[1.2]">
         {material.title}
       </h1>
       <p className="mt-4 text-pretty text-[1.0625rem] leading-7 text-body-muted">
@@ -189,12 +165,18 @@ export function MaterialReaderHeader({
 
 export function MaterialReaderMetadataFooter({
   material,
+  seriesContext = null,
+  returnTarget = libraryMaterialReaderReturnTarget,
 }: {
   readonly material: MaterialReaderMetadata;
+  readonly seriesContext?: SeriesReaderContext | null;
+  readonly returnTarget?: MaterialReaderReturnTarget;
 }) {
-  if (material.tags.length === 0 && material.seriesMemberships.length === 0) {
-    return null;
-  }
+  const otherSeries = material.seriesMemberships.filter(({ series }) =>
+    seriesContext === null || returnTarget.seriesSlug !== series.slug,
+  );
+
+  if (seriesContext === null && material.tags.length === 0 && otherSeries.length === 0) return null;
 
   return (
     <footer
@@ -202,6 +184,7 @@ export function MaterialReaderMetadataFooter({
       className="mt-12 grid gap-5 border-t border-border pt-6"
       data-reader-metadata
     >
+      <SeriesReaderNavigation context={seriesContext} />
       {material.tags.length > 0 ? (
         <ul
           aria-label="Теги материала"
@@ -217,61 +200,26 @@ export function MaterialReaderMetadataFooter({
           ))}
         </ul>
       ) : null}
-      {material.seriesMemberships.length > 0 ? (
+      {otherSeries.length > 0 ? (
         <ul
           aria-label="Серии материала"
           className="flex flex-wrap gap-x-4 gap-y-2"
           role="list"
         >
-          {material.seriesMemberships.map(({ ordinal, series }) => (
+          {otherSeries.map(({ series }) => (
             <li key={series.slug}>
               <Link
-                className="inline-flex min-h-8 items-center rounded-full bg-muted px-3 text-sm font-semibold text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
+                className="inline-flex min-h-8 items-center break-words rounded-full bg-muted px-3 text-sm font-semibold text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
                 href={`/series/${series.slug}`}
                 prefetch={false}
               >
-                {series.name} · № {ordinal}
+                {series.name}
               </Link>
             </li>
           ))}
         </ul>
       ) : null}
     </footer>
-  );
-}
-
-export function ReaderBackAction({
-  className = "",
-  sticky = false,
-  target,
-}: {
-  readonly className?: string;
-  readonly sticky?: boolean;
-  readonly target: MaterialReaderReturnTarget;
-}) {
-  const action = (
-    <Button asChild className="min-h-11 rounded-full border-0 bg-black/5 px-3 text-xs font-semibold shadow-none" size="lg" variant="outline">
-      <Link href={target.href}>
-        <ArrowLeft aria-hidden="true" />
-        {target.label}
-      </Link>
-    </Button>
-  );
-
-  if (sticky) {
-    return (
-      <div className="sticky top-0 z-30 -mx-4 -mt-5 border-b border-black/6 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-7 sm:px-7 lg:-mx-10 lg:-mt-9 lg:px-10">
-        <div className={cn("mx-auto flex min-h-11 max-w-[43rem] items-center", className)}>
-          {action}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={cn("mx-auto flex min-h-11 max-w-[43rem] items-center", className)}>
-      {action}
-    </div>
   );
 }
 
@@ -296,7 +244,7 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
       <details className="group">
         <summary
           aria-label={`Содержание: ${String(items.length)}`}
-          className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-1 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
+          className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-3 rounded-lg px-1 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
         >
           <span className="inline-flex items-center gap-2">
             <List aria-hidden="true" className="size-4 text-action" />
@@ -358,9 +306,9 @@ function ReaderBlockView({
         <Heading
           className={cn(
             "scroll-mt-24 break-words text-balance font-semibold text-foreground first:mt-0",
-            block.level === 2 && "mt-12 text-2xl leading-[1.35] tracking-[-0.025em] md:text-[1.75rem] md:leading-[1.3]",
-            block.level === 3 && "mt-10 text-[1.375rem] leading-[1.35] tracking-[-0.02em]",
-            block.level === 4 && "mt-8 text-lg leading-[1.45] tracking-[-0.015em]",
+            block.level === 2 && "mt-12 text-xl leading-[1.35] tracking-[-0.025em] md:text-2xl md:leading-[1.3]",
+            block.level === 3 && "mt-10 text-lg md:text-xl leading-[1.35] tracking-[-0.02em]",
+            block.level === 4 && "mt-8 text-base md:text-lg leading-[1.45] tracking-[-0.015em]",
           )}
           id={headingId(path)}
         >

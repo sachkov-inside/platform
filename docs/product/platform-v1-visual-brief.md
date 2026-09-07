@@ -393,8 +393,8 @@ presentation state.
 Prototype fixtures, button-owned navigation, hardcoded audience decisions, personalised
 Выдуманная `Продолжить`/history и несогласованный порядок секций не являются product
 authority. Production сохраняет реальные RSC/TanStack Query/BFF seams, ContentAccess outcomes и
-порядок Home `Серии → Темы → Видео → Гайды → Заметки → общий каталог`; компактное приглашение в
-Membership показывается только visitor/non-member по реальному Membership state.
+порядок Home `Серии → Темы → Видео → Гайды → Заметки → общий каталог`. Размещение предложения
+подписки следует [контракту навигации](platform-mvp-brief.md#поиск-и-навигация).
 Заметки на Home оформляются как самостоятельные спокойные mini-post cards: rounded token surface,
 внутренние отступы и вертикальный gap вместо горизонтальных разделителей; author line, title,
 summary и действие чтения сохраняются полностью.

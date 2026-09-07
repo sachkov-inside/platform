@@ -12,6 +12,11 @@ import {
   LogtoSessionUnavailableError,
 } from "@/shared/auth/index.server";
 import {
+  type Part,
+  savedPostListSchema,
+  savedPostActionSchema,
+  savedPostSaveSchema,
+  savedPostSampleSchema,
   broadcastResultSchema,
   broadcastListSchema,
   funnelListSchema,
@@ -67,6 +72,7 @@ function mapResult<T>(
 async function read(
   request: Request,
   operation:
+    | "templates.list"
     | "broadcasts.list"
     | "broadcasts.read"
     | "funnels.list"
@@ -163,18 +169,7 @@ export function handleBroadcastSave(request: Request) {
               ...parsed.data.payload,
               parts: parsed.data.payload.parts.map((part) => ({
                 ...part,
-                content: {
-                  ...part.content,
-                  entities: part.content.entities.map((entity) => ({
-                    type: entity.type,
-                    offset: entity.offset,
-                    length: entity.length,
-                    ...(entity.url === undefined ? {} : { url: entity.url }),
-                    ...(entity.language === undefined
-                      ? {}
-                      : { language: entity.language }),
-                  })),
-                },
+                content: providerContent(part.content),
               })),
             },
             operation: "broadcasts.save",
@@ -263,4 +258,60 @@ export function handleTemplateResolve(request: Request) {
       return { kind: "error", code: "provider_unavailable" };
     }
   });
+}
+
+export function handleSavedPostList(request: Request) {
+  return read(request, "templates.list", savedPostListSchema);
+}
+export function handleSavedPostSave(request: Request) {
+  return handleAuthenticatedMutation(request, async (form, token) => {
+    const parsed = savedPostSaveSchema.safeParse(formInput(form));
+    return parsed.success
+      ? execute(
+          {
+            ...version,
+            ...parsed.data,
+            payload: {
+              ...parsed.data.payload,
+              content: providerContent(parsed.data.payload.content),
+            },
+            operation: "templates.save",
+          },
+          token,
+          templateResultSchema,
+        )
+      : { kind: "error", code: "invalid_input" };
+  });
+}
+export function handleSavedPostSample(request: Request) {
+  return handleAuthenticatedMutation(request, async (form, token) => {
+    const parsed = savedPostActionSchema.safeParse(formInput(form));
+    return parsed.success
+      ? execute(
+          { ...version, ...parsed.data, operation: "templates.testSend" },
+          token,
+          savedPostSampleSchema,
+        )
+      : { kind: "error", code: "invalid_input" };
+  });
+}
+
+function providerContent(content: Part["content"]) {
+  return {
+    ...content,
+    buttons: content.buttons.map(({ text, url, row }) => ({
+      text,
+      url,
+      ...(row === undefined ? {} : { row }),
+    })),
+    entities: content.entities.map(
+      ({ type, offset, length, url, language }) => ({
+        type,
+        offset,
+        length,
+        ...(url === undefined ? {} : { url }),
+        ...(language === undefined ? {} : { language }),
+      }),
+    ),
+  };
 }

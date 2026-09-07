@@ -10,6 +10,7 @@ import {
 } from "../../src/_pages/communications/api/communications.browser";
 import {
   commandSchema,
+  contentSchema,
   newFunnel,
   funnelSchema,
   previewSchema,
@@ -29,11 +30,22 @@ const form = (input: unknown) => {
   return data;
 };
 describe("communications browser and presentation boundary", () => {
+  it("preserves button rows while omitting an absent row from the provider shape", () => {
+    const button = { text: "Open", url: "https://inside.test/material" };
+    const content = contentSchema.parse({
+      type: "text", text: "Post", entities: [],
+      buttons: [{ ...button, row: undefined }, { ...button, row: 0 }, { ...button, row: 3 }],
+    });
+    expect(content.buttons).toEqual([button, { ...button, row: 0 }, { ...button, row: 3 }]);
+    expect(content.buttons[0]).not.toHaveProperty("row");
+    expect(contentSchema.safeParse({ ...content, buttons: [{ ...button, row: 20 }] }).success).toBe(false);
+  });
   it("preserves operation identity and stale revision on repeated save without publishing", async () => {
     const draft = { ...newFunnel(), name: "Test" };
-    const first = draft.entryResponse.parts[0];
-    if (!first) throw new Error("Missing part");
-    first.content.text = "Hello";
+    draft.entryResponse.parts.push({
+      partId: id,
+      content: { type: "text", text: "Hello", entities: [], buttons: [] },
+    });
     const fetcher = vi.fn(() =>
       Promise.resolve(
         Response.json({ kind: "ready", value: { ...draft, revision: 1 } }),

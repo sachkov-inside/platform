@@ -48,8 +48,47 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
   ).toBeVisible();
   await page.getByRole("button", { name: "Новая рассылка" }).click();
   await page
-    .getByRole("textbox", { name: "Текст", exact: true })
-    .fill("Тестовая рассылка browser parity");
+    .getByRole("button", {
+      name: /^Тестовая рассылка browser parity · v[0-9]+$/,
+    })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Название кнопки 1", exact: true })
+    .fill(`Открыть материал · ${testInfo.project.name}`);
+  await page
+    .getByRole("button", { name: "Сохранить пост", exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      "Пост сохранён. Уже выбранные сообщения рассылок и воронок не изменились.",
+    ),
+  ).toBeVisible();
+  // The provider accepts the first request, but the browser loses its acknowledgement.
+  let uncertainOperation: unknown;
+  await page.route("**/api/communications/templates/sample", async (route) => {
+    uncertainOperation = (await new Response(route.request().postData(), { headers: { "Content-Type": route.request().headers()["content-type"] ?? "" } }).formData()).get("input");
+    const accepted = await route.fetch();
+    expect(accepted.ok()).toBe(true);
+    await route.abort("failed");
+  }, { times: 1 });
+  await page.getByRole("button", { name: "Образец себе", exact: true }).click();
+  await expect(page.getByText(/Результат запроса образца не подтверждён/)).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Новая рассылка" }).click();
+  await page.getByRole("button", { name: /^Тестовая рассылка browser parity · v[0-9]+$/ }).click();
+  const repeatedSample = page.waitForRequest("**/api/communications/templates/sample");
+  await page.getByRole("button", { name: "Образец себе", exact: true }).click();
+  const repeatedRequest = await repeatedSample;
+  expect((await new Response(repeatedRequest.postData(), { headers: { "Content-Type": repeatedRequest.headers()["content-type"] ?? "" } }).formData()).get("input")).toEqual(uncertainOperation);
+  await expect(
+    page.getByText("Образец поставлен в очередь только вам в Telegram."),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Добавить в рассылку", exact: true })
+    .click();
+  await expect(
+    page.getByRole("textbox", { name: "Текст", exact: true }),
+  ).toHaveAttribute("readonly", "");
   await page
     .getByRole("radio", { name: "Участники выбранных воронок" })
     .check();
@@ -82,6 +121,38 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
     path: `../../ci-artifacts/communications/${testInfo.project.name}-editor.png`,
     fullPage: true,
   });
+  const editor = page.getByRole("region", { name: "Рассылка · Черновик" });
+  const identifier = editor
+    .locator("summary")
+    .filter({ hasText: "ID рассылки" });
+  await identifier.focus();
+  await page.keyboard.press("Enter");
+  await expect(editor.locator("details").first()).toHaveAttribute("open", "");
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: "Обновить посты", exact: true }),
+  ).toBeFocused();
+  await identifier.click();
+  await editor.locator("h2").evaluate((element) => {
+    element.scrollIntoView({ block: "start" });
+  });
+  await page.screenshot({
+    path: `../../ci-artifacts/communications/${testInfo.project.name}-editor-top.png`,
+  });
+  await editor
+    .getByText("Время отправки", { exact: false })
+    .evaluate((element) => {
+      element.scrollIntoView({ block: "start" });
+    });
+  await page.screenshot({
+    path: `../../ci-artifacts/communications/${testInfo.project.name}-editor-settings.png`,
+  });
+  const editorFailures = (
+    await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze()
+  ).violations;
+  expect(editorFailures).toEqual([]);
   await page.getByRole("button", { name: "Запустить сейчас" }).click();
   await expect(
     page.getByRole("heading", { name: "Рассылка · Отправляется" }),
@@ -108,6 +179,8 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
   const captured: unknown = await (
     await page.request.get(`${provider}/captured`)
   ).json();
+  expect(JSON.stringify(captured)).toContain('"row":0');
+  expect(JSON.stringify(captured)).toContain('"type":"bold"');
   const operations = z
     .array(
       z.object({
@@ -128,7 +201,7 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
     operations.some(
       (operation) => operation.operation === "templates.testSend",
     ),
-  ).toBe(false);
+  ).toBe(true);
   const failures = (
     await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -149,6 +222,34 @@ test("author creates, previews, launches, pauses/resumes/cancels and reads analy
     path: `../../ci-artifacts/communications/${testInfo.project.name}.png`,
     fullPage: true,
   });
+  await page.locator("#analytics-title").evaluate((element) => {
+    element.scrollIntoView({ block: "start" });
+  });
+  await page.screenshot({
+    path: `../../ci-artifacts/communications/${testInfo.project.name}-analytics.png`,
+  });
+  await page
+    .getByRole("heading", { name: "Контакты и источники входа" })
+    .evaluate((element) => {
+      element.scrollIntoView({ block: "start" });
+    });
+  await page.screenshot({
+    path: `../../ci-artifacts/communications/${testInfo.project.name}-contacts.png`,
+  });
+  if (testInfo.project.name === "mobile-chromium") {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await expect(
+      page.getByRole("button", { name: "Закрыть историю" }),
+    ).toBeVisible();
+  }
   const redirect = await page.request.get(
     `/communications/visit?token=${"a".repeat(43)}`,
     { maxRedirects: 0 },

@@ -1,4 +1,7 @@
 export {
+  handleSavedPostList,
+  handleSavedPostSave,
+  handleSavedPostSample,
   handleBroadcastList,
   handleBroadcastRead,
   handleFunnelList,

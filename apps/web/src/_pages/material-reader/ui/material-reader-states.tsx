@@ -18,9 +18,9 @@ import {
 import {
   MaterialReaderHeader,
   MaterialReaderMetadataFooter,
-  ReaderBackAction,
-  SeriesReaderNavigation,
 } from "./material-reader-view";
+
+import { ReaderReturnNavigation } from "./reader-return-navigation.client";
 
 export function MaterialReaderLoading() {
   return (
@@ -84,59 +84,59 @@ export function MaterialReaderAccess({
 }) {
   return (
     <div data-material-reader-state="access-required">
-      <ReaderBackAction sticky target={returnTarget} />
-      <div className="mx-auto mt-8 max-w-[43rem] md:mt-10">
-        <MaterialReaderHeader material={material} />
-        <section
-          className="relative mt-10 overflow-hidden rounded-[2rem] border border-black/6 bg-muted p-6 md:mt-12 md:p-9"
-          aria-labelledby="access-heading"
-        >
-          <div
-            aria-hidden="true"
-            className="select-none space-y-5 blur-[7px] opacity-45"
+      <ReaderReturnNavigation repeatAtBottom={seriesContext === null} target={returnTarget}>
+        <div className="mx-auto max-w-[43rem]">
+          <MaterialReaderHeader material={material} />
+          <section
+            className="relative mt-10 overflow-hidden rounded-[2rem] border border-black/6 bg-muted p-6 md:mt-12 md:p-9"
+            aria-labelledby="access-heading"
           >
-            <div className="h-7 w-2/3 rounded-full bg-placeholder-strong" />
-            <div className="space-y-3">
-              <div className="h-4 rounded-full bg-placeholder" />
-              <div className="h-4 w-11/12 rounded-full bg-placeholder" />
-              <div className="h-4 w-4/5 rounded-full bg-placeholder" />
-            </div>
-            <div className="h-36 rounded-[1.5rem] bg-white" />
-          </div>
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-white/20 via-white/70 to-white/95 px-6 text-center">
-            <span className="grid size-12 place-items-center rounded-full bg-white text-accent shadow-lg">
-              <LockKeyhole aria-hidden="true" className="size-5" />
-            </span>
-            <h2
-              className="mt-4 text-2xl font-semibold tracking-[-0.04em]"
-              id="access-heading"
+            <div
+              aria-hidden="true"
+              className="select-none space-y-5 blur-[7px] opacity-45"
             >
-              Продолжение для участников
-            </h2>
-            <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-              Откройте полный материал и весь маршрут по теме.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Button
-                asChild
-                className="h-11 rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
-                size="lg"
-              >
-                <a href={cta.url} rel="noopener noreferrer" target="_blank">
-                  {cta.label}
-                  <ArrowUpRight
-                    aria-hidden="true"
-                    className="text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:-translate-y-0.5 group-hover/button:translate-x-0.5 motion-reduce:transition-none"
-                    data-icon="inline-end"
-                  />
-                </a>
-              </Button>
+              <div className="h-7 w-2/3 rounded-full bg-placeholder-strong" />
+              <div className="space-y-3">
+                <div className="h-4 rounded-full bg-placeholder" />
+                <div className="h-4 w-11/12 rounded-full bg-placeholder" />
+                <div className="h-4 w-4/5 rounded-full bg-placeholder" />
+              </div>
+              <div className="h-36 rounded-[1.5rem] bg-white" />
             </div>
-          </div>
-        </section>
-        <SeriesReaderNavigation context={seriesContext} />
-        <MaterialReaderMetadataFooter material={material} />
-      </div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-white/20 via-white/70 to-white/95 px-6 text-center">
+              <span className="grid size-12 place-items-center rounded-full bg-white text-accent shadow-lg">
+                <LockKeyhole aria-hidden="true" className="size-5" />
+              </span>
+              <h2
+                className="mt-4 text-2xl font-semibold tracking-[-0.04em]"
+                id="access-heading"
+              >
+                Продолжение для участников
+              </h2>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+                Откройте полный материал и весь маршрут по теме.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Button
+                  asChild
+                  className="h-11 rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
+                  size="lg"
+                >
+                  <a href={cta.url} rel="noopener noreferrer" target="_blank">
+                    {cta.label}
+                    <ArrowUpRight
+                      aria-hidden="true"
+                      className="text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:-translate-y-0.5 group-hover/button:translate-x-0.5 motion-reduce:transition-none"
+                      data-icon="inline-end"
+                    />
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </section>
+          <MaterialReaderMetadataFooter material={material} seriesContext={seriesContext} returnTarget={returnTarget} />
+        </div>
+      </ReaderReturnNavigation>
     </div>
   );
 }

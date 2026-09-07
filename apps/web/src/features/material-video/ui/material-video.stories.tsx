@@ -42,7 +42,7 @@ function MaterialVideoStateBoard({ mode }: { readonly mode: VideoStoryMode }) {
         <MaterialVideoPlayerView
           onLoad={actions.onLoad}
           onToggleWatched={() => { setWatched((current) => !current); }}
-          phase="idle"
+          phase="loading"
           title="Разбор проверки skill contract"
           videoId="03000000-0000-4000-8000-000000000001"
           watched={watched}
@@ -240,7 +240,7 @@ export const PlayerErrorAndRetry: Story = {
   name: "Player · error and retry",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Видео сейчас недоступно. Можно безопасно повторить.")).toBeVisible();
+    await expect(canvas.getByText("Не удалось загрузить видео")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Повторить" })).toBeEnabled();
   },
 };
@@ -250,12 +250,14 @@ export const PlayerWatchedToggle: Story = {
   name: "Player · watched toggle",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const markWatched = canvas.getByRole("button", { name: "Отметить просмотренным" });
+    const markWatched = canvas.getByRole("button", { name: "Просмотрено" });
     await expect(markWatched).toHaveAttribute("aria-pressed", "false");
     const initialWidth = markWatched.getBoundingClientRect().width;
+    const initialHeight = markWatched.getBoundingClientRect().height;
     await userEvent.click(markWatched);
     const watched = canvas.getByRole("button", { name: "Просмотрено" });
     await expect(watched).toHaveAttribute("aria-pressed", "true");
     await expect(watched.getBoundingClientRect().width).toBe(initialWidth);
+    await expect(watched.getBoundingClientRect().height).toBe(initialHeight);
   },
 };

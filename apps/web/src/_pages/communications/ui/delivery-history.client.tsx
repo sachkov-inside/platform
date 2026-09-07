@@ -27,12 +27,14 @@ export function DeliveryHistory({
   return (
     <div className="space-y-6">
       {deliveries.length === 0 ? (
-        <p>Отправок пока нет.</p>
+        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          Отправок пока нет.
+        </p>
       ) : (
         deliveries.map((delivery) => (
           <section
             key={delivery.deliveryId}
-            className="space-y-3 border-t border-border pt-4"
+            className="space-y-4 rounded-lg border border-border bg-background p-4"
           >
             <h3 className="break-all text-sm font-medium">
               Контакт {delivery.contactId}
@@ -54,7 +56,10 @@ export function DeliveryHistory({
                 duplicateRiskAccepted: accepted[key] === true,
               };
               return (
-                <div key={part.partId} className="space-y-2">
+                <div
+                  key={part.partId}
+                  className={`space-y-3 rounded-lg border p-4 ${part.state === "unknown" || part.state === "failed" ? "border-destructive/40 bg-destructive/5" : "border-border bg-card"}`}
+                >
                   <p className="font-medium">
                     Часть {i + 1}: {labels[part.state]}
                   </p>
@@ -63,7 +68,7 @@ export function DeliveryHistory({
                       Причина: {part.diagnosticCode}
                     </p>
                   ) : null}
-                  <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                  <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
                     {
                       delivery.snapshot.find((p) => p.partId === part.partId)
                         ?.content.text

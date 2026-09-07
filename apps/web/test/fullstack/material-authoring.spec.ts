@@ -13,6 +13,159 @@ import {
 
 const currentMaterialEditorUrl = /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
 
+for (const access of ["public", "membership"] as const) {
+  test(`media convergence: ${access} Material composes image, file and primary Video across Subjects`, async ({
+    browser, context, page, request,
+  }, testInfo) => {
+    const suffix = String(Date.now());
+    const title = `Media acceptance ${access} ${suffix}`;
+    const slug = `media-acceptance-${access}-${suffix}`;
+    await addFullStackSession(context);
+    await installPlaybackProviderDouble(page);
+    await page.addLocatorHandler(page.getByRole("dialog", { name: "Подключите Telegram" }), async (dialog) => {
+      await dialog.getByRole("button", { name: "Закрыть подключение Telegram" }).click();
+    });
+    await page.goto("/authoring/materials/new");
+    await completeProfileOnboardingIfPresent(page);
+    await fillPublishableDraft(page, title);
+    if (access === "membership") {
+      await page.getByRole("combobox", { name: "Доступ" }).click();
+      await page.getByRole("option", { name: "Для участников" }).click();
+    }
+    await page.getByRole("button", { name: "Создать черновик" }).click();
+    await expect(page).toHaveURL(currentMaterialEditorUrl);
+    await page.getByLabel("Выбрать файлы").setInputFiles({
+      buffer: Buffer.from("Media convergence attachment\n"), mimeType: "text/plain", name: "media-proof.txt",
+    });
+    await dispatchFileEvent(page, "paste", {
+      base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      mimeType: "image/png", name: "media-proof.png",
+    });
+    const file = page.getByRole("listitem").filter({ hasText: "media-proof.txt" });
+    const diagram = page.getByRole("listitem").filter({ hasText: "media-proof.png" });
+    await expect(file.getByText("Готово к вставке")).toBeVisible({ timeout: 30_000 });
+    await expect(diagram.getByText("Готово к вставке")).toBeVisible({ timeout: 30_000 });
+    await insertReadyAsset(file);
+    await diagram.getByLabel("Описание изображения").fill("Изображение общей приёмки");
+    await insertReadyAsset(diagram);
+    await page.getByLabel(/ID существующего видео/u).fill(`media-proof-${access}-${suffix}`);
+    await page.getByRole("button", { name: "Привязать" }).click();
+    await expect(page.getByText("Готово к Save")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Убрать и удалить из Kinescope…" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Сохранить" }).click();
+    await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "Опубликовать" }).click();
+    await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
+
+    // The ordinary member has no author permission; exercise the same live resource after switching Subject.
+    await addFullStackMemberSession(context);
+    await page.goto(`/materials/${slug}`);
+    const image = page.getByRole("img", { name: "Изображение общей приёмки" });
+    await expect(image).toBeVisible();
+    await expect.poll(() => image.evaluate((element) =>
+      element instanceof HTMLImageElement ? element.naturalWidth : 0,
+    )).toBeGreaterThan(0);
+    await expect(page.locator("[data-video-player-mount] iframe")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ресурсы" })).toHaveCount(0);
+    const href = await page.getByRole("link", { name: /media-proof.txt/u }).getAttribute("href");
+    const materialId = await page.locator("[data-material-reader-state][data-material-id]").getAttribute("data-material-id");
+    const videoId = await page.locator("section[data-video-id]").getAttribute("data-video-id");
+    if (href === null || materialId === null || videoId === null) throw new Error("Media references are missing");
+    const memberFile = await page.request.get(href);
+    expect(memberFile.status()).toBe(200);
+    expect(await memberFile.text()).toBe("Media convergence attachment\n");
+    expect(memberFile.headers()["content-disposition"]).toContain("attachment");
+    expect(memberFile.headers()["x-content-type-options"]).toBe("nosniff");
+    const wrongMaterial = await page.request.post("/api/material-video-playback-sessions", {
+      headers: { origin: new URL(page.url()).origin },
+      multipart: { materialId: crypto.randomUUID(), videoId },
+    });
+    expect(wrongMaterial.status()).toBe(403);
+    const accessibility = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(accessibility.violations.filter(({ impact }) => impact === "serious" || impact === "critical")).toEqual([]);
+    expect(await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-186");
+    await mkdir(evidenceDirectory, { recursive: true });
+    const viewport = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
+    await page.screenshot({ animations: "disabled", fullPage: true, path: resolve(evidenceDirectory, `${access}-${viewport}.png`) });
+
+    const anonymousFile = await request.get(href, { maxRedirects: 0 });
+    expect(anonymousFile.status()).toBe(access === "public" ? 200 : 404);
+    const anonymousPlayback = await request.post("/api/material-video-playback-sessions", {
+      headers: { origin: new URL(page.url()).origin }, multipart: { materialId, videoId },
+    });
+    expect(anonymousPlayback.status()).toBe(access === "public" ? 200 : 403);
+    const protectedImageSource = await image.getAttribute("src");
+    if (protectedImageSource === null) throw new Error("Image URL is missing");
+    if (access === "membership") {
+      // A separate unrouted context keeps the real HTTP cache enabled; player doubles disable it.
+      const cacheContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+      try {
+        await addFullStackMemberSession(cacheContext);
+        const cachePage = await cacheContext.newPage();
+        const allowed = await cachePage.goto(protectedImageSource);
+        expect(allowed?.status()).toBe(200);
+        expect(allowed?.headers()["content-type"]).toContain("image/");
+        await cacheContext.clearCookies();
+        const denied = await cachePage.goto(protectedImageSource);
+        expect(denied?.status()).toBe(404);
+        expect(denied?.headers()["cache-control"]).toContain("no-store");
+      } finally {
+        await cacheContext.close();
+      }
+    }
+    // Reauthorize the same Reader after switching Subject; do not accept its loading skeleton as denial.
+    await context.clearCookies();
+    const protectedRequests: string[] = [];
+    page.on("request", (outgoing) => {
+      const url = new URL(outgoing.url());
+      if (url.hostname.endsWith("kinescope.io") || url.pathname.includes("/assets/") || url.pathname.startsWith("/api/material-video")) {
+        protectedRequests.push(outgoing.url());
+      }
+    });
+    await page.reload();
+    if (access === "membership") {
+      await expect(page.locator('[data-material-reader-state="access-required"]')).toBeVisible();
+      await expect(image).toHaveCount(0);
+      await expect(page.getByRole("link", { name: /media-proof.txt/u })).toHaveCount(0);
+      await expect(page.locator("iframe")).toHaveCount(0);
+      expect(protectedRequests).toEqual([]);
+      expect(anonymousFile.headers()["cache-control"]).toContain("no-store");
+      await page.screenshot({ animations: "disabled", fullPage: true, path: resolve(evidenceDirectory, `denied-${viewport}.png`) });
+      for (const sessionName of ["FULLSTACK_LOGTO_NON_MEMBER_SESSION", "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION", "FULLSTACK_LOGTO_STALE_MEMBER_SESSION"] as const) {
+        await addSessionCookie(context, sessionName);
+        protectedRequests.length = 0;
+        await page.reload();
+        await expect(page.locator('[data-material-reader-state="access-required"]')).toBeVisible();
+        await expect(image).toHaveCount(0);
+        await expect(page.getByText("Текущее сохранённое содержимое из PostgreSQL.")).toHaveCount(0);
+        await expect(page.getByRole("link", { name: /media-proof.txt/u })).toHaveCount(0);
+        await expect(page.locator("iframe")).toHaveCount(0);
+        expect(protectedRequests).toEqual([]);
+        const deniedFile = await page.request.get(href, { maxRedirects: 0 });
+        expect(deniedFile.status()).toBe(404);
+        expect(deniedFile.headers()["cache-control"]).toContain("no-store");
+        const deniedImage = await page.request.get(protectedImageSource, { maxRedirects: 0 });
+        expect(deniedImage.status()).toBe(404);
+        const deniedPlayback = await page.request.post("/api/material-video-playback-sessions", {
+          headers: { origin: new URL(page.url()).origin }, multipart: { materialId, videoId },
+        });
+        expect(deniedPlayback.status()).toBe(403);
+        expect(await deniedPlayback.json()).not.toHaveProperty("drmAuthToken");
+      }
+    } else {
+      await expect(image).toBeVisible();
+      await expect(page.locator("[data-video-player-mount] iframe")).toBeVisible();
+    }
+    await addFullStackSession(context);
+    await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
+    const row = page.getByRole("listitem").filter({ hasText: title });
+    await row.getByRole("button", { name: "Снять с публикации" }).click();
+    await expect(row.getByText("Снят с публикации", { exact: true })).toBeVisible({ timeout: 15_000 });
+  });
+}
+
 test("uploads, resumes and replaces one primary Video while keeping provider bytes behind authorization", async ({
   context,
   page,
@@ -27,6 +180,9 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     if (hostname.endsWith("kinescope.io")) providerRequests.push(request.url());
   });
 
+  await page.addLocatorHandler(page.getByRole("dialog", { name: "Подключите Telegram" }), async (dialog) => {
+    await dialog.getByRole("button", { name: "Закрыть подключение Telegram" }).click();
+  });
   await addFullStackSession(context);
   await page.goto("/authoring/materials/new");
   await completeProfileOnboardingIfPresent(page);
@@ -49,21 +205,29 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await page.getByRole("button", { name: "Опубликовать" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
 
+  await installPlaybackProviderDouble(page);
+  const { promise: playbackGate, resolve: releasePlayback } = Promise.withResolvers<undefined>();
+  const { promise: playbackRequested, resolve: requestedPlayback } = Promise.withResolvers<undefined>();
+  await page.route("**/api/material-video-playback-sessions", async (route) => {
+    requestedPlayback(undefined);
+    await playbackGate;
+    await route.continue();
+  });
   const readerResponse = await page.goto(`/materials/${slug}`);
   expect(readerResponse?.headers()["content-security-policy"]).toContain("frame-src https://kinescope.io");
   expect(readerResponse?.headers()["content-security-policy"]).toContain("script-src 'self' 'unsafe-inline' https://player.kinescope.io");
   await expect(page.getByRole("region", { name: "Видео" })).toBeVisible();
-  await expect(page.locator("p:visible", { hasText: `test-video-${suffix}` })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Загрузить видео" })).toBeVisible();
+  await playbackRequested;
+  await expect(page.getByRole("button", { name: "Загрузить видео" })).toHaveCount(0);
   await expect(page.locator("iframe")).toHaveCount(0);
   expect(providerRequests).toEqual([]);
-
-  const materialId = await page.getByRole("button", { name: "Загрузить видео" }).evaluate((button) =>
-    button.closest("main")?.querySelector<HTMLElement>("[data-material-id]")?.dataset.materialId ?? null,
-  );
-  const videoId = await page.getByRole("button", { name: "Загрузить видео" }).evaluate((button) =>
-    button.closest("section")?.getAttribute("data-video-id"),
-  );
+  releasePlayback(undefined);
+  const player = page.locator("[data-video-player-mount] iframe");
+  await expect(player).toBeVisible();
+  await expect(player).toHaveAttribute("data-autoplay", "false");
+  await expect(player).toHaveAttribute("data-preload", "metadata");
+  const materialId = await page.locator("[data-material-id]").getAttribute("data-material-id");
+  const videoId = await page.locator("[data-video-id]").getAttribute("data-video-id");
   if (typeof materialId !== "string" || typeof videoId !== "string") {
     throw new Error("Video identity evidence is missing");
   }
@@ -105,7 +269,30 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     resumeSeconds: 37,
     videoId,
   });
-  await captureVideoEvidence(page, testInfo, "reader-privacy-facade");
+  await page.reload();
+  await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "37");
+  await captureVideoEvidence(page, testInfo, "reader-automatic-player");
+  await page.getByRole("button", { name: "Просмотрено" }).click();
+  await expect(page.getByRole("button", { name: "Просмотрено", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.evaluate(() => { sessionStorage.setItem("test-player-unavailable", "1"); });
+  await page.reload();
+  await expect(page.getByText("Не удалось загрузить видео")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Просмотрено", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.evaluate(() => { sessionStorage.removeItem("test-player-unavailable"); });
+
+
+  await page.unroute("**/api/material-video-playback-sessions");
+  await page.route("**/api/material-video-playback-sessions", (route) =>
+    route.fulfill({ status: 403, json: { code: "playback_unavailable" } }),
+  );
+  providerRequests.length = 0;
+  await page.reload();
+  await expect(page.getByText("Не удалось загрузить видео")).toBeVisible();
+  await expect(page.locator("iframe")).toHaveCount(0);
+  expect(providerRequests).toEqual([]);
+  await page.unroute("**/api/material-video-playback-sessions");
+  await page.getByRole("button", { name: "Повторить", exact: true }).click();
+  await expect(page.locator("[data-video-player-mount] iframe")).toBeVisible();
 
   await page.goto(editorUrl);
   await page.getByLabel(/ID существующего видео/u).fill(`test-outage-once-${suffix}`);
@@ -121,9 +308,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByText("Материал сохранён")).toBeVisible({ timeout: 15_000 });
   await page.goto(`/materials/${slug}`);
-  const replacementVideoId = await page.getByRole("button", { name: "Загрузить видео" }).evaluate((button) =>
-    button.closest("section")?.getAttribute("data-video-id"),
-  );
+  const replacementVideoId = await page.locator("[data-video-id]").getAttribute("data-video-id");
   if (typeof replacementVideoId !== "string") {
     throw new Error("Replacement Video identity is missing");
   }
@@ -798,7 +983,7 @@ async function addFullStackMemberSession(context: BrowserContext) {
 
 async function addSessionCookie(
   context: BrowserContext,
-  environmentName: "FULLSTACK_LOGTO_MEMBER_SESSION" | "FULLSTACK_LOGTO_SESSION",
+  environmentName: "FULLSTACK_LOGTO_MEMBER_SESSION" | "FULLSTACK_LOGTO_SESSION" | "FULLSTACK_LOGTO_NON_MEMBER_SESSION" | "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION" | "FULLSTACK_LOGTO_STALE_MEMBER_SESSION",
 ) {
   const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
   const session = process.env[environmentName];
@@ -931,5 +1116,42 @@ async function captureVideoDeletionEvidence(
     animations: "disabled",
     fullPage: true,
     path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+  });
+}
+
+/** Replace only the external player SDK; access/session/progress still use the real BFF and backend. */
+async function installPlaybackProviderDouble(page: Page): Promise<void> {
+  await page.route("https://kinescope.io/**", (route) => route.fulfill({
+    contentType: "text/html",
+    body: "<!doctype html><html lang='ru'><title>Test video</title><body>Test video</body></html>",
+  }));
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "Kinescope", { value: {
+      IframePlayer: {
+        version: "1.0.0",
+        create: (mount: HTMLElement, options: {
+          url: string;
+          behavior: { autoPlay: boolean; preload: string };
+        }) => {
+          if (sessionStorage.getItem("test-player-unavailable") === "1") {
+            return Promise.reject(new Error("Test provider outage"));
+          }
+          const iframe = document.createElement("iframe");
+          iframe.src = options.url;
+          iframe.style.cssText = "width:100%;height:100%;border:0";
+          iframe.dataset.autoplay = String(options.behavior.autoPlay);
+          iframe.dataset.preload = options.behavior.preload;
+          mount.append(iframe);
+          return Promise.resolve({
+            Events: { TimeUpdate: "time", Pause: "pause", Ended: "ended" },
+            destroy: () => { iframe.remove(); return Promise.resolve(); },
+            // Match the authoritative duration returned by the local test Video provider.
+            getDuration: () => Promise.resolve(600),
+            on: () => undefined,
+            seekTo: (seconds: number) => { iframe.dataset.seekSeconds = String(seconds); return Promise.resolve(); },
+          });
+        },
+      },
+    } });
   });
 }
