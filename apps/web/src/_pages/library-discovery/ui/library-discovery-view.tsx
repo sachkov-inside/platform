@@ -44,10 +44,12 @@ export function LibraryDiscoveryView({
   result,
   returnTarget = libraryMaterialReaderReturnTarget,
   seriesProgress,
+  continuation,
 }: {
   readonly result: ResolvedDiscoveryResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly seriesProgress?: ReactNode;
+  readonly continuation?: { readonly materialSlug: string; readonly label: string } | undefined;
 }) {
   const isSeries = result.discoveryKind === "series";
   const Icon = isSeries ? ListVideo : Tags;
@@ -74,7 +76,7 @@ export function LibraryDiscoveryView({
       {result.kind === "empty" ? (
         <DiscoveryEmpty kind={result.discoveryKind} />
       ) : isSeries ? (
-        <SeriesMaterials currentHref={currentHref} result={result} />
+        <SeriesMaterials currentHref={currentHref} result={result} continuation={continuation} />
       ) : (
         <TopicMaterials currentHref={currentHref} result={result} />
       )}
@@ -228,9 +230,11 @@ function TopicMaterials({
 }
 
 function SeriesMaterials({
+  continuation,
   currentHref,
   result,
 }: {
+  readonly continuation: { readonly materialSlug: string; readonly label: string } | undefined;
   readonly currentHref: Route;
   readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
 }) {
@@ -253,6 +257,7 @@ function SeriesMaterials({
           return (
             <li
               className="relative grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3"
+              aria-current={continuation?.materialSlug === material.slug ? "step" : undefined}
               data-series-ordinal={ordinal}
               key={material.slug}
             >
@@ -272,6 +277,7 @@ function SeriesMaterials({
               </div>
               <div className="min-w-0">
                 <MaterialCard
+                  {...(continuation?.materialSlug === material.slug ? { resumeLabel: continuation.label } : {})}
                   headingLevel="h3"
                   material={material}
                   returnHref={currentHref}

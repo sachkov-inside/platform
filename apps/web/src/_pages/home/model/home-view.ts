@@ -1,10 +1,9 @@
 import type { ContentCover, MaterialPreview } from "@/entities/material";
-import type { Route } from "next";
 
 /** Ready presentation for continuation inside the existing Home sections. */
 export interface HomeContinuation {
   readonly video?: { readonly material: MaterialPreview; readonly label: string };
-  readonly series?: { readonly collection: HomeCollection; readonly read: number; readonly total: number; readonly href: Route };
+  readonly series?: { readonly collection: HomeCollection; readonly read: number; readonly total: number };
 }
 
 export interface HomeCollection {

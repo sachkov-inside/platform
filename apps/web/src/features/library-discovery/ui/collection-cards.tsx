@@ -26,7 +26,7 @@ export interface PlaylistCardPresentation {
   readonly previewItems?: readonly MaterialPreview[] | undefined;
   readonly slug: string;
   readonly summary: string;
-  readonly continuation?: { readonly href: Route; readonly read: number; readonly total: number };
+  readonly continuation?: { readonly read: number; readonly total: number };
 }
 
 export function TopicCard({
@@ -88,7 +88,7 @@ export function PlaylistCard({
       aria-label={`${playlist.continuation === undefined ? "Открыть" : "Продолжить"} серию ${playlist.name}`}
       className="group/playlist flex h-full min-w-0 flex-col overflow-hidden rounded-[2rem] bg-primary p-5 text-left text-white no-underline transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
       data-playlist-card
-      href={playlist.continuation?.href ?? collectionDiscoveryHref("series", playlist.slug, returnHref)}
+      href={collectionDiscoveryHref("series", playlist.slug, returnHref)}
       prefetch={false}
     >
       <span className="flex items-start justify-between gap-3">

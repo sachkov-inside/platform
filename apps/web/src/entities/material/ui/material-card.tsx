@@ -48,6 +48,7 @@ export function MaterialCard({
         headingLevel={headingLevel}
         material={material}
         readerHref={readerHref}
+        resumeLabel={resumeLabel}
         rowAnnotation={rowAnnotation}
         readingStatus={readingStatus}
         {...(returnHref === undefined ? {} : { returnHref })}
@@ -173,11 +174,13 @@ function MaterialRow({
   readerHref,
   returnHref,
   rowAnnotation,
+  resumeLabel,
   readingStatus,
 }: {
   readonly headingLevel: "h2" | "h3";
   readonly material: MaterialPreview;
   readonly readerHref: Route;
+  readonly resumeLabel: string | undefined;
   readonly returnHref?: Route;
   readonly rowAnnotation?: React.ReactNode;
   readonly readingStatus?: React.ReactNode;
@@ -186,7 +189,7 @@ function MaterialRow({
   const isVideo = materialPreviewHasVideo(material);
   return (
     <article
-      className="group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none"
+      className={cn("group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none", resumeLabel !== undefined && "ring-2 ring-accent/70")}
       data-material-id={material.slug}
       data-material-slug={material.slug}
       data-material-variant="row"
@@ -228,6 +231,7 @@ function MaterialRow({
           </span>
         ) : null}
         {readingStatus ? <span className="mt-2 block">{readingStatus}</span> : null}
+        {resumeLabel === undefined ? null : <span className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-action"><Play aria-hidden="true" className="size-3.5 shrink-0 fill-current" />{resumeLabel}</span>}
         {rowAnnotation}
       </span>
       <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />

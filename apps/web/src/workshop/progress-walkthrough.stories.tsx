@@ -10,7 +10,7 @@ import { resolveSeriesReaderContext } from "@/_pages/material-reader/model/serie
 import { MaterialCard, MaterialReadingContext, type MaterialPreview } from "@/entities/material";
 import { ReadingAction, SeriesProgress, type ReadingActionView } from "@/features/reading-progress";
 import { Button } from "@/shared/ui/button";
-import { materialReaderHref, materialReaderOriginHref, parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
+import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { ApplicationShell, type ApplicationNavigationItem } from "@/widgets/application-shell";
 
 const navigation = [{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }] satisfies readonly ApplicationNavigationItem[];
@@ -53,7 +53,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
   const collection: HomeCollection = { id: "series", slug: "platform-inside", name: "Создание Platform Inside", summary: "Путь от продуктовой идеи до работающей Platform.", cover: illustratedHome.playlists[1]?.cover ?? null, count: materials.length, previewItems: materials.map(preview) };
   const next = materials.find((item) => !read.includes(item.id));
   const continuation: HomeContinuation = {
-    ...(hasHistory && next !== undefined ? { series: { collection, read: read.length, total: materials.length, href: materialReaderHref(next.slug, materialReaderOriginHref("series", collection.slug)) } } : {}),
+    ...(hasHistory && next !== undefined ? { series: { collection, read: read.length, total: materials.length } } : {}),
     ...(hasHistory && !videoEnded && !read.includes("video") ? { video: { material: preview(materials[1]), label: "Продолжить с 4:03" } } : {}),
   };
 
@@ -110,7 +110,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
         <ApplicationShell currentPath={surface === "home" ? "/" : "/library"} navigationItems={navigation} mobileNavigationItems={navigation}>
           {surface === "home" ? <HomePage result={{ kind: "ready", value: { ...illustratedHome, videos: illustratedHome.videos.map((item) => item.slug === materials[1].slug ? preview(materials[1]) : item), guides: illustratedHome.guides.map((item) => item.slug === materials[2].slug ? preview(materials[2]) : item), playlists: illustratedHome.playlists.map((item) => item.slug === collection.slug ? collection : item) } }} continuation={continuation} /> : null}
           {surface === "reader" ? <MaterialReaderView body={body} material={metadata} primaryVideo={null} readingAction={action(selected)} returnTarget={returnTarget} seriesContext={seriesContext} /> : null}
-          {surface === "series" ? <LibraryDiscoveryView result={{ kind: "ready", discoveryKind: "series", hasNext: false, reference: { name: collection.name, slug: collection.slug, summary: collection.summary ?? "" }, items: materials.map(preview), relatedSeries: [], topics: [] }} seriesProgress={<SeriesProgress view={{ kind: "ready", total: materials.length, read: read.length }} />} /> : null}
+          {surface === "series" ? <LibraryDiscoveryView continuation={hasHistory && next !== undefined ? { materialSlug: next.slug, label: next.id === "video" && !videoEnded ? "Продолжить с 4:03" : "Продолжить здесь" } : undefined} result={{ kind: "ready", discoveryKind: "series", hasNext: false, reference: { name: collection.name, slug: collection.slug, summary: collection.summary ?? "" }, items: materials.map(preview), relatedSeries: [], topics: [] }} seriesProgress={<SeriesProgress view={{ kind: "ready", total: materials.length, read: read.length }} />} /> : null}
           {surface === "cards" ? <div className="mx-auto max-w-5xl">
             <h1 className="text-2xl font-semibold">Карточки материалов</h1>
             <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -140,6 +140,9 @@ export const CheckConnections: Story = { name: "Проверка связей", 
   const toolbar = within(canvas.getByRole("complementary", { name: "Проверка прогресса в Storybook" }));
   await expect(canvas.queryByRole("region", { name: "Продолжить изучение" })).not.toBeInTheDocument();
   await userEvent.click(canvas.getByRole("link", { name: "Продолжить серию Создание Platform Inside" }));
+  await expect(canvas.getByRole("heading", { name: "Маршрут" })).toBeVisible();
+  await expect(canvasElement.querySelector('[aria-current="step"]')).toHaveTextContent(materials[1].title);
+  await userEvent.click(canvas.getByRole("link", { name: materials[1].title }));
   await expect(canvas.getByRole("heading", { name: materials[1].title })).toBeVisible();
   await userEvent.click(canvas.getByRole("button", { name: "Просмотрено" }));
   await userEvent.click(toolbar.getByRole("button", { name: "Серия" }));
@@ -148,7 +151,9 @@ export const CheckConnections: Story = { name: "Проверка связей", 
   await expect(canvas.getByText("Просмотрено", { exact: true })).toBeVisible();
   await userEvent.click(toolbar.getByRole("button", { name: "Главная" }));
   await expect(canvas.queryByText("Продолжить с 4:03")).not.toBeInTheDocument();
-  await expect(canvas.getByRole("link", { name: "Продолжить серию Создание Platform Inside" })).toHaveAttribute("href", expect.stringContaining(materials[2].slug));
+  await expect(canvas.getByRole("link", { name: "Продолжить серию Создание Platform Inside" })).toHaveAttribute("href", expect.stringContaining("/series/platform-inside"));
+  await userEvent.click(canvas.getByRole("link", { name: "Продолжить серию Создание Platform Inside" }));
+  await expect(canvasElement.querySelector('[aria-current="step"]')).toHaveTextContent(materials[2].title);
   await userEvent.click(toolbar.getByRole("button", { name: "Материал" }));
   await userEvent.click(canvas.getByRole("button", { name: "Просмотрено" }));
   await userEvent.click(toolbar.getByRole("button", { name: "Главная" }));

@@ -161,7 +161,7 @@ function PlaylistSection({
                   previewItems: playlist.previewItems,
                   slug: playlist.slug,
                   summary: playlist.summary ?? "",
-                  ...(continuation?.collection.slug === playlist.slug ? { continuation: { href: continuation.href, read: continuation.read, total: continuation.total } } : {}),
+                  ...(continuation?.collection.slug === playlist.slug ? { continuation: { read: continuation.read, total: continuation.total } } : {}),
                 }}
               />
             </div>
