@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { loadMaterialResumes } from "../../shared/load-material-resumes.js";
 import { z } from "zod";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
@@ -39,22 +39,7 @@ export async function getContinueMaterials(dependencies: {
         if (material !== undefined && candidates.length < CONTINUE_LIMIT) candidates.push({ material, lastOpenedAt: visit.lastOpenedAt.toISOString() });
       }
     }
-    const videoIds = candidates.flatMap(({ material }) => material.primaryVideoId === null ? [] : [material.primaryVideoId]);
-    let progress: readonly { readonly videoId: string; readonly positionSeconds: number; readonly durationSeconds: number }[] = [];
-    if (videoIds.length > 0) {
-      try {
-        const access = await dependencies.contentAccess.checkAvailabilityMany({ subject, operations: videoIds.map((id) => ({ itemId: id, resource: { kind: "video" as const, videoId: id }, action: "play" as const })), enforcementPoint: "personal_home", correlationId: randomUUID() });
-        const allowed = access.ok ? access.items.filter((item) => item.availability === "available").map((item) => item.itemId) : [];
-        const result = await dependencies.videos.loadProgressMany({ accountId: account, videoIds: allowed });
-        if (result.ok) progress = result.value;
-      } catch { /* Resume failure leaves safe Material cards usable. */ }
-    }
-    const byVideoId = new Map(progress.map((item) => [item.videoId, item]));
-    return { ok: true, value: candidates.map((candidate): ContinueMaterial => {
-      const saved = candidate.material.primaryVideoId === null ? undefined : byVideoId.get(candidate.material.primaryVideoId);
-      const duration = candidate.material.primaryVideoDurationSeconds;
-      const resume: ContinueMaterial["resume"] = saved === undefined || duration === undefined || saved.positionSeconds === 0 ? { kind: "start" } : saved.positionSeconds >= duration ? { kind: "reached-end" } : { kind: "position", positionSeconds: saved.positionSeconds };
-      return { ...candidate, resume };
-    }) };
+    const resumes = await loadMaterialResumes(dependencies, subject, candidates.map((candidate) => candidate.material));
+    return { ok: true, value: candidates.map((candidate): ContinueMaterial => ({ ...candidate, resume: resumes.get(candidate.material.materialId) ?? { kind: "start" } })) };
   } catch { return { ok: false, error: { code: "dependency_unavailable" } }; }
 }

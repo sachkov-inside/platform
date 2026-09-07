@@ -206,7 +206,8 @@ describe("published Material HTTP contract", () => {
       acquisitionUrl: "https://t.me/tribute/app?startapp=inside",
       kind: "inactive",
     });
-    expect(home.playlists.map(({ slug }) => slug)).toContain("platform-inside");
+    expect(home.playlists).toHaveLength(4);
+    expect(home.playlists.map(({ slug }) => slug)).toContain("demo-progress-series");
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
     expect(home.videos.map(({ slug }) => slug)).toContain(
       "video-pro-developer-pipeline",

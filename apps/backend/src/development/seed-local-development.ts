@@ -11,6 +11,7 @@ const textFormatId = "72000000-0000-4000-8000-000000000329";
 const formatId = "72000000-0000-4000-8000-000000000003";
 const createIdempotencyKey = "72000000-0000-4000-8000-000000000004";
 const tagId = "72000000-0000-4000-8000-000000000006";
+const progressSeriesId = "72000000-0000-4000-8000-000000000332";
 const seriesId = "72000000-0000-4000-8000-000000000007";
 const demoHarnessSeriesId = "72000000-0000-4000-8000-000000000295";
 const demoStepsSeriesId = "72000000-0000-4000-8000-000000000298";
@@ -603,13 +604,16 @@ async function ensureHomeMaterials(
       title: "Проверяемая поставка",
     },
     { formatId: textFormatId, slug: "tekst-dlya-proverki-progressa", title: "Текст для проверки прогресса", summary: "Открытый текст для проверки ручной отметки." },
+    { formatId, slug: "gayd-dlya-proverki-progressa", title: "Гайд для проверки прогресса", summary: "Последний материал демонстрационной серии." },
   ] as const;
 
+  const progressSlugs = ["tekst-dlya-proverki-progressa", "video-pro-developer-pipeline", "gayd-dlya-proverki-progressa"];
+  const progressIds = new Map<string, string>();
   for (const [index, materialDefinition] of materials.entries()) {
     const metadata = {
       access: "free" as const,
       formatId: materialDefinition.formatId,
-      seriesIds: [],
+      seriesIds: progressSlugs.includes(materialDefinition.slug) ? [progressSeriesId] : [],
       summary: materialDefinition.summary,
       tagIds: [tagId],
       title: materialDefinition.title,
@@ -670,7 +674,10 @@ async function ensureHomeMaterials(
       }
       primaryVideoId = attached.value.videoId;
     }
+    const progressMembership = metadata.seriesIds.length === 0 ? true : await prisma.seriesMembership.findFirst({ where: { materialId: material.id, seriesId: progressSeriesId }, select: { materialId: true } });
+    progressIds.set(materialDefinition.slug, material.id);
     if (
+      progressMembership === null ||
       material.publicationState !== "published" ||
       material.primaryVideoId !== primaryVideoId
     ) {
@@ -679,7 +686,7 @@ async function ensureHomeMaterials(
         actor,
         body,
         expectedContentVersion,
-        idempotencyKey: `local-home-publish-v2-${String(index + 1)}-${String(expectedContentVersion)}`,
+        idempotencyKey: `local-home-publish-v3-${String(index + 1)}-${String(expectedContentVersion)}`,
         materialId: material.id,
         metadata,
         primaryVideoId,
@@ -690,6 +697,7 @@ async function ensureHomeMaterials(
       }
     }
   }
+  await ensureDevelopmentSeriesOrder(authoring, progressSeriesId, progressSlugs.map((slug) => requiredMaterialId(progressIds, slug)));
 }
 
 const localDevelopmentVideoProvider: VideoProvider = {
@@ -860,6 +868,7 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
     update: { summary: "Путь от продуктовой идеи до работающей Platform." },
   });
   for (const data of [
+    { id: progressSeriesId, slug: "demo-progress-series", name: "Demo · Прогресс обучения", summary: "Текст, видео и гайд для проверки сохранённого прогресса." },
     { id: demoStepsSeriesId, slug: "demo-series-release", name: "Demo · Релиз своего проекта", summary: "Одна серия: видео, заметки и три связанных шага инструкции. Тестовые материалы для проверки интерфейса." },
     { id: demoStepsSharedSeriesId, slug: "demo-series-release-shared", name: "Учебный пример · Подготовка проекта", summary: "Тот же гайд в другой серии без отметки последовательности шагов." },
   ]) {

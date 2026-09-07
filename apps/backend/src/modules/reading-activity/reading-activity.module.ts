@@ -1,3 +1,6 @@
+import { GetLearningHomeController } from "./features/get-learning-home/get-learning-home.controller.js";
+import { GetSeriesContinuationController } from "./features/get-series-continuation/get-series-continuation.controller.js";
+import { PUBLISHED_MATERIAL_READER, type PublishedMaterialReader } from "../materials/index.js";
 import { PersonalHome } from "./facets/personal-home/personal-home.js";
 import { RecordMaterialOpenController } from "./features/record-material-open/record-material-open.controller.js";
 import { GetContinueMaterialsController } from "./features/get-continue-materials/get-continue-materials.controller.js";
@@ -13,11 +16,11 @@ import { ReadingActivity } from "./facets/reading-activity/reading-activity.js";
 
 @Module({
   imports: [VideosModule, PrismaModule, AccountsModule, MaterialsModule, MaterialContentModule],
-  controllers: [ReadingActivityController, RecordMaterialOpenController, GetContinueMaterialsController],
+  controllers: [GetLearningHomeController, GetSeriesContinuationController, ReadingActivityController, RecordMaterialOpenController, GetContinueMaterialsController],
   providers: [{
     provide: PersonalHome,
-    inject: [PrismaClientProvider, CONTENT_ACCESS, MATERIAL_CONTENT, PublishedMaterialSelection, VIDEOS],
-    useFactory: (prisma: PrismaClientProvider, contentAccess: ContentAccess, materialContent: MaterialContent, selection: PublishedMaterialSelection, videos: Videos) => new PersonalHome({ prisma, contentAccess, materialContent, selection, videos }),
+    inject: [PrismaClientProvider, CONTENT_ACCESS, MATERIAL_CONTENT, PublishedMaterialSelection, VIDEOS, PUBLISHED_MATERIAL_READER, PublishedSeriesComposition],
+    useFactory: (prisma: PrismaClientProvider, contentAccess: ContentAccess, materialContent: MaterialContent, selection: PublishedMaterialSelection, videos: Videos, reader: PublishedMaterialReader, composition: PublishedSeriesComposition) => new PersonalHome({ prisma, contentAccess, materialContent, selection, videos, reader, composition }),
   }, {
     provide: ReadingActivity,
     inject: [PrismaClientProvider, CONTENT_ACCESS, MATERIAL_CONTENT, PublishedSeriesComposition],

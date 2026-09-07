@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { getHome, HomePage, PersonalHome } from "@/_pages/home.server";
+import { getHome, PersonalHome } from "@/_pages/home.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
 export const metadata: Metadata = {
@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 
 export default async function HomeRoute() {
   const accessToken = await getOptionalPlatformAccessToken();
-  return <HomePage result={await getHome(accessToken)} personal={<PersonalHome accessToken={accessToken} />} />;
+  return <PersonalHome result={await getHome(accessToken)} accessToken={accessToken} />;
 }

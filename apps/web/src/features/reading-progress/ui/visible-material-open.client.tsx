@@ -22,7 +22,7 @@ export function VisibleMaterialOpen({ materialId, contentVersion, children }: { 
       // A retry completes the already-observed visible open, even if the tab was hidden later.
       const result = await recordMaterialOpen(input.value);
       if (result.kind === "unavailable") throw new Error("open_unavailable");
-      if (result.kind === "saved" && currentAccount.current === input.accountId) await queryClient.invalidateQueries({ queryKey: ["reading-progress", input.accountId, "continue"] });
+      if (result.kind === "saved" && currentAccount.current === input.accountId) await queryClient.invalidateQueries({ queryKey: ["reading-progress", input.accountId] });
     },
     retry: 2,
     retryDelay: OPEN_RETRY_DELAY_MS,

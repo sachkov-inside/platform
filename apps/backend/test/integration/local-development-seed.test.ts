@@ -54,7 +54,7 @@ describe("local development seed", () => {
       { slug: "kak-ustroen-inside-platform", access: "free" },
     ]);
     expect(typeof catalog.value.nextCursor).toBe("string");
-    expect(await testDatabase.prisma.publishedMaterial.count()).toBe(30);
+    expect(await testDatabase.prisma.publishedMaterial.count()).toBe(31);
     await expect(
       testDatabase.prisma.video.findMany({
         orderBy: { providerVideoId: "asc" },

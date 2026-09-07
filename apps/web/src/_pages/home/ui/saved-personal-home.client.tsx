@@ -1,31 +1,18 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useMaterialReading } from "@/entities/material";
-import { SavedReadingAction } from "@/features/reading-progress";
 import { loadPersonalHome } from "../api/personal-home.browser";
 import { personalHomeQueryKey } from "../model/personal-home-contract";
-import { ContinueLearning } from "./continue-learning";
+import type { HomeResult } from "../model/home-view";
+import { HomePage } from "./home-page";
 
-export function SavedPersonalHome({ initialAccountId }: { readonly initialAccountId: string | null }) {
+export function SavedPersonalHome({ initialAccountId, result }: { readonly initialAccountId: string | null; readonly result: HomeResult }) {
   const reading = useMaterialReading();
   const accountId = reading.resolved ? reading.accountId : reading.accountId ?? initialAccountId;
-  if (accountId === null) return null;
-  return <SavedAccountHome key={accountId} accountId={accountId} resolved={reading.resolved} />;
+  return accountId === null ? <HomePage result={result} /> : <SavedAccountHome key={accountId} accountId={accountId} resolved={reading.resolved} result={result} />;
 }
-
-function SavedAccountHome({ accountId, resolved }: { readonly accountId: string; readonly resolved: boolean }) {
-  const container = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number>();
+function SavedAccountHome({ accountId, resolved, result }: { readonly accountId: string; readonly resolved: boolean; readonly result: HomeResult }) {
   const query = useQuery({ queryKey: personalHomeQueryKey(accountId), queryFn: loadPersonalHome, enabled: resolved, staleTime: 0, retry: false });
-  const view = query.data ?? { kind: "unavailable" };
-  useEffect(() => {
-    const element = container.current;
-    if (element === null || view.kind !== "ready") return;
-    const observer = new ResizeObserver(() => { setHeight(element.getBoundingClientRect().height); });
-    observer.observe(element);
-    return () => { observer.disconnect(); };
-  }, [view.kind]);
-  const actions = new Map(view.kind === "ready" ? view.items.filter((item) => item.resume.kind === "reached-end").map((item) => [item.id, <SavedReadingAction key={item.id} materialId={item.id} format={item.format} />]) : []);
-  return <div className="flow-root min-h-64" ref={container} style={view.kind === "unavailable" && height !== undefined ? { minHeight: height } : undefined}><ContinueLearning view={view} readingActions={actions} onRetry={() => { void query.refetch(); }} /></div>;
+  const view = query.isError ? { kind: "unavailable" as const } : query.data;
+  return <div data-personal-home-state={view?.kind ?? "loading"}><HomePage result={result} {...(view?.kind === "ready" ? { continuation: view.continuation } : {})} /></div>;
 }

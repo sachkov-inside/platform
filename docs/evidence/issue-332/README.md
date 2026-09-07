@@ -1,27 +1,28 @@
-# Personal Home production evidence — #332
+# Прогресс в реальном Home и Series — #332
 
-**Composition update, 2026-09-07:** the owner rejected the separate continue block.
-The full-stack evidence below covers the earlier implementation; it does not accept the new
-inline Series/Video composition. The current Storybook uses the new presentation with fixtures.
+Владелец принял Storybook на `85b8436` 2026-09-07. Реальные страницы теперь используют ту же
+композицию с private BFF, настоящими API, PostgreSQL и сохранённым прогрессом Account.
 
-Validation: 26 real full-stack browser scenarios passed at 390×844 and 1440×1024 (16 Home +
-10 reading-progress scenarios); all 195 PostgreSQL integration tests passed.
+Актуальные снимки реальных страниц: `*-inline-home.png`, `*-inline-series.png`, `*-inline-video.png`.
+Они сняты на локальном приложении при 390×844 и 1440×1024 с development-серией
+`demo-progress-series`. Все отметки и позиции в этих сценариях проходят через реальные операции.
+Внешний Kinescope iframe SDK заменён локальным double; это не credentialed Kinescope proof.
 
-The production route uses private BFF, real API, PostgreSQL and the locally issued authenticated
-Account sessions. Text open/mark/unmark, retry with the same command, account switching, anonymous
-Home, personal failure, visible-only emission and SSR hydration are checked in Playwright.
-Video evidence uses the actual Videos playback session and saved PostgreSQL progress. Only the
-external Kinescope iframe SDK is a local double: this is not credentialed Kinescope proof.
+Проверены Home → Series → Reader, ручные отметки/счётчики/галочки, завершение и снятие отметки,
+reload, повторный вход, смена Account в той же странице, сохранённая позиция видео и отсутствие
+автоматической отметки после его окончания. Фоновые ошибки сохраняют геометрию публичного Home
+и маршрута серии; SSR hydration не сдвигает начало секций. Потерянная команда открытия повторяется
+с прежним commandId; SSR, prefetch, denied и hidden Reader не создают открытия.
 
-Visibility edge tests control document.visibilityState. They verify that the first signal waits
-for visibility and that a retry retains the original command after hiding and restoring the tab.
-The Membership expiry/rejoin scenario changes the local fixture through the real entitlement
-owner using a development-only CLI; it preserves and compares the same database visit.
+PostgreSQL-сценарии отдельно доказывают reorder, unpublish, архивирование серии, замену Video,
+expiry/rejoin без удаления визитов, фильтрацию после шести более новых текстов и отказ Videos.
+Все 22 browser-сценария прошли; безопасная сводка Playwright — `runtime-checks.json`.
+Полный `pnpm check` и 199 PostgreSQL tests прошли. Current-head CI фиксируется в PR #365.
+Expiry/rejoin у одного Account новой композиции проверен PostgreSQL-сценарием, не browser переходом.
 
-Owner production visual GO is pending. Screenshots and automation do not replace that decision.
-
-The empty personal layer reserves enough height for its error and retry message. Ready-list and
-empty-list background failures and authenticated SSR hydration preserve the Series position.
+Снимки `walkthrough-*` относятся к Storybook, остальные PNG без `inline` — к прежней композиции
+отдельного блока и не являются актуальным production proof. Старые 26 full-stack сценариев
+заменены проверками принятой композиции. Production visual GO и merge требуют отдельных решений.
 
 ## Связанная проверка в Storybook
 
@@ -46,5 +47,5 @@ empty-list background failures and authenticated SSR hydration preserve the Seri
 предлагать продолжение. Сами материалы и серии остаются в публичной витрине.
 
 Отметки и порядок продолжения в этом примере меняются в памяти Storybook. API и плеер не
-вызываются; новая серверная проекция серии ещё не подключена. Снимки `walkthrough-*` показывают
-актуальный демонстрационный вариант; остальные снимки — прежний full-stack proof.
+вызываются. Снимки `walkthrough-*` показывают принятый демонстрационный вариант;
+production-путь подтверждают отдельные снимки `*-inline-*` выше.

@@ -230,8 +230,9 @@ function MaterialRow({
             {material.summary}
           </span>
         ) : null}
-        {readingStatus ? <span className="mt-2 block">{readingStatus}</span> : null}
-        {resumeLabel === undefined ? null : <span className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-action"><Play aria-hidden="true" className="size-3.5 shrink-0 fill-current" />{resumeLabel}</span>}
+        {readingStatus || resumeLabel !== undefined ? <span className="mt-2 flex min-h-6 items-center">
+          {resumeLabel === undefined ? readingStatus : <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-action"><Play aria-hidden="true" className="size-3.5 shrink-0 fill-current" />{resumeLabel}</span>}
+        </span> : null}
         {rowAnnotation}
       </span>
       <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
