@@ -118,11 +118,19 @@ try {
     fullStackIdentity.memberSubject,
   );
   await establishFullStackAccount(memberAccessToken.token);
+  const nonMemberAccessToken = await fullStackIdentity.createAccessToken("fullstack-non-member");
+  const expiredMemberAccessToken = await fullStackIdentity.createAccessToken("fullstack-expired-member");
+  const staleMemberAccessToken = await fullStackIdentity.createAccessToken("fullstack-stale-member");
+  await establishFullStackAccount(nonMemberAccessToken.token);
+  await establishFullStackAccount(expiredMemberAccessToken.token);
+  await establishFullStackAccount(staleMemberAccessToken.token);
   await runPnpm(
     ["--filter", "@inside/backend", "smoke:grant-full-stack-membership"],
     {
       ...childEnvironment,
       FULLSTACK_MEMBER_LOGTO_SUBJECT: fullStackIdentity.memberSubject,
+      FULLSTACK_EXPIRED_MEMBER_LOGTO_SUBJECT: "fullstack-expired-member",
+      FULLSTACK_STALE_MEMBER_LOGTO_SUBJECT: "fullstack-stale-member",
     },
   );
   const browserAccessToken = await fullStackIdentity.createAccessToken();
@@ -135,6 +143,9 @@ try {
       childEnvironment.MEMBERSHIP_ACQUISITION_URL ?? "https://t.me/tribute",
     FULLSTACK_LOGTO_COOKIE_NAME: fullStackIdentity.cookieName,
     FULLSTACK_LOGTO_MEMBER_SESSION: fullStackMemberSession,
+    FULLSTACK_LOGTO_NON_MEMBER_SESSION: await fullStackIdentity.createSession(nonMemberAccessToken),
+    FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION: await fullStackIdentity.createSession(expiredMemberAccessToken),
+    FULLSTACK_LOGTO_STALE_MEMBER_SESSION: await fullStackIdentity.createSession(staleMemberAccessToken),
     FULLSTACK_LOGTO_SESSION: fullStackSession,
     FULLSTACK_WEB_BASE_URL: webBaseUrl,
   });
