@@ -248,3 +248,20 @@ Telegram [#40](https://github.com/sachkov-inside/inside-telegram/pull/40) исп
 возвращает 503, недоступные цели — структурированные причины. Для установки требуются
 `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` в Platform и `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL` в
 Telegram. Используется существующий secret авторизации, новый credential не создаётся.
+
+## Telegram sequential authoring timing (#310 / Telegram #43)
+
+Telegram now collects one native message and its time before the next. The public v1 schema adds
+optional `sendAfterSeconds` to broadcast parts (integer 0..2147483647, default 0), measured from
+actual launch. Offsets cannot decrease. The scheduler preserves ordering, retry/unknown protection,
+pause without resetting the clock, and cancellation of future messages.
+
+New funnel steps may carry `delayAnchor: "entry"`: `delaySeconds` is elapsed from the recipient's
+entry. Existing steps without the field retain their previous relative semantics. Platform vendors
+the provider schema and generates the same validation for HTTP and delegated MCP; native content
+and timing round-trip without stripping fields. Saving never launches or publishes.
+
+The bot has no agent button or saved-post browser in its ordinary authoring flow. A terminal agent
+uses authenticated list/read/save operations with current expectedRevision and operationId. The
+bot rereads canonical provider drafts. Live management still requires the owner's Account permission;
+the bot token alone does not authorize it.

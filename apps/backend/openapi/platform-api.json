@@ -21514,6 +21514,12 @@
                             "items": {
                               "additionalProperties": false,
                               "properties": {
+                                "delayAnchor": {
+                                  "enum": [
+                                    "entry"
+                                  ],
+                                  "type": "string"
+                                },
                                 "delaySeconds": {
                                   "maximum": 2147483647,
                                   "minimum": 0,
@@ -23292,6 +23298,11 @@
                                   "format": "uuid",
                                   "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
                                   "type": "string"
+                                },
+                                "sendAfterSeconds": {
+                                  "maximum": 2147483647,
+                                  "minimum": 0,
+                                  "type": "integer"
                                 }
                               },
                               "required": [
@@ -26264,6 +26275,12 @@
                                   "items": {
                                     "additionalProperties": false,
                                     "properties": {
+                                      "delayAnchor": {
+                                        "enum": [
+                                          "entry"
+                                        ],
+                                        "type": "string"
+                                      },
                                       "delaySeconds": {
                                         "maximum": 2147483647,
                                         "minimum": 0,
@@ -27827,6 +27844,12 @@
                                     "items": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "delayAnchor": {
+                                          "enum": [
+                                            "entry"
+                                          ],
+                                          "type": "string"
+                                        },
                                         "delaySeconds": {
                                           "maximum": 2147483647,
                                           "minimum": 0,
@@ -29511,6 +29534,11 @@
                                         "format": "uuid",
                                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
                                         "type": "string"
+                                      },
+                                      "sendAfterSeconds": {
+                                        "maximum": 2147483647,
+                                        "minimum": 0,
+                                        "type": "integer"
                                       }
                                     },
                                     "required": [
@@ -31743,6 +31771,11 @@
                                           "format": "uuid",
                                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
                                           "type": "string"
+                                        },
+                                        "sendAfterSeconds": {
+                                          "maximum": 2147483647,
+                                          "minimum": 0,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -32585,6 +32618,11 @@
                                           "format": "uuid",
                                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
                                           "type": "string"
+                                        },
+                                        "sendAfterSeconds": {
+                                          "maximum": 2147483647,
+                                          "minimum": 0,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -35683,6 +35721,12 @@
                                   "items": {
                                     "additionalProperties": false,
                                     "properties": {
+                                      "delayAnchor": {
+                                        "enum": [
+                                          "entry"
+                                        ],
+                                        "type": "string"
+                                      },
                                       "delaySeconds": {
                                         "maximum": 2147483647,
                                         "minimum": 0,
@@ -37246,6 +37290,12 @@
                                     "items": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "delayAnchor": {
+                                          "enum": [
+                                            "entry"
+                                          ],
+                                          "type": "string"
+                                        },
                                         "delaySeconds": {
                                           "maximum": 2147483647,
                                           "minimum": 0,
@@ -38930,6 +38980,11 @@
                                         "format": "uuid",
                                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
                                         "type": "string"
+                                      },
+                                      "sendAfterSeconds": {
+                                        "maximum": 2147483647,
+                                        "minimum": 0,
+                                        "type": "integer"
                                       }
                                     },
                                     "required": [
@@ -41162,6 +41217,11 @@
                                           "format": "uuid",
                                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
                                           "type": "string"
+                                        },
+                                        "sendAfterSeconds": {
+                                          "maximum": 2147483647,
+                                          "minimum": 0,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -42004,6 +42064,11 @@
                                           "format": "uuid",
                                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
                                           "type": "string"
+                                        },
+                                        "sendAfterSeconds": {
+                                          "maximum": 2147483647,
+                                          "minimum": 0,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [

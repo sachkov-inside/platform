@@ -259,6 +259,7 @@ export class CommunicationsService {
           sourceId: string;
         }>;
         steps: Array<{
+          delayAnchor?: 'entry';
           delaySeconds: number;
           parts: Array<{
             content: ({
@@ -515,6 +516,7 @@ export class CommunicationsService {
             type: 'document';
           });
           partId: string;
+          sendAfterSeconds?: number;
         }>;
         scheduledAt: (string | string | null);
       };
@@ -950,6 +952,7 @@ export class CommunicationsService {
           sourceId: string;
         }>;
         steps: Array<{
+          delayAnchor?: 'entry';
           delaySeconds: number;
           parts: Array<{
             content: ({
@@ -1171,6 +1174,7 @@ export class CommunicationsService {
           sourceId: string;
         }>;
         steps: Array<{
+          delayAnchor?: 'entry';
           delaySeconds: number;
           parts: Array<{
             content: ({
@@ -1404,6 +1408,7 @@ export class CommunicationsService {
             type: 'document';
           });
           partId: string;
+          sendAfterSeconds?: number;
         }>;
         revision: number;
         scheduledAt: (string | string | null);
@@ -1708,6 +1713,7 @@ export class CommunicationsService {
             type: 'document';
           });
           partId: string;
+          sendAfterSeconds?: number;
         }>;
         stepId: (string | string | null);
       }>;
@@ -1821,6 +1827,7 @@ export class CommunicationsService {
             type: 'document';
           });
           partId: string;
+          sendAfterSeconds?: number;
         }>;
         revision: number;
         scheduledAt: (string | string | null);
@@ -2203,6 +2210,7 @@ export class CommunicationsService {
           sourceId: string;
         }>;
         steps: Array<{
+          delayAnchor?: 'entry';
           delaySeconds: number;
           parts: Array<{
             content: ({
@@ -2424,6 +2432,7 @@ export class CommunicationsService {
           sourceId: string;
         }>;
         steps: Array<{
+          delayAnchor?: 'entry';
           delaySeconds: number;
           parts: Array<{
             content: ({
@@ -2657,6 +2666,7 @@ export class CommunicationsService {
             type: 'document';
           });
           partId: string;
+          sendAfterSeconds?: number;
         }>;
         revision: number;
         scheduledAt: (string | string | null);
@@ -2961,6 +2971,7 @@ export class CommunicationsService {
             type: 'document';
           });
           partId: string;
+          sendAfterSeconds?: number;
         }>;
         stepId: (string | string | null);
       }>;
@@ -3074,6 +3085,7 @@ export class CommunicationsService {
             type: 'document';
           });
           partId: string;
+          sendAfterSeconds?: number;
         }>;
         revision: number;
         scheduledAt: (string | string | null);

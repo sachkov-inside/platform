@@ -72,6 +72,7 @@ export const stepSchema = z.strictObject({
   "stepId": z.guid(),
   "delaySeconds": z.number().int().min(0).max(2147483647),
   "parts": z.array(partSchema).min(1).max(20),
+  "delayAnchor": z.literal("entry").optional(),
 });
 
 export const sourceSchema = z.strictObject({
@@ -105,6 +106,12 @@ export const templateSchema = z.strictObject({
 export const entryResponseSchema = z.strictObject({
   "stepId": z.guid(),
   "parts": z.array(partSchema).min(1).max(100),
+});
+
+export const broadcastPartSchema = z.strictObject({
+  "partId": z.guid(),
+  "content": contentSchema,
+  "sendAfterSeconds": z.number().int().min(0).max(2147483647).optional(),
 });
 
 export const trackingActorSchema = z.strictObject({
@@ -228,7 +235,7 @@ z.strictObject({
   "expectedRevision": z.number().int().min(0).max(2147483647),
   "payload": z.strictObject({
   "broadcastId": z.guid(),
-  "parts": z.array(partSchema).min(1).max(20),
+  "parts": z.array(broadcastPartSchema).min(1).max(20),
   "audience": audienceSchema,
   "scheduledAt": z.union([z.iso.datetime({ offset: true }), z.null()]),
 }),
@@ -463,7 +470,7 @@ export const broadcastSchema = z.strictObject({
   "broadcastId": z.guid(),
   "revision": z.number().int().min(0).max(2147483647),
   "state": z.enum(["draft","scheduled","running","paused","cancelled","completed"]),
-  "parts": z.array(partSchema).min(1).max(20),
+  "parts": z.array(broadcastPartSchema).min(1).max(20),
   "audience": audienceSchema,
   "scheduledAt": z.union([z.iso.datetime({ offset: true }), z.null()]),
   "audienceSnapshotId": z.union([z.guid(), z.null()]),
@@ -537,7 +544,7 @@ export const deliverySchema = z.strictObject({
   "broadcastId": z.union([z.guid(), z.null()]),
   "stepId": z.union([z.guid(), z.null()]),
   "publishedRevision": z.number().int().min(0),
-  "snapshot": z.array(partSchema).min(1).max(100),
+  "snapshot": z.array(broadcastPartSchema).min(1).max(100),
   "parts": z.array(deliveryPartSchema).max(100),
   "cancelRequested": z.boolean(),
   "completedAt": z.union([z.iso.datetime({ offset: true }), z.null()]),
