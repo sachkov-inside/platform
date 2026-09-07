@@ -5,7 +5,7 @@ import { getSeriesProgress } from "../api/reading.browser";
 import { SeriesProgress } from "./series-progress";
 export function SavedSeriesProgress({ seriesId }: { readonly seriesId: string }) {
   const { accountId, resolved } = useMaterialReading();
-  if (!resolved || accountId === null) return null;
+  if (!resolved || accountId === null) return <div className="min-h-6" />;
   return <AccountSeriesProgress accountId={accountId} seriesId={seriesId} />;
 }
 function AccountSeriesProgress({ accountId, seriesId }: { readonly accountId: string; readonly seriesId: string }) {
@@ -14,5 +14,5 @@ function AccountSeriesProgress({ accountId, seriesId }: { readonly accountId: st
     if (result.kind !== "ready") throw new Error(result.kind);
     return result;
   } });
-  return <SeriesProgress view={query.data ?? { kind: query.isError ? "unavailable" : "loading" }} />;
+  return <SeriesProgress view={query.isError ? { kind: "unavailable" } : query.data ?? { kind: "loading" }} />;
 }

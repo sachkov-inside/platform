@@ -13,6 +13,7 @@ export function SavedReadingAction({ materialId, format, canMark = true }: { rea
   const [notice, setNotice] = useState<"conflict" | "error" | null>(null);
   const [denied, setDenied] = useState(false);
   const mutation = useMutation({
+    mutationKey: ["reading-progress", reading.accountId, "set-state"],
     mutationFn: setReadingState,
     onSuccess: async (result) => {
       if (result.kind === "unavailable") { setNotice("error"); return; }

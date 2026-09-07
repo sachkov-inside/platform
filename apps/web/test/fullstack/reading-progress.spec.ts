@@ -8,13 +8,13 @@ async function signIn(context: BrowserContext, persona = "NON_MEMBER") {
   if (name === undefined || value === undefined) throw new Error("Missing local identity fixture");
   await context.addCookies([{ name, value, url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000", httpOnly: true, sameSite: "Lax" }]);
 }
-async function openReader(page: Page) {
-  await page.goto("/materials/kak-ustroen-inside-platform");
+async function openReader(page: Page, slug = "kak-ustroen-inside-platform", label = "Изучено") {
+  await page.goto(`/materials/${slug}`);
   const dismiss = page.getByRole("button", { name: "Закрыть подключение Telegram" });
-  if (await dismiss.isVisible()) await dismiss.click();
+  await page.addLocatorHandler(dismiss, async () => { await dismiss.click(); });
   const action = page.locator("[data-reading-action-state]:visible");
   await expect(action).toHaveAttribute("data-reading-action-state", "ready");
-  return action.getByRole("button", { name: "Изучено", exact: true });
+  return action.getByRole("button", { name: label, exact: true });
 }
 test("reading progress persists for a free non-member, reconciles lost responses and isolates Accounts", async ({ page, context, browser }, testInfo) => {
   await signIn(context);
@@ -29,7 +29,7 @@ test("reading progress persists for a free non-member, reconciles lost responses
     else await route.continue();
   });
   await button.click();
-  await expect(page.getByRole("alert")).toContainText("Не сохранено");
+  await expect(page.locator("[data-reading-action-state]:visible").getByRole("alert")).toContainText("Не сохранено");
   await expect(button).toHaveAttribute("aria-pressed", "false");
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
@@ -40,9 +40,11 @@ test("reading progress persists for a free non-member, reconciles lost responses
   await expect(button).toHaveAttribute("aria-pressed", "true");
   const directory = resolve(process.cwd(), "../../docs/evidence/issue-329");
   await mkdir(directory, { recursive: true });
+  await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "ready");
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await button.scrollIntoViewIfNeeded();
   await page.screenshot({ path: resolve(directory, `${testInfo.project.name}-reader.png`) });
-  const accessibility = await new AxeBuilder({ page }).include("[data-reading-action-state]:visible").analyze();
+  const accessibility = await new AxeBuilder({ page }).include("[data-reading-action-state]").analyze();
   expect(accessibility.violations).toEqual([]);
   await page.goto("/library");
   const card = page.getByRole("article").filter({ has: page.getByRole("link", { name: "Как устроен Inside Platform", exact: true }) });
@@ -63,4 +65,75 @@ test("reading progress persists for a free non-member, reconciles lost responses
     await expect(second.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "anonymous");
     expect(await second.locator("[data-material-reading-status]").count()).toBe(0);
   } finally { await other.close(); }
+});
+
+
+test("reading progress reconciles stale windows and account changes without reloading the app", async ({ page, context, browser }) => {
+  await signIn(context);
+  const button = await openReader(page);
+  if (await button.getAttribute("aria-pressed") === "true") { await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false"); }
+  const other = await browser.newContext();
+  try {
+    await signIn(other);
+    const second = await other.newPage();
+    const otherButton = await openReader(second);
+    await otherButton.click(); await expect(otherButton).toHaveAttribute("aria-pressed", "true");
+    await button.click();
+    await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "conflict");
+    await expect(button).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Обновить статус" }).click();
+    // Another authenticated identity, in the SAME page and QueryClient.
+    await signIn(context, "EXPIRED_MEMBER");
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "ready");
+    if (await button.getAttribute("aria-pressed") === "true") { await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false"); }
+    await signIn(context);
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(button).toHaveAttribute("aria-pressed", "true");
+    await context.clearCookies();
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "anonymous");
+  } finally { await other.close(); }
+});
+
+test("reading progress appears on Home and Topic for video and other formats", async ({ page, context }) => {
+  await signIn(context, "MEMBER");
+  for (const material of [
+    { slug: "video-pro-developer-pipeline", label: "Просмотрено", title: "Видео про Developer Pipeline" },
+    { slug: "granitsy-khoroshego-modulya", label: "Изучено", title: "Границы хорошего модуля" },
+  ]) {
+    const button = await openReader(page, material.slug, material.label);
+    if (await button.getAttribute("aria-pressed") !== "true") await button.click();
+    await expect(button).toHaveAttribute("aria-pressed", "true");
+    await page.goto("/");
+    const card = page.getByRole("article").filter({ has: page.getByRole("link", { name: material.title, exact: true }) });
+    await expect(card.locator("[data-material-reading-status]")).toHaveText(material.label);
+    await page.goto("/topics/platform");
+    await page.getByRole("searchbox").fill(material.title);
+    await expect(card.locator("[data-material-reading-status]")).toHaveText(material.label);
+  }
+});
+
+test("reading progress counts a shared material in both real Series", async ({ page, context }, testInfo) => {
+  await signIn(context, "EXPIRED_MEMBER");
+  const button = await openReader(page, "demo-podgotovka-prilozheniya-k-relizu");
+  if (await button.getAttribute("aria-pressed") !== "true") await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  const directory = resolve(process.cwd(), "../../docs/evidence/issue-329");
+  await mkdir(directory, { recursive: true });
+  for (const slug of ["demo-series-release", "demo-series-release-shared"]) {
+    await page.goto(`/series/${slug}`);
+    await expect(page.locator("[data-series-progress]")).toContainText(/Изучено [1-9]/u);
+    const card = page.getByRole("article").filter({ has: page.getByRole("link", { name: "Demo · Подготовка приложения к релизу", exact: true }) });
+    await expect(card.locator("[data-material-reading-status]")).toHaveText("Изучено");
+    if (slug.endsWith("shared")) {
+      await expect(page.locator("[data-series-progress]")).toContainText("Все материалы изучены");
+      await page.screenshot({ path: resolve(directory, `${testInfo.project.name}-series.png`) });
+    }
+  }
+  await openReader(page, "demo-podgotovka-prilozheniya-k-relizu");
+  await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false");
+  await page.goto("/series/demo-series-release-shared");
+  await expect(page.locator("[data-series-progress]")).toContainText("Изучено 0 из 1");
+  await expect(page.getByText("Все материалы изучены")).toHaveCount(0);
 });
