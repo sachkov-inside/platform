@@ -107,7 +107,7 @@ function CTA({ onClick, label = "Получить полный доступ" }: 
 function Actions({ subscribe }: { readonly subscribe: () => void }) { return <div className="gh-actions"><CTA onClick={subscribe} /><Link href="/materials/ci-checks" className="gh-text-link">Прочитать открытый гайд <ArrowRight aria-hidden="true" /></Link></div>; }
 function Benefits() { return <div className="gh-benefits">{benefits.map(({ icon: Icon, title, text }) => <div key={title}><Icon aria-hidden="true" /><h3>{title}</h3><p>{text}</p></div>)}</div>; }
 function Heading({ children, aside }: { readonly children: ReactNode; readonly aside?: string }) { return <div className="gh-heading"><h2>{children}</h2>{aside && <span>{aside}</span>}</div>; }
-function Guides() { return <div className="gh-guides">{materials.map((material) => <div key={material.slug}><MaterialCard material={material} headingLevel="h3" returnHref="/" />{material.access === "free" && <span className="gh-free">Можно прочитать целиком</span>}</div>)}</div>; }
+function Guides() { return <div className="gh-guides">{materials.map((material) => <div key={material.slug}><MaterialCard material={material} headingLevel="h3" returnHref="/" /></div>)}</div>; }
 function SeriesCards() { return <div className="gh-series-cards">{series.map((playlist) => <PlaylistCard key={playlist.slug} playlist={playlist} returnHref="/" />)}</div>; }
 function Invitation({ subscribe }: { readonly subscribe: () => void }) { return <section className="gh-invitation"><div><p className="gh-eyebrow">Полный доступ к Inside</p><h2>Изучай. Применяй. Обсуждай.</h2><p>Все материалы и серии, вопросы автору и сообщество разработчиков — в одной подписке.</p></div><CTA onClick={subscribe} /></section>; }
 
@@ -137,7 +137,7 @@ export function VariantB({ subscribe }: { readonly subscribe: () => void }) {
     </section>
     <div className="gh-topic-filters" aria-label="Темы материалов">{["Все", "Разработка с ИИ", "Архитектура", "Инфраструктура"].map((name) => <button key={name} aria-pressed={topic === name} onClick={() => { setTopic(name); }}>{name}</button>)}</div>
     <section className="gh-access-strip"><BookOpen aria-hidden="true" /><div><strong>Гайды, серии и общение с автором</strong><p>Изучай открытые материалы. Подписка откроет Inside целиком.</p></div><CTA onClick={subscribe} label="Полный доступ" /></section>
-    <section><Heading aside="Выбери интересную задачу">{topic === "Все" ? "Гайды и разборы" : topic}</Heading><div className="gh-guides">{filtered.map((material) => <div key={material.slug}><MaterialCard material={material} headingLevel="h3" returnHref="/" />{material.access === "free" && <span className="gh-free">Можно прочитать целиком</span>}</div>)}</div></section>
+    <section><Heading aside="Выбери интересную задачу">{topic === "Все" ? "Гайды и разборы" : topic}</Heading><div className="gh-guides">{filtered.map((material) => <div key={material.slug}><MaterialCard material={material} headingLevel="h3" returnHref="/" /></div>)}</div></section>
     <section><Heading>Серии для погружения</Heading><SeriesCards /></section>
     <section><Heading>Что даёт подписка</Heading><Benefits /></section><Invitation subscribe={subscribe} />
   </>;

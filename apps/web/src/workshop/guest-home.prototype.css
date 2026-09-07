@@ -1,6 +1,6 @@
 /* Throwaway #380; all colors and typography come from the accepted Platform foundation. */
 .guest-home { padding-bottom: 3rem; }
-.gh-title { max-width: 22ch; margin: 0; font-size: clamp(2rem, 3.6vw, 3.35rem); font-weight: 750; line-height: 1.08; letter-spacing: -.05em; text-wrap: balance; outline: none; }
+.gh-title { max-width: 22ch; margin: 0; font-size: clamp(1.75rem, 3vw, 2.5rem); font-weight: 750; line-height: 1.08; letter-spacing: -.05em; text-wrap: balance; outline: none; }
 .gh-eyebrow { margin: 0 0 1rem; color: var(--muted-foreground); font-size: .73rem; font-weight: 650; letter-spacing: .08em; }
 .gh-lead { max-width: 64ch; margin: 1.25rem 0 0; font-size: 1rem; line-height: 1.8; color: var(--body-muted); text-wrap: pretty; }
 .gh-intro { padding: 1.5rem 0 2.75rem; border-bottom: 1px solid var(--border); }
@@ -10,12 +10,10 @@
 .gh-text-link svg { width: 1rem; }
 .guest-home a:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; border-radius: .25rem; }
 .gh-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .5rem 1rem; margin: 2.5rem 0 1.25rem; }
-.gh-heading h2, .gh-invitation h2, .gh-discussion h2 { margin: 0; font-size: clamp(1.4rem, 2.2vw, 1.8rem); line-height: 1.2; letter-spacing: -.04em; font-weight: 750; }
+.gh-heading h2, .gh-invitation h2, .gh-discussion h2 { margin: 0; font-size: clamp(1.25rem, 1.8vw, 1.5rem); line-height: 1.2; letter-spacing: -.04em; font-weight: 750; }
 .gh-heading > span { font-size: .8rem; color: var(--muted-foreground); }
 .gh-guides { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 1.25rem; }
 .gh-guides > div { min-width: 0; }
-.gh-free { display: inline-flex; align-items: center; gap: .4rem; margin-top: .65rem; color: var(--action); font-size: .74rem; font-weight: 650; }
-.gh-free svg { width: 1rem; }
 .gh-series-cards { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1.25rem; }
 .gh-benefits { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 1.5rem; margin: 2rem 0; }
 .gh-benefits svg { width: 1.35rem; color: var(--action); margin-bottom: 1rem; }
@@ -49,7 +47,7 @@
 .gh-switcher small { display: block; font-size: .52rem; letter-spacing: .13em; opacity: .75; }
 @media (max-width: 1023px) { .gh-switcher { bottom: 6rem; } .guest-home { padding-bottom: 6rem; } }
 @media (max-width: 700px) {
-  .gh-title { font-size: 2rem; }
+  .gh-title { font-size: 1.75rem; }
   .gh-intro, .gh-compact-intro { padding-top: .5rem; }
   .gh-guides { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1.5rem .85rem; }
   .gh-series-cards, .gh-author-intro, .gh-editorial { grid-template-columns: 1fr; }
@@ -87,14 +85,14 @@
 .gh-featured { position: relative; isolation: isolate; height: 19rem; margin-top: 2.5rem; border-radius: 2rem; background: var(--cover-ink); color: var(--card); }
 .gh-featured-copy { position: relative; z-index: 2; padding: 1.75rem 2rem; height: 100%; }
 .gh-featured-label { display: inline-flex; margin-bottom: 1rem; border-radius: 999px; padding: .35rem .7rem; background: color-mix(in oklch,var(--card),transparent 88%); font-size: .7rem; font-weight: 650; }
-.gh-featured h2 { max-width: 65%; font-size: clamp(1.85rem,3vw,2.5rem); font-weight: 750; line-height: 1.12; letter-spacing: -.04em; }
+.gh-featured h2 { max-width: 65%; font-size: clamp(1.6rem,2.4vw,2rem); font-weight: 750; line-height: 1.12; letter-spacing: -.04em; }
 .gh-featured-description { margin-top: .9rem; max-width: 56%; font-size: .85rem; line-height: 1.7; color: color-mix(in oklch,var(--card),transparent 25%); }
 .gh-featured-bottom { position: absolute; bottom: 1.75rem; left: 2rem; display: flex; align-items: center; gap: 1.25rem; }
 .gh-featured-bottom > span { font-size: .7rem; color: color-mix(in oklch,var(--card),transparent 20%); }
 .gh-featured-bottom > a { display: inline-flex; align-items: center; gap: .6rem; min-height: 2.8rem; border-radius: 999px; background: var(--card); color: var(--foreground); font-size: .85rem; font-weight: 750; padding: .75rem 1.2rem; text-decoration: none; }
 .gh-featured-bottom svg { width: 1rem; }
 .gh-presenter { position: absolute; z-index: 1; right: 1rem; bottom: 0; width: 20rem; height: 21.5rem; pointer-events: none; }
-.gh-presenter-crop { position: absolute; inset: 0; overflow: hidden; mask-image: linear-gradient(to bottom,black 0%,black 78%,transparent 100%); }
+.gh-presenter-crop { position: absolute; inset: 0; overflow: hidden; mask-image: linear-gradient(to bottom,black 0%,black 40%,rgb(0 0 0 / .85) 56%,rgb(0 0 0 / .4) 75%,transparent 96%); }
 .gh-presenter img { display: block; width: 100%; height: auto; }
 .gh-floating-note { position: absolute; z-index: 3; top: 65%; left: 34%; display: inline-flex; align-items: center; gap: .4rem; border-radius: .8rem; background: var(--card); color: var(--foreground); padding: .65rem .8rem; font-size: .65rem; box-shadow: var(--elevation-card); transform: rotate(-5deg); white-space: nowrap; }
 .gh-floating-note svg { color: var(--action); width: .9rem; }
@@ -112,13 +110,13 @@
   .gh-featured { height: 14rem; margin-top: 2rem; border-radius: 1.6rem; }
   .gh-featured-copy { padding: 1.15rem; }
   .gh-featured-label { margin-bottom: .75rem; padding: .3rem .55rem; font-size: .6rem; }
-  .gh-featured h2 { max-width: 62%; font-size: clamp(1.15rem,5.1vw,1.65rem); line-height: 1.16; }
+  .gh-featured h2 { max-width: 62%; font-size: clamp(1rem,4.5vw,1.25rem); line-height: 1.16; }
   .gh-featured-description { display: none; }
   .gh-featured-bottom { inset: auto 1.1rem 1.1rem; gap: .35rem; justify-content: space-between; }
   .gh-featured-bottom > span { font-size: .6rem; max-width: 6.5rem; }
   .gh-featured-bottom > a { font-size: .72rem; min-height: 2.75rem; padding: .65rem .85rem; gap: .3rem; }
   .gh-presenter { right: -.1rem; width: 52%; height: calc(100% + 2.2rem); }
-  .gh-presenter-crop { mask-image: linear-gradient(to bottom,black 0%,black 56%,transparent 96%); }
+  .gh-presenter-crop { mask-image: linear-gradient(to bottom,black 0%,black 35%,rgb(0 0 0 / .8) 50%,rgb(0 0 0 / .3) 68%,transparent 88%); }
   .gh-floating-note { display: none; }
   .gh-particle svg { width: .9rem; height: .9rem; }
   .gh-particle-code { --drift-x: 45px; --drift-y: -85px; }
