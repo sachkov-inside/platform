@@ -92,6 +92,8 @@ test("personal Home resumes the current video through real playback and offers m
   await expect(card).toContainText("Видео просмотрено до конца — можно отметить материал");
   const mark = card.getByRole("button", { name: "Просмотрено", exact: true });
   await expect(mark).toHaveAttribute("aria-pressed", "false");
+  await expect(card.locator("[data-reading-action-state]")).toHaveAttribute("data-reading-action-state", "ready");
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.screenshot({ path: resolve(`../../docs/evidence/issue-332/${testInfo.project.name}-reached-end.png`) });
   await mark.click(); await expect(card).toHaveCount(0);
 });
@@ -111,12 +113,13 @@ test("personal Home keeps public content through personal failure and does not t
   await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "ready");
   const series = page.getByRole("heading", { name: "Серии", exact: true });
   await expect(series).toBeVisible();
-  const beforeFailure = await series.boundingBox();
+  let beforeFailure: number | undefined;
+  await expect.poll(async () => { beforeFailure = (await series.boundingBox())?.y; return beforeFailure ?? 0; }).toBeGreaterThan(0);
   await page.route("**/api/personal-home", async (route) => { await route.fulfill({ status: 503 }); });
   await page.evaluate(() => { window.dispatchEvent(new Event("focus")); document.dispatchEvent(new Event("visibilitychange", { bubbles: true })); });
   await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "unavailable");
   await expect(page.getByRole("heading", { name: "Серии", exact: true })).toBeVisible();
-  expect((await series.boundingBox())?.y).toBe(beforeFailure?.y);
+  await expect.poll(async () => (await series.boundingBox())?.y).toBe(beforeFailure);
   await page.unroute("**/api/personal-home");
   await page.getByRole("button", { name: "Попробовать ещё раз" }).click();
   await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "ready");
@@ -199,4 +202,19 @@ test("personal Home hides expired content and restores the same visit after rejo
     await page.evaluate(() => { window.dispatchEvent(new Event("focus")); document.dispatchEvent(new Event("visibilitychange", { bubbles: true })); });
     await expect(card).toBeVisible();
   } finally { await transition("member"); }
+});
+
+test("personal Home keeps the public hub stable when an empty result fails to refresh", async ({ page, context }) => {
+  await signIn(context); await dismissOnboarding(page);
+  await page.route("**/api/personal-home", async (route) => { await route.fulfill({ json: { kind: "ready", items: [] } }); });
+  await page.goto("/");
+  await expect(page.getByText("Здесь появятся материалы, которые вы откроете и ещё не отметите изученными.")).toBeVisible();
+  const series = page.getByRole("heading", { name: "Серии", exact: true });
+  let before: number | undefined;
+  await expect.poll(async () => { before = (await series.boundingBox())?.y; return before ?? 0; }).toBeGreaterThan(0);
+  await page.unroute("**/api/personal-home");
+  await page.route("**/api/personal-home", async (route) => { await route.fulfill({ status: 503 }); });
+  await page.evaluate(() => { window.dispatchEvent(new Event("focus")); document.dispatchEvent(new Event("visibilitychange", { bubbles: true })); });
+  await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "unavailable");
+  await expect.poll(async () => (await series.boundingBox())?.y).toBe(before);
 });

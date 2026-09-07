@@ -27,5 +27,5 @@ function SavedAccountHome({ accountId, resolved }: { readonly accountId: string;
     return () => { observer.disconnect(); };
   }, [view.kind]);
   const actions = new Map(view.kind === "ready" ? view.items.filter((item) => item.resume.kind === "reached-end").map((item) => [item.id, <SavedReadingAction key={item.id} materialId={item.id} format={item.format} />]) : []);
-  return <div className="flow-root" ref={container} style={view.kind === "unavailable" && height !== undefined ? { minHeight: height } : undefined}><ContinueLearning view={view} readingActions={actions} onRetry={() => { void query.refetch(); }} /></div>;
+  return <div className="flow-root min-h-64" ref={container} style={view.kind === "unavailable" && height !== undefined ? { minHeight: height } : undefined}><ContinueLearning view={view} readingActions={actions} onRetry={() => { void query.refetch(); }} /></div>;
 }
