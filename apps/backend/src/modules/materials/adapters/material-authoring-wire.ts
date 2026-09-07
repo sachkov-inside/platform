@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { materialFormatSchema } from "../domain/material-format.js";
+
 export const uuidWireSchema = z.uuid();
 export const materialIdWireSchema = uuidWireSchema;
 export const idempotencyKeyWireSchema = z.string().trim().min(1).max(200);
@@ -20,7 +22,7 @@ const materialMetadataSelectionBaseShape = {
   summary: z.string().trim().min(1).max(500).nullable(),
   access: z.enum(["free", "membership", "workshop"]),
   topicId: uuidWireSchema.nullable(),
-  formatId: uuidWireSchema.nullable(),
+  formatId: materialFormatSchema.nullable(),
   tagIds: z.array(uuidWireSchema).max(100),
 } as const;
 

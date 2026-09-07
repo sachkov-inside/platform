@@ -70,7 +70,7 @@ describe("Authoring Materials server adapter", () => {
             {
               canDelete: false,
               contentVersion: 7,
-              format: { id: "96000000-0000-4000-8000-000000000002", name: "Гайд" },
+              format: { id: "guide", name: "Гайд" },
               materialId,
               publicationState: "published",
               title: "Управляемый Material",

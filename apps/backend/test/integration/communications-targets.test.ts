@@ -66,13 +66,11 @@ describe("communications promised public targets against Materials PostgreSQL", 
       (await targets.check({ kind: "series", slug: "test-series" })).reason,
     ).toBe("incomplete");
     const topicId = randomUUID();
-    const formatId = randomUUID();
+    const formatId = "note";
     await database.prisma.topic.create({
       data: { id: topicId, slug: "target-topic", name: "Target topic" },
     });
-    await database.prisma.format.create({
-      data: { id: formatId, slug: "target-text", name: "Text" },
-    });
+
     const metadata = {
       title: "Target",
       summary: "Summary",

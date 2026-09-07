@@ -289,14 +289,12 @@ try {
   const actor = z.string().parse(accounts.get("owner"));
   const authoring = app.get<MaterialAuthoring>(MATERIAL_AUTHORING);
   const topicId = randomUUID(),
-    formatId = randomUUID(),
+    formatId = "guide",
     seriesId = randomUUID();
   await prisma.topic.create({
     data: { id: topicId, slug: "proof-topic", name: "Synthetic proof" },
   });
-  await prisma.format.create({
-    data: { id: formatId, slug: "proof-format", name: "Synthetic proof" },
-  });
+
   await prisma.series.create({
     data: { id: seriesId, slug: "telegram-proof", name: "Тестовая серия #310" },
   });

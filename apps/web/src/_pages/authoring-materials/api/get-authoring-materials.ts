@@ -1,5 +1,8 @@
 import "server-only";
 
+import { materialFormatSchema } from "@/shared/api/material-format";
+
+
 import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -24,7 +27,7 @@ const responseSchema = z
         .object({
           canDelete: z.boolean(),
           contentVersion: z.number().int().positive(),
-          format: referenceSchema.nullable(),
+          format: referenceSchema.extend({ id: materialFormatSchema }).nullable(),
           materialId: z.uuid(),
           publicationState: publicationStateSchema,
           title: z.string().nullable(),

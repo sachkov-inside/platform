@@ -9,8 +9,8 @@ import { assembleVideos } from "../../src/modules/videos/index.js";
 import { ReadingActivity, PersonalHome } from "../../src/modules/reading-activity/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
-const videoFormatId = randomUUID();
-const actor = randomUUID(); const topicId = randomUUID(); const formatId = randomUUID();
+const videoFormatId = "video";
+const actor = randomUUID(); const topicId = randomUUID(); const formatId = "note";
 describe("Personal Home on PostgreSQL", () => {
   let database: TestDatabase;
   let materials: ReturnType<typeof assembleMaterials>;
@@ -22,8 +22,8 @@ describe("Personal Home on PostgreSQL", () => {
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
     await database.prisma.topic.create({ data: { id: topicId, name: "Home", slug: "home" } });
-    await database.prisma.format.create({ data: { id: formatId, name: "Text", slug: "text" } });
-    await database.prisma.format.create({ data: { id: videoFormatId, name: "Видео", slug: "video" } });
+
+
     videos = assembleVideos({ prisma: database.prisma, canManage: () => Promise.resolve(true), projects: { free: "public", membership: "members" }, provider: {
       initUpload: () => Promise.reject(new Error("unused")), delete: () => Promise.reject(new Error("unused")),
       find: ({ id }) => Promise.resolve({ id, projectId: "public", title: "Video", status: "done", durationSeconds: 600, embedLocator: `https://kinescope.io/embed/${id}` }),

@@ -14,7 +14,7 @@ import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-data
 const actor = randomUUID();
 const accountId = randomUUID();
 const topicId = randomUUID();
-const formatId = randomUUID();
+const formatId = "note";
 
 describe("ReadingActivity on PostgreSQL", () => {
   let database: TestDatabase;
@@ -29,7 +29,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     database = await createMigratedTestDatabase();
     second = createPrismaClient(database.url);
     await database.prisma.topic.create({ data: { id: topicId, name: "Reading", slug: "reading" } });
-    await database.prisma.format.create({ data: { id: formatId, name: "Text", slug: "text" } });
+
     materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: (id) => id === actor } });
     membership = assembleMembershipEntitlements({
       prisma: database.prisma,

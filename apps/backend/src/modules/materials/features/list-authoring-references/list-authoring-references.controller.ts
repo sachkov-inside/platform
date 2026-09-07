@@ -2,6 +2,8 @@ import { Controller, Get, Inject } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation } from "@nestjs/swagger";
 import { z } from "zod";
 
+import { materialFormatSchema } from "../../domain/material-format.js";
+
 import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import {
   CurrentAccount,
@@ -20,7 +22,7 @@ const referenceSchema = z
   .strict();
 const responseSchema = z
   .object({
-    formats: z.array(referenceSchema),
+    formats: z.array(referenceSchema.extend({ id: materialFormatSchema })),
     series: z.array(referenceSchema),
     tags: z.array(referenceSchema),
     topics: z.array(referenceSchema),

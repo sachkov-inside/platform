@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { materialFormatSchema, type MaterialFormat } from "./material-format.js";
+
 import type { Result } from "../result.js";
 import type { ValidationIssue } from "./material-body/material-body.js";
 import { normalizedUuidSchema } from "./uuid.js";
@@ -17,7 +19,7 @@ export interface MaterialMetadataValues {
   readonly slug: string | null;
   readonly access: MaterialAccess;
   readonly topicId: string | null;
-  readonly formatId: string | null;
+  readonly formatId: MaterialFormat | null;
   readonly tagIds: readonly string[];
   readonly seriesMemberships: readonly SeriesMembership[];
 }
@@ -32,7 +34,7 @@ export interface PublishableMaterialMetadata
     MaterialMetadataValues,
     "formatId" | "slug" | "summary" | "title" | "topicId"
   > {
-  readonly formatId: string;
+  readonly formatId: MaterialFormat;
   readonly slug: string;
   readonly summary: string;
   readonly title: string;
@@ -51,7 +53,7 @@ const metadataSelectionBaseShape = {
   summary: z.string().trim().min(1).max(500).nullable(),
   access: z.enum(["free", "membership", "workshop"]),
   topicId: normalizedUuidSchema.nullable(),
-  formatId: normalizedUuidSchema.nullable(),
+  formatId: materialFormatSchema.nullable(),
   tagIds: z.array(normalizedUuidSchema).max(100),
 } as const;
 
@@ -155,7 +157,7 @@ export class MaterialMetadata {
     readonly slug: string | null,
     readonly access: MaterialAccess,
     readonly topicId: string | null,
-    readonly formatId: string | null,
+    readonly formatId: MaterialFormat | null,
     readonly tagIds: readonly string[],
     readonly seriesMemberships: readonly SeriesMembership[],
   ) {

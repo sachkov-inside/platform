@@ -1,5 +1,8 @@
 import "server-only";
 
+import { materialFormatSchema } from "@/shared/api/material-format";
+
+
 import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -18,7 +21,7 @@ const formSchema = z.object({
   deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
   document: z.string().min(1).max(1_048_576),
   expectedContentVersion: z.coerce.number().int().positive(),
-  formatId: z.union([z.uuid(), z.literal("unassigned")]),
+  formatId: materialFormatSchema.or(z.literal("unassigned")),
   materialId: z.uuid(),
   publicationState: z.enum(["draft", "published", "unpublished"]),
   primaryVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),

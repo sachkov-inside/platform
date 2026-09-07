@@ -293,8 +293,10 @@ Publication lifecycle finite: never-published `draft` скрыт и может �
 видим; `unpublished` раньше был видим, теперь скрыт и сохраняет identity/ReadingState. Slug можно
 менять только до первой публикации. Direct public read `draft | unpublished` возвращает `404`.
 
-Topic, Format, Tag и Series создаются по мере реального authoring; результаты аудита служат
-fixtures, а не заранее заданной ontology. Для v1 подтверждены роли:
+Topic, Tag и Series создаются по мере реального authoring; результаты аудита служат
+fixtures, а не заранее заданной ontology. Format определён в домене ровно тремя значениями:
+`video` — «Видео», `guide` — «Гайд», `note` — «Заметка». Материал хранит выбранное значение;
+отдельной таблицы Format и управления форматами в редакторе нет. Для v1 подтверждены роли:
 
 - «Создание Platform Inside» — ordered Series;
 - Roadmap — `NavigationPage`;

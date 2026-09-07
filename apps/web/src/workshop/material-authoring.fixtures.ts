@@ -20,8 +20,9 @@ export const savedContentVersion = 4;
 
 export const materialAuthoringPresentation = {
   availableFormats: [
-    { label: "Гайд", value: "94000000-0000-4000-8000-000000000011" },
-    { label: "Видео", value: "94000000-0000-4000-8000-000000000012" },
+    { label: "Гайд", value: "guide" },
+    { label: "Видео", value: "video" },
+    { label: "Заметка", value: "note" },
   ],
   availableSeries: [
     { label: "Создание Platform Inside", value: "94000000-0000-4000-8000-000000000041" },
@@ -88,7 +89,7 @@ export const materialAuthoringPresentation = {
         },
       ],
     },
-    formatId: "94000000-0000-4000-8000-000000000011",
+    formatId: "guide",
     materialId: "94000000-0000-4000-8000-000000000009",
     contentVersion,
     readOnly: false,
@@ -176,7 +177,7 @@ export const materialAuthoringPresentation = {
         label: "Checklist проверки",
       },
     ],
-    format: "Guide",
+    format: "Гайд",
     summary: "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
     tags: ["developer pipeline", "agents", "delivery"],
     title: "Developer Pipeline без магии",

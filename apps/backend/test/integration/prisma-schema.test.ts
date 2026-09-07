@@ -29,7 +29,6 @@ describe("Prisma schema", () => {
       testDatabase.prisma.membershipEvidenceReceipt.count(),
       testDatabase.prisma.membershipProjection.count(),
       testDatabase.prisma.topic.count(),
-      testDatabase.prisma.format.count(),
       testDatabase.prisma.tag.count(),
       testDatabase.prisma.series.count(),
       testDatabase.prisma.material.count(),
@@ -54,6 +53,6 @@ describe("Prisma schema", () => {
       testDatabase.prisma.workshopSolutionReveal.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 34 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 33 }, () => 0));
   });
 });

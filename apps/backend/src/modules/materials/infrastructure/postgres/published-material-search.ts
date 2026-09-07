@@ -1,3 +1,4 @@
+import { materialFormatsSql } from "./material-formats.js";
 import {
   Prisma,
   type MaterialsPrismaTransaction,
@@ -42,7 +43,7 @@ export async function refreshPublishedMaterialSearchProjections(
         ''
       )
     )
-    from materials.topics as topic, materials.formats as format
+    from materials.topics as topic, (${materialFormatsSql}) as format(id, slug, name)
     where ${searchScopeSql(scope)}
       and topic.id = publication.topic_id
       and format.id = publication.format_id
