@@ -137,3 +137,24 @@ test("reading progress counts a shared material in both real Series", async ({ p
   await expect(page.locator("[data-series-progress]")).toContainText("Изучено 0 из 1");
   await expect(page.getByText("Все материалы изучены")).toHaveCount(0);
 });
+
+
+test("reading progress supports Text and lets an expired member remove a protected mark", async ({ page, context }) => {
+  await signIn(context, "EXPIRED_MEMBER");
+  const text = await openReader(page, "tekst-dlya-proverki-progressa", "Прочитано");
+  if (await text.getAttribute("aria-pressed") !== "true") await text.click();
+  await expect(text).toHaveAttribute("aria-pressed", "true");
+  const protectedAction = await openReader(page, "developer-pipeline-bez-poteri-konteksta");
+  await expect(page.locator("[data-reader-body]")).toHaveCount(0);
+  // The development fixture marked this material while Membership was active, then expired it.
+  // Desktop and mobile share that Account, so the second project observes the first one's removal.
+  if (await protectedAction.getAttribute("aria-pressed") === "true") await protectedAction.click();
+  await expect(protectedAction).toHaveAttribute("aria-pressed", "false");
+  await expect(protectedAction).toHaveAttribute("aria-disabled", "true");
+  await page.goto("/account");
+  const signedOut = page.waitForResponse((response) => response.url().endsWith("/auth/sign-out") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Выйти из аккаунта", exact: true }).click();
+  expect((await signedOut).status()).toBe(200);
+  await page.goto("/materials/tekst-dlya-proverki-progressa");
+  await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "anonymous");
+});
