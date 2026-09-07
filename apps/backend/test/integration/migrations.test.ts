@@ -168,6 +168,7 @@ describe("Platform migrations", () => {
           "0030_communications_permission",
           "0031_communication_tracking_hits",
           "0032_reading_activity",
+          "0033_material_visits",
 
       ],
     });
@@ -187,7 +188,7 @@ describe("Platform migrations", () => {
       "telegram_membership",
       telegramMembershipTables,
     );
-    await expectTables(testDatabase, "reading_activity", ["commands", "events", "material_states"]);
+    await expectTables(testDatabase, "reading_activity", ["commands", "events", "material_states", "material_visits"]);
     await expectTables(testDatabase, "assets", assetTables);
     await expectTables(testDatabase, "videos", videoTables);
     await expectTables(testDatabase, "workshop", workshopTables);
@@ -686,6 +687,7 @@ describe("Platform migrations", () => {
           "0030_communications_permission",
           "0031_communication_tracking_hits",
           "0032_reading_activity",
+          "0033_material_visits",
 
         ],
       });

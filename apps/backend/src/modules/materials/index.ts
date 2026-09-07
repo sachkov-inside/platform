@@ -193,3 +193,5 @@ export {
 export { PublicContentTargets, type PublicContentTarget, type PublicContentTargetResult } from "./facets/public-content-targets/public-content-targets.js";
 
 export { PublishedSeriesComposition, type PublishedSeriesCompositionResult } from "./features/read-published-series-composition/read-published-series-composition.js";
+
+export { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";

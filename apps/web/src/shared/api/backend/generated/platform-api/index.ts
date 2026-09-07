@@ -22,6 +22,7 @@ export { MaterialAuthoringService } from './services/MaterialAuthoringService';
 export { MaterialVideoAuthoringService } from './services/MaterialVideoAuthoringService';
 export { MemberProfilesService } from './services/MemberProfilesService';
 export { OperationsService } from './services/OperationsService';
+export { PersonalHomeService } from './services/PersonalHomeService';
 export { PublishedMaterialsService } from './services/PublishedMaterialsService';
 export { ReadingActivityService } from './services/ReadingActivityService';
 export { TelegramMembershipService } from './services/TelegramMembershipService';
