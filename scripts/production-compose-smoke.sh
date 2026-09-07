@@ -495,6 +495,27 @@ if ! web_schema_marker="$(read_schema_marker "$web_health")" || [[ "$web_health"
   exit 1
 fi
 
+# Exercise the compiled release command shipped in the real production image.
+# This isolated identity has no provider account and never contacts a live provider.
+owner_bootstrap=(
+  "${application_compose[@]}" exec -T
+  --env OWNER_LOGTO_ISSUER=https://identity.production-smoke.invalid/oidc
+  --env OWNER_LOGTO_SUBJECT=production-smoke-owner
+  --env OWNER_PERMISSION=materials:manage
+  api node dist/release/bootstrap-owner-account.js
+)
+first_owner_bootstrap="$("${owner_bootstrap[@]}")"
+second_owner_bootstrap="$("${owner_bootstrap[@]}")"
+node --input-type=module --eval '
+  const [first, second] = process.argv.slice(1).map(value => JSON.parse(value));
+  if (
+    first.accountCreated !== true || first.permissionGranted !== true ||
+    second.accountCreated !== false || second.permissionGranted !== false ||
+    first.accountId !== second.accountId ||
+    first.permission !== "materials:manage" || second.permission !== "materials:manage"
+  ) throw new Error("Production owner bootstrap is not idempotent");
+' "$first_owner_bootstrap" "$second_owner_bootstrap"
+
 caddy_container_id="$("${application_compose[@]}" ps --quiet caddy-smoke)"
 docker cp "$caddy_container_id:/data/caddy/pki/authorities/local/root.crt" "$runtime_config_dir/caddy-root.crt"
 if curl \
