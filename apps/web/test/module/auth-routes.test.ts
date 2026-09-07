@@ -107,6 +107,7 @@ describe("Logto BFF route orchestration", () => {
     );
     expect(fakes.handleSignIn).toHaveBeenCalledWith({
       redirectUri: "https://inside.example.test/callback",
+      prompt: "login",
     });
   });
 
@@ -125,6 +126,7 @@ describe("Logto BFF route orchestration", () => {
     expect(response.status).toBe(200);
     expect(fakes.handleSignIn).toHaveBeenCalledWith({
       redirectUri: "https://inside.example.test/callback",
+      prompt: "login",
       postRedirectUri: "https://inside.example.test/authoring/playlists/playlist-id",
     });
 

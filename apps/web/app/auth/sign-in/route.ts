@@ -1,3 +1,4 @@
+import { Prompt } from "@logto/next";
 import LogtoClient from "@logto/next/server-actions";
 import { authNavigationResponse } from "@/shared/auth/auth-navigation-response.server";
 
@@ -23,6 +24,8 @@ export async function POST(request: Request): Promise<Response> {
     );
     const { url } = await client.handleSignIn({
       redirectUri: `${config.baseUrl}/callback`,
+      // Account establishment needs a fresh email or Telegram verification after a failed callback.
+      prompt: Prompt.Login,
       ...(postRedirectUri === undefined ? {} : { postRedirectUri }),
     });
     return redirect(url);

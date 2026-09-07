@@ -203,6 +203,12 @@ JWT customizer bound to its real connector ID. The disposable identity bootstrap
 also rewrites test mail and application settings, so it must not be used as a
 production bootstrap. Keep email sign-in available.
 
+Set the Platform API resource access-token lifetime in Logto to **300 seconds**. The
+Platform verifier rejects tokens with a lifetime longer than five minutes; a successful
+Logto code exchange with a longer-lived token still fails Account establishment. Explicit
+sign-in uses the SDK's `prompt=login` so a failed first callback can obtain fresh email or
+Telegram proof even when Logto already has a session.
+
 Platform API requires `TELEGRAM_SIGN_IN_ENABLED=true`,
 `TELEGRAM_SIGN_IN_PROVIDER_URL=https://telegram.sachkov.dev` and
 `TELEGRAM_SIGN_IN_INTEGRATION_SECRET`. The secret must match the Logto connector
@@ -214,6 +220,24 @@ provider upgrade and its exact POST routes: sign-in registration, status, consum
 and account-link under `/integrations/identity/v1/sign-in`. It must also preserve
 the host-owned transport override. A reachable Platform callback alone does not
 prove a completed sign-in or Membership access.
+
+## Owner Account preparation
+
+The production backend image includes `dist/release/bootstrap-owner-account.js` for the
+explicit [owner Account bootstrap](local-development.md#owner-account-release-bootstrap).
+After verifying the owner's real Logto identity, run it in the current API container with
+`OWNER_LOGTO_ISSUER`, `OWNER_LOGTO_SUBJECT` and `OWNER_PERMISSION=materials:manage`:
+
+```bash
+docker exec \
+  --env OWNER_LOGTO_ISSUER --env OWNER_LOGTO_SUBJECT --env OWNER_PERMISSION \
+  inside-platform-production-api-1 node dist/release/bootstrap-owner-account.js
+```
+
+It uses that container's existing database and identity configuration, records the normal
+Account audit and can be repeated without adding another Account or permission. It is never
+run by container startup or migrations. The production Compose smoke executes this exact
+compiled command twice on its disposable database.
 
 ## Migrations, failure and rollback
 
