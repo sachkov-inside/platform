@@ -140,6 +140,7 @@ ufw default allow outgoing
 ufw allow OpenSSH
 ufw allow 80/tcp
 ufw allow 443/tcp
+ufw allow 443/udp
 ufw --force enable
 
 systemctl enable docker.service ssh.service caddy.service

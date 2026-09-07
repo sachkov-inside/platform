@@ -45,12 +45,16 @@ test("personal Home opens the real series, persists marks and reconciles a lost 
   await page.goto(`/materials/${materialSlugs[0]}`); const otherMark = await unmark(page, "Прочитано");
   await otherMark.click(); await expect(otherMark).toHaveAttribute("aria-pressed", "true");
   await signIn(context); await resetSeries(page);
+  // Dispose the previous Reader before intercepting the new visible open.
+  await page.goto("about:blank");
   const commands: string[] = []; let lost = true;
   await page.route("**/api/reading-progress/open", async (route) => {
     commands.push(route.request().postData() ?? "");
     if (lost) { lost = false; await route.fetch(); await route.abort("failed"); } else await route.continue();
   });
-  const opened = page.waitForResponse((response) => response.url().endsWith("/api/reading-progress/open") && response.status() === 200);
+  const opened = page.waitForResponse((response) =>
+    commands.length >= 2 && response.url().endsWith("/api/reading-progress/open") && response.status() === 200,
+  );
   await page.goto(`/materials/${materialSlugs[0]}`); const button = await unmark(page, "Прочитано"); await opened;
   expect(commands.length).toBeGreaterThanOrEqual(2);
   const commandId = (body: string) => /name="commandId"\r\n\r\n([^\r]+)/u.exec(body)?.[1];

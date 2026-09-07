@@ -42,8 +42,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Install Chromium
-        run: pnpm --filter @inside/web exec playwright install --with-deps chromium
+      - name: Install browser engines
+        run: pnpm --filter @inside/web exec playwright install --with-deps chromium webkit
       - name: Run repository checks
         run: pnpm check
       - name: Upload Playwright diagnostics
