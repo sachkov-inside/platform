@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { expect, within, userEvent } from "storybook/test";
 
 import { ReadingAction } from "@/features/reading-progress";
@@ -17,7 +17,14 @@ function PersonalHomeProof({ view }: { readonly view: PersonalHomeView }) {
   const [completed, setCompleted] = useState<readonly string[]>([]);
   const [retried, setRetried] = useState(false);
   const current: PersonalHomeView = retried ? { kind: "ready", items: [text] } : view.kind === "ready" ? { kind: "ready", items: view.items.filter((item) => !completed.includes(item.id)) } : view;
-  return <HomePage result={{ kind: "ready", value: illustratedHome }} personal={<ContinueLearning view={current} onRetry={() => { setRetried(true); }} readingActions={new Map([[ended.id, <ReadingAction key={ended.id} format="Видео" view={{ kind: "ready", isRead: false, canMark: true }} onRefresh={() => undefined} onSetReadingState={() => { setCompleted([...completed, ended.id]); }} />]])} />} />;
+  const [refreshing, setRefreshing] = useState(false);
+  useEffect(() => {
+    const refresh = () => { setRefreshing(true); };
+    window.addEventListener("personal-home-proof-refresh", refresh);
+    return () => { window.removeEventListener("personal-home-proof-refresh", refresh); };
+  }, []);
+  const presented: PersonalHomeView = refreshing && (current.kind === "ready" || current.kind === "unavailable") ? { kind: "loading", previous: current } : current;
+  return <HomePage result={{ kind: "ready", value: illustratedHome }} personal={<ContinueLearning view={presented} onRetry={() => { setRetried(true); }} readingActions={new Map([[ended.id, <ReadingAction key={ended.id} format="Видео" view={{ kind: "ready", isRead: false, canMark: true }} onRefresh={() => undefined} onSetReadingState={() => { setCompleted([...completed, ended.id]); }} />]])} />} />;
 }
 const meta = {
   component: PersonalHomeProof,
@@ -37,5 +44,5 @@ export const PartialVideo: Story = { args: { view: { kind: "ready", items: [vide
 export const ReachedEndUnmarked: Story = { args: { view: { kind: "ready", items: [ended, text] } } };
 export const CompletedExclusion: Story = { args: { view: { kind: "ready", items: [ended, text] } }, play: async ({ canvasElement }) => { const canvas = within(canvasElement); await userEvent.click(canvas.getByRole("button", { name: /^Просмотрено$/u })); await expect(canvas.queryByText(ended.title)).not.toBeInTheDocument(); await expect(canvas.getByRole("heading", { name: "Серии" })).toBeVisible(); } };
 export const PartialData: Story = { args: { view: { kind: "ready", items: [{ ...video, resume: { kind: "start" } }, text] } } };
-export const Loading: Story = { args: { view: { kind: "loading" } } };
+export const Loading: Story = { args: { view: { kind: "loading", previous: { kind: "ready", items: [video, text, ended] } } } };
 export const Unavailable: Story = { args: { view: { kind: "unavailable" } }, play: async ({ canvasElement }) => { const canvas = within(canvasElement); await expect(canvas.getByRole("heading", { name: "Серии" })).toBeVisible(); await userEvent.click(canvas.getByRole("button", { name: "Попробовать ещё раз" })); await expect(canvas.queryByRole("status")).not.toBeInTheDocument(); } };

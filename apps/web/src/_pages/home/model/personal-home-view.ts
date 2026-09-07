@@ -9,8 +9,10 @@ export interface ContinueMaterialView {
     | { readonly kind: "reached-end" };
 }
 
-export type PersonalHomeView =
-  | { readonly kind: "hidden" }
-  | { readonly kind: "loading" }
+export type PersonalHomeContentView =
   | { readonly kind: "unavailable" }
   | { readonly kind: "ready"; readonly items: readonly ContinueMaterialView[] };
+export type PersonalHomeView =
+  | { readonly kind: "hidden" }
+  | { readonly kind: "loading"; readonly previous: PersonalHomeContentView }
+  | PersonalHomeContentView;
