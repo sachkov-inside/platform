@@ -44,6 +44,16 @@ describe("production runtime architecture contract", () => {
       /unknown integration routes must fail closed/u,
     );
   });
+
+  it("rejects a Logto sign-in callback that allows other HTTP methods", () => {
+    assert.throws(
+      () => assertRuntimeContract({
+        ...runtime,
+        caddy: runtime.caddy.replace("method POST", "method GET"),
+      }),
+      /Logto linked-identity callback must allow only POST/u,
+    );
+  });
 });
 
 function assertRuntimeContract(files) {
@@ -96,6 +106,7 @@ function assertRuntimeContract(files) {
 
   for (const path of [
     "/integrations/telegram/v1/membership-evidence",
+    "/integrations/telegram/v1/sign-in/linked-identity",
     "/integrations/kinescope/v1/webhook",
     "/integrations/kinescope/v1/authorize",
     "/mcp",
@@ -103,6 +114,11 @@ function assertRuntimeContract(files) {
   ]) {
     assert.match(files.caddy, new RegExp(`path ${escapeRegExp(path)}$`, "mu"));
   }
+  assert.match(
+    files.caddy,
+    /@telegram_sign_in \{\s+method POST\s+path \/integrations\/telegram\/v1\/sign-in\/linked-identity\s+\}/u,
+    "Logto linked-identity callback must allow only POST",
+  );
   if (!/@unknown_integration path \/integrations\/\*\n\t\trespond @unknown_integration 404/u.test(files.caddy)) {
     throw new Error("unknown integration routes must fail closed");
   }

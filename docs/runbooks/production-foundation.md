@@ -185,6 +185,45 @@ PostgreSQL service использует `init: true`: Docker init собирае
 `pgbackrest --stanza=production check`, затем верните Logto и application traffic. Volume не
 удаляйте; одного `restart` недостаточно для изменения init-настройки контейнера.
 
+## Права подключения Logto
+
+Logto использует не только `logto_owner`, но и созданные seed роли
+`logto_tenant_logto_default` и `logto_tenant_logto_admin`. Обе входят в группу
+`logto_tenant_logto`. После отзыва `CONNECT` у `PUBLIC` недостаточно оставить
+право одному владельцу базы: процесс Logto продолжит работать, но JWKS,
+discovery и вход начнут возвращать HTTP 500. Такой отказ исправлен в
+[Platform #355](https://github.com/sachkov-inside/platform/issues/355).
+
+После seed и каждого изменения прав подключения выполните read-only проверку
+из проверенного checkout:
+
+```bash
+sudo docker exec -i inside-production-database-postgres-1 \
+  psql -U postgres -d postgres \
+  < infra/production/database/verify-logto-database-access.sql
+```
+
+Проверка требует доступ владельца и обеих рабочих ролей к `logto`, а также
+отсутствие доступа у `platform` и, если она создана, `telegram_owner`. Она ничего
+не исправляет. Имена соответствуют production foundation из этого runbook.
+Новая foundation до изоляции баз имеет default PostgreSQL grants и эту проверку
+не проходит: изоляция и разрешения рабочих ролей проверяются вместе.
+
+Если причина отказа — потерянный `CONNECT` у рабочих ролей, сначала проверьте
+состав существующей группы, сделайте свежий backup и в разрешённое окно верните
+только её право на собственную базу:
+
+```sql
+GRANT CONNECT ON DATABASE logto TO logto_tenant_logto;
+```
+
+Не возвращайте `CONNECT` для `PUBLIC` и не выдавайте рабочим ролям superuser.
+Затем повторите SQL-проверку и проверьте HTTP 200 с корректным содержимым у
+JWKS/discovery, состояние Logto и настоящий вход. Для regression proof на
+изолированной восстановленной копии отзовите group grant: проверка должна
+отказать; верните grant — должна пройти. Production для отрицательного теста
+не используется.
+
 ## Восстановление базы
 
 Restore — ручная аварийная операция, а не CI job. Сначала переведите application в maintenance
