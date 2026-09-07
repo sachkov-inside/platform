@@ -1,5 +1,9 @@
 {
 	admin 127.0.0.1:2019
+	# Re-enable HTTP/3 only after external auth and browser acceptance (#387).
+	servers :443 {
+		protocols h1 h2
+	}
 }
 
 # The application runtime owns public routes. Provisioning keeps Caddy healthy and
