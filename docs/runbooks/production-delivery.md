@@ -177,6 +177,7 @@ The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes
 
 - web at `inside.sachkov.dev`;
 - `/integrations/telegram/v1/membership-evidence`;
+- `POST /integrations/telegram/v1/sign-in/linked-identity` for the trusted Logto connector;
 - `/integrations/kinescope/v1/webhook`;
 - `/integrations/kinescope/v1/authorize`;
 - `/mcp` and `/.well-known/oauth-protected-resource/mcp`.
@@ -184,6 +185,35 @@ The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes
 Unknown `/integrations/*` paths and `/health`, `/health/*`, `/_health/*` return 404 at the public
 edge. PostgreSQL and direct service ports remain private. A wrong TLS hostname must fail certificate
 validation.
+
+### Telegram sign-in configuration
+
+The production connector uses the existing HTTPS origins: `platformUrl` is
+`https://inside.sachkov.dev`, `providerUrl` is `https://telegram.sachkov.dev`, and
+`issuer` is `https://auth.sachkov.dev/oidc`. These are server-to-server calls. The
+Platform route above accepts only POST; the backend also requires the separate
+sign-in integration secret and an enabled sign-in configuration. The Web BFF calls
+`/integrations/telegram/v1/sign-in/complete` through its internal backend transport;
+that endpoint remains closed at the public edge.
+
+Before enabling the connector, verify the actual Logto `inside.4` image identity,
+the Logto-owned unique identity index from
+`infra/identity/logto/telegram-identity.sql`, the connector configuration and the
+JWT customizer bound to its real connector ID. The disposable identity bootstrap
+also rewrites test mail and application settings, so it must not be used as a
+production bootstrap. Keep email sign-in available.
+
+Platform API requires `TELEGRAM_SIGN_IN_ENABLED=true`,
+`TELEGRAM_SIGN_IN_PROVIDER_URL=https://telegram.sachkov.dev` and
+`TELEGRAM_SIGN_IN_INTEGRATION_SECRET`. The secret must match the Logto connector
+and Telegram provider; it is distinct from webhook, linking and evidence secrets.
+The tracked template stays disabled until all three participants are ready.
+
+[Telegram #45](https://github.com/sachkov-inside/inside-telegram/issues/45) owns the
+provider upgrade and its exact POST routes: sign-in registration, status, consume
+and account-link under `/integrations/identity/v1/sign-in`. It must also preserve
+the host-owned transport override. A reachable Platform callback alone does not
+prove a completed sign-in or Membership access.
 
 ## Migrations, failure and rollback
 

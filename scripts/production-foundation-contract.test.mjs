@@ -19,6 +19,12 @@ const foundation = {
 };
 
 describe("production foundation architecture contract", () => {
+  it("names the production Logto build with the current fork revision", () => {
+    const { logto } = JSON.parse(read("infra/identity/logto/versions.json"));
+    const image = foundation.logtoCompose.match(/^ {2}image: (.+)$/mu)?.[1];
+    assert.equal(image, `inside/logto-production:${logto.version}-${logto.forkRevision}`);
+  });
+
   it("shares only the internal database network across the database and Logto stacks", () => {
     assertFoundationContract(foundation);
   });
