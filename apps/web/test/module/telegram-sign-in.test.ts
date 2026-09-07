@@ -13,6 +13,7 @@ import {
 let browser: Browser;
 let server: Server;
 let origin: string;
+let fixtureOrigin: string;
 let state: InsideTelegramPresentation;
 let offline = false;
 let requests = 0;
@@ -50,7 +51,8 @@ beforeAll(async () => {
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("Fixture server did not bind");
-  origin = process.env.TELEGRAM_UI_ORIGIN ?? `http://127.0.0.1:${String(address.port)}`;
+  fixtureOrigin = `http://127.0.0.1:${String(address.port)}`;
+  origin = process.env.TELEGRAM_UI_ORIGIN ?? fixtureOrigin;
   browser = await chromium.launch();
 });
 
@@ -215,7 +217,7 @@ it.each(["headers", "body"] as const)("leaves loading and retries when the first
   state = { status: "pending", deepLink: botLink };
   offline = false;
   try {
-    await page.goto(`${origin}/api/inside-telegram`);
+    await page.goto(`${fixtureOrigin}/api/inside-telegram`);
     await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor({ timeout: 12000 });
     await page.locator("#bot").waitFor({ timeout: 5000 });
   } finally { stalledStatus = undefined; await page.close(); }
