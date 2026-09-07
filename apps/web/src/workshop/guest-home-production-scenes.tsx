@@ -49,7 +49,7 @@ function readerMetadata(material: MaterialPreview): MaterialReaderMetadata {
 }
 function CatalogScene({ search }: { readonly search: string }) {
   const [query, setQuery] = useState(() => parseLibrarySearchParams(new URLSearchParams(search)).query);
-  const items = materials.filter((material) => (!query.topicSlug || query.topicSlug === material.topicSlug) && material.title.toLocaleLowerCase("ru").includes(query.q.toLocaleLowerCase("ru")));
+  const items = materials.filter((material) => (!query.topicSlug || query.topicSlug === material.topicSlug) && (query.formatSlugs.length === 0 || query.formatSlugs.includes(material.formatSlug)) && material.title.toLocaleLowerCase("ru").includes(query.q.toLocaleLowerCase("ru")));
   const sorted = query.sort === "title" ? [...items].sort((a, b) => a.title.localeCompare(b.title, "ru")) : items;
   return <LibraryPage query={query} onQueryChange={setQuery} result={{ kind: "ready", items: sorted, totalCount: sorted.length, nextCursor: null, facets: {
     formats: [{ id: "guide", name: "Гайд", slug: "guide", count: materials.length, summary: null }],

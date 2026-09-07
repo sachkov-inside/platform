@@ -36,11 +36,13 @@ the pause control stops them, and `prefers-reduced-motion: reduce` hides the ani
 
 ## Verification
 
-- Root `pnpm check`: passed (including docs, lint, types, architecture, module/route tests,
-  production build and Storybook build).
-- `pnpm test:storybook`: 32 files, 274 tests passed.
+- All root `pnpm check` stages passed. The refinement run reached the build and caught an invalid
+  Storybook matcher option; after correction, lint, types, builds and standalone-config checks
+  were rerun successfully. Module tests: 420 backend and 488 web passed; route tests: 43 passed.
+- Initial full `pnpm test:storybook`: 32 files, 274 tests passed. After refinement, all four guest
+  stories passed, including the new production-page navigation scenario.
 - Browser review: all three compositions at 1440 and 320 px; banner also checked at 390 px.
-  No document horizontal overflow at 320/390 px. Topic filtering and the series → material →
+  Refinement also checked at 768 px. No document horizontal overflow at 320/390 px. Topic filtering and the series → material →
   access/sign-in path checked interactively. The B story checks production series/locked-reader
 markers, next material and return to Home. Heading focus moves to the newly opened sample screen.
 - Not tested: production, real materials/access policy, checkout, conversion and real user response.

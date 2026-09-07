@@ -24,7 +24,7 @@ export const SeriesFirst: Story = {
     await userEvent.click(canvas.getByRole("link", { name: "Как дать ИИ контекст своего проекта" }));
     await expect(canvasElement.querySelector('[data-material-reader-state="access-required"]')).toBeInTheDocument();
     await expect(canvas.getByText("Материал 1 из 3")).toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("link", { name: "Дальше", exact: true }));
+    await userEvent.click(canvas.getByRole("link", { name: /^Дальше$/ }));
     await expect(canvas.getByRole("heading", { name: "Границы модулей: где провести линию" })).toBeInTheDocument();
     await expect(canvas.getByText("Материал 2 из 3")).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("link", { name: "Назад к серии" }));
