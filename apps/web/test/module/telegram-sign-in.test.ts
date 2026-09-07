@@ -2,7 +2,7 @@ import { createServer, type Server } from "node:http";
 import { mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import AxeBuilder from "@axe-core/playwright";
-import { chromium, type Browser, type Page } from "@playwright/test";
+import { chromium, webkit, type Browser, type Page } from "@playwright/test";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import {
   telegramSignInPage,
@@ -16,6 +16,7 @@ let origin: string;
 let state: InsideTelegramPresentation;
 let offline = false;
 let requests = 0;
+let stalledStatus: "headers" | "body" | undefined;
 const botLink = "https://t.me/inside_fixture_bot?start=test-only";
 const evidence = fileURLToPath(new URL("../../../../docs/evidence/issue-303/", import.meta.url));
 
@@ -29,6 +30,15 @@ beforeAll(async () => {
       response.end(telegramSignInScript);
     } else if (request.url === "/api/inside-telegram/status") {
       requests += 1;
+      if (stalledStatus) {
+        const stage = stalledStatus;
+        stalledStatus = undefined;
+        if (stage === "body") {
+          response.writeHead(200, { "Content-Type": "application/json" });
+          response.write("{");
+        }
+        return;
+      }
       response.setHeader("Content-Type", "application/json");
       response.statusCode = offline ? 503 : 200;
       response.end(JSON.stringify(state));
@@ -168,3 +178,45 @@ it.runIf(Boolean(process.env.STORYBOOK_UI_ORIGIN))("captures the exact Storybook
     await context.close();
   }
 });
+
+
+it("keeps the complete Telegram button geometry on narrow WebKit after loading", async () => {
+  const mobileBrowser = await webkit.launch();
+  try {
+    for (const width of [320, 390]) {
+      const page = await mobileBrowser.newPage({ viewport: { width, height: 844 }, isMobile: true, deviceScaleFactor: 3 });
+      await open(page, "pending");
+      const geometry = await page.locator("#bot").evaluate((element) => {
+        const button = element.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const label = range.getBoundingClientRect();
+        return { button: { height: button.height, left: button.left, right: button.right, bottom: button.bottom }, label: { left: label.left, right: label.right, bottom: label.bottom }, display: getComputedStyle(element).display, rects: element.getClientRects().length };
+      });
+      expect(geometry.display).toBe("flex");
+      expect(geometry.rects).toBe(1);
+      expect(geometry.button.height).toBeGreaterThanOrEqual(52);
+      expect(geometry.label.left).toBeGreaterThanOrEqual(geometry.button.left);
+      expect(geometry.label.right).toBeLessThanOrEqual(geometry.button.right);
+      expect(geometry.label.bottom).toBeLessThanOrEqual(geometry.button.bottom);
+      if (process.env.CAPTURE_TELEGRAM_EVIDENCE === "1") {
+        await mkdir(evidence, { recursive: true });
+        await page.screenshot({ path: `${evidence}/webkit-${String(width)}.png` });
+      }
+      await page.close();
+    }
+  } finally { await mobileBrowser.close(); }
+}, 30000);
+
+
+it.each(["headers", "body"] as const)("leaves loading and retries when the first status response stalls at %s", async (stage) => {
+  const page = await browser.newPage();
+  stalledStatus = stage;
+  state = { status: "pending", deepLink: botLink };
+  offline = false;
+  try {
+    await page.goto(`${origin}/api/inside-telegram`);
+    await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor({ timeout: 12000 });
+    await page.locator("#bot").waitFor({ timeout: 5000 });
+  } finally { stalledStatus = undefined; await page.close(); }
+}, 20000);

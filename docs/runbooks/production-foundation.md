@@ -62,7 +62,9 @@ sudo infra/production/host/provision-host.sh
    journal; устанавливает `jq`, gateway и установщик ключа.
 5. Копирует долгоживущие database/Logto definitions в `/opt/inside/foundation`, устанавливает
    Caddy baseline, backup command и systemd units.
-6. Включает Docker, SSH, Caddy и UFW; наружу разрешены только TCP 22, 80 и 443.
+6. Включает Docker, SSH, Caddy и UFW; наружу разрешены только TCP 22, 80 и 443, а также UDP 443 для HTTP/3 Caddy.
+   Caddy объявляет HTTP/3 через `Alt-Svc`; закрытый UDP-порт может задерживать
+   переключение браузера на TCP. Проверка HTTP/2 не доказывает доступность HTTP/3 из внешней сети.
 
 Скрипт не определяет размер VPS, не создаёт SSH key, DNS, buckets или credentials, не запускает
 PostgreSQL/Logto и не включает backup timers. Эти решения и действия выполняются в #244. После

@@ -82,6 +82,7 @@ export function renderTelegramSignInPage(view: InsideTelegramView): string {
 export const telegramSignInPage = renderTelegramSignInPage({ status: 'loading' }).replace('</body>', '<script src="/api/inside-telegram/script"></script></body>');
 
 const pollIntervalMilliseconds = 1500;
+const statusRequestTimeoutMilliseconds = 8000;
 export const telegramSignInScript = `
 const render = ${renderTelegramSignInContent.toString()};
 const main = document.querySelector('main');
@@ -100,8 +101,10 @@ function present(view) {
 }
 async function poll() {
   let stopped = false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ${statusRequestTimeoutMilliseconds});
   try {
-    const response = await fetch('/api/inside-telegram/status', { cache: 'no-store' });
+    const response = await fetch('/api/inside-telegram/status', { cache: 'no-store', signal: controller.signal });
     if (!response.ok) throw new Error('Status unavailable');
     const state = await response.json();
     present(state);
@@ -113,6 +116,8 @@ async function poll() {
     }
   } catch {
     present({ status: 'reconnecting' });
+  } finally {
+    clearTimeout(timeout);
   }
   if (!stopped) setTimeout(poll, ${pollIntervalMilliseconds});
 }
