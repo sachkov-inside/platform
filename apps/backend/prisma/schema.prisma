@@ -437,6 +437,7 @@ model ContentCover {
   state               String
   failureCode         String?   @map("failure_code") @db.VarChar(64)
   currentlyReferenced Boolean   @default(false) @map("currently_referenced")
+  uploadConfirmed     Boolean   @default(false) @map("upload_confirmed")
   orphanedAt          DateTime  @default(now()) @map("orphaned_at") @db.Timestamptz
   readyAt             DateTime? @map("ready_at") @db.Timestamptz
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz

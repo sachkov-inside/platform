@@ -190,6 +190,12 @@ export function assembleContentCovers(dependencies: {
           ) {
             throw new Error("Content cover storage failed");
           }
+          // A rejected/unknown PUT can still complete remotely. Confirm only
+          // successful writes, even when cleanup has already claimed this row.
+          await dependencies.prisma.contentCover.update({
+            where: { id: coverId },
+            data: { uploadConfirmed: true },
+          });
         } catch {
           await dependencies.prisma.contentCover.updateMany({
             data: {
@@ -272,6 +278,14 @@ async function changeCurrentCover(
         ok: false,
         error: { code: "conflict", currentCoverId },
       };
+    }
+    if (nextCoverId !== null) {
+      const pending = await transaction.contentCover.findUnique({ where: { id: nextCoverId } });
+      // An expired upload may already have been claimed by storage cleanup.
+      // Never attach or revive its immutable keys after that claim commits.
+      if (pending?.state !== "processing" || pending.failureCode !== null) {
+        return dependencyUnavailable();
+      }
     }
     await writeCurrentCoverId(transaction, command.owner, nextCoverId);
     const now = new Date();

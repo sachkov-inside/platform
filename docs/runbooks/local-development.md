@@ -15,8 +15,8 @@ The default stack contains:
 - Nest API on <http://127.0.0.1:3001> with health and OpenAPI endpoints;
 - the long-running MCP process at <http://127.0.0.1:3002/mcp> over the same application and database
   lifecycle;
-- `material-assets-worker`, which consumes the durable `pg-boss` cleanup queue and has no HTTP
-  listener;
+- `material-assets-worker`, which consumes the durable `pg-boss` cleanup queue for Material Assets
+  and detached Content Covers and has no HTTP listener;
 - `profile-avatars-worker`, which consumes the independent durable ProfileAvatar cleanup queue and
   has no HTTP listener;
 - `video-deletions-worker`, which owns explicit Platform-uploaded Kinescope Video deletion,
