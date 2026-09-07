@@ -46,7 +46,7 @@ describe("Personal Home on PostgreSQL", () => {
     }
     const saved = await materials.authoring.saveMaterial({ actor, materialId: draft.value.materialId, expectedContentVersion: draft.value.contentVersion, idempotencyKey: randomUUID(), metadata, body, primaryVideoId: videoId, publicationState: "published" });
     if (!saved.ok) throw new Error(saved.error.code);
-    return { materialId: saved.value.materialId, contentVersion: saved.value.contentVersion, videoId };
+    return { materialId: saved.value.materialId, contentVersion: saved.value.contentVersion, videoId, metadata, body };
   }
   function open(accountId: string, item: { materialId: string; contentVersion: number }) { return home.recordOpen({ accountId, materialId: item.materialId, contentVersion: item.contentVersion, commandId: randomUUID() }); }
   test("records only authorized current bodies; replay does not move recency or mark completion", async () => {
@@ -115,6 +115,22 @@ describe("Personal Home on PostgreSQL", () => {
     const unavailable = makeHome({ ...videos, loadProgressMany: () => Promise.resolve({ ok: false, error: { code: "dependency_unavailable", retryable: true } }), loadReadyDurations: () => Promise.resolve({ ok: false, error: { code: "dependency_unavailable", retryable: true } }) });
     expect(await unavailable.getContinue(accountId)).toMatchObject({ ok: true, value: [{ resume: { kind: "start" } }] });
     expect(await database.prisma.readingEvent.count({ where: { accountId } })).toBe(0);
+  });
+  test("content updates preserve visits and replacement Video starts with its own progress", async () => {
+    const accountId = randomUUID(); const item = await material("free", true);
+    if (item.videoId === null) throw new Error("missing video");
+    await open(accountId, item);
+    await videos.saveProgress({ accountId, videoId: item.videoId, positionSeconds: 123, durationSeconds: 600 });
+    const visit = await database.prisma.readingMaterialVisit.findUniqueOrThrow({ where: { accountId_materialId: { accountId, materialId: item.materialId } } });
+    const replacement = await videos.attachExisting({ actor, materialId: item.materialId, access: "free", providerVideoId: randomUUID() });
+    if (!replacement.ok) throw new Error(replacement.error.code);
+    const updated = await materials.authoring.saveMaterial({ actor, materialId: item.materialId, expectedContentVersion: item.contentVersion, idempotencyKey: randomUUID(), metadata: { ...item.metadata, title: "Updated video material" }, body: representativeDocument("Updated body"), primaryVideoId: replacement.value.videoId, publicationState: "published" });
+    if (!updated.ok) throw new Error(updated.error.code);
+    expect(await home.getContinue(accountId)).toMatchObject({ ok: true, value: [{ material: { materialId: item.materialId, title: "Updated video material", primaryVideoId: replacement.value.videoId }, resume: { kind: "start" } }] });
+    expect(await database.prisma.readingMaterialVisit.findUniqueOrThrow({ where: { accountId_materialId: { accountId, materialId: item.materialId } } })).toEqual(visit);
+    expect(await open(accountId, item)).toEqual({ ok: false, error: { code: "access_changed" } });
+    expect(await open(accountId, updated.value)).toMatchObject({ ok: true });
+    expect(await videos.loadProgress({ accountId, videoId: item.videoId })).toEqual({ ok: true, value: { positionSeconds: 123 } });
   });
   test("bounds the projection to six, excludes unpublished and rolls back a failed receipt", async () => {
     const accountId = randomUUID();

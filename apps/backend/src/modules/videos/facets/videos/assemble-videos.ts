@@ -498,7 +498,7 @@ export function assembleVideos(dependencies: {
       if (!parsed.success) return invalidRequest();
       try {
         const rows = await dependencies.prisma.videoPlaybackProgress.findMany({ where: { accountId: parsed.data.accountId, videoId: { in: parsed.data.videoIds } }, select: { videoId: true, positionSeconds: true, durationSeconds: true } });
-        return { ok: true, value: rows };
+        return { ok: true, value: rows.map((row) => ({ videoId: videoIdSchema.parse(row.videoId), positionSeconds: row.positionSeconds, durationSeconds: row.durationSeconds })) };
       } catch { return dependencyUnavailable(); }
     },
     async loadProgress(input) {
