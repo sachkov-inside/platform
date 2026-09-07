@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["accounts", "assets", "communications", "materials", "member_profiles", "membership_entitlements", "telegram_membership", "videos", "workshop"]
+  schemas  = ["accounts", "assets", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
 }
 
 model Account {
@@ -673,4 +673,41 @@ model CommunicationTrackingHit {
   @@index([deliveredAt, availableAt], map: "tracking_hit_pending_idx")
   @@map("tracking_hits")
   @@schema("communications")
+}
+
+model ReadingMaterialState {
+  accountId String @map("account_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  isRead Boolean @map("is_read")
+  readAt DateTime? @map("read_at") @db.Timestamptz
+  version Int
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  @@id([accountId, materialId])
+  @@map("material_states")
+  @@schema("reading_activity")
+}
+
+model ReadingEvent {
+  eventId String @id @map("event_id") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  eventType String @map("event_type")
+  stateVersion Int @map("state_version")
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz
+  commandId String @map("command_id") @db.Uuid
+  schemaVersion Int @map("schema_version") @db.SmallInt
+  @@unique([accountId, materialId, stateVersion])
+  @@index([accountId, occurredAt, eventId], map: "reading_events_account_history")
+  @@map("events")
+  @@schema("reading_activity")
+}
+
+model ReadingCommand {
+  accountId String @map("account_id") @db.Uuid
+  commandId String @map("command_id") @db.Uuid
+  fingerprint String
+  outcome Json
+  @@id([accountId, commandId])
+  @@map("commands")
+  @@schema("reading_activity")
 }
