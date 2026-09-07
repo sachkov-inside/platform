@@ -273,12 +273,14 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await page.reload();
   await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "37");
   await captureVideoEvidence(page, testInfo, "reader-automatic-player");
-  await page.getByRole("button", { name: "Изучено" }).click();
-  await expect(page.getByRole("button", { name: "Изучено", exact: true })).toHaveAttribute("aria-pressed", "true");
+  // This fixture is a Guide containing Video: the saved completion belongs to the Material.
+  await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "ready");
+  await page.locator("[data-reading-action-state]:visible").getByRole("button", { name: "Изучено", exact: true }).click();
+  await expect(page.locator("[data-reading-action-state]:visible").getByRole("button", { name: "Изучено", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.evaluate(() => { sessionStorage.setItem("test-player-unavailable", "1"); });
   await page.reload();
   await expect(page.getByText("Не удалось загрузить видео")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Изучено", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("[data-reading-action-state]:visible").getByRole("button", { name: "Изучено", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.evaluate(() => { sessionStorage.removeItem("test-player-unavailable"); });
 
 

@@ -114,8 +114,32 @@ describe("ReadingActivity HTTP", () => {
     expect(progress.statusCode).toBe(200);
     expect(progress.headers["cache-control"]).toBe("private, no-store");
     expect(progress.json()).toEqual({ seriesId, read: 0, total: 1, allRead: false });
+    const openPayload = { materialId, contentVersion: published.value.contentVersion, commandId: randomUUID() };
+    expect((await server.inject({ method: "GET", url: "/reading-activity/continue" })).statusCode).toBe(401);
+    expect((await server.inject({ method: "POST", url: "/reading-activity/opens", payload: openPayload })).statusCode).toBe(401);
+    expect((await server.inject({ method: "POST", url: "/reading-activity/opens", headers, payload: { ...openPayload, accountId: randomUUID() } })).statusCode).toBe(400);
+    expect((await server.inject({ method: "GET", url: "/reading-activity/continue", headers })).json()).toEqual([]);
+    const opened = await server.inject({ method: "POST", url: "/reading-activity/opens", headers, payload: openPayload });
+    expect(opened.statusCode).toBe(200);
+    expect(opened.headers["cache-control"]).toBe("private, no-store");
+    const continued = await server.inject({ method: "GET", url: "/reading-activity/continue", headers });
+    expect(continued.statusCode).toBe(200);
+    expect(continued.headers["cache-control"]).toBe("private, no-store");
+    expect(continued.json()).toMatchObject([{ material: { materialId }, resume: { kind: "start" } }]);
+    expect((await server.inject({ method: "GET", url: "/reading-activity/continue", headers: { authorization: `Bearer ${token2}` } })).json()).toEqual([]);
+    expect((await server.inject({ method: "POST", url: "/reading-activity/opens", headers, payload: openPayload })).json()).toMatchObject({ replayed: true });
     const loaded = await materials.authoring.loadMaterial({ actor, materialId });
     if (!loaded.ok) throw new Error(loaded.error.code);
+    for (const endpoint of ["/reading-activity/learning-home", "/reading-activity/series-continuation/series"]) {
+      expect((await server.inject({ method: "GET", url: endpoint })).statusCode).toBe(401);
+      const own = await server.inject({ method: "GET", url: endpoint, headers });
+      expect(own.statusCode).toBe(200); expect(own.headers["cache-control"]).toBe("private, no-store");
+      expect(own.json()).toMatchObject(endpoint.endsWith("learning-home") ? { video: null, series: { read: 0, total: 1, continuation: { materialSlug: loaded.value.metadata.slug } } } : { read: 0, total: 1, continuation: { materialSlug: loaded.value.metadata.slug } });
+      const other = await server.inject({ method: "GET", url: endpoint, headers: { authorization: `Bearer ${token2}` } });
+      expect(other.json()).toMatchObject(endpoint.endsWith("learning-home") ? { video: null, series: null } : { read: 0, total: 1, continuation: null });
+    }
+    expect((await server.inject({ method: "GET", url: "/reading-activity/series-continuation/missing", headers })).statusCode).toBe(404);
+
     const publicRead = await server.inject({ method: "GET", url: `/materials/${loaded.value.metadata.slug}` });
     expect(publicRead.statusCode).toBe(200);
     expect(publicRead.body).not.toContain('"isRead"');

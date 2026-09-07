@@ -1,5 +1,11 @@
 import type { ContentCover, MaterialPreview } from "@/entities/material";
 
+/** Ready presentation for continuation inside the existing Home sections. */
+export interface HomeContinuation {
+  readonly video?: { readonly material: MaterialPreview; readonly label: string } | undefined;
+  readonly series?: { readonly collection: HomeCollection; readonly read: number; readonly total: number } | undefined;
+}
+
 export interface HomeCollection {
   readonly count: number;
   readonly cover: ContentCover | null;

@@ -40,8 +40,8 @@ export function ReadingProgressProvider({ accountId, resolved, children }: { rea
   })) });
   const refresh = useCallback(async () => { await queryClient.invalidateQueries({ queryKey: ["reading-progress"] }); }, [queryClient]);
   useEffect(() => {
-    clearOtherReadingAccounts(queryClient, accountId);
-  }, [accountId, queryClient]);
+    if (resolved) clearOtherReadingAccounts(queryClient, accountId);
+  }, [accountId, queryClient, resolved]);
   useEffect(() => {
     const clear = (event: Event) => {
       const form = event.target;

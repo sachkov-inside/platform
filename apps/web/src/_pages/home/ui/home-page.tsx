@@ -1,6 +1,7 @@
 import { ArrowRight, DatabaseZap } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { MaterialCard } from "@/entities/material";
 import {
@@ -10,25 +11,31 @@ import {
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
-import type { HomeResult, HomeView } from "../model/home-view";
+import type { HomeContinuation, HomeResult, HomeView } from "../model/home-view";
 
-export function HomePage({ result }: { readonly result: HomeResult }) {
+export function HomePage({ result, personal, continuation }: { readonly result: HomeResult; readonly personal?: ReactNode; readonly continuation?: HomeContinuation }) {
   if (result.kind === "unavailable") {
-    return <HomeUnavailable />;
+    return <>{personal}<HomeUnavailable /></>;
   }
-  return <HomeReady home={result.value} />;
+  return <HomeReady home={result.value} personal={personal} continuation={continuation} />;
 }
 
-function HomeReady({ home }: { readonly home: HomeView }) {
+function HomeReady({ home, personal, continuation }: { readonly home: HomeView; readonly personal: ReactNode; readonly continuation: HomeContinuation | undefined }) {
+  const series = continuation?.series;
+  const video = continuation?.video;
+  const playlists = series === undefined ? home.playlists : [series.collection, ...home.playlists.filter((item) => item.slug !== series.collection.slug)];
+  const videos = video === undefined ? home.videos : [video.material, ...home.videos.filter((item) => item.slug !== video.material.slug)];
   return (
     <div className="@container/home min-w-0">
       <h1 className="sr-only">Главная</h1>
-      <PlaylistSection playlists={home.playlists} />
+      {personal}
+      <PlaylistSection playlists={playlists} continuation={series} />
       <TopicSection topics={home.topics} />
       <MaterialSection
         formatSlug="video"
         id="home-videos"
-        items={home.videos}
+        items={videos}
+        continuation={video}
         title="Новые видео"
         variant="video"
       />
@@ -77,12 +84,14 @@ function MaterialSection({
   items,
   title,
   variant = "default",
+  continuation,
 }: {
   readonly formatSlug: "guide" | "video";
   readonly id: string;
   readonly items: HomeView["videos"];
   readonly title: string;
   readonly variant?: "default" | "video";
+  readonly continuation?: HomeContinuation["video"];
 }) {
   return (
     <section aria-labelledby={id}>
@@ -111,6 +120,7 @@ function MaterialSection({
                 material={material}
                 returnHref="/"
                 variant={variant === "video" ? "compact" : "default"}
+                {...(continuation?.material.slug === material.slug ? { resumeLabel: continuation.label, readingStatus: null } : {})}
               />
             </li>
           ))}
@@ -122,8 +132,10 @@ function MaterialSection({
 
 function PlaylistSection({
   playlists,
+  continuation,
 }: {
   readonly playlists: HomeView["playlists"];
+  readonly continuation: HomeContinuation["series"];
 }) {
   return (
     <section aria-labelledby="home-series">
@@ -149,6 +161,7 @@ function PlaylistSection({
                   previewItems: playlist.previewItems,
                   slug: playlist.slug,
                   summary: playlist.summary ?? "",
+                  ...(continuation?.collection.slug === playlist.slug ? { continuation: { read: continuation.read, total: continuation.total } } : {}),
                 }}
               />
             </div>

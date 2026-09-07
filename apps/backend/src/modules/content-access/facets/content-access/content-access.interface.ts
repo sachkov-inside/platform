@@ -27,6 +27,8 @@ export type Resource = MaterialResource | AssetResource | VideoResource;
 export type AccessAction = "read" | "preview" | "download" | "play";
 
 export type EnforcementPoint =
+  | "material_open"
+  | "personal_home"
   | "reading_state_change"
   | "published_material_read"
   | "material_preview"

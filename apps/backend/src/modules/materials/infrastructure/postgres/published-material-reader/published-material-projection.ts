@@ -527,7 +527,7 @@ function filteredPublicationsSql(filters: Prisma.Sql): Prisma.Sql {
   `;
 }
 
-async function selectPublishedMaterialProjectionsByIds(
+export async function selectPublishedMaterialProjectionsByIds(
   prisma: MaterialsPrisma,
   materialIds: readonly string[],
 ): Promise<readonly PublishedMaterialProjectionDto[]> {

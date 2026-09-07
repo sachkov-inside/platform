@@ -1,3 +1,4 @@
+import { PersonalSeries } from "./personal-series.server";
 import { notFound } from "next/navigation";
 
 import type {
@@ -43,6 +44,7 @@ export async function PublishedSeriesPage({
     await loadPublishedSeries(slug, accessToken),
     slug,
     returnTarget,
+    accessToken,
   );
 }
 
@@ -69,6 +71,7 @@ function renderPublishedSeriesResult(
   result: PublishedSeriesResult,
   slug: string,
   returnTarget?: MaterialReaderReturnTarget,
+  accessToken?: string,
 ) {
   if (result.kind === "not-found") {
     notFound();
@@ -77,8 +80,9 @@ function renderPublishedSeriesResult(
     return <LibraryDiscoveryUnavailable kind="series" slug={slug} />;
   }
   return (
-    <LibraryDiscoveryView
+    <PersonalSeries
       result={result}
+      {...(accessToken === undefined ? {} : { accessToken })}
       {...(returnTarget === undefined ? {} : { returnTarget })}
     />
   );

@@ -1,0 +1,256 @@
+{
+  "command": "WATCHPACK_POLLING=true FULLSTACK_TEST_GREP='personal Home|reading progress' pnpm smoke:fullstack",
+  "source": "Playwright JSON reporter from local production build with real API and PostgreSQL; external Kinescope iframe SDK double",
+  "stats": {
+    "startTime": "2026-09-07T11:49:54.759Z",
+    "duration": 39614.926,
+    "expected": 22,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "tests": [
+    {
+      "project": "desktop-chromium",
+      "title": "personal Home opens the real series, persists marks and reconciles a lost visible open",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 6955
+        }
+      ]
+    },
+    {
+      "project": "desktop-chromium",
+      "title": "personal Home resumes real Video progress in the normal video section and excludes playback end",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 1219
+        }
+      ]
+    },
+    {
+      "project": "desktop-chromium",
+      "title": "personal Home preserves the public hub through errors and excludes denied, prefetched and SSR opens",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 678
+        }
+      ]
+    },
+    {
+      "project": "desktop-chromium",
+      "title": "personal Home preserves SSR geometry through authenticated hydration",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 349
+        }
+      ]
+    },
+    {
+      "project": "desktop-chromium",
+      "title": "personal Home waits for document visibility before recording an available Reader",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 316
+        }
+      ]
+    },
+    {
+      "project": "desktop-chromium",
+      "title": "personal Home retries an already visible open with the same command after the tab is hidden",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 1532
+        }
+      ]
+    },
+    {
+      "project": "mobile-chromium",
+      "title": "personal Home opens the real series, persists marks and reconciles a lost visible open",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 6649
+        }
+      ]
+    },
+    {
+      "project": "mobile-chromium",
+      "title": "personal Home resumes real Video progress in the normal video section and excludes playback end",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 1140
+        }
+      ]
+    },
+    {
+      "project": "mobile-chromium",
+      "title": "personal Home preserves the public hub through errors and excludes denied, prefetched and SSR opens",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 568
+        }
+      ]
+    },
+    {
+      "project": "mobile-chromium",
+      "title": "personal Home preserves SSR geometry through authenticated hydration",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 347
+        }
+      ]
+    },
+    {
+      "project": "mobile-chromium",
+      "title": "personal Home waits for document visibility before recording an available Reader",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 326
+        }
+      ]
+    },
+    {
+      "project": "mobile-chromium",
+      "title": "personal Home retries an already visible open with the same command after the tab is hidden",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 1480
+        }
+      ]
+    },
+    {
+      "project": "desktop-chromium",
+      "title": "reading progress persists for a free non-member, reconciles lost responses and isolates Accounts",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 1464
+        }
+      ]
+    },
+    {
+      "project": "desktop-chromium",
+      "title": "reading progress reconciles stale windows and account changes without reloading the app",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 730
+        }
+      ]
+    },
+    {
+      "project": "desktop-chromium",
+      "title": "reading progress appears on Home and Topic for video and other formats",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 1587
+        }
+      ]
+    },
+    {
+      "project": "desktop-chromium",
+      "title": "reading progress counts a shared material in both real Series",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 719
+        }
+      ]
+    },
+    {
+      "project": "desktop-chromium",
+      "title": "reading progress supports Text and lets an expired member remove a protected mark",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 4027
+        }
+      ]
+    },
+    {
+      "project": "mobile-chromium",
+      "title": "reading progress persists for a free non-member, reconciles lost responses and isolates Accounts",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 1345
+        }
+      ]
+    },
+    {
+      "project": "mobile-chromium",
+      "title": "reading progress reconciles stale windows and account changes without reloading the app",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 752
+        }
+      ]
+    },
+    {
+      "project": "mobile-chromium",
+      "title": "reading progress appears on Home and Topic for video and other formats",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 1589
+        }
+      ]
+    },
+    {
+      "project": "mobile-chromium",
+      "title": "reading progress counts a shared material in both real Series",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 651
+        }
+      ]
+    },
+    {
+      "project": "mobile-chromium",
+      "title": "reading progress supports Text and lets an expired member remove a protected mark",
+      "status": "expected",
+      "results": [
+        {
+          "status": "passed",
+          "durationMs": 4071
+        }
+      ]
+    }
+  ]
+}

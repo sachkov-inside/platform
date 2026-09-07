@@ -1,4 +1,4 @@
-import { ChevronRight, Clock3, LockKeyhole } from "lucide-react";
+import { ChevronRight, Clock3, LockKeyhole, Play } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -24,6 +24,8 @@ export interface MaterialCardProps {
   /** Series-owned context rendered below the row title. */
   readonly rowAnnotation?: React.ReactNode;
   readonly readingStatus?: React.ReactNode;
+  /** Existing video card with a short continuation caption supplied by its page. */
+  readonly resumeLabel?: string;
   readonly variant?: "compact" | "default" | "feed" | "row";
 }
 
@@ -34,6 +36,7 @@ export function MaterialCard({
   returnHref,
   rowAnnotation,
   readingStatus = material.materialId === undefined ? undefined : <SavedMaterialReadingStatus materialId={material.materialId} format={material.format} />,
+  resumeLabel,
   variant = "default",
 }: MaterialCardProps) {
   const Heading = headingLevel;
@@ -45,6 +48,7 @@ export function MaterialCard({
         headingLevel={headingLevel}
         material={material}
         readerHref={readerHref}
+        resumeLabel={resumeLabel}
         rowAnnotation={rowAnnotation}
         readingStatus={readingStatus}
         {...(returnHref === undefined ? {} : { returnHref })}
@@ -120,6 +124,12 @@ export function MaterialCard({
             {duration}
           </span>
         ) : null}
+        {isCompact && resumeLabel !== undefined ? (
+          <span className="absolute left-2 top-2 inline-flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full bg-accent px-2 py-1 text-[0.625rem] font-semibold leading-4 text-accent-foreground shadow-sm sm:left-3 sm:top-3 sm:gap-1.5 sm:px-2.5 sm:text-[0.6875rem]">
+            <Play aria-hidden="true" className="size-3 shrink-0 fill-current" />
+            Продолжить просмотр
+          </span>
+        ) : null}
       </AccessCover>
       {isCompact ? null : (
         <span className="mt-3 block text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-eyebrow">
@@ -135,6 +145,7 @@ export function MaterialCard({
         )}
       >
         <Link
+          aria-label={isCompact && resumeLabel !== undefined ? `${material.title}. ${resumeLabel}` : undefined}
           className="no-underline after:absolute after:inset-0 after:rounded-[1.5rem] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
           href={readerHref}
           prefetch={false}
@@ -144,8 +155,8 @@ export function MaterialCard({
       </Heading>
       {readingStatus ? <span className="mt-2 block">{readingStatus}</span> : null}
       {isCompact ? (
-        <span className="mt-1 block text-xs font-medium text-muted-foreground md:text-sm">
-          {material.topic}
+        <span className={cn("mt-1 block text-xs font-medium md:text-sm", resumeLabel === undefined ? "text-muted-foreground" : "text-action")}>
+          {resumeLabel ?? material.topic}
         </span>
       ) : duration === undefined ? null : (
         <span className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
@@ -163,11 +174,13 @@ function MaterialRow({
   readerHref,
   returnHref,
   rowAnnotation,
+  resumeLabel,
   readingStatus,
 }: {
   readonly headingLevel: "h2" | "h3";
   readonly material: MaterialPreview;
   readonly readerHref: Route;
+  readonly resumeLabel: string | undefined;
   readonly returnHref?: Route;
   readonly rowAnnotation?: React.ReactNode;
   readonly readingStatus?: React.ReactNode;
@@ -176,7 +189,7 @@ function MaterialRow({
   const isVideo = materialPreviewHasVideo(material);
   return (
     <article
-      className="group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none"
+      className={cn("group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none", resumeLabel !== undefined && "ring-2 ring-accent/70")}
       data-material-id={material.slug}
       data-material-slug={material.slug}
       data-material-variant="row"
@@ -217,7 +230,9 @@ function MaterialRow({
             {material.summary}
           </span>
         ) : null}
-        {readingStatus ? <span className="mt-2 block">{readingStatus}</span> : null}
+        {readingStatus || resumeLabel !== undefined ? <span className="mt-2 flex min-h-6 items-center">
+          {resumeLabel === undefined ? readingStatus : <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-action"><Play aria-hidden="true" className="size-3.5 shrink-0 fill-current" />{resumeLabel}</span>}
+        </span> : null}
         {rowAnnotation}
       </span>
       <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />

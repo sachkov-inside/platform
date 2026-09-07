@@ -711,3 +711,14 @@ model ReadingCommand {
   @@map("commands")
   @@schema("reading_activity")
 }
+
+model ReadingMaterialVisit {
+  accountId String @map("account_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  firstOpenedAt DateTime @map("first_opened_at") @db.Timestamptz
+  lastOpenedAt DateTime @map("last_opened_at") @db.Timestamptz
+  @@id([accountId, materialId])
+  @@index([accountId, lastOpenedAt(sort: Desc), materialId], map: "material_visits_recent")
+  @@map("material_visits")
+  @@schema("reading_activity")
+}

@@ -178,6 +178,7 @@ export interface Videos {
   loadPlayback(videoId: string): Promise<
     OperationResult<VideoPlayback | null, "dependency_unavailable" | "invalid_request" | "video_not_ready">
   >;
+  loadProgressMany(input: { readonly accountId: string; readonly videoIds: readonly string[] }): Promise<OperationResult<readonly { readonly videoId: string; readonly positionSeconds: number; readonly durationSeconds: number }[], "dependency_unavailable" | "invalid_request">>;
   loadProgress(input: {
     readonly accountId: string;
     readonly videoId: string;

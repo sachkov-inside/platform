@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import type {
   LibraryDiscoveryKind,
@@ -30,7 +31,7 @@ import {
   libraryMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
-import { SavedSeriesProgress } from "@/features/reading-progress";
+import { SavedSeriesProgress, SeriesMaterialMarker } from "@/features/reading-progress";
 import { seriesSteps } from "../model/series-steps";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
@@ -42,9 +43,13 @@ type ResolvedDiscoveryResult = Exclude<
 export function LibraryDiscoveryView({
   result,
   returnTarget = libraryMaterialReaderReturnTarget,
+  seriesProgress,
+  continuation,
 }: {
   readonly result: ResolvedDiscoveryResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
+  readonly seriesProgress?: ReactNode;
+  readonly continuation?: { readonly materialSlug: string; readonly label: string } | undefined;
 }) {
   const isSeries = result.discoveryKind === "series";
   const Icon = isSeries ? ListVideo : Tags;
@@ -66,12 +71,12 @@ export function LibraryDiscoveryView({
         returnTarget={returnTarget}
       />
       <DiscoveryHero Icon={Icon} isSeries={isSeries} result={result} />
-      {isSeries && result.reference.id !== undefined ? <SavedSeriesProgress seriesId={result.reference.id} /> : null}
+      {isSeries ? seriesProgress ?? (result.reference.id !== undefined ? <SavedSeriesProgress seriesId={result.reference.id} /> : null) : null}
 
       {result.kind === "empty" ? (
         <DiscoveryEmpty kind={result.discoveryKind} />
       ) : isSeries ? (
-        <SeriesMaterials currentHref={currentHref} result={result} />
+        <SeriesMaterials currentHref={currentHref} result={result} continuation={continuation} />
       ) : (
         <TopicMaterials currentHref={currentHref} result={result} />
       )}
@@ -225,9 +230,11 @@ function TopicMaterials({
 }
 
 function SeriesMaterials({
+  continuation,
   currentHref,
   result,
 }: {
+  readonly continuation: { readonly materialSlug: string; readonly label: string } | undefined;
   readonly currentHref: Route;
   readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
 }) {
@@ -250,6 +257,7 @@ function SeriesMaterials({
           return (
             <li
               className="relative grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3"
+              aria-current={continuation?.materialSlug === material.slug ? "step" : undefined}
               data-series-ordinal={ordinal}
               key={material.slug}
             >
@@ -265,12 +273,11 @@ function SeriesMaterials({
                 />
               ) : null}
               <div className="relative z-10 flex min-h-11 items-center font-semibold text-muted-foreground">
-                <span className="grid size-8 place-items-center rounded-full bg-primary text-xs font-bold text-white ring-4 ring-background" data-series-marker>
-                  {ordinal}
-                </span>
+                <SeriesMaterialMarker {...(material.materialId === undefined ? {} : { materialId: material.materialId })} ordinal={ordinal} />
               </div>
               <div className="min-w-0">
                 <MaterialCard
+                  {...(continuation?.materialSlug === material.slug ? { resumeLabel: continuation.label } : {})}
                   headingLevel="h3"
                   material={material}
                   returnHref={currentHref}

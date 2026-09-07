@@ -1,3 +1,4 @@
+import { name as materialVisitsName, statement as materialVisitsStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0033-material-visits.js";
 import { name as readingActivityName, statement as readingActivityStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0032-reading-activity.js";
 import { name as trackingHitsName, statement as trackingHitsStatement } from "../modules/communications/infrastructure/postgres/migrations/0031-communication-tracking-hits.js";
 import { name as communicationsPermissionName, statement as communicationsPermissionStatement } from "../modules/accounts/infrastructure/postgres/migrations/0030-communications-permission.js";
@@ -231,6 +232,7 @@ export const platformMigrations = [
   { name: communicationsPermissionName, statement: communicationsPermissionStatement },
   { name: trackingHitsName, statement: trackingHitsStatement },
   { name: readingActivityName, statement: readingActivityStatement },
+  { name: materialVisitsName, statement: materialVisitsStatement },
 ] as const;
 
 export function migrateToLatest(

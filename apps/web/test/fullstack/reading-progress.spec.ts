@@ -123,19 +123,19 @@ test("reading progress counts a shared material in both real Series", async ({ p
   await mkdir(directory, { recursive: true });
   for (const slug of ["demo-series-release", "demo-series-release-shared"]) {
     await page.goto(`/series/${slug}`);
-    await expect(page.locator("[data-series-progress]")).toContainText(/Изучено [1-9]/u);
+    await expect(page.getByRole("main").locator("[data-series-progress]")).toContainText(/Изучено [1-9]/u);
     const card = page.getByRole("article").filter({ has: page.getByRole("link", { name: "Demo · Подготовка приложения к релизу", exact: true }) });
     await expect(card.locator("[data-material-reading-status]")).toHaveText("Изучено");
     if (slug.endsWith("shared")) {
-      await expect(page.locator("[data-series-progress]")).toContainText("Все материалы изучены");
+      await expect(page.getByRole("main").locator("[data-series-progress]")).toContainText("Все материалы изучены");
       await page.screenshot({ path: resolve(directory, `${testInfo.project.name}-series.png`) });
     }
   }
   await openReader(page, "demo-podgotovka-prilozheniya-k-relizu");
   await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false");
   await page.goto("/series/demo-series-release-shared");
-  await expect(page.locator("[data-series-progress]")).toContainText("Изучено 0 из 1");
-  await expect(page.getByText("Все материалы изучены")).toHaveCount(0);
+  await expect(page.getByRole("main").locator("[data-series-progress]")).toContainText("Изучено 0 из 1");
+  await expect(page.getByRole("main").getByText("Все материалы изучены")).toHaveCount(0);
 });
 
 
