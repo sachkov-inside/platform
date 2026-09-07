@@ -125,3 +125,15 @@ before retry. Unused dictionary entries are removed with the dictionary. Databas
 CHECK constraints reject values outside the domain. The old application is incompatible
 with the new schema; use the normal release recovery procedure, not an old image on
 the migrated database.
+
+## Kinescope upload authorization
+
+The production Kinescope token needs both the existing API permissions and an `upload` scope
+with `write` permission for the configured public and Membership projects. API read success does
+not prove upload authorization: the uploader rejects an API-only token with HTTP 401.
+
+An explicit uploader 401/403 records a `rejected` upload attempt and returns
+`upload_not_authorized`. The same idempotency key replays that rejection; after the credential is
+repaired, the browser starts a new attempt. Network errors and ambiguous provider responses retain
+an unresolved attempt and return `upload_outcome_unknown`; check the provider before recovery.
+Never reset such attempts merely because the browser offers a retry.

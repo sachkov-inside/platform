@@ -8,7 +8,7 @@ const uploadResponseSchema = z.object({ uploadEndpoint: z.url(), video: videoSch
 
 export type VideoMutationResult<Value> =
   | { readonly kind: "ready"; readonly value: Value }
-  | { readonly kind: "unavailable" };
+  | { readonly kind: "unavailable" | "upload_not_authorized" | "upload_outcome_unknown" };
 
 export async function initMaterialVideoUpload(input: {
   readonly access: "free" | "membership";
@@ -73,6 +73,8 @@ function parseMutation<Schema extends z.ZodType>(
   schema: Schema,
 ): VideoMutationResult<z.output<Schema>> {
   if (!response.ok) return { kind: "unavailable" };
+  const failure = z.object({ kind: z.enum(["upload_not_authorized", "upload_outcome_unknown"]) }).strict().safeParse(response.body);
+  if (failure.success) return failure.data;
   const envelope = readyEnvelopeSchema.safeParse(response.body);
   if (!envelope.success) return { kind: "unavailable" };
   const value = schema.safeParse(envelope.data.value);

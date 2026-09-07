@@ -58,6 +58,8 @@ export function handleVideoDeletionRetryRequest(request: Request): Promise<Respo
 
 function mapVideoResult(result: Awaited<ReturnType<typeof requestVideoAttach>>) {
   if (!result.ok) {
+    const failure = z.object({ code: z.enum(["upload_not_authorized", "upload_outcome_unknown"]) }).safeParse(result.problem);
+    if (failure.success) return { kind: failure.data.code };
     return result.response.status === 401 || result.response.status === 403
       ? { kind: "unauthorized" as const }
       : { kind: "unavailable" as const };

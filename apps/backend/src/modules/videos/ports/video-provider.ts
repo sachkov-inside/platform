@@ -54,3 +54,11 @@ export interface VideoProvider {
     readonly projectId: string;
   }): Promise<ProviderVideo | null>;
 }
+
+/** An explicit provider denial proves that upload initialization was rejected. */
+export class ProviderUploadAuthorizationError extends Error {
+  constructor() {
+    super("The video provider denied upload authorization");
+    this.name = "ProviderUploadAuthorizationError";
+  }
+}

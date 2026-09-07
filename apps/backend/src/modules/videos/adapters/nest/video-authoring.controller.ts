@@ -81,7 +81,7 @@ export class VideoAuthoringController {
     400: ["invalid_request"],
     403: ["forbidden"],
     409: ["idempotency_key_reused", "upload_outcome_unknown"],
-    503: ["dependency_unavailable"],
+    503: ["dependency_unavailable", "upload_not_authorized"],
   })
   async initUpload(
     @CurrentAccount() current: AuthenticatedAccount,
@@ -206,6 +206,7 @@ function throwVideoError(error: VideoError): never {
     case "upload_outcome_unknown":
     case "video_deletion_not_retryable":
     case "video_not_ready": throw videoException(409, error.code);
+    case "upload_not_authorized": throw videoException(503, error.code);
     case "dependency_unavailable": throw videoException(503, error.code, true);
     default: return assertNever(error);
   }
