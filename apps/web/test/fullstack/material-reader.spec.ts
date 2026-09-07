@@ -111,7 +111,6 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   const membershipCard = page.getByRole("article").filter({
     has: page.getByRole("link", { name: "Developer Pipeline без потери контекста", exact: true }),
   });
-  await expect(membershipCard.locator('[data-access-cover="locked"]')).toBeVisible();
   await expect(page.getByText("Бесплатно")).toHaveCount(0);
   const materialSection = page.getByRole("region", { name: "Материалы", exact: true });
   const topicFilters = materialSection.getByRole("group", { name: "Тема материала" });
@@ -173,6 +172,11 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
+  const search = page.getByRole("searchbox", { name: "Поиск по Базе знаний" });
+  await search.fill("Developer Pipeline без потери контекста");
+  await expect(membershipCard).toBeVisible();
+  await expect(membershipCard.locator('[data-access-cover="locked"]')).toBeVisible();
+  await search.clear();
   await expect(page).toHaveURL(/\/library$/u);
   await page.reload();
   await expect(page.getByRole("article").first()).toBeVisible();
@@ -520,14 +524,15 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await expect(page.getByRole("main").getByText("Закрытое содержимое для участников.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Получить доступ" })).toHaveCount(0);
 
-  await page.goto("/library");
+  await page.goto("/library?q=developer+pipeline");
   const membershipCard = page
     .getByRole("article")
     .filter({ hasText: "Developer Pipeline без потери контекста" });
+  await expect(membershipCard).toBeVisible();
   await expect(membershipCard.locator("[data-access-cover]")).toHaveCount(0);
 
   const bffResponse = await context.request.get(
-    `${process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000"}/api/library/materials`,
+    `${process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000"}/api/library/materials?q=developer+pipeline`,
   );
   expect(bffResponse.status()).toBe(200);
   expect(bffResponse.headers()["cache-control"]).toBe("private, no-store");
