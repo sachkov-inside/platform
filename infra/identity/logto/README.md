@@ -69,6 +69,8 @@ redacts sensitive audit/webhook fields, removes raw SMTP provider errors and pro
 Russian rate-limit copy. Platform does not add a mail relay, quota table, attempt cookie, CAPTCHA,
 reauthentication protocol or second authentication session.
 
+Fork revision `inside.6` keeps the Telegram action slot centered with Flexbox. Safari can paint only fragments of a newly inserted button in the former Grid slot; the native-browser reproduction and before/after evidence are in [#391 verification](../../../docs/verification/telegram-button-391.md). The button dimensions, loading animation and interaction stay unchanged.
+
 Fork revision `inside.5` bounds each browser status request to eight seconds and retries interrupted loading; Chromium and narrow WebKit exercise the same presentation. The timeout includes response-body reading.
 
 Fork revision `inside.4` integrates the Telegram confirmation screen from #303. The identity-owned
