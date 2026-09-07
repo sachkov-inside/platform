@@ -18,6 +18,9 @@ describe("Prisma schema", () => {
 
   test("maps every table created by the checked-in migration", async () => {
     const counts = await Promise.all([
+      testDatabase.prisma.readingMaterialState.count(),
+      testDatabase.prisma.readingEvent.count(),
+      testDatabase.prisma.readingCommand.count(),
       testDatabase.prisma.account.count(),
       testDatabase.prisma.accountPermission.count(),
       testDatabase.prisma.accountAuditEvent.count(),
@@ -50,6 +53,6 @@ describe("Prisma schema", () => {
       testDatabase.prisma.workshopSolutionReveal.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 30 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 33 }, () => 0));
   });
 });

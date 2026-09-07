@@ -27,6 +27,7 @@ export type Resource = MaterialResource | AssetResource | VideoResource;
 export type AccessAction = "read" | "preview" | "download" | "play";
 
 export type EnforcementPoint =
+  | "reading_state_change"
   | "published_material_read"
   | "material_preview"
   | "mcp_material_read"
