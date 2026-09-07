@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -13,6 +13,8 @@ import {
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
+import { representativeDocument } from "../fixtures/material-body/representative.js";
+import { assembleContentCoverMaintenance } from "../../src/modules/materials/features/cleanup-content-covers/cleanup-content-covers.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -73,6 +75,74 @@ describe("ContentCovers", () => {
 
   afterAll(async () => {
     await database.dispose();
+  });
+
+  test("keeps cover object keys after deleting its draft owner until storage cleanup", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: database.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const created = await authoring.createDraft({
+      actor,
+      idempotencyKey: "cover-cleanup-draft",
+      body: representativeDocument("Disposable cover owner."),
+      metadata: {
+        title: "Disposable cover owner", summary: null, access: "free",
+        topicId: null, formatId: null, tagIds: [], seriesIds: [],
+      },
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    const covers = assembleContentCovers({
+      prisma: database.prisma, objectStorage, authorPolicy: { canManage: () => true },
+    });
+    const uploaded = await covers.change({
+      actor, expectedCoverId: null, kind: "upload",
+      owner: { id: created.value.materialId, kind: "material" },
+      ...(await coverUpload("#325678")),
+    });
+    if (!uploaded.ok || uploaded.value.cover === null) throw new Error("Expected cover");
+    const coverId = uploaded.value.cover.coverId;
+    const before = await database.prisma.contentCoverRendition.findMany({ where: { coverId } });
+    expect(before.length).toBeGreaterThan(0);
+    await expect(authoring.deleteDraft({
+      actor, materialId: created.value.materialId, expectedContentVersion: 1,
+      idempotencyKey: "delete-cover-cleanup-draft",
+    })).resolves.toMatchObject({ ok: true });
+    await expect(database.prisma.material.findUnique({
+      where: { id: created.value.materialId },
+    })).resolves.toBeNull();
+    await expect(database.prisma.contentCoverRendition.findMany({ where: { coverId } }))
+      .resolves.toEqual(before);
+    expect(before.every(({ publicObjectKey }) => stored.has(publicObjectKey))).toBe(true);
+    const graceMs = 1_000;
+    const orphanObservedAt = new Date(Date.now() + graceMs * 2);
+    const maintenance = assembleContentCoverMaintenance({ prisma: database.prisma, objectStorage });
+    await maintenance.cleanup({ graceMs, now: orphanObservedAt });
+    await maintenance.cleanup({ graceMs, now: new Date(orphanObservedAt.getTime() + graceMs - 1) });
+    expect(before.every(({ publicObjectKey }) => stored.has(publicObjectKey))).toBe(true);
+
+    let calls = 0;
+    const unreliable = assembleContentCoverMaintenance({
+      prisma: database.prisma,
+      objectStorage: {
+        delete: (namespace, key) => {
+          calls += 1;
+          if (calls === 2) return Promise.reject(new Error("S3 unavailable"));
+          return objectStorage.delete(namespace, key);
+        },
+      },
+    });
+    const readyAt = new Date(orphanObservedAt.getTime() + graceMs);
+    await expect(unreliable.cleanup({ graceMs, now: readyAt })).rejects.toThrow("S3 unavailable");
+    await expect(database.prisma.contentCoverRendition.findMany({ where: { coverId } }))
+      .resolves.toEqual(before);
+    // A fresh assembly models process restart; a claimed deletion retries
+    // immediately, without waiting for the orphan grace a second time.
+    await assembleContentCoverMaintenance({ prisma: database.prisma, objectStorage })
+      .cleanup({ graceMs, now: new Date(readyAt.getTime() + 1) });
+    expect(before.every(({ publicObjectKey }) => !stored.has(publicObjectKey))).toBe(true);
+    await expect(database.prisma.contentCover.findUnique({ where: { id: coverId } })).resolves.toBeNull();
+    await maintenance.cleanup({ graceMs, now: new Date(readyAt.getTime() + 2) });
   });
 
   test("uploads, replaces and removes a public Material cover without exposing storage keys", async () => {
@@ -147,6 +217,17 @@ describe("ContentCovers", () => {
       covers.deliver({ coverId: uploaded.value.cover.coverId, width: 960 }),
     ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
 
+    const oldKeys = await database.prisma.contentCoverRendition.findMany({
+      where: { coverId: uploaded.value.cover.coverId },
+    });
+    const currentKeys = await database.prisma.contentCoverRendition.findMany({
+      where: { coverId: replacement.value.cover.coverId },
+    });
+    const maintenance = assembleContentCoverMaintenance({ prisma: database.prisma, objectStorage });
+    await maintenance.cleanup({ graceMs: 1_000, now: new Date(Date.now() + 2_000) });
+    expect(oldKeys.every(({ publicObjectKey }) => !stored.has(publicObjectKey))).toBe(true);
+    expect(currentKeys.every(({ publicObjectKey }) => stored.has(publicObjectKey))).toBe(true);
+
     await expect(
       covers.change({
         actor,
@@ -158,6 +239,73 @@ describe("ContentCovers", () => {
     await expect(
       covers.deliver({ coverId: replacement.value.cover.coverId, width: 960 }),
     ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
+    await maintenance.cleanup({ graceMs: 1_000, now: new Date(Date.now() + 4_000) });
+    expect(currentKeys.every(({ publicObjectKey }) => !stored.has(publicObjectKey))).toBe(true);
+  });
+
+  test("retains the replacement while an old cover deletion is in flight", async () => {
+    const covers = assembleContentCovers({
+      prisma: database.prisma, objectStorage, authorPolicy: { canManage: () => true },
+    });
+    const owner = { id: materialId, kind: "material" } as const;
+    const old = await covers.change({
+      actor, owner, kind: "upload", expectedCoverId: null, ...(await coverUpload("#234567")),
+    });
+    if (!old.ok || old.value.cover === null) throw new Error("Expected cover");
+    await covers.change({ actor, owner, kind: "remove", expectedCoverId: old.value.cover.coverId });
+    const deletionStarted = deferredSignal();
+    const finishDeletion = deferredSignal();
+    const cleanup = assembleContentCoverMaintenance({
+      prisma: database.prisma,
+      objectStorage: {
+        async delete(namespace, key) {
+          deletionStarted.resolve();
+          await finishDeletion.promise;
+          await objectStorage.delete(namespace, key);
+        },
+      },
+    }).cleanup({ graceMs: 1_000, now: new Date(Date.now() + 2_000) });
+    await deletionStarted.promise;
+    let replacement;
+    try {
+      replacement = await covers.change({
+        actor, owner, kind: "upload", expectedCoverId: null, ...(await coverUpload("#654321")),
+      });
+    } finally {
+      finishDeletion.resolve();
+      await cleanup;
+    }
+    if (!replacement.ok || replacement.value.cover === null) throw new Error("Expected replacement");
+    await expect(covers.deliver({ coverId: replacement.value.cover.coverId, width: 960 }))
+      .resolves.toMatchObject({ ok: true });
+    await expect(database.prisma.contentCover.findUnique({ where: { id: old.value.cover.coverId } }))
+      .resolves.toBeNull();
+    await covers.change({ actor, owner, kind: "remove", expectedCoverId: replacement.value.cover.coverId });
+  });
+
+  test.each(["topic", "series"] as const)("retains cleanup records after deleting a %s", async (kind) => {
+    const id = randomUUID();
+    const row = { id, name: "Disposable cover owner", slug: `cleanup-${id}` };
+    if (kind === "topic") await database.prisma.topic.create({ data: row });
+    else await database.prisma.series.create({ data: row });
+    const covers = assembleContentCovers({
+      prisma: database.prisma, objectStorage, authorPolicy: { canManage: () => true },
+    });
+    const uploaded = await covers.change({
+      actor, owner: { id, kind }, kind: "upload", expectedCoverId: null,
+      ...(await coverUpload("#112233")),
+    });
+    if (!uploaded.ok || uploaded.value.cover === null) throw new Error("Expected cover");
+    const coverId = uploaded.value.cover.coverId;
+    const keys = await database.prisma.contentCoverRendition.findMany({ where: { coverId } });
+    if (kind === "topic") await database.prisma.topic.delete({ where: { id } });
+    else await database.prisma.series.delete({ where: { id } });
+    await expect(database.prisma.contentCoverRendition.findMany({ where: { coverId } })).resolves.toEqual(keys);
+    const maintenance = assembleContentCoverMaintenance({ prisma: database.prisma, objectStorage });
+    const now = new Date(Date.now() + 2_000);
+    await maintenance.cleanup({ graceMs: 1_000, now });
+    await maintenance.cleanup({ graceMs: 1_000, now: new Date(now.getTime() + 1_000) });
+    expect(keys.every(({ publicObjectKey }) => !stored.has(publicObjectKey))).toBe(true);
   });
 
   test.each([
@@ -272,4 +420,10 @@ async function coverUpload(color: string) {
     expectedChecksumSha256: createHash("sha256").update(body).digest("hex"),
     filename: "cover.png",
   } as const;
+}
+
+function deferredSignal() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((fulfill) => { resolve = fulfill; });
+  return { promise, resolve };
 }

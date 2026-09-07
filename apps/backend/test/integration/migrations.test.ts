@@ -169,6 +169,7 @@ describe("Platform migrations", () => {
           "0031_communication_tracking_hits",
           "0032_reading_activity",
           "0033_material_visits",
+          "0034_content_cover_cleanup",
 
       ],
     });
@@ -688,6 +689,7 @@ describe("Platform migrations", () => {
           "0031_communication_tracking_hits",
           "0032_reading_activity",
           "0033_material_visits",
+          "0034_content_cover_cleanup",
 
         ],
       });

@@ -12,14 +12,15 @@ describe("Material Asset maintenance", () => {
     const containsAssetReference = vi.fn().mockResolvedValue({ ok: true, value: true });
     const maintenance = assembleMaterialAssetMaintenance({
       assets: { cleanupOrphans },
+      covers: { cleanup: vi.fn().mockResolvedValue({ cleaned: 3, retained: 4 }) },
       config: { objectStorage: { orphanGraceMs: 86_400_000 } },
       materials: { containsAssetReference },
     });
 
     await expect(maintenance.cleanup()).resolves.toEqual({
-      cleaned: 2,
+      cleaned: 5,
       ok: true,
-      retained: 1,
+      retained: 5,
     });
     expect(cleanupOrphans).toHaveBeenCalledWith(expect.objectContaining({ graceMs: 86_400_000 }));
     expect(containsAssetReference).toHaveBeenCalledWith({ assetId: "asset", materialId: "material" });
@@ -28,6 +29,7 @@ describe("Material Asset maintenance", () => {
   test("returns a retryable failure for a durable worker retry", async () => {
     const maintenance = assembleMaterialAssetMaintenance({
       assets: { cleanupOrphans: vi.fn().mockRejectedValue(new Error("database unavailable")) },
+      covers: { cleanup: vi.fn() },
       config: { objectStorage: { orphanGraceMs: 86_400_000 } },
       materials: { containsAssetReference: vi.fn() },
     });
@@ -35,6 +37,18 @@ describe("Material Asset maintenance", () => {
     await expect(maintenance.cleanup()).resolves.toEqual({
       error: { code: "dependency_unavailable", retryable: true },
       ok: false,
+    });
+  });
+
+  test("retries a cover storage failure through the existing worker result", async () => {
+    const maintenance = assembleMaterialAssetMaintenance({
+      assets: { cleanupOrphans: vi.fn().mockResolvedValue({ ok: true, value: { cleaned: 0, retained: 0 } }) },
+      covers: { cleanup: vi.fn().mockRejectedValue(new Error("cover storage unavailable")) },
+      config: { objectStorage: { orphanGraceMs: 86_400_000 } },
+      materials: { containsAssetReference: vi.fn() },
+    });
+    await expect(maintenance.cleanup()).resolves.toMatchObject({
+      ok: false, error: { code: "dependency_unavailable", retryable: true },
     });
   });
 });

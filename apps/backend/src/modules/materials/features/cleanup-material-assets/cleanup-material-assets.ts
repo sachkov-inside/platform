@@ -1,6 +1,7 @@
 import type { PlatformConfig } from "../../../../config/platform-config.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import type { MaterialContent } from "../../facets/material-content/material-content.js";
+import type { ContentCoverMaintenance } from "../cleanup-content-covers/cleanup-content-covers.js";
 
 export const MATERIAL_ASSET_MAINTENANCE = Symbol("MATERIAL_ASSET_MAINTENANCE");
 
@@ -17,6 +18,7 @@ export interface MaterialAssetMaintenance {
 
 export function assembleMaterialAssetMaintenance(dependencies: {
   readonly assets: Pick<MaterialAssets, "cleanupOrphans">;
+  readonly covers: ContentCoverMaintenance;
   readonly config: Readonly<{
     objectStorage: Pick<PlatformConfig["objectStorage"], "orphanGraceMs">;
   }>;
@@ -33,9 +35,15 @@ export function assembleMaterialAssetMaintenance(dependencies: {
             return reference.value;
           },
         });
-        return result.ok
-          ? { ok: true, ...result.value }
-          : result;
+        if (!result.ok) return result;
+        const covers = await dependencies.covers.cleanup({
+          graceMs: dependencies.config.objectStorage.orphanGraceMs,
+        });
+        return {
+          ok: true,
+          cleaned: result.value.cleaned + covers.cleaned,
+          retained: result.value.retained + covers.retained,
+        };
       } catch {
         return {
           error: { code: "dependency_unavailable", retryable: true },

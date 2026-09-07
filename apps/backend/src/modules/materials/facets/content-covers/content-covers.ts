@@ -273,6 +273,14 @@ async function changeCurrentCover(
         error: { code: "conflict", currentCoverId },
       };
     }
+    if (nextCoverId !== null) {
+      const pending = await transaction.contentCover.findUnique({ where: { id: nextCoverId } });
+      // An expired upload may already have been claimed by storage cleanup.
+      // Never attach or revive its immutable keys after that claim commits.
+      if (pending?.state !== "processing" || pending.failureCode !== null) {
+        return dependencyUnavailable();
+      }
+    }
     await writeCurrentCoverId(transaction, command.owner, nextCoverId);
     const now = new Date();
     if (nextCoverId !== null) {
