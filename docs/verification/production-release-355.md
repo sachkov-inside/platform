@@ -1,7 +1,8 @@
 # Production #355: инфраструктура и подготовка выпуска
 
 Дата: 7 сентября 2026. Исходная диагностика — с 08:26 UTC, восстановление Logto —
-после backup 08:47 UTC, изолированный restore — 08:57 UTC. Это промежуточный
+после backup 08:47 UTC, изолированный restore — 08:57 UTC. DNS и Postbox
+дополнительно проверены после 09:20 UTC. Это промежуточный
 отчёт; готовность нового выпуска к пользователям ещё не подтверждена.
 
 Владелец разрешил самостоятельно использовать существующие доступы и управлять
@@ -25,7 +26,8 @@ release candidate: задачи прогресса ещё не завершен�
 - Нативные блокеры #355: открытые #323 и #184. Для совместной приёмки также нужен
   Telegram #45.
 - PR #340 и #342 в ходе работы merged. Полный результат прогресса сходится в #329,
-  PR #359; при последней проверке он draft, Integration/CI Gate — failure.
+  PR #359; новый head `a32e809da2a1f3e9705cb41fde9b067fde705946` имеет
+  зелёные Quality/Integration/Compose/CI Gate, но PR ещё draft и не merged.
   Чужие ветки прогресса не изменялись.
 - Между v1 и проверенным main добавлены миграции `0028-series-step-groups`,
   `0029-telegram-sign-in`, `0030-communications-permission`,
@@ -128,7 +130,7 @@ auth-маршрута вернули 200. `platform` и `telegram_owner` по-п
   `init=true`, его порт не опубликован. API/MCP/Web/Logto/Telegram слушают loopback.
   UFW допускает SSH/80/443 для IPv4/IPv6. Foundation health 2018 и provider agent
   10050 имеют wildcard listener, но не входят в UFW allowlist; внешняя проверка
-  этих портов пока не выполнена.
+  этих портов с Mac не получила application data, см. ограничение ниже.
 - Runtime/foundation env и основной Telegram env — root:root, 0600. Transport
   override сохранён; файл transport.json — root:65532, 0640 для непривилегированного
   relay. Значения конфигурации не выводились.
@@ -137,6 +139,13 @@ auth-маршрута вернули 200. `platform` и `telegram_owner` по-п
 - Full/diff/incr timers активны. Full backup перед исправлением:
   `20260907-084749F`, pgBackRest status ok, error=false. WAL archiver:
   failed_count=0. `pgbackrest check` от пользователя postgres прошёл.
+
+Проверка с Mac получила SSH banner на 22 и HTTP на 80, HTTPS auth — 200.
+На 2018/2019/3301/3303/10050/13000/13001/13002 не получено ни одного байта за
+6 секунд; PostgreSQL SSL request на 5432 закрылся без ответа. Это ограниченный
+отрицательный probe из текущей сети. Сам TCP connect через локальный VPN
+не доказывает открытый порт: он успешно завершается даже без ответа сервера.
+Независимая вторая сеть и IPv6 этим probe не покрыты.
 
 ## Изолированный restore и проверка прав
 
@@ -163,13 +172,29 @@ credential вернула 235 без отправки письма. В подк�
 от 5 сентября во входящих, с DKIM pass для Inside и Postbox, SPF pass для
 технического envelope domain. Это историческая доставка, не новый login proof.
 
-Публичный DKIM CNAME разрешается. SPF Inside пока содержит только
-`include:_spf.timeweb.ru`; DMARC не найден ни у Inside, ни у родительского домена.
-По [документации Postbox](https://yandex.cloud/en/docs/postbox/concepts/dns-records)
-требуется дополнить существующий SPF через `include:spf.postbox.yandexcloud.net`,
-сохранив одну SPF-запись; минимальный начальный DMARC — `v=DMARC1;p=none`.
-DNS в этой проверке читался с production-сервера, поскольку локальный DNS Mac
-не возвращал TXT-записи. Изменения этих DNS-записей ещё не выполнены.
+В Yandex Cloud домен Active, verification Success, оба DKIM CNAME — Ok.
+Разрешённый sender только `no-reply@inside.sachkov.dev`. Сервисный аккаунт
+`inside-production-postbox` имеет `postbox.sender`, единственный API key —
+`yc.postbox.send`, создан 5 сентября и использован 7 сентября; expiration не задан.
+Значение ключа не считывалось. В дальнейшем нужна операционная дата ротации;
+автоматическая ротация или предупреждение об окончании не подтверждены.
+
+Текущая квота — 200 писем за 24 часа, скорость — 1 письмо в секунду;
+использование суточной квоты при проверке 0. Баланс положительный. Статистика
+за три дня показывает одну успешную доставку, без недоставок и жалоб; стоп-лист
+пуст. Назначение отдельного логирования не задано; новые платные назначения
+или увеличение квот не создавались. Это не нагрузочный или новый delivery proof.
+
+Существующая единственная SPF-запись Inside дополнена до
+`v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all`.
+Добавлен `_dmarc.inside.sachkov.dev` с `v=DMARC1;p=none` по
+[документации Postbox](https://yandex.cloud/en/docs/postbox/concepts/dns-records).
+Timeweb автоматически создал дополнительный SPF TXT у нового `_dmarc` host;
+DMARC-запись там одна, sender SPF у `inside.sachkov.dev` также один.
+На 09:30 UTC ns1/ns2/ns4 уже отдавали новое состояние, ns3 ещё старое.
+Это принятая DNS mutation с незавершённым распространением, не полный DNS GO.
+Проверка сделана с production-сервера; локальный DNS Mac непригоден для TXT.
+Redacted evidence: `/var/lib/inside/verification/production-355-dns.json`.
 
 В Chrome на v1 кнопка «Войти» не завершает переход: браузер сообщает нарушение
 `form-action 'self'` при redirect к Logto. Этот отдельный blocker уже исправлен
@@ -213,6 +238,10 @@ tag Logto, API template и точечный Caddy route; production runtime ещ
 только точный POST `linked-identity`; неизвестные integrations и BFF `complete`
 остаются закрытыми. Telegram #45 владеет своими точечными routes. Общая database
 network не расширяется для прикладных вызовов. Production Caddy не изменён.
+В текущей базе нет Telegram connector, уникального identity index и дубликатов
+Telegram identity; `socialSignIn.skipRequiredIdentifiers` не задан. Это найденная
+конфигурационная разница, ещё не выполненная миграция.
+
 Disposable `identity-proof-bootstrap.mjs` не запускается на production: он также
 настраивает тестовую почту и другие принадлежащие стенду ресурсы.
 
@@ -223,9 +252,9 @@ candidate с завершённым #329 и совместной приёмки 
 v1 ещё имеет известный исправленный в main CSP blocker. Это не запрещает
 подготовку и merge самостоятельных исправлений исходников.
 
-Остаются: полный сетевой inventory и внешняя проверка закрытых портов;
-новый schema/restore proof после изменения candidate; Postbox API scopes/expiry,
-квоты/баланс, DNS corrections, доставка и завершённый email-вход;
+Остаются: независимый внешний IPv4/IPv6 probe;
+новый schema/restore proof после изменения candidate; распространение DNS,
+операционный порядок ротации почтового ключа, доставка и завершённый email-вход;
 Object Storage journeys и avatar; Kinescope #184;
 Telegram identity/Membership; авторские сценарии и прогресс; operational handoff.
 
@@ -234,8 +263,8 @@ Telegram identity/Membership; авторские сценарии и прогр�
 tracker. Объём и порядок итогового GO остаются в #355 и
 [production delivery runbook](../runbooks/production-delivery.md).
 
-В этой сессии выполнены backup, ограниченный production grant и изолированный
-restore. Отправки, публикация application release и deployment новых версий
+В этой сессии выполнены backup, ограниченный production grant, изолированный
+restore и настройка SPF/DMARC существующего sender. Отправки, публикация application release и deployment новых версий
 пока не выполнялись.
 
 Проверки исходников: root `pnpm check`, focused foundation/runtime contracts,
