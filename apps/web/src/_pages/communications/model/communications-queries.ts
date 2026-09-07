@@ -2,6 +2,11 @@ import { queryOptions } from "@tanstack/react-query";
 import * as api from "../api/broadcasts.browser";
 const COMMUNICATIONS_POLL_INTERVAL_MS = 10_000;
 export const communicationsQueries = {
+  posts: (cursor?: string) =>
+    queryOptions({
+      queryKey: ["communications", "posts", cursor],
+      queryFn: () => api.readSavedPosts(cursor),
+    }),
   broadcasts: (cursor?: string) =>
     queryOptions({
       queryKey: ["communications", "broadcasts-view", "broadcasts", cursor],

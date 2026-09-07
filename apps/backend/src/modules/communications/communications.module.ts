@@ -25,6 +25,7 @@ import {
   TelegramAccountLinks,
   TelegramAccountLinksModule,
 } from "../telegram-membership/index.js";
+import { ValidateAuthorContentController } from "./features/validate-author-content/validate-author-content.controller.js";
 import { AuthorizeCommunicationsAuthorController } from "./features/authorize-author/authorize-author.controller.js";
 import { ManageCommunicationsController } from "./features/manage-communications/manage-communications.controller.js";
 import { Communications } from "./facets/communications/communications.js";
@@ -81,6 +82,7 @@ export class TrackingHitPump
   controllers: [
     TrackVisitController,
     AuthorizeCommunicationsAuthorController,
+    ValidateAuthorContentController,
     ManageCommunicationsController,
   ],
   exports: [Communications, TrackingVisits],

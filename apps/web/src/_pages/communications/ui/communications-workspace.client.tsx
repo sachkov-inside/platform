@@ -1,29 +1,31 @@
 "use client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { ArrowDown, ListOrdered, Plus, Send } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/shared/ui/button";
 import type * as Browser from "../api/communications.browser";
 import {
   draftSchema,
+  partSchema,
   lifecycleLabels,
   messages,
   newFunnel,
-  newPart,
   type Failure,
   type Funnel,
   type Intro,
   type Preview,
   type Result,
 } from "../model/communications";
+import { PostLibrary } from "./post-library.client";
+import { FunnelDelay } from "./funnel-delay.client";
+import type { Part } from "../model/communications";
+import type { SavedPost } from "../model/broadcasts";
+import { sampleOperation } from "../model/sample-operation";
 import { DeliveryHistory } from "./delivery-history.client";
 import { fieldClass, moveItem, PartsEditor } from "./parts-editor.client";
 
 export type CommunicationsActions = typeof Browser;
-/**
- * Temporary semantic UI for #308.
- * Replace through #316 after Storybook acceptance.
- */
 export function CommunicationsWorkspace({
   actions,
 }: {
@@ -36,6 +38,7 @@ export function CommunicationsWorkspace({
   const [preview, setPreview] = useState<Preview | null>(null);
   const [notice, setNotice] = useState("");
   const [failure, setFailure] = useState<Failure | null>(null);
+  const [postCursor, setPostCursor] = useState<string | undefined>();
   const [cursor, setCursor] = useState<string | undefined>();
   const [deliveryCursor, setDeliveryCursor] = useState<string | undefined>();
   // Retain an operation identity for the same attempted payload, including after an ambiguous response.
@@ -156,12 +159,7 @@ export function CommunicationsWorkspace({
       });
     },
   });
-  const resolveTemplate = useMutation({
-    mutationFn: actions.resolveTemplate,
-    onSuccess: (result) => {
-      if (result.kind === "error") setFailure(result);
-    },
-  });
+
   const skip = useMutation({
     mutationFn: actions.skipDelivery,
     onSuccess: (result) => {
@@ -195,23 +193,81 @@ export function CommunicationsWorkspace({
       });
     },
   });
+  const savePostMutation = useMutation({ mutationFn: actions.savePost });
+  const samplePostMutation = useMutation({ mutationFn: actions.samplePost });
   const busy =
+    savePostMutation.isPending ||
+    samplePostMutation.isPending ||
     reload.isPending ||
     save.isPending ||
     publish.isPending ||
     previewMutation.isPending ||
     lifecycle.isPending ||
     saveIntro.isPending ||
-    resolveTemplate.isPending ||
     skip.isPending ||
     retry.isPending;
   const activeIntro =
     introDraft ?? (intro.data?.kind === "ready" ? intro.data.value : null);
-  const resolve = (reference: string) =>
-    resolveTemplate.mutateAsync({
-      reference,
-      operationId: crypto.randomUUID(),
+  const posts = useQuery({
+    queryKey: ["communications", "posts", postCursor],
+    queryFn: () => actions.readSavedPosts(postCursor),
+    retry: false,
+  });
+  async function savePost(post: SavedPost) {
+    const input = {
+      expectedRevision: post.revision,
+      payload: { templateId: post.templateId, content: post.content },
+    };
+    const result = await savePostMutation.mutateAsync({
+      ...input,
+      operationId: operationId(["post-save", input]),
     });
+    if (result.kind !== "ready") return null;
+    void cache.invalidateQueries({ queryKey: ["communications", "posts"] });
+    return result.template;
+  }
+  function renderLibrary(choose: (part: Part) => void, chooseLabel: string) {
+    return (
+      <PostLibrary
+        posts={posts.data?.kind === "ready" ? posts.data.templates : []}
+        loading={posts.isPending || posts.isFetching}
+        error={
+          posts.isError || posts.data?.kind === "error"
+            ? "Не удалось загрузить посты. Обновите список и проверьте доступ."
+            : null
+        }
+        hasNext={posts.data?.kind === "ready" && posts.data.nextCursor !== null}
+        onNext={() => {
+          if (posts.data?.kind === "ready")
+            setPostCursor(posts.data.nextCursor ?? undefined);
+        }}
+        onRefresh={() => {
+          setPostCursor(undefined);
+          void cache.invalidateQueries({
+            queryKey: ["communications", "posts"],
+          });
+        }}
+        onSave={savePost}
+        onSample={async (post) => {
+          const operation = sampleOperation(post, window.localStorage);
+          const result = await samplePostMutation.mutateAsync({
+            expectedRevision: post.revision,
+            payload: { templateId: post.templateId },
+            operationId: operation.id,
+          });
+          if (result.kind === "ready") operation.confirm();
+          return result.kind === "ready";
+        }}
+        onChoose={(part) => {
+          const parsed = partSchema.safeParse(part);
+          if (parsed.success) choose(parsed.data);
+          else setFailure({ kind: "error", code: "invalid" });
+        }}
+        chooseLabel={chooseLabel}
+        disabled={busy}
+      />
+    );
+  }
   function edit(value: Funnel) {
     setSelected(value);
     setPreview(null);
@@ -230,33 +286,48 @@ export function CommunicationsWorkspace({
   return (
     <main
       id="authoring-content"
-      className="h-full overflow-y-auto px-4 py-6 md:px-8 md:py-8"
+      className="h-full overflow-y-auto px-4 py-6 md:px-8 md:py-10 [&_[data-slot=button]]:h-auto [&_[data-slot=button]]:max-w-full [&_[data-slot=button]]:whitespace-normal [&_[data-slot=button]]:px-4 [&_[data-slot=button]]:py-2 [&_input[type=checkbox]]:size-5 [&_input[type=checkbox]]:shrink-0 [&_input[type=checkbox]]:accent-primary [&_input[type=checkbox]]:focus-visible:outline-2 [&_input[type=checkbox]]:focus-visible:outline-offset-4 [&_input[type=checkbox]]:focus-visible:outline-ring [&_summary]:focus-visible:outline-2 [&_summary]:focus-visible:outline-offset-4 [&_summary]:focus-visible:outline-ring"
     >
-      <div className="mx-auto max-w-5xl space-y-8">
-        <header className="space-y-3">
-          <Link
-            className="underline"
-            href="/authoring/communications/broadcasts"
-          >
-            Рассылки и аналитика
-          </Link>
-          <h1 className="text-3xl font-semibold tracking-tight">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <header className="space-y-3 border-b border-border pb-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <Send aria-hidden="true" className="size-4" /> Telegram · общение
+              с участниками
+            </p>
+            <Link
+              className="inline-flex min-h-11 items-center text-sm underline underline-offset-4"
+              href="/authoring/communications/broadcasts"
+            >
+              Рассылки и аналитика
+            </Link>
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
             Воронки Telegram
           </h1>
           <p className="max-w-2xl text-muted-foreground">
-            Настройте знакомство, ответ по ссылке и последовательность
-            сообщений. Сохраните черновик, проверьте охват и опубликуйте
-            изменения.
+            Создайте посты в меню /admin вашего Telegram-бота. Здесь соберите из
+            них знакомство, первый ответ и шаги воронки, проверьте охват и
+            опубликуйте изменения.
           </p>
         </header>
-        <div aria-live="polite" className="min-h-6 text-sm">
+        <div
+          aria-live="polite"
+          aria-atomic="true"
+          className="min-h-12 text-sm leading-6 text-muted-foreground"
+        >
           {busy ? "Выполняем операцию…" : notice}
         </div>
         {failure ? (
           <div
             role="alert"
-            className="space-y-3 rounded-lg border border-destructive p-4"
+            className="space-y-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm leading-6"
           >
+            <p className="font-semibold">
+              {failure.code === "conflict"
+                ? "Черновик изменился в другой сессии"
+                : "Операция не завершена"}
+            </p>
             <p>{messages[failure.code]}</p>
             {failure.code === "unauthorized" ? (
               <Link href="/auth/sign-in">Войти</Link>
@@ -266,10 +337,31 @@ export function CommunicationsWorkspace({
           </div>
         ) : null}
         {list.isPending ? (
-          <p role="status">Загружаем воронки…</p>
+          <div
+            role="status"
+            className="space-y-5 rounded-xl border border-border bg-card p-6"
+          >
+            <p className="text-sm text-muted-foreground">Загружаем воронки…</p>
+            <div aria-hidden="true" className="grid gap-4 sm:grid-cols-2">
+              {[0, 1].map((key) => (
+                <div
+                  key={key}
+                  className="h-36 rounded-lg bg-muted motion-safe:animate-pulse"
+                />
+              ))}
+            </div>
+          </div>
         ) : listFailure ? (
-          <div role="alert">
-            <p>{messages[listFailure.code]}</p>
+          <div
+            role="alert"
+            className="rounded-xl border border-border bg-card p-6"
+          >
+            <h2 className="mb-2 text-lg font-semibold">
+              Не удалось открыть воронки
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {messages[listFailure.code]}
+            </p>
             <Button
               type="button"
               className="mt-3 min-h-12"
@@ -300,27 +392,36 @@ export function CommunicationsWorkspace({
                     setFailure(null);
                   }}
                 >
-                  Создать воронку
+                  <Plus aria-hidden="true" className="size-4" /> Создать воронку
                 </Button>
               </div>
               {list.data.value.funnels.length === 0 ? (
-                <p className="py-4 text-muted-foreground">
-                  Воронок пока нет. Начните со стандартной — она открывается при
-                  обычном запуске бота.
-                </p>
+                <div className="rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center">
+                  <ListOrdered
+                    aria-hidden="true"
+                    className="mx-auto mb-4 size-7 text-muted-foreground"
+                  />
+                  <h3 className="text-lg font-semibold">
+                    Первый шаг к знакомству
+                  </h3>
+                  <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+                    Воронок пока нет. Начните со стандартной — она открывается
+                    при обычном запуске бота.
+                  </p>
+                </div>
               ) : (
-                <ul className="divide-y divide-border border-y border-border">
+                <ul className="grid gap-3 sm:grid-cols-2">
                   {list.data.value.funnels.map((funnel) => (
                     <li
                       key={funnel.funnelId}
-                      className="flex flex-wrap items-center justify-between gap-3 py-4"
+                      className={`flex min-w-0 flex-col items-start gap-4 rounded-xl border bg-card p-5 ${selected?.funnelId === funnel.funnelId ? "border-ring ring-1 ring-ring" : "border-border"}`}
                     >
                       <div className="min-w-0">
-                        <h3 className="break-words font-medium">
+                        <h3 className="break-words text-lg font-semibold">
                           {funnel.name}
                         </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {lifecycleLabels[funnel.lifecycle]} ·{" "}
+                        <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <FunnelStatus lifecycle={funnel.lifecycle} />
                           {funnel.isDefault ? "Стандартная" : "Тематическая"} ·
                           Шагов: {funnel.steps.length}
                         </p>
@@ -328,7 +429,9 @@ export function CommunicationsWorkspace({
                       <Button
                         type="button"
                         variant="outline"
-                        className="min-h-12"
+                        className="mt-auto min-h-12 w-full"
+                        aria-pressed={selected?.funnelId === funnel.funnelId}
+                        aria-label={`Открыть ${funnel.name}`}
                         disabled={busy || dirty}
                         onClick={() => {
                           setSelected(funnel);
@@ -338,7 +441,9 @@ export function CommunicationsWorkspace({
                           setDeliveryCursor(undefined);
                         }}
                       >
-                        Открыть {funnel.name}
+                        {selected?.funnelId === funnel.funnelId
+                          ? "Открыта в редакторе"
+                          : "Открыть воронку"}
                       </Button>
                     </li>
                   ))}
@@ -379,8 +484,8 @@ export function CommunicationsWorkspace({
                 </p>
               ) : null}
             </section>
-            <details className="border-y border-border py-4">
-              <summary className="cursor-pointer py-2 text-lg font-semibold">
+            <details className="rounded-xl border border-border bg-card p-5">
+              <summary className="cursor-pointer py-2 text-base font-semibold">
                 Общее знакомство · один раз на человека
               </summary>
               <div className="mt-4 space-y-4">
@@ -411,15 +516,21 @@ export function CommunicationsWorkspace({
                     className="space-y-4"
                   >
                     <PartsEditor
+                      key={activeIntro.introId}
                       label="Части общего знакомства"
+                      maxParts={100}
                       parts={activeIntro.parts}
                       disabled={busy}
-                      resolveTemplate={resolve}
+                      renderLibrary={renderLibrary}
                       onChange={(parts) => {
                         setIntroDraft({ ...activeIntro, parts });
                       }}
                     />
-                    <Button type="submit" className="min-h-12" disabled={busy}>
+                    <Button
+                      type="submit"
+                      className="min-h-12"
+                      disabled={busy || !activeIntro.parts.length}
+                    >
                       Сохранить общее знакомство
                     </Button>
                   </form>
@@ -431,7 +542,7 @@ export function CommunicationsWorkspace({
                       setIntroDraft({
                         introId: crypto.randomUUID(),
                         revision: 0,
-                        parts: [newPart()],
+                        parts: [],
                       });
                     }}
                   >
@@ -442,11 +553,12 @@ export function CommunicationsWorkspace({
             </details>
             {selected ? (
               <section aria-label="Редактор воронки" className="space-y-6">
-                <h2 className="text-2xl font-semibold">
+                <h2 className="break-words text-2xl font-semibold tracking-tight">
                   {selected.revision === 0 ? "Новая воронка" : selected.name}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {lifecycleLabels[selected.lifecycle]} · Опубликованная версия:{" "}
+                  <FunnelStatus lifecycle={selected.lifecycle} /> ·
+                  Опубликованная версия:{" "}
                   {selected.publishedRevision ?? "ещё нет"} ·{" "}
                   {dirty
                     ? "Есть несохранённые правки"
@@ -471,53 +583,65 @@ export function CommunicationsWorkspace({
                     });
                   }}
                 >
-                  <fieldset disabled={busy} className="min-w-0 space-y-5">
+                  <fieldset disabled={busy} className="min-w-0 space-y-6">
                     <legend className="sr-only">Настройки воронки</legend>
-                    <label className="block text-sm font-medium">
-                      Название воронки
-                      <input
-                        className={fieldClass}
-                        name="funnel-name"
-                        required
-                        maxLength={128}
-                        value={selected.name}
-                        onChange={(e) => {
-                          edit({ ...selected, name: e.target.value });
+                    <div className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6">
+                      <label className="block text-sm font-medium">
+                        Название воронки
+                        <input
+                          className={fieldClass}
+                          name="funnel-name"
+                          required
+                          maxLength={128}
+                          value={selected.name}
+                          onChange={(e) => {
+                            edit({ ...selected, name: e.target.value });
+                          }}
+                        />
+                      </label>
+                      <label className="flex min-h-12 items-center gap-3">
+                        <input
+                          name="default-funnel"
+                          type="checkbox"
+                          checked={selected.isDefault}
+                          onChange={(e) => {
+                            edit({ ...selected, isDefault: e.target.checked });
+                          }}
+                        />
+                        Стандартная воронка для обычного запуска бота
+                      </label>
+                      <p className="text-sm text-muted-foreground">
+                        Назначение вступает в силу при публикации. Тематическая
+                        ссылка не подписывает человека на стандартную воронку.
+                      </p>
+                    </div>
+                    <div className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6">
+                      <PartsEditor
+                        key={`${selected.funnelId}:${selected.entryResponse.stepId}`}
+                        label="Непосредственный ответ по ссылке"
+                        maxParts={100}
+                        parts={selected.entryResponse.parts}
+                        renderLibrary={renderLibrary}
+                        onChange={(parts) => {
+                          edit({
+                            ...selected,
+                            entryResponse: { ...selected.entryResponse, parts },
+                          });
                         }}
                       />
-                    </label>
-                    <label className="flex min-h-12 items-center gap-3">
-                      <input
-                        name="default-funnel"
-                        type="checkbox"
-                        checked={selected.isDefault}
-                        onChange={(e) => {
-                          edit({ ...selected, isDefault: e.target.checked });
-                        }}
-                      />
-                      Стандартная воронка для обычного запуска бота
-                    </label>
-                    <p className="text-sm text-muted-foreground">
-                      Назначение вступает в силу при публикации. Тематическая
-                      ссылка не подписывает человека на стандартную воронку.
-                    </p>
-                    <PartsEditor
-                      label="Непосредственный ответ по ссылке"
-                      parts={selected.entryResponse.parts}
-                      resolveTemplate={resolve}
-                      onChange={(parts) => {
-                        edit({
-                          ...selected,
-                          entryResponse: { ...selected.entryResponse, parts },
-                        });
-                      }}
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Повторный вход возвращает этот ответ, сохраняя расписание
-                      и уже отправленные шаги.
-                    </p>
-                    <section className="space-y-4">
-                      <h3 className="text-xl font-semibold">Отложенные шаги</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Повторный вход возвращает этот ответ, сохраняя
+                        расписание и уже отправленные шаги.
+                      </p>
+                    </div>
+                    <section className="space-y-5">
+                      <h3 className="flex items-center gap-2 text-xl font-semibold">
+                        <ArrowDown
+                          aria-hidden="true"
+                          className="size-5 text-muted-foreground"
+                        />{" "}
+                        Отложенные шаги
+                      </h3>
                       {selected.steps.length === 0 ? (
                         <p>Отложенных шагов пока нет.</p>
                       ) : null}
@@ -525,7 +649,7 @@ export function CommunicationsWorkspace({
                         <section
                           key={step.stepId}
                           aria-label={`Шаг ${String(index + 1)}`}
-                          className="space-y-4 border-t border-border pt-5"
+                          className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <h3 className="text-lg font-semibold">
@@ -577,40 +701,26 @@ export function CommunicationsWorkspace({
                               </Button>
                             </div>
                           </div>
-                          <label className="block max-w-xs text-sm font-medium">
-                            Задержка после предыдущего шага, секунд
-                            <input
-                              className={fieldClass}
-                              name={`delay-${step.stepId}`}
-                              type="number"
-                              min={0}
-                              max={2147483647}
-                              step={1}
-                              required
-                              value={step.delaySeconds}
-                              onChange={(e) => {
-                                edit({
-                                  ...selected,
-                                  steps: selected.steps.map((s, at) =>
-                                    at === index
-                                      ? {
-                                          ...s,
-                                          delaySeconds: e.target.valueAsNumber,
-                                        }
-                                      : s,
-                                  ),
-                                });
-                              }}
-                            />
-                          </label>
+                          <FunnelDelay
+                            name={`delay-${step.stepId}`}
+                            value={step.delaySeconds}
+                            onChange={(delaySeconds) => {
+                              edit({
+                                ...selected,
+                                steps: selected.steps.map((s, at) =>
+                                  at === index ? { ...s, delaySeconds } : s,
+                                ),
+                              });
+                            }}
+                          />
                           <p className="text-sm text-muted-foreground">
-                            86 400 секунд = 1 день. Для нового шага прежним
-                            участникам отсчёт начнётся не раньше публикации.
+                            Для нового шага прежним участникам отсчёт начнётся
+                            не раньше публикации.
                           </p>
                           <PartsEditor
                             label={`Части шага ${String(index + 1)}`}
                             parts={step.parts}
-                            resolveTemplate={resolve}
+                            renderLibrary={renderLibrary}
                             onChange={(parts) => {
                               edit({
                                 ...selected,
@@ -635,7 +745,7 @@ export function CommunicationsWorkspace({
                               {
                                 stepId: crypto.randomUUID(),
                                 delaySeconds: 86400,
-                                parts: [newPart()],
+                                parts: [],
                               },
                             ],
                           });
@@ -644,7 +754,7 @@ export function CommunicationsWorkspace({
                         Добавить шаг
                       </Button>
                     </section>
-                    <section className="space-y-4 border-t border-border pt-5">
+                    <section className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6">
                       <h3 className="text-xl font-semibold">Источники входа</h3>
                       <p className="text-sm text-muted-foreground">
                         Несколько источников могут вести в одну воронку. Код
@@ -652,7 +762,10 @@ export function CommunicationsWorkspace({
                         начинают работать после публикации.
                       </p>
                       {selected.sources.map((source, index) => (
-                        <div key={source.sourceId} className="space-y-3">
+                        <div
+                          key={source.sourceId}
+                          className="space-y-3 rounded-lg border border-border bg-background p-4"
+                        >
                           <div className="grid gap-3 sm:grid-cols-2">
                             <label className="text-sm">
                               Название источника
@@ -752,7 +865,7 @@ export function CommunicationsWorkspace({
                       </Button>
                     </section>
                   </fieldset>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-3 rounded-xl border border-border bg-card p-4">
                     <Button type="submit" className="min-h-12" disabled={busy}>
                       Сохранить черновик
                     </Button>
@@ -782,7 +895,7 @@ export function CommunicationsWorkspace({
                     </Button>
                   </div>
                 </form>
-                <section className="space-y-4 border-t border-border pt-6">
+                <section className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6">
                   <h3 className="text-xl font-semibold">
                     Проверка и публикация
                   </h3>
@@ -808,9 +921,9 @@ export function CommunicationsWorkspace({
                   {preview &&
                   preview.funnelId === selected.funnelId &&
                   preview.revision === selected.revision ? (
-                    <div className="space-y-3 rounded-lg border border-border p-4">
+                    <div className="space-y-4 rounded-xl border border-border bg-background p-4 md:p-5">
                       <h4 className="font-semibold">Что изменится</h4>
-                      <ul className="space-y-1 text-sm">
+                      <ul className="grid gap-3 text-sm sm:grid-cols-2 [&>li]:rounded-lg [&>li]:border [&>li]:border-border [&>li]:bg-card [&>li]:p-4">
                         <li>Новых шагов: {preview.addedStepIds.length}</li>
                         <li>
                           Изменено: {preview.editedStepIds.length}. Повтора
@@ -885,7 +998,7 @@ export function CommunicationsWorkspace({
                   ) : null}
                 </section>
                 {selected.publishedRevision !== null ? (
-                  <section className="space-y-4 border-t border-border pt-6">
+                  <section className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6">
                     <h3 className="text-xl font-semibold">
                       Управление воронкой
                     </h3>
@@ -924,7 +1037,7 @@ export function CommunicationsWorkspace({
                   </section>
                 ) : null}
                 {selected.revision > 0 ? (
-                  <section className="space-y-4 border-t border-border pt-6">
+                  <section className="space-y-4 rounded-xl border border-border bg-card p-5 md:p-6">
                     <h3 className="text-xl font-semibold">История доставки</h3>
                     <Button
                       type="button"
@@ -1006,5 +1119,17 @@ export function CommunicationsWorkspace({
         ) : null}
       </div>
     </main>
+  );
+}
+
+function FunnelStatus({ lifecycle }: { lifecycle: Funnel["lifecycle"] }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
+      <span
+        aria-hidden="true"
+        className={`size-1.5 rounded-full ${lifecycle === "published" ? "bg-action" : "bg-muted-foreground"}`}
+      />
+      {lifecycleLabels[lifecycle]}
+    </span>
   );
 }

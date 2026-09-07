@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 test("manages a funnel through the live BFF, Platform API and Telegram provider", async ({
   page,
@@ -24,6 +24,52 @@ test("manages a funnel through the live BFF, Platform API and Telegram provider"
       sameSite: "Lax",
     },
   ]);
+  const postName = `Funnel post ${testInfo.project.name} ${String(Date.now())}`;
+  const invalidPostName = `${postName} invalid`;
+  for (const text of [
+    postName,
+    `${invalidPostName} ${baseURL}/materials/missing-communications-proof`,
+  ]) {
+    const result = await page.request.post(
+      `${baseURL}/api/communications/templates/save`,
+      {
+        headers: { origin: baseURL },
+        multipart: {
+          input: JSON.stringify({
+            operationId: crypto.randomUUID(),
+            expectedRevision: 0,
+            payload: {
+              templateId: crypto.randomUUID(),
+              content: { type: "text", text, entities: [], buttons: [] },
+            },
+          }),
+        },
+      },
+    );
+    expect(await result.json()).toMatchObject({ kind: "ready" });
+  }
+  async function choose(group: Locator, title = postName, replace = false) {
+    await group
+      .getByRole("button", {
+        name: replace
+          ? "Заменить часть 1 из сохранённых постов"
+          : "Добавить сохранённый пост",
+        exact: true,
+      })
+      .click();
+    await group
+      .getByRole("button", { name: new RegExp(`^${title}`) })
+      .first()
+      .click();
+    await group
+      .getByRole("button", {
+        name: replace
+          ? "Заменить выбранную часть"
+          : "Добавить в последовательность",
+        exact: true,
+      })
+      .click();
+  }
   await page.goto("/authoring/communications");
   await expect(
     page.getByRole("heading", { name: "Ваши воронки" }),
@@ -39,11 +85,9 @@ test("manages a funnel through the live BFF, Platform API and Telegram provider"
     await page
       .getByRole("button", { name: "Создать общее знакомство", exact: true })
       .click();
-    await page
-      .getByRole("group", { name: "Части общего знакомства", exact: true })
-      .getByRole("textbox")
-      .first()
-      .fill("Добро пожаловать");
+    await choose(
+      page.getByRole("group", { name: "Части общего знакомства", exact: true }),
+    );
     await page
       .getByRole("button", { name: "Сохранить общее знакомство", exact: true })
       .click();
@@ -63,10 +107,10 @@ test("manages a funnel through the live BFF, Platform API and Telegram provider"
     name: "Непосредственный ответ по ссылке",
     exact: true,
   });
-  await entry.getByRole("textbox").first().fill("Ваш материал готов");
+  await choose(entry);
   await page.getByRole("button", { name: "Добавить шаг", exact: true }).click();
   const step = page.getByRole("region", { name: "Шаг 1", exact: true });
-  await step.getByRole("textbox").first().fill("Первый отложенный шаг");
+  await choose(step);
   await page
     .getByRole("button", { name: "Добавить источник", exact: true })
     .click();
@@ -113,10 +157,7 @@ test("manages a funnel through the live BFF, Platform API and Telegram provider"
     page.getByLabel("Название воронки", { exact: true }),
   ).toHaveValue(name);
   // A promised Platform target is checked by Materials before publication.
-  await entry
-    .getByRole("textbox")
-    .first()
-    .fill(`${baseURL}/materials/missing-communications-proof`);
+  await choose(entry, invalidPostName, true);
   await page
     .getByRole("button", { name: "Сохранить черновик", exact: true })
     .click();

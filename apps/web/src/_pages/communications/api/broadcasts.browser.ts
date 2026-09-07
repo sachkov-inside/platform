@@ -1,6 +1,10 @@
 import type { z } from "zod";
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import {
+  savedPostListSchema,
+  savedPostSampleSchema,
+  type savedPostActionSchema,
+  type savedPostSaveSchema,
   broadcastResultSchema,
   broadcastListSchema,
   funnelListSchema,
@@ -148,5 +152,31 @@ export async function resolveTemplate(input: {
       form(input),
     ),
     templateResultSchema,
+  );
+}
+
+export const readSavedPosts = (cursor?: string) =>
+  read(
+    `/api/communications/templates?${query({ cursor })}`,
+    savedPostListSchema,
+  );
+export async function savePost(input: z.infer<typeof savedPostSaveSchema>) {
+  return result(
+    await requestSameOriginMutation(
+      "/api/communications/templates/save",
+      "POST",
+      form(input),
+    ),
+    templateResultSchema,
+  );
+}
+export async function samplePost(input: z.infer<typeof savedPostActionSchema>) {
+  return result(
+    await requestSameOriginMutation(
+      "/api/communications/templates/sample",
+      "POST",
+      form(input),
+    ),
+    savedPostSampleSchema,
   );
 }

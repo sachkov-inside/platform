@@ -39,6 +39,7 @@ export class HttpCommunicationsProvider {
       // The provider API host must never escape as a credential-bearing media URL.
       if (response.status !== 200 || !matchesOperation(request, value) ||
         ("template" in value && value.template.botIdentity !== this.config.botIdentity) ||
+        ("templates" in value && value.templates.some(template => template.botIdentity !== this.config?.botIdentity)) ||
         TELEGRAM_CREDENTIAL_URL.test(JSON.stringify(value))) return communicationsFailure("provider_invalid_response");
       return { ok: true, value };
     } catch {
@@ -57,6 +58,7 @@ function matchesOperation(request: ProviderRequest, value: Extract<ProviderRespo
     case "funnels.read": case "funnels.save": case "funnels.publish": case "funnels.lifecycle": case "funnels.rollback":
       return "funnel" in value && sameId(value.funnel.funnelId, request.payload.funnelId);
     case "funnels.preview": return "preview" in value && sameId(value.preview.funnelId, request.payload.funnelId);
+    case "templates.list": return "templates" in value;
     case "funnels.list": return "funnels" in value;
     case "broadcasts.read": case "broadcasts.save": case "broadcasts.launch": case "broadcasts.lifecycle":
       return "broadcast" in value && sameId(value.broadcast.broadcastId, request.payload.broadcastId);

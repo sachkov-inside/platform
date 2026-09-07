@@ -1,15 +1,18 @@
 "use client";
 import Link from "next/link";
+import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
+import styles from "./broadcasts.module.css";
+import { BroadcastList } from "./broadcast-list";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/shared/ui/button";
 import { communicationsQueries } from "../model/communications-queries";
 import * as api from "../api/broadcasts.browser";
+import { sampleOperation } from "../model/sample-operation";
 import {
   type Broadcast,
   type Contact,
   type Funnel,
-  stateLabels,
   errorMessage,
 } from "../model/broadcasts";
 import {
@@ -21,6 +24,8 @@ import { AnalyticsPanel, EntryHistory } from "./analytics-panel";
 
 export function CommunicationsPage() {
   const queries = useQueryClient();
+  const [postCursor, setPostCursor] = useState<string>();
+  const postPage = useQuery(communicationsQueries.posts(postCursor));
   const [cursor, setCursor] = useState<string>();
   const [funnelCursor, setFunnelCursor] = useState<string>();
   const [knownFunnels, setKnownFunnels] = useState<Funnel[]>([]);
@@ -63,6 +68,8 @@ export function CommunicationsPage() {
   const resume = useMutation({ mutationFn: api.resumeBroadcast, onSuccess });
   const cancel = useMutation({ mutationFn: api.cancelBroadcast, onSuccess });
   const load = useMutation({ mutationFn: api.readBroadcast, onSuccess });
+  const savePost = useMutation({ mutationFn: api.savePost });
+  const samplePost = useMutation({ mutationFn: api.samplePost });
   const template = useMutation({ mutationFn: api.resolveTemplate });
   const pending =
     save.isPending ||
@@ -90,112 +97,70 @@ export function CommunicationsPage() {
       tabIndex={-1}
       className="h-full overflow-y-auto bg-background px-4 pb-24 pt-5 text-foreground sm:px-6"
     >
-      <div className="mx-auto max-w-5xl space-y-5">
-        <Link className="underline" href="/authoring/communications">
+      <div className={styles.page}>
+        <Link
+          className="flex min-h-11 w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          href="/authoring/communications"
+        >
+          <ArrowLeft aria-hidden="true" className="size-4" />
           Воронки Telegram
         </Link>
-        <h1 className="text-3xl font-semibold">Рассылки и аналитика</h1>
-        <p>
-          Разовые сообщения контактам Inside и наблюдаемые входы и переходы.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            disabled={pending}
-            onClick={() => {
-              setError(null);
-              setSelected({
-                broadcastId: crypto.randomUUID(),
-                revision: 0,
-                state: "draft",
-                parts: [
-                  {
-                    partId: crypto.randomUUID(),
-                    content: {
-                      type: "text",
-                      text: "",
-                      entities: [],
-                      buttons: [],
-                    },
-                  },
-                ],
-                audience: { kind: "all" },
-                scheduledAt: null,
-                audienceSnapshotId: null,
-                snapshotSize: 0,
-              });
-            }}
-          >
-            Новая рассылка
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              void queries.invalidateQueries({ queryKey: ["communications"] });
-            }}
-          >
-            Обновить данные
-          </Button>
-        </div>
-        <section aria-label="Список рассылок">
-          <h2 className="text-xl font-semibold">Рассылки</h2>
-          {!broadcasts.data ? (
-            <p role="status">Загружаем рассылки…</p>
-          ) : broadcasts.data.kind === "error" ? (
-            <p role="alert">{errorMessage(broadcasts.data.code)}</p>
-          ) : (
-            <>
-              {!broadcasts.data.broadcasts.length ? (
-                <p>Рассылок пока нет.</p>
-              ) : (
-                <ul className="mt-3 space-y-2">
-                  {broadcasts.data.broadcasts.map((broadcast) => (
-                    <li key={broadcast.broadcastId}>
-                      <Button
-                        className="h-auto max-w-full whitespace-normal text-left"
-                        variant="outline"
-                        disabled={pending}
-                        onClick={() => {
-                          setError(null);
-                          load.mutate(broadcast.broadcastId);
-                        }}
-                      >
-                        {broadcast.parts
-                          .find((p) => p.content.text)
-                          ?.content.text.slice(0, 70) ??
-                          "Рассылка с медиа"}{" "}
-                        · {stateLabels[broadcast.state]}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {broadcasts.data.nextCursor ? (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setCursor(
-                      broadcasts.data?.kind === "ready"
-                        ? (broadcasts.data.nextCursor ?? undefined)
-                        : undefined,
-                    );
-                  }}
-                >
-                  Следующие рассылки
-                </Button>
-              ) : null}
-              {cursor ? (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setCursor(undefined);
-                  }}
-                >
-                  К началу списка
-                </Button>
-              ) : null}
-            </>
-          )}
-        </section>
+        <header className={styles.header}>
+          <div className="space-y-3">
+            <p className={styles.eyebrow}>Коммуникации · Telegram</p>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              Рассылки и аналитика
+            </h1>
+            <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+              Разовые сообщения контактам Inside и наблюдаемые входы и переходы.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={pending}
+              onClick={() => {
+                setError(null);
+                setSelected({
+                  broadcastId: crypto.randomUUID(),
+                  revision: 0,
+                  state: "draft",
+                  parts: [],
+                  audience: { kind: "all" },
+                  scheduledAt: null,
+                  audienceSnapshotId: null,
+                  snapshotSize: 0,
+                });
+              }}
+            >
+              <Plus aria-hidden="true" className="size-4" /> Новая рассылка
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                void queries.invalidateQueries({
+                  queryKey: ["communications"],
+                });
+              }}
+            >
+              <RefreshCw aria-hidden="true" className="size-4" /> Обновить
+              данные
+            </Button>
+          </div>
+        </header>
+        <BroadcastList
+          result={broadcasts.data}
+          pending={pending}
+          selectedId={selected?.broadcastId}
+          hasPrevious={Boolean(cursor)}
+          onSelect={(broadcastId) => {
+            setError(null);
+            load.mutate(broadcastId);
+          }}
+          onNext={setCursor}
+          onFirst={() => {
+            setCursor(undefined);
+          }}
+        />
         {funnelPage.data?.kind === "error" ? (
           <p role="alert">Воронки: {errorMessage(funnelPage.data.code)}</p>
         ) : null}
@@ -217,6 +182,54 @@ export function CommunicationsPage() {
         {selected ? (
           <BroadcastEditor
             key={`${selected.broadcastId}:${String(selected.revision)}`}
+            library={{
+              posts:
+                postPage.data?.kind === "ready" ? postPage.data.templates : [],
+              loading: postPage.isFetching,
+              error:
+                postPage.data?.kind === "error"
+                  ? errorMessage(postPage.data.code)
+                  : null,
+              hasNext:
+                postPage.data?.kind === "ready" &&
+                postPage.data.nextCursor !== null,
+              onNext: () => {
+                if (postPage.data?.kind === "ready")
+                  setPostCursor(postPage.data.nextCursor ?? undefined);
+              },
+              onRefresh: () => {
+                setPostCursor(undefined);
+                void postPage.refetch();
+              },
+              onSave: async (post) => {
+                const result = await savePost.mutateAsync({
+                  operationId: crypto.randomUUID(),
+                  expectedRevision: post.revision,
+                  payload: {
+                    templateId: post.templateId,
+                    content: post.content,
+                  },
+                });
+                if (result.kind === "ready") {
+                  void queries.invalidateQueries({
+                    queryKey: ["communications", "posts"],
+                  });
+                  return result.template;
+                }
+                return null;
+              },
+              onSample: async (post) => {
+                const operation = sampleOperation(post, window.localStorage);
+                const result = await samplePost.mutateAsync({
+                  operationId: operation.id,
+                  expectedRevision: post.revision,
+                  payload: { templateId: post.templateId },
+                });
+                if (result.kind === "ready")
+                  operation.confirm();
+                return result.kind === "ready";
+              },
+            }}
             broadcast={selected}
             funnels={funnels}
             pending={pending}
@@ -255,11 +268,14 @@ export function CommunicationsPage() {
         ) : error ? (
           <p role="alert">{errorMessage(error)}</p>
         ) : null}
-        <section aria-labelledby="analytics-title">
+        <section
+          aria-labelledby="analytics-title"
+          className="min-w-0 space-y-4 border-t border-border pt-8"
+        >
           <h2 id="analytics-title" className="text-xl font-semibold">
             Аналитика
           </h2>
-          <label className="block">
+          <label className="block max-w-xl text-sm font-medium">
             Показать
             <select
               className={fieldClass}
