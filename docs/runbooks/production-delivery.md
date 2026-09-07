@@ -206,8 +206,10 @@ production bootstrap. Keep email sign-in available.
 Set the Platform API resource access-token lifetime in Logto to **300 seconds**. The
 Platform verifier rejects tokens with a lifetime longer than five minutes; a successful
 Logto code exchange with a longer-lived token still fails Account establishment. Explicit
-sign-in uses the SDK's `prompt=login` so a failed first callback can obtain fresh email or
-Telegram proof even when Logto already has a session.
+sign-in uses the SDK's `prompt=login consent` so a failed first callback can obtain fresh email or
+Telegram proof even when Logto already has a session. Keep `consent` alongside `login`:
+Logto requires it with `offline_access` to issue the refresh token used by later BFF requests.
+See the [Logto re-authentication contract](https://docs.logto.io/end-user-flows/sign-out#enforce-re-authentication-on-every-access).
 
 Platform API requires `TELEGRAM_SIGN_IN_ENABLED=true`,
 `TELEGRAM_SIGN_IN_PROVIDER_URL=https://telegram.sachkov.dev` and
