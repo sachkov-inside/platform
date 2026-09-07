@@ -1,3 +1,4 @@
+import { SavedReadingAction } from "@/features/reading-progress";
 import { notFound } from "next/navigation";
 
 import { loadPublishedSeries } from "@/features/library-discovery.server";
@@ -46,6 +47,7 @@ export async function MaterialReaderPage({
     return (
       <div className="@container/material-reader">
         <MaterialReaderAccess
+          readingAction={<SavedReadingAction key={result.material.materialId} materialId={result.material.materialId} format={result.material.format.slug} canMark={false} />}
           cta={result.cta}
           material={result.material}
           returnTarget={effectiveReturnTarget}
@@ -64,6 +66,7 @@ export async function MaterialReaderPage({
   }
   return (
     <MaterialReaderView
+      readingAction={<SavedReadingAction key={result.material.materialId} materialId={result.material.materialId} format={result.material.format.slug} />}
       body={result.body}
       material={result.material}
       primaryVideo={result.primaryVideo}

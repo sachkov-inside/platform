@@ -3,6 +3,7 @@ import type { ContentCover, MaterialPreview } from "@/entities/material";
 export type LibraryDiscoveryKind = "related" | "series" | "topic";
 
 export interface LibraryDiscoveryReference {
+  readonly id?: string | undefined;
   readonly cover?: ContentCover | null | undefined;
   readonly name: string;
   readonly slug: string;

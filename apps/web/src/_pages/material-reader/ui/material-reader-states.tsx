@@ -69,11 +69,13 @@ export function MaterialReaderNotFound({
 }
 
 export function MaterialReaderAccess({
+  readingAction,
   cta,
   material,
   returnTarget = libraryMaterialReaderReturnTarget,
   seriesContext = null,
 }: {
+  readonly readingAction?: React.ReactNode;
   readonly cta: {
     readonly label: "Получить доступ";
     readonly url: string;
@@ -134,6 +136,7 @@ export function MaterialReaderAccess({
               </div>
             </div>
           </section>
+          {readingAction}
           <MaterialReaderMetadataFooter material={material} seriesContext={seriesContext} returnTarget={returnTarget} />
         </div>
       </ReaderReturnNavigation>

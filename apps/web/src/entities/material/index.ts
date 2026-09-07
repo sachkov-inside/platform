@@ -21,3 +21,5 @@ export { MaterialCard, type MaterialCardProps } from "./ui/material-card";
 export { ContentCoverImage } from "./ui/content-cover-image.client";
 
 export { MaterialReadingStatus, materialReadingLabels } from "./ui/material-reading-status";
+
+export { MaterialReadingContext, useMaterialReading, type MaterialReadingSnapshot } from "./model/reading-context.client";
