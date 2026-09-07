@@ -1,21 +1,25 @@
 "use client";
 
+import { z } from "zod";
 import { useEffect, useState } from "react";
 
 import type { AuthControlState } from "@/widgets/auth-control";
 
 interface AuthStatusSnapshot {
+  readonly accountId: string | null;
   readonly canManageMaterials: boolean;
   readonly resolved: boolean;
   readonly state: AuthControlState;
 }
 
 const initialStatus: AuthStatusSnapshot = {
+  accountId: null,
   canManageMaterials: false,
   resolved: false,
   state: "guest",
 };
 const unavailableStatus: AuthStatusSnapshot = {
+  accountId: null,
   canManageMaterials: false,
   resolved: true,
   state: "unavailable",
@@ -28,13 +32,21 @@ export function useAuthStatus(): AuthStatusSnapshot {
 
   useEffect(() => {
     let active = true;
-    void loadAuthStatus().then((authoritativeStatus) => {
-      if (active) {
-        setStatus(authoritativeStatus);
-      }
-    });
+    let generation = 0;
+    const refresh = () => {
+      const current = ++generation;
+      setStatus((previous) => ({ ...previous, resolved: false }));
+      void loadAuthStatus().then((authoritativeStatus) => {
+        if (active && generation === current) setStatus(authoritativeStatus);
+      });
+    };
+    refresh();
+    window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
     return () => {
       active = false;
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", refresh);
     };
   }, []);
 
@@ -72,7 +84,9 @@ function parseAuthStatus(value: unknown): AuthStatusSnapshot {
   ) {
     return unavailableStatus;
   }
+  const accountId = z.uuid().safeParse((value as Record<string, unknown>).accountId);
   return {
+    accountId: state === "authenticated" && accountId.success ? accountId.data : null,
     canManageMaterials:
       state === "authenticated" &&
       (value as Record<string, unknown>).canManageMaterials === true,

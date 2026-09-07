@@ -99,6 +99,7 @@ export function mapLibraryDiscoveryResult<
   }
 
   const reference = {
+    id: parsed.data.reference.id,
     cover: parsed.data.reference.cover,
     name: parsed.data.reference.name,
     slug: parsed.data.reference.slug,

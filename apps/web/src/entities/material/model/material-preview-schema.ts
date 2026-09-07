@@ -5,6 +5,7 @@ import { contentCoverSchema } from "./content-cover";
 
 export const materialPreviewSchema: z.ZodType<MaterialPreview> = z
   .object({
+    materialId: z.uuid().optional(),
     access: z.enum(["free", "membership", "workshop"]),
     availability: z.enum(["available", "locked", "unavailable"]),
     cover: contentCoverSchema.nullable().optional(),
@@ -68,6 +69,7 @@ export function toMaterialPreview(
   projection: z.infer<typeof publishedMaterialProjectionSchema>,
 ): MaterialPreview {
   return {
+    materialId: projection.materialId,
     access: projection.access,
     availability: projection.availability,
     cover: projection.cover,

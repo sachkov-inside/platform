@@ -184,6 +184,7 @@ describe("Logto BFF route orchestration", () => {
   it("resolves status from Logto token plus existing Account", async () => {
     const response = await authStatus();
     await expect(response.json()).resolves.toEqual({
+      accountId: "72000000-0000-4000-8000-000000000001",
       canManageMaterials: true,
       state: "authenticated",
     });
@@ -201,6 +202,7 @@ describe("Logto BFF route orchestration", () => {
     const response = await authStatus();
 
     await expect(response.json()).resolves.toEqual({
+      accountId: "72000000-0000-4000-8000-000000000001",
       canManageMaterials: false,
       state: "authenticated",
     });
@@ -216,6 +218,7 @@ describe("Logto BFF route orchestration", () => {
     const response = await authStatus();
 
     await expect(response.json()).resolves.toEqual({
+      accountId: null,
       canManageMaterials: false,
       state: "guest",
     });
@@ -231,6 +234,7 @@ describe("Logto BFF route orchestration", () => {
     const response = await authStatus();
 
     await expect(response.json()).resolves.toEqual({
+      accountId: null,
       canManageMaterials: false,
       state: "guest",
     });

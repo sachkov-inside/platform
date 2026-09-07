@@ -119,6 +119,7 @@ describe("Library server adapter", () => {
           topicSlug: "platform",
           format: "Гайд",
           formatSlug: "guide",
+          materialId: "72000000-0000-4000-8000-000000000020",
           tags: ["Architecture"],
           seriesMemberships: [
             {

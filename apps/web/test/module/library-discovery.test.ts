@@ -88,6 +88,7 @@ describe("Library discovery server adapter", () => {
             cover: null,
             format: "Гайд",
             formatSlug: "guide",
+          materialId: "72000000-0000-4000-8000-000000000020",
             seriesMemberships: [
               {
                 name: "Создание Platform Inside",
@@ -106,6 +107,7 @@ describe("Library discovery server adapter", () => {
         kind: "ready",
         reference: {
           cover: null,
+          id: "72000000-0000-4000-8000-000000000002",
           name: "Platform",
           slug: "platform",
           summary: "Материалы о Platform.",
@@ -150,6 +152,7 @@ describe("Library discovery server adapter", () => {
       kind: "empty",
       reference: {
         cover: null,
+        id: "72000000-0000-4000-8000-000000000020",
         name: "Как устроен Inside Platform",
         slug: "inside-platform-overview",
         summary: "Один реальный published Material.",

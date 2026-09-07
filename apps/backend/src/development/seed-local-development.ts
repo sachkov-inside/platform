@@ -7,6 +7,7 @@ import {
 
 const actor = "72000000-0000-4000-8000-000000000001";
 const topicId = "72000000-0000-4000-8000-000000000002";
+const textFormatId = "72000000-0000-4000-8000-000000000329";
 const formatId = "72000000-0000-4000-8000-000000000003";
 const createIdempotencyKey = "72000000-0000-4000-8000-000000000004";
 const tagId = "72000000-0000-4000-8000-000000000006";
@@ -601,6 +602,7 @@ async function ensureHomeMaterials(
       summary: "Что должно быть доказано до передачи результата владельцу.",
       title: "Проверяемая поставка",
     },
+    { formatId: textFormatId, slug: "tekst-dlya-proverki-progressa", title: "Текст для проверки прогресса", summary: "Открытый текст для проверки ручной отметки." },
   ] as const;
 
   for (const [index, materialDefinition] of materials.entries()) {
@@ -837,6 +839,7 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
     create: { id: noteFormatId, slug: "note", name: "Заметка" },
     update: {},
   });
+  await prisma.format.upsert({ where: { id: textFormatId }, create: { id: textFormatId, slug: "text", name: "Текст" }, update: {} });
   await prisma.tag.upsert({
     where: { id: tagId },
     create: {

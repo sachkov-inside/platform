@@ -10,6 +10,7 @@ import {
 import { HeaderAuthControl } from "@/widgets/auth-control";
 import { AccountTelegramOnboarding } from "@/features/account-access";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
+import { ReadingProgressProvider } from "@/features/reading-progress";
 import { useAuthStatus } from "./auth-status-control.client";
 
 interface AppShellProps {
@@ -47,7 +48,9 @@ export function AppShell({ children }: AppShellProps) {
       navigationItems={navigationItems}
       mobileNavigationItems={mobileNavigationItems}
     >
-      {children}
+      <ReadingProgressProvider key={authStatus.accountId ?? "guest"} accountId={authStatus.accountId} resolved={authStatus.resolved}>
+        {children}
+      </ReadingProgressProvider>
       <AccountTelegramOnboarding
         authenticated={authStatus.state === "authenticated"}
         authResolved={authStatus.resolved}
