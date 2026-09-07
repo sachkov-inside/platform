@@ -6,8 +6,8 @@ downloads the exact case evaluator bundle, runs its bounded Compose topology, an
 schema-valid report.
 
 The historical Partner Webhooks boundary is recorded in
-[ADR 0014](../../docs/adr/0014-pinned-native-go-workshop-evaluator.md). The current
-[ADR 0015](../../docs/adr/0015-defer-kafka-case-evaluation-until-casespec.md) does not select this
+[ADR 0017](../../docs/adr/0017-pinned-native-go-workshop-evaluator.md). The current
+[ADR 0018](../../docs/adr/0018-defer-kafka-case-evaluation-until-casespec.md) does not select this
 CLI for the Kafka Track until CaseSpec-driven research explicitly accepts its reuse.
 
 The first beta target matrix is:
