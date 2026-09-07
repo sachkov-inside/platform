@@ -1,4 +1,4 @@
-import { ArrowRight, DatabaseZap, Layers, MessageCircle, Star } from "lucide-react";
+import { ArrowRight, DatabaseZap, FileText } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -198,11 +198,7 @@ function NoteFeed({ items }: { readonly items: HomeView["notes"] }) {
 
 function AllNotesLink() {
   return <Link aria-label="Все заметки" className="inline-flex min-h-14 max-w-full items-center gap-3 rounded-full border border-white bg-white px-4 py-3 text-base font-semibold tracking-[-0.025em] no-underline shadow-floating-nav transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transform-none md:px-5 md:text-lg" href="/library?format=note">
-    <span aria-hidden="true" className="flex -space-x-2">
-      <span className="relative z-20 grid size-8 place-items-center rounded-full border-2 border-white bg-blue-500 text-white shadow-sm"><MessageCircle className="size-4" /></span>
-      <span className="relative z-10 grid size-8 place-items-center rounded-full border-2 border-white bg-orange-400 text-white shadow-sm"><Layers className="size-4" /></span>
-      <span className="grid size-8 place-items-center rounded-full border-2 border-white bg-green-500 text-white shadow-sm"><Star className="size-4 fill-current" /></span>
-    </span>
+    <FileText aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
     <span className="whitespace-nowrap">Все заметки</span>
   </Link>;
 }
