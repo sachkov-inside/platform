@@ -1,7 +1,7 @@
 # Compact presenter pose
 
 Generated with the built-in image_gen tool from `kirill-explaining.png`.
-The generator returned an RGB image with a painted checkerboard; background extraction is pending.
+The generator returned an RGB image with a painted checkerboard. With owner authorization, ImageMagick removed the background; the transparent result is preserved as `kirill-raised-hand.png`. Later pose comparisons supersede this attempt.
 
 ## Pose prompt
 

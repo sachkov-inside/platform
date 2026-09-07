@@ -7,7 +7,7 @@ const meta = {
   title: "Pages/Guest Home/Prototype 380",
   parameters: {
     layout: "fullscreen",
-    docs: { description: { component: "Три варианта гостевой главной #380 на текущих shell, токенах и карточках Platform. A — сначала материалы; B — закреплённая серия с аватаром Кирилла и фильтрами тем; C — авторская практика. Стрелки переключают вариант. Карточки открывают страницы серии, материала и каталога из main на демонстрационных данных; CTA ведёт на текущий экран входа. Баннер B: 224 px на mobile, аватар выступает сверху, значки разработки плавно исчезают; учитывается reduced motion. Содержимое и открытость материалов демонстрационные. Production и платежи не подключены. Решение владельца ожидается." } },
+    docs: { description: { component: "Три варианта гостевой главной #380 на текущих shell, токенах и карточках Platform. A — сначала материалы; B — закреплённая серия с аватаром Кирилла и фильтрами тем; C — авторская практика. Стрелки переключают вариант. Карточки открывают страницы серии, материала и каталога из main на демонстрационных данных; CTA ведёт на текущий экран входа. Баннер B: 176 px на mobile. Три позы аватара: спокойный портрет, объясняющий жест и парящий 3D-объект. Поза выбирается в панели прототипа; лицо и жест видны в короткой карточке. Содержимое и открытость материалов демонстрационные. Production и платежи не подключены. Решение владельца ожидается." } },
   },
 } satisfies Meta<typeof GuestHomePrototype>;
 export default meta;
@@ -34,3 +34,7 @@ export const SeriesFirst: Story = {
 };
 export const AuthorFirst: Story = { name: "C · От автора", args: { initialVariant: "C" } };
 export const Mobile: Story = { name: "Mobile · Все варианты", args: { initialVariant: "B" }, globals: { viewport: { value: "mobile390", isRotated: false } } };
+
+export const AvatarPortrait: Story = { name: "B1 · Спокойный портрет", args: { initialVariant: "B", initialAvatarPose: "portrait" } };
+export const AvatarGesture: Story = { name: "B2 · Объясняющий жест", args: { initialVariant: "B", initialAvatarPose: "gesture" } };
+export const AvatarObject: Story = { name: "B3 · Парящий объект", args: { initialVariant: "B", initialAvatarPose: "object" } };

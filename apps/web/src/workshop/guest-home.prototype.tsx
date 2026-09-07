@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Code2, GitBranch, Terminal, MessageCircle, Users } from "lucide-react";
+import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Code2, MessageCircle, Users } from "lucide-react";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import Link from "next/link";
@@ -19,7 +19,12 @@ import "./guest-home.prototype.css";
  * Compare via named stories or ?variant=A|B|C. Owner verdict is pending.
  */
 export type GuestVariant = "A" | "B" | "C";
-const avatarUrl = new URL("./guest-home-assets/kirill-explaining.png", import.meta.url).href;
+export type AvatarPose = "portrait" | "gesture" | "object";
+const avatarPoses = {
+  portrait: { label: "1 · Спокойный портрет", src: new URL("./guest-home-assets/kirill-portrait.png", import.meta.url).href },
+  gesture: { label: "2 · Объясняющий жест", src: new URL("./guest-home-assets/kirill-gesture.png", import.meta.url).href },
+  object: { label: "3 · Парящий объект", src: new URL("./guest-home-assets/kirill-object.png", import.meta.url).href },
+};
 const variants = { A: "Сначала материалы", B: "Серия с аватаром", C: "От автора" };
 const benefits = [
   { icon: BookOpen, title: "Цельные практические гайды", text: "Задача, объяснение, код и проверка результата — в одном материале." },
@@ -29,7 +34,8 @@ const benefits = [
 ];
 
 
-export function GuestHomePrototype({ initialVariant = "A" }: { readonly initialVariant?: GuestVariant }) {
+export function GuestHomePrototype({ initialVariant = "A", initialAvatarPose = "portrait" }: { readonly initialVariant?: GuestVariant; readonly initialAvatarPose?: AvatarPose }) {
+  const [avatarPose, setAvatarPose] = useState<AvatarPose>(initialAvatarPose);
   const [variant, setVariant] = useState<GuestVariant>(() => {
     const param = new URLSearchParams(window.location.search).get("variant");
     return param === "A" || param === "B" || param === "C" ? param : initialVariant;
@@ -84,12 +90,13 @@ export function GuestHomePrototype({ initialVariant = "A" }: { readonly initialV
         <button aria-label="Предыдущий вариант" onClick={() =>{  cycle(-1); }}><ChevronLeft aria-hidden="true" /></button>
         <span aria-live="polite"><small>ПРОТОТИП</small>{variant} · {variants[variant]}</span>
         <button aria-label="Следующий вариант" onClick={() =>{  cycle(1); }}><ChevronRight aria-hidden="true" /></button>
+        {variant === "B" && <label className="gh-pose-picker">Аватар<select aria-label="Поза аватара" value={avatarPose} onChange={(event) => { setAvatarPose(event.target.value as AvatarPose); }}>{Object.entries(avatarPoses).map(([value, pose]) => <option key={value} value={value}>{pose.label}</option>)}</select></label>}
       </nav>
       <ApplicationShell currentPath={route.pathname} navigationItems={[{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }]} mobileNavigationItems={[{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }, { href: "/account", icon: "profile", label: "Профиль" }]} accountSlot={<CTA onClick={subscribe} />}>
         <div className="guest-home">
           {isHome ? <>
             {variant === "A" && <VariantA subscribe={subscribe} />}
-            {variant === "B" && <VariantB subscribe={subscribe} />}
+            {variant === "B" && <VariantB subscribe={subscribe} avatarPose={avatarPose} />}
             {variant === "C" && <VariantC subscribe={subscribe} />}
           </> : <div onSubmit={(event) => { event.preventDefault(); setDemoNotice(true); }}>
             <ProductionGuestScene href={href} />
@@ -114,23 +121,20 @@ function Invitation({ subscribe }: { readonly subscribe: () => void }) { return 
 export function VariantA({ subscribe }: { readonly subscribe: () => void }) {
   return <><header className="gh-intro"><p className="gh-eyebrow">Sachkov Inside · для тех, кто уже пишет код</p><Title>Разбирайся глубже.<br />Применяй в своей разработке.</Title><p className="gh-lead">Цельные практические гайды, инженерная база и разработка с ИИ. С объяснением решений и обсуждением со мной и сообществом.</p><Actions subscribe={subscribe} /></header><section><Heading aside="Начни с интересной задачи">Попробуй Inside</Heading><Guides /></section><section><Heading>Разбираем по шагам</Heading><SeriesCards /></section><section><Heading>Больше, чем доступ к текстам</Heading><Benefits /></section><Invitation subscribe={subscribe} /></>;
 }
-export function VariantB({ subscribe }: { readonly subscribe: () => void }) {
+export function VariantB({ subscribe, avatarPose }: { readonly subscribe: () => void; readonly avatarPose: AvatarPose }) {
   const [topic, setTopic] = useState("Все");
   const filtered = topic === "Все" ? materials : materials.filter((material) => material.topic === topic);
   return <>
     <h1 className="sr-only">Главная Inside</h1>
-    <section className="gh-featured" aria-labelledby="featured-title">
+    <section className="gh-featured" aria-labelledby="featured-title" data-avatar-pose={avatarPose}>
       <div className="gh-featured-copy"><p className="gh-featured-label">С чего начать · Серия</p><h2 id="featured-title">Создаём реальный<br />продукт с ИИ</h2><p className="gh-featured-description">От идеи и архитектуры до кода и деплоя.<br />На примере самой платформы Inside.</p><div className="gh-featured-bottom"><span>Гайды · Код · Решения</span><Link href="/series/inside-with-ai?from=%2F">Изучить серию <ArrowRight aria-hidden="true" /></Link></div></div>
       <div className="gh-presenter" aria-hidden="true">
         <div className="gh-presenter-crop">
-          {/* Vite serves the copied prototype asset; no Next image optimizer in Storybook. */}
+          {/* Vite serves the edited prototype asset; no Next image optimizer in Storybook. */}
           {/* oxlint-disable-next-line next/no-img-element */}
-          <img src={avatarUrl} alt="" width="1024" height="1536" />
+          <img src={avatarPoses[avatarPose].src} alt="" width="1254" height="1254" />
         </div>
         <span className="gh-floating-note"><Check /> Проверяем на практике</span>
-        <span className="gh-particle gh-particle-code"><Code2 /></span>
-        <span className="gh-particle gh-particle-branch"><GitBranch /></span>
-        <span className="gh-particle gh-particle-terminal"><Terminal /></span>
       </div>
     </section>
     <div className="gh-topic-filters" aria-label="Темы материалов">{["Все", "Разработка с ИИ", "Архитектура", "Инфраструктура"].map((name) => <button key={name} aria-pressed={topic === name} onClick={() => { setTopic(name); }}>{name}</button>)}</div>

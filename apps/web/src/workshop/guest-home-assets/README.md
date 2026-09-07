@@ -26,23 +26,35 @@ Issue: https://github.com/sachkov-inside/platform/issues/380
 
 ## Avatar provenance
 
-`kirill-explaining.png` is an unmodified copy of the owner-requested asset from
-`KirillSachkov/vertical-content`, component `production`, path
-`public/assets/presenter/poses/explaining.png`. The source pose and identity are documented in
-`production/assets/presenter/POSES.md` and `REFERENCE.md`. No new image generation was used.
-The source repository remains unchanged. CSS crops/fades the torso with the head extending above the 224 px mobile banner. The desktop
-label sits at the bottom right of the banner. Code, Git-branch and terminal icons float from the avatar and fade;
-`prefers-reduced-motion: reduce` hides the animation. Playback controls are omitted at the owner’s request.
+The original `kirill-explaining.png` is preserved from `KirillSachkov/vertical-content`,
+`production/public/assets/presenter/poses/explaining.png`. The source repository is unchanged.
+
+Three new pose edits use that illustration as the identity reference:
+- [Calm portrait](kirill-portrait.png)
+- [Lower explanatory gesture](kirill-gesture.png)
+- [Floating 3D modules](kirill-object.png)
+
+Generated with built-in image_gen. [Exact prompts](avatar-variants-prompts.md) are saved alongside
+these assets. The owner authorized local image processing; ImageMagick removed the generated
+background and softened cutout edges. All three final files have a genuine alpha channel.
+The earlier raised-hand attempt is retained as `kirill-raised-hand.png` for provenance.
+
+B1/B2/B3 stories and the prototype's pose selector compare the same banner. Its mobile height is
+176 px. The CTA is on the left to leave the hand/object visible; the torso fades below the gesture.
+The desktop practice badge stays at bottom right for portrait/gesture; the object version omits it to keep the presenting palm visible. The new comparisons omit floating UI icons
+and playback controls to keep attention on the face and pose.
 
 ## Verification
 
 - All root `pnpm check` stages passed. The refinement run reached the build and caught an invalid
   Storybook matcher option; after correction, lint, types, builds and standalone-config checks
   were rerun successfully. Module tests: 420 backend and 488 web passed; route tests: 43 passed.
-- Initial full `pnpm test:storybook`: 32 files, 274 tests passed. After refinement, all four guest
+- Initial full `pnpm test:storybook`: 32 files, 274 tests passed. After refinement, all seven guest
   stories passed, including the new production-page navigation scenario.
 - Browser review: all three compositions at 1440 and 320 px; banner also checked at 390 px.
   Refinement also checked at 768 px. No document horizontal overflow at 320/390 px. Topic filtering and the series → material →
   access/sign-in path checked interactively. The B story checks production series/locked-reader
 markers, next material and return to Home. Heading focus moves to the newly opened sample screen.
 - Not tested: production, real materials/access policy, checkout, conversion and real user response.
+
+Latest pose refinement: typecheck, focused lint and seven Storybook stories passed. Visual checks cover 320/390 px and desktop; source background removal was inspected against the dark banner.
