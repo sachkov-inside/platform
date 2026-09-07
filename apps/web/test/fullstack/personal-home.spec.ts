@@ -2,6 +2,8 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { z } from "zod";
 import AxeBuilder from "@axe-core/playwright";
 import { resolve } from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { mkdir } from "node:fs/promises";
 async function signIn(context: BrowserContext, persona = "NON_MEMBER") {
   const name = process.env.FULLSTACK_LOGTO_COOKIE_NAME; const value = process.env[`FULLSTACK_LOGTO_${persona}_SESSION`];
@@ -105,10 +107,16 @@ test("personal Home keeps public content through personal failure and does not t
   await page.goto("/materials/developer-pipeline-bez-poteri-konteksta");
   await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "ready");
   await expect(page.locator("[data-reader-body]:visible")).toHaveCount(0); expect(opens).toEqual([]);
-  await page.route("**/api/personal-home", async (route) => { await route.fulfill({ status: 503 }); });
   await page.goto("/");
+  await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "ready");
+  const series = page.getByRole("heading", { name: "Серии", exact: true });
+  await expect(series).toBeVisible();
+  const beforeFailure = await series.boundingBox();
+  await page.route("**/api/personal-home", async (route) => { await route.fulfill({ status: 503 }); });
+  await page.evaluate(() => { window.dispatchEvent(new Event("focus")); document.dispatchEvent(new Event("visibilitychange", { bubbles: true })); });
   await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "unavailable");
   await expect(page.getByRole("heading", { name: "Серии", exact: true })).toBeVisible();
+  expect((await series.boundingBox())?.y).toBe(beforeFailure?.y);
   await page.unroute("**/api/personal-home");
   await page.getByRole("button", { name: "Попробовать ещё раз" }).click();
   await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "ready");
@@ -120,7 +128,7 @@ test("personal Home waits for document visibility before recording an available 
   await page.addInitScript(() => {
     let hidden = true;
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => hidden ? "hidden" : "visible" });
-    window.addEventListener("test-reader-visible", () => { hidden = false; document.dispatchEvent(new Event("visibilitychange")); });
+    window.addEventListener("test-reader-visible", () => { hidden = false; document.dispatchEvent(new Event("visibilitychange", { bubbles: true })); });
   });
   const requests: string[] = [];
   page.on("request", (request) => { if (request.url().endsWith("/api/reading-progress/open")) requests.push(request.url()); });
@@ -136,7 +144,7 @@ test("personal Home waits for document visibility before recording an available 
 
 test("personal Home preserves SSR geometry through authenticated hydration", async ({ page, context }) => {
   await signIn(context); await dismissOnboarding(page);
-  const { promise, resolve: release } = Promise.withResolvers<void>();
+  const { promise, resolve: release } = Promise.withResolvers<undefined>();
   await page.route("**/*.js*", async (route) => { await promise; await route.continue(); });
   const navigation = page.goto("/", { waitUntil: "commit" });
   await navigation;
@@ -144,8 +152,51 @@ test("personal Home preserves SSR geometry through authenticated hydration", asy
   await expect(series).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   const before = await series.boundingBox();
-  release();
+  release(undefined);
   await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "ready");
   await page.waitForResponse((response) => response.url().endsWith("/api/personal-home") && response.status() === 200);
   expect((await series.boundingBox())?.y).toBe(before?.y);
+});
+
+test("personal Home retries an already visible open with the same command after the tab is hidden", async ({ page, context }) => {
+  await signIn(context); await dismissOnboarding(page);
+  const commands: string[] = [];
+  await page.route("**/api/reading-progress/open", async (route) => {
+    commands.push(route.request().postData() ?? "");
+    if (commands.length === 1) {
+      await page.evaluate(() => { Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" }); document.dispatchEvent(new Event("visibilitychange", { bubbles: true })); });
+      await route.abort("failed");
+    } else await route.continue();
+  });
+  const opened = page.waitForResponse((response) => response.url().endsWith("/api/reading-progress/open") && response.status() === 200);
+  await page.goto("/materials/kak-ustroen-inside-platform");
+  await expect.poll(() => commands.length).toBe(1);
+  // Cross the retry delay while hidden: TanStack may pause delivery, but it must retain the command.
+  await page.waitForTimeout(1_200);
+  await page.evaluate(() => { Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" }); document.dispatchEvent(new Event("visibilitychange", { bubbles: true })); });
+  await opened;
+  const commandId = (body: string) => /name="commandId"\r\n\r\n([^\r]+)/u.exec(body)?.[1];
+  expect(commandId(commands[0] ?? "")).toBeTruthy(); expect(commandId(commands[1] ?? "")).toBe(commandId(commands[0] ?? ""));
+});
+
+test("personal Home hides expired content and restores the same visit after rejoining", async ({ page, context }) => {
+  await signIn(context, "MEMBER"); await dismissOnboarding(page);
+  const transition = async (decision: "member" | "not_member") => {
+    const { stdout } = await promisify(execFile)("pnpm", ["--filter", "@inside/backend", "smoke:set-full-stack-membership", decision], { cwd: resolve("../.."), env: process.env });
+    return z.object({ kind: z.string(), visit: z.object({ firstOpenedAt: z.string(), lastOpenedAt: z.string() }).nullable() }).parse(JSON.parse(stdout.slice(stdout.indexOf("{"))));
+  };
+  await transition("member");
+  try {
+    const opened = page.waitForResponse((response) => response.url().endsWith("/api/reading-progress/open") && response.status() === 200);
+    await page.goto("/materials/developer-pipeline-bez-poteri-konteksta"); await unmark(page, "Изучено"); await opened;
+    const id = await page.locator("[data-material-id]:visible").getAttribute("data-material-id");
+    if (id === null) throw new Error("Missing protected material identity");
+    await page.goto("/"); const card = page.locator(`[data-continue-material="${id}"]`); await expect(card).toBeVisible();
+    const expired = await transition("not_member"); expect(expired.kind).toBe("expired"); expect(expired.visit).not.toBeNull();
+    await page.evaluate(() => { window.dispatchEvent(new Event("focus")); document.dispatchEvent(new Event("visibilitychange", { bubbles: true })); });
+    await expect(card).toHaveCount(0);
+    const restored = await transition("member"); expect(restored.kind).toBe("active"); expect(restored.visit).toEqual(expired.visit);
+    await page.evaluate(() => { window.dispatchEvent(new Event("focus")); document.dispatchEvent(new Event("visibilitychange", { bubbles: true })); });
+    await expect(card).toBeVisible();
+  } finally { await transition("member"); }
 });

@@ -5,6 +5,8 @@ import { useMaterialReading } from "@/entities/material";
 import { recordMaterialOpen } from "../api/material-open.browser";
 import type { MaterialOpenCommand } from "../model/material-open-contract";
 
+const OPEN_RETRY_DELAY_MS = 1_000;
+
 /** Mounted only around an available Reader. SSR and link prefetch cannot emit this signal. */
 export function VisibleMaterialOpen({ materialId, contentVersion, children }: { readonly materialId: string; readonly contentVersion: number; readonly children: ReactNode }) {
   const reader = useRef<HTMLDivElement>(null);
@@ -15,13 +17,15 @@ export function VisibleMaterialOpen({ materialId, contentVersion, children }: { 
   const { mutate } = useMutation({
     mutationKey: ["reading-progress", reading.accountId, "open", materialId],
     mutationFn: async (input: { accountId: string; value: MaterialOpenCommand }) => {
-      if (currentAccount.current !== input.accountId || document.visibilityState !== "visible") return;
+      if (currentAccount.current === null) throw new Error("open_identity_pending");
+      if (currentAccount.current !== input.accountId) return;
+      // A retry completes the already-observed visible open, even if the tab was hidden later.
       const result = await recordMaterialOpen(input.value);
       if (result.kind === "unavailable") throw new Error("open_unavailable");
       if (result.kind === "saved" && currentAccount.current === input.accountId) await queryClient.invalidateQueries({ queryKey: ["reading-progress", input.accountId, "continue"] });
     },
     retry: 2,
-    retryDelay: 1000,
+    retryDelay: OPEN_RETRY_DELAY_MS,
   });
   useEffect(() => {
     const accountId = reading.resolved ? reading.accountId : null;
