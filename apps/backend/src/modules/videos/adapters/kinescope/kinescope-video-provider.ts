@@ -1,8 +1,9 @@
 import { z } from "zod";
 
-import type {
-  ProviderVideo,
-  VideoProvider,
+import {
+  ProviderUploadAuthorizationError,
+  type ProviderVideo,
+  type VideoProvider,
 } from "../../ports/video-provider.js";
 
 const initResponseSchema = z.object({
@@ -109,6 +110,7 @@ export function createKinescopeVideoProvider(config: {
         }),
         signal: AbortSignal.timeout(KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS),
       });
+      if (response.status === 401 || response.status === 403) throw new ProviderUploadAuthorizationError();
       if (!response.ok) throw new Error("Kinescope upload init failed");
       const parsed = initResponseSchema.parse(await response.json());
       assertKinescopeUrl(parsed.data.endpoint, "upload endpoint");

@@ -197,3 +197,9 @@ describe("Kinescope VideoProvider adapter", () => {
     })).rejects.toThrow("unsafe upload endpoint");
   });
 });
+
+test.each([401, 403])("upload authorization rejection %s is distinguishable from an unknown provider outcome", async (status) => {
+  const provider = createKinescopeVideoProvider({ ...config, fetch: vi.fn().mockResolvedValue(Response.json({ error: { message: "unauthorized" } }, { status })) });
+  await expect(provider.initUpload({ access: "free", byteSize: 42, filename: "video.mp4", projectId: "public-project", title: "Video" }))
+    .rejects.toMatchObject({ name: "ProviderUploadAuthorizationError" });
+});

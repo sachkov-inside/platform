@@ -20,6 +20,8 @@ type VideoStoryMode =
   | "authoring-processing"
   | "authoring-ready"
   | "authoring-uploading"
+  | "authoring-upload_not_authorized"
+  | "authoring-upload_outcome_unknown"
   | "player-error"
   | "player-ready";
 
@@ -259,5 +261,21 @@ export const PlayerWatchedToggle: Story = {
     await expect(watched).toHaveAttribute("aria-pressed", "true");
     await expect(watched.getBoundingClientRect().width).toBe(initialWidth);
     await expect(watched.getBoundingClientRect().height).toBe(initialHeight);
+  },
+};
+
+export const UploadNotAuthorized: Story = {
+  args: { mode: "authoring-upload_not_authorized" },
+  name: "Authoring · upload authorization denied",
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText("Kinescope отклонил загрузку. Нужно исправить права доступа к сервису.")).toBeVisible();
+  },
+};
+
+export const UploadOutcomeUnknown: Story = {
+  args: { mode: "authoring-upload_outcome_unknown" },
+  name: "Authoring · upload outcome unknown",
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText("Результат загрузки не подтверждён. Нужна проверка в Kinescope перед повтором.")).toBeVisible();
   },
 };

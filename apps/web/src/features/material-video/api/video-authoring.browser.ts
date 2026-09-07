@@ -10,6 +10,10 @@ export type VideoMutationResult<Value> =
   | { readonly kind: "ready"; readonly value: Value }
   | { readonly kind: "unavailable" };
 
+export type VideoUploadMutationResult =
+  | VideoMutationResult<z.infer<typeof uploadResponseSchema>>
+  | { readonly kind: "upload_not_authorized" | "upload_outcome_unknown" };
+
 export async function initMaterialVideoUpload(input: {
   readonly access: "free" | "membership";
   readonly byteSize: number;
@@ -17,7 +21,7 @@ export async function initMaterialVideoUpload(input: {
   readonly materialId: string;
   readonly submissionId: string;
   readonly title: string;
-}): Promise<VideoMutationResult<z.infer<typeof uploadResponseSchema>>> {
+}): Promise<VideoUploadMutationResult> {
   const formData = new FormData();
   formData.set("access", input.access);
   formData.set("byteSize", String(input.byteSize));
@@ -25,10 +29,12 @@ export async function initMaterialVideoUpload(input: {
   formData.set("materialId", input.materialId);
   formData.set("submissionId", input.submissionId);
   formData.set("title", input.title);
-  return parseMutation(
-    await requestSameOriginMutation("/api/authoring/material-video-uploads", "POST", formData),
-    uploadResponseSchema,
-  );
+  const response = await requestSameOriginMutation("/api/authoring/material-video-uploads", "POST", formData);
+  if (response.ok) {
+    const failure = z.object({ kind: z.enum(["upload_not_authorized", "upload_outcome_unknown"]) }).strict().safeParse(response.body);
+    if (failure.success) return failure.data;
+  }
+  return parseMutation(response, uploadResponseSchema);
 }
 
 export async function attachMaterialVideo(input: {

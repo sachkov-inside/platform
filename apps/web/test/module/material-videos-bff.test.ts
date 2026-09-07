@@ -142,6 +142,12 @@ describe("Material Video named authoring BFF mutations", () => {
     fakes.getAccessToken.mockResolvedValue("access-token");
   });
 
+  it.each(["upload_not_authorized", "upload_outcome_unknown"])("preserves the known upload failure %s without provider details", async (code) => {
+    fakes.requestUpload.mockResolvedValue({ ok: false, problem: { code, secret: "provider-detail" }, response: Response.json({}, { status: 503 }) });
+    const response = await handleVideoUploadRequest(mutationRequest("/api/authoring/material-video-uploads", { access: "free", byteSize: "42", filename: "video.mp4", materialId, submissionId: videoId, title: "Video" }, "POST"));
+    expect(await response.json()).toEqual({ kind: code });
+  });
+
   it("maps upload init through its exact capability request", async () => {
     fakes.requestUpload.mockResolvedValue({
       body: { uploadEndpoint: "https://uploads.invalid/video", video: { videoId } },

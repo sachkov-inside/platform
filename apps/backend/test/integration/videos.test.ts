@@ -1,3 +1,4 @@
+import { createKinescopeVideoProvider } from "../../src/modules/videos/adapters/kinescope/kinescope-video-provider.js";
 import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
@@ -196,6 +197,21 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     });
   });
 
+  test("a provider authorization rejection is replayed safely and permits a new attempt after repair", async () => {
+    const request = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ error: { message: "unauthorized" } }, { status: 401 }))
+      .mockResolvedValueOnce(Response.json({ data: { id: "repaired-provider-video", endpoint: "https://uploader.kinescope.io/v2/upload/repaired" } }, { status: 201 }));
+    const provider = createKinescopeVideoProvider({ apiBaseUrl: "https://api.kinescope.io", uploaderBaseUrl: "https://uploader.kinescope.io", apiToken: "test-token", fetch: request });
+    const videos = assembleVideos({ canManage: () => Promise.resolve(true), prisma: database.prisma, provider, projects: { free: "public-project", membership: "member-project" } });
+    const input = { actor: randomUUID(), materialId: randomUUID(), access: "free" as const, byteSize: 42, filename: "video.mp4", title: "Video", idempotencyKey: "denied-upload" };
+    expect(await videos.initUpload(input)).toEqual({ ok: false, error: { code: "upload_not_authorized" } });
+    expect(await videos.initUpload(input)).toEqual({ ok: false, error: { code: "upload_not_authorized" } });
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(await database.prisma.videoUploadAttempt.findFirstOrThrow({ where: { materialId: input.materialId } })).toMatchObject({ status: "rejected", failureCode: "upload_not_authorized", videoId: null, uploadEndpoint: null });
+    expect(await videos.initUpload({ ...input, idempotencyKey: "repaired-upload" })).toMatchObject({ ok: true, value: { video: { state: "uploading" } } });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
   test("records an ambiguous upload init before provider I/O and never repeats it", async () => {
     let initCalls = 0;
     const videos = assembleVideos({
@@ -222,7 +238,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     };
 
     await expect(videos.initUpload(input)).resolves.toEqual({
-      error: { code: "dependency_unavailable", retryable: true },
+      error: { code: "upload_outcome_unknown" },
       ok: false,
     });
     await expect(videos.initUpload(input)).resolves.toEqual({

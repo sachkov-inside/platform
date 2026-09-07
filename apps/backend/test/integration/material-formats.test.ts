@@ -51,7 +51,9 @@ test.each(["podcast", "38900000-0000-4000-8000-000000000001"])("rejects unsuppor
 test.each(["video", "guide", "note", "text"])("migrates legacy %s references without changing Material content", async (legacySlug) => {
   const legacy = await createTestDatabase();
   try {
-    await runMigrationsToLatest(legacy.url, platformMigrations.slice(0, -1));
+    const migrationIndex = platformMigrations.findIndex(({ name }) => name === "0035_domain_material_formats");
+    expect(migrationIndex).toBeGreaterThan(0);
+    await runMigrationsToLatest(legacy.url, platformMigrations.slice(0, migrationIndex));
     const formatId = "38900000-0000-4000-8000-000000000001";
     const materialId = "38900000-0000-4000-8000-000000000002";
     await legacy.prisma.$executeRaw(Prisma.sql`insert into materials.formats (id, slug, name) values (${formatId}::uuid, ${legacySlug}, 'Legacy format')`);
@@ -71,7 +73,9 @@ test.each(["video", "guide", "note", "text"])("migrates legacy %s references wit
 test("refuses unknown referenced legacy formats and preserves the database for explicit conversion", async () => {
   const legacy = await createTestDatabase();
   try {
-    await runMigrationsToLatest(legacy.url, platformMigrations.slice(0, -1));
+    const migrationIndex = platformMigrations.findIndex(({ name }) => name === "0035_domain_material_formats");
+    expect(migrationIndex).toBeGreaterThan(0);
+    await runMigrationsToLatest(legacy.url, platformMigrations.slice(0, migrationIndex));
     const formatId = "38900000-0000-4000-8000-000000000003";
     const materialId = "38900000-0000-4000-8000-000000000004";
     await legacy.prisma.$executeRaw(Prisma.sql`insert into materials.formats (id, slug, name) values (${formatId}::uuid, 'podcast', 'Podcast')`);

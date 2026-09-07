@@ -25,7 +25,7 @@ export function handleVideoUploadRequest(request: Request): Promise<Response> {
     const parsed = uploadSchema.safeParse(Object.fromEntries(formData));
     if (!parsed.success) return { kind: "invalid_input" };
     const { submissionId, ...upload } = parsed.data;
-    return mapVideoResult(await requestVideoUploadInit({
+    return mapVideoUploadResult(await requestVideoUploadInit({
       ...upload,
       idempotencyKey: `web-video-${submissionId}`,
     }, accessToken));
@@ -63,4 +63,12 @@ function mapVideoResult(result: Awaited<ReturnType<typeof requestVideoAttach>>) 
       : { kind: "unavailable" as const };
   }
   return { kind: "ready" as const, value: result.body };
+}
+
+function mapVideoUploadResult(result: Awaited<ReturnType<typeof requestVideoUploadInit>>) {
+  if (!result.ok && (result.response.status === 409 || result.response.status === 503)) {
+    const failure = z.object({ code: z.enum(["upload_not_authorized", "upload_outcome_unknown"]) }).safeParse(result.problem);
+    if (failure.success) return { kind: failure.data.code };
+  }
+  return mapVideoResult(result);
 }
