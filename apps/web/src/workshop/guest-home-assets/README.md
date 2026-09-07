@@ -39,10 +39,18 @@ these assets. The owner authorized local image processing; ImageMagick removed t
 background and softened cutout edges. All three final files have a genuine alpha channel.
 The earlier raised-hand attempt is retained as `kirill-raised-hand.png` for provenance.
 
-B1/B2/B3 stories and the prototype's pose selector compare the same banner. Its mobile height is
-176 px. The CTA is on the left to leave the hand/object visible; the torso fades below the gesture.
-The desktop practice badge stays at bottom right for portrait/gesture; the object version omits it to keep the presenting palm visible. The new comparisons omit floating UI icons
-and playback controls to keep attention on the face and pose.
+The main B story now defaults to the explanatory gesture. B1/B2/B3 and the pose selector retain
+portrait/gesture/object for comparison. The mobile banner has a 176 px minimum height and grows
+with enlarged text. Its CTA is on the right over the avatar. The torso fade is slightly stronger.
+The desktop practice badge remains at bottom right for portrait/gesture; the object version omits it.
+Code, Git branch and terminal icons drift from the gesture avatar's shoulder and disappear within
+4.6 seconds. Reduced motion hides them. There are no playback controls.
+
+The candidate mobile type scale uses Manrope: page 24/30, section/banner 18/24, card 16/22,
+body 16/24, UI 14/20 and metadata 12/16. Headings use 600, body 400. See the
+[research and source links](../../../../../docs/research/issue-380-mobile-typography.md).
+Dedicated stories show the scale, text at 200% and user text-spacing overrides. The workshop's
+candidate dock spacing keeps navigation readable when text grows without changing production files.
 
 ## Verification
 
@@ -58,3 +66,9 @@ markers, next material and return to Home. Heading focus moves to the newly open
 - Not tested: production, real materials/access policy, checkout, conversion and real user response.
 
 Latest pose refinement: typecheck, focused lint and seven Storybook stories passed. Visual checks cover 320/390 px and desktop; source background removal was inspected against the dark banner.
+
+Latest typography/shoulder refinement: typecheck and focused lint passed; the full Storybook suite
+passed 32 files / 280 tests. After final reflow adjustments, all ten guest stories passed again,
+and Storybook built successfully. Browser checks cover 320/390/430 px and desktop, including
+320 px text at 200% and increased text spacing. These are local browser checks, not native-device
+or complete accessibility certification.

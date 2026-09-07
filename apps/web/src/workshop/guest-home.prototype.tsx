@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Code2, MessageCircle, Users } from "lucide-react";
+import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Code2, GitBranch, Terminal, MessageCircle, Users } from "lucide-react";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import Link from "next/link";
@@ -13,6 +13,7 @@ import { ApplicationShell } from "@/widgets/application-shell";
 import { materials, series } from "./guest-home.fixture";
 import { ProductionGuestScene } from "./guest-home-production-scenes";
 import "./guest-home.prototype.css";
+import "./mobile-typography.prototype.css";
 
 /** Throwaway #380: three guest Home compositions using the current Platform shell and cards.
  * Storybook-only sample content and in-memory navigation; no access or payment changes.
@@ -34,7 +35,7 @@ const benefits = [
 ];
 
 
-export function GuestHomePrototype({ initialVariant = "A", initialAvatarPose = "portrait" }: { readonly initialVariant?: GuestVariant; readonly initialAvatarPose?: AvatarPose }) {
+export function GuestHomePrototype({ initialVariant = "A", initialAvatarPose = "gesture" }: { readonly initialVariant?: GuestVariant; readonly initialAvatarPose?: AvatarPose }) {
   const [avatarPose, setAvatarPose] = useState<AvatarPose>(initialAvatarPose);
   const [variant, setVariant] = useState<GuestVariant>(() => {
     const param = new URLSearchParams(window.location.search).get("variant");
@@ -93,7 +94,7 @@ export function GuestHomePrototype({ initialVariant = "A", initialAvatarPose = "
         {variant === "B" && <label className="gh-pose-picker">Аватар<select aria-label="Поза аватара" value={avatarPose} onChange={(event) => { setAvatarPose(event.target.value as AvatarPose); }}>{Object.entries(avatarPoses).map(([value, pose]) => <option key={value} value={value}>{pose.label}</option>)}</select></label>}
       </nav>
       <ApplicationShell currentPath={route.pathname} navigationItems={[{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }]} mobileNavigationItems={[{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }, { href: "/account", icon: "profile", label: "Профиль" }]} accountSlot={<CTA onClick={subscribe} />}>
-        <div className="guest-home">
+        <div className="guest-home gh-mobile-type">
           {isHome ? <>
             {variant === "A" && <VariantA subscribe={subscribe} />}
             {variant === "B" && <VariantB subscribe={subscribe} avatarPose={avatarPose} />}
@@ -127,13 +128,18 @@ export function VariantB({ subscribe, avatarPose }: { readonly subscribe: () => 
   return <>
     <h1 className="sr-only">Главная Inside</h1>
     <section className="gh-featured" aria-labelledby="featured-title" data-avatar-pose={avatarPose}>
-      <div className="gh-featured-copy"><p className="gh-featured-label">С чего начать · Серия</p><h2 id="featured-title">Создаём реальный<br />продукт с ИИ</h2><p className="gh-featured-description">От идеи и архитектуры до кода и деплоя.<br />На примере самой платформы Inside.</p><div className="gh-featured-bottom"><span>Гайды · Код · Решения</span><Link href="/series/inside-with-ai?from=%2F">Изучить серию <ArrowRight aria-hidden="true" /></Link></div></div>
+      <div className="gh-featured-copy"><p className="gh-featured-label">С чего начать · Серия</p><h2 id="featured-title">Создаём реальный <br />продукт с ИИ</h2><p className="gh-featured-description">От идеи и архитектуры до кода и деплоя.<br />На примере самой платформы Inside.</p><div className="gh-featured-bottom"><span>Гайды · Код · Решения</span><Link href="/series/inside-with-ai?from=%2F">Изучить серию <ArrowRight aria-hidden="true" /></Link></div></div>
       <div className="gh-presenter" aria-hidden="true">
         <div className="gh-presenter-crop">
           {/* Vite serves the edited prototype asset; no Next image optimizer in Storybook. */}
           {/* oxlint-disable-next-line next/no-img-element */}
           <img src={avatarPoses[avatarPose].src} alt="" width="1254" height="1254" />
         </div>
+        {avatarPose === "gesture" && <div className="gh-shoulder-sparks">
+          <span className="gh-spark gh-spark-code"><Code2 /></span>
+          <span className="gh-spark gh-spark-git"><GitBranch /></span>
+          <span className="gh-spark gh-spark-terminal"><Terminal /></span>
+        </div>}
         <span className="gh-floating-note"><Check /> Проверяем на практике</span>
       </div>
     </section>

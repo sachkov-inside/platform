@@ -1,3 +1,4 @@
+import { useEffect, type ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { GuestHomePrototype } from "./guest-home.prototype";
@@ -7,7 +8,7 @@ const meta = {
   title: "Pages/Guest Home/Prototype 380",
   parameters: {
     layout: "fullscreen",
-    docs: { description: { component: "Три варианта гостевой главной #380 на текущих shell, токенах и карточках Platform. A — сначала материалы; B — закреплённая серия с аватаром Кирилла и фильтрами тем; C — авторская практика. Стрелки переключают вариант. Карточки открывают страницы серии, материала и каталога из main на демонстрационных данных; CTA ведёт на текущий экран входа. Баннер B: 176 px на mobile. Три позы аватара: спокойный портрет, объясняющий жест и парящий 3D-объект. Поза выбирается в панели прототипа; лицо и жест видны в короткой карточке. Содержимое и открытость материалов демонстрационные. Production и платежи не подключены. Решение владельца ожидается." } },
+    docs: { description: { component: "Три варианта гостевой главной #380 на текущих shell, токенах и карточках Platform. A — сначала материалы; B — закреплённая серия с аватаром Кирилла и фильтрами тем; C — авторская практика. Стрелки переключают вариант. Карточки открывают страницы серии, материала и каталога из main на демонстрационных данных; CTA ведёт на текущий экран входа. Основная поза B — объясняющий жест; портрет и объект сохранены для сравнения. Мобильная кнопка справа. Кандидат мобильной типографики: основной текст 16 px, разделы 18 px, страницы 24 px, заголовки 600. Баннер растёт при увеличении текста. Значки разработки вылетают от плеча короткой последовательностью; учитывается reduced motion. Содержимое и открытость материалов демонстрационные. Production и платежи не подключены. Решение владельца ожидается." } },
   },
 } satisfies Meta<typeof GuestHomePrototype>;
 export default meta;
@@ -38,3 +39,59 @@ export const Mobile: Story = { name: "Mobile · Все варианты", args: 
 export const AvatarPortrait: Story = { name: "B1 · Спокойный портрет", args: { initialVariant: "B", initialAvatarPose: "portrait" } };
 export const AvatarGesture: Story = { name: "B2 · Объясняющий жест", args: { initialVariant: "B", initialAvatarPose: "gesture" } };
 export const AvatarObject: Story = { name: "B3 · Парящий объект", args: { initialVariant: "B", initialAvatarPose: "object" } };
+
+export const MobileTypeScale: Story = {
+  name: "Mobile · Шкала шрифтов",
+  render: () => <div className="mobile-type-specimen">
+    <h1 data-type="page">Мобильная типографика Inside</h1>
+    <p data-type="body">Компактные заголовки, обычная насыщенность текста и ясные роли. Manrope остаётся основным шрифтом.</p>
+    {[
+      ["page", "Страница · 24 / 30 · 600", "Создаём реальный продукт с ИИ"],
+      ["section", "Раздел и компактный баннер · 18 / 24 · 600", "Гайды и разборы"],
+      ["card", "Карточка · 16 / 22 · 600", "Границы модулей: где провести линию"],
+      ["body", "Основной текст · 16 / 24 · 400", "Разбираем задачу, сравниваем решения и проверяем результат на своём проекте."],
+      ["ui", "Интерфейс · 14 / 20 · 500; кнопки · 600", "Изучить серию · Разработка с ИИ"],
+      ["meta", "Метаданные · 12 / 16 · 500", "Гайд · 10 минут · Инфраструктура"],
+    ].map(([role, label, text]) => <section key={role}><small>{label}</small><p data-type={role}>{text}</p></section>)}
+  </div>,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const MobileTextZoom: Story = {
+  name: "Mobile · Текст 200%",
+  args: { initialVariant: "B", initialAvatarPose: "gesture" },
+  decorators: [(Story) => <TextPreferences zoom><Story /></TextPreferences>],
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: checkReadableBanner,
+};
+export const MobileTextSpacing: Story = {
+  name: "Mobile · Пользовательские интервалы",
+  args: { initialVariant: "B", initialAvatarPose: "gesture" },
+  decorators: [(Story) => <TextPreferences><Story /></TextPreferences>],
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: checkReadableBanner,
+};
+function TextPreferences({ zoom = false, children }: { readonly zoom?: boolean; readonly children: ReactNode }) {
+  useEffect(() => {
+    if (!zoom) return;
+    const root = document.documentElement;
+    const before = root.style.fontSize;
+    root.style.fontSize = "200%";
+    return () => { root.style.fontSize = before; };
+  }, [zoom]);
+  return <div className={zoom ? undefined : "gh-user-text-spacing"}>{children}</div>;
+}
+async function checkReadableBanner({ canvasElement }: { canvasElement: HTMLElement }) {
+  const canvas = within(canvasElement);
+  await new Promise<void>((resolve) => { requestAnimationFrame(() => { requestAnimationFrame(() => { resolve(); }); }); });
+  const title = canvas.getByRole("heading", { name: "Создаём реальный продукт с ИИ" });
+  const button = canvas.getByRole("link", { name: "Изучить серию" });
+  await expect(title).toBeVisible();
+  await expect(button).toBeVisible();
+  await expect(title.getBoundingClientRect().bottom).toBeLessThanOrEqual(button.getBoundingClientRect().top);
+  const doc = canvasElement.ownerDocument;
+  await expect(doc.documentElement.scrollWidth).toBeLessThanOrEqual((doc.defaultView?.innerWidth ?? 0) + 1);
+  const dock = canvas.getByRole("navigation", { name: "Мобильная навигация" });
+  if (dock.getBoundingClientRect().height > 0) {
+    await expect(dock.getBoundingClientRect().height).toBeLessThan(120);
+  }
+}
