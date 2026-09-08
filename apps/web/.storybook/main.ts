@@ -5,6 +5,7 @@ import { mergeConfig } from "vite";
 
 const config: StorybookConfig = {
   staticDirs: [
+    "../public",
     { from: "../../../docs/evidence/issue-271/covers", to: "/api/content-covers" },
   ],
   stories: [
