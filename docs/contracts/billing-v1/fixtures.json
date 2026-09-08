@@ -483,6 +483,8 @@
       "dispatchId": "00000000-0000-4000-8000-000000000004",
       "dispatchContractVersion": "inside.billing-notification.v1",
       "attemptId": "00000000-0000-4000-8000-000000000008",
+      "effectRef": "00000000-0000-4000-8000-000000000004",
+      "effect": "notice.send",
       "payloadDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     "valid": true
@@ -561,6 +563,8 @@
       "dispatchId": "00000000-0000-4000-8000-000000000004",
       "dispatchContractVersion": "inside.billing-notification.v1",
       "attemptId": "00000000-0000-4000-8000-000000000008",
+      "effectRef": "00000000-0000-4000-8000-000000000004",
+      "effect": "notice.send",
       "payloadDigest": "not-a-digest"
     },
     "valid": false

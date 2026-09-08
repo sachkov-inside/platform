@@ -305,7 +305,7 @@
           "fixture": "notification-send"
         },
         {
-          "event": "dispatch-permit-durably-reserved"
+          "event": "preflight-allowed-and-provider-started-durably-recorded"
         },
         {
           "event": "sendMessage"
@@ -434,6 +434,87 @@
         "paidGrants": 1,
         "receiptAndEventAtomic": true,
         "bankChargeRepeated": false
+      }
+    },
+    {
+      "name": "expired-permit-crash-before-started",
+      "implementationTickets": [
+        "inside-telegram#56"
+      ],
+      "steps": [
+        {
+          "event": "receive",
+          "fixture": "notification-send"
+        },
+        {
+          "event": "preflight-allowed"
+        },
+        {
+          "event": "crash-before-started"
+        },
+        {
+          "event": "permit-expires"
+        },
+        {
+          "event": "restart-with-same-effectRef"
+        },
+        {
+          "event": "new-preflight-after-local-not-started-proof"
+        }
+      ],
+      "expected": {
+        "sendMessageCalls": 1,
+        "effectRows": 1,
+        "platformQueriesProviderStatus": false
+      }
+    },
+    {
+      "name": "rejoin-under-same-entitlement",
+      "implementationTickets": [
+        "platform#415",
+        "inside-telegram#55"
+      ],
+      "steps": [
+        {
+          "event": "applied-grant",
+          "fixture": "finite-community-grant"
+        },
+        {
+          "event": "member-left"
+        },
+        {
+          "event": "new-verified-join-request-new-effectRef"
+        },
+        {
+          "event": "preflight-community-approve-join"
+        }
+      ],
+      "expected": {
+        "entitlementRevision": 1,
+        "approvalAllowed": true,
+        "secondPaidPeriod": false
+      }
+    },
+    {
+      "name": "old-expired-grant-with-new-lifetime",
+      "implementationTickets": [
+        "platform#415",
+        "inside-telegram#55"
+      ],
+      "steps": [
+        {
+          "event": "finite-grant-expired"
+        },
+        {
+          "event": "manual-lifetime-grant"
+        },
+        {
+          "event": "preflight-community-ensure-absence-for-old-grant"
+        }
+      ],
+      "expected": {
+        "removalAllowed": false,
+        "manualLifetimeRemains": true
       }
     }
   ]

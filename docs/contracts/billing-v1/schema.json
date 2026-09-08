@@ -538,6 +538,8 @@
         "dispatchId",
         "dispatchContractVersion",
         "attemptId",
+        "effectRef",
+        "effect",
         "payloadDigest"
       ],
       "properties": {
@@ -562,6 +564,18 @@
         },
         "attemptId": {
           "$ref": "#/definitions/id"
+        },
+        "effectRef": {
+          "$ref": "#/definitions/id"
+        },
+        "effect": {
+          "type": "string",
+          "enum": [
+            "notice.send",
+            "community.ensure_admission",
+            "community.approve_join",
+            "community.ensure_absence"
+          ]
         },
         "payloadDigest": {
           "$ref": "#/definitions/digest"
@@ -607,7 +621,7 @@
             "expired",
             "not_found",
             "payload_conflict",
-            "already_dispatched"
+            "effect_conflict"
           ]
         }
       }
