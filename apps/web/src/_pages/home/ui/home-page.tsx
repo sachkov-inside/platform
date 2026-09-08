@@ -1,4 +1,4 @@
-import { ArrowRight, DatabaseZap } from "lucide-react";
+import { ArrowRight, DatabaseZap, FileText } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -175,30 +175,32 @@ function PlaylistSection({
 function NoteFeed({ items }: { readonly items: HomeView["notes"] }) {
   return (
     <section aria-labelledby="home-notes">
-      <SectionHeading
-        action="Все заметки"
-        href="/library?format=note"
-        id="home-notes"
-        title="Заметки"
-      />
+      <h2 className="mt-10 text-xl font-semibold tracking-[-0.04em] md:mt-12 md:text-2xl" id="home-notes">Заметки</h2>
       {items.length === 0 ? (
         <EmptyCollection label="В этом разделе пока нет опубликованных материалов." />
       ) : (
         <ul aria-label="Лента заметок" className="mt-4 max-w-[48rem] space-y-4" role="list">
-          {items.map((material) => (
-            <li key={material.slug}>
-              <MaterialCard
-                headingLevel="h3"
-                material={material}
-                returnHref="/"
-                variant="feed"
-              />
-            </li>
-          ))}
+          {items.map((material, index) => {
+            const teaser = items.length > 1 && index === items.length - 1;
+            return <li className={teaser ? "relative isolate overflow-hidden rounded-[1.5rem]" : undefined} key={material.slug}>
+              <div aria-hidden={teaser || undefined} inert={teaser} className={teaser ? "pointer-events-none max-h-64 select-none opacity-80 blur-[4px] [mask-image:linear-gradient(#000,transparent)]" : undefined}>
+                <MaterialCard headingLevel="h3" material={material} returnHref="/" variant="feed" {...(teaser ? { readingStatus: null } : {})} />
+              </div>
+              {teaser ? <div className="absolute inset-0 flex items-center justify-center px-3"><AllNotesLink /></div> : null}
+            </li>;
+          })}
         </ul>
       )}
+      {items.length < 2 ? <div className="flex max-w-[48rem] justify-center py-6"><AllNotesLink /></div> : null}
     </section>
   );
+}
+
+function AllNotesLink() {
+  return <Link aria-label="Все заметки" className="inline-flex min-h-14 max-w-full items-center gap-3 rounded-full border border-white bg-white px-4 py-3 text-base font-semibold tracking-[-0.025em] no-underline shadow-floating-nav transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transform-none md:px-5 md:text-lg" href="/library?format=note">
+    <FileText aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
+    <span className="whitespace-nowrap">Все заметки</span>
+  </Link>;
 }
 
 function SectionHeading({

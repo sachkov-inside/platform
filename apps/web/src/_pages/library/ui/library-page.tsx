@@ -1,6 +1,6 @@
 "use client";
 
-import { DatabaseZap, RefreshCw } from "lucide-react";
+import { ChevronDown, DatabaseZap, RefreshCw } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -21,6 +21,7 @@ import {
 } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
+import { useLibrarySeriesExpansion } from "./library-series-state.client";
 
 export function LibraryPage({
   catalog,
@@ -188,6 +189,9 @@ function LibrarySeries({
     { readonly kind: "ready" }
   >["facets"]["series"];
 }) {
+  const { expanded, toggle } = useLibrarySeriesExpansion(q);
+  const visibleSeries = expanded ? series : series.slice(0, 3);
+
   return (
     <section aria-labelledby="series-heading">
       <CollectionHeading
@@ -202,8 +206,8 @@ function LibrarySeries({
           }
         />
       ) : (
-        <div className="mt-4 grid gap-4 @min-[48rem]/library:grid-cols-2">
-          {series.map((playlist) => (
+        <div className="mt-4 grid gap-4 @min-[48rem]/library:grid-cols-2" id="library-series-list">
+          {visibleSeries.map((playlist) => (
             <PlaylistCard
               key={playlist.slug}
               returnHref={returnHref}
@@ -219,6 +223,21 @@ function LibrarySeries({
           ))}
         </div>
       )}
+      {series.length > 3 ? (
+        <div className="mt-5 flex justify-center">
+          <Button
+            aria-controls="library-series-list"
+            aria-expanded={expanded}
+            className="min-h-11 rounded-full px-4"
+            onClick={toggle}
+            type="button"
+            variant="outline"
+          >
+            {expanded ? "Свернуть" : "Показать все"}
+            <ChevronDown aria-hidden="true" className={expanded ? "rotate-180" : undefined} />
+          </Button>
+        </div>
+      ) : null}
     </section>
   );
 }

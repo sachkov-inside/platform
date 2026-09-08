@@ -3,3 +3,5 @@ export type { HomeCollection, HomeResult, HomeView, HomeContinuation } from "./m
 
 export { ContinueLearning } from "./ui/continue-learning";
 export type { ContinueMaterialView, PersonalHomeView } from "./model/personal-home-view";
+
+export { HomeLoading } from "./ui/home-loading";

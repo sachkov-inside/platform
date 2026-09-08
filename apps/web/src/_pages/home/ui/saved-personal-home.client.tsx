@@ -13,6 +13,6 @@ export function SavedPersonalHome({ initialAccountId, result }: { readonly initi
 }
 function SavedAccountHome({ accountId, resolved, result }: { readonly accountId: string; readonly resolved: boolean; readonly result: HomeResult }) {
   const query = useQuery({ queryKey: personalHomeQueryKey(accountId), queryFn: loadPersonalHome, enabled: resolved, staleTime: 0, retry: false });
-  const view = query.isError ? { kind: "unavailable" as const } : query.data;
+  const view = query.data ?? (query.isError ? { kind: "unavailable" as const } : undefined);
   return <div data-personal-home-state={view?.kind ?? "loading"}><HomePage result={result} {...(view?.kind === "ready" ? { continuation: view.continuation } : {})} /></div>;
 }
