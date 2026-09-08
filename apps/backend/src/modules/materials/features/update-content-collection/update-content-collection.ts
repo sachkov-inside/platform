@@ -3,8 +3,15 @@ import { z } from "zod";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { refreshPublishedMaterialSearchProjections } from "../../infrastructure/postgres/published-material-search.js";
 import { authorizeManager } from "../../ports/author-policy.js";
-import { executeAuthoringTransaction, failure } from "../../shared/application-result.js";
-import { accountId, entityId, parseCommand } from "../../shared/command-validation.js";
+import {
+  executeAuthoringTransaction,
+  failure,
+} from "../../shared/application-result.js";
+import {
+  accountId,
+  entityId,
+  parseCommand,
+} from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
 import type {
@@ -39,7 +46,10 @@ export function assembleUpdateContentCollection(
     return executeAuthoringTransaction(
       dependencies.prisma,
       async (transaction, rollback) => {
-        const persistence = contentCollectionPersistence(transaction, command.kind);
+        const persistence = contentCollectionPersistence(
+          transaction,
+          command.kind,
+        );
         const updated = await persistence.updateMetadata({
           expectedVersion: command.expectedVersion,
           id: command.collectionId,
@@ -48,6 +58,11 @@ export function assembleUpdateContentCollection(
         });
         if (updated === 0) {
           const current = await persistence.load(command.collectionId);
+          if (
+            current?.name === command.name &&
+            current.summary === command.summary
+          )
+            return current;
           return current === undefined
             ? rollback({ code: "content_collection_not_found" })
             : rollback({

@@ -29,6 +29,54 @@ describe("Accounts", () => {
 
   afterAll(async () => database.dispose());
 
+  test("trusted administrator covers all known operations; authors stay scoped and revocation is immediate", async () => {
+    const admin = await bootstrapOwnerAccount(
+      database.prisma,
+      { issuer, subject: "explicit-admin" },
+      "platform:admin",
+    );
+    const author = await bootstrapOwnerAccount(
+      database.prisma,
+      { issuer, subject: "restricted-author" },
+      "materials:manage",
+    );
+    for (const permission of [
+      "materials:manage",
+      "communications:manage",
+      "platform:admin",
+    ] as const) {
+      await expect(
+        accounts.checkPermission({ accountId: admin.accountId, permission }),
+      ).resolves.toEqual({ ok: true, allowed: true });
+    }
+    await expect(
+      accounts.checkPermission({
+        accountId: author.accountId,
+        permission: "communications:manage",
+      }),
+    ).resolves.toEqual({ ok: true, allowed: false });
+    await expect(
+      accounts.checkPermission({
+        accountId: author.accountId,
+        permission: "platform:admin",
+      }),
+    ).resolves.toEqual({ ok: true, allowed: false });
+    await database.prisma.accountPermission.delete({
+      where: {
+        accountId_permission: {
+          accountId: admin.accountId,
+          permission: "platform:admin",
+        },
+      },
+    });
+    await expect(
+      accounts.checkPermission({
+        accountId: admin.accountId,
+        permission: "materials:manage",
+      }),
+    ).resolves.toEqual({ ok: true, allowed: false });
+  });
+
   test("creates one Account and resolves only a known Logto identity", async () => {
     const proof = verifiedAccountSignIn({
       issuer,
@@ -36,7 +84,9 @@ describe("Accounts", () => {
       verifiedEmail: "Member@Example.Test",
     });
     const first = await accounts.establishAccount({ identity: proof.identity });
-    const returning = await accounts.establishAccount({ identity: proof.identity });
+    const returning = await accounts.establishAccount({
+      identity: proof.identity,
+    });
 
     expect(first.ok).toBe(true);
     expect(returning).toEqual(first);
@@ -67,7 +117,9 @@ describe("Accounts", () => {
     );
     expect(results.every((result) => result.ok)).toBe(true);
     const ids = new Set(
-      results.flatMap((result) => (result.ok ? [result.account.accountId] : [])),
+      results.flatMap((result) =>
+        result.ok ? [result.account.accountId] : [],
+      ),
     );
     expect(ids.size).toBe(1);
     await expect(
@@ -120,7 +172,9 @@ describe("Accounts", () => {
       subject: "materials-owner",
       verifiedEmail: "owner@example.test",
     });
-    const established = await accounts.establishAccount({ identity: proof.identity });
+    const established = await accounts.establishAccount({
+      identity: proof.identity,
+    });
     expect(established.ok).toBe(true);
     if (!established.ok) return;
     const query = {

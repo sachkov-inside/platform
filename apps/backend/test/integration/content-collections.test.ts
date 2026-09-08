@@ -15,7 +15,6 @@ describe("Topic and Playlist authoring", () => {
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-
   });
 
   afterAll(async () => {
@@ -94,6 +93,17 @@ describe("Topic and Playlist authoring", () => {
         currentVersion: updatedTopic.value.version,
       },
     });
+
+    await expect(
+      authoring.updateContentCollection({
+        actor,
+        collectionId: topic.value.id,
+        expectedVersion: topic.value.version,
+        kind: "topic",
+        name: "System architecture",
+        summary: "Stable decisions, boundaries and trade-offs.",
+      }),
+    ).resolves.toEqual(updatedTopic);
 
     const archivedTopic = await authoring.setContentCollectionArchive({
       actor,

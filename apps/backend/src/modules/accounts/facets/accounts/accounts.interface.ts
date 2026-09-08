@@ -3,7 +3,8 @@ import type {
   VerifiedAccountSignIn,
 } from "./verified-logto-identity.js";
 
-export type PlatformPermission = "materials:manage" | "communications:manage";
+import type { PlatformPermission } from "../../domain/platform-permission.js";
+export type { PlatformPermission } from "../../domain/platform-permission.js";
 
 export interface AuthenticatedAccount {
   readonly accountId: string;
@@ -45,7 +46,14 @@ export type PermissionDecision =
   | { readonly ok: false; readonly error: PermissionError };
 
 export interface Accounts {
-  readIdentityForLink(accountId: string): Promise<{ readonly issuer: string; readonly subject: string; readonly telegramSubjectRef: string | null } | undefined>;
+  readIdentityForLink(accountId: string): Promise<
+    | {
+        readonly issuer: string;
+        readonly subject: string;
+        readonly telegramSubjectRef: string | null;
+      }
+    | undefined
+  >;
 
   establishAccount(command: {
     readonly identity: VerifiedAccountSignIn;

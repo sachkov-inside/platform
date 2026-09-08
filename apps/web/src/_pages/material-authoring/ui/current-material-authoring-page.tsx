@@ -15,6 +15,7 @@ import {
   readLogtoBffConfig,
 } from "@/shared/auth/index.server";
 
+import { getCurrentMaterialPreview } from "../api/get-current-material-preview";
 import { getCurrentMaterial } from "../api/get-current-material";
 import { MaterialAuthoringPageClient } from "./material-authoring-page.client";
 
@@ -56,12 +57,16 @@ export async function CurrentMaterialAuthoringPage({
     return (
       <MaterialAuthoringUnexpectedEditorState
         reference={state.reference}
-        retryHref={withAuthoringReturnHref(`/authoring/materials/${materialId}`, returnHref)}
+        retryHref={withAuthoringReturnHref(
+          `/authoring/materials/${materialId}`,
+          returnHref,
+        )}
         returnHref={returnHref}
       />
     );
   }
 
+  const assetPreview = await getCurrentMaterialPreview(materialId, accessToken);
   const initialPresentation: MaterialAuthoringPresentation = {
     availableFormats: state.references.references.formats,
     availableSeries: state.references.references.series,
@@ -70,7 +75,11 @@ export async function CurrentMaterialAuthoringPage({
     authorization: { kind: "allowed" },
     blocking: { kind: "none" },
     deletion: { pending: false, result: null },
-    draft: state.draft,
+    draft: {
+      ...state.draft,
+      assetPreviewBlocks:
+        assetPreview.kind === "ready" ? assetPreview.preview.blocks : [],
+    },
     mode: "editor",
     noticeRevision: 0,
     preview: null,

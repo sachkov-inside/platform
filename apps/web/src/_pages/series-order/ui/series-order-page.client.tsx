@@ -1,5 +1,6 @@
 "use client";
 
+import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 import { useRouter } from "next/navigation";
 
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
@@ -19,9 +20,17 @@ export function SeriesOrderPageClient({
   return (
     <SeriesOrderManager
       createMaterialSearchQueryOptions={seriesOrderMaterialSearchQueryOptions}
-      onBack={() => { router.push(authoringMaterialsRootHref); }}
-      onRefresh={() => { router.refresh(); }}
-      onSelectPlaylist={(seriesId) => { router.push(`/authoring/playlists/${seriesId}`); }}
+      onBack={() => {
+        router.push(authoringMaterialsRootHref);
+      }}
+      onRefresh={() => {
+        router.refresh();
+      }}
+      onSelectPlaylist={(seriesId) => {
+        void flushPendingEdits().then((ok) => {
+          if (ok) router.push(`/authoring/playlists/${seriesId}`);
+        });
+      }}
       presentation={presentation}
     />
   );

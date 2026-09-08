@@ -29,6 +29,7 @@ export interface MaterialDraftPresentation {
   readonly canDelete: boolean;
   readonly cover?: ContentCover | null | undefined;
   readonly document: JSONContent;
+  readonly assetPreviewBlocks?: readonly RenderedBlock[];
   readonly deleteVideoId: string | null;
   readonly formatId: string;
   readonly materialId: string | null;
@@ -125,7 +126,9 @@ export type MaterialDraftField =
 
 export interface MaterialAuthoringActions {
   readonly onBack: () => void;
-  readonly onConflictAction: (action: "compare" | "copy" | "open_current") => void;
+  readonly onConflictAction: (
+    action: "compare" | "copy" | "open_current",
+  ) => void;
   readonly onDocumentChange: (document: JSONContent) => void;
   readonly onDelete: (input: DeleteMaterialDraftInput) => void;
   readonly onFieldChange: (field: MaterialDraftField, value: string) => void;

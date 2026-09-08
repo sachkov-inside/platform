@@ -48,9 +48,13 @@ type Story = StoryObj<typeof meta>;
 export const TopicsDesktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { level: 1, name: "Темы" })).toBeVisible();
-    await expect(canvas.getByText("В архиве")).toBeVisible();
-    await expect(canvas.getAllByRole("button", { name: "Сохранить" })[0]).toBeDisabled();
+    await expect(
+      canvas.getByRole("heading", { level: 1, name: /Темы/u }),
+    ).toBeVisible();
+    await expect(canvas.getByText(/Архив/u)).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Сохранить" }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -58,8 +62,12 @@ export const EmptyMobile: Story = {
   args: { initialCollections: [] },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByText("Пока ничего нет")).toBeVisible();
-    await expect(canvasElement.ownerDocument.documentElement.scrollWidth).toBeLessThanOrEqual(
+    await expect(
+      within(canvasElement).getByText("Пока ничего нет"),
+    ).toBeVisible();
+    await expect(
+      canvasElement.ownerDocument.documentElement.scrollWidth,
+    ).toBeLessThanOrEqual(
       canvasElement.ownerDocument.documentElement.clientWidth,
     );
   },

@@ -108,6 +108,11 @@ Platform's stable private identity for one authenticated human. It owns Platform
 is independent of profile presentation and Membership.
 _Avoid_: Principal, External Identity, Platform Account, Platform Session, user
 
+**Platform Administrator**:
+An Account explicitly granted all known Platform operations through `platform:admin`.
+Its authority is read from current Account grants, never inferred from author access or provider roles.
+_Avoid_: author, member, Telegram administrator
+
 **Member Profile**:
 A presentation of an Account that is visible only to active Inside members and never grants
 identity, Membership or content access.

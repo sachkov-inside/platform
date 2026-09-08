@@ -40,8 +40,7 @@ const noopActions = {
   onTagToggle: fn(),
 } satisfies MaterialAuthoringActions;
 const recordSavedPublicationState = fn(
-  (publicationState: "draft" | "published" | "unpublished") =>
-    publicationState,
+  (publicationState: "draft" | "published" | "unpublished") => publicationState,
 );
 
 function MaterialAuthoringFixture({
@@ -129,12 +128,16 @@ function MaterialAuthoringFixture({
         ...presentation.draft,
         tagIds: checked
           ? [...presentation.draft.tagIds, tagId]
-          : presentation.draft.tagIds.filter((candidate) => candidate !== tagId),
+          : presentation.draft.tagIds.filter(
+              (candidate) => candidate !== tagId,
+            ),
       });
     },
   } satisfies MaterialAuthoringActions;
 
-  return <MaterialAuthoringWorkspace actions={actions} presentation={presentation} />;
+  return (
+    <MaterialAuthoringWorkspace actions={actions} presentation={presentation} />
+  );
 }
 
 const meta = {
@@ -173,10 +176,16 @@ export const EmptyNewDraft: Story = {
   name: "Новый черновик · мобильный",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Новый материал" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "Новый материал" }),
+    ).toBeInTheDocument();
     await expect(canvas.getByLabelText("Название")).toHaveValue("");
-    await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toBeDisabled();
-    await expect(canvas.getByRole("button", { name: "Создать черновик" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", { name: "Предпросмотр" }),
+    ).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", { name: "Опубликовать" }),
+    ).toBeDisabled();
     await expectNoHorizontalOverflow(canvasElement);
   },
 };
@@ -185,7 +194,9 @@ export const Editing: Story = {
   name: "Редактирование",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("group", { name: "Серии" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("group", { name: /^Серии/u }),
+    ).toBeInTheDocument();
     await expect(
       canvas.getByRole("checkbox", { name: "Создание Platform Inside" }),
     ).toBeChecked();
@@ -193,15 +204,27 @@ export const Editing: Story = {
     const title = canvas.getByLabelText("Название");
     await userEvent.clear(title);
     await userEvent.type(title, "Новая версия Developer Pipeline");
-    await expect(canvas.getAllByText("Есть несохранённые изменения", { exact: true }).length).toBeGreaterThan(0);
-    await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toBeDisabled();
+    await expect(canvas.getAllByText(/Не сохранено/u).length).toBeGreaterThan(
+      0,
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Предпросмотр" }),
+    ).toBeEnabled();
     await userEvent.type(title, "{enter}");
     await expect(recordSavedPublicationState).toHaveBeenLastCalledWith("draft");
-    await expect(canvas.queryByText(`v${String(savedContentVersion)}`)).not.toBeInTheDocument();
-    await expect(canvas.queryByText("Версия", { exact: true })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText(`v${String(savedContentVersion)}`),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText("Версия", { exact: true }),
+    ).not.toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Предпросмотр" }));
-    await expect(canvas.getByRole("heading", { name: "Новая версия Developer Pipeline" })).toBeInTheDocument();
-    await expect(canvas.queryByText(`v${String(savedContentVersion)}`)).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "Новая версия Developer Pipeline" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.queryByText(`v${String(savedContentVersion)}`),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -209,7 +232,12 @@ export const DeleteDraftConfirmation: Story = {
   name: "Удаление безопасного черновика",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Удалить черновик" }));
+    await userEvent.click(
+      canvas.getByText("Удалить черновик", { selector: "summary" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Удалить черновик" }),
+    );
     const dialog = canvas.getByRole("dialog", {
       name: "Удалить «Developer Pipeline без магии»?",
     });
@@ -228,27 +256,26 @@ export const Dirty: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByText("Есть несохранённые изменения", { exact: true }).length).toBeGreaterThan(0);
-    await expect(canvas.getByRole("button", { name: "Сохранить" })).toBeEnabled();
+    await expect(canvas.getAllByText(/Не сохранено/u).length).toBeGreaterThan(
+      0,
+    );
+    await expect(canvas.getByLabelText("Название")).toBeEnabled();
   },
 };
 
 export const Submitting: Story = {
   name: "Сохранение",
   args: {
-    presentation: { ...materialAuthoringPresentation, save: { kind: "submitting" } },
+    presentation: {
+      ...materialAuthoringPresentation,
+      save: { kind: "submitting" },
+    },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const saveButton = canvas.getByRole("button", { name: "Сохранение…" });
-    await expect(saveButton).toBeDisabled();
-    await expect(canvas.getAllByText("Сохранение…").length).toBeGreaterThan(0);
-    const loader = saveButton.querySelector("svg");
-    await expect(loader).not.toBeNull();
-    if (loader !== null) {
-      const style = canvasElement.ownerDocument.defaultView?.getComputedStyle(loader);
-      await expect(style?.animationName).toBe("none");
-      await expect(style?.animationDuration).toBe("0s");
+    await expect(canvas.getByLabelText("Название")).toBeEnabled();
+    for (const status of canvas.getAllByText(/Сохранение…/u)) {
+      await expect(status).toBeVisible();
     }
   },
 };
@@ -263,16 +290,23 @@ export const Saved: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByText("Сохранено 12:41", { exact: true }).length).toBeGreaterThan(0);
-    await expect(canvas.getByText("Материал сохранён")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toBeEnabled();
-    await expect(canvas.getByRole("button", { name: "Сохранить" })).toBeDisabled();
+    await expect(
+      canvas.getAllByText(/Сохранено 12:41/u).length,
+    ).toBeGreaterThan(0);
+    await expect(
+      canvas.getByRole("button", { name: "Предпросмотр" }),
+    ).toBeEnabled();
+    await expect(
+      canvas.queryByRole("button", { name: "Сохранить" }),
+    ).not.toBeInTheDocument();
     await userEvent.tab();
     await expect(
       canvas.getByRole("button", { name: "Вернуться к материалам" }),
     ).toHaveFocus();
     await userEvent.tab();
-    await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toHaveFocus();
+    await expect(
+      canvas.getByRole("button", { name: "Предпросмотр" }),
+    ).toHaveFocus();
   },
 };
 
@@ -297,8 +331,14 @@ export const CreatedDraft: Story = {
       save: { kind: "saved", savedAtLabel: "сейчас" },
       validation: {
         issues: [
-          { message: "Назначьте формат перед публикацией.", path: "/metadata/formatId" },
-          { message: "Назначьте тему перед публикацией.", path: "/metadata/topicId" },
+          {
+            message: "Назначьте формат перед публикацией.",
+            path: "/metadata/formatId",
+          },
+          {
+            message: "Назначьте тему перед публикацией.",
+            path: "/metadata/topicId",
+          },
         ],
         kind: "invalid",
         scope: "publication",
@@ -307,9 +347,10 @@ export const CreatedDraft: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Материал сохранён")).toBeVisible();
     await expect(canvas.getByLabelText("Название")).toBeDisabled();
-    await expect(canvas.getByRole("button", { name: "Предпросмотр" })).toBeEnabled();
+    await expect(
+      canvas.getByRole("button", { name: "Предпросмотр" }),
+    ).toBeEnabled();
   },
 };
 
@@ -324,7 +365,6 @@ export const ValidationPassed: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Материал сохранён")).toBeVisible();
     await expect(canvas.queryByText(/2 заголовков/)).not.toBeInTheDocument();
   },
 };
@@ -343,8 +383,14 @@ export const ValidationIssues: Story = {
       save: { kind: "saved", savedAtLabel: "12:41" },
       validation: {
         issues: [
-          { message: "Назначьте формат перед публикацией.", path: "/metadata/formatId" },
-          { message: "Назначьте тему перед публикацией.", path: "/metadata/topicId" },
+          {
+            message: "Назначьте формат перед публикацией.",
+            path: "/metadata/formatId",
+          },
+          {
+            message: "Назначьте тему перед публикацией.",
+            path: "/metadata/topicId",
+          },
         ],
         kind: "invalid",
         scope: "publication",
@@ -353,10 +399,13 @@ export const ValidationIssues: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Материал сохранён")).toBeVisible();
     await expect(canvas.getByText("Перед публикацией")).toBeVisible();
-    await expect(canvas.getByText("Назначьте формат перед публикацией.")).toBeVisible();
-    await expect(canvas.getByText("Назначьте тему перед публикацией.")).toBeVisible();
+    await expect(
+      canvas.getByText("Назначьте формат перед публикацией."),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Назначьте тему перед публикацией."),
+    ).toBeVisible();
   },
 };
 
@@ -370,7 +419,9 @@ export const Unauthorized: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Нет доступа к редактору" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "Нет доступа к редактору" }),
+    ).toBeInTheDocument();
     await expect(canvas.queryByRole("textbox")).not.toBeInTheDocument();
   },
 };
@@ -381,8 +432,12 @@ export const PreviewUnauthorized: Story = {
   render: () => <MaterialAuthoringPreviewUnauthorizedState />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Нет доступа к предпросмотру");
-    await expect(canvas.getByRole("link", { name: "Вернуться к материалам" })).toBeVisible();
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Нет доступа к предпросмотру",
+    );
+    await expect(
+      canvas.getByRole("link", { name: "Вернуться к материалам" }),
+    ).toBeVisible();
   },
 };
 
@@ -400,8 +455,12 @@ export const PreviewUnexpectedError: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Не удалось открыть предпросмотр");
-    await expect(canvas.getByText("Код обращения: preview_unavailable")).toBeVisible();
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Не удалось открыть предпросмотр",
+    );
+    await expect(
+      canvas.getByText("Код обращения: preview_unavailable"),
+    ).toBeVisible();
     await expect(canvas.getByRole("link", { name: "Повторить" })).toBeVisible();
   },
 };
@@ -412,19 +471,29 @@ export const PreviewNotFound: Story = {
   render: () => <MaterialAuthoringPreviewNotFoundState />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Предпросмотр не найден");
-    await expect(canvas.queryByRole("link", { name: "Повторить" })).not.toBeInTheDocument();
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Предпросмотр не найден",
+    );
+    await expect(
+      canvas.queryByRole("link", { name: "Повторить" }),
+    ).not.toBeInTheDocument();
   },
 };
 
 export const InitialEditorUnexpectedError: Story = {
   name: "Ошибка открытия редактора",
   args: { presentation: materialAuthoringPresentation },
-  render: () => <MaterialAuthoringUnexpectedEditorState reference="identity-session" />,
+  render: () => (
+    <MaterialAuthoringUnexpectedEditorState reference="identity-session" />
+  ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Не удалось открыть редактор");
-    await expect(canvas.getByText("Код обращения: identity-session")).toBeVisible();
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Не удалось открыть редактор",
+    );
+    await expect(
+      canvas.getByText("Код обращения: identity-session"),
+    ).toBeVisible();
   },
 };
 
@@ -436,16 +505,28 @@ export const ExactPreview: Story = {
   name: "Предпросмотр · широкий экран",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Предпросмотр материала" })).toBeInTheDocument();
-    await expect(canvas.queryByText("v3", { exact: true })).not.toBeInTheDocument();
-    await expect(canvasElement.querySelector("[data-preview-status-banner]")).toHaveTextContent(
-      "Сохранённый черновик. Материал ещё не опубликован.",
-    );
-    await expect(canvas.getByRole("heading", { name: "Developer Pipeline без магии" })).toBeInTheDocument();
-    await expect(canvas.getByRole("region", { name: "Таблица в предпросмотре" })).toBeVisible();
-    await expect(canvas.getByRole("img", { name: "Схема Developer Pipeline" })).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Предпросмотр материала" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.queryByText("v3", { exact: true }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvasElement.querySelector("[data-preview-status-banner]"),
+    ).toHaveTextContent("Сохранённый черновик. Материал ещё не опубликован.");
+    await expect(
+      canvas.getByRole("heading", { name: "Developer Pipeline без магии" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("region", { name: "Таблица в предпросмотре" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("img", { name: "Схема Developer Pipeline" }),
+    ).toBeVisible();
     await expect(canvas.getByText("Checklist проверки")).toBeVisible();
-    await expect(canvas.queryByText("Видео пока недоступно для просмотра")).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText("Видео пока недоступно для просмотра"),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -457,8 +538,12 @@ export const ExactPreviewMobile: Story = {
   name: "Предпросмотр · мобильный",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Предпросмотр материала" })).toBeInTheDocument();
-    await expect(canvas.queryByText("v3", { exact: true })).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "Предпросмотр материала" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.queryByText("v3", { exact: true }),
+    ).not.toBeInTheDocument();
     await expectNoHorizontalOverflow(canvasElement);
   },
 };
@@ -484,11 +569,19 @@ export const Conflict: Story = {
     await expect(canvas.getByLabelText("Название")).toHaveValue(
       "Developer Pipeline без магии",
     );
-    await expect(canvas.getByRole("button", { name: "Сравнить" })).toBeEnabled();
-    await userEvent.click(canvas.getByRole("button", { name: "Открыть текущую" }));
-    await expect(noopActions.onConflictAction).toHaveBeenCalledWith("open_current");
-    await expect(canvas.getByLabelText("Название")).toBeDisabled();
-    await expect(canvas.getByRole("button", { name: "Полужирный" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", { name: "Сравнить" }),
+    ).toBeEnabled();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть текущую" }),
+    );
+    await expect(noopActions.onConflictAction).toHaveBeenCalledWith(
+      "open_current",
+    );
+    await expect(canvas.getByLabelText("Название")).toBeEnabled();
+    await expect(
+      canvas.getByRole("button", { name: "Добавить блок" }),
+    ).toBeEnabled();
   },
 };
 
@@ -511,9 +604,9 @@ export const Published: Story = {
     await expect(canvas.getAllByText("Опубликован").length).toBeGreaterThan(0);
     await expect(canvas.queryByLabelText("Адрес")).not.toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Предпросмотр" }));
-    await expect(canvasElement.querySelector("[data-preview-status-banner]")).toHaveTextContent(
-      "Материал опубликован и доступен читателям.",
-    );
+    await expect(
+      canvasElement.querySelector("[data-preview-status-banner]"),
+    ).toHaveTextContent("Материал опубликован и доступен читателям.");
   },
 };
 
@@ -528,7 +621,9 @@ export const Unpublished: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByText("Снят с публикации").length).toBeGreaterThan(0);
+    await expect(
+      canvas.getAllByText("Снят с публикации").length,
+    ).toBeGreaterThan(0);
     await expect(canvas.getByLabelText("Название")).toBeEnabled();
   },
 };
@@ -544,7 +639,9 @@ export const InfrastructureError: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Изменения остаются в редакторе");
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Изменения остаются в редакторе",
+    );
     await userEvent.click(canvas.getByRole("button", { name: "Повторить" }));
     await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
   },
@@ -565,10 +662,40 @@ export const MobileTextZoom: Story = {
     root.style.fontSize = "200%";
     try {
       await expectNoHorizontalOverflow(canvasElement);
-      await expect(within(canvasElement).getByRole("button", { name: "Сохранить" })).toBeVisible();
+      await expect(
+        within(canvasElement).getByRole("button", { name: "Опубликовать" }),
+      ).toBeVisible();
     } finally {
       root.style.fontSize = previousFontSize;
     }
+  },
+};
+
+export const SearchableSeries: Story = {
+  name: "Серии · поиск и продолжение списка",
+  args: {
+    presentation: {
+      ...materialAuthoringPresentation,
+      availableSeries: Array.from({ length: 45 }, (_, index) => ({
+        label: `Серия ${String(index + 1).padStart(2, "0")}`,
+        value: `94000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`,
+      })),
+      draft: { ...materialAuthoringPresentation.draft, seriesIds: [] },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const series = within(canvas.getByLabelText("Выбор серий"));
+    await expect(series.getAllByRole("checkbox")).toHaveLength(20);
+    const more = series.getByRole("button", { name: "Показать ещё" });
+    more.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(series.getAllByRole("checkbox").length).toBeGreaterThan(20);
+    await userEvent.type(canvas.getByLabelText("Поиск серии"), "Серия 45");
+    await expect(series.getAllByRole("checkbox")).toHaveLength(1);
+    await expect(series.getByRole("checkbox", { name: "Серия 45" })).toBeVisible();
+    await expect(canvas.getAllByText("Теги", { exact: true })).toHaveLength(1);
+    await expect(canvas.getAllByText("Серии", { exact: true })).toHaveLength(1);
   },
 };
 
@@ -577,7 +704,7 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
   if (storyWindow === null) {
     throw new Error("Story window is unavailable");
   }
-  await expect(canvasElement.ownerDocument.documentElement.scrollWidth).toBeLessThanOrEqual(
-    storyWindow.innerWidth + 1,
-  );
+  await expect(
+    canvasElement.ownerDocument.documentElement.scrollWidth,
+  ).toBeLessThanOrEqual(storyWindow.innerWidth + 1);
 }

@@ -71,6 +71,7 @@ export type RenderedBlock =
       readonly assetId: string;
       readonly alt: string;
       readonly caption?: string;
+      readonly displayWidthPercent?: number;
       readonly height?: number;
       readonly variants?: readonly { readonly height: number; readonly width: number }[];
       readonly width?: number;

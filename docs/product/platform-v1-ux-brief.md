@@ -815,6 +815,25 @@ must additionally test a real narrow browser; a visual frame switch alone is not
 Save is one atomic application command. Moving to `published` requires complete valid state and ready
 resources; saving an already published Material makes the new current state live immediately.
 
+### Local editor refinement — #396
+
+The owner requested a minimal paragraph-based writing surface for local acceptance. Embedded and
+fullscreen modes keep the same article typography and bounded text column. A contextual `+` beside
+an active or hovered top-level block inserts after that block; an empty paragraph is reused. `Tab`
+or `/` in an empty paragraph opens the same searchable block menu. Opening/cancelling the menu does
+not edit the document. Text formatting appears on selection. Images and files show inline previews;
+image display width is an integer percentage (25–100), separate from source pixel dimensions, and
+persists through Save, Preview and Reader.
+
+Tags and Series are always visible in material metadata with one label per selector. The Series
+selector filters the available collection list immediately and progressively shows 20 matches in a
+bounded scrolling region; a keyboard-accessible “Показать ещё” action offers the same continuation.
+Collection administration retains the compact rows and inline Series composition from #396.
+
+Changes and ready uploads save automatically through the existing full-state command. Published
+edits still become live on save; first publication stays explicit. This refinement is local-only
+until owner acceptance and does not change the domain formats (`video`, `guide`, `note`).
+
 ## 10. Owner-approved coarse UX copy contract
 
 | Outcome | Heading | Explanation | Primary action |

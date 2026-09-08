@@ -16,7 +16,10 @@ import { stringMatching } from "../support/matchers.js";
 function invalidFixture(name: string): unknown {
   return JSON.parse(
     readFileSync(
-      new URL(`../fixtures/material-body/invalid/${name}.json`, import.meta.url),
+      new URL(
+        `../fixtures/material-body/invalid/${name}.json`,
+        import.meta.url,
+      ),
       "utf8",
     ),
   ) as unknown;
@@ -27,6 +30,42 @@ function testNodeId(index: number): string {
 }
 
 describe("MaterialBodyOperations", () => {
+  test("accepts decorative image alt as empty text while still rejecting a missing attribute", () => {
+    const image = (alt: unknown) => ({
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "assetImage",
+            attrs: { nodeId: testNodeId(1), assetId: testNodeId(2), alt },
+          },
+        ],
+      },
+    });
+    expect(materialBodyOperations.accept(image("")).ok).toBe(true);
+    expect(materialBodyOperations.accept(image(undefined)).ok).toBe(false);
+  });
+
+  test("persists image display width separately from pixel dimensions and rejects invalid sizes", () => {
+    const image = (displayWidthPercent: unknown) => ({
+      schemaVersion: 1,
+      doc: { type: "doc", content: [{ type: "assetImage", attrs: {
+        nodeId: testNodeId(1), assetId: testNodeId(2), alt: "", displayWidthPercent,
+      } }] },
+    });
+    for (const width of [25, 50, 100]) {
+      const accepted = materialBodyOperations.accept(image(width));
+      expect(accepted.ok).toBe(true);
+      if (!accepted.ok) throw new Error("Image rejected");
+      const rendered = materialBodyOperations.render(accepted.value);
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) throw new Error("Image render rejected");
+      expect(rendered.value.blocks[0]).toMatchObject({ kind: "image", displayWidthPercent: width });
+    }
+    for (const width of [0, 24, 101, 50.5, "50", { width: 50 }]) expect(materialBodyOperations.accept(image(width)).ok).toBe(false);
+  });
+
   test("accepts a representative v1 document without semantic drift", () => {
     const documentOperations = materialBodyOperations;
     const input = {
@@ -46,7 +85,10 @@ describe("MaterialBodyOperations", () => {
             type: "paragraph",
             attrs: { nodeId: "22222222-2222-4222-8222-222222222222" },
             content: [
-              { type: "text", text: "Issue хранит intent, а Material — current content." },
+              {
+                type: "text",
+                text: "Issue хранит intent, а Material — current content.",
+              },
             ],
           },
           {
@@ -86,7 +128,10 @@ describe("MaterialBodyOperations", () => {
     const documentOperations = materialBodyOperations;
     const document = fullRepresentativeDocument();
 
-    expect(documentOperations.accept(document)).toEqual({ ok: true, value: document });
+    expect(documentOperations.accept(document)).toEqual({
+      ok: true,
+      value: document,
+    });
   });
 
   test("renders and extracts the representative document without executable or private data", () => {
@@ -100,27 +145,27 @@ describe("MaterialBodyOperations", () => {
     }
     expect(rendered.value.schemaVersion).toBe(1);
     expect(rendered.value.blocks.slice(0, 2)).toEqual([
+      {
+        kind: "heading",
+        level: 2,
+        content: [{ kind: "text", text: "Developer Pipeline", marks: [] }],
+      },
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", text: "Issue", marks: [{ kind: "bold" }] },
+          { kind: "text", text: " хранит ", marks: [{ kind: "italic" }] },
+          { kind: "text", text: "intent", marks: [{ kind: "code" }] },
+          { kind: "text", text: " и ", marks: [{ kind: "strike" }] },
           {
-            kind: "heading",
-            level: 2,
-            content: [{ kind: "text", text: "Developer Pipeline", marks: [] }],
+            kind: "text",
+            text: "evidence",
+            marks: [{ kind: "link", href: "https://example.com/evidence" }],
           },
-          {
-            kind: "paragraph",
-            content: [
-              { kind: "text", text: "Issue", marks: [{ kind: "bold" }] },
-              { kind: "text", text: " хранит ", marks: [{ kind: "italic" }] },
-              { kind: "text", text: "intent", marks: [{ kind: "code" }] },
-              { kind: "text", text: " и ", marks: [{ kind: "strike" }] },
-              {
-                kind: "text",
-                text: "evidence",
-                marks: [{ kind: "link", href: "https://example.com/evidence" }],
-              },
-              { kind: "text", text: ".", marks: [] },
-            ],
-          },
-        ]);
+          { kind: "text", text: ".", marks: [] },
+        ],
+      },
+    ]);
 
     expect(documentOperations.extract(document)).toEqual({
       ok: true,
@@ -146,19 +191,23 @@ describe("MaterialBodyOperations", () => {
   });
 
   test("rejects the removed legacy inline Video node", () => {
-    expect(materialBodyOperations.accept({
-      schemaVersion: 1,
-      doc: {
-        type: "doc",
-        content: [{
-          type: "video",
-          attrs: {
-            nodeId: "77777777-7777-4777-8777-777777777777",
-            videoId: "66666666-6666-4666-8666-666666666666",
-          },
-        }],
-      },
-    })).toMatchObject({ ok: false, error: { code: "invalid_content" } });
+    expect(
+      materialBodyOperations.accept({
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            {
+              type: "video",
+              attrs: {
+                nodeId: "77777777-7777-4777-8777-777777777777",
+                videoId: "66666666-6666-4666-8666-666666666666",
+              },
+            },
+          ],
+        },
+      }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_content" } });
   });
 
   test("canonicalizes accepted content and rejects non-JSON or duplicate nested node IDs", () => {
@@ -214,17 +263,11 @@ describe("MaterialBodyOperations", () => {
       throw new Error("Expected document blocks");
     }
     const list = blocks[2];
-    if (
-      !isUnknownRecord(list) ||
-      !isUnknownArray(list.content)
-    ) {
+    if (!isUnknownRecord(list) || !isUnknownArray(list.content)) {
       throw new Error("Expected list content");
     }
     const item = list.content[0];
-    if (
-      !isUnknownRecord(item) ||
-      !isUnknownArray(item.content)
-    ) {
+    if (!isUnknownRecord(item) || !isUnknownArray(item.content)) {
       throw new Error("Expected list item content");
     }
     const paragraph = item.content[0];
@@ -251,7 +294,10 @@ describe("MaterialBodyOperations", () => {
           content: [
             {
               ...caseInsensitiveBlocks[0],
-              attrs: { level: 2, nodeId: "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA" },
+              attrs: {
+                level: 2,
+                nodeId: "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+              },
             },
             {
               ...caseInsensitiveBlocks[1],
@@ -268,15 +314,18 @@ describe("MaterialBodyOperations", () => {
 
   test("replaces text across marked text nodes without dropping unaffected marks", () => {
     const documentOperations = materialBodyOperations;
-    const result = documentOperations.applyChanges(fullRepresentativeDocument(), [
-      {
-        kind: "replace_text",
-        nodeId: "01000000-0000-4000-8000-000000000002",
-        from: 6,
-        to: 12,
-        text: "сохраняет",
-      },
-    ]);
+    const result = documentOperations.applyChanges(
+      fullRepresentativeDocument(),
+      [
+        {
+          kind: "replace_text",
+          nodeId: "01000000-0000-4000-8000-000000000002",
+          from: 6,
+          to: 12,
+          text: "сохраняет",
+        },
+      ],
+    );
 
     expect(result.ok).toBe(true);
     if (!result.ok) {
@@ -295,7 +344,9 @@ describe("MaterialBodyOperations", () => {
         {
           type: "text",
           text: "evidence",
-          marks: [{ type: "link", attrs: { href: "https://example.com/evidence" } }],
+          marks: [
+            { type: "link", attrs: { href: "https://example.com/evidence" } },
+          ],
         },
         { type: "text", text: "." },
       ],
@@ -429,7 +480,13 @@ describe("MaterialBodyOperations", () => {
         },
       },
       [
-        { kind: "replace_text", nodeId: testNodeId(2), from: 0, to: 5, text: "Primary" },
+        {
+          kind: "replace_text",
+          nodeId: testNodeId(2),
+          from: 0,
+          to: 5,
+          text: "Primary",
+        },
         {
           kind: "insert_blocks",
           afterNodeId: testNodeId(2),
@@ -462,8 +519,7 @@ describe("MaterialBodyOperations", () => {
     }
     const list = content[0];
     const item =
-      isUnknownRecord(list) &&
-      isUnknownArray(list.content)
+      isUnknownRecord(list) && isUnknownArray(list.content)
         ? list.content[0]
         : undefined;
     expect(item).toMatchObject({
@@ -502,9 +558,11 @@ describe("MaterialBodyOperations", () => {
     if (existingDocument.ok) {
       throw new Error("Expected missing node IDs to fail");
     }
-    expect(existingDocument.error.issues.every(({ code }) => code === "invalid_node_id")).toBe(
-      true,
-    );
+    expect(
+      existingDocument.error.issues.every(
+        ({ code }) => code === "invalid_node_id",
+      ),
+    ).toBe(true);
     expect(
       documentOperations.accept(document, { assignMissingNodeIds: true }),
     ).toMatchObject({
@@ -546,7 +604,9 @@ describe("MaterialBodyOperations", () => {
               {
                 type: "text",
                 text: "unsafe",
-                marks: [{ type: "link", attrs: { href: "javascript:alert(1)" } }],
+                marks: [
+                  { type: "link", attrs: { href: "javascript:alert(1)" } },
+                ],
               },
             ],
           },
@@ -649,21 +709,23 @@ describe("MaterialBodyOperations", () => {
     });
 
     const tooManyNodes = documentOperations.accept({
-        schemaVersion: 1,
-        doc: {
-          type: "doc",
-          content: Array.from({ length: 10_001 }, (_, index) => ({
-            type: "horizontalRule",
-            attrs: { nodeId: testNodeId(1_000 + index) },
-          })),
-        },
-      });
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: Array.from({ length: 10_001 }, (_, index) => ({
+          type: "horizontalRule",
+          attrs: { nodeId: testNodeId(1_000 + index) },
+        })),
+      },
+    });
     expect(tooManyNodes.ok).toBe(false);
     if (tooManyNodes.ok) {
       throw new Error("Expected node limit failure");
     }
     expect(
-      tooManyNodes.error.issues.every(({ code }) => code === "document_has_too_many_nodes"),
+      tooManyNodes.error.issues.every(
+        ({ code }) => code === "document_has_too_many_nodes",
+      ),
     ).toBe(true);
 
     expect(
@@ -689,7 +751,9 @@ describe("MaterialBodyOperations", () => {
       schemaVersion: 1,
       doc: {
         type: "doc",
-        content: Array.from({ length: 150 }, () => ({ type: "horizontalRule" })),
+        content: Array.from({ length: 150 }, () => ({
+          type: "horizontalRule",
+        })),
       },
     });
     expect(bounded.ok).toBe(false);
@@ -709,7 +773,9 @@ describe("MaterialBodyOperations", () => {
     ["unknown-mark", "invalid_prosemirror_document"],
     ["unknown-node", "invalid_prosemirror_document"],
   ])("rejects negative JSON fixture %s", (fixture, code) => {
-    expect(materialBodyOperations.accept(invalidFixture(fixture))).toMatchObject({
+    expect(
+      materialBodyOperations.accept(invalidFixture(fixture)),
+    ).toMatchObject({
       ok: false,
       error: { issues: [{ code }] },
     });

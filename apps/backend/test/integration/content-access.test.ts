@@ -52,7 +52,7 @@ describe("ContentAccess current Platform facts", () => {
     });
     const permissionRead = vi.spyOn(
       testDatabase.prisma.accountPermission,
-      "findUnique",
+      "findFirst",
     );
     const contentAccess = assembleContentAccess({
       materialResourceFacts: {

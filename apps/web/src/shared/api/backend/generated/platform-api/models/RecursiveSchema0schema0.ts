@@ -57,6 +57,7 @@ export type RecursiveSchema0schema0 = ({
   alt: string;
   assetId: string;
   caption?: string;
+  displayWidthPercent?: number;
   height?: number;
   kind: 'image';
   variants?: Array<{

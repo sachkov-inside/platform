@@ -1,0 +1,5 @@
+/* Tiptap hides the native selection background for a selected block. Restore its
+   text colour too, otherwise the application's white selection text disappears. */
+.content :global(.ProseMirror-hideselection) *::selection {
+  color: currentColor;
+}
