@@ -1,8 +1,8 @@
 {
 	admin 127.0.0.1:2019
-	# Re-enable HTTP/3 only after external auth and browser acceptance (#387).
+	# HTTP/3 on the pinned upstream Caddy; retain TCP protocols for blocked QUIC (#399).
 	servers :443 {
-		protocols h1 h2
+		protocols h1 h2 h3
 	}
 }
 
