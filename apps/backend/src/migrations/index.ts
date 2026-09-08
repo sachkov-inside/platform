@@ -1,11 +1,39 @@
-import { name as domainMaterialFormatsName, statement as domainMaterialFormatsStatement } from "../modules/materials/infrastructure/postgres/migrations/0035-domain-material-formats.js";
-import { name as videoUploadRejectionsName, statement as videoUploadRejectionsStatement } from "../modules/videos/infrastructure/postgres/migrations/0036-video-upload-rejections.js";
-import { name as materialVisitsName, statement as materialVisitsStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0033-material-visits.js";
-import { name as contentCoverCleanupName, statement as contentCoverCleanupStatement } from "../modules/materials/infrastructure/postgres/migrations/0034-content-cover-cleanup.js";
-import { name as readingActivityName, statement as readingActivityStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0032-reading-activity.js";
-import { name as trackingHitsName, statement as trackingHitsStatement } from "../modules/communications/infrastructure/postgres/migrations/0031-communication-tracking-hits.js";
-import { name as communicationsPermissionName, statement as communicationsPermissionStatement } from "../modules/accounts/infrastructure/postgres/migrations/0030-communications-permission.js";
-import { name as telegramSignInMigrationName, statement as telegramSignInMigrationStatement } from "../modules/accounts/infrastructure/postgres/migrations/0029-telegram-sign-in.js";
+import {
+  name as platformAdminName,
+  statement as platformAdminStatement,
+} from "../modules/accounts/infrastructure/postgres/migrations/0037-platform-admin.js";
+import {
+  name as domainMaterialFormatsName,
+  statement as domainMaterialFormatsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0035-domain-material-formats.js";
+import {
+  name as videoUploadRejectionsName,
+  statement as videoUploadRejectionsStatement,
+} from "../modules/videos/infrastructure/postgres/migrations/0036-video-upload-rejections.js";
+import {
+  name as materialVisitsName,
+  statement as materialVisitsStatement,
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0033-material-visits.js";
+import {
+  name as contentCoverCleanupName,
+  statement as contentCoverCleanupStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0034-content-cover-cleanup.js";
+import {
+  name as readingActivityName,
+  statement as readingActivityStatement,
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0032-reading-activity.js";
+import {
+  name as trackingHitsName,
+  statement as trackingHitsStatement,
+} from "../modules/communications/infrastructure/postgres/migrations/0031-communication-tracking-hits.js";
+import {
+  name as communicationsPermissionName,
+  statement as communicationsPermissionStatement,
+} from "../modules/accounts/infrastructure/postgres/migrations/0030-communications-permission.js";
+import {
+  name as telegramSignInMigrationName,
+  statement as telegramSignInMigrationStatement,
+} from "../modules/accounts/infrastructure/postgres/migrations/0029-telegram-sign-in.js";
 import {
   runMigrationsToLatest,
   type MigrationOutcome,
@@ -186,7 +214,10 @@ export const platformMigrations = [
     statement: profileAvatarsMigrationStatement,
   },
   { name: videosMigrationName, statement: videosMigrationStatement },
-  { name: primaryVideoMigrationName, statement: primaryVideoMigrationStatement },
+  {
+    name: primaryVideoMigrationName,
+    statement: primaryVideoMigrationStatement,
+  },
   {
     name: durableVideoUploadAttemptsMigrationName,
     statement: durableVideoUploadAttemptsMigrationStatement,
@@ -231,14 +262,27 @@ export const platformMigrations = [
     name: seriesStepGroupsMigrationName,
     statement: seriesStepGroupsMigrationStatement,
   },
-  { name: telegramSignInMigrationName, statement: telegramSignInMigrationStatement },
-  { name: communicationsPermissionName, statement: communicationsPermissionStatement },
+  {
+    name: telegramSignInMigrationName,
+    statement: telegramSignInMigrationStatement,
+  },
+  {
+    name: communicationsPermissionName,
+    statement: communicationsPermissionStatement,
+  },
   { name: trackingHitsName, statement: trackingHitsStatement },
   { name: readingActivityName, statement: readingActivityStatement },
   { name: materialVisitsName, statement: materialVisitsStatement },
   { name: contentCoverCleanupName, statement: contentCoverCleanupStatement },
-  { name: domainMaterialFormatsName, statement: domainMaterialFormatsStatement },
-  { name: videoUploadRejectionsName, statement: videoUploadRejectionsStatement },
+  {
+    name: domainMaterialFormatsName,
+    statement: domainMaterialFormatsStatement,
+  },
+  {
+    name: videoUploadRejectionsName,
+    statement: videoUploadRejectionsStatement,
+  },
+  { name: platformAdminName, statement: platformAdminStatement },
 ] as const;
 
 export function migrateToLatest(

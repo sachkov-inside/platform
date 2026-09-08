@@ -23,6 +23,7 @@ export type RenderedBlock =
       readonly alt: string;
       readonly assetId: string;
       readonly caption?: string | undefined;
+      readonly displayWidthPercent?: number | undefined;
       readonly height?: number | undefined;
       readonly kind: "image";
       readonly variants?: readonly {
@@ -71,6 +72,7 @@ export const renderedBlockSchema: z.ZodType<RenderedBlock> = z.lazy(() =>
       caption: z.string().optional(),
       height: z.number().int().positive().optional(),
       kind: z.literal("image"),
+      displayWidthPercent: z.number().int().min(25).max(100).optional(),
       variants: z
         .array(
           z

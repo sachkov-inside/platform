@@ -6,6 +6,7 @@ import { useId, useState } from "react";
 
 import { ContentCoverImage, type ContentCover } from "@/entities/material";
 import type { ContentCoverOwnerKind } from "@/shared/content-cover-owner";
+import { usePendingUploadGuard } from "@/shared/lib/autosave/use-autosave";
 import { Button, buttonVariants } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -29,6 +30,8 @@ export function ContentCoverEditor({
   readonly ownerLabel?: string;
 }) {
   const inputId = useId();
+  const [dragging, setDragging] = useState(false);
+  const [fileError, setFileError] = useState(false);
   const [cover, setCover] = useState(initialCover);
   const change = useMutation({
     mutationFn: (file: File) =>
@@ -43,6 +46,7 @@ export function ContentCoverEditor({
     onSuccess: applyResult,
   });
   const pending = change.isPending || remove.isPending;
+  usePendingUploadGuard(pending);
   const result = change.data ?? remove.data;
 
   function applyResult(next: Awaited<ReturnType<typeof uploadContentCover>>) {
@@ -51,18 +55,65 @@ export function ContentCoverEditor({
     onChange?.(next.cover);
   }
 
+  function acceptFile(file: File | undefined) {
+    if (!file || disabled || pending) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setFileError(true);
+      return;
+    }
+    setFileError(false);
+    change.reset();
+    remove.reset();
+    change.mutate(file);
+  }
+
   return (
     <section
       aria-label={`Обложка: ${ownerLabel ?? ownerId}`}
       aria-busy={pending}
-      className="rounded-xl border border-border bg-background p-3"
+      className={cn(
+        "rounded-xl border border-dashed bg-background p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        dragging ? "border-accent bg-accent/10" : "border-border",
+      )}
+      tabIndex={0}
+      onDragOver={(event) => {
+        if (disabled || pending || !event.dataTransfer.types.includes("Files"))
+          return;
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+          setDragging(false);
+      }}
+      onDrop={(event) => {
+        if (disabled || pending) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setDragging(false);
+        acceptFile(event.dataTransfer.files[0]);
+      }}
+      onPaste={(event) => {
+        if (event.clipboardData.files.length === 0 || disabled || pending)
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+        acceptFile(event.clipboardData.files[0]);
+      }}
     >
-      <h3 className="text-sm font-semibold" id={`${inputId}-heading`}>Обложка</h3>
+      <h3 className="text-sm font-semibold" id={`${inputId}-heading`}>
+        Обложка
+      </h3>
       <div className="mt-3 grid grid-cols-[6rem_minmax(0,1fr)] items-start gap-3">
-        <ContentCoverImage alt="" className="aspect-video rounded-lg" cover={cover} sizes="6rem" />
+        <ContentCoverImage
+          alt=""
+          className="aspect-video rounded-lg"
+          cover={cover}
+          sizes="6rem"
+        />
         <div className="min-w-0">
           <p className="text-xs leading-5 text-muted-foreground">
-            JPEG, PNG или WebP. Сервис сам создаст безопасные размеры.
+            Перетащите изображение или вставьте из буфера.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <label
@@ -73,11 +124,30 @@ export function ContentCoverEditor({
               )}
               htmlFor={inputId}
             >
-              {pending ? <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" /> : <ImagePlus aria-hidden="true" />}
-              {pending ? "Обрабатываем…" : cover === null ? "Загрузить" : "Заменить"}
+              {pending ? (
+                <LoaderCircle
+                  aria-hidden="true"
+                  className="animate-spin motion-reduce:animate-none"
+                />
+              ) : (
+                <ImagePlus aria-hidden="true" />
+              )}
+              {pending
+                ? "Обрабатываем…"
+                : cover === null
+                  ? "Загрузить"
+                  : "Заменить"}
             </label>
             {cover === null ? null : (
-              <Button disabled={disabled || pending} onClick={() => { remove.mutate(); }} size="sm" type="button" variant="ghost">
+              <Button
+                disabled={disabled || pending}
+                onClick={() => {
+                  remove.mutate();
+                }}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
                 <Trash2 aria-hidden="true" />
                 Удалить
               </Button>
@@ -90,16 +160,33 @@ export function ContentCoverEditor({
             id={inputId}
             onChange={(event) => {
               const file = event.currentTarget.files?.[0];
-              if (file !== undefined) change.mutate(file);
+              acceptFile(file);
               event.currentTarget.value = "";
             }}
             type="file"
           />
         </div>
       </div>
-      {result?.kind === "saved" ? <p className="mt-2 text-xs font-semibold" role="status">Обложка обновлена.</p> : null}
-      {result?.kind === "conflict" ? <p className="mt-2 text-xs text-destructive" role="alert">Обложка уже изменилась. Обновите страницу.</p> : null}
-      {result?.kind === "error" || change.isError || remove.isError ? <p className="mt-2 text-xs text-destructive" role="alert">Не удалось обновить обложку.</p> : null}
+      {fileError ? (
+        <p className="mt-2 text-xs text-destructive" role="alert">
+          Выберите JPEG, PNG или WebP.
+        </p>
+      ) : null}
+      {result?.kind === "saved" ? (
+        <p className="mt-2 text-xs font-semibold" role="status">
+          Обложка обновлена.
+        </p>
+      ) : null}
+      {result?.kind === "conflict" ? (
+        <p className="mt-2 text-xs text-destructive" role="alert">
+          Обложка уже изменилась. Обновите страницу.
+        </p>
+      ) : null}
+      {result?.kind === "error" || change.isError || remove.isError ? (
+        <p className="mt-2 text-xs text-destructive" role="alert">
+          Не удалось обновить обложку.
+        </p>
+      ) : null}
     </section>
   );
 }

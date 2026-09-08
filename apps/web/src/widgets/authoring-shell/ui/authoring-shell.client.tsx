@@ -2,7 +2,6 @@
 
 import {
   Eye,
-  Send,
   Files,
   Globe2,
   LibraryBig,
@@ -21,17 +20,15 @@ const materialsHref = "/authoring/materials" as Route;
 
 export function AuthoringShell({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname();
-  const current = pathname.startsWith("/authoring/communications")
-    ? "communications"
-    : pathname.startsWith("/authoring/topics")
-      ? "topics"
-      : pathname.startsWith("/authoring/playlists")
-        ? "playlists"
-        : pathname.endsWith("/preview")
-          ? "preview"
-          : pathname.startsWith(materialsHref)
-            ? "materials"
-            : undefined;
+  const current = pathname.startsWith("/authoring/topics")
+    ? "topics"
+    : pathname.startsWith("/authoring/playlists")
+      ? "playlists"
+      : pathname.endsWith("/preview")
+        ? "preview"
+        : pathname.startsWith(materialsHref)
+          ? "materials"
+          : undefined;
 
   return (
     <div className="min-h-svh bg-background text-foreground md:flex md:h-svh md:min-h-0 md:overflow-hidden">
@@ -94,12 +91,6 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
               </div>
             ) : null}
             <AuthoringLink
-              current={current === "communications"}
-              href="/authoring/communications"
-              icon={<Send aria-hidden="true" />}
-              label="Воронки Telegram"
-            />
-            <AuthoringLink
               href="/library"
               icon={<LibraryBig aria-hidden="true" />}
               label="База знаний"
@@ -114,14 +105,14 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
           </div>
         </div>
       </aside>
-      <div className="min-w-0 flex-1 pb-[calc(6.75rem+env(safe-area-inset-bottom))] md:h-full md:pb-0">
+      <div className="min-w-0 flex-1 pb-[calc(3.75rem+env(safe-area-inset-bottom))] md:h-full md:pb-0">
         {children}
       </div>
       <nav
         aria-label="Редактор на мобильном"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
       >
-        <div className="grid grid-cols-3 px-2 pt-1">
+        <div className="grid grid-cols-5 px-2 pt-1">
           <MobileLink
             current={current === "materials"}
             href={materialsHref}
@@ -142,13 +133,6 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
             label="Серии"
           >
             <ListOrdered aria-hidden="true" />
-          </MobileLink>
-          <MobileLink
-            current={current === "communications"}
-            href="/authoring/communications"
-            label="Воронки"
-          >
-            <Send aria-hidden="true" />
           </MobileLink>
           <MobileLink href="/library" label="База знаний">
             <LibraryBig aria-hidden="true" />

@@ -69,11 +69,14 @@ export function MaterialAuthoringWorkspace({
         canSave={canSave}
         presentation={presentation}
       />
-      <MaterialAuthoringBlockingState actions={actions} presentation={presentation} />
+      <MaterialAuthoringBlockingState
+        actions={actions}
+        presentation={presentation}
+      />
       <MaterialAuthoringNotice presentation={presentation} />
 
       <form
-        className="mx-auto grid w-full max-w-[52rem] min-w-0 gap-0 px-4 pb-14 pt-7 sm:px-6 @min-[68rem]/material-authoring:max-w-[80rem] @min-[68rem]/material-authoring:grid-cols-[minmax(18rem,0.72fr)_minmax(32rem,1.55fr)] @min-[68rem]/material-authoring:px-8 @min-[68rem]/material-authoring:pt-9"
+        className="mx-auto grid w-full max-w-[60rem] min-w-0 gap-0 px-4 pb-14 pt-7 sm:px-8"
         id="material-authoring-form"
         onKeyDown={(event) => {
           if (
@@ -93,7 +96,9 @@ export function MaterialAuthoringWorkspace({
         onSubmit={(event) => {
           event.preventDefault();
           const submitter =
-            event.nativeEvent instanceof SubmitEvent ? event.nativeEvent.submitter : null;
+            event.nativeEvent instanceof SubmitEvent
+              ? event.nativeEvent.submitter
+              : null;
           const requestedPublicationState =
             submitter instanceof HTMLButtonElement &&
             submitter.name === "publicationState"
@@ -108,10 +113,7 @@ export function MaterialAuthoringWorkspace({
         }}
       >
         <MaterialMetadataPanel actions={actions} presentation={presentation} />
-        <section
-          aria-labelledby="document-heading"
-          className="min-w-0 py-8 @min-[68rem]/material-authoring:px-8 @min-[68rem]/material-authoring:py-0"
-        >
+        <section aria-labelledby="document-heading" className="min-w-0 py-8">
           <h2 className="text-sm font-semibold" id="document-heading">
             Содержимое материала
           </h2>
@@ -119,12 +121,12 @@ export function MaterialAuthoringWorkspace({
             <div className="mt-4">
               <ContentCoverEditor
                 disabled={
-                  presentation.save.kind === "submitting" ||
-                  presentation.blocking.kind !== "none" ||
+                  presentation.blocking.kind === "not_found" ||
                   presentation.draft.readOnly
                 }
                 initialCover={presentation.draft.cover ?? null}
                 ownerId={presentation.draft.materialId}
+                ownerLabel={presentation.draft.title}
                 ownerKind="material"
               />
             </div>
@@ -132,28 +134,24 @@ export function MaterialAuthoringWorkspace({
           <MaterialVideoAuthoring
             access={presentation.draft.access}
             disabled={
-              presentation.save.kind === "submitting" ||
-              presentation.blocking.kind !== "none" ||
+              presentation.blocking.kind === "not_found" ||
               presentation.draft.readOnly
             }
             materialId={presentation.draft.materialId}
             onChange={actions.onPrimaryVideoChange}
             deleteVideoId={presentation.draft.deleteVideoId}
             latestVideoDeletion={presentation.draft.latestVideoDeletion}
-            key={[
-              presentation.draft.access,
-              presentation.draft.primaryVideo?.videoId ?? "none",
-              presentation.draft.latestVideoDeletion?.state ?? "none",
-              presentation.draft.deleteVideoId ?? "none",
-            ].join(":")}
+            key={`${presentation.draft.materialId ?? "new"}:${presentation.draft.access}`}
             primaryVideo={presentation.draft.primaryVideo}
           />
           <MaterialDocumentEditor
+            saveState={presentation.save}
             disabled={
-              presentation.save.kind === "submitting" ||
-              presentation.blocking.kind !== "none" ||
+              presentation.blocking.kind === "not_found" ||
               presentation.draft.readOnly
             }
+            contentVersion={presentation.draft.contentVersion}
+            assetPreviewBlocks={presentation.draft.assetPreviewBlocks}
             document={presentation.draft.document}
             materialId={presentation.draft.materialId}
             onChange={actions.onDocumentChange}

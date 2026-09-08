@@ -5,19 +5,16 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
-  Check,
   LoaderCircle,
   Plus,
   Search,
   X,
 } from "lucide-react";
-import {
-  useMutation,
-  useQuery,
-} from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import type { RefObject } from "react";
 
+import { useAutosave } from "@/shared/lib/autosave/use-autosave";
 import { cn } from "@/shared/lib/utils";
 import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
 import { Button } from "@/shared/ui/button";
@@ -38,12 +35,14 @@ import type {
 } from "../model/presentation";
 
 export function SeriesOrderManager({
+  embedded = false,
   createMaterialSearchQueryOptions,
   onBack,
   onRefresh,
   onSelectPlaylist,
   presentation,
 }: {
+  readonly embedded?: boolean;
   readonly createMaterialSearchQueryOptions: CreateSeriesOrderMaterialSearchQueryOptions;
   readonly onBack: () => void;
   readonly onRefresh: () => void;
@@ -51,33 +50,41 @@ export function SeriesOrderManager({
   readonly presentation: SeriesOrderPresentation;
 }) {
   const [items, setItems] = useState(presentation.items);
-  const [baseline, setBaseline] = useState(() => ({
-    entries: compositionEntries(presentation.items),
-    orderVersion: presentation.orderVersion,
-  }));
-  const mutation = useMutation({
-    mutationFn: reorderSeries,
-    onSuccess: (next, submitted) => {
-      if (next.kind !== "saved") return;
-      setBaseline({
-        entries: submitted.orderedMaterialIds.map((id) => [id, submitted.stepGroups?.[id] ?? null]),
-        orderVersion: next.orderVersion,
-      });
+  const version = useRef(presentation.orderVersion);
+  const mutation = useMutation({ mutationFn: reorderSeries });
+  const attempted = useRef<Parameters<typeof reorderSeries>[0] | null>(null);
+  const autosave = useAutosave({
+    value: compositionEntries(items),
+    enabled: items.every(
+      ({ stepGroup }) => (stepGroup?.trim().length ?? 0) <= 120,
+    ),
+    save: async (entries) => {
+      const input = attempted.current ?? {
+        expectedOrderVersion: version.current,
+        orderedMaterialIds: entries.map(([id]) => id),
+        stepGroups: Object.fromEntries(
+          entries.flatMap(([id, group]) => (group ? [[id, group]] : [])),
+        ),
+        seriesId: presentation.seriesId,
+      };
+      attempted.current = input;
+      const next = await mutation.mutateAsync(input);
+      if (next.kind !== "saved") return "failed";
+      version.current = next.orderVersion;
+      attempted.current = null;
+      return "saved";
     },
   });
   const result = mutation.data ?? null;
-  const pending = mutation.isPending;
+  const pending = autosave.pending;
+  const dirty = autosave.dirty;
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDialogElement>(null);
-  const dirty =
-    JSON.stringify(compositionEntries(items)) !== JSON.stringify(baseline.entries);
-  const expectedOrderVersion = baseline.orderVersion;
-  const canSave =
-    dirty &&
-    items.every(({ stepGroup }) => (stepGroup?.trim().length ?? 0) <= 120) &&
-    !pending &&
-    result?.kind !== "conflict" &&
-    result?.kind !== "unauthorized";
+  const close = () => {
+    void autosave.flush().then((ok) => {
+      if (ok) onBack();
+    });
+  };
 
   const move = (index: number, offset: -1 | 1) => {
     const destination = index + offset;
@@ -94,19 +101,26 @@ export function SeriesOrderManager({
     pickerRef.current?.showModal();
   };
 
+  const Container = embedded ? "section" : "main";
   return (
-    <main
-      className="h-full min-h-svh overflow-y-auto bg-background px-4 pb-20 pt-5 text-foreground sm:px-6 md:min-h-0"
-      id="authoring-content"
+    <Container
+      className={
+        embedded
+          ? "bg-background px-4 py-5 text-foreground sm:px-6"
+          : "h-full min-h-svh overflow-y-auto bg-background px-4 pb-20 pt-5 text-foreground sm:px-6 md:min-h-0"
+      }
+      id={embedded ? undefined : "authoring-content"}
       tabIndex={-1}
     >
       <div className="mx-auto w-full max-w-4xl">
         <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
           <div className="flex min-w-0 items-start gap-3">
             <Button
-              aria-label="Вернуться к материалам"
+              aria-label={
+                embedded ? "Закрыть состав серии" : "Вернуться к материалам"
+              }
               className="mt-0.5 size-10"
-              onClick={onBack}
+              onClick={close}
               size="icon"
               type="button"
               variant="ghost"
@@ -121,48 +135,49 @@ export function SeriesOrderManager({
                 {presentation.name}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Перемещайте материалы кнопками. Изменения появятся в публичном
-                списке серии после сохранения. Свяжите шаги одинаковым названием последовательности; общий порядок остаётся единым.
+                Порядок и состав сохраняются автоматически.
               </p>
             </div>
           </div>
           <div className="grid w-full gap-3 sm:w-72">
-            <div>
-              <label
-                className="mb-2 block text-sm font-medium"
-                htmlFor="playlist-switcher"
-              >
-                Серия
-              </label>
-              <Select
-                onValueChange={(value) => {
-                  onSelectPlaylist(value);
-                }}
-                value={presentation.seriesId}
-              >
-                <SelectTrigger
-                  className="min-h-11 w-full rounded-xl bg-card"
-                  id="playlist-switcher"
+            {embedded ? null : (
+              <div>
+                <label
+                  className="mb-2 block text-sm font-medium"
+                  htmlFor="playlist-switcher"
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {presentation.options.map((option) => (
-                    <SelectItem
-                      disabled={
-                        option.archived === true &&
-                        option.value !== presentation.seriesId
-                      }
-                      key={option.value}
-                      value={option.value}
-                    >
-                      {option.label}
-                      {option.archived === true ? " · архив" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                  Серия
+                </label>
+                <Select
+                  onValueChange={(value) => {
+                    onSelectPlaylist(value);
+                  }}
+                  value={presentation.seriesId}
+                >
+                  <SelectTrigger
+                    className="min-h-11 w-full rounded-xl bg-card"
+                    id="playlist-switcher"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {presentation.options.map((option) => (
+                      <SelectItem
+                        disabled={
+                          option.archived === true &&
+                          option.value !== presentation.seriesId
+                        }
+                        key={option.value}
+                        value={option.value}
+                      >
+                        {option.label}
+                        {option.archived === true ? " · архив" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
               <Button
                 disabled={presentation.archived}
@@ -173,7 +188,6 @@ export function SeriesOrderManager({
                 <Plus aria-hidden="true" data-icon="inline-start" />
                 Добавить материал
               </Button>
-              <SaveOrderButton canSave={canSave} pending={pending} />
             </div>
           </div>
         </header>
@@ -191,7 +205,9 @@ export function SeriesOrderManager({
           onAdd={(material) => {
             mutation.reset();
             setItems((current) =>
-              current.some(({ materialId }) => materialId === material.materialId)
+              current.some(
+                ({ materialId }) => materialId === material.materialId,
+              )
                 ? current
                 : [...current, material],
             );
@@ -206,13 +222,7 @@ export function SeriesOrderManager({
           id="series-order-form"
           onSubmit={(event) => {
             event.preventDefault();
-            const orderedMaterialIds = items.map(({ materialId }) => materialId);
-            mutation.mutate({
-              expectedOrderVersion,
-              orderedMaterialIds,
-              stepGroups: Object.fromEntries(items.flatMap(({ materialId, stepGroup }) => stepGroup?.trim() ? [[materialId, stepGroup.trim()]] : [])),
-              seriesId: presentation.seriesId,
-            });
+            void autosave.retry();
           }}
         >
           {presentation.archived ? (
@@ -253,12 +263,18 @@ export function SeriesOrderManager({
                       Последовательность шагов
                       <input
                         className="mt-1 block min-h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-ring"
-                        disabled={pending}
+                        disabled={false}
                         maxLength={120}
                         onChange={(event) => {
                           const value = event.currentTarget.value;
                           mutation.reset();
-                          setItems((current) => current.map((entry) => entry.materialId === item.materialId ? { ...entry, stepGroup: value } : entry));
+                          setItems((current) =>
+                            current.map((entry) =>
+                              entry.materialId === item.materialId
+                                ? { ...entry, stepGroup: value }
+                                : entry,
+                            ),
+                          );
                         }}
                         placeholder="Без последовательности"
                         value={item.stepGroup ?? ""}
@@ -268,7 +284,7 @@ export function SeriesOrderManager({
                   <div className="flex shrink-0 gap-1">
                     <Button
                       aria-label={`Поднять «${item.title}»`}
-                      disabled={pending || index === 0}
+                      disabled={index === 0}
                       onClick={() => {
                         move(index, -1);
                       }}
@@ -280,7 +296,7 @@ export function SeriesOrderManager({
                     </Button>
                     <Button
                       aria-label={`Опустить «${item.title}»`}
-                      disabled={pending || index === items.length - 1}
+                      disabled={index === items.length - 1}
                       onClick={() => {
                         move(index, 1);
                       }}
@@ -292,7 +308,7 @@ export function SeriesOrderManager({
                     </Button>
                     <Button
                       aria-label={`Убрать «${item.title}»`}
-                      disabled={pending}
+                      disabled={false}
                       onClick={() => {
                         mutation.reset();
                         setItems((current) =>
@@ -314,34 +330,24 @@ export function SeriesOrderManager({
           )}
 
           <div className="mt-6 flex justify-end border-t border-border pt-5">
-            <SaveOrderButton canSave={canSave} pending={pending} />
+            <span role="status" className="text-xs text-muted-foreground">
+              {pending ? "Сохранение…" : dirty ? "Не сохранено" : "Сохранено"}
+            </span>
+            {autosave.error ? (
+              <Button
+                onClick={() => {
+                  void autosave.retry();
+                }}
+                type="button"
+                variant="outline"
+              >
+                Повторить сохранение
+              </Button>
+            ) : null}
           </div>
         </form>
       </div>
-    </main>
-  );
-}
-
-function SaveOrderButton({
-  canSave,
-  pending,
-}: {
-  readonly canSave: boolean;
-  readonly pending: boolean;
-}) {
-  return (
-    <Button disabled={!canSave} form="series-order-form" type="submit">
-      {pending ? (
-        <LoaderCircle
-          aria-hidden="true"
-          className="animate-spin"
-          data-icon="inline-start"
-        />
-      ) : (
-        <Check aria-hidden="true" data-icon="inline-start" />
-      )}
-      {pending ? "Сохранение…" : "Сохранить"}
-    </Button>
+    </Container>
   );
 }
 
@@ -403,10 +409,10 @@ function MaterialPickerDialog({
   const debouncedSearch = useLiveSearchValue(search)
     .trim()
     .replace(/\s+/gu, " ");
-  const searchReady = search.trim().length >= 2 && debouncedSearch.length >= 2;
+
   const materials = useQuery({
     ...createQueryOptions({ page, search: debouncedSearch }),
-    enabled: open && searchReady,
+    enabled: open,
   });
   const result = materials.data;
   const candidates =
@@ -438,7 +444,7 @@ function MaterialPickerDialog({
               Добавить материал
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Введите хотя бы два символа названия.
+              Выберите материал или найдите по названию.
             </p>
           </div>
           <Button
@@ -479,13 +485,12 @@ function MaterialPickerDialog({
           aria-busy={materials.isFetching}
           className="min-h-48 flex-1 overflow-y-auto border-t border-border px-5 py-4"
         >
-          {!searchReady ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">
-              Результаты появятся после ввода запроса.
-            </p>
-          ) : materials.isPending ? (
+          {materials.isPending ? (
             <p className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
-              <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
+              <LoaderCircle
+                aria-hidden="true"
+                className="size-4 animate-spin"
+              />
               Ищем материалы…
             </p>
           ) : result?.kind === "unauthorized" ? (
@@ -569,7 +574,9 @@ function MaterialPickerDialog({
               {result.page} из {result.totalPages}
             </span>
             <Button
-              disabled={result.page >= result.totalPages || materials.isFetching}
+              disabled={
+                result.page >= result.totalPages || materials.isFetching
+              }
               onClick={() => {
                 setPage(result.page + 1);
               }}
@@ -621,6 +628,11 @@ function stateClassName(
     : "bg-muted text-muted-foreground";
 }
 
-function compositionEntries(items: readonly SeriesOrderItemPresentation[]): readonly (readonly [string, string | null])[] {
-  return items.map(({ materialId, stepGroup }) => [materialId, stepGroup?.trim() ? stepGroup.trim() : null]);
+function compositionEntries(
+  items: readonly SeriesOrderItemPresentation[],
+): readonly (readonly [string, string | null])[] {
+  return items.map(({ materialId, stepGroup }) => [
+    materialId,
+    stepGroup?.trim() ? stepGroup.trim() : null,
+  ]);
 }

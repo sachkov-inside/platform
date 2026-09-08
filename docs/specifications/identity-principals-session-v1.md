@@ -37,7 +37,7 @@ Application module `Accounts` предоставляет операции уст
 прав и серверного разрешения identity для подтверждённой Telegram-связи:
 
 ```ts
-type PlatformPermission = "materials:manage" | "communications:manage";
+type PlatformPermission = "materials:manage" | "communications:manage" | "platform:admin";
 
 interface AuthenticatedAccount {
   readonly accountId: string;
@@ -101,7 +101,12 @@ the product workflow.
 from `materials:manage`; a confirmed author link is also required. The server-side actor mapping,
 author callback and HTTP/MCP parity are defined in the
 [communications integration contract](../integrations/communications-v1.md).
-There are no roles and no `identity:admin`, `materials:author` or `materials:publish` grants.
+`platform:admin` is an explicit current Account grant covering every known Platform permission.
+Only the trusted owner bootstrap can grant it (`OWNER_PERMISSION=platform:admin`); migration 0037
+changes the constraint without promoting existing authors. The existing bootstrap default remains
+`materials:manage`. Administrator status never comes from browser input or provider claims.
+Revocation takes effect on the next operation. Membership and a confirmed Telegram identity link
+remain independent business facts. This owner decision is recorded in #396.
 
 The protected Materials operation calls `Accounts.checkPermission(accountId,
 "materials:manage")`. This is an indexed lookup of current Platform state, not a permission copied

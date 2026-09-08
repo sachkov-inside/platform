@@ -1,4 +1,6 @@
 import { mergeAttributes, Node } from "@tiptap/core";
+import { ReactNodeViewRenderer } from "@tiptap/react";
+import { MaterialAssetNodeView } from "../ui/material-asset-node-view.client";
 
 function assetNode(
   name: "assetFile" | "assetImage",
@@ -7,10 +9,17 @@ function assetNode(
   return Node.create({
     name,
     atom: true,
+    draggable: true,
+    addNodeView() {
+      return ReactNodeViewRenderer(MaterialAssetNodeView);
+    },
     group: "block",
     addAttributes() {
       return Object.fromEntries(
-        ["nodeId", ...attributes].map((attribute) => [attribute, { default: null }]),
+        ["nodeId", ...attributes].map((attribute) => [
+          attribute,
+          { default: null },
+        ]),
       );
     },
     parseHTML() {
@@ -27,7 +36,11 @@ function assetNode(
           "data-material-asset": name,
           class: "material-asset-node",
         }),
-        ["span", { class: "material-asset-node__kind" }, isImage ? "Изображение" : "Файл"],
+        [
+          "span",
+          { class: "material-asset-node__kind" },
+          isImage ? "Изображение" : "Файл",
+        ],
         ["span", { class: "material-asset-node__label" }, label],
       ];
     },
@@ -38,6 +51,7 @@ export const MaterialAssetImageNode = assetNode("assetImage", [
   "assetId",
   "alt",
   "caption",
+  "displayWidthPercent",
 ]);
 export const MaterialAssetFileNode = assetNode("assetFile", [
   "assetId",
