@@ -139,7 +139,7 @@ export const TopicDesktop: Story = {
     await expect(canvas.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
     await expect(canvasElement.querySelector("[data-playlist-card]")).toHaveAttribute(
       "href",
-      "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
+      "/guides/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
     );
     for (const coverId of [
       "02000000-0000-4000-8000-000000000061",
@@ -212,7 +212,7 @@ export const EmptySeries: Story = {
     result: {
       discoveryKind: "series",
       kind: "empty",
-      reference: { name: "Новая серия", slug: "new-series", summary: "" },
+      reference: { name: "Новая руководство", slug: "new-series", summary: "" },
       relatedSeries: [],
       topics: [],
     },
@@ -255,7 +255,7 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
 
 const connectedStepsResult = {
   ...seriesResult,
-  reference: { cover: null, name: "Релиз своего проекта", slug: "release", summary: "Видео, заметки и последовательные инструкции в одной серии." },
+  reference: { cover: null, name: "Релиз своего проекта", slug: "release", summary: "Видео, заметки и последовательные инструкции в одном руководстве." },
   items: [
     { title: "Как устроен релиз моего проекта", format: "Видео", formatSlug: "video", summary: "От коммита до работающего сервиса: сборка, конфигурация, публикация и откат релиза." },
     { title: "Подготовка приложения", format: "Гайд", formatSlug: "guide", stepGroup: "От проекта до релиза" },
@@ -265,7 +265,7 @@ const connectedStepsResult = {
     { title: "Первый деплой", format: "Гайд", formatSlug: "guide", stepGroup: "От проекта до релиза" },
   ].map((definition, index) => ({
     ...materials[0], ...definition, slug: `release-${String(index)}`,
-    summary: definition.summary ?? "Материал общей серии: изучайте в предложенном порядке или возвращайтесь к нужному шагу.",
+    summary: definition.summary ?? "Материал общего руководства: изучайте в предложенном порядке или возвращайтесь к нужному шагу.",
     seriesMemberships: [{ name: "Релиз своего проекта", slug: "release", ordinal: index + 1, stepGroup: definition.stepGroup ?? null }],
   })),
 } satisfies LibraryDiscoveryResult;

@@ -8,7 +8,7 @@ import { normalizedUuidSchema } from "./uuid.js";
 
 export type MaterialAccess = "free" | "membership" | "workshop";
 
-export interface SeriesMembership {
+export interface GuideMembership {
   readonly seriesId: string;
   readonly ordinal: number;
 }
@@ -21,7 +21,7 @@ export interface MaterialMetadataValues {
   readonly topicId: string | null;
   readonly formatId: MaterialFormat | null;
   readonly tagIds: readonly string[];
-  readonly seriesMemberships: readonly SeriesMembership[];
+  readonly seriesMemberships: readonly GuideMembership[];
 }
 
 export interface MaterialMetadataSelectionValues
@@ -126,7 +126,7 @@ export class MaterialMetadataSelection {
   }
 
   materialize(
-    seriesMemberships: readonly SeriesMembership[],
+    seriesMemberships: readonly GuideMembership[],
     slug: string | null,
   ): MaterialMetadata {
     const metadata = MaterialMetadata.create({
@@ -159,7 +159,7 @@ export class MaterialMetadata {
     readonly topicId: string | null,
     readonly formatId: MaterialFormat | null,
     readonly tagIds: readonly string[],
-    readonly seriesMemberships: readonly SeriesMembership[],
+    readonly seriesMemberships: readonly GuideMembership[],
   ) {
     Object.freeze(this.tagIds);
     this.seriesMemberships.forEach(Object.freeze);

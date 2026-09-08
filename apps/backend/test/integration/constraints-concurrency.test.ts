@@ -26,7 +26,7 @@ describe("material authoring integrity contract", () => {
     await testDatabase.prisma.tag.create({
       data: { id: tagId, name: "Platform", normalizedName: "platform" },
     });
-    await testDatabase.prisma.series.createMany({
+    await testDatabase.prisma.guide.createMany({
       data: [
         { id: seriesId, slug: "build", name: "Build" },
         { id: secondSeriesId, slug: "operate", name: "Operate" },
@@ -192,7 +192,7 @@ describe("material authoring integrity contract", () => {
     ]);
     expect(left.ok).toBe(true);
     expect(right.ok).toBe(true);
-    const memberships = await testDatabase.prisma.seriesMembership.findMany({
+    const memberships = await testDatabase.prisma.guideMembership.findMany({
       where: { seriesId: secondSeriesId },
       orderBy: { ordinal: "asc" },
       select: { ordinal: true },

@@ -26,7 +26,7 @@ export function ContinueLearning({ view, readingActions, onRetry }: {
         </ul>
       ) : (
         <div className="mt-4 rounded-2xl bg-muted px-5 py-4">
-          <p className="text-sm leading-6 text-muted-foreground" role="status">Не удалось загрузить ваши материалы. База знаний и серии доступны ниже.</p>
+          <p className="text-sm leading-6 text-muted-foreground" role="status">Не удалось загрузить ваши материалы. База знаний и руководства доступны ниже.</p>
           {onRetry === undefined ? null : <Button className="mt-2" onClick={onRetry} size="sm" variant="outline">Попробовать ещё раз</Button>}
         </div>
       )}

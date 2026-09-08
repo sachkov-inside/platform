@@ -146,14 +146,14 @@ function PlaylistSection({
   return (
     <section aria-labelledby="home-series">
       <SectionHeading
-        action="Все серии"
+        action="Все руководства"
         className="mt-2"
         href="/library#series-heading"
         id="home-series"
-        title="Серии"
+        title="Руководства"
       />
       {playlists.length === 0 ? (
-        <EmptyCollection label="Серий пока нет." />
+        <EmptyCollection label="Руководств пока нет." />
       ) : (
         <div className="public-horizontal-rail -mx-4 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 py-1 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0">
           {playlists.slice(0, 2).map((playlist) => (
@@ -247,7 +247,7 @@ function CatalogInvitation() {
         Все материалы в одном каталоге
       </h2>
       <p className="mt-2 max-w-[60ch] text-sm leading-6 text-muted-foreground">
-        Ищите независимо от Серий по названию, теме, формату или тегу.
+        Ищите независимо от Руководств по названию, теме, формату или тегу.
       </p>
       <Button asChild className="mt-5" variant="outline">
         <Link href="/library">

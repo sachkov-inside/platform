@@ -7,6 +7,116 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ContentLibraryService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
+   * Read a generated ordered Guide view
+   * @returns any Published Materials in author-defined Guide order
+   * @throws ApiError
+   */
+  public readPublishedGuide({
+    slug,
+  }: {
+    slug: string,
+  }): CancelablePromise<{
+    hasNext: boolean;
+    items: Array<{
+      access: 'free' | 'membership' | 'workshop';
+      availability: 'available' | 'locked' | 'unavailable';
+      contentVersion: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      format: {
+        id: 'video' | 'guide' | 'note';
+        name: string;
+        slug: 'video' | 'guide' | 'note';
+      };
+      materialId: string;
+      primaryVideoDurationSeconds?: number;
+      primaryVideoId: string | null;
+      publishedAt: string;
+      seriesMemberships: Array<{
+        ordinal: number;
+        series: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+        stepGroup?: string | null;
+      }>;
+      slug: string;
+      summary: string;
+      tags: Array<{
+        id: string;
+        name: string;
+      }>;
+      title: string;
+      topic: {
+        id: string;
+        name: string;
+        slug: string;
+      };
+    }>;
+    kind: 'series';
+    reference: {
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      id: string;
+      name: string;
+      slug: string;
+      summary: string;
+    };
+    relatedSeries: Array<{
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      id: string;
+      matchingMaterialCount: number;
+      name: string;
+      slug: string;
+      summary: string;
+      totalMaterialCount: number;
+    }>;
+    topics: Array<{
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      id: string;
+      name: string;
+      slug: string;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/library/guides/{slug}',
+      path: {
+        'slug': slug,
+      },
+      errors: {
+        400: `Discovery slug is malformed`,
+        401: `Optional Account proof is invalid`,
+        404: `Topic, Series or source Material is not published`,
+        500: `Discovery or Account resolution failed internally`,
+        503: `Discovery or Account dependency is unavailable`,
+      },
+    });
+  }
+  /**
    * Read the bounded real-data Home projection
    * @returns any
    * @throws ApiError
@@ -637,6 +747,7 @@ export class ContentLibraryService {
     });
   }
   /**
+   * @deprecated
    * Read a generated ordered Series view
    * @returns any Published Materials in author-defined Series order
    * @throws ApiError

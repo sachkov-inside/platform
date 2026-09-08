@@ -42,7 +42,7 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
   );
   expect(sectionOrder).toEqual([
     await page.locator("#featured-title:visible").textContent(),
-    "Серии",
+    "Руководства",
     "Новые видео",
     "Свежие гайды",
     "Заметки",
@@ -135,7 +135,7 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   await expect(topicFilters.getByRole("radio", { name: "Все темы", exact: true })).toBeChecked();
   await expect(topicFilters.getByRole("radio", { name: /^Platform/u })).toBeVisible();
   await expect(page.locator("[data-topic-card]")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Серии", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Руководства", level: 2 })).toBeVisible();
   await expect(
     page.locator("[data-playlist-card]").filter({
       hasText: "Создание Platform Inside",
@@ -584,8 +584,8 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await expect(page.locator('input[value="Platform"]')).toBeVisible();
   await captureIssue195Evidence(page, testInfo, "admin-topics");
 
-  await page.getByRole("link", { name: "Серии", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Серии", level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: "Руководства", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Руководства", level: 1 })).toBeVisible();
   await expect(page.locator('input[value="Создание Platform Inside"]')).toBeVisible();
   await captureIssue195Evidence(page, testInfo, "admin-playlists");
 });
@@ -600,7 +600,7 @@ test("returns the production not-found state for an unpublished slug", async ({ 
     /noindex/,
   );
   await expect(page.getByRole("heading", { name: "Материал не найден" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Назад к серии" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Назад к руководству" })).toHaveAttribute(
     "href",
     "/series/platform-inside",
   );
@@ -675,14 +675,14 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
   ).toBeVisible();
-  await expect(page).toHaveTitle("Создание Platform Inside — серия · Sachkov Inside");
+  await expect(page).toHaveTitle("Создание Platform Inside — руководство · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);
   await expect(
     page.locator("[data-series-order] [data-series-ordinal]").evaluateAll((items) =>
       items.map((item) => item.getAttribute("data-series-ordinal")),
     ),
   ).resolves.toEqual(["1", "2"]);
-  await expect(page.getByRole("list", { name: "Материалы серии" }).getByText("Как устроен Inside Platform")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Материалы руководства" }).getByText("Как устроен Inside Platform")).toBeVisible();
   await expect(page.getByText("Developer Pipeline без потери контекста")).toBeVisible();
   const representativeSeriesItem = page
     .locator("[data-series-order] [data-series-ordinal]")
@@ -705,7 +705,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary&page=1&at=kak-ustroen-inside-platform",
   );
   const playlistBackLinks = page.getByRole("link", {
-    name: "Все материалы серии",
+    name: "Все материалы руководства",
   });
   await expect(playlistBackLinks).toHaveCount(1);
   await expect(playlistBackLinks.first()).toHaveAttribute(
@@ -715,7 +715,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(
     page.getByRole("link", { name: "Platform", exact: true }),
   ).toHaveAttribute("href", "/topics/platform");
-  await expect(page.getByRole("link", { name: "Назад к серии" })).toHaveCount(1);
+  await expect(page.getByRole("link", { name: "Назад к руководству" })).toHaveCount(1);
   await expect(page.locator("[data-reader-footer]")).not.toContainText("· №");
   await expect(page.locator("[data-related-state]")).toHaveCount(0);
 

@@ -27,7 +27,7 @@ export class SetContentCollectionArchiveController {
   @Put(":collectionId/archive")
   @ApiOperation({
     operationId: "setAuthoringContentCollectionArchive",
-    summary: "Archive or restore a Topic or Series",
+    summary: "Archive or restore a Topic or Guide",
   })
   @ApiParam({ name: "collectionId", schema: { format: "uuid", type: "string" } })
   @ApiBody({ schema: toOpenApiSchema(setContentCollectionArchiveBodySchema) })

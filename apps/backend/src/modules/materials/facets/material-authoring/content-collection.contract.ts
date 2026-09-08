@@ -1,4 +1,4 @@
-export type ContentCollectionKind = "series" | "topic";
+export type ContentCollectionKind = "guide" | "series" | "topic";
 
 export interface ContentCollectionDto {
   readonly archived: boolean;

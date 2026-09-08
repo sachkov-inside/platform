@@ -117,7 +117,7 @@ export function SeriesOrderManager({
           <div className="flex min-w-0 items-start gap-3">
             <Button
               aria-label={
-                embedded ? "Закрыть состав серии" : "Вернуться к материалам"
+                embedded ? "Закрыть состав руководства" : "Вернуться к материалам"
               }
               className="mt-0.5 size-10"
               onClick={close}
@@ -146,7 +146,7 @@ export function SeriesOrderManager({
                   className="mb-2 block text-sm font-medium"
                   htmlFor="playlist-switcher"
                 >
-                  Серия
+                  Руководство
                 </label>
                 <Select
                   onValueChange={(value) => {
@@ -227,23 +227,23 @@ export function SeriesOrderManager({
         >
           {presentation.archived ? (
             <div className="mb-7 rounded-2xl bg-muted p-5 text-sm leading-6">
-              <p className="font-semibold">Серия находится в архиве</p>
+              <p className="font-semibold">Руководство находится в архиве</p>
               <p className="mt-1 text-muted-foreground">
                 Можно изменить порядок или удалить существующие материалы. Новые
-                назначения станут доступны после восстановления серии.
+                назначения станут доступны после восстановления руководства.
               </p>
             </div>
           ) : null}
 
           {items.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card px-5 py-14 text-center">
-              <h2 className="text-lg font-semibold">Серия пока пуста</h2>
+              <h2 className="text-lg font-semibold">Руководство пока пусто</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 Нажмите «Добавить материал» и найдите нужную запись.
               </p>
             </div>
           ) : (
-            <ol className="grid gap-2" aria-label="Материалы серии">
+            <ol className="grid gap-2" aria-label="Материалы руководства">
               {items.map((item, index) => (
                 <li
                   className="flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-card p-3 sm:p-4"
@@ -378,7 +378,7 @@ function OrderFeedback({
           <input
             name="returnTo"
             type="hidden"
-            value={`/authoring/playlists/${seriesId}`}
+            value={`/authoring/guides/${seriesId}`}
           />
           <Button size="sm" type="submit">
             Войти

@@ -70,7 +70,7 @@ export function requestPublishedSeries(
   options: PublicRequestOptions = {},
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new ContentLibraryService(request).readPublishedSeries({ slug }),
+    (request) => new ContentLibraryService(request).readPublishedGuide({ slug }),
     200,
     options,
   );

@@ -1241,7 +1241,7 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
       .getByRole("button", { name: /Создание Platform Inside/u })
       .click();
     await seriesRow
-      .getByRole("button", { name: "Материалы серии", exact: true })
+      .getByRole("button", { name: "Материалы руководства", exact: true })
       .click();
   };
   await openComposition();
@@ -1267,7 +1267,7 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   await expect(picker).toBeHidden();
 
   const items = page
-    .getByRole("list", { name: "Материалы серии" })
+    .getByRole("list", { name: "Материалы руководства" })
     .getByRole("listitem");
   const countAfterAdd = await items.count();
   expect(countAfterAdd).toBeGreaterThan(2);

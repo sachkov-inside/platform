@@ -15,7 +15,7 @@ import type { CreateContentCollectionOperation } from "./create-content-collecti
 export const contentCollectionInputSchema = z
   .object({
     actor: accountId,
-    kind: z.enum(["series", "topic"]),
+    kind: z.enum(["guide", "series", "topic"]),
     name: z.string().trim().min(1).max(120),
     slug: z
       .string()

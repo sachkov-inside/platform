@@ -37,7 +37,7 @@ type Story = StoryObj<typeof meta>;
 export const InProgress: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("progressbar", { name: "Прогресс серии" })).toHaveAttribute("value", "8");
+    await expect(canvas.getByRole("progressbar", { name: "Прогресс руководства" })).toHaveAttribute("value", "8");
     await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(12);
     await expect(canvas.queryByRole("button", { name: "Показать в маршруте" })).not.toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: "Страница 2, продолжение" })).toHaveAttribute("aria-current", "page");
@@ -58,7 +58,7 @@ export const Guest: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.queryByRole("progressbar")).not.toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Начать серию" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Начать руководство" })).toBeVisible();
     await expect(canvas.queryByText("Бесплатно")).not.toBeInTheDocument();
     await expect(canvasElement.querySelectorAll('[data-access-cover="locked"]')).toHaveLength(9);
     await expect(canvas.getByRole("link", { name: "Модель предметной области" })).toBeVisible();
@@ -84,10 +84,10 @@ export const LoadingPreservesRoutePosition: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const top = canvas.getByRole("list", { name: "Материалы серии" }).getBoundingClientRect().top;
+    const top = canvas.getByRole("list", { name: "Материалы руководства" }).getBoundingClientRect().top;
     await userEvent.click(canvas.getByRole("button", { name: "Получить прогресс (проверка)" }));
     await expect(canvas.getByRole("progressbar")).toHaveAttribute("value", "8");
-    await expect(Math.abs(canvas.getByRole("list", { name: "Материалы серии" }).getBoundingClientRect().top - top)).toBeLessThan(1);
+    await expect(Math.abs(canvas.getByRole("list", { name: "Материалы руководства" }).getBoundingClientRect().top - top)).toBeLessThan(1);
   },
 };
 export const DesktopLoadingPreservesRoutePosition: Story = { ...LoadingPreservesRoutePosition, globals: { viewport: { value: "desktop1440", isRotated: false } } };
@@ -134,7 +134,7 @@ export const CompactMobileRoute: Story = {
   args: compactRouteArgs,
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
-    const route = within(canvasElement).getByRole("list", { name: "Материалы серии" });
+    const route = within(canvasElement).getByRole("list", { name: "Материалы руководства" });
     const rows = within(route);
     await expect(rows.getByText(videoSummary)).not.toBeVisible();
     await expect(rows.queryByText("Продолжить здесь")).not.toBeInTheDocument();
@@ -155,7 +155,7 @@ export const DesktopRouteDetails: Story = {
   args: compactRouteArgs,
   globals: { viewport: { value: "desktop1440", isRotated: false } },
   play: async ({ canvasElement }) => {
-    const route = within(within(canvasElement).getByRole("list", { name: "Материалы серии" }));
+    const route = within(within(canvasElement).getByRole("list", { name: "Материалы руководства" }));
     await expect(route.getByText(videoSummary)).toBeVisible();
     await expect(route.queryByText("Продолжить здесь")).not.toBeInTheDocument();
     await expect(route.queryByText("Platform")).not.toBeInTheDocument();

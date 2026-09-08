@@ -7,6 +7,29 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ReadingActivityService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
+   * Read progress over the current published Guide composition
+   * @returns any
+   * @throws ApiError
+   */
+  public getGuideReadingProgress({
+    guideId,
+  }: {
+    guideId: string,
+  }): CancelablePromise<{
+    allRead: boolean;
+    read: number;
+    seriesId: string;
+    total: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/reading-activity/guides/{guideId}',
+      path: {
+        'guideId': guideId,
+      },
+    });
+  }
+  /**
    * Set the current Account's manual Material mark
    * @returns any
    * @throws ApiError
@@ -68,6 +91,7 @@ export class ReadingActivityService {
     });
   }
   /**
+   * @deprecated
    * Read progress over the current published Series composition
    * @returns any
    * @throws ApiError

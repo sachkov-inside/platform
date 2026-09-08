@@ -295,7 +295,7 @@ try {
     data: { id: topicId, slug: "proof-topic", name: "Synthetic proof" },
   });
 
-  await prisma.series.create({
+  await prisma.guide.create({
     data: { id: seriesId, slug: "telegram-proof", name: "Тестовая серия #310" },
   });
   const metadata = {

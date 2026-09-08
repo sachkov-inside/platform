@@ -87,9 +87,28 @@ export class DiscoverPublishedMaterialsController {
     return this.read("topic", slug, TOPIC_METADATA_SIZE, account);
   }
 
+  @Get("guides/:slug")
+  @ApiOperation({
+    operationId: "readPublishedGuide",
+    summary: "Read a generated ordered Guide view",
+  })
+  @ApiParam({ name: "slug", required: true, schema: discoverySlugSchema })
+  @ApiOkResponse({
+    description: "Published Materials in author-defined Guide order",
+    schema: toOpenApiSchema(publishedSeriesPageHttpSchema),
+  })
+  @DiscoveryErrorResponses()
+  readGuide(
+    @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
+    @Param("slug") slug: string,
+  ) {
+    return this.read("series", slug, null, account);
+  }
+
   @Get("series/:slug")
   @ApiOperation({
     operationId: "readPublishedSeries",
+    deprecated: true,
     summary: "Read a generated ordered Series view",
   })
   @ApiParam({ name: "slug", required: true, schema: discoverySlugSchema })
