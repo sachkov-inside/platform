@@ -126,7 +126,7 @@ export function VariantA({ subscribe }: { readonly subscribe: () => void }) {
 export function VariantB({ subscribe, avatarPose }: { readonly subscribe: () => void; readonly avatarPose: AvatarPose }) {
   const featured = (
     <section className="gh-featured" aria-labelledby="featured-title" data-avatar-pose={avatarPose}>
-      <div className="gh-featured-copy"><p className="gh-featured-label">С чего начать · Серия</p><h2 id="featured-title">Создаём реальный <br />продукт с ИИ</h2><p className="gh-featured-description">От идеи и архитектуры до кода и деплоя.<br />На примере самой платформы Inside.</p><div className="gh-featured-bottom"><span>Гайды · Код · Решения</span><Link href="/series/inside-with-ai?from=%2F">Изучить серию <ArrowRight aria-hidden="true" /></Link></div></div>
+      <div className="gh-featured-copy"><p className="gh-featured-label">С чего начать · Серия</p><h2 id="featured-title">Создаём реальный продукт с ИИ</h2><p className="gh-featured-description">От идеи и архитектуры до кода и деплоя. На примере самой платформы Inside.</p><div className="gh-featured-bottom"><span>Гайды · Код · Решения</span><Link href="/series/inside-with-ai?from=%2F">Изучить серию <ArrowRight aria-hidden="true" /></Link></div></div>
       <div className="gh-presenter" aria-hidden="true">
         <div className="gh-presenter-crop">
           {/* Vite serves the edited prototype asset; no Next image optimizer in Storybook. */}
