@@ -1,3 +1,4 @@
+import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
@@ -5,7 +6,7 @@ import { createPrismaClient, type PlatformPrisma } from "../../src/infrastructur
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
 import { assembleMaterials, assembleMaterialResourceFacts, PublishedSeriesComposition } from "../../src/modules/materials/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
-import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
+
 import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { ReadingActivity } from "../../src/modules/reading-activity/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
@@ -21,7 +22,7 @@ describe("ReadingActivity on PostgreSQL", () => {
   let second: PlatformPrisma;
   let reading: ReadingActivity;
   let materials: ReturnType<typeof assembleMaterials>;
-  let membership: ReturnType<typeof assembleMembershipEntitlements>;
+  let membership: ReturnType<typeof assembleLegacyCohortFixture>;
   let composition: PublishedSeriesComposition;
   let membershipNow: Date | undefined;
 
@@ -31,7 +32,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     await database.prisma.topic.create({ data: { id: topicId, name: "Reading", slug: "reading" } });
 
     materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: (id) => id === actor } });
-    membership = assembleMembershipEntitlements({
+    membership = assembleLegacyCohortFixture({
       prisma: database.prisma,
       clock: () => membershipNow ?? new Date(),
       workshopEntitlements: assembleWorkshopEntitlements({ prisma: database.prisma }),

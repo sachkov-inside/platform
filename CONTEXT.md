@@ -108,6 +108,16 @@ Platform's stable private identity for one authenticated human. It owns Platform
 is independent of profile presentation and Membership.
 _Avoid_: Principal, External Identity, Platform Account, Platform Session, user
 
+**Billing Contact**:
+An Account-owned verified email for receipts and subscription notifications, independent of its
+sign-in identity. A pending replacement becomes the contact only after verification.
+_Avoid_: login email, email fingerprint, Account identity
+
+**Consent Evidence**:
+An immutable record of one Account explicitly accepting an exact document edition for a given
+context. Recurring acceptance is distinct from other kinds and does not itself authorize a charge.
+_Avoid_: current legal text, payment permission, preselected checkbox
+
 **Platform Administrator**:
 An Account explicitly granted all known Platform operations through `platform:admin`.
 Its authority is read from current Account grants, never inferred from author access or provider roles.

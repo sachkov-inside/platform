@@ -1,6 +1,8 @@
 # Platform billing v1: локальный контракт реализации
 
-Статус: **предлагаемая спецификация #403**, без application runtime. Основание — одобренный
+Статус: **принятая спецификация #403** ([PR #417](https://github.com/sachkov-inside/platform/pull/417)).
+Access foundation поставлен в #404, pricing — в #405; остальные billing slices остаются
+отдельными поставками. Основание — одобренный
 [Workspace PR #151](https://github.com/sachkov-inside/workspace/pull/151), merged commit
 `e161320d74176f8154b20f5c469846fbdc1773e6`. Дословные источники сохранены в
 [локальном snapshot](../contracts/billing-v1/README.md). Они содержат прежнюю надпись «предложение»;
@@ -91,6 +93,66 @@ Upgrade: рациональный расчёт стоимости старшег
 момент и Account. Изменение публичной цены не меняет старую subscription; после смены варианта
 принимаются его новые условия. Бесплатные права выдаются вручную.
 
+## Реализованный pricing boundary (#405)
+
+`billing` владеет каталогом и неизменяемыми ценовыми снимками в schema `billing`.
+`POST billing/admin` принимает закрытые команды `offers.save|archive`,
+`paymentOptions.save|archive`, `promotions.save|archive`; действующее `platform:admin`
+проверяется через Accounts перед каждой командой, включая replay. Выделение `billing:manage`
+и остальные admin/MCP операции остаются #409. Создание не принимает `expectedRevision`,
+изменение требует текущую revision. Успешный результат и actor/operationId/fingerprint
+сохраняются атомарно; повтор возвращает исходный результат, другая нагрузка конфликтует.
+Архивирование обратимо через Save с актуальной revision; снимки не изменяются.
+
+`GET billing/offers` публично возвращает активные варианты с лучшей доступной публичной
+скидкой. Закрытые промокоды не раскрываются. Пагинация — opaque UUID cursor и limit 1..100.
+`POST accounts/current/billing/quote` сохраняет ценовой quote на 15 минут для Account из
+trusted adapter. Он содержит offer/option revisions, названия, состав, календарные месяцы,
+RUB/Europe/Moscow, первую и обычную следующую сумму, выбранную скидку. Это ценовой этап:
+подтверждённый contact, legal versions, recurring consent, календарный anchor/next date и
+предупреждение о действующих правах присоединяет purchase orchestration #407; quote сам по
+себе не разрешает оплату и не является согласием. Повтор operationId возвращает тот же quote,
+даже после истечения; для нового согласия нужен новый operationId.
+
+Акция задаёт целый процент 1..100, интервал `[startsAt, endsAt)`, optional case-sensitive
+промокод, области offerIds/paymentOptionIds и optional usageLimit. Пустая область означает
+все объекты; две непустые области пересекаются. Код обрезается по краям. Среди подходящих
+акций выбирается максимальный процент; равенство разрешается стабильным ID. Итоговая первая
+сумма округляется до копейки один раз, половина вверх. Нулевая сумма (включая 100% или
+округление малой цены) возвращает `unsupported_amount` и не заменяется другой скидкой.
+
+Внутренние `BillingPricing.reserve` и `settle` — операции pricing, без публичного HTTP и без
+provider I/O. #407 вызывает reserve **только для первой оплаты новой подписки**, после своей
+проверки единственного subscription lifecycle и явного согласия. Продление, возобновление
+ещё действующего срока и upgrade не вызывают reserve и не получают новую скидку; новая
+подписка после завершения может получить её снова. Quote не гарантирует наличие последнего
+места акции. При reserve сериализуются изменения каталога и подсчёт всех reserved/sent/unknown/
+confirmed применений. Изменившиеся условия, недоступная акция или исчерпанный лимит дают
+`quote_changed`: #407 должен показать новый quote и запросить согласие. Истёкший quote даёт
+`quote_expired`. Клиент не передаёт сумму или банковские границы.
+
+Reserve требует подтверждённые min/max суммы от terminal capability #402, проверяя первую и
+обычную следующую сумму. Отсутствие capability или выход за границы даёт `unsupported_amount`.
+Успешный reserve фиксирует условия даже при последующей архивации/редактировании каталога.
+Повтор purchaseRef с той же парой Account/quoteRef возвращает исходный снимок; другая пара
+конфликтует. Один quote не резервируется для двух покупок. Одна открытая pricing reservation
+на Account ограничивает две вкладки, но не заменяет constraint действующей подписки в #407.
+
+Перед отправкой #407 сохраняет свой durable attempt и переводит reservation `reserved → sent`;
+этот переход или его replay **не является самостоятельным разрешением повторить provider I/O**.
+`sent → unknown` сохраняет лимит без таймера освобождения. Только проверенный definitive failure
+или доказанная отмена до отправки дают `failed`; verified confirmation даёт `confirmed` один раз.
+Поздний повтор не меняет терминальный результат. Эти use cases должны вызываться из общего
+bank outcome path #407/#408, включая recovery после падения между записями; HTTP webhook,
+проверка подписи, payment receipt/outbox и сам subscription lifecycle сюда не входят.
+Снимок из reserve используется для сохранённых условий подписки; публичный каталог не является
+источником цены её последующего продления.
+
+Fitness: `test/integration/billing-pricing.test.ts` проверяет ограничения, rollback, изменения
+полномочий, два PostgreSQL клиента, лимит, replay и неизменяемость. Domain/HTTP mapping проверяет
+`test/billing-pricing.test.ts`; общие backend guardrails проверяют capability imports и
+запрещают отрицательные fixtures. Реального банка и полноценного checkout эта проверка не доказывает.
+
 ## State transitions и банковский boundary
 
 Order не равен попытке списания, Payment не равен paid grant, отмена recurring не равна refund.
@@ -174,6 +236,38 @@ previewRef/revision и подтверждённые строки; при изм�
 отправки возвращает сохранённый pending/unknown operation, а не совет начать новую покупку.
 HTTP схемы и исчерпывающий mapping реализуются вместе с endpoints, без fake OpenAPI в #403.
 
+## Подтверждённый контакт и согласия — #406
+
+Accounts владеет отдельным billing contact, который не является способом входа и не меняет
+Logto identity или login fingerprint. GET `accounts/current/billing/contact` возвращает собственный
+подтверждённый адрес, revision и применимые документы. Start принимает `operationId`, email и
+`expectedRevision` (0 для первого адреса). Confirm принимает `operationId`, `challengeRef`, code.
+При смене старый контакт действует до подтверждения нового. Совпадение адресов разных Account
+не объединяет их и не передаёт права. Неподтверждённый адрес не возвращается как получатель чека.
+
+Код живёт 10 минут; новый challenge отменяет предыдущий. У challenge не более 5 проверок кода.
+Отправки сериализуются: минимум минута между запросами Account, до 5 в час на Account и до 10
+за сутки на адрес между Account. Повтор `operationId` с прежним payload возвращает прежний
+результат, изменённый payload конфликтует; повтор не отправляет письмо и не расходует попытку кода.
+Резервация отправки фиксируется до SMTP. `sent` означает принятие SMTP, не доставку в ящик;
+`unknown` допускает ввод полученного кода, но не автоматическую повторную отправку.
+
+POST `accounts/current/billing/consents` принимает `operationId`, `contextRef` будущего checkout
+и список явно принятых документов (`accepted: true` для каждой записи). Виды `terms`, `recurring`,
+`personal_data`, `marketing` независимы. Принимается только точное совпадение с серверным каталогом
+по виду, ID, версии и SHA-256 текста. Evidence сохраняет текст, URL, digest, версию, Account,
+контекст и время; PostgreSQL запрещает update/delete. GET
+`accounts/current/billing/consents/:evidenceRef` восстанавливает собственную запись; чужая скрыта
+за 404. Новая публикация не изменяет старое согласие или ответ на прежнюю команду.
+Само evidence не разрешает списание: #407 связывает его с точным quote/условиями, #408 проверяет
+действующее разрешение на recurring и отмену.
+
+До legal #412 production-каталог пуст: синтетические документы существуют только в тестах.
+Форма `/account/email` подтверждает контакт; итоговые checkbox/checkout и визуальная интеграция
+принадлежат #411. Она использует production BFF/API; Storybook подставляет только presentation.
+SMTP и ключ хранения подключаются явно; без конфигурации start/confirm возвращают unavailable.
+[Runbook контактов](../runbooks/billing-contact.md) описывает эксплуатационную границу и proof.
+
 ## Переход и юридические страницы
 
 Legacy classification: `confirmed_legacy`, `confirmed_new`, `unknown`, с sourceRef/verifiedAt и
@@ -217,3 +311,56 @@ State transitions требуют real PostgreSQL concurrency/rollback/crash test
 immutable paid/renewal/cancel/expiry/refund eventRef, source revision, occurredAt/recordedAt и
 Account reference через локальную спецификацию аналитики; manual grant не считается выручкой.
 Точный публичный analytics schema остаётся за #337 и не блокирует оплату.
+
+## Реализованный access foundation #404
+
+`assembleAccessGrants` — публичный внутренний facet модуля `membership-entitlements`:
+`applyPaidPeriod`, `previewBatch`, `applyBatch`, `changeGrant`, `classifyLegacy`,
+`readLegacyClassification`, `resolveCapabilities`. HTTP/MCP owner adapters остаются в #409,
+paid outbox projector — в #407, community worker — в #415. Facet не принимает платёжное
+доказательство из браузера и не обращается к банку или Telegram. Mutable Prisma delegates
+остаются внутри владельца; negative TypeScript fixtures проверяют этот seam.
+
+Paid command принимает eventRef UUID, periodRef, Account, revision, revoked и абсолютный
+полуоткрытый период. Receipt с неизменяемой командой, grant и audit фиксируются в одной entitlement-транзакции; повтор eventRef
+возвращает сохранённый результат, другая нагрузка конфликтует. Более старая revision не
+перезаписывает новый период/отзыв. Billing использует тот же seam для подтверждённого решения
+о доступе после refund, не общую Prisma transaction с модулем прав.
+
+Ручная выдача/legacy import используют `previewBatch` с operationId и 1..100 строками:
+rowKey, точный target Account, source/sourceRef, capabilities, startsAt, validUntil и reason.
+Preview фиксирует fingerprint подтверждённой identity из Accounts, результат сопоставления и
+действует 30 минут. Применение требует его revision и явных confirmedRows. Оно повторно
+проверяет Accounts, сохраняет результат каждой выбранной строки и атомарно потребляет preview.
+Одинаковый actor/operationId возвращает прежний результат; изменённая команда конфликтует.
+Один source/sourceRef не создаёт два права даже при конкуренции разных previews. Extend и revoke
+требуют revision конкретного manual/legacy grant; paid revisions принадлежат billing.
+
+До scoped `billing:manage` в #409 owner-команды проверяют текущий `platform:admin` через Accounts.
+Facet не выдаёт это полномочие. Actor передаёт доверенный вызывающий adapter отдельно от payload;
+в тестах используется отдельный synthetic owner. Реальный bootstrap cohort/import не запускается
+миграцией, startup или join. До owner-approved preview/apply из Workspace #150 bridge не имеет
+участников, поэтому деплой #404 требует согласованного перехода старой аудитории.
+
+Classification хранит sourceRef, reason, verifiedAt и revision. Только явный `confirmed_legacy`
+может включить bridge; `unknown` и `confirmed_new` его не получают. `recurringAllowed` — только
+legacy gate, не согласие на покупку: unknown запрещён, confirmed_legacy требует отдельного
+подтверждения `tributeStopped`. Billing дополнительно проверяет остальные purchase gates.
+
+`resolveCapabilities` объединяет materials/community/reviews отдельно и возвращает границу
+каждой возможности, последнюю audit revision и ближайшее начало/окончание периода для sweep.
+Изменения grants, classification и cohort evidence сериализуются на уровне Account;
+capabilities и revision читаются из одного RepeatableRead snapshot. `resolveForAccess` выбирает materials; отрицательное старое evidence не перекрывает независимое
+право. ContentAccess, file delivery, video playback, ReadingActivity и Member Profile учитывают
+nullable validUntil. Даже бессрочное право оставляет конечный срок signed URL/token.
+
+`TelegramAccountLinks.readBinding` возвращает stable linkRef и linkRevision, текущий либо
+исторический binding. Миграция Telegram владеет trigger над собственными link transactions:
+изменение подтверждённой пары пишет snapshot атомарно с исходной связью, потеря/неоднозначность —
+tombstone с null identity, повтор той же пары revision не увеличивает. Это покрывает оба
+существующих пути подтверждения связи без пропуска одного writer. Runtime unlink/relink UI и
+проверка dispatch по revision остаются #415; история уже сохраняется при изменении состояния.
+
+Проверка: `account-access.test.ts` исполняет публичные facets на real PostgreSQL; старый
+normalised evidence corpus использует явно заданный synthetic legacy cohort. Реальные права,
+платежи, Telegram sends, массовый импорт и деплой этим доказательством не объявляются выполненными.
