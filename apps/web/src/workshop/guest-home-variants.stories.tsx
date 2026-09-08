@@ -8,7 +8,7 @@ const meta = {
   title: "Pages/Guest Home/Prototype 380",
   parameters: {
     layout: "fullscreen",
-    docs: { description: { component: "Три варианта гостевой главной #380 на текущих shell, токенах и карточках Platform. A — сначала материалы; B — закреплённая серия с аватаром Кирилла и настоящая главная из main: серии, темы, видео, гайды и заметки; C — авторская практика. Стрелки переключают вариант. Карточки открывают страницы серии, материала и каталога из main на демонстрационных данных; CTA ведёт на текущий экран входа. Основная поза B — объясняющий жест с ладонью в сторону; портрет и объект сохранены для сравнения. Мобильная кнопка справа, нижняя навигация — только иконки. Кандидат мобильной типографики: основной текст 16 px, разделы 18 px, страницы 24 px, заголовки 600. Баннер растёт при увеличении текста. Значки разработки повторно вылетают от плеча с паузами; учитывается reduced motion. Содержимое и открытость материалов демонстрационные. Production и платежи не подключены. Решение владельца ожидается." } },
+    docs: { description: { component: "Три варианта гостевой главной #380 на текущих shell, токенах и карточках Platform. A — сначала материалы; B — закреплённая серия с аватаром Кирилла и настоящая главная из main: серии, темы, видео, гайды и заметки; C — авторская практика. Стрелки переключают вариант. Карточки открывают страницы серии, материала и каталога из main на демонстрационных данных; CTA ведёт на текущий экран входа. Основная поза B — спокойный портрет; второй вариант — парящий объект. Объясняющий жест убран из сравнения. Мобильная кнопка справа, нижняя навигация — только иконки. Кандидат мобильной типографики: основной текст 16 px, разделы 18 px, страницы 24 px, заголовки 600. Баннер растёт при увеличении текста. Значки разработки вылетают по очереди от плеча примерно раз в секунду; учитывается reduced motion. Содержимое и открытость материалов демонстрационные. Production и платежи не подключены. Решение владельца ожидается." } },
   },
 } satisfies Meta<typeof GuestHomePrototype>;
 export default meta;
@@ -47,8 +47,7 @@ export const AuthorFirst: Story = { name: "C · От автора", args: { init
 export const Mobile: Story = { name: "Mobile · Все варианты", args: { initialVariant: "B" }, globals: { viewport: { value: "mobile390", isRotated: false } } };
 
 export const AvatarPortrait: Story = { name: "B1 · Спокойный портрет", args: { initialVariant: "B", initialAvatarPose: "portrait" } };
-export const AvatarGesture: Story = { name: "B2 · Объясняющий жест", args: { initialVariant: "B", initialAvatarPose: "gesture" } };
-export const AvatarObject: Story = { name: "B3 · Парящий объект", args: { initialVariant: "B", initialAvatarPose: "object" } };
+export const AvatarObject: Story = { name: "B2 · Парящий объект", args: { initialVariant: "B", initialAvatarPose: "object" } };
 
 export const MobileTypeScale: Story = {
   name: "Mobile · Шкала шрифтов",
@@ -68,14 +67,14 @@ export const MobileTypeScale: Story = {
 };
 export const MobileTextZoom: Story = {
   name: "Mobile · Текст 200%",
-  args: { initialVariant: "B", initialAvatarPose: "gesture" },
+  args: { initialVariant: "B", initialAvatarPose: "portrait" },
   decorators: [(Story) => <TextPreferences zoom><Story /></TextPreferences>],
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: checkReadableBanner,
 };
 export const MobileTextSpacing: Story = {
   name: "Mobile · Пользовательские интервалы",
-  args: { initialVariant: "B", initialAvatarPose: "gesture" },
+  args: { initialVariant: "B", initialAvatarPose: "portrait" },
   decorators: [(Story) => <TextPreferences><Story /></TextPreferences>],
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: checkReadableBanner,

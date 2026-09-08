@@ -86,3 +86,10 @@ Full Storybook: 32 files / 280 tests passed. The final heading-wrap adjustment w
 in the ten guest stories. Browser inspection: 320/390 px, 320 px text at 200%, and desktop.
 The palm remains visible above the CTA at 320 px; icon-only dock is 170 px wide; document width
 is 320 px at enlarged text. Standards and Spec reviews passed for the refinement.
+
+Latest owner direction: the explanatory gesture is removed from the pose selector and stories.
+The calm portrait is now the default; the floating-object variant remains for refinement. Previous
+gesture assets stay archived for provenance. Development glyphs emit one at a time at one-second
+intervals (three staggered three-second loops) on both remaining poses, with reduced motion retained.
+The proposed desktop lowering/shoulder edit was cancelled before implementation when the owner
+rejected the gesture. Object concepts are being discussed before another image generation.

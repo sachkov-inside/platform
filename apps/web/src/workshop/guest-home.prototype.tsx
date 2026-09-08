@@ -21,11 +21,10 @@ import "./mobile-typography.prototype.css";
  * Compare via named stories or ?variant=A|B|C. Owner verdict is pending.
  */
 export type GuestVariant = "A" | "B" | "C";
-export type AvatarPose = "portrait" | "gesture" | "object";
+export type AvatarPose = "portrait" | "object";
 const avatarPoses = {
   portrait: { label: "1 · Спокойный портрет", src: new URL("./guest-home-assets/kirill-portrait.png", import.meta.url).href },
-  gesture: { label: "2 · Объясняющий жест", src: new URL("./guest-home-assets/kirill-gesture-compact.png", import.meta.url).href },
-  object: { label: "3 · Парящий объект", src: new URL("./guest-home-assets/kirill-object.png", import.meta.url).href },
+  object: { label: "2 · Парящий объект", src: new URL("./guest-home-assets/kirill-object.png", import.meta.url).href },
 };
 const variants = { A: "Сначала материалы", B: "Серия с аватаром", C: "От автора" };
 const benefits = [
@@ -36,7 +35,7 @@ const benefits = [
 ];
 
 
-export function GuestHomePrototype({ initialVariant = "A", initialAvatarPose = "gesture" }: { readonly initialVariant?: GuestVariant; readonly initialAvatarPose?: AvatarPose }) {
+export function GuestHomePrototype({ initialVariant = "A", initialAvatarPose = "portrait" }: { readonly initialVariant?: GuestVariant; readonly initialAvatarPose?: AvatarPose }) {
   const [avatarPose, setAvatarPose] = useState<AvatarPose>(initialAvatarPose);
   const [variant, setVariant] = useState<GuestVariant>(() => {
     const param = new URLSearchParams(window.location.search).get("variant");
@@ -133,11 +132,11 @@ export function VariantB({ subscribe, avatarPose }: { readonly subscribe: () => 
           {/* oxlint-disable-next-line next/no-img-element */}
           <img src={avatarPoses[avatarPose].src} alt="" width="1254" height="1254" />
         </div>
-        {avatarPose === "gesture" && <div className="gh-shoulder-sparks">
+        <div className="gh-shoulder-sparks">
           <span className="gh-spark gh-spark-code"><Code2 /></span>
           <span className="gh-spark gh-spark-git"><GitBranch /></span>
           <span className="gh-spark gh-spark-terminal"><Terminal /></span>
-        </div>}
+        </div>
         <span className="gh-floating-note"><Check /> Проверяем на практике</span>
       </div>
     </section>
