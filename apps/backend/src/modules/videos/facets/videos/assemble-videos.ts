@@ -15,7 +15,7 @@ import {
   type VideoId,
   type VideoUploadAttemptId,
 } from "../../domain/video-identifiers.js";
-import type { VideoProvider, ProviderVideo } from "../../ports/video-provider.js";
+import { ProviderUploadAuthorizationError, type VideoProvider, type ProviderVideo } from "../../ports/video-provider.js";
 import {
   isVideoDeletionState,
   videoAccessSchema,
@@ -156,14 +156,25 @@ export function assembleVideos(dependencies: {
           ...parsed.data,
           projectId,
         });
-      } catch {
+      } catch (error) {
+        if (error instanceof ProviderUploadAuthorizationError) {
+          try {
+            await dependencies.prisma.videoUploadAttempt.update({
+              where: { id: attemptId },
+              data: { status: "rejected", failureCode: "upload_not_authorized", updatedAt: now() },
+            });
+            return uploadNotAuthorized();
+          } catch {
+            return uploadOutcomeUnknown();
+          }
+        }
         await markUploadOutcomeUnknown(attemptId);
-        return dependencyUnavailable();
+        return uploadOutcomeUnknown();
       }
       const initializedProviderVideoId = providerVideoIdSchema.safeParse(initialized.id);
       if (!initializedProviderVideoId.success) {
         await markUploadOutcomeUnknown(attemptId);
-        return dependencyUnavailable();
+        return uploadOutcomeUnknown();
       }
       try {
         const videoId = newVideoId();
@@ -204,7 +215,7 @@ export function assembleVideos(dependencies: {
         return { ok: true, value: { uploadEndpoint: initialized.uploadEndpoint, video: toDto(video) } };
       } catch {
         await markUploadOutcomeUnknown(attemptId);
-        return dependencyUnavailable();
+        return uploadOutcomeUnknown();
       }
     },
 
@@ -565,6 +576,7 @@ export function assembleVideos(dependencies: {
       attempt.title !== input.title ||
       Number(attempt.byteSize) !== input.byteSize
     ) return { ok: false, error: { code: "idempotency_key_reused" } };
+    if (attempt.status === "rejected") return uploadNotAuthorized();
     if (attempt.status !== "ready" || attempt.videoId === null || attempt.uploadEndpoint === null) {
       return uploadOutcomeUnknown();
     }
@@ -756,3 +768,4 @@ const uploadOutcomeUnknown = (): VideoFailure<"upload_outcome_unknown"> => ({ ok
 const videoDeletionNotRetryable = (): VideoFailure<"video_deletion_not_retryable"> => ({ ok: false, error: { code: "video_deletion_not_retryable" } });
 const videoNotFound = (): VideoFailure<"video_not_found"> => ({ ok: false, error: { code: "video_not_found" } });
 const videoNotReady = (): VideoFailure<"video_not_ready"> => ({ ok: false, error: { code: "video_not_ready" } });
+const uploadNotAuthorized = (): VideoFailure<"upload_not_authorized"> => ({ ok: false, error: { code: "upload_not_authorized" } });

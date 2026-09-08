@@ -177,7 +177,7 @@ author. ([ContentAccess matrix][access-matrix]) Email login, явное Telegram
 |---|---|---|
 | `Material` | Stable mutable library/search/read identity с current body, metadata, access, publication state и `contentVersion` | Save атомарно заменяет текущее состояние; отдельных revisions и restore/history нет |
 | `Topic` / «Тема» | Ровно одна на Material; managed, одноуровневый dictionary; metadata `name/slug/summary`, slug immutable, archive сохраняет связи | Topic page — generated view с полным derived-списком Series и paginated Materials; archived Topic исчезает из discovery, но canonical reader сохраняется |
-| `Format` | Ровно один на Material; primary consumption mode, независимо от Topic и Asset kind | `video`, `guide` и будущие подтверждённые values не смешиваются с file/image/link |
+| `Format` | Ровно один на Material; primary consumption mode, независимо от Topic и Asset kind | Домен задаёт ровно `video`, `guide`, `note`; значения не смешиваются с file/image/link |
 | `Tag` | 0..N на Material; managed dictionary с rename/merge без duplicate synonyms | Tags видимы, searchable и ведут к похожему content; отдельной tag filter panel в v1 нет |
 | `Series` | 0..N ordered memberships; ordinal принадлежит membership, Material может быть в нескольких Series; metadata `name/slug/summary`, slug immutable | Series page показывает полный ordered состав и derived Topics без копирования Material data; archive сохраняет reader и связи |
 | `Asset` | Platform-owned image/downloadable file; Material ссылается по local ID | Body resource наследует access Material и имеет loading/processing/error/ready delivery states; cover публичен |
@@ -189,7 +189,7 @@ author. ([ContentAccess matrix][access-matrix]) Email login, явное Telegram
 Cardinalities и roles закреплены repository-local application specification.
 ([Platform logical model][platform-spec-logical-model]) «Создание Platform Inside» подтверждена как
 ordered Series, Roadmap — как `NavigationPage`, Library/material index — как generated view; concrete
-Topic/Format/Tag dictionaries остаются evolving fixtures, а не seed ontology.
+Topic/Tag dictionaries остаются evolving fixtures, а не seed ontology. Format задан доменом: Видео, Гайд, Заметка; редактор только выбирает значение.
 ([Workspace navigation roles][workspace-navigation-roles])
 
 Canonical Material document — current ProseMirror JSON; `contentVersion` является optimistic
@@ -840,7 +840,7 @@ Owner-approved UX structure is complete. Ни один оставшийся пу
 | Input | Что уже подтверждено | Что решается позже | Owner stage |
 |---|---|---|---|
 | Exact v1 formatting limits | F1/F2 establish headings, paragraph, blockquote/callout, code, table, image, file and video minimum | Strike/nested-list need, heading levels, table/code/document size limits from real corpus and schema tests | Content-schema implementation |
-| Concrete taxonomy values | F1–F3 labels are approved representative fixtures only; Material has one Topic/Format and 0..N Tags/Series | Production dictionaries and reviewed RU/EN synonyms emerge during manual authoring | Content filling / search proof |
+| Concrete taxonomy values | F1–F3 Topic/Tag labels are approved representative fixtures only; Format has fixed domain values video/guide/note | Topic/Tag dictionaries and reviewed RU/EN synonyms emerge during manual authoring | Content filling / search proof |
 | Home composition details | Conditional Продолжить, short history, new feed, Темы, active Серии and Карта are fixed | Curated/query source per block, item counts and exact responsive composition | Owning Home/Roadmap production Specification |
 | Identity provider mechanics | One email-code UX creates/opens account; post-login linking is a centered, immediate but skippable session-scoped modal while Telegram is unlinked | Provider/fallback and Yandex horizon after identity proof | Stage 3 identity proof |
 | Account linking/recovery | Telegram linking только после login; no auto-merge/transfer; Membership не unlink-ит identity; expired/replayed attempt можно начать заново; conflict/unsafe recovery остаются owner-mediated без self-service unlink/relink; support URL optional, иначе показывается owner-handoff text | Exact operational support destination and wording can change through runtime configuration/content review | Account operations |

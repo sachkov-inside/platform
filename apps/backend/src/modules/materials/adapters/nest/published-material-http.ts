@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { materialFormatSchema } from "../../domain/material-format.js";
+
 import { renderedBlockSchema } from "./material-authoring-http.js";
 import { contentCoverProjectionHttpSchema } from "./content-cover-http.js";
 
@@ -21,7 +23,7 @@ export const publishedMaterialProjectionHttpSchema = z
     primaryVideoId: z.uuid().nullable(),
     cover: contentCoverProjectionHttpSchema.nullable(),
     topic: referenceSchema,
-    format: referenceSchema,
+    format: referenceSchema.extend({ id: materialFormatSchema, slug: materialFormatSchema }),
     tags: z.array(z.object({ id: z.string(), name: z.string() }).strict()),
     seriesMemberships: z.array(
       z

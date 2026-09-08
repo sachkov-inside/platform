@@ -140,9 +140,7 @@ describe("Accounts API", () => {
     await database.prisma.topic.create({
       data: { id: topicId, name: "Architecture", slug: "architecture" },
     });
-    await database.prisma.format.create({
-      data: { id: formatId, name: "Guide", slug: "guide" },
-    });
+
     await database.prisma.series.create({
       data: { id: seriesId, name: "Platform", slug: "platform" },
     });
@@ -233,7 +231,7 @@ describe("Accounts API", () => {
       items: [
         {
           contentVersion: 1,
-          format: { id: formatId, name: "Guide" },
+          format: { id: formatId, name: "Гайд" },
           materialId: initial.materialId,
           publicationState: "draft",
           title: "Generated API contract",
@@ -639,7 +637,7 @@ describe("Accounts API", () => {
 });
 
 const topicId = "73000000-0000-4000-8000-000000000001";
-const formatId = "73000000-0000-4000-8000-000000000002";
+const formatId = "guide";
 const seriesId = "73000000-0000-4000-8000-000000000003";
 
 function materialDraftPayload(

@@ -728,7 +728,7 @@ describe("ListPublishedMaterials", () => {
 
 const actorId = "74000000-0000-4000-8000-000000000001";
 const careerTopicId = "74000000-0000-4000-8000-000000000002";
-const videoFormatId = "72000000-0000-4000-8000-000000000040";
+const videoFormatId = "video";
 const careerSeriesId = "74000000-0000-4000-8000-000000000004";
 const careerSearchTagId = "74000000-0000-4000-8000-000000000005";
 
@@ -776,7 +776,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
         summary: "Career roadmap for senior developers.",
         access: "free" as const,
         topicId: "72000000-0000-4000-8000-000000000002",
-        formatId: "72000000-0000-4000-8000-000000000003",
+        formatId: "guide",
         tagIds: [],
         seriesIds: [careerSeriesId],
       },
@@ -789,7 +789,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
         summary: "A practical sequence for developers.",
         access: "free" as const,
         topicId: "72000000-0000-4000-8000-000000000002",
-        formatId: "72000000-0000-4000-8000-000000000003",
+        formatId: "guide",
         tagIds: [careerSearchTagId],
         seriesIds: [careerSeriesId],
       },
@@ -802,7 +802,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
         summary: "Последовательный план для инженеров.",
         access: "free" as const,
         topicId: careerTopicId,
-        formatId: "72000000-0000-4000-8000-000000000003",
+        formatId: "guide",
         tagIds: [],
         seriesIds: [],
       },
@@ -815,7 +815,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
         summary: "Карьерный маршрут для технического лидера.",
         access: "free" as const,
         topicId: "72000000-0000-4000-8000-000000000002",
-        formatId: "72000000-0000-4000-8000-000000000003",
+        formatId: "guide",
         tagIds: [],
         seriesIds: [],
       },
@@ -923,7 +923,7 @@ async function seedSearchPerformanceCorpus(
         else repeat('Ordinary library result for representative search. ', 40) || sample::text
       end,
       '72000000-0000-4000-8000-000000000002'::uuid,
-      '72000000-0000-4000-8000-000000000003'::uuid,
+      'guide',
       1,
       '{"type":"doc","content":[]}'::jsonb,
       ${actorId}::uuid,

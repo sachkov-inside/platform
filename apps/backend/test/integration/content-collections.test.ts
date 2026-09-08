@@ -8,16 +8,14 @@ import {
 } from "./setup/test-database.js";
 
 const actor = "89500000-0000-4000-8000-000000000001";
-const formatId = "89500000-0000-4000-8000-000000000002";
+const formatId = "guide";
 
 describe("Topic and Playlist authoring", () => {
   let testDatabase: TestDatabase;
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    await testDatabase.prisma.format.create({
-      data: { id: formatId, name: "Guide", slug: "guide" },
-    });
+
   });
 
   afterAll(async () => {

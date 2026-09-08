@@ -9,7 +9,7 @@ import {
 
 const actor = "a0000000-0000-4000-8000-000000000001";
 const topicId = "a0000000-0000-4000-8000-000000000002";
-const formatId = "a0000000-0000-4000-8000-000000000003";
+const formatId = "note";
 const tagId = "a0000000-0000-4000-8000-000000000004";
 const seriesId = "a0000000-0000-4000-8000-000000000005";
 const secondSeriesId = "a0000000-0000-4000-8000-000000000006";
@@ -22,9 +22,7 @@ describe("material authoring integrity contract", () => {
     await testDatabase.prisma.topic.create({
       data: { id: topicId, slug: "product", name: "Product" },
     });
-    await testDatabase.prisma.format.create({
-      data: { id: formatId, slug: "text", name: "Text" },
-    });
+
     await testDatabase.prisma.tag.create({
       data: { id: tagId, name: "Platform", normalizedName: "platform" },
     });
@@ -81,8 +79,8 @@ describe("material authoring integrity contract", () => {
     ).toEqual({
       ok: false,
       error: {
-        code: "invalid_reference",
-        issues: [{ code: "format_not_found", path: "/metadata/formatId" }],
+        code: "invalid_content",
+        issues: [{ code: "invalid_metadata", path: "/metadata/formatId" }],
       },
     });
 

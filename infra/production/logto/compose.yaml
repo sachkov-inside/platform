@@ -4,7 +4,7 @@ x-logto-runtime: &logto-runtime
   build:
     context: ../../identity/logto
     dockerfile: Dockerfile
-  image: inside/logto-production:1.41.0-inside.4
+  image: inside/logto-production:1.41.0-inside.6
   entrypoint: ["/foundation/entrypoint.sh"]
   env_file:
     - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/logto.env

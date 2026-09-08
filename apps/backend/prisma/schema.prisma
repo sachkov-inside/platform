@@ -312,14 +312,6 @@ model Topic {
   @@schema("materials")
 }
 
-model Format {
-  id   String @id @db.Uuid
-  slug String @unique(map: "formats_slug_unique")
-  name String
-
-  @@map("formats")
-  @@schema("materials")
-}
 
 model Tag {
   id             String @id @db.Uuid
@@ -351,7 +343,7 @@ model Material {
   title            String?
   summary          String?
   topicId          String?   @map("topic_id") @db.Uuid
-  formatId         String?   @map("format_id") @db.Uuid
+  formatId         String?   @map("format_id")
   schemaVersion    Int       @map("schema_version") @db.SmallInt
   body             Json
   createdBy        String    @map("created_by") @db.Uuid
@@ -417,7 +409,7 @@ model PublishedMaterial {
   summary        String
   access         String
   topicId        String   @map("topic_id") @db.Uuid
-  formatId       String   @map("format_id") @db.Uuid
+  formatId       String   @map("format_id")
   publicSearchText String @map("public_search_text")
   publishedBy    String   @map("published_by") @db.Uuid
   publishedAt    DateTime @map("published_at") @db.Timestamptz

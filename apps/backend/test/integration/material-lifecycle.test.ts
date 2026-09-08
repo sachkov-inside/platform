@@ -19,7 +19,7 @@ import {
 
 const ownerId = "71000000-0000-4000-8000-000000000001";
 const topicId = "71000000-0000-4000-8000-000000000002";
-const formatId = "71000000-0000-4000-8000-000000000003";
+const formatId = "guide";
 
 function metadata(title: string) {
   return {
@@ -41,9 +41,7 @@ describe("Material lifecycle", () => {
     await testDatabase.prisma.topic.create({
       data: { id: topicId, slug: "engineering", name: "Engineering" },
     });
-    await testDatabase.prisma.format.create({
-      data: { id: formatId, slug: "guide", name: "Guide" },
-    });
+
   });
 
   afterAll(async () => {

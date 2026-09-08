@@ -36,7 +36,7 @@ const issuer = "https://identity.mcp.test/oidc";
 const audience = "https://api.mcp.test";
 const ownerSubject = "mcp-owner-001";
 const topicId = "92000000-0000-4000-8000-000000000001";
-const formatId = "92000000-0000-4000-8000-000000000002";
+const formatId = "guide";
 
 describe("delegated Material authoring over MCP", () => {
   let application: INestApplicationContext;
@@ -81,9 +81,7 @@ describe("delegated Material authoring over MCP", () => {
       database.prisma.topic.create({
         data: { id: topicId, name: "Platform", slug: "platform" },
       }),
-      database.prisma.format.create({
-        data: { id: formatId, name: "Guide", slug: "guide" },
-      }),
+
     ]);
 
     const config = parsePlatformConfig({

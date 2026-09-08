@@ -147,7 +147,11 @@ export function MaterialVideoAuthoring({
       title: file.name.replace(/\.[^.]+$/u, ""),
     });
     if (initialized.kind !== "ready") {
-      setPhase("error");
+      if (initialized.kind === "upload_not_authorized") {
+        clearBrowserVideoUploadAttempt(browserAttempt);
+        uploadAttempt.current = null;
+      }
+      setPhase(initialized.kind === "unavailable" ? "error" : initialized.kind);
       return;
     }
     uploadAttempt.current = { ...browserAttempt, videoId: initialized.value.video.videoId };
@@ -218,7 +222,7 @@ export function MaterialVideoAuthoring({
   />;
 }
 
-export type MaterialVideoAuthoringPhase = "idle" | "uploading" | "processing" | "ready" | "error";
+export type MaterialVideoAuthoringPhase = "idle" | "uploading" | "processing" | "ready" | "error" | "upload_not_authorized" | "upload_outcome_unknown";
 
 export interface MaterialVideoAuthoringViewProps {
   readonly access: "free" | "membership";
@@ -403,6 +407,8 @@ function phaseForVideo(video: MaterialAuthoringVideo | null): MaterialVideoAutho
 function phaseLabel(phase: MaterialVideoAuthoringPhase, progress: number): string {
   if (phase === "uploading") return `Загрузка ${String(progress)}%`;
   if (phase === "processing") return "Kinescope обрабатывает видео";
+  if (phase === "upload_not_authorized") return "Kinescope отклонил загрузку. Нужно исправить права доступа к сервису.";
+  if (phase === "upload_outcome_unknown") return "Результат загрузки не подтверждён. Нужна проверка в Kinescope перед повтором.";
   if (phase === "error") return "Нужна повторная попытка";
   if (phase === "ready") return "Готово к Save";
   return "Видео хранится отдельно от body Material";

@@ -1,6 +1,8 @@
 import { z } from "zod";
 
+
 import {
+  materialFormatSchema,
   contentCoverProjectionHttpSchema,
   publishedMaterialProjectionHttpSchema,
 } from "../../materials/index.js";
@@ -30,7 +32,7 @@ export const publishedCatalogPageHttpSchema = z
   .object({
     facets: z
       .object({
-        formats: z.array(publishedCatalogFacetHttpSchema),
+        formats: z.array(publishedCatalogFacetHttpSchema.extend({ id: materialFormatSchema, slug: materialFormatSchema })),
         series: z.array(publishedCatalogFacetHttpSchema),
         topics: z.array(publishedCatalogFacetHttpSchema),
       })

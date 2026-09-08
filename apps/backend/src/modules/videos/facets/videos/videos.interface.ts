@@ -66,6 +66,7 @@ export type VideoError =
   | { readonly code: "idempotency_key_reused" }
   | { readonly code: "invalid_request" }
   | { readonly code: "provider_mismatch" }
+  | { readonly code: "upload_not_authorized" }
   | { readonly code: "upload_outcome_unknown" }
   | { readonly code: "video_deletion_not_retryable" }
   | { readonly code: "video_not_found" }
@@ -91,6 +92,7 @@ export type InitVideoUploadResult = OperationResult<
   | "forbidden"
   | "idempotency_key_reused"
   | "invalid_request"
+  | "upload_not_authorized"
   | "upload_outcome_unknown"
 >;
 

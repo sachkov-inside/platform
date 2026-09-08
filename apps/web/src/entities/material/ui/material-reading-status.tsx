@@ -2,7 +2,7 @@ import { CircleCheck } from "lucide-react";
 
 export function materialReadingLabels(format: string) {
   switch (format.toLowerCase()) {
-    case "text": case "текст": case "статья":
+    case "note": case "заметка": case "text": case "текст": case "статья":
       return { action: "Отметить прочитанным", complete: "Прочитано" };
     case "video": case "видео":
       return { action: "Отметить просмотренным", complete: "Просмотрено" };

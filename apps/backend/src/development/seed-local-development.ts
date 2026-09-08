@@ -7,8 +7,8 @@ import {
 
 const actor = "72000000-0000-4000-8000-000000000001";
 const topicId = "72000000-0000-4000-8000-000000000002";
-const textFormatId = "72000000-0000-4000-8000-000000000329";
-const formatId = "72000000-0000-4000-8000-000000000003";
+
+const formatId = "guide";
 const createIdempotencyKey = "72000000-0000-4000-8000-000000000004";
 const tagId = "72000000-0000-4000-8000-000000000006";
 const progressSeriesId = "72000000-0000-4000-8000-000000000332";
@@ -20,8 +20,8 @@ const demoReviewSeriesId = "72000000-0000-4000-8000-000000000296";
 const slug = "kak-ustroen-inside-platform";
 const membershipSlug = "developer-pipeline-bez-poteri-konteksta";
 const membershipCreateIdempotencyKey = "72000000-0000-4000-8000-000000000033";
-const videoFormatId = "72000000-0000-4000-8000-000000000040";
-const noteFormatId = "72000000-0000-4000-8000-000000000041";
+const videoFormatId = "video";
+const noteFormatId = "note";
 const localVideoProjects = {
   free: "local-development-free",
   membership: "local-development-membership",
@@ -603,7 +603,7 @@ async function ensureHomeMaterials(
       summary: "Что должно быть доказано до передачи результата владельцу.",
       title: "Проверяемая поставка",
     },
-    { formatId: textFormatId, slug: "tekst-dlya-proverki-progressa", title: "Текст для проверки прогресса", summary: "Открытый текст для проверки ручной отметки." },
+    { formatId: noteFormatId, slug: "tekst-dlya-proverki-progressa", title: "Текст для проверки прогресса", summary: "Открытый текст для проверки ручной отметки." },
     { formatId, slug: "gayd-dlya-proverki-progressa", title: "Гайд для проверки прогресса", summary: "Последний материал демонстрационной серии." },
   ] as const;
 
@@ -832,22 +832,6 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
       summary: "Архитектура продукта, bounded contexts и управляемая поставка.",
     },
   });
-  await prisma.format.upsert({
-    where: { id: formatId },
-    create: { id: formatId, slug: "guide", name: "Guide" },
-    update: {},
-  });
-  await prisma.format.upsert({
-    where: { id: videoFormatId },
-    create: { id: videoFormatId, slug: "video", name: "Видео" },
-    update: {},
-  });
-  await prisma.format.upsert({
-    where: { id: noteFormatId },
-    create: { id: noteFormatId, slug: "note", name: "Заметка" },
-    update: {},
-  });
-  await prisma.format.upsert({ where: { id: textFormatId }, create: { id: textFormatId, slug: "text", name: "Текст" }, update: {} });
   await prisma.tag.upsert({
     where: { id: tagId },
     create: {

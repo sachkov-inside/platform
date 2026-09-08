@@ -61,7 +61,7 @@ export const telegramSignInStyles = `${telegramSignInTheme}
 .inside-telegram-symbol{display:grid;place-items:center;width:64px;height:64px;margin:0 auto 24px;border-radius:20px;background:#2aabee;color:#fff}
 .inside-telegram h1{margin:0;font:700 26px/1.3 'Inside Manrope',system-ui,sans-serif;letter-spacing:-.8px}
 .inside-telegram-status{min-height:48px;margin:16px 0 24px;color:var(--muted-foreground);font-size:15px;line-height:24px;text-wrap:balance}
-.inside-telegram-actions{height:52px;display:grid;place-items:center}
+.inside-telegram-actions{height:52px;display:flex;align-items:center;justify-content:center}
 .inside-telegram-button{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;padding:12px 16px;border:1px solid transparent;border-radius:10px;background:var(--primary);color:var(--primary-foreground);font-weight:650;font-size:15px;line-height:24px;text-decoration:none}
 .inside-telegram-button:hover{filter:brightness(1.15)}
 .inside-telegram #bot{background:#087eaf;color:#fff}
@@ -82,6 +82,7 @@ export function renderTelegramSignInPage(view: InsideTelegramView): string {
 export const telegramSignInPage = renderTelegramSignInPage({ status: 'loading' }).replace('</body>', '<script src="/api/inside-telegram/script"></script></body>');
 
 const pollIntervalMilliseconds = 1500;
+const statusRequestTimeoutMilliseconds = 8000;
 export const telegramSignInScript = `
 const render = ${renderTelegramSignInContent.toString()};
 const main = document.querySelector('main');
@@ -100,8 +101,10 @@ function present(view) {
 }
 async function poll() {
   let stopped = false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ${statusRequestTimeoutMilliseconds});
   try {
-    const response = await fetch('/api/inside-telegram/status', { cache: 'no-store' });
+    const response = await fetch('/api/inside-telegram/status', { cache: 'no-store', signal: controller.signal });
     if (!response.ok) throw new Error('Status unavailable');
     const state = await response.json();
     present(state);
@@ -113,6 +116,8 @@ async function poll() {
     }
   } catch {
     present({ status: 'reconnecting' });
+  } finally {
+    clearTimeout(timeout);
   }
   if (!stopped) setTimeout(poll, ${pollIntervalMilliseconds});
 }

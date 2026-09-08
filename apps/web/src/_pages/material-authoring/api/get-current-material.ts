@@ -1,5 +1,8 @@
 import "server-only";
 
+import { materialFormatSchema } from "@/shared/api/material-format";
+
+
 import { z } from "zod";
 
 import {
@@ -31,7 +34,7 @@ const currentMaterialSchema = z
     metadata: z
       .object({
         access: z.enum(["free", "membership"]),
-        formatId: z.uuid().nullable(),
+        formatId: materialFormatSchema.nullable(),
         seriesMemberships: z.array(seriesMembershipSchema),
         slug: z.string().nullable(),
         summary: z.string().nullable(),

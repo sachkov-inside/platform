@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { materialFormatPresentation } from "../../domain/material-format.js";
+
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
@@ -79,33 +81,28 @@ export function assembleListMaterials(
           }),
         ]);
         const topicIds = unique(rows.flatMap((row) => row.topicId ?? []));
-        const formatIds = unique(rows.flatMap((row) => row.formatId ?? []));
-        const [topics, formats] = await Promise.all([
-          prisma.topic.findMany({
-            select: { id: true, name: true },
-            where: { id: { in: topicIds } },
-          }),
-          prisma.format.findMany({
-            select: { id: true, name: true },
-            where: { id: { in: formatIds } },
-          }),
-        ]);
+        const topics = await prisma.topic.findMany({
+          select: { id: true, name: true },
+          where: { id: { in: topicIds } },
+        });
         const topicById = new Map(topics.map((topic) => [topic.id, topic]));
-        const formatById = new Map(formats.map((format) => [format.id, format]));
 
         return {
-          items: rows.map((row): AuthoringMaterialListItemDto => ({
-            canDelete:
-              row.publicationState === "draft" &&
-              row.firstPublishedAt === null,
-            contentVersion: Number(row.contentVersion),
-            format: row.formatId === null ? null : (formatById.get(row.formatId) ?? null),
-            materialId: row.id,
-            publicationState: publicationStateSchema.parse(row.publicationState),
-            title: row.title,
-            topic: row.topicId === null ? null : (topicById.get(row.topicId) ?? null),
-            updatedAt: row.updatedAt.toISOString(),
-          })),
+          items: rows.map((row): AuthoringMaterialListItemDto => {
+            const format = row.formatId === null ? null : materialFormatPresentation(row.formatId);
+            return {
+              canDelete:
+                row.publicationState === "draft" &&
+                row.firstPublishedAt === null,
+              contentVersion: Number(row.contentVersion),
+              format: format === null ? null : { id: format.id, name: format.name },
+              materialId: row.id,
+              publicationState: publicationStateSchema.parse(row.publicationState),
+              title: row.title,
+              topic: row.topicId === null ? null : (topicById.get(row.topicId) ?? null),
+              updatedAt: row.updatedAt.toISOString(),
+            };
+          }),
           page,
           pageSize: first,
           totalItems,

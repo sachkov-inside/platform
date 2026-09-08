@@ -24,9 +24,9 @@ export class ContentLibraryService {
         }>;
       } | null;
       format: {
-        id: string;
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: string;
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       primaryVideoDurationSeconds?: number;
@@ -74,9 +74,9 @@ export class ContentLibraryService {
         }>;
       } | null;
       format: {
-        id: string;
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: string;
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       primaryVideoDurationSeconds?: number;
@@ -127,9 +127,9 @@ export class ContentLibraryService {
           }>;
         } | null;
         format: {
-          id: string;
+          id: 'video' | 'guide' | 'note';
           name: string;
-          slug: string;
+          slug: 'video' | 'guide' | 'note';
         };
         materialId: string;
         primaryVideoDurationSeconds?: number;
@@ -183,9 +183,9 @@ export class ContentLibraryService {
           }>;
         } | null;
         format: {
-          id: string;
+          id: 'video' | 'guide' | 'note';
           name: string;
-          slug: string;
+          slug: 'video' | 'guide' | 'note';
         };
         materialId: string;
         primaryVideoDurationSeconds?: number;
@@ -228,9 +228,9 @@ export class ContentLibraryService {
         }>;
       } | null;
       format: {
-        id: string;
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: string;
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       primaryVideoDurationSeconds?: number;
@@ -301,7 +301,7 @@ export class ContentLibraryService {
             width: number;
           }>;
         } | null;
-        id: string;
+        id: 'video' | 'guide' | 'note';
         name: string;
         previewItems: Array<{
           access: 'free' | 'membership' | 'workshop';
@@ -315,9 +315,9 @@ export class ContentLibraryService {
             }>;
           } | null;
           format: {
-            id: string;
+            id: 'video' | 'guide' | 'note';
             name: string;
-            slug: string;
+            slug: 'video' | 'guide' | 'note';
           };
           materialId: string;
           primaryVideoDurationSeconds?: number;
@@ -345,7 +345,7 @@ export class ContentLibraryService {
             slug: string;
           };
         }>;
-        slug: string;
+        slug: 'video' | 'guide' | 'note';
         summary: string | null;
       }>;
       series: Array<{
@@ -371,9 +371,9 @@ export class ContentLibraryService {
             }>;
           } | null;
           format: {
-            id: string;
+            id: 'video' | 'guide' | 'note';
             name: string;
-            slug: string;
+            slug: 'video' | 'guide' | 'note';
           };
           materialId: string;
           primaryVideoDurationSeconds?: number;
@@ -427,9 +427,9 @@ export class ContentLibraryService {
             }>;
           } | null;
           format: {
-            id: string;
+            id: 'video' | 'guide' | 'note';
             name: string;
-            slug: string;
+            slug: 'video' | 'guide' | 'note';
           };
           materialId: string;
           primaryVideoDurationSeconds?: number;
@@ -473,9 +473,9 @@ export class ContentLibraryService {
         }>;
       } | null;
       format: {
-        id: string;
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: string;
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       primaryVideoDurationSeconds?: number;
@@ -549,9 +549,9 @@ export class ContentLibraryService {
         }>;
       } | null;
       format: {
-        id: string;
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: string;
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       primaryVideoDurationSeconds?: number;
@@ -659,9 +659,9 @@ export class ContentLibraryService {
         }>;
       } | null;
       format: {
-        id: string;
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: string;
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       primaryVideoDurationSeconds?: number;
@@ -769,9 +769,9 @@ export class ContentLibraryService {
         }>;
       } | null;
       format: {
-        id: string;
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: string;
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       primaryVideoDurationSeconds?: number;

@@ -40,9 +40,9 @@ export class PublishedMaterialsService {
         }>;
       } | null;
       format: {
-        id: string;
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: string;
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       primaryVideoId: string | null;
@@ -90,9 +90,9 @@ export class PublishedMaterialsService {
         }>;
       } | null;
       format: {
-        id: string;
+        id: 'video' | 'guide' | 'note';
         name: string;
-        slug: string;
+        slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
       primaryVideoId: string | null;

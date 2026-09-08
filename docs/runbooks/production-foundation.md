@@ -62,12 +62,38 @@ sudo infra/production/host/provision-host.sh
    journal; устанавливает `jq`, gateway и установщик ключа.
 5. Копирует долгоживущие database/Logto definitions в `/opt/inside/foundation`, устанавливает
    Caddy baseline, backup command и systemd units.
-6. Включает Docker, SSH, Caddy и UFW; наружу разрешены только TCP 22, 80 и 443.
+6. Включает Docker, SSH, Caddy и UFW; наружу разрешены только TCP 22, 80 и 443, а также UDP 443.
+   Публичный Caddy listener использует HTTP/1.1 и HTTP/2. HTTP/3 отключён после
+   воспроизводимого зависания авторизации в #387; разрешение UDP в firewall само по себе
+   не включает протокол. Возвращать HTTP/3 можно только после внешней проверки авторизации
+   и браузерной приёмки: успешный TLS handshake или HTTP/2-запрос этого не доказывает.
 
 Скрипт не определяет размер VPS, не создаёт SSH key, DNS, buckets или credentials, не запускает
 PostgreSQL/Logto и не включает backup timers. Эти решения и действия выполняются в #244. После
 первого успешного запуска marker `/etc/inside/host-provisioned` позволяет безопасно повторить
 команду для обновления только принадлежащих комплекту файлов.
+
+## Отдельное обновление Caddy baseline
+
+Для изменения протоколов на уже работающем сервере не запускайте provisioning повторно.
+Сверьте `/etc/caddy/Caddyfile` с `infra/production/host/Caddyfile`, сохраните текущий файл
+и подготовьте новый рядом с ним. Импорт `/srv/inside/runtime/caddy/*.caddy` и существующие
+маршруты остаются на месте. Перед заменой выполните `caddy adapt --adapter caddyfile`
+и `caddy validate --adapter caddyfile` с `--config`, указывающим на подготовленный файл.
+Убедитесь, что у публичного listener `:443` протоколы ровно `h1` и `h2`.
+
+После разрешённой атомарной замены `/etc/caddy/Caddyfile` выполните
+`caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile`. Проверьте фактическую
+конфигурацию через локальный admin API, валидный TLS и HTTP 200 для главной страницы,
+Logto discovery, страницы Telegram-входа и её скрипта. Ответы не должны объявлять h3
+в `Alt-Svc`. Повторите внешний запрос клиента, который сначала пробует HTTP/3:
+он должен быстро перейти на HTTP/2; прежний timeout не считается успешной проверкой.
+Если reload или проверка маршрутов не прошли, верните сохранённый baseline и повторите
+reload. Не перезапускайте Logto, Platform или PostgreSQL ради этого изменения.
+
+У браузера мог сохраниться прежний `Alt-Svc` на 30 дней. Закрытие QUIC listener должно
+дать быстрый отказ и переключение на TCP, но это необходимо проверить на сети владельца.
+Не выдавайте лабораторный fallback за доказательство работы Safari на его iPhone.
 
 ## Порядок применения в #244
 

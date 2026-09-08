@@ -100,7 +100,7 @@ test("reading progress appears on Home and Topic for video and other formats", a
   await signIn(context, "MEMBER");
   for (const material of [
     { slug: "video-pro-developer-pipeline", label: "Просмотрено", title: "Видео про Developer Pipeline" },
-    { slug: "granitsy-khoroshego-modulya", label: "Изучено", title: "Границы хорошего модуля" },
+    { slug: "granitsy-khoroshego-modulya", label: "Прочитано", title: "Границы хорошего модуля" },
   ]) {
     const button = await openReader(page, material.slug, material.label);
     if (await button.getAttribute("aria-pressed") !== "true") await button.click();
@@ -139,7 +139,7 @@ test("reading progress counts a shared material in both real Series", async ({ p
 });
 
 
-test("reading progress supports Text and lets an expired member remove a protected mark", async ({ page, context }) => {
+test("reading progress supports Note and lets an expired member remove a protected mark", async ({ page, context }) => {
   await signIn(context, "EXPIRED_MEMBER");
   const text = await openReader(page, "tekst-dlya-proverki-progressa", "Прочитано");
   if (await text.getAttribute("aria-pressed") !== "true") await text.click();

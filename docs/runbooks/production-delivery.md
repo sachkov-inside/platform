@@ -196,7 +196,8 @@ sign-in integration secret and an enabled sign-in configuration. The Web BFF cal
 `/integrations/telegram/v1/sign-in/complete` through its internal backend transport;
 that endpoint remains closed at the public edge.
 
-Before enabling the connector, verify the actual Logto `inside.4` image identity,
+Before enabling the connector, verify the actual Logto image identity against the fork revision in
+`infra/identity/logto/versions.json`,
 the Logto-owned unique identity index from
 `infra/identity/logto/telegram-identity.sql`, the connector configuration and the
 JWT customizer bound to its real connector ID. The disposable identity bootstrap

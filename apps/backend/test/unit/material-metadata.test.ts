@@ -10,7 +10,7 @@ describe("MaterialMetadata", () => {
       slug: "synthetic-workshop-hint",
       access: "workshop",
       topicId: "72000000-0000-4000-8000-000000000002",
-      formatId: "72000000-0000-4000-8000-000000000003",
+      formatId: "guide",
       tagIds: [],
       seriesMemberships: [],
     });
