@@ -1,28 +1,27 @@
-# Авторский закреп на главной — #425
+# Авторский закреп Серии на главной — #425
 
-Реальный опубликованный Material выбирается в авторском списке, сохраняется на сервере и
-отображается первым на главной с существующим изображением автора. Серия для продолжения
-обучения остаётся отдельным блоком. Исправления ширины заметок и нижней плашки находятся в #424.
+Автор выбирает только Серию в редакторе её состава. Настройка сохраняется на сервере;
+на главной первой показана эта Серия с существующим изображением автора и ссылкой «Открыть серию».
+Кнопок закрепа у отдельных материалов нет. Исправления заметок и плашки поставляются в PR #424.
 
 ## Доказательства
 
-- `storybook-pin-*`: production Home component, desktop 1440px, mobile 390px и text 200% при 1280px.
-- `storybook-authoring-*`: production авторский список, выбор и снятие закрепа, desktop/mobile.
-- `live-*-authoring-pin.png`: выбранный материал после перезагрузки в реальном авторском UI.
-- `live-*-home-pin*.png`: реальная главная и увеличенный текст, desktop/mobile.
+- `storybook-pin-*`: production Home, 1440px, 390px и text 200% при 1280px.
+- `storybook-authoring-*`: production управление выбранной Серией, desktop/mobile.
+- `live-*-authoring-pin.png`: реальный редактор Серии после сохранения и перезагрузки.
+- `live-*-home-pin*.png`: реальная главная и text 200%, desktop/mobile.
 
-Storybook geometry: первый section — featured-title, горизонтального overflow нет,
-asset автора загружен (900px). Full-stack Playwright проверяет delayed pin response при уже
-загруженном списке, выбор/reload/замену/снятие, guest/member, отказ неавтору, link/Reader,
-закрытый доступ и отсутствие serious/critical axe findings на гостевой главной.
-Использована синтетическая локальная identity, настоящие API, BFF и отдельная PostgreSQL.
+Storybook: первый section — featured-title, overflow отсутствует, аватар загружен (900px).
+Full-stack Playwright проверяет loading→error→retry→ready без сдвига редактора, выбор,
+перезагрузку, замену, снятие, guest/member, отказ неавтору, переход на страницу Серии,
+отсутствие кнопок закрепа у Materials и serious/critical axe findings.
+Использованы синтетическая identity, настоящие BFF/API и отдельная PostgreSQL. Тестовая БД удалена.
 
-Проверки: `PLAYWRIGHT_PORT=3425 pnpm check`,
-`pnpm --filter @inside/backend test:integration --maxWorkers=4` (217 tests),
-focused `pnpm smoke:fullstack` для Home и авторского закрепа; после исправления загрузки —
-`pnpm lint`, Web typecheck и 13 Home/BFF module tests. Standards: один P2 исправлен,
-итог pass; Spec: pass. Node 24.19.0.
+Проверки: `PLAYWRIGHT_PORT=3425 pnpm check`;
+`pnpm --filter @inside/backend test:integration --maxWorkers=4` — 217 tests / 35 files;
+focused `pnpm smoke:fullstack` для Home и авторского закрепа. Node 24.19.0.
+DB acceptance покрывает отрицательный Material UUID, право управления, конкурирующие записи,
+текущие название/описание, архив и пустой опубликованный состав, снятие и singleton constraint.
 
-Первоначальный широкий запуск DB tests перегрузил локальную машину (hook timeouts);
-полный повтор с четырьмя workers прошёл. Это локальное доказательство, не production.
-Решения владельца по визуальному результату и merge остаются открытыми.
+Два замечания review исправлены: стабильная высота error/retry и существующий formatter
+числа материалов. Это локальное доказательство, не production; owner visual и merge GO открыты.
