@@ -36,6 +36,8 @@ services:
         condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
+      object-storage:
+        condition: service_healthy
     init: true
     stop_grace_period: 15s
 
