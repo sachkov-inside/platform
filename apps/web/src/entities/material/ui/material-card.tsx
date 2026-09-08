@@ -19,8 +19,6 @@ import { SavedMaterialReadingStatus } from "./saved-material-reading-status.clie
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
   readonly headingLevel?: "h2" | "h3";
-  /** Hide secondary row copy below the mobile breakpoint. */
-  readonly compactOnMobile?: boolean;
   readonly material: MaterialPreview;
   readonly returnHref?: Route;
   /** Series-owned context rendered below the row title. */
@@ -29,12 +27,11 @@ export interface MaterialCardProps {
   /** Existing video card with a short continuation caption supplied by its page. */
   readonly resumeLabel?: string;
   readonly showAccessDetails?: boolean;
-  readonly variant?: "compact" | "default" | "feed" | "row";
+  readonly variant?: "compact" | "default" | "feed" | "row" | "series";
 }
 
 /** Safe published Material summary rendered in the accepted public visual language. */
 export function MaterialCard({
-  compactOnMobile = false,
   headingLevel = "h2",
   material,
   returnHref,
@@ -47,10 +44,13 @@ export function MaterialCard({
   const Heading = headingLevel;
   const readerHref = materialReaderHref(material.slug, returnHref);
 
+  if (variant === "series") {
+    return <SeriesMaterialRow headingLevel={headingLevel} material={material} readerHref={readerHref} current={resumeLabel !== undefined} />;
+  }
+
   if (variant === "row") {
     return (
       <MaterialRow
-        compactOnMobile={compactOnMobile}
         headingLevel={headingLevel}
         showAccessDetails={showAccessDetails}
         material={material}
@@ -179,7 +179,6 @@ export function MaterialCard({
 }
 
 function MaterialRow({
-  compactOnMobile,
   headingLevel,
   material,
   readerHref,
@@ -189,7 +188,6 @@ function MaterialRow({
   readingStatus,
   showAccessDetails,
 }: {
-  readonly compactOnMobile: boolean;
   readonly showAccessDetails: boolean;
   readonly headingLevel: "h2" | "h3";
   readonly material: MaterialPreview;
@@ -201,7 +199,6 @@ function MaterialRow({
 }) {
   const Heading = headingLevel;
   const isVideo = materialPreviewHasVideo(material);
-  const duration = materialDuration(material);
   return (
     <article
       className={cn("group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none", resumeLabel !== undefined && "ring-2 ring-accent/70", showAccessDetails && "@max-[13rem]/series-entry:grid-cols-1")}
@@ -209,7 +206,7 @@ function MaterialRow({
       data-material-slug={material.slug}
       data-material-variant="row"
     >
-      <span className={cn(compactOnMobile && "w-14 sm:w-22", showAccessDetails && !compactOnMobile && "@max-[13rem]/series-entry:hidden")}>
+      <span className={showAccessDetails ? "@max-[13rem]/series-entry:hidden" : undefined}>
       <AccessCover compact material={material}>
         <ContentCoverImage
           alt=""
@@ -220,14 +217,13 @@ function MaterialRow({
           sizes="(min-width: 640px) 5.5rem, 3.5rem"
         />
       </AccessCover>
-      {compactOnMobile && duration !== undefined ? <span className="mt-1 flex justify-center sm:hidden"><span className="rounded bg-muted px-1 py-0.5 text-xs leading-4 tabular-nums text-muted-foreground" data-series-duration>{duration}</span></span> : null}
       </span>
       <span className={cn("min-w-0", showAccessDetails && "[overflow-wrap:anywhere]")}>
         <span className={cn("flex min-w-0 items-center gap-1 text-xs font-semibold text-muted-foreground", showAccessDetails && "flex-wrap")}>
           <span>{materialTaxonomyLabel(material.format)}</span>
-          <span aria-hidden="true" className={compactOnMobile ? "hidden sm:inline" : undefined}>·</span>
+          <span aria-hidden="true">·</span>
           <Link
-            className={cn("relative z-10 truncate no-underline hover:text-foreground", compactOnMobile && "hidden sm:inline")}
+            className="relative z-10 truncate no-underline hover:text-foreground"
             href={collectionDiscoveryHref("topic", material.topicSlug, returnHref)}
             prefetch={false}
           >
@@ -244,20 +240,63 @@ function MaterialRow({
           </Link>
         </Heading>
         {isVideo && material.summary.length > 0 ? (
-          <span className={cn("mt-2 break-words text-sm leading-5 text-body-muted", compactOnMobile ? "hidden sm:line-clamp-3" : "line-clamp-3")}>
+          <span className="mt-2 line-clamp-3 break-words text-sm leading-5 text-body-muted">
             {material.summary}
           </span>
         ) : null}
-        {readingStatus || resumeLabel !== undefined ? <span className={cn("mt-2 min-h-6 items-center", compactOnMobile ? "hidden sm:flex" : "flex")}>
+        {readingStatus || resumeLabel !== undefined ? <span className="mt-2 flex min-h-6 items-center">
           {resumeLabel === undefined ? readingStatus : <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-action"><Play aria-hidden="true" className="size-3.5 shrink-0 fill-current" />{resumeLabel}</span>}
         </span> : null}
-        {showAccessDetails ? <span className={cn("mt-2 flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground", compactOnMobile ? "hidden sm:flex" : "flex")} data-series-access>
+        {showAccessDetails ? <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground" data-series-access>
           {material.availability === "locked" ? <span className="inline-flex items-center gap-1.5 font-medium"><LockKeyhole aria-hidden="true" className="size-3.5" />По подписке</span> : material.availability === "unavailable" ? <span>Не удалось проверить доступ</span> : material.access === "free" ? <span>Бесплатно</span> : null}
-          {duration === undefined ? null : <span className="inline-flex items-center gap-1.5 tabular-nums"><Clock3 aria-hidden="true" className="size-3.5" />{duration}</span>}
+          {materialDuration(material) === undefined ? null : <span className="inline-flex items-center gap-1.5 tabular-nums"><Clock3 aria-hidden="true" className="size-3.5" />{materialDuration(material)}</span>}
         </span> : null}
         {rowAnnotation}
       </span>
       <ChevronRight aria-hidden="true" className={cn("size-4 text-muted-foreground", showAccessDetails && "@max-[13rem]/series-entry:hidden")} />
+    </article>
+  );
+}
+
+function SeriesMaterialRow({ headingLevel: Heading, material, readerHref, current }: {
+  readonly headingLevel: "h2" | "h3";
+  readonly material: MaterialPreview;
+  readonly readerHref: Route;
+  readonly current: boolean;
+}) {
+  const duration = materialDuration(material);
+  return (
+    <article
+      className={cn(
+        "group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-border bg-muted/55 p-3 transition-colors hover:bg-muted focus-within:bg-muted @max-[13rem]/series-entry:grid-cols-1 @min-[40rem]/series-entry:min-h-33 @min-[40rem]/series-entry:grid-cols-[11rem_minmax(0,1fr)_auto_auto] @min-[40rem]/series-entry:gap-4 @min-[40rem]/series-entry:p-4",
+        current && "ring-2 ring-accent/70",
+      )}
+      data-material-id={material.slug}
+      data-material-slug={material.slug}
+      data-material-variant="series"
+    >
+      <span className="relative w-14 @min-[40rem]/series-entry:w-44">
+        <AccessCover compact material={material}>
+          <ContentCoverImage
+            alt=""
+            className="aspect-square min-h-0 rounded-xl @min-[40rem]/series-entry:aspect-video"
+            cover={material.cover ?? null}
+            fallbackKind={materialPreviewHasVideo(material) ? "video" : "material"}
+            fallbackSeed={material.slug}
+            sizes="(min-width: 768px) 11rem, 3.5rem"
+          />
+        </AccessCover>
+        {duration === undefined ? null : <span className="mt-1 flex justify-center @min-[40rem]/series-entry:absolute @min-[40rem]/series-entry:bottom-1.5 @min-[40rem]/series-entry:right-1.5 @min-[40rem]/series-entry:mt-0"><span className="rounded bg-primary/85 px-1.5 py-0.5 text-xs font-medium leading-4 tabular-nums text-white" data-series-duration>{duration}</span></span>}
+      </span>
+      <span className="min-w-0 [overflow-wrap:anywhere]">
+        <span className="text-xs font-semibold text-muted-foreground @min-[40rem]/series-entry:hidden">{materialTaxonomyLabel(material.format)}</span>
+        <Heading className="mt-1 line-clamp-3 text-sm font-semibold leading-5 tracking-[-0.02em] @min-[40rem]/series-entry:mt-0 @min-[40rem]/series-entry:line-clamp-2 @min-[40rem]/series-entry:text-lg @min-[40rem]/series-entry:leading-6">
+          <Link className="no-underline after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring" href={readerHref} prefetch={false}>{material.title}</Link>
+        </Heading>
+        {material.summary.length === 0 ? null : <span className="mt-2 hidden text-sm leading-5 text-body-muted @min-[40rem]/series-entry:line-clamp-1">{material.summary}</span>}
+      </span>
+      <span className="hidden whitespace-nowrap rounded-md bg-background px-2 py-1 text-xs font-medium text-muted-foreground @min-[40rem]/series-entry:inline-flex">{materialTaxonomyLabel(material.format)}</span>
+      <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground @max-[13rem]/series-entry:hidden" />
     </article>
   );
 }

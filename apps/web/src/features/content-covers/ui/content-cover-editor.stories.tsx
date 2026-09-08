@@ -75,3 +75,33 @@ async function uploadFixture(canvasElement: HTMLElement): Promise<void> {
     new File([new Uint8Array([1, 2, 3])], "cover.png", { type: "image/png" }),
   );
 }
+
+
+const landscapeCover = { coverId: "27100000-0000-4000-8000-000000000005", renditions: [{ width: 960, height: 540 }] };
+
+export const MaterialPreview: Story = {
+  args: { initialCover: landscapeCover, ownerKind: "material", ownerLabel: "Обложка материала" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    for (const name of ["Превью 16:9", "Квадратное превью"]) {
+      const image = canvas.getByRole<HTMLImageElement>("img", { name });
+      await waitFor(() => expect(image.complete && image.naturalWidth > 0).toBe(true));
+      await expect(image.naturalWidth / image.naturalHeight).toBeCloseTo(16 / 9, 1);
+      await expect(getComputedStyle(image).objectFit).toBe("cover");
+      await expect(getComputedStyle(image).objectPosition).toBe("50% 50%");
+      const box = image.getBoundingClientRect();
+      await expect(box.width / box.height).toBeCloseTo(name === "Превью 16:9" ? 16 / 9 : 1, 1);
+    }
+    await expect(canvas.getByText("Заменить")).toBeVisible();
+  },
+};
+export const MaterialPreviewMobile: Story = { ...MaterialPreview, globals: { viewport: { value: "mobile320", isRotated: false } } };
+export const UploadMaterialCover: Story = {
+  args: { ownerKind: "material" },
+  decorators: [withMutationFetch(() => Promise.resolve(Response.json({ cover: landscapeCover })))],
+  play: async (context) => {
+    await uploadFixture(context.canvasElement);
+    await expect(within(context.canvasElement).findByRole("status")).resolves.toHaveTextContent("Обложка обновлена.");
+    await MaterialPreview.play?.(context);
+  },
+};
