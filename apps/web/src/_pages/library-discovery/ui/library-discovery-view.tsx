@@ -58,7 +58,7 @@ export function LibraryDiscoveryView({
 
   return (
     <div
-      className="@container/discovery min-w-0"
+      className={cn("@container/discovery min-w-0", isSeries && "mx-auto w-full max-w-[65rem]")}
       data-discovery-kind={result.discoveryKind}
       data-discovery-state={result.kind}
     >

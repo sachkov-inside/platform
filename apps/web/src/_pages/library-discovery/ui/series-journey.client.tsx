@@ -11,7 +11,6 @@ import type { PublishedSeriesResult } from "@/features/library-discovery";
 import { SeriesMaterialMarker, SeriesProgress } from "@/features/reading-progress";
 import { Button } from "@/shared/ui/button";
 import { materialReaderHref, readSeriesPage, seriesReaderReturnHref } from "@/shared/routing/material-reader";
-import { seriesSteps } from "../model/series-steps";
 import { seriesPage, SERIES_PAGE_SIZE } from "../model/series-page";
 
 export type SeriesLearningView =
@@ -42,7 +41,6 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
   const [navigation, setNavigation] = useState({ source: restoredPage, page: restoredPage });
   if (navigation.source !== restoredPage) setNavigation({ source: restoredPage, page: restoredPage });
   const page = seriesPage(items, navigation.source === restoredPage ? navigation.page : restoredPage, resumePage);
-  const steps = seriesSteps(items, result.reference.slug);
   const next = items.find((item) => item.slug === continuation?.materialSlug && item.availability === "available");
   const first = items.find((item) => item.availability === "available");
   const complete = learning.kind === "ready" && learning.total > 0 && learning.read === learning.total;
@@ -97,18 +95,17 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
     </section> : null}
     {result.kind === "ready" ? <section aria-labelledby="series-materials" className="mt-10 scroll-mt-6 focus:outline-none" ref={routeRef} tabIndex={-1}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl" id="series-materials">Маршрут</h2>
+        <h2 className="sr-only" id="series-materials">Материалы серии</h2>
         {page.count > 1 ? <p aria-live="polite" className="text-sm tabular-nums text-muted-foreground">Материалы {page.offset + 1}–{page.offset + page.items.length} из {items.length}</p> : null}
       </div>
       {items.some((item) => item.availability === "unavailable") ? <Button className="mt-4 h-auto min-h-11 max-w-full whitespace-normal" onClick={() => { router.refresh(); }} variant="outline"><RefreshCw aria-hidden="true" />Повторить проверку доступа</Button> : null}
-      <ol aria-label="Материалы серии" className="mt-5 grid gap-4" data-series-order start={page.offset + 1}>
+      <ol aria-label="Материалы серии" className={page.count > 1 ? "mt-5 grid gap-4" : "grid gap-4"} data-series-order start={page.offset + 1}>
         {page.items.map((material, index) => {
           const ordinal = material.seriesMemberships.find(({ slug }) => slug === result.reference.slug)?.ordinal ?? page.offset + index + 1;
-          const step = steps.get(material.slug);
           return <li aria-current={next?.slug === material.slug ? "step" : undefined} className="@container/series-entry relative grid scroll-mt-6 grid-cols-[2rem_minmax(0,1fr)] items-center gap-3 rounded-2xl focus-visible:outline-2 focus-visible:outline-ring" data-route-material={material.slug} data-series-ordinal={ordinal} key={material.slug} tabIndex={-1}>
             {page.items.length > 1 ? <span aria-hidden="true" className="pointer-events-none absolute left-[15px] w-0 border-l-2 border-dashed border-border" data-series-rail style={{ top: index === 0 ? "50%" : "-1rem", bottom: index === page.items.length - 1 ? "50%" : "-1rem" }} /> : null}
             <div className="relative z-10 flex min-h-11 items-center"><SeriesMaterialMarker {...(material.materialId === undefined ? {} : { materialId: material.materialId })} ordinal={ordinal} /></div>
-            <MaterialCard headingLevel="h3" material={material} {...(next?.slug === material.slug && continuation !== null ? { resumeLabel: continuation.label } : {})} returnHref={seriesReaderReturnHref(currentHref, page.number, material.slug)} rowAnnotation={step === undefined ? undefined : <span className="mt-2 flex flex-wrap items-baseline gap-x-1 text-xs leading-5" data-series-step><span className="font-semibold">Шаг {step.ordinal} из {step.total}</span><span aria-hidden="true">·</span><span className="break-words text-muted-foreground">{step.label}</span></span>} variant="row" showAccessDetails />
+            <MaterialCard headingLevel="h3" material={material} {...(next?.slug === material.slug && continuation !== null ? { resumeLabel: continuation.label } : {})} returnHref={seriesReaderReturnHref(currentHref, page.number, material.slug)} variant="series" />
           </li>;
         })}
       </ol>

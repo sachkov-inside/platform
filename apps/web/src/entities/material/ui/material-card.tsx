@@ -27,7 +27,7 @@ export interface MaterialCardProps {
   /** Existing video card with a short continuation caption supplied by its page. */
   readonly resumeLabel?: string;
   readonly showAccessDetails?: boolean;
-  readonly variant?: "compact" | "default" | "feed" | "row";
+  readonly variant?: "compact" | "default" | "feed" | "row" | "series";
 }
 
 /** Safe published Material summary rendered in the accepted public visual language. */
@@ -43,6 +43,10 @@ export function MaterialCard({
 }: MaterialCardProps) {
   const Heading = headingLevel;
   const readerHref = materialReaderHref(material.slug, returnHref);
+
+  if (variant === "series") {
+    return <SeriesMaterialRow headingLevel={headingLevel} material={material} readerHref={readerHref} current={resumeLabel !== undefined} />;
+  }
 
   if (variant === "row") {
     return (
@@ -250,6 +254,49 @@ function MaterialRow({
         {rowAnnotation}
       </span>
       <ChevronRight aria-hidden="true" className={cn("size-4 text-muted-foreground", showAccessDetails && "@max-[13rem]/series-entry:hidden")} />
+    </article>
+  );
+}
+
+function SeriesMaterialRow({ headingLevel: Heading, material, readerHref, current }: {
+  readonly headingLevel: "h2" | "h3";
+  readonly material: MaterialPreview;
+  readonly readerHref: Route;
+  readonly current: boolean;
+}) {
+  const duration = materialDuration(material);
+  return (
+    <article
+      className={cn(
+        "group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-border bg-muted/55 p-3 transition-colors hover:bg-muted focus-within:bg-muted @max-[13rem]/series-entry:grid-cols-1 @min-[40rem]/series-entry:min-h-33 @min-[40rem]/series-entry:grid-cols-[11rem_minmax(0,1fr)_auto_auto] @min-[40rem]/series-entry:gap-4 @min-[40rem]/series-entry:p-4",
+        current && "ring-2 ring-accent/70",
+      )}
+      data-material-id={material.slug}
+      data-material-slug={material.slug}
+      data-material-variant="series"
+    >
+      <span className="relative w-14 @min-[40rem]/series-entry:w-44">
+        <AccessCover compact material={material}>
+          <ContentCoverImage
+            alt=""
+            className="aspect-square min-h-0 rounded-xl @min-[40rem]/series-entry:aspect-video"
+            cover={material.cover ?? null}
+            fallbackKind={materialPreviewHasVideo(material) ? "video" : "material"}
+            fallbackSeed={material.slug}
+            sizes="(min-width: 768px) 11rem, 3.5rem"
+          />
+        </AccessCover>
+        {duration === undefined ? null : <span className="mt-1 flex justify-center @min-[40rem]/series-entry:absolute @min-[40rem]/series-entry:bottom-1.5 @min-[40rem]/series-entry:right-1.5 @min-[40rem]/series-entry:mt-0"><span className="rounded bg-primary/85 px-1.5 py-0.5 text-xs font-medium leading-4 tabular-nums text-white" data-series-duration>{duration}</span></span>}
+      </span>
+      <span className="min-w-0 [overflow-wrap:anywhere]">
+        <span className="text-xs font-semibold text-muted-foreground @min-[40rem]/series-entry:hidden">{materialTaxonomyLabel(material.format)}</span>
+        <Heading className="mt-1 line-clamp-3 text-sm font-semibold leading-5 tracking-[-0.02em] @min-[40rem]/series-entry:mt-0 @min-[40rem]/series-entry:line-clamp-2 @min-[40rem]/series-entry:text-lg @min-[40rem]/series-entry:leading-6">
+          <Link className="no-underline after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring" href={readerHref} prefetch={false}>{material.title}</Link>
+        </Heading>
+        {material.summary.length === 0 ? null : <span className="mt-2 hidden text-sm leading-5 text-body-muted @min-[40rem]/series-entry:line-clamp-1">{material.summary}</span>}
+      </span>
+      <span className="hidden whitespace-nowrap rounded-md bg-background px-2 py-1 text-xs font-medium text-muted-foreground @min-[40rem]/series-entry:inline-flex">{materialTaxonomyLabel(material.format)}</span>
+      <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground @max-[13rem]/series-entry:hidden" />
     </article>
   );
 }
