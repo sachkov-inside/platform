@@ -15,6 +15,8 @@ function queryId(value: string | undefined): string | undefined {
 @Controller('accounts/current/notifications')
 @ApiBearerAuth('logto')
 @ApiTags('Notifications')
+@ApiResponse({ status: 503, content: problemDetailsContent(problemDetailsSchema(503, ['dependency_unavailable'])) })
+@ApiResponse({ status: 500, content: problemDetailsContent(problemDetailsSchema(500, ['internal_error'])) })
 @PrivateNoStore()
 @UseGuards(AccountGuard)
 export class NotificationPreferencesController {
@@ -22,7 +24,7 @@ export class NotificationPreferencesController {
   @Get('preferences')
   @ApiOperation({ operationId: 'readNotificationPreferences', summary: 'Read own material notification opt-ins' })
   @ApiResponse({ status: 200, schema: toOpenApiSchema(preferenceSchema) })
-  @ApiResponse({ status: 401, content: problemDetailsContent(problemDetailsSchema(401, ['authentication_required', 'invalid_token', 'unauthorized'])) })
+  @ApiResponse({ status: 401, content: problemDetailsContent(problemDetailsSchema(401, ['invalid_proof', 'account_not_found'])) })
   read(@CurrentAccount() account: AuthenticatedAccount) { return this.notifications.readPreferences(account.accountId); }
   @Post('preferences')
   @HttpCode(200)
@@ -30,7 +32,7 @@ export class NotificationPreferencesController {
   @ApiBody({ schema: toOpenApiSchema(changePreferencesSchema) })
   @ApiResponse({ status: 200, schema: toOpenApiSchema(preferenceResultSchema) })
   @ApiResponse({ status: 400, content: problemDetailsContent(problemDetailsSchema(400, ['invalid_input'])) })
-  @ApiResponse({ status: 401, content: problemDetailsContent(problemDetailsSchema(401, ['authentication_required', 'invalid_token', 'unauthorized'])) })
+  @ApiResponse({ status: 401, content: problemDetailsContent(problemDetailsSchema(401, ['invalid_proof', 'account_not_found'])) })
   @ApiResponse({ status: 409, content: problemDetailsContent(problemDetailsSchema(409, ['revision_conflict', 'operation_conflict', 'not_unknown'])) })
   async change(@CurrentAccount() account: AuthenticatedAccount, @Body() body: unknown) {
     const result = await this.notifications.changePreferences(account.accountId, body);
@@ -42,12 +44,14 @@ export class NotificationPreferencesController {
   @ApiResponse({ status: 400, content: problemDetailsContent(problemDetailsSchema(400, ['invalid_input'])) })
   @ApiQuery({ name: 'after', required: false, schema: { type: 'string', format: 'uuid' } })
   @ApiResponse({ status: 200, schema: toOpenApiSchema(z.array(deliveryViewSchema)) })
-  @ApiResponse({ status: 401, content: problemDetailsContent(problemDetailsSchema(401, ['authentication_required', 'invalid_token', 'unauthorized'])) })
+  @ApiResponse({ status: 401, content: problemDetailsContent(problemDetailsSchema(401, ['invalid_proof', 'account_not_found'])) })
   async deliveries(@CurrentAccount() account: AuthenticatedAccount, @Query('after') after?: string) { return this.notifications.readDeliveries(account.accountId, queryId(after)); }
 }
 @Controller('operations/notifications')
 @ApiBearerAuth('logto')
 @ApiTags('Notifications')
+@ApiResponse({ status: 503, content: problemDetailsContent(problemDetailsSchema(503, ['dependency_unavailable'])) })
+@ApiResponse({ status: 500, content: problemDetailsContent(problemDetailsSchema(500, ['internal_error'])) })
 @PrivateNoStore()
 @UseGuards(AccountGuard)
 export class NotificationOperationsController {
@@ -58,7 +62,7 @@ export class NotificationOperationsController {
   @ApiResponse({ status: 400, content: problemDetailsContent(problemDetailsSchema(400, ['invalid_input'])) })
   @ApiQuery({ name: 'after', required: false, schema: { type: 'string', format: 'uuid' } })
   @ApiResponse({ status: 200, schema: toOpenApiSchema(z.array(deliveryViewSchema)) })
-  @ApiResponse({ status: 401, content: problemDetailsContent(problemDetailsSchema(401, ['authentication_required', 'invalid_token', 'unauthorized'])) })
+  @ApiResponse({ status: 401, content: problemDetailsContent(problemDetailsSchema(401, ['invalid_proof', 'account_not_found'])) })
   @ApiResponse({ status: 403, content: problemDetailsContent(problemDetailsSchema(403, ['forbidden'])) })
   async read(@CurrentAccount() actor: AuthenticatedAccount, @Param('accountId') account: string, @Query('after') after?: string) {
     const result = await this.notifications.readOperatorDeliveries(actor.accountId, queryId(account) ?? '', queryId(after));
@@ -71,7 +75,7 @@ export class NotificationOperationsController {
   @ApiBody({ schema: toOpenApiSchema(recoverySchema) })
   @ApiResponse({ status: 200, schema: toOpenApiSchema(z.object({ ok: z.literal(true) })) })
   @ApiResponse({ status: 400, content: problemDetailsContent(problemDetailsSchema(400, ['invalid_input'])) })
-  @ApiResponse({ status: 401, content: problemDetailsContent(problemDetailsSchema(401, ['authentication_required', 'invalid_token', 'unauthorized'])) })
+  @ApiResponse({ status: 401, content: problemDetailsContent(problemDetailsSchema(401, ['invalid_proof', 'account_not_found'])) })
   @ApiResponse({ status: 403, content: problemDetailsContent(problemDetailsSchema(403, ['forbidden'])) })
   @ApiResponse({ status: 409, content: problemDetailsContent(problemDetailsSchema(409, ['revision_conflict', 'operation_conflict', 'not_unknown'])) })
   async resolve(@CurrentAccount() actor: AuthenticatedAccount, @Body() body: unknown) {
