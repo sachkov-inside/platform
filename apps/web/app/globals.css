@@ -54,6 +54,7 @@
   --cover-coral: #ffdcd2;
   --cover-coral-foreground: #b83a25;
   --cover-ink: #25272d;
+  --cover-ink-foreground: #ffffff;
   --cover-lavender: #e9e1ff;
   --cover-lavender-foreground: #5d43a4;
   --cover-mint: #dcefe5;
@@ -358,4 +359,28 @@ body:has([data-public-shell]) {
 /* Public pages scroll in the document until the desktop shell owns scrolling. */
 @media (48rem <= width < 64rem) {
   html:has([data-public-shell]), body:has([data-public-shell]) { block-size: auto; overflow: visible; }
+}
+
+/* Accepted Home typography roles; keep the shared foundation authoritative. */
+.home-page {
+  --type-page: 1.5rem;
+  --type-section: 1.125rem;
+  --type-hero: 1.125rem;
+  --type-card: 1rem;
+  --type-series: 1.125rem;
+  --type-body: 1rem;
+  --type-ui: .875rem;
+  --type-meta: .75rem;
+  --type-summary: .875rem;
+}
+@media (min-width: 701px) {
+  .home-page {
+    --type-page: 1.75rem;
+    --type-section: 1.5rem;
+    --type-hero: clamp(1.75rem,1.1rem + 1.4vw,2rem);
+    --type-card: 1.125rem;
+    --type-series: 1.375rem;
+    --type-meta: .875rem;
+    --type-summary: 1rem;
+  }
 }

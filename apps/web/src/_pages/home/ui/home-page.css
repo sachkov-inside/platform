@@ -1,13 +1,14 @@
 /* Home owns its responsive composition; color and font families use the Platform foundation. */
-.home-page { --home-grid-gap: 1.25rem; }
+.home-page { --home-grid-gap: 1.25rem; --space-section: 2.5rem; }
+@media (min-width: 701px) { .home-page { --space-section: 3rem; } }
 .home-page p { font-size: var(--type-body); line-height: 1.5; font-weight: 400; }
-.home-featured { position: relative; isolation: isolate; border-radius: 2rem; background: var(--cover-ink); color: white; }
+.home-featured { position: relative; isolation: isolate; border-radius: 2rem; background: var(--cover-ink); color: var(--cover-ink-foreground); }
 .home-featured-copy { position: relative; z-index: 2; }
-.home-featured-label { display: inline-flex; border-radius: 999px; background: rgb(255 255 255 / .12); }
-.home-featured-description { margin-top: .9rem; color: rgb(255 255 255 / .75); }
+.home-featured-label { display: inline-flex; border-radius: 999px; background: color-mix(in srgb,var(--cover-ink-foreground) 12%,transparent); }
+.home-featured-description { margin-top: .9rem; color: color-mix(in srgb,var(--cover-ink-foreground) 75%,transparent); }
 .home-featured-bottom { display: flex; align-items: center; gap: 1.25rem; }
-.home-featured-bottom > span { color: rgb(255 255 255 / .8); }
-.home-featured-bottom > a { display: inline-flex; align-items: center; border-radius: 999px; background: white; color: var(--cover-ink); text-decoration: none; }
+.home-featured-bottom > span { color: color-mix(in srgb,var(--cover-ink-foreground) 80%,transparent); }
+.home-featured-bottom > a { display: inline-flex; align-items: center; border-radius: 999px; background: var(--cover-ink-foreground); color: var(--cover-ink); text-decoration: none; }
 .home-presenter { position: absolute; z-index: 1; bottom: 0; pointer-events: none; }
 .home-presenter-crop { position: absolute; inset: 0; overflow: hidden; mask-image: linear-gradient(to bottom,black 0%,black 70%,rgb(0 0 0 / .7) 82%,rgb(0 0 0 / .2) 92%,transparent 100%); }
 .home-presenter img { display: block; width: 100%; height: auto; }
@@ -24,34 +25,7 @@
 .home-invitation { display: flex; align-items: center; justify-content: space-between; gap: 2rem; padding: 2rem; margin-top: 3rem; border-radius: 1.75rem; background: var(--secondary); }
 .home-invitation p { max-width: 54ch; margin-top: .75rem; color: var(--body-muted); }
 .home-page .home-eyebrow { margin-bottom: .75rem; color: var(--action); font-size: .875rem; font-weight: 500; }
-.home-page {
-  --type-page: 1.5rem;
-  --type-section: 1.125rem;
-  --type-hero: 1.125rem;
-  --type-card: 1rem;
-  --type-series: 1.125rem;
-  --type-body: 1rem;
-  --type-ui: .875rem;
-  --type-meta: .75rem;
-  --type-summary: .875rem;
-  --space-section: 2.5rem;
-  font-size: var(--type-body);
-  line-height: 1.5;
-  font-weight: 400;
-  overflow-wrap: anywhere;
-}
-@media (min-width: 701px) {
-  .home-page {
-    --type-page: 1.75rem;
-    --type-section: 1.5rem;
-    --type-hero: clamp(1.75rem,1.1rem + 1.4vw,2rem);
-    --type-card: 1.125rem;
-    --type-series: 1.375rem;
-    --type-meta: .875rem;
-    --type-summary: 1rem;
-    --space-section: 3rem;
-  }
-}
+.home-page { font-size: var(--type-body); line-height: 1.5; font-weight: 400; overflow-wrap: anywhere; }
 .home-page h1:not(.sr-only) { font-size: var(--type-page); line-height: 1.25; font-weight: 600; letter-spacing: -.025em; }
 .home-page h2:not(.sr-only) { font-size: var(--type-section); line-height: 1.25; font-weight: 600; letter-spacing: -.02em; }
 .home-page h3 { font-size: var(--type-card); line-height: 1.4; font-weight: 600; letter-spacing: -.015em; }
