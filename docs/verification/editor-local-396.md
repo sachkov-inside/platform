@@ -10,8 +10,8 @@ shows Material suggestions before searching. Telegram funnel and broadcast manag
 retired from Platform. `platform:admin` is an explicit trusted Account grant; ordinary authors are
 not promoted automatically.
 
-Owner review is local only. No merge, production deploy, production permission change or real
-Telegram send is part of this delivery. The established published-Material rule still applies:
+The owner accepted the local editor and authorized merging #396 into main after the final image
+selection fix. Production deployment, permission changes and real Telegram sends remain excluded. The established published-Material rule still applies:
 saved edits are visible immediately, while the first publication requires an explicit action.
 
 ## Reproduce
@@ -49,7 +49,7 @@ processing, playback and real Logto authentication are not proven by this runtim
 - Final local views: [desktop](../evidence/issue-396/editor-desktop.png),
   [fullscreen](../evidence/issue-396/editor-fullscreen.png),
   [mobile](../evidence/issue-396/editor-mobile.png).
-- Owner visual acceptance remains pending. This is not production-provider evidence.
+- The owner accepted the local UI on 2026-09-08. This is not production-provider evidence.
 
 ## Review closure
 
@@ -114,7 +114,7 @@ and the relevant browser geometry assertions passed. Both axes reported no remai
 Current local screenshots: [metadata above article](../evidence/issue-396/editor-desktop.png),
 [fullscreen](../evidence/issue-396/editor-fullscreen.png),
 [320 px settings](../evidence/issue-396/editor-mobile.png),
-[loaded Preview](../evidence/issue-396/editor-preview.png). Owner visual acceptance remains pending.
+[loaded Preview](../evidence/issue-396/editor-preview.png). The owner accepted the local UI on 2026-09-08.
 
 Root `pnpm check` passed on this refinement: 153 tooling, 424 backend, 491 web (one skipped),
 43 browser routes (five skipped), production and Storybook builds. Log: `/tmp/396-refinement-check.log`.
