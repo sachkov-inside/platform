@@ -23,7 +23,7 @@ describe("Content Library discovery", () => {
       where: { slug: "platform" },
       data: { summary: "Platform boundaries, delivery and operations." },
     });
-    await testDatabase.prisma.series.update({
+    await testDatabase.prisma.guide.update({
       where: { slug: "platform-inside" },
       data: { summary: "Build the platform in a deliberate order." },
     });
@@ -104,7 +104,7 @@ describe("Content Library discovery", () => {
       throw new Error("Expected a second published Topic Material");
     }
     const beyondPageSeriesId = "75000000-0000-4000-8000-000000000010";
-    await testDatabase.prisma.series.create({
+    await testDatabase.prisma.guide.create({
       data: {
         id: beyondPageSeriesId,
         name: "Beyond first page",
@@ -113,14 +113,14 @@ describe("Content Library discovery", () => {
       },
     });
     await Promise.all([
-      testDatabase.prisma.seriesMembership.create({
+      testDatabase.prisma.guideMembership.create({
         data: {
           materialId: target.materialId,
           ordinal: 1,
           seriesId: beyondPageSeriesId,
         },
       }),
-      testDatabase.prisma.publishedMaterialSeriesMembership.create({
+      testDatabase.prisma.publishedMaterialGuideMembership.create({
         data: {
           materialId: target.materialId,
           ordinal: 1,
@@ -333,7 +333,7 @@ describe("Content Library discovery", () => {
         where: { slug: "platform" },
         data: { archivedAt: new Date() },
       }),
-      testDatabase.prisma.series.update({
+      testDatabase.prisma.guide.update({
         where: { slug: "platform-inside" },
         data: { archivedAt: new Date() },
       }),
@@ -426,7 +426,7 @@ describe("Content Library discovery", () => {
           where: { slug: "platform" },
           data: { archivedAt: null },
         }),
-        testDatabase.prisma.series.update({
+        testDatabase.prisma.guide.update({
           where: { slug: "platform-inside" },
           data: { archivedAt: null },
         }),

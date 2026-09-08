@@ -45,7 +45,7 @@ export function contentCollectionPersistence(
 ): ContentCollectionPersistence {
   return kind === "topic"
     ? topicPersistence(prisma)
-    : seriesPersistence(prisma);
+    : guidePersistence(prisma, kind);
 }
 
 function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence {
@@ -130,20 +130,20 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
   };
 }
 
-function seriesPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence {
+function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): ContentCollectionPersistence {
   const project = async (
     record: ContentCollectionRecord | null,
   ): Promise<ContentCollectionDto | undefined> => {
     if (record === null) return undefined;
     const [materialCount, covers] = await Promise.all([
-      prisma.seriesMembership.count({ where: { seriesId: record.id } }),
+      prisma.guideMembership.count({ where: { seriesId: record.id } }),
       loadContentCoverProjections(
         prisma,
         record.coverId === null ? [] : [record.coverId],
       ),
     ]);
     return toDto(
-      "series",
+      kind,
       record,
       materialCount,
       record.coverId === null ? null : covers.get(record.coverId) ?? null,
@@ -151,15 +151,15 @@ function seriesPersistence(prisma: MaterialsPrisma): ContentCollectionPersistenc
   };
   return {
     create: async (data) => {
-      const record = await prisma.series.create({ data });
-      return toDto("series", record, 0, null);
+      const record = await prisma.guide.create({ data });
+      return toDto(kind, record, 0, null);
     },
     list: async () => {
       const [records, counts] = await Promise.all([
-        prisma.series.findMany({
+        prisma.guide.findMany({
           orderBy: [{ name: "asc" }, { id: "asc" }],
         }),
-        prisma.seriesMembership.groupBy({
+        prisma.guideMembership.groupBy({
           by: ["seriesId"],
           _count: { _all: true },
         }),
@@ -173,7 +173,7 @@ function seriesPersistence(prisma: MaterialsPrisma): ContentCollectionPersistenc
       );
       return records.map((record) =>
         toDto(
-          "series",
+          kind,
           record,
           countById.get(record.id) ?? 0,
           record.coverId === null ? null : covers.get(record.coverId) ?? null,
@@ -181,10 +181,10 @@ function seriesPersistence(prisma: MaterialsPrisma): ContentCollectionPersistenc
       );
     },
     load: async (id) =>
-      project(await prisma.series.findUnique({ where: { id } })),
+      project(await prisma.guide.findUnique({ where: { id } })),
     setArchive: async ({ archived, expectedVersion, id }) =>
       (
-        await prisma.series.updateMany({
+        await prisma.guide.updateMany({
           where: { id, version: expectedVersion },
           data: {
             archivedAt: archived ? new Date() : null,
@@ -196,7 +196,7 @@ function seriesPersistence(prisma: MaterialsPrisma): ContentCollectionPersistenc
     slugConstraint: "series_slug_unique",
     updateMetadata: async ({ expectedVersion, id, name, summary }) =>
       (
-        await prisma.series.updateMany({
+        await prisma.guide.updateMany({
           where: { id, version: expectedVersion },
           data: {
             name,

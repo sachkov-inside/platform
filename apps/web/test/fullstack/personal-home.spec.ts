@@ -61,7 +61,7 @@ test("personal Home opens the real series, persists marks and reconciles a lost 
   expect(commandId(commands[0] ?? "")).toBeTruthy(); expect(commandId(commands[1] ?? "")).toBe(commandId(commands[0] ?? ""));
   await button.click(); await expect(button).toHaveAttribute("aria-pressed", "true");
   await page.goto("/");
-  const resumeSeries = page.getByRole("link", { name: "Продолжить серию Demo · Прогресс обучения" });
+  const resumeSeries = page.getByRole("link", { name: "Продолжить руководство Demo · Прогресс обучения" });
   await expect(resumeSeries).toContainText("изучено 1 из 3");
   await expect(resumeSeries).toHaveAttribute("href", `/series/${seriesSlug}?from=%2F`);
   await expect(page.getByRole("region", { name: "Продолжить изучение" })).toHaveCount(0);
@@ -144,13 +144,13 @@ test("personal Home preserves the public hub through errors and excludes denied,
   await expect(page.locator("[data-reader-body]:visible")).toHaveCount(0); expect(opens).toEqual([]);
   await page.goto("/");
   await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "ready");
-  const series = page.getByRole("heading", { name: "Серии", exact: true });
+  const series = page.getByRole("heading", { name: "Руководства", exact: true });
   const before = (await series.boundingBox())?.y;
   await page.route("**/api/personal-home", async (route) => { await route.fulfill({ status: 503 }); });
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "unavailable");
   await expect(series).toBeVisible(); expect((await series.boundingBox())?.y).toBe(before);
-  await expect(page.getByRole("link", { name: /^Продолжить серию/u })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /^Продолжить руководство/u })).toHaveCount(0);
   await page.unroute("**/api/personal-home"); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "ready");
 });
@@ -160,7 +160,7 @@ test("personal Home preserves SSR geometry through authenticated hydration", asy
   const { promise, resolve: release } = Promise.withResolvers<undefined>();
   await page.route("**/*.js*", async (route) => { await promise; await route.continue(); });
   await page.goto("/", { waitUntil: "commit" });
-  const series = page.getByRole("heading", { name: "Серии", exact: true }); await expect(series).toBeVisible();
+  const series = page.getByRole("heading", { name: "Руководства", exact: true }); await expect(series).toBeVisible();
   await page.evaluate(() => document.fonts.ready); const before = await series.boundingBox(); release(undefined);
   await page.waitForResponse((response) => response.url().endsWith("/api/personal-home") && response.status() === 200);
   expect((await series.boundingBox())?.y).toBe(before?.y);

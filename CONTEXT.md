@@ -1,6 +1,6 @@
 # Platform
 
-Platform publishes Inside Materials and Series for visitors and Membership participants. The
+Platform publishes Inside Materials and Guides for visitors and Membership participants. The
 [current product brief](docs/product/platform-mvp-brief.md) owns delivery scope and the boundary
 between editorial originals and published application state. This glossary names the concepts
 shared by product and application work.
@@ -29,7 +29,7 @@ body and body-linked resources stay protected.
 _Avoid_: Teaser revision, public body, access decision
 
 **Content Cover**:
-A dedicated public image owned by exactly one Material, Topic or Series. Platform keeps only
+A dedicated public image owned by exactly one Material, Topic or Guide. Platform keeps only
 normalized responsive renditions; replacement and removal detach the old cover, and API
 projections never expose originals, storage keys or checksums. In Russian product language:
 «Обложка».
@@ -54,18 +54,19 @@ A managed label used to connect and retrieve Materials across Topics and Formats
 have any number of Tags, including none.
 _Avoid_: Free-form keyword, hashtag
 
-**Series**:
-An ordered collection of Materials with its own meaning and reading sequence. A Material may belong
-to any number of Series, including none. Its Topic relation is derived from published Materials,
-never authored directly. A Series has an immutable slug plus mutable name and summary; archiving
-preserves its composition and canonical reader but removes it from new assignments and discovery.
-In the Russian product interface: «Серия».
-_Avoid_: Topic, Playlist, плейлист
+**Guide**:
+A standalone practical Inside product for a reader task, with an authored sequence of reusable
+Materials. In Russian: «Руководство»; distinct from the Material format «Гайд».
+_Avoid_: Series, Playlist, Topic, Material format guide
 
-**Series Step Sequence**:
-An explicitly named connection between some Materials within one Series. Its steps follow the
-Series order even when other Materials appear between them. The same Material may have a different
-connection or none in another Series. It does not rank Materials by importance or create another
+**Guide Chapter**:
+An optional named group in a Guide's main path, without owning copies of Materials.
+_Avoid_: Video chapter, Material, separately purchased Guide
+
+**Guide Step Sequence**:
+An explicitly named connection between some Materials within one Guide. Its steps follow the
+Guide order even when other Materials appear between them. The same Material may have a different
+connection or none in another Guide. It does not rank Materials by importance or create another
 reading path. In Russian product language: «Последовательность шагов».
 _Avoid_: Module, Track, main/optional role
 
@@ -77,7 +78,7 @@ _Avoid_: Material, generated index
 
 **ContentLibrary**:
 The read capability that builds coherent, body-free projections of current Published Materials,
-Topics and Series for Home, Library and discovery pages. Home is a bounded projection of this same
+Topics and Guides for Home, Library and discovery pages. Home is a bounded projection of this same
 model, not an editorial copy or a second content store.
 _Avoid_: Frontend fixture catalog, Home CMS, duplicated publication
 
@@ -145,7 +146,7 @@ _Avoid_: Paywall middleware, UI lock state, Membership role
 
 **ReadingState**:
 The current manual read or unread relationship between an Account and a Material, independent of
-Membership and the Series from which it was opened. It records personal acknowledgement, not
+Membership and the Guide from which it was opened. It records personal acknowledgement, not
 verified understanding.
 _Avoid_: Playback position, verified mastery, completion percentage
 
@@ -154,9 +155,9 @@ An Account's private material acknowledgement and opening activity. Opening and 
 read are different facts.
 _Avoid_: Product analytics, ContentAccess, learning assessment
 
-**Series Progress**:
-The number of currently published Materials in a Series that an Account has marked read. A
-non-empty Series is currently all read only when every such Material is marked.
+**Guide Progress**:
+The number of currently published Materials in a Guide that an Account has marked read. A
+non-empty Guide is currently all read only when every such Material is marked.
 _Avoid_: Historical completion certificate, stored course percentage
 
 **VideoPlaybackProgress**:
@@ -166,8 +167,8 @@ _Avoid_: Material completion, read status, Kinescope user profile
 
 ## Deferred Workshop vocabulary
 
-Workshop is deferred while the current platform develops Materials and Series. These terms retain
-the separate Workshop model and implemented foundations; they do not define Series modules or
+Workshop is deferred while the current platform develops Materials and Guides. These terms retain
+the separate Workshop model and implemented foundations; they do not define Guide modules or
 expand the current delivery scope. See the
 [deferred Workshop contract](docs/specifications/workshop-tracks.md).
 

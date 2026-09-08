@@ -1,0 +1,42 @@
+[
+  {
+    "name": "mobile",
+    "rows": [
+      {
+        "ordinal": "1",
+        "height": 82,
+        "width": 358
+      },
+      {
+        "ordinal": "2",
+        "height": 94,
+        "width": 358
+      }
+    ],
+    "legacyAndCanonicalGeometryEqual": true,
+    "overflow": false,
+    "guideAxeViolations": 0,
+    "readerContext": true,
+    "directMaterialIndependent": true
+  },
+  {
+    "name": "desktop",
+    "rows": [
+      {
+        "ordinal": "1",
+        "height": 133,
+        "width": 1040
+      },
+      {
+        "ordinal": "2",
+        "height": 133,
+        "width": 1040
+      }
+    ],
+    "legacyAndCanonicalGeometryEqual": true,
+    "overflow": false,
+    "guideAxeViolations": 0,
+    "readerContext": true,
+    "directMaterialIndependent": true
+  }
+]

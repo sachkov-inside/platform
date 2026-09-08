@@ -27,7 +27,7 @@ export const seriesOrderQueryOptions = (seriesId: string) =>
     queryKey: ["series-order", seriesId],
     queryFn: async ({ signal }) => {
       const response = await fetch(
-        `/api/authoring/series/${encodeURIComponent(seriesId)}/order`,
+        `/api/authoring/guides/${encodeURIComponent(seriesId)}/order`,
         { signal, cache: "no-store" },
       );
       if (!response.ok) throw new Error("series-order-read");

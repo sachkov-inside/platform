@@ -322,7 +322,7 @@ model Tag {
   @@schema("materials")
 }
 
-model Series {
+model Guide {
   id         String    @id @db.Uuid
   slug       String    @unique(map: "series_slug_unique")
   name       String
@@ -372,7 +372,7 @@ model MaterialTag {
   @@schema("materials")
 }
 
-model SeriesMembership {
+model GuideMembership {
   stepGroup String? @map("step_group")
   seriesId   String @map("series_id") @db.Uuid
   materialId String @map("material_id") @db.Uuid
@@ -468,7 +468,7 @@ model PublishedMaterialTag {
   @@schema("materials")
 }
 
-model PublishedMaterialSeriesMembership {
+model PublishedMaterialGuideMembership {
   materialId String @map("material_id") @db.Uuid
   seriesId   String @map("series_id") @db.Uuid
   ordinal    Int

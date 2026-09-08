@@ -10,7 +10,7 @@ import type {
 import type { VideoAuthoringPresentation } from "../../../videos/index.js";
 import type { ContentCoverProjection } from "../content-covers/content-covers.js";
 
-export interface SeriesMembershipInput {
+export interface GuideMembershipInput {
   readonly seriesId: string;
   readonly ordinal: number;
 }
@@ -28,7 +28,7 @@ export interface MaterialMetadataSelectionInput {
 export interface MaterialMetadataDto
   extends Omit<MaterialMetadataSelectionInput, "seriesIds"> {
   readonly slug: string | null;
-  readonly seriesMemberships: readonly SeriesMembershipInput[];
+  readonly seriesMemberships: readonly GuideMembershipInput[];
 }
 
 export interface MaterialDto {

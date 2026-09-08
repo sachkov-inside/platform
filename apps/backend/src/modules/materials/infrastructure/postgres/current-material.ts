@@ -52,7 +52,7 @@ export async function loadCurrentMaterial(
       select: { tagId: true },
       orderBy: { tagId: "asc" },
     }),
-    prisma.seriesMembership.findMany({
+    prisma.guideMembership.findMany({
       where: { materialId },
       select: { seriesId: true, ordinal: true },
       orderBy: { seriesId: "asc" },
@@ -162,14 +162,14 @@ export async function replaceCurrentRelations(
       data: metadata.tagIds.map((tagId) => ({ materialId, tagId })),
     });
   }
-  const previousMemberships = await transaction.seriesMembership.findMany({
+  const previousMemberships = await transaction.guideMembership.findMany({
     where: { materialId },
     select: { seriesId: true, stepGroup: true },
   });
   const stepGroups = new Map(previousMemberships.map(({ seriesId, stepGroup }) => [seriesId, stepGroup]));
-  await transaction.seriesMembership.deleteMany({ where: { materialId } });
+  await transaction.guideMembership.deleteMany({ where: { materialId } });
   if (metadata.seriesMemberships.length > 0) {
-    await transaction.seriesMembership.createMany({
+    await transaction.guideMembership.createMany({
       data: metadata.seriesMemberships.map(({ seriesId, ordinal }) => ({
         materialId,
         seriesId,

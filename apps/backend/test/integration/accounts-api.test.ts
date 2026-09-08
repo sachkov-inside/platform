@@ -162,7 +162,7 @@ describe("Accounts API", () => {
       data: { id: topicId, name: "Architecture", slug: "architecture" },
     });
 
-    await database.prisma.series.create({
+    await database.prisma.guide.create({
       data: { id: seriesId, name: "Platform", slug: "platform" },
     });
 
@@ -203,6 +203,10 @@ describe("Accounts API", () => {
       headers: authorization,
     });
     expect(initialOrder.statusCode).toBe(200);
+    const canonicalOrder = await app.getHttpAdapter().getInstance().inject({ method: "GET", url: `/authoring/guides/${seriesId}/order`, headers: authorization });
+    expect(canonicalOrder.statusCode).toBe(200);
+    expect(canonicalOrder.json()).toEqual(initialOrder.json());
+    expect((await app.getHttpAdapter().getInstance().inject({ method: "GET", url: `/authoring/guides/${seriesId}/order` })).statusCode).toBe(401);
     const initialOrderBody = initialOrder.json<{
       readonly items: readonly { readonly materialId: string }[];
       readonly orderVersion: string;
@@ -214,7 +218,7 @@ describe("Accounts API", () => {
 
     const reordered = await app.getHttpAdapter().getInstance().inject({
       method: "PUT",
-      url: `/authoring/series/${seriesId}/order`,
+      url: `/authoring/guides/${seriesId}/order`,
       headers: authorization,
       payload: {
         expectedOrderVersion: initialOrderBody.orderVersion,

@@ -14,11 +14,26 @@ export const seriesContinuationHttpSchema = z.object({ collection: publishedCata
 @PrivateNoStore()
 @UseGuards(AccountGuard)
 @UseFilters(AccountProblemDetailsFilter)
-@Controller("reading-activity/series-continuation")
+@Controller("reading-activity")
 export class GetSeriesContinuationController {
   constructor(@Inject(PersonalHome) private readonly home: PersonalHome) {}
-  @Get(":slug")
-  @ApiOperation({ operationId: "getSeriesContinuation", summary: "Read saved progress and the next accessible Material in a published Series" })
+  @Get("guide-continuation/:slug")
+  @ApiOperation({ operationId: "getGuideContinuation", summary: "Read saved progress and the next accessible Material in a published Guide" })
+  @ApiParam({ name: "slug", schema: toOpenApiSchema(z.string().min(1).max(120)) })
+  @ApiOkResponse({ schema: toOpenApiSchema(seriesContinuationHttpSchema) })
+  @ApiResponse({ status: 400, content: problemDetailsContent(problemDetailsSchema(400, ["invalid_request"])) })
+  @ApiResponse({ status: 401, content: problemDetailsContent(accountProblemSchema) })
+  @ApiResponse({ status: 404, content: problemDetailsContent(problemDetailsSchema(404, ["series_not_found"])) })
+  @ApiResponse({ status: 500, content: problemDetailsContent(accountProblemSchema) })
+  @ApiResponse({ status: 503, content: problemDetailsContent(problemDetailsSchema(503, ["dependency_unavailable"])) })
+  async readGuide(@CurrentAccount() current: AuthenticatedAccount, @Param("slug") slug: string) {
+    const result = await this.home.getSeries(current.accountId, slug);
+    if (!result.ok) throwPersonalHomeError(result.error.code);
+    return result.value;
+  }
+
+  @Get("series-continuation/:slug")
+  @ApiOperation({ operationId: "getSeriesContinuation", deprecated: true, summary: "Read saved progress and the next accessible Material in a published Series" })
   @ApiParam({ name: "slug", schema: toOpenApiSchema(z.string().min(1).max(120)) })
   @ApiOkResponse({ schema: toOpenApiSchema(seriesContinuationHttpSchema) })
   @ApiResponse({ status: 400, content: problemDetailsContent(problemDetailsSchema(400, ["invalid_request"])) })

@@ -190,7 +190,7 @@ describe("MaterialAuthoring", () => {
     const bodyRowRead = vi.spyOn(testDatabase.prisma.material, "findUnique");
     const tagRead = vi.spyOn(testDatabase.prisma.materialTag, "findMany");
     const seriesRead = vi.spyOn(
-      testDatabase.prisma.seriesMembership,
+      testDatabase.prisma.guideMembership,
       "findMany",
     );
 
@@ -228,7 +228,7 @@ describe("MaterialAuthoring", () => {
         ],
       }),
 
-      testDatabase.prisma.series.create({
+      testDatabase.prisma.guide.create({
         data: {
           id: "94000000-0000-4000-8000-000000000035",
           name: "Build",

@@ -27,7 +27,7 @@ export async function SeriesOrderIndexPage() {
     );
   }
   const first = references.references.series[0];
-  if (first !== undefined) redirect(`/authoring/playlists/${first.value}`);
+  if (first !== undefined) redirect(`/authoring/guides/${first.value}`);
   return <SeriesOrderRouteState state={{ kind: "empty" }} />;
 }
 
@@ -47,7 +47,7 @@ export async function SeriesOrderPage({ seriesId }: { readonly seriesId: string 
   if (state.kind === "error") {
     return (
       <SeriesOrderRouteState
-        retryHref={`/authoring/playlists/${seriesId}`}
+        retryHref={`/authoring/guides/${seriesId}`}
         state={{ kind: "error", reference: state.reference }}
       />
     );
@@ -55,7 +55,7 @@ export async function SeriesOrderPage({ seriesId }: { readonly seriesId: string 
   if (references.kind === "unexpected_error") {
     return (
       <SeriesOrderRouteState
-        retryHref={`/authoring/playlists/${seriesId}`}
+        retryHref={`/authoring/guides/${seriesId}`}
         state={{ kind: "error", reference: references.reference }}
       />
     );
@@ -83,7 +83,7 @@ async function sessionToken(): Promise<string | undefined> {
 function unauthorized() {
   return (
     <MaterialAuthoringUnauthorizedState
-      action={<MaterialAuthoringSignInActions returnHref="/authoring/playlists" />}
+      action={<MaterialAuthoringSignInActions returnHref="/authoring/guides" />}
       context="editor"
     />
   );

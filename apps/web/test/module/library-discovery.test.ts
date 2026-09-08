@@ -53,7 +53,7 @@ describe("Library discovery server adapter", () => {
 
   it.each([
     ["topic", getPublishedTopic, "/library/topics/platform"],
-    ["series", getPublishedSeries, "/library/series/platform"],
+    ["series", getPublishedSeries, "/library/guides/platform"],
   ] as const)(
     "maps a valid %s response to canonical navigation metadata",
     async (kind, getDiscovery, expectedPath) => {

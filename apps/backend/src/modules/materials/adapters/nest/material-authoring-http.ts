@@ -128,7 +128,7 @@ export const reorderSeriesReceiptSchema = z
   .object({ seriesId: z.uuid(), orderVersion: seriesOrderVersionSchema })
   .strict();
 
-export const contentCollectionKindSchema = z.enum(["series", "topic"]);
+export const contentCollectionKindSchema = z.enum(["guide", "series", "topic"]);
 export const contentCollectionSchema = z
   .object({
     archived: z.boolean(),

@@ -22,7 +22,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname();
   const current = pathname.startsWith("/authoring/topics")
     ? "topics"
-    : pathname.startsWith("/authoring/playlists")
+    : (pathname.startsWith("/authoring/guides") || pathname.startsWith("/authoring/playlists"))
       ? "playlists"
       : pathname.endsWith("/preview")
         ? "preview"
@@ -74,9 +74,9 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
             />
             <AuthoringLink
               current={current === "playlists"}
-              href="/authoring/playlists"
+              href="/authoring/guides"
               icon={<ListOrdered aria-hidden="true" />}
-              label="Серии"
+              label="Руководства"
             />
             {current === "preview" ? (
               <div
@@ -129,8 +129,8 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
           </MobileLink>
           <MobileLink
             current={current === "playlists"}
-            href="/authoring/playlists"
-            label="Серии"
+            href="/authoring/guides"
+            label="Руководства"
           >
             <ListOrdered aria-hidden="true" />
           </MobileLink>

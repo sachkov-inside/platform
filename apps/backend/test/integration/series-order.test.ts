@@ -21,13 +21,29 @@ describe("Series order", () => {
       data: { id: topicId, slug: "series-order", name: "Series order" },
     });
 
-    await testDatabase.prisma.series.create({
+    await testDatabase.prisma.guide.create({
       data: { id: seriesId, slug: "platform", name: "Platform" },
     });
   });
 
   afterAll(async () => {
     await testDatabase.dispose();
+  });
+
+  test("Guide and legacy Series share identity, mutable version and archive state", async () => {
+    const { authoring } = assembleMaterials({ prisma: testDatabase.prisma, authorPolicy: { canManage: () => true } });
+    const created = await authoring.createContentCollection({ actor, kind: "guide", name: "Reusable Guide", slug: "reusable-guide", summary: "One product" });
+    if (!created.ok) throw new Error(created.error.code);
+    expect(created.value.kind).toBe("guide");
+    const legacy = await authoring.listContentCollections({ actor, kind: "series" });
+    if (!legacy.ok) throw new Error(legacy.error.code);
+    expect(legacy.value.find(({ id }) => id === created.value.id)).toEqual({ ...created.value, kind: "series" });
+    const archived = await authoring.setContentCollectionArchive({ actor, kind: "series", collectionId: created.value.id, expectedVersion: created.value.version, archived: true });
+    if (!archived.ok) throw new Error(archived.error.code);
+    const guides = await authoring.listContentCollections({ actor, kind: "guide" });
+    if (!guides.ok) throw new Error(guides.error.code);
+    expect(guides.value.find(({ id }) => id === created.value.id)).toMatchObject({ kind: "guide", archived: true, slug: "reusable-guide", version: created.value.version + 1 });
+    expect(await testDatabase.prisma.guide.count({ where: { id: created.value.id } })).toBe(1);
   });
 
   test("loads and reorders a playlist without changing Material versions", async () => {
@@ -111,7 +127,7 @@ describe("Series order", () => {
     if (!reordered.ok) throw new Error(reordered.error.code);
 
     expect(
-      await testDatabase.prisma.seriesMembership.findMany({
+      await testDatabase.prisma.guideMembership.findMany({
         where: { seriesId },
         orderBy: { ordinal: "asc" },
         select: { materialId: true, ordinal: true },
@@ -120,7 +136,7 @@ describe("Series order", () => {
       reversed.map((materialId, index) => ({ materialId, ordinal: index + 1 })),
     );
     expect(
-      await testDatabase.prisma.publishedMaterialSeriesMembership.findMany({
+      await testDatabase.prisma.publishedMaterialGuideMembership.findMany({
         where: { seriesId },
         orderBy: { ordinal: "asc" },
         select: { materialId: true, ordinal: true },
@@ -328,7 +344,7 @@ describe("Series order", () => {
       body: representativeDocument("Unassigned body."),
     });
     if (!unassigned.ok) throw new Error(unassigned.error.code);
-    await testDatabase.prisma.series.update({
+    await testDatabase.prisma.guide.update({
       where: { id: seriesId },
       data: { archivedAt: new Date() },
     });
@@ -368,7 +384,7 @@ describe("Series order", () => {
         },
       });
     } finally {
-      await testDatabase.prisma.series.update({
+      await testDatabase.prisma.guide.update({
         where: { id: seriesId },
         data: { archivedAt: null },
       });
