@@ -58,7 +58,7 @@ export async function setReadingState(dependencies: {
         if (!facts.ok) return { ok: false, error: { code: "dependency_unavailable" } };
         if (facts.value === null || facts.value.publicationState !== "published" ||
           facts.value.contentVersion !== decision.checkedContentVersion ||
-          ("validUntil" in decision && Date.parse(decision.validUntil) <= Date.now())) {
+          ("validUntil" in decision && decision.validUntil !== null && Date.parse(decision.validUntil) <= Date.now())) {
           return { ok: false, error: { code: "access_changed" } };
         }
       }

@@ -1,3 +1,4 @@
+import { BillingModule } from "../../modules/billing/index.js";
 import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
 import { CommunicationsModule, CommunicationsTrackingDeliveryModule } from "../../modules/communications/index.js";
 import { type DynamicModule, Module } from "@nestjs/common";
@@ -103,6 +104,7 @@ export class ApiModule {
         RuntimeIdentityModule,
         PrismaModule,
         AccountsModule,
+        BillingModule,
         ReadingActivityModule,
         CommunicationsModule,
         CommunicationsTrackingDeliveryModule,

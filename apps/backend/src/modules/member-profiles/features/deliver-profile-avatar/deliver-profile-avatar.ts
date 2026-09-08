@@ -71,8 +71,9 @@ export async function deliverProfileAvatar(
 
 function remainingMembershipTtlSeconds(
   configuredTtlSeconds: number,
-  validUntil: string,
+  validUntil: string | null,
 ): number | null {
+  if (validUntil === null) return configuredTtlSeconds;
   const remainingWholeSeconds = Math.floor(
     (Date.parse(validUntil) - Date.now()) / 1_000,
   );

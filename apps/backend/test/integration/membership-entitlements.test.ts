@@ -1,3 +1,4 @@
+import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
 import { readFile } from "node:fs/promises";
 
 import {
@@ -12,7 +13,6 @@ import { z } from "zod";
 
 import { accountId, type AccountId } from "../../src/modules/accounts/index.js";
 import {
-  assembleMembershipEntitlements,
   type MembershipEntitlements,
   type MembershipEvidenceSource,
 } from "../../src/modules/membership-entitlements/index.js";
@@ -57,7 +57,7 @@ describe("MembershipEntitlements", () => {
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    membershipEntitlements = assembleMembershipEntitlements({
+    membershipEntitlements = assembleLegacyCohortFixture({
       prisma: testDatabase.prisma,
       workshopEntitlements: assembleWorkshopEntitlements({
         prisma: testDatabase.prisma,

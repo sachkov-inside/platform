@@ -1,17 +1,24 @@
 import { randomUUID } from "node:crypto";
+import { migrateToLatest, platformMigrations } from "../../src/migrations/index.js";
+import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { assembleMaterials } from "../../src/modules/materials/index.js";
 import { readHomeContent } from "../../src/modules/content-library/features/read-home-content/read-home-content.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
-import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
+import { createTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 const actor = randomUUID();
 const topicId = randomUUID();
 let database: TestDatabase;
 let materials: ReturnType<typeof assembleMaterials>;
 beforeAll(async () => {
-  database = await createMigratedTestDatabase();
+  database = await createTestDatabase();
+  // Upgrade the existing main ledger as an exact prefix; never reorder applied migrations.
+  const pinStart = platformMigrations.findIndex((migration) => migration.name === "0038_home_material_pin");
+  expect(platformMigrations[pinStart - 1]?.name).toBe("0040_billing_pricing");
+  await runMigrationsToLatest(database.url, platformMigrations.slice(0, pinStart));
+  expect(await migrateToLatest(database.url)).toEqual({ appliedMigrations: ["0038_home_material_pin", "0039_home_series_pin"] });
   await database.prisma.topic.create({ data: { id: topicId, name: "Home", slug: "home" } });
   materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: (id) => id === actor } });
 });

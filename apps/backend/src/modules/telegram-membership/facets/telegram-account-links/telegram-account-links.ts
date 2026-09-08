@@ -16,6 +16,17 @@ export type TelegramAccountLinkResult =
 export class TelegramAccountLinks {
   constructor(private readonly prisma: TelegramMembershipPrismaClient) {}
 
+  /** Durable binding snapshots for community delivery; null identity is an unlink tombstone. */
+  async readBinding(query: { readonly accountId: string; readonly revision?: number }) {
+    if (!z.object({ accountId: z.uuid(), revision: z.number().int().positive().optional() }).strict().safeParse(query).success) return { ok: false as const };
+    try {
+      const row = query.revision === undefined
+        ? await this.prisma.telegramAccountLinkState.findUnique({ where: { accountId: query.accountId } })
+        : await this.prisma.telegramAccountLinkHistory.findUnique({ where: { accountId_revision: { accountId: query.accountId, revision: query.revision } } });
+      return { ok: true as const, binding: row === null ? null : { linkRef: row.linkRef, linkRevision: row.revision, accountRef: row.principalRef, telegramIdentityRef: row.identityRef } };
+    } catch { return { ok: false as const }; }
+  }
+
   async find(query: { readonly accountId: string } | { readonly accountRef: string }): Promise<TelegramAccountLinkResult> {
     if ("accountId" in query ? parseAccountId(query.accountId) === undefined : !z.string().min(1).max(256).safeParse(query.accountRef).success) {
       return { ok: true, link: null };

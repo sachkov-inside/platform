@@ -35,7 +35,7 @@ interface ExpectedDecision {
     | "membership_expired"
     | "permission_required"
     | "resource_unpublished";
-  readonly validUntil?: string;
+  readonly validUntil?: string | null;
 }
 
 type ExpectedAvailability = "available" | "locked" | "unavailable";
@@ -244,6 +244,12 @@ describe("ContentAccess availability", () => {
         },
       ],
     });
+  });
+
+  test("authorizes a lifetime material grant without inventing an expiry", async () => {
+    const facts = membershipMaterial(1);
+    const access = assembleContentAccess({ materialResourceFacts: { findOne: () => Promise.resolve(facts), findMany: () => Promise.resolve([facts]) }, accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) }, membershipEntitlements: { resolveForAccess: () => Promise.resolve({ kind: "active", validUntil: null }) } });
+    expect(await access.authorize({ subject: { kind: "account", accountId }, resource: { kind: "material", materialId: facts.materialId }, action: "read", enforcementPoint: "published_material_read", correlationId: "lifetime" })).toMatchObject({ effect: "allow", reason: "active_membership", validUntil: null });
   });
 
   test.each([1, 100])(

@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["accounts", "assets", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
+  schemas  = ["billing", "accounts", "assets", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
 }
 
 model Account {
@@ -723,4 +723,179 @@ model ReadingMaterialVisit {
   @@index([accountId, lastOpenedAt(sort: Desc), materialId], map: "material_visits_recent")
   @@map("material_visits")
   @@schema("reading_activity")
+}
+
+model AccessGrant {
+  id           String    @id @db.Uuid
+  accountId    String    @map("account_id") @db.Uuid
+  source       String
+  sourceRef    String    @map("source_ref") @db.VarChar(256)
+  capabilities String[]
+  startsAt     DateTime  @map("starts_at") @db.Timestamptz
+  validUntil   DateTime? @map("valid_until") @db.Timestamptz
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz
+  revision     Int
+  reason       String    @db.VarChar(1000)
+
+  @@unique([source, sourceRef])
+  @@index([accountId], map: "access_grants_account_idx")
+  @@map("access_grants")
+  @@schema("membership_entitlements")
+}
+
+model AccessReceipt {
+  scope       String   @db.VarChar(256)
+  operationId String   @map("operation_id") @db.Uuid
+  fingerprint String   @db.Char(64)
+  result      Json
+  payload     Json
+  createdAt   DateTime @map("created_at") @db.Timestamptz
+
+  @@id([scope, operationId])
+  @@map("access_receipts")
+  @@schema("membership_entitlements")
+}
+
+model AccessBatchPreview {
+  id          String   @id @db.Uuid
+  actorId     String   @map("actor_id") @db.Uuid
+  operationId String   @map("operation_id") @db.Uuid
+  fingerprint String   @db.Char(64)
+  rows        Json
+  revision    Int      @default(1)
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz
+
+  @@unique([actorId, operationId])
+  @@map("access_batch_previews")
+  @@schema("membership_entitlements")
+}
+
+model LegacyClassification {
+  accountId      String   @id @map("account_id") @db.Uuid
+  classification String
+  sourceRef      String   @map("source_ref") @db.VarChar(256)
+  reason         String   @db.VarChar(1000)
+  verifiedAt     DateTime @map("verified_at") @db.Timestamptz
+  revision       Int
+  bridgeEnabled  Boolean  @default(false) @map("bridge_enabled")
+  tributeStopped Boolean  @default(false) @map("tribute_stopped")
+
+  @@map("legacy_classifications")
+  @@schema("membership_entitlements")
+}
+
+model AccessChange {
+  revision    Int      @id @default(autoincrement())
+  accountId   String   @map("account_id") @db.Uuid
+  grantId     String?  @map("grant_id") @db.Uuid
+  actorId     String?  @map("actor_id") @db.Uuid
+  operationId String   @map("operation_id") @db.Uuid
+  kind        String
+  reason      String   @db.VarChar(1000)
+  recordedAt  DateTime @map("recorded_at") @db.Timestamptz
+
+  @@index([accountId, revision], map: "access_changes_account_idx")
+  @@map("access_changes")
+  @@schema("membership_entitlements")
+}
+
+model TelegramAccountLinkState {
+  accountId    String   @id @map("account_id") @db.Uuid
+  linkRef      String   @unique @map("link_ref") @db.Uuid
+  revision     Int
+  principalRef String?  @map("principal_ref") @db.VarChar(256)
+  identityRef  String?  @map("identity_ref") @db.VarChar(256)
+  updatedAt    DateTime @map("updated_at") @db.Timestamptz
+
+  @@map("account_link_states")
+  @@schema("telegram_membership")
+}
+
+model TelegramAccountLinkHistory {
+  accountId    String   @map("account_id") @db.Uuid
+  revision     Int
+  linkRef      String   @map("link_ref") @db.Uuid
+  principalRef String?  @map("principal_ref") @db.VarChar(256)
+  identityRef  String?  @map("identity_ref") @db.VarChar(256)
+  recordedAt   DateTime @map("recorded_at") @db.Timestamptz
+
+  @@id([accountId, revision])
+  @@map("account_link_history")
+  @@schema("telegram_membership")
+}
+
+model BillingOffer {
+  id String @id @db.Uuid
+  revision Int
+  name String
+  benefits String[]
+  archived Boolean @default(false)
+  options BillingPaymentOption[]
+  @@map("offers")
+  @@schema("billing")
+}
+model BillingPaymentOption {
+  id String @id @db.Uuid
+  revision Int
+  offerId String @map("offer_id") @db.Uuid
+  offer BillingOffer @relation(fields: [offerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  months Int
+  priceKopecks BigInt @map("price_kopecks")
+  archived Boolean @default(false)
+  @@map("payment_options")
+  @@schema("billing")
+}
+model BillingPromotion {
+  id String @id @db.Uuid
+  revision Int
+  name String
+  percent Int
+  code String? @unique
+  startsAt DateTime @map("starts_at") @db.Timestamptz
+  endsAt DateTime @map("ends_at") @db.Timestamptz
+  offerIds String[] @map("offer_ids") @db.Uuid
+  paymentOptionIds String[] @map("payment_option_ids") @db.Uuid
+  usageLimit Int? @map("usage_limit")
+  archived Boolean @default(false)
+  reservations BillingPromoReservation[]
+  @@map("promotions")
+  @@schema("billing")
+}
+model BillingPricingCommand {
+  actor String @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  outcome Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@id([actor, operationId])
+  @@map("pricing_commands")
+  @@schema("billing")
+}
+model BillingPriceQuote {
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  snapshot Json
+  promoCode String? @map("promo_code")
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  reservation BillingPromoReservation?
+  @@unique([accountId, operationId])
+  @@map("price_quotes")
+  @@schema("billing")
+}
+model BillingPromoReservation {
+  purchaseRef String @id @map("purchase_ref") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  quoteRef String @unique @map("quote_ref") @db.Uuid
+  quote BillingPriceQuote @relation(fields: [quoteRef], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  promotionId String? @map("promotion_id") @db.Uuid
+  promotion BillingPromotion? @relation(fields: [promotionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  state String
+  snapshot Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@index([promotionId, state], map: "billing_promotion_usage")
+  @@map("promo_reservations")
+  @@schema("billing")
 }

@@ -1,3 +1,4 @@
+import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
 import { createHash } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -9,7 +10,7 @@ import {
   type MaterialResourceFacts,
 } from "../../src/modules/content-access/index.js";
 import { materialId } from "../../src/modules/materials/index.js";
-import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
+
 import {
   assembleWorkshop,
   assembleWorkshopEntitlements,
@@ -54,7 +55,7 @@ describe("Workshop foundation", () => {
 
   test("serializes the Membership decision with a concurrent entitlement change", async () => {
     const now = new Date("2030-02-01T00:00:00.000Z");
-    const membershipEntitlements = assembleMembershipEntitlements({
+    const membershipEntitlements = assembleLegacyCohortFixture({
       prisma: database.prisma,
       workshopEntitlements: assembleWorkshopEntitlements({
         prisma: database.prisma,
@@ -151,7 +152,7 @@ describe("Workshop foundation", () => {
 
   test("keeps a bounded grant independent from later Membership changes and requires explicit regrant after expiry", async () => {
     let now = new Date("2030-01-01T00:00:00.000Z");
-    const membershipEntitlements = assembleMembershipEntitlements({
+    const membershipEntitlements = assembleLegacyCohortFixture({
       prisma: database.prisma,
       workshopEntitlements: assembleWorkshopEntitlements({
         prisma: database.prisma,
@@ -489,7 +490,7 @@ describe("Workshop foundation", () => {
   test("applies one entitlement and reveal decision to direct Material, asset and Video access", async () => {
     let now = new Date("2030-01-04T00:00:00.000Z");
     let nextId = 300;
-    const membershipEntitlements = assembleMembershipEntitlements({
+    const membershipEntitlements = assembleLegacyCohortFixture({
       prisma: database.prisma,
       workshopEntitlements: assembleWorkshopEntitlements({
         prisma: database.prisma,

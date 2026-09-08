@@ -18,8 +18,10 @@ Full-stack Playwright проверяет loading→error→retry→ready без 
 Использованы синтетическая identity, настоящие BFF/API и отдельная PostgreSQL. Тестовая БД удалена.
 
 Проверки: `PLAYWRIGHT_PORT=3425 pnpm check`;
-`pnpm --filter @inside/backend test:integration --maxWorkers=4` — 217 tests / 35 files;
+`pnpm --filter @inside/backend test:integration --maxWorkers=4`;
 focused `pnpm smoke:fullstack` для Home и авторского закрепа. Node 24.19.0.
+После интеграции main сохранён его полный migration prefix; существующая БД main получает только
+две миграции закрепа. Ранее применявшиеся имена и SQL закрепа сохранены, порядок задаётся реестром.
 DB acceptance покрывает отрицательный Material UUID, право управления, конкурирующие записи,
 текущие название/описание, архив и пустой опубликованный состав, снятие и singleton constraint.
 

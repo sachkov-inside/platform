@@ -303,7 +303,7 @@ The same generation runs during install, build, and typecheck:
 pnpm --filter @inside/backend prisma:generate
 ```
 
-The Prisma schema maps the product-owned `materials`, `assets`, `accounts`, `member_profiles`,
+The Prisma schema maps the product-owned `billing`, `materials`, `assets`, `accounts`, `member_profiles`,
 `membership_entitlements`, `reading_activity` and `telegram_membership` schemas. Checked-in,
 append-only SQL migrations remain the database authority. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;

@@ -8,6 +8,20 @@ Authority этого brief находится в этом Platform repository. �
 дают versioning, provenance и review. Общий Membership-контекст и cross-repository решения остаются
 в [`sachkov-inside/workspace`](https://github.com/sachkov-inside/workspace).
 
+## Следующий этап: собственная подписка
+
+Владелец согласовал модель собственной подписки в Workspace #128 и общий переход в
+[PR #151](https://github.com/sachkov-inside/workspace/pull/151). Platform становится владельцем
+оплаты, подписки и независимых paid/manual/legacy прав; Telegram применяет право участия.
+[Локальная спецификация billing](../specifications/subscription-billing-v1.md) и
+[versioned источники](../contracts/billing-v1/README.md) описывают эту отдельную поставку.
+
+Foundation #404 учитывает независимые paid/manual/legacy права Account. Для чтения по
+paid/manual праву Telegram не нужен; checkout и реальная выдача ещё требуют следующих поставок
+и отдельного разрешения владельца. Старый evidence-путь работает только для явно зафиксированной
+legacy-группы. Юридические тексты/реквизиты и публичные страницы/футер
+поставляются Workspace #149 / Platform #412 и могут появиться раньше нового checkout.
+
 ## Результат первой версии
 
 Первая версия делает собственную платформу основным домом материалов Inside. Она решает две
@@ -50,10 +64,10 @@ private Account, member-only Member Profile и reading experience. `sachkov.dev`
 - связывает Telegram целиком в onboarding-окне либо позже из Account: Platform выдаёт short-lived
   bot link, первое действие сразу открывает Telegram, участник отправляет `/start`, а после возврата
   Platform автоматически подтверждает связь и показывает явный success result;
-- получает доступ на основании внешнего признака активного Membership;
-- имеет один уровень закрытого доступа без тарифной матрицы;
-- после окончания Membership сохраняет Account, Member Profile, историю и статусы
-  прочтения, но до возобновления Membership теряет доступ к закрытым материалам и Member Profiles
+- получает доступ из объединения действующих paid/manual/legacy оснований Account;
+- открывает закрытые материалы по возможности `materials`; тарифный checkout поставляется отдельно;
+- после окончания всех оснований доступа сохраняет Account, Member Profile, историю и статусы
+  прочтения, но до появления действующего права теряет доступ к закрытым материалам и Member Profiles
   других участников.
 
 Экран Telegram-входа содержит кнопку «Открыть бота» и короткий статус. Бот спрашивает
@@ -93,10 +107,11 @@ text Profile vertical; это не расширяет brief до публичн�
 
 Платформа не принимает оплату и не управляет подпиской. Один outbound CTA ведёт на
 Platform-configured Tribute URL: Platform не читает Tribute API/webhooks и не делает access decision
-по клику или payment state. Trial, промокоды, подарки, временные доступы и продажа отдельных серий
-не входят в первую версию. Внешним признаком Membership является участие в единственном
-каноническом закрытом Telegram chat. Platform не выдаёт доступ по данным Tribute или другого
-payment/roster operator; technical integration boundary описана в
+по клику или неподтверждённому payment state. В #404 доступны внутренние операции ручного
+временного/бессрочного права и импорта подтверждённого legacy-права; owner API/MCP поставляет
+#409. Новое членство в Telegram не создаёт legacy-основание. Неизвестная классификация старой
+подписки запрещает новый recurring; для старого участника дополнительно нужно подтверждение
+остановки Tribute. Technical integration boundary описана в
 [application specification](../specifications/platform-v1.md).
 
 ### Автор
