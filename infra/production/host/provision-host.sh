@@ -68,7 +68,6 @@ apt-get update
 apt-get install --yes \
   age \
   ca-certificates \
-  caddy \
   curl \
   docker-buildx \
   docker-compose-v2 \
@@ -95,6 +94,8 @@ install -d -m 755 /usr/local/libexec/inside
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 production_dir="$(cd "$script_dir/.." && pwd)"
 repository_dir="$(cd "$production_dir/../.." && pwd)"
+
+bash "$script_dir/install-caddy.sh"
 
 cp --archive \
   "$production_dir/database/." \

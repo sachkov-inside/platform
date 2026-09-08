@@ -32,6 +32,7 @@ interface в #243, для будущей одноразовой настройк
 |---|---|
 | `infra/production/host/provision-host.sh` | Единственная команда первичной подготовки чистой Ubuntu VPS |
 | `infra/production/host/Caddyfile` | Безопасный Caddy baseline без публичных application routes |
+| `infra/production/host/install-caddy.sh` | Официальный amd64 пакет Caddy с закреплёнными версией и SHA-256 |
 | `infra/production/host/inside-deploy` | Root-owned gateway для двух допустимых forced SSH commands |
 | `infra/production/host/configure-deploy-key.sh` | Идемпотентная установка одного ограниченного deployment key |
 | `config/production/foundation/*.env.example` | Шаблоны конфигурации и секретов без реальных значений |
@@ -54,8 +55,10 @@ sudo infra/production/host/provision-host.sh
 Она:
 
 1. Проверяет запуск от `root`, Ubuntu 24.04 или 26.04 LTS и отсутствие чужих данных в managed paths.
-2. Устанавливает из Ubuntu repositories Docker Engine, Compose v2, Buildx, Caddy, OpenSSH, UFW, age и
-   `util-linux` с командой `flock`, использующей блокировку ядра.
+2. Устанавливает из Ubuntu repositories Docker Engine, Compose v2, Buildx, OpenSSH, UFW, age и
+   `util-linux` с командой `flock`, использующей блокировку ядра. Caddy устанавливает отдельно
+   через `install-caddy.sh` из официального Caddy stable repository: версия и checksum принадлежат
+   этому скрипту. Комплект рассчитан на amd64.
 3. Создаёт заблокированного по паролю пользователя `inside-deploy`. Его sudoers rule разрешает
    только root-owned `inside-deploy` gateway и сохраняет только `SSH_ORIGINAL_COMMAND`.
 4. Создаёт отдельные root-owned пути для server configuration, staged Releases и deployment
@@ -94,6 +97,53 @@ reload. Не перезапускайте Logto, Platform или PostgreSQL ра
 У браузера мог сохраниться прежний `Alt-Svc` на 30 дней. Закрытие QUIC listener должно
 дать быстрый отказ и переключение на TCP, но это необходимо проверить на сети владельца.
 Не выдавайте лабораторный fallback за доказательство работы Safari на его iPhone.
+
+## Обновление пакета Caddy на работающем сервере
+
+В #399 Ubuntu Caddy `2.6.2-14` заменена официальной `2.11.4`. Старый пакет сочетал
+старую Caddy с новой quic-go без согласованного закрытия listener после reload.
+Первичный разбор — [#397](https://github.com/sachkov-inside/platform/issues/397),
+проверка установленной версии — [отчёт #399](../research/issue-399-caddy-upgrade.md).
+Публичный baseline остаётся `h1 h2`: новая сборка исправляет серверный дефект,
+но проверенный VPN-маршрут не устанавливает QUIC-соединение.
+
+`install-caddy.sh` проверяет SHA-256 и metadata официального `.deb`, устанавливает его
+с сохранением изменённого Caddyfile и фиксирует версию в
+`/etc/apt/preferences.d/inside-caddy`. Системные обновления не должны незаметно заменить
+проверенную сборку дистрибутивным backport. Сам скрипт не управляет приёмкой, блокировкой
+или откатом; это часть отдельной разрешённой операции на действующем сервере.
+Обновление версии требует изменения version/checksum в скрипте и повторной проверки ниже.
+
+Порядок отдельного обновления:
+
+1. Получить разрешение владельца и эксклюзивный `flock` на
+   `/var/lib/inside/deployments/operation.lock` на всё время изменения и проверки.
+   Не повторять полный provisioning ради обновления Caddy.
+2. Сохранить текущие Caddyfile, пакет для отката, существующий apt pin и сведения о
+   systemd unit/drop-ins. Проверить здоровье действующих маршрутов. Бэкапы с данными
+   сервера остаются в root-only каталоге, не попадают в Git.
+3. Загрузить пакет по URL из скрипта и проверить его SHA-256 до запуска бинарного файла.
+   Извлечь кандидат через `dpkg-deb -x`, проверить конфигурацию от имени `caddy` и наличие
+   используемых модулей. Сравнить маршруты старого и нового `caddy adapt`: автоматически
+   созданные идентификаторы `group` могут переименовываться, но связи между группами,
+   правила, upstream и протоколы должны сохраниться.
+4. Выполнить `bash infra/production/host/install-caddy.sh`. Установка пакета может
+   перезапустить только Caddy. Проверить пакет, фактически работающий бинарный файл,
+   systemd service, неизменность Caddyfile и маршрутов admin API.
+5. Повторить проверки главной, discovery, Telegram-страницы и скрипта, затем минимум
+   два reload. Проверять первый запрос после каждого reload и фактический протокол,
+   статус и тело ответа. Перед возвратом H3 использовать изолированный QUIC-сценарий
+   и ограниченный публичный опыт; HTTP 200 по H2 не считается доказательством H3.
+6. При неуспехе установки или здоровья восстановить прежний pin (или удалить только
+   созданный этой операцией), Caddyfile и сохранённый пакет через
+   `apt-get install --yes --allow-downgrades -o Dpkg::Options::=--force-confold <backup.deb>`.
+   Перезапустить Caddy и проверить маршруты. При провале только сетевой проверки H3
+   достаточно вернуть baseline `h1 h2` и выполнить reload, сохранив исправленный пакет.
+
+В #399 пакет и конфигурация для отката сохранены в
+`/var/lib/inside/deployments/caddy-399-backup`. Откат реально выполнился при первой
+слишком строгой проверке автоматических имён `group`; после уточнения сравнения
+новая сборка установлена и принята. Logto, Platform и PostgreSQL не перезапускались.
 
 ## Порядок применения в #244
 
