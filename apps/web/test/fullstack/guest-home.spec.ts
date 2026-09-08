@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 
 test("guest Home uses published series and the existing acquisition route", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator('[data-home-membership="inactive"]')).toBeVisible();
-  const title = await page.locator("#featured-title").innerText();
+  await expect(page.locator('[data-home-membership="inactive"]:visible')).toBeVisible();
+  const title = await page.getByRole("heading", { level: 2 }).first().innerText();
   const seriesLink = page.getByRole("link", { name: "Изучить серию" });
   await expect(seriesLink).toHaveAttribute("href", /^\/series\/[^?]+\?from=%2F$/u);
   const offer = page.getByRole("region", { name: "Подписка Inside" });
@@ -22,8 +22,23 @@ test("guest Home uses published series and the existing acquisition route", asyn
 test("tablet Home can scroll to the last section and keeps navigation usable", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 900 });
   await page.goto("/");
-  await page.mouse.wheel(0, 20_000);
-  await expect(page.getByRole("link", { name: "Получить полный доступ", exact: true })).toBeInViewport();
+  const finalLink = page.getByRole("link", { name: "Получить полный доступ", exact: true });
+  await expect(finalLink).toBeVisible();
+  await expect.poll(async () => {
+    await page.mouse.wheel(0, 20_000);
+    return finalLink.evaluate((element) => element.getBoundingClientRect().bottom <= innerHeight);
+  }).toBe(true);
+  await expect(finalLink).toBeInViewport();
   await expect(page.getByRole("navigation", { name: "Мобильная навигация" }).getByRole("link", { name: "База знаний" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(768);
+});
+
+test("tablet guest offers reflow when the reader doubles text size", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto("/");
+  await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  const link = page.getByRole("link", { name: "Получить полный доступ", exact: true });
+  await link.scrollIntoViewIfNeeded();
+  await expect(link).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(768);
 });

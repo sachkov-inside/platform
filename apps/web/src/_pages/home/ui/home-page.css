@@ -111,3 +111,11 @@
 .home-spark-terminal { --spark-x: 27px; --spark-y: -45px; animation-delay: 2s; }
 @keyframes home-shoulder-drift { 0% { opacity: 0; transform: translate(0,0) scale(.6); } 12% { opacity: .5; } 35% { opacity: .25; } 50%,100% { opacity: 0; transform: translate(var(--spark-x),var(--spark-y)) scale(1) rotate(12deg); } }
 @media (prefers-reduced-motion: reduce) { .home-shoulder-sparks { display: none; } .home-spark { animation: none; } }
+
+/* Use available text space as well as the device viewport for subscription actions. */
+@container home (max-width: 40em) {
+  .home-access-strip { display: grid; grid-template-columns: auto minmax(0,1fr); padding: 1.25rem; }
+  .home-access-strip > a { grid-column: 2; justify-self: start; max-width: 100%; }
+  .home-invitation { flex-direction: column; align-items: flex-start; padding: 1.5rem; }
+  .home-invitation > a { max-width: 100%; }
+}

@@ -41,7 +41,7 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
     (headings) => headings.map((heading) => heading.textContent?.trim()),
   );
   expect(sectionOrder).toEqual([
-    await page.locator("#featured-title").textContent(),
+    await page.locator("#featured-title:visible").textContent(),
     "Серии",
     "Новые видео",
     "Свежие гайды",
