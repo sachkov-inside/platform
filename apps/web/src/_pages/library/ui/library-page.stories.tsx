@@ -297,6 +297,46 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
+export const ExpandableSeries: Story = {
+  args: {
+    result: {
+      ...createCatalogPage(0, 2),
+      facets: {
+        ...catalogFacets,
+        series: Array.from({ length: 5 }, (_, index) => ({
+          ...catalogFacets.series[0],
+          id: `series-${String(index + 1)}`,
+          name: `Серия ${String(index + 1)}`,
+          slug: `series-${String(index + 1)}`,
+        })),
+      },
+    },
+  },
+  name: "Series · show three then expand",
+  render: function ExpandableSeriesStory(args) {
+    const [query, setQuery] = useState(args.query);
+    return <LibraryPage {...args} onQueryChange={setQuery} query={query} />;
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const series = within(canvas.getByRole("region", { name: /^Серии$/u }));
+    await expect(series.getAllByRole("link")).toHaveLength(3);
+    const showAll = series.getByRole("button", { name: "Показать все" });
+    await expect(showAll).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(showAll);
+    await expect(series.getAllByRole("link")).toHaveLength(5);
+    const collapse = series.getByRole("button", { name: "Свернуть" });
+    await expect(collapse).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(collapse);
+    await expect(series.getAllByRole("link")).toHaveLength(3);
+    await userEvent.click(series.getByRole("button", { name: "Показать все" }));
+    await userEvent.type(canvas.getByRole("searchbox"), "Серия");
+    const searched = within(canvas.getByRole("region", { name: /^Серии$/u }));
+    await expect(searched.getAllByRole("link")).toHaveLength(3);
+    await expect(searched.getByRole("button", { name: "Показать все" })).toHaveAttribute("aria-expanded", "false");
+  },
+};
+
 export const ReadyDesktop: Story = {
   args: {
     result: {
@@ -316,6 +356,7 @@ export const ReadyDesktop: Story = {
     const grid = canvasElement.querySelector<HTMLElement>("[data-material-grid]");
 
     await expect(cards).toHaveLength(3);
+    await expect(canvas.queryByRole("button", { name: "Показать все" })).not.toBeInTheDocument();
     for (const name of ["Все форматы", "Гайды", "Видео", "Заметки"]) {
       await expect(canvas.getByRole("radio", { name: new RegExp(name, "u") })).toBeVisible();
     }

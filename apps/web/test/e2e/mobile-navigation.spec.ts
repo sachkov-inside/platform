@@ -179,9 +179,17 @@ test("changing account identity clears remembered tabs and the old Profile form"
       telegramMembership: { link: { kind: "linked" }, membership: { kind: "active" } },
     } });
   });
-  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
+  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: {
+    ...catalog,
+    facets: { ...catalog.facets, series: Array.from({ length: 5 }, (_, index) => ({
+      id: `series-${String(index)}`, slug: `series-${String(index)}`, name: `Серия ${String(index)}`, count: 1, summary: "Серия для проверки возврата",
+    })) },
+  } }));
   await page.goto("/library?q=навигация");
   await expect(page.getByRole("searchbox")).toHaveValue("навигация");
+  const series = page.getByRole("region", { name: "Серии", exact: true });
+  await series.getByRole("button", { name: "Показать все" }).click();
+  await expect(series.getByRole("link")).toHaveCount(5);
   await navigation(page).getByRole("link", { name: "Профиль" }).click();
   const name = page.getByRole("textbox", { name: "Имя", exact: true });
   await name.fill("Старый аккаунт");
@@ -192,6 +200,9 @@ test("changing account identity clears remembered tabs and the old Profile form"
   await expect.poll(() => accountRequests).toBeGreaterThan(before);
   await expect(name).toHaveValue("");
   await expect(navigation(page).getByRole("link", { name: "База знаний" })).toHaveAttribute("href", "/library");
+  await navigation(page).getByRole("link", { name: "База знаний" }).click();
+  await expect(series.getByRole("link")).toHaveCount(3);
+  await expect(series.getByRole("button", { name: "Показать все" })).toHaveAttribute("aria-expanded", "false");
 });
 
 test("a cold tab shows its destination immediately while the route response is still pending", async ({ page }) => {

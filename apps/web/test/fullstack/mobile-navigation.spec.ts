@@ -85,3 +85,30 @@ test("mobile navigation displays a cold destination before the server responds",
   test.skip(!testInfo.project.name.startsWith("mobile"));
   await expectImmediateMobileNavigation(page);
 });
+
+test("library series initially show three cards and expand on demand", async ({ page }, testInfo) => {
+  await page.goto("/library");
+  const series = page.getByRole("region", { name: "Серии", exact: true });
+  await expect(series.getByRole("link")).toHaveCount(3);
+  const showAll = series.getByRole("button", { name: "Показать все" });
+  await expect(showAll).toHaveAttribute("aria-expanded", "false");
+  await series.screenshot({ path: testInfo.outputPath("library-series.png"), animations: "disabled" });
+  await showAll.click();
+  await expect.poll(() => series.getByRole("link").count()).toBeGreaterThan(3);
+  if (testInfo.project.name.startsWith("mobile")) {
+    const expandedCount = await series.getByRole("link").count();
+    await series.getByRole("link").nth(3).scrollIntoViewIfNeeded();
+    const top = await page.evaluate(() => window.scrollY);
+    const navigation = page.getByRole("navigation", { name: "Мобильная навигация" });
+    await navigation.getByRole("link", { name: "Профиль" }).click();
+    await expect(page.getByRole("heading", { name: "Войдите в аккаунт" })).toBeVisible();
+    await navigation.getByRole("link", { name: "База знаний" }).click();
+    await expect(series.getByRole("link")).toHaveCount(expandedCount);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(top);
+  }
+  const collapse = series.getByRole("button", { name: "Свернуть" });
+  await expect(collapse).toHaveAttribute("aria-expanded", "true");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
+  await collapse.click();
+  await expect(series.getByRole("link")).toHaveCount(3);
+});

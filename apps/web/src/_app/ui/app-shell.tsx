@@ -11,6 +11,7 @@ import { HeaderAuthControl } from "@/widgets/auth-control";
 import { AccountTelegramOnboarding } from "@/features/account-access";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import { ReadingProgressProvider } from "@/features/reading-progress";
+import { LibrarySeriesStateProvider } from "@/_pages/library";
 import { useAuthStatus } from "./auth-status-control.client";
 import { PublicNavigationPending } from "./public-navigation-pending";
 import { MobileNavigationLocation } from "./mobile-navigation-location.client";
@@ -57,10 +58,12 @@ export function AppShell({ children }: AppShellProps) {
         <MobileNavigationLocation onChange={mobileNavigation.recordLocation} />
       </Suspense>
       <ReadingProgressProvider key={authStatus.accountId ?? "guest"} accountId={authStatus.accountId} resolved={authStatus.resolved}>
+        <LibrarySeriesStateProvider>
         <div aria-hidden={mobileNavigation.pendingHref !== null || undefined} inert={mobileNavigation.pendingHref !== null} className={mobileNavigation.pendingHref !== null ? "invisible" : undefined}>
           {children}
         </div>
         {mobileNavigation.pendingHref !== null ? <PublicNavigationPending href={mobileNavigation.pendingHref} /> : null}
+        </LibrarySeriesStateProvider>
       </ReadingProgressProvider>
       <AccountTelegramOnboarding
         authenticated={authStatus.state === "authenticated"}

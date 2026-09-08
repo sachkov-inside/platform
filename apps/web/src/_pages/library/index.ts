@@ -12,3 +12,4 @@ export {
   LibraryUnexpectedError,
 } from "./ui/library-page";
 export { LibraryPageQuery } from "./ui/library-page-query.client";
+export { LibrarySeriesStateProvider } from "./ui/library-series-state.client";
