@@ -16,7 +16,18 @@ test("author Home pin persists for guests and members, replaces and removes thro
   await session(member, "FULLSTACK_LOGTO_MEMBER_SESSION");
   const memberPage = await member.newPage();
   try {
+    const { promise: pinReady, resolve: releasePin } = Promise.withResolvers<void>();
+    await page.route("**/api/authoring/home-pin", async (route) => {
+      await pinReady;
+      await route.continue();
+    }, { times: 1 });
+    const loadedMaterials = page.waitForResponse((response) => response.url().includes("/api/authoring/materials?") && response.status() === 200);
     await page.goto("/authoring/materials?search=Как%20устроен%20Inside%20Platform");
+    await loadedMaterials;
+    // The ready list never paints with a missing pin state and shifts again on hydration.
+    await expect(page.getByRole("main", { name: "Загрузка списка материалов" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Как устроен Inside Platform", exact: true })).toHaveCount(0);
+    releasePin();
     const row = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "Как устроен Inside Platform", exact: true }) });
     await row.getByRole("button", { name: "Закрепить на главной", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: "Материал закреплён на главной." })).toBeVisible();

@@ -62,7 +62,7 @@ function AuthoringMaterialsQueryView({
     replaceAuthoringMaterialsUrl(next);
   }, []);
 
-  if (materials.isPending) return <AuthoringMaterialsLoading />;
+  if (materials.isPending || homePin.isPending) return <AuthoringMaterialsLoading />;
   const state = materials.data ?? {
     kind: "unexpected_error" as const,
     reference: "authoring-materials-query",

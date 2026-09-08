@@ -16,10 +16,11 @@ export function useHomePin() {
   const controls: HomePinControls = { pin, pending: mutation.isPending, onChange: (materialId) => {
     if (pin !== null) mutation.mutate({ materialId, expectedVersion: pin.version });
   } };
-  const result = mutation.data ?? query.data;
+  const result = query.data?.kind === "ready" ? mutation.data ?? query.data : query.data;
   const error = query.isError || mutation.isError;
   return {
     controls,
+    isPending: query.isPending,
     message: error ? "Не удалось проверить закреп. Обновите состояние и повторите действие." : query.isPending ? "Загружаем закреп…" : homePinMessage(result, mutation.data !== undefined),
     hasError: error || (result !== undefined && result.kind !== "ready"),
     retry: () => { mutation.reset(); void query.refetch(); },
