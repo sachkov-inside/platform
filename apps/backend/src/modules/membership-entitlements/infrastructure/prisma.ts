@@ -7,6 +7,11 @@ export type MembershipEntitlementsPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"
   | "$queryRaw"
+  | "accessGrant"
+  | "accessReceipt"
+  | "accessBatchPreview"
+  | "accessChange"
+  | "legacyClassification"
   | "membershipBinding"
   | "membershipEvidenceReceipt"
   | "membershipProjection"

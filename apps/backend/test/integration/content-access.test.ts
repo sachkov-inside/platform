@@ -1,3 +1,4 @@
+import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import {
@@ -11,7 +12,7 @@ import {
   type MaterialResourceFacts,
 } from "../../src/modules/content-access/index.js";
 import { materialId } from "../../src/modules/materials/domain/material-identifiers.js";
-import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
+
 import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   createMigratedTestDatabase,
@@ -122,7 +123,7 @@ describe("ContentAccess current Platform facts", () => {
       prisma: testDatabase.prisma,
       emailFingerprintKey: "content-access-test-fingerprint-key",
     });
-    const membershipEntitlements = assembleMembershipEntitlements({
+    const membershipEntitlements = assembleLegacyCohortFixture({
       prisma: testDatabase.prisma,
       workshopEntitlements: assembleWorkshopEntitlements({
         prisma: testDatabase.prisma,

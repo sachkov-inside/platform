@@ -108,7 +108,7 @@ export function assembleVideoPlayback(dependencies: {
         }
       }
       const issuedAt = Math.floor(clock().getTime() / 1000);
-      const expiresAt = decision.reason === "active_membership" || decision.reason === "active_workshop"
+      const expiresAt = (decision.reason === "active_membership" || decision.reason === "active_workshop") && decision.validUntil !== null
         ? Math.min(
             issuedAt + dependencies.jwtTtlSeconds,
             Math.floor(Date.parse(decision.validUntil) / 1_000),

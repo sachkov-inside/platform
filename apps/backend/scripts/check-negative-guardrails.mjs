@@ -43,6 +43,8 @@ expectFailure(
     "accounts.accounts",
     "material",
     "readingMaterialState",
+    "accessGrant",
+    "legacyClassification",
     "Cannot find name 'describe'",
   ],
 );

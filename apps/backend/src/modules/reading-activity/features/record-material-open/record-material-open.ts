@@ -32,7 +32,7 @@ export async function recordMaterialOpen(dependencies: {
       if (decision.effect === "deny") return { ok: false, error: { code: decision.reason === "dependency_unavailable" ? "dependency_unavailable" : "access_denied" } };
       const facts = await dependencies.materialContent.findAccessFacts(materialId(command.materialId));
       if (!facts.ok) return { ok: false, error: { code: "dependency_unavailable" } };
-      if (facts.value === null || facts.value.publicationState !== "published" || facts.value.contentVersion !== command.contentVersion || decision.checkedContentVersion !== command.contentVersion || ("validUntil" in decision && Date.parse(decision.validUntil) <= Date.now())) return { ok: false, error: { code: "access_changed" } };
+      if (facts.value === null || facts.value.publicationState !== "published" || facts.value.contentVersion !== command.contentVersion || decision.checkedContentVersion !== command.contentVersion || ("validUntil" in decision && decision.validUntil !== null && Date.parse(decision.validUntil) <= Date.now())) return { ok: false, error: { code: "access_changed" } };
       const now = new Date();
       const pair = { accountId: command.accountId, materialId: command.materialId };
       const visit = await transaction.readingMaterialVisit.upsert({ where: { accountId_materialId: pair }, create: { ...pair, firstOpenedAt: now, lastOpenedAt: now }, update: { lastOpenedAt: now } });

@@ -1,3 +1,5 @@
+import { name as telegramLinkRevisionsName, statement as telegramLinkRevisionsStatement } from "../modules/telegram-membership/infrastructure/postgres/migrations/0039-telegram-link-revisions.js";
+import { name as accountAccessName, statement as accountAccessStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0038-account-access.js";
 import {
   name as platformAdminName,
   statement as platformAdminStatement,
@@ -283,6 +285,8 @@ export const platformMigrations = [
     statement: videoUploadRejectionsStatement,
   },
   { name: platformAdminName, statement: platformAdminStatement },
+  { name: accountAccessName, statement: accountAccessStatement },
+  { name: telegramLinkRevisionsName, statement: telegramLinkRevisionsStatement },
 ] as const;
 
 export function migrateToLatest(

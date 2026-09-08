@@ -1,6 +1,7 @@
 # Platform billing v1: локальный контракт реализации
 
-Статус: **предлагаемая спецификация #403**, без application runtime. Основание — одобренный
+Статус: **принятая спецификация #403** ([PR #417](https://github.com/sachkov-inside/platform/pull/417)).
+Access foundation реализуется #404; остальные billing slices остаются отдельными поставками. Основание — одобренный
 [Workspace PR #151](https://github.com/sachkov-inside/workspace/pull/151), merged commit
 `e161320d74176f8154b20f5c469846fbdc1773e6`. Дословные источники сохранены в
 [локальном snapshot](../contracts/billing-v1/README.md). Они содержат прежнюю надпись «предложение»;
@@ -217,3 +218,56 @@ State transitions требуют real PostgreSQL concurrency/rollback/crash test
 immutable paid/renewal/cancel/expiry/refund eventRef, source revision, occurredAt/recordedAt и
 Account reference через локальную спецификацию аналитики; manual grant не считается выручкой.
 Точный публичный analytics schema остаётся за #337 и не блокирует оплату.
+
+## Реализованный access foundation #404
+
+`assembleAccessGrants` — публичный внутренний facet модуля `membership-entitlements`:
+`applyPaidPeriod`, `previewBatch`, `applyBatch`, `changeGrant`, `classifyLegacy`,
+`readLegacyClassification`, `resolveCapabilities`. HTTP/MCP owner adapters остаются в #409,
+paid outbox projector — в #407, community worker — в #415. Facet не принимает платёжное
+доказательство из браузера и не обращается к банку или Telegram. Mutable Prisma delegates
+остаются внутри владельца; negative TypeScript fixtures проверяют этот seam.
+
+Paid command принимает eventRef UUID, periodRef, Account, revision, revoked и абсолютный
+полуоткрытый период. Receipt с неизменяемой командой, grant и audit фиксируются в одной entitlement-транзакции; повтор eventRef
+возвращает сохранённый результат, другая нагрузка конфликтует. Более старая revision не
+перезаписывает новый период/отзыв. Billing использует тот же seam для подтверждённого решения
+о доступе после refund, не общую Prisma transaction с модулем прав.
+
+Ручная выдача/legacy import используют `previewBatch` с operationId и 1..100 строками:
+rowKey, точный target Account, source/sourceRef, capabilities, startsAt, validUntil и reason.
+Preview фиксирует fingerprint подтверждённой identity из Accounts, результат сопоставления и
+действует 30 минут. Применение требует его revision и явных confirmedRows. Оно повторно
+проверяет Accounts, сохраняет результат каждой выбранной строки и атомарно потребляет preview.
+Одинаковый actor/operationId возвращает прежний результат; изменённая команда конфликтует.
+Один source/sourceRef не создаёт два права даже при конкуренции разных previews. Extend и revoke
+требуют revision конкретного manual/legacy grant; paid revisions принадлежат billing.
+
+До scoped `billing:manage` в #409 owner-команды проверяют текущий `platform:admin` через Accounts.
+Facet не выдаёт это полномочие. Actor передаёт доверенный вызывающий adapter отдельно от payload;
+в тестах используется отдельный synthetic owner. Реальный bootstrap cohort/import не запускается
+миграцией, startup или join. До owner-approved preview/apply из Workspace #150 bridge не имеет
+участников, поэтому деплой #404 требует согласованного перехода старой аудитории.
+
+Classification хранит sourceRef, reason, verifiedAt и revision. Только явный `confirmed_legacy`
+может включить bridge; `unknown` и `confirmed_new` его не получают. `recurringAllowed` — только
+legacy gate, не согласие на покупку: unknown запрещён, confirmed_legacy требует отдельного
+подтверждения `tributeStopped`. Billing дополнительно проверяет остальные purchase gates.
+
+`resolveCapabilities` объединяет materials/community/reviews отдельно и возвращает границу
+каждой возможности, последнюю audit revision и ближайшее начало/окончание периода для sweep.
+Изменения grants, classification и cohort evidence сериализуются на уровне Account;
+capabilities и revision читаются из одного RepeatableRead snapshot. `resolveForAccess` выбирает materials; отрицательное старое evidence не перекрывает независимое
+право. ContentAccess, file delivery, video playback, ReadingActivity и Member Profile учитывают
+nullable validUntil. Даже бессрочное право оставляет конечный срок signed URL/token.
+
+`TelegramAccountLinks.readBinding` возвращает stable linkRef и linkRevision, текущий либо
+исторический binding. Миграция Telegram владеет trigger над собственными link transactions:
+изменение подтверждённой пары пишет snapshot атомарно с исходной связью, потеря/неоднозначность —
+tombstone с null identity, повтор той же пары revision не увеличивает. Это покрывает оба
+существующих пути подтверждения связи без пропуска одного writer. Runtime unlink/relink UI и
+проверка dispatch по revision остаются #415; история уже сохраняется при изменении состояния.
+
+Проверка: `account-access.test.ts` исполняет публичные facets на real PostgreSQL; старый
+normalised evidence corpus использует явно заданный synthetic legacy cohort. Реальные права,
+платежи, Telegram sends, массовый импорт и деплой этим доказательством не объявляются выполненными.
