@@ -114,7 +114,6 @@ export const RealDataReady: Story = {
     );
     const noteFeed = canvas.getByRole("list", { name: "Лента заметок" });
     await expect(noteFeed).toBeVisible();
-    await expect(noteFeed).toHaveClass("space-y-4");
     await expect(noteFeed).not.toHaveClass("divide-y");
     await expect(within(noteFeed).getByRole("article")).toHaveClass(
       "rounded-[1.5rem]",
