@@ -236,6 +236,38 @@ previewRef/revision и подтверждённые строки; при изм�
 отправки возвращает сохранённый pending/unknown operation, а не совет начать новую покупку.
 HTTP схемы и исчерпывающий mapping реализуются вместе с endpoints, без fake OpenAPI в #403.
 
+## Подтверждённый контакт и согласия — #406
+
+Accounts владеет отдельным billing contact, который не является способом входа и не меняет
+Logto identity или login fingerprint. GET `accounts/current/billing/contact` возвращает собственный
+подтверждённый адрес, revision и применимые документы. Start принимает `operationId`, email и
+`expectedRevision` (0 для первого адреса). Confirm принимает `operationId`, `challengeRef`, code.
+При смене старый контакт действует до подтверждения нового. Совпадение адресов разных Account
+не объединяет их и не передаёт права. Неподтверждённый адрес не возвращается как получатель чека.
+
+Код живёт 10 минут; новый challenge отменяет предыдущий. У challenge не более 5 проверок кода.
+Отправки сериализуются: минимум минута между запросами Account, до 5 в час на Account и до 10
+за сутки на адрес между Account. Повтор `operationId` с прежним payload возвращает прежний
+результат, изменённый payload конфликтует; повтор не отправляет письмо и не расходует попытку кода.
+Резервация отправки фиксируется до SMTP. `sent` означает принятие SMTP, не доставку в ящик;
+`unknown` допускает ввод полученного кода, но не автоматическую повторную отправку.
+
+POST `accounts/current/billing/consents` принимает `operationId`, `contextRef` будущего checkout
+и список явно принятых документов (`accepted: true` для каждой записи). Виды `terms`, `recurring`,
+`personal_data`, `marketing` независимы. Принимается только точное совпадение с серверным каталогом
+по виду, ID, версии и SHA-256 текста. Evidence сохраняет текст, URL, digest, версию, Account,
+контекст и время; PostgreSQL запрещает update/delete. GET
+`accounts/current/billing/consents/:evidenceRef` восстанавливает собственную запись; чужая скрыта
+за 404. Новая публикация не изменяет старое согласие или ответ на прежнюю команду.
+Само evidence не разрешает списание: #407 связывает его с точным quote/условиями, #408 проверяет
+действующее разрешение на recurring и отмену.
+
+До legal #412 production-каталог пуст: синтетические документы существуют только в тестах.
+Форма `/account/email` подтверждает контакт; итоговые checkbox/checkout и визуальная интеграция
+принадлежат #411. Она использует production BFF/API; Storybook подставляет только presentation.
+SMTP и ключ хранения подключаются явно; без конфигурации start/confirm возвращают unavailable.
+[Runbook контактов](../runbooks/billing-contact.md) описывает эксплуатационную границу и proof.
+
 ## Переход и юридические страницы
 
 Legacy classification: `confirmed_legacy`, `confirmed_new`, `unknown`, с sourceRef/verifiedAt и

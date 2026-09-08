@@ -1,6 +1,7 @@
 import { name as billingPricingName, statement as billingPricingStatement } from "../modules/billing/infrastructure/postgres/migrations/0040-billing-pricing.js";
 import { name as telegramLinkRevisionsName, statement as telegramLinkRevisionsStatement } from "../modules/telegram-membership/infrastructure/postgres/migrations/0039-telegram-link-revisions.js";
 import { name as accountAccessName, statement as accountAccessStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0038-account-access.js";
+import { name as billingContactName, statement as billingContactStatement } from "../modules/accounts/infrastructure/postgres/migrations/0041-billing-contact.js";
 import {
   name as platformAdminName,
   statement as platformAdminStatement,
@@ -289,6 +290,7 @@ export const platformMigrations = [
   { name: accountAccessName, statement: accountAccessStatement },
   { name: telegramLinkRevisionsName, statement: telegramLinkRevisionsStatement },
   { name: billingPricingName, statement: billingPricingStatement },
+  { name: billingContactName, statement: billingContactStatement },
 ] as const;
 
 export function migrateToLatest(
