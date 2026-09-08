@@ -175,16 +175,21 @@ curl --fail --silent http://127.0.0.1:13000/_health/ready
 
 The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes only:
 
-- web at `inside.sachkov.dev`;
+- web at `sachkov.dev`, with page redirects from `inside.sachkov.dev` and `www.sachkov.dev`;
 - `/integrations/telegram/v1/membership-evidence`;
 - `POST /integrations/telegram/v1/sign-in/linked-identity` for the trusted Logto connector;
 - `/integrations/kinescope/v1/webhook`;
 - `/integrations/kinescope/v1/authorize`;
-- `/mcp` and `/.well-known/oauth-protected-resource/mcp`.
+- `/mcp` and `/.well-known/oauth-protected-resource/mcp` only at `inside.sachkov.dev`.
 
 Unknown `/integrations/*` paths and `/health`, `/health/*`, `/_health/*` return 404 at the public
 edge. PostgreSQL and direct service ports remain private. A wrong TLS hostname must fail certificate
 validation.
+
+The [primary-domain cutover](primary-domain-cutover.md) owns the ordered DNS, Logto and
+`WEB_BASE_URL` transition. Shipping these routes alone does not complete that transition.
+The old domain continues to serve integration requests directly; neither their providers nor the
+MCP resource registration move with browser pages. Maintenance covers all three web hostnames.
 
 ### Telegram sign-in configuration
 

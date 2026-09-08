@@ -22,11 +22,14 @@ Authority этого brief находится в этом Platform repository. �
 
 ## Пользователи и доступ
 
-Public landing и Platform application являются разными surfaces. Landing объясняет предложение
-Inside и ведёт в application/Мастерскую; application владеет discovery, free/closed Materials,
-private Account, member-only Member Profile и reading experience. `sachkov.dev` и
-`app.sachkov.dev` являются рабочими примерами этой границы, а exact production domains определяются
-будущей release specification.
+Основным входом Inside становится приложение на `sachkov.dev`: гостевая главная объясняет
+предложение через опубликованные серии и материалы, участник входит в то же приложение.
+Отдельный лендинг выводится с главного домена. Это решение владельца от 8 сентября 2026,
+[Workspace #146](https://github.com/sachkov-inside/workspace/issues/146); принятая гостевая главная
+доставляется в #416. Platform владеет discovery, free/closed Materials, private Account,
+member-only Member Profile и reading experience. Порядок переключения и границы совместимости
+старых адресов определяет [runbook переноса домена](../runbooks/primary-domain-cutover.md).
+До завершения его production-приёмки текущий адрес приложения остаётся `inside.sachkov.dev`.
 
 ### Публичный посетитель
 

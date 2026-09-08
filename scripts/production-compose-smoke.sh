@@ -188,7 +188,7 @@ LOGTO_AUDIENCE=https://api.production-smoke.invalid
 LOGTO_APP_ID=inside-production-smoke
 LOGTO_APP_SECRET=inside-production-smoke-app-secret
 LOGTO_COOKIE_SECRET=inside-production-smoke-cookie-secret-key
-WEB_BASE_URL=https://inside.sachkov.dev
+WEB_BASE_URL=https://sachkov.dev
 EOF
 }
 
@@ -286,6 +286,7 @@ assert_public_status() {
   local method=$1
   local path=$2
   local expected=$3
+  local domain=${4:-sachkov.dev}
   local actual
   local body_path="$runtime_config_dir/public-response-body"
   actual="$(curl \
@@ -293,10 +294,10 @@ assert_public_status() {
     --noproxy '*' \
     --output "$body_path" \
     --request "$method" \
-    --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
+    --resolve "${domain}:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
     --silent \
     --write-out '%{http_code}' \
-    "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
+    "https://${domain}:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
   if [[ "$actual" != "$expected" ]]; then
     echo "Expected $method $path to return $expected, received $actual" >&2
     exit 1
@@ -308,6 +309,19 @@ assert_public_status() {
     fi
   elif [[ ! -s "$body_path" ]]; then
     echo "Expected $method $path to return a non-empty response body" >&2
+    exit 1
+  fi
+}
+
+assert_public_redirect() {
+  local domain=$1 path=$2 expected_status=$3 expected_location=$4
+  local response
+  response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
+    --resolve "${domain}:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
+    --silent --show-error --output /dev/null --write-out '%{http_code} %{redirect_url}' \
+    "https://${domain}:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
+  if [[ "$response" != "$expected_status $expected_location" ]]; then
+    echo "Unexpected redirect for $domain$path: $response" >&2
     exit 1
   fi
 }
@@ -529,27 +543,46 @@ if curl \
 fi
 
 data_before="$(application_data_digest)"
-home_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
+home_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
 if [[ "$home_response" != *"Sachkov Inside"* ]]; then
   echo "Caddy did not serve the Platform home" >&2
   exit 1
 fi
-library_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/library")"
+library_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/library")"
 if [[ "$library_response" != *"База знаний"* ]]; then
   echo "Caddy did not serve the Knowledge Base" >&2
   exit 1
 fi
-assert_public_status POST /integrations/telegram/v1/membership-evidence 401
-assert_public_status POST /integrations/telegram/v1/sign-in/linked-identity 401
-assert_public_status GET /integrations/telegram/v1/sign-in/linked-identity 404
-assert_public_status POST /integrations/telegram/v1/sign-in/complete 404
-assert_public_status POST /integrations/telegram/v1/sign-in/unknown 404
-assert_public_status POST /integrations/kinescope/v1/webhook 401
-assert_public_status POST /integrations/kinescope/v1/authorize 401
-assert_public_status GET /mcp 401
-assert_public_status GET /.well-known/oauth-protected-resource/mcp 200
-assert_public_status GET /integrations/kinescope/v1/unknown 404
-assert_public_status GET /health/ready 404
+for domain in sachkov.dev inside.sachkov.dev; do
+  assert_public_status POST /integrations/telegram/v1/membership-evidence 401 "$domain"
+  assert_public_status POST /integrations/telegram/v1/sign-in/linked-identity 401 "$domain"
+  assert_public_status GET /integrations/telegram/v1/sign-in/linked-identity 404 "$domain"
+  assert_public_status POST /integrations/telegram/v1/sign-in/complete 404 "$domain"
+  assert_public_status POST /integrations/telegram/v1/sign-in/unknown 404 "$domain"
+  assert_public_status POST /integrations/kinescope/v1/webhook 401 "$domain"
+  assert_public_status POST /integrations/kinescope/v1/authorize 401 "$domain"
+  assert_public_status GET /integrations/kinescope/v1/unknown 404 "$domain"
+  assert_public_status GET /health/ready 404 "$domain"
+  assert_public_status GET /_health/ready 404 "$domain"
+done
+assert_public_status GET /mcp 401 inside.sachkov.dev
+assert_public_status GET /.well-known/oauth-protected-resource/mcp 200 inside.sachkov.dev
+assert_public_status GET /mcp 404
+assert_public_status GET /.well-known/oauth-protected-resource/mcp 404
+for domain in inside.sachkov.dev www.sachkov.dev; do
+  assert_public_redirect "$domain" '/materials/example?from=series&step=2' 308 'https://sachkov.dev/materials/example?from=series&step=2'
+  assert_public_redirect "$domain" '/' 308 'https://sachkov.dev/'
+done
+assert_public_redirect inside.sachkov.dev '/callback?code=old-code&state=old-state' 303 'https://sachkov.dev/?authentication=failed'
+# Reload the real maintenance fragment under the same local-only TLS authority.
+"${application_compose[@]}" exec -T caddy-smoke sh -c \
+  'sed "s|/etc/caddy/platform.caddy|/etc/caddy/maintenance.caddy|" /etc/caddy/Caddyfile > /tmp/maintenance.Caddyfile && caddy reload --config /tmp/maintenance.Caddyfile --adapter caddyfile'
+for domain in sachkov.dev inside.sachkov.dev www.sachkov.dev; do
+  assert_public_status GET / 503 "$domain"
+  assert_public_status POST /integrations/telegram/v1/membership-evidence 503 "$domain"
+done
+"${application_compose[@]}" exec -T caddy-smoke caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+assert_public_status GET / 200
 data_after="$(application_data_digest)"
 if [[ "$data_before" != "$data_after" ]]; then
   echo "Basic production smoke changed application/provider data" >&2
