@@ -45,7 +45,7 @@ function localResourceNode(
   });
 }
 
-const AssetImage = localResourceNode("assetImage", ["assetId", "alt", "caption"]);
+const AssetImage = localResourceNode("assetImage", ["assetId", "alt", "caption", "displayWidthPercent"]);
 const AssetFile = localResourceNode("assetFile", ["assetId", "label"]);
 
 export const contentExtensions = [

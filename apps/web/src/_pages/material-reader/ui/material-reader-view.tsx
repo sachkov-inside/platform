@@ -296,7 +296,7 @@ function ReaderBlockView({
   switch (block.kind) {
     case "paragraph":
       return (
-        <p className="mt-6 first:mt-0">
+        <p className="mt-6 min-h-7 first:mt-0">
           <ReaderInline content={block.content} />
         </p>
       );
@@ -371,6 +371,7 @@ function ReaderBlockView({
             alt={block.alt}
             assetId={block.assetId}
             caption={block.caption}
+            displayWidthPercent={block.displayWidthPercent}
             contentVersion={contentVersion}
             height={block.height}
             materialId={materialId}
@@ -451,7 +452,7 @@ function ReaderTable({
       role="region"
       tabIndex={0}
     >
-      <table className="min-w-[36rem] border-collapse text-left text-sm leading-6">
+      <table className="w-full min-w-[36rem] table-fixed border-collapse [overflow-wrap:anywhere] text-left text-sm leading-6">
         <caption className="sr-only">Таблица в материале</caption>
         <tbody className="divide-y divide-border">
           {block.rows.map((row, rowIndex) => (
@@ -460,7 +461,7 @@ function ReaderTable({
                 const Cell = cell.header ? "th" : "td";
                 return (
                   <Cell
-                    className={cell.header ? "bg-muted px-4 py-3 font-semibold" : "px-4 py-3"}
+                    className={cell.header ? "border-r border-border bg-muted px-4 py-3 font-semibold last:border-r-0" : "border-r border-border px-4 py-3 last:border-r-0"}
                     key={cellIndex}
                     scope={cell.header ? "col" : undefined}
                   >

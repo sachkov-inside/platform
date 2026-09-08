@@ -63,10 +63,10 @@ export function ApplicationShell({
         Перейти к содержанию
       </a>
       <header
-        className="sticky top-0 z-40 hidden shrink-0 border-b border-border bg-background lg:block"
+        className="public-header sticky top-0 z-40 hidden shrink-0 border-b border-border bg-background lg:block"
         data-public-header
       >
-        <div className="mx-auto flex flex-wrap min-h-[4.75rem] max-w-[82.5rem] items-center gap-2 px-4 py-3 sm:gap-4 sm:px-7 lg:min-h-[5.5rem] lg:gap-6 lg:px-8 lg:py-4">
+        <div className="public-page-container mx-auto flex min-h-20 flex-wrap items-center gap-2 py-3 sm:gap-4 lg:gap-6 lg:py-4">
           <InsideBrand />
           <nav
             aria-label="Основная"
@@ -108,9 +108,9 @@ export function ApplicationShell({
       <main
         id="content"
         tabIndex={-1}
-        className="mobile-scrollbar-hidden min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto lg:overscroll-y-contain lg:[scrollbar-gutter:stable]"
+        className="mobile-scrollbar-hidden min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto lg:overscroll-y-contain lg:[scrollbar-gutter:stable_both-edges]"
       >
-        <div className="mx-auto w-full max-w-[66rem] px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6 sm:px-7 lg:px-10 lg:pb-20 lg:pt-9">
+        <div className="public-page-container mx-auto w-full pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6 lg:pb-20 lg:pt-8">
           {children}
         </div>
       </main>
@@ -149,22 +149,22 @@ function MobileBottomNavigation({
   readonly onNavigate?: ((href: Route) => void) | undefined;
 }) {
   const activeIndex = items.findIndex((item) => isCurrentPath(currentPath, item.href));
-  const totalParts = items.length + 1.5;
+  const totalParts = items.length;
   return (
     <nav
       aria-label="Мобильная навигация"
-      className="mobile-navigation fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 w-[17rem] max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-[1.6rem] border border-black/8 bg-white/88 p-1.5 text-foreground shadow-floating-nav backdrop-blur-xl lg:hidden"
+      className="mobile-navigation fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 w-max max-w-[calc(100%-1rem)] -translate-x-1/2 rounded-[1.6rem] border border-black/8 bg-white/88 p-1.5 text-foreground shadow-floating-nav backdrop-blur-xl lg:hidden"
     >
       <div
         className="mobile-navigation-items relative grid"
-        style={{ gridTemplateColumns: items.map((_, index) => index === activeIndex ? "2.5fr" : "1fr").join(" ") }}
+        style={{ gridTemplateColumns: `repeat(${String(totalParts)}, 3.375rem)` }}
       >
         <span
           aria-hidden="true"
           className="mobile-navigation-indicator pointer-events-none absolute inset-y-0 left-0 rounded-[1.15rem] bg-primary"
           style={{
-            width: `${String(2.5 / totalParts * 100)}%`,
-            transform: `translateX(${String(Math.max(0, activeIndex) * 40)}%)`,
+            width: `${String(1 / totalParts * 100)}%`,
+            transform: `translateX(${String(Math.max(0, activeIndex) * 100)}%)`,
             opacity: activeIndex < 0 ? 0 : 1,
           }}
         />
@@ -193,11 +193,8 @@ function MobileBottomNavigation({
             >
               <Icon
                 aria-hidden="true"
-                className={cn("size-5 shrink-0", current && "text-accent-bright")}
+                className={cn("size-6 shrink-0", current && "text-accent-bright")}
               />
-              <span aria-hidden="true" className="mobile-navigation-label grid min-w-0">
-                <span className="min-w-0 overflow-hidden"><span className="block truncate pl-2">{item.label}</span></span>
-              </span>
             </Link>
           );
         })}

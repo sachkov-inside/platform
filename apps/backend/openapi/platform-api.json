@@ -393,6 +393,11 @@
               "caption": {
                 "type": "string"
               },
+              "displayWidthPercent": {
+                "maximum": 100,
+                "minimum": 25,
+                "type": "integer"
+              },
               "height": {
                 "exclusiveMinimum": true,
                 "maximum": 9007199254740991,
@@ -897,6 +902,11 @@
               },
               "caption": {
                 "type": "string"
+              },
+              "displayWidthPercent": {
+                "maximum": 100,
+                "minimum": 25,
+                "type": "integer"
               },
               "height": {
                 "exclusiveMinimum": true,

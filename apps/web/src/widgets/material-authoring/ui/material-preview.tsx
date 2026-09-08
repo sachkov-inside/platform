@@ -57,7 +57,7 @@ function PreviewBlock({ block, contentVersion, materialId }: {
 }) {
   switch (block.kind) {
     case "paragraph":
-      return <p>{renderInline(block.content)}</p>;
+      return <p className="min-h-7">{renderInline(block.content)}</p>;
     case "heading": {
       const content = renderInline(block.content);
       if (block.level === 2) {
@@ -120,6 +120,7 @@ function PreviewBlock({ block, contentVersion, materialId }: {
           alt={block.alt}
           assetId={block.assetId}
           caption={block.caption}
+          displayWidthPercent={block.displayWidthPercent}
           contentVersion={contentVersion}
           height={block.height}
           materialId={materialId}
@@ -149,7 +150,7 @@ function PreviewTable({
       role="region"
       tabIndex={0}
     >
-      <table className="min-w-[36rem] border-collapse text-left text-sm leading-6">
+      <table className="w-full min-w-[36rem] table-fixed border-collapse [overflow-wrap:anywhere] text-left text-sm leading-6">
         <caption className="sr-only">Таблица в предпросмотре</caption>
         <tbody className="divide-y divide-border">
           {block.rows.map((row, rowIndex) => (
@@ -158,11 +159,11 @@ function PreviewTable({
                 const Cell = cell.header ? "th" : "td";
                 return (
                   <Cell
-                    className={cell.header ? "bg-muted px-4 py-3 font-semibold" : "px-4 py-3"}
+                    className={cell.header ? "border-r border-border bg-muted px-4 py-3 font-semibold last:border-r-0" : "border-r border-border px-4 py-3 last:border-r-0"}
                     key={cellIndex}
                     scope={cell.header ? "col" : undefined}
                   >
-                    <div className="space-y-3">
+                    <div className="min-h-6 space-y-3">
                       {cell.content.map((child, childIndex) => (
                         <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(childIndex)}`} materialId={materialId} />
                       ))}

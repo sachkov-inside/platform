@@ -55,6 +55,7 @@ WORKDIR /app
 
 COPY --from=production-build --chown=node:node /workspace/apps/web/.next/standalone ./
 COPY --from=production-build --chown=node:node /workspace/apps/web/.next/static ./apps/web/.next/static
+COPY --from=production-build --chown=node:node /workspace/apps/web/public ./apps/web/public
 COPY --from=release-identity --chown=root:root --chmod=0444 /workspace/release-identity.json ./apps/web/release-identity.json
 
 COPY --chown=node:node packages/runtime-identity/index.mjs packages/runtime-identity/http-healthcheck.mjs ./apps/web/healthcheck/

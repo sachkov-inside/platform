@@ -10,11 +10,7 @@ import type {
 import { assignMissingNodeIds } from "./assign-missing-node-ids.js";
 import { DOCUMENT_LIMITS } from "./document-limits.js";
 import { addressableBlockTypes } from "./document-rules.js";
-import {
-  isJsonArray,
-  isJsonObject,
-  isUnknownRecord,
-} from "./json-guards.js";
+import { isJsonArray, isJsonObject, isUnknownRecord } from "./json-guards.js";
 import { restoreStoredMaterialBodyV1 } from "./stored-material-body-v1.js";
 import { validationIssuePath } from "./validation-issue-path.js";
 import { isUuid } from "../uuid.js";
@@ -28,13 +24,19 @@ const envelopeSchema = z
   })
   .strict();
 
-function invalid(issues: readonly ValidationIssue[]): MaterialBodyResult<never> {
+function invalid(
+  issues: readonly ValidationIssue[],
+): MaterialBodyResult<never> {
   return {
     ok: false,
     error: {
       code: "invalid_content",
       issues: [...issues]
-        .sort((left, right) => left.path.localeCompare(right.path) || left.code.localeCompare(right.code))
+        .sort(
+          (left, right) =>
+            left.path.localeCompare(right.path) ||
+            left.code.localeCompare(right.code),
+        )
         .slice(0, DOCUMENT_LIMITS.issues),
     },
   };
@@ -66,12 +68,19 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
   let nodes = 0;
   let textCodePoints = 0;
 
-  function walk(value: JsonValue, path: readonly PropertyKey[], depth: number): void {
+  function walk(
+    value: JsonValue,
+    path: readonly PropertyKey[],
+    depth: number,
+  ): void {
     if (issues.length >= DOCUMENT_LIMITS.issues) {
       return;
     }
     if (depth > DOCUMENT_LIMITS.depth) {
-      issues.push({ code: "document_too_deep", path: validationIssuePath(path) });
+      issues.push({
+        code: "document_too_deep",
+        path: validationIssuePath(path),
+      });
       return;
     }
     if (isJsonArray(value)) {
@@ -86,39 +95,85 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
     if (typeof type === "string") {
       nodes += 1;
       if (nodes > DOCUMENT_LIMITS.nodes) {
-        issues.push({ code: "document_has_too_many_nodes", path: validationIssuePath(path) });
+        issues.push({
+          code: "document_has_too_many_nodes",
+          path: validationIssuePath(path),
+        });
         return;
       }
       if (type === "text" && typeof value.text === "string") {
         textCodePoints += [...value.text].length;
         if (textCodePoints > DOCUMENT_LIMITS.textCodePoints) {
-          issues.push({ code: "document_has_too_much_text", path: validationIssuePath([...path, "text"]) });
+          issues.push({
+            code: "document_has_too_much_text",
+            path: validationIssuePath([...path, "text"]),
+          });
         }
       }
 
       if (addressableBlockTypeSet.has(type)) {
         const nodeId = stringAttribute(value, "nodeId");
         if (nodeId === undefined || !isUuid(nodeId)) {
-          issues.push({ code: "invalid_node_id", path: validationIssuePath([...path, "attrs", "nodeId"]) });
+          issues.push({
+            code: "invalid_node_id",
+            path: validationIssuePath([...path, "attrs", "nodeId"]),
+          });
         } else if (nodeIds.has(nodeId.toLowerCase())) {
-          issues.push({ code: "duplicate_node_id", path: validationIssuePath([...path, "attrs", "nodeId"]) });
+          issues.push({
+            code: "duplicate_node_id",
+            path: validationIssuePath([...path, "attrs", "nodeId"]),
+          });
         } else {
           nodeIds.add(nodeId.toLowerCase());
         }
       }
 
-      if (type === "callout" && !["note", "tip", "warning"].includes(stringAttribute(value, "kind") ?? "")) {
-        issues.push({ code: "invalid_callout_kind", path: validationIssuePath([...path, "attrs", "kind"]) });
+      if (
+        type === "callout" &&
+        !["note", "tip", "warning"].includes(
+          stringAttribute(value, "kind") ?? "",
+        )
+      ) {
+        issues.push({
+          code: "invalid_callout_kind",
+          path: validationIssuePath([...path, "attrs", "kind"]),
+        });
+      }
+      if (type === "assetImage") {
+        const size = isJsonObject(value.attrs)
+          ? value.attrs.displayWidthPercent
+          : undefined;
+        if (
+          size !== undefined && size !== null &&
+          (typeof size !== "number" || !Number.isInteger(size) || size < 25 || size > 100)
+        ) {
+          issues.push({
+            code: "invalid_image_size",
+            path: validationIssuePath([...path, "attrs", "displayWidthPercent"]),
+          });
+        }
       }
       if (type === "assetImage" || type === "assetFile") {
         const assetId = stringAttribute(value, "assetId");
         if (assetId === undefined || !isUuid(assetId)) {
-          issues.push({ code: "invalid_asset_id", path: validationIssuePath([...path, "attrs", "assetId"]) });
-        }
-        const label = stringAttribute(value, type === "assetImage" ? "alt" : "label");
-        if (label === undefined || label.trim().length === 0) {
           issues.push({
-            code: type === "assetImage" ? "missing_image_alt" : "missing_file_label",
+            code: "invalid_asset_id",
+            path: validationIssuePath([...path, "attrs", "assetId"]),
+          });
+        }
+        const label = stringAttribute(
+          value,
+          type === "assetImage" ? "alt" : "label",
+        );
+        if (
+          label === undefined ||
+          (type === "assetFile" && label.trim().length === 0)
+        ) {
+          issues.push({
+            code:
+              type === "assetImage"
+                ? "missing_image_alt"
+                : "missing_file_label",
             path: validationIssuePath([
               ...path,
               "attrs",
@@ -135,7 +190,16 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
         if (isJsonObject(mark) && mark.type === "link") {
           const href = stringAttribute(mark, "href");
           if (href === undefined || !validateUrl(href)) {
-            issues.push({ code: "unsafe_link", path: validationIssuePath([...path, "marks", index, "attrs", "href"]) });
+            issues.push({
+              code: "unsafe_link",
+              path: validationIssuePath([
+                ...path,
+                "marks",
+                index,
+                "attrs",
+                "href",
+              ]),
+            });
           }
         }
       });
@@ -143,7 +207,9 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
 
     const content = value.content;
     if (content !== undefined && isJsonArray(content)) {
-      content.forEach((child, index) => walk(child, [...path, "content", index], depth + 1));
+      content.forEach((child, index) =>
+        walk(child, [...path, "content", index], depth + 1),
+      );
     }
   }
 
@@ -185,7 +251,11 @@ function canonicalize(value: JsonValue): JsonValue {
     .map(([key, child]) => [key, canonicalizeChild(key, child)] as const)
     .filter(
       ([key, child]) =>
-        !(key === "attrs" && isJsonObject(child) && Object.keys(child).length === 0),
+        !(
+          key === "attrs" &&
+          isJsonObject(child) &&
+          Object.keys(child).length === 0
+        ),
     );
   return Object.fromEntries(entries);
 }
@@ -214,10 +284,7 @@ export function acceptMaterialBody(
     }
   }
   if (options?.assignMissingNodeIds === true) {
-    const document =
-      isUnknownRecord(candidate)
-        ? candidate.doc
-        : undefined;
+    const document = isUnknownRecord(candidate) ? candidate.doc : undefined;
     assignMissingNodeIds(document);
   }
 
@@ -244,7 +311,9 @@ export function acceptMaterialBody(
       return invalid([{ code: "document_would_be_normalized", path: "/doc" }]);
     }
     const canonicalSerialized = JSON.stringify(canonicalRoundTrip);
-    if (Buffer.byteLength(canonicalSerialized, "utf8") > DOCUMENT_LIMITS.bytes) {
+    if (
+      Buffer.byteLength(canonicalSerialized, "utf8") > DOCUMENT_LIMITS.bytes
+    ) {
       return invalid([{ code: "document_too_large", path: "" }]);
     }
     if (!isJsonObject(canonicalRoundTrip)) {

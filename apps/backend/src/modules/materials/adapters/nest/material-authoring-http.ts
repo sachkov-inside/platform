@@ -233,6 +233,7 @@ export const renderedBlockSchema: z.ZodType = z.lazy(() =>
       alt: z.string(),
       assetId: z.uuid(),
       caption: z.string().optional(),
+      displayWidthPercent: z.number().int().min(25).max(100).optional(),
       height: z.number().int().positive().optional(),
       kind: z.literal("image"),
       variants: z

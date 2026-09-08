@@ -1,9 +1,17 @@
 "use client";
 
-import { Link2, LoaderCircle, RefreshCw, Trash2, Upload, Video } from "lucide-react";
+import {
+  Link2,
+  LoaderCircle,
+  RefreshCw,
+  Trash2,
+  Upload,
+  Video,
+} from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { usePendingUploadGuard } from "@/shared/lib/autosave/use-autosave";
 import { Button } from "@/shared/ui/button";
 
 import {
@@ -46,57 +54,92 @@ export function MaterialVideoAuthoring({
   ) => void;
   readonly primaryVideo: MaterialAuthoringVideo | null;
 }) {
+  const operation = useRef(0);
   const uploadAttempt = useRef<BrowserVideoUploadAttempt | null>(null);
-  const uploadTransfer = useRef<Promise<ResumableVideoUpload | null> | null>(null);
-  const [providerVideoId, setProviderVideoId] = useState("");
-  const [video, setVideo] = useState<MaterialAuthoringVideo | null>(primaryVideo);
-  const [deletionVideo, setDeletionVideo] = useState<MaterialAuthoringVideo | null>(
-    latestVideoDeletion,
+  const uploadTransfer = useRef<Promise<ResumableVideoUpload | null> | null>(
+    null,
   );
+  useEffect(
+    () => () => {
+      operation.current += 1;
+      void uploadTransfer.current
+        ?.then((transfer) => transfer?.abort(false))
+        .catch(() => undefined);
+    },
+    [],
+  );
+  const [providerVideoId, setProviderVideoId] = useState("");
+  const [video, setVideo] = useState<MaterialAuthoringVideo | null>(
+    primaryVideo,
+  );
+  const [deletionVideo, setDeletionVideo] =
+    useState<MaterialAuthoringVideo | null>(latestVideoDeletion);
+  const [observedDeletion, setObservedDeletion] = useState(latestVideoDeletion);
+  if (observedDeletion !== latestVideoDeletion) {
+    setObservedDeletion(latestVideoDeletion);
+    setDeletionVideo(latestVideoDeletion);
+  }
   const [phase, setPhase] = useState<MaterialVideoAuthoringPhase>(
     phaseForVideo(primaryVideo),
   );
+  usePendingUploadGuard(phase === "uploading" || phase === "processing");
   const [progress, setProgress] = useState(0);
-  const { mutateAsync: uploadVideo } = useMutation({ mutationFn: initMaterialVideoUpload });
-  const { mutateAsync: attachVideo } = useMutation({ mutationFn: attachMaterialVideo });
-  const { mutateAsync: reconcileVideo } = useMutation({ mutationFn: reconcileMaterialVideo });
-  const { mutateAsync: retryDeletion } = useMutation({ mutationFn: retryMaterialVideoDeletion });
+  const { mutateAsync: uploadVideo } = useMutation({
+    mutationFn: initMaterialVideoUpload,
+  });
+  const { mutateAsync: attachVideo } = useMutation({
+    mutationFn: attachMaterialVideo,
+  });
+  const { mutateAsync: reconcileVideo } = useMutation({
+    mutationFn: reconcileMaterialVideo,
+  });
+  const { mutateAsync: retryDeletion } = useMutation({
+    mutationFn: retryMaterialVideoDeletion,
+  });
 
-  const applyVideoResult = useCallback((result: VideoMutationResult<MaterialVideo>) => {
-    if (result.kind !== "ready") {
-      setPhase("error");
-      return;
-    }
-    if (isDeletionState(result.value.state)) {
-      setDeletionVideo(result.value);
-      return;
-    }
-    setVideo(result.value);
-    if (result.value.state === "ready") {
-      if (uploadAttempt.current?.videoId === result.value.videoId) {
-        clearBrowserVideoUploadAttempt(uploadAttempt.current);
-        uploadAttempt.current = null;
+  const applyVideoResult = useCallback(
+    (result: VideoMutationResult<MaterialVideo>) => {
+      if (result.kind !== "ready") {
+        setPhase("error");
+        return;
       }
-      uploadTransfer.current = null;
-      onChange(result.value, deleteVideoId);
-      setPhase("ready");
-    } else {
-      setPhase(result.value.state === "failed" ? "error" : "processing");
-    }
-  }, [deleteVideoId, onChange]);
-
-  const reconcile = useCallback(async (videoId: string) => {
-    const targetIsDeletion = deletionVideo?.videoId === videoId;
-    if (!targetIsDeletion) setPhase("processing");
-    const result = await reconcileVideo({ videoId });
-    if (targetIsDeletion) {
-      if (result.kind === "ready" && isDeletionState(result.value.state)) {
+      if (isDeletionState(result.value.state)) {
         setDeletionVideo(result.value);
+        return;
       }
-      return;
-    }
-    applyVideoResult(result);
-  }, [applyVideoResult, deletionVideo?.videoId, reconcileVideo]);
+      setVideo(result.value);
+      if (result.value.state === "ready") {
+        if (uploadAttempt.current?.videoId === result.value.videoId) {
+          clearBrowserVideoUploadAttempt(uploadAttempt.current);
+          uploadAttempt.current = null;
+        }
+        uploadTransfer.current = null;
+        onChange(result.value, deleteVideoId);
+        setPhase("ready");
+      } else {
+        setPhase(result.value.state === "failed" ? "error" : "processing");
+      }
+    },
+    [deleteVideoId, onChange],
+  );
+
+  const reconcile = useCallback(
+    async (videoId: string) => {
+      const revision = operation.current;
+      const targetIsDeletion = deletionVideo?.videoId === videoId;
+      if (!targetIsDeletion) setPhase("processing");
+      const result = await reconcileVideo({ videoId });
+      if (revision !== operation.current) return;
+      if (targetIsDeletion) {
+        if (result.kind === "ready" && isDeletionState(result.value.state)) {
+          setDeletionVideo(result.value);
+        }
+        return;
+      }
+      applyVideoResult(result);
+    },
+    [applyVideoResult, deletionVideo?.videoId, reconcileVideo],
+  );
 
   useEffect(() => {
     if (
@@ -105,38 +148,48 @@ export function MaterialVideoAuthoring({
       video === null ||
       video.state === "ready" ||
       video.state === "failed"
-    ) return;
-    const timer = window.setTimeout(
-      () => { void reconcile(video.videoId); },
-      VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS,
-    );
-    return () => { window.clearTimeout(timer); };
+    )
+      return;
+    const timer = window.setTimeout(() => {
+      void reconcile(video.videoId);
+    }, VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [materialId, phase, reconcile, video]);
 
   useEffect(() => {
     if (
       deletionVideo === null ||
-      (deletionVideo.state !== "deletion_requested" && deletionVideo.state !== "deleting")
-    ) return;
-    const timer = window.setInterval(
-      () => { void reconcile(deletionVideo.videoId); },
-      VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS,
-    );
-    return () => { window.clearInterval(timer); };
+      (deletionVideo.state !== "deletion_requested" &&
+        deletionVideo.state !== "deleting")
+    )
+      return;
+    const timer = window.setInterval(() => {
+      void reconcile(deletionVideo.videoId);
+    }, VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS);
+    return () => {
+      window.clearInterval(timer);
+    };
   }, [deletionVideo, reconcile]);
 
   if (materialId === null) {
     return (
       <p className="mt-3 rounded-xl bg-muted px-4 py-3 text-sm leading-6 text-muted-foreground">
-        Сначала сохраните новый Material, затем добавьте основное видео.
+        Введите название — черновик сохранится автоматически, и можно будет
+        добавить видео.
       </p>
     );
   }
 
   const upload = async (file: File) => {
+    const revision = ++operation.current;
     setPhase("uploading");
     setProgress(0);
-    const browserAttempt = await getOrCreateBrowserVideoUploadAttempt(materialId, file);
+    const browserAttempt = await getOrCreateBrowserVideoUploadAttempt(
+      materialId,
+      file,
+    );
     uploadAttempt.current = browserAttempt;
     const initialized = await uploadVideo({
       access,
@@ -146,6 +199,7 @@ export function MaterialVideoAuthoring({
       submissionId: browserAttempt.submissionId,
       title: file.name.replace(/\.[^.]+$/u, ""),
     });
+    if (revision !== operation.current) return;
     if (initialized.kind !== "ready") {
       if (initialized.kind === "upload_not_authorized") {
         clearBrowserVideoUploadAttempt(browserAttempt);
@@ -154,18 +208,32 @@ export function MaterialVideoAuthoring({
       setPhase(initialized.kind === "unavailable" ? "error" : initialized.kind);
       return;
     }
-    uploadAttempt.current = { ...browserAttempt, videoId: initialized.value.video.videoId };
+    uploadAttempt.current = {
+      ...browserAttempt,
+      videoId: initialized.value.video.videoId,
+    };
     setVideo(initialized.value.video);
-    if (new URL(initialized.value.uploadEndpoint).hostname.endsWith(".invalid")) {
+    if (
+      new URL(initialized.value.uploadEndpoint).hostname.endsWith(".invalid")
+    ) {
       setProgress(100);
       await reconcile(initialized.value.video.videoId);
       return;
     }
     const transfer = startResumableVideoUpload({
       file,
-      onError: () => { setPhase("error"); },
-      onProgress: (sent, total) => { setProgress(Math.round((sent / total) * 100)); },
-      onSuccess: () => { void reconcile(initialized.value.video.videoId); },
+      onError: () => {
+        if (revision !== operation.current) return;
+        setPhase("error");
+      },
+      onProgress: (sent, total) => {
+        if (revision !== operation.current) return;
+        setProgress(Math.round((sent / total) * 100));
+      },
+      onSuccess: () => {
+        if (revision !== operation.current) return;
+        void reconcile(initialized.value.video.videoId);
+      },
       uploadUrl: initialized.value.uploadEndpoint,
     });
     uploadTransfer.current = transfer;
@@ -173,56 +241,85 @@ export function MaterialVideoAuthoring({
   };
 
   const attach = async () => {
+    const revision = ++operation.current;
     setPhase("processing");
-    applyVideoResult(await attachVideo({ access, materialId, providerVideoId }));
+    const result = await attachVideo({ access, materialId, providerVideoId });
+    if (revision === operation.current) applyVideoResult(result);
   };
 
   const activeVideo = video ?? primaryVideo;
-  return <MaterialVideoAuthoringView
-    access={access}
-    activeVideo={activeVideo}
-    deletionPendingSave={deleteVideoId !== null}
-    deletionVideo={deletionVideo}
-    disabled={disabled}
-    onAttach={() => { void attach(); }}
-    onDeleteOwned={async () => {
-      if (activeVideo === null) return;
-      const transfer = await uploadTransfer.current;
-      uploadTransfer.current = null;
-      await transfer?.abort(true).catch(() => undefined);
-      if (uploadAttempt.current?.videoId === activeVideo.videoId) {
-        clearBrowserVideoUploadAttempt(uploadAttempt.current);
+  return (
+    <MaterialVideoAuthoringView
+      access={access}
+      activeVideo={activeVideo}
+      deletionPendingSave={deleteVideoId !== null}
+      deletionVideo={deletionVideo}
+      disabled={disabled}
+      onAttach={() => {
+        void attach();
+      }}
+      onDeleteOwned={async () => {
+        if (activeVideo === null) return;
+        operation.current += 1;
+        const transfer = await uploadTransfer.current;
+        uploadTransfer.current = null;
+        await transfer?.abort(true).catch(() => undefined);
+        if (uploadAttempt.current?.videoId === activeVideo.videoId) {
+          clearBrowserVideoUploadAttempt(uploadAttempt.current);
+          uploadAttempt.current = null;
+        }
+        const retainedVideo =
+          primaryVideo?.videoId === activeVideo.videoId ? null : primaryVideo;
+        setDeletionVideo(activeVideo);
+        setVideo(retainedVideo);
+        setPhase(phaseForVideo(retainedVideo));
+        onChange(retainedVideo, activeVideo.videoId);
+      }}
+      onFileSelected={(file) => {
+        const revision = operation.current + 1;
+        void upload(file).catch(() => {
+          if (revision === operation.current) setPhase("error");
+        });
+      }}
+      onProviderVideoIdChange={setProviderVideoId}
+      onReconcile={() => {
+        if (activeVideo !== null) void reconcile(activeVideo.videoId);
+      }}
+      onRemove={() => {
+        operation.current += 1;
+        const transfer = uploadTransfer.current;
+        uploadTransfer.current = null;
+        void transfer
+          ?.then((upload) => upload?.abort(false))
+          .catch(() => undefined);
+        if (uploadAttempt.current)
+          clearBrowserVideoUploadAttempt(uploadAttempt.current);
         uploadAttempt.current = null;
-      }
-      const retainedVideo = primaryVideo?.videoId === activeVideo.videoId
-        ? null
-        : primaryVideo;
-      setDeletionVideo(activeVideo);
-      setVideo(retainedVideo);
-      setPhase(phaseForVideo(retainedVideo));
-      onChange(retainedVideo, activeVideo.videoId);
-    }}
-    onFileSelected={(file) => { void upload(file); }}
-    onProviderVideoIdChange={setProviderVideoId}
-    onReconcile={() => {
-      if (activeVideo !== null) void reconcile(activeVideo.videoId);
-    }}
-    onRemove={() => {
-      setVideo(null);
-      setPhase("idle");
-      onChange(null, null);
-    }}
-    onRetryDeletion={() => {
-      if (deletionVideo === null) return;
-      void retryDeletion({ videoId: deletionVideo.videoId }).then(applyVideoResult);
-    }}
-    phase={phase}
-    progress={progress}
-    providerVideoId={providerVideoId}
-  />;
+        setVideo(null);
+        setPhase("idle");
+        onChange(null, null);
+      }}
+      onRetryDeletion={() => {
+        if (deletionVideo === null) return;
+        void retryDeletion({ videoId: deletionVideo.videoId }).then(
+          applyVideoResult,
+        );
+      }}
+      phase={phase}
+      progress={progress}
+      providerVideoId={providerVideoId}
+    />
+  );
 }
 
-export type MaterialVideoAuthoringPhase = "idle" | "uploading" | "processing" | "ready" | "error" | "upload_not_authorized" | "upload_outcome_unknown";
+export type MaterialVideoAuthoringPhase =
+  | "idle"
+  | "uploading"
+  | "processing"
+  | "ready"
+  | "error"
+  | "upload_not_authorized"
+  | "upload_outcome_unknown";
 
 export interface MaterialVideoAuthoringViewProps {
   readonly access: "free" | "membership";
@@ -262,15 +359,53 @@ export function MaterialVideoAuthoringView({
 }: MaterialVideoAuthoringViewProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const deleteDialog = useRef<HTMLDialogElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const busy = disabled || phase === "uploading" || phase === "processing";
+  const selectFile = (file: File | undefined) => {
+    if (file && !busy && file.type.startsWith("video/")) onFileSelected(file);
+  };
 
   return (
-    <div className="mt-4 grid gap-4 rounded-2xl bg-muted/60 p-4 sm:p-5">
+    <div
+      className={`mt-4 grid gap-3 rounded-2xl border border-dashed p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring ${dragging ? "border-accent bg-accent/10" : "border-border bg-muted/30"}`}
+      tabIndex={0}
+      aria-label="Основное видео"
+      onDragOver={(event) => {
+        if (busy || !event.dataTransfer.types.includes("Files")) return;
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+          setDragging(false);
+      }}
+      onDrop={(event) => {
+        if (busy) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setDragging(false);
+        selectFile(event.dataTransfer.files[0]);
+      }}
+      onPaste={(event) => {
+        if (busy || event.clipboardData.files.length === 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        selectFile(event.clipboardData.files[0]);
+      }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-background text-accent"><Video aria-hidden="true" className="size-5" /></span>
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-background text-accent">
+            <Video aria-hidden="true" className="size-5" />
+          </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{activeVideo?.title ?? "Основное видео не выбрано"}</p>
-            <p aria-live="polite" className="mt-0.5 font-mono text-[0.6875rem] text-muted-foreground">
+            <p className="truncate text-sm font-semibold">
+              {activeVideo?.title ?? "Основное видео не выбрано"}
+            </p>
+            <p
+              aria-live="polite"
+              className="mt-0.5 font-mono text-[0.6875rem] text-muted-foreground"
+            >
               {phaseLabel(phase, progress)}
             </p>
           </div>
@@ -284,59 +419,107 @@ export function MaterialVideoAuthoringView({
             onChange={(event) => {
               const file = event.currentTarget.files?.[0];
               event.currentTarget.value = "";
-              if (file !== undefined) onFileSelected(file);
+              selectFile(file);
             }}
             ref={fileInput}
             type="file"
           />
-          <Button disabled={disabled || phase === "uploading"} onClick={() => fileInput.current?.click()} size="sm" type="button" variant="outline">
-            <Upload aria-hidden="true" />Загрузить
+          <Button
+            disabled={busy}
+            onClick={() => fileInput.current?.click()}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Upload aria-hidden="true" />
+            Загрузить
           </Button>
-          {activeVideo === null ? null : (
-            <Button disabled={disabled || phase === "uploading"} onClick={onReconcile} size="sm" type="button" variant="outline">
-              <RefreshCw aria-hidden="true" />Проверить
+          {activeVideo === null || phase === "ready" ? null : (
+            <Button
+              disabled={busy}
+              onClick={onReconcile}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <RefreshCw aria-hidden="true" />
+              Проверить
             </Button>
           )}
           {activeVideo === null ? null : (
-            <Button disabled={disabled} onClick={onRemove} size="sm" type="button" variant="ghost">Убрать из материала</Button>
+            <Button
+              disabled={disabled}
+              onClick={onRemove}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Убрать
+            </Button>
           )}
           {activeVideo?.origin === "platform_upload" ? (
-            <Button disabled={disabled} onClick={() => deleteDialog.current?.showModal()} size="sm" type="button" variant="destructive">
-              <Trash2 aria-hidden="true" />Убрать и удалить из Kinescope…
+            <Button
+              disabled={disabled}
+              onClick={() => deleteDialog.current?.showModal()}
+              size="sm"
+              type="button"
+              variant="destructive"
+            >
+              <Trash2 aria-hidden="true" />
+              Удалить…
             </Button>
           ) : null}
         </div>
       </div>
-      {activeVideo?.origin === "external_attachment" ? (
-        <p className="text-xs leading-5 text-muted-foreground">
-          Это видео привязано из Kinescope. «Убрать из материала» не удалит его в Kinescope.
-        </p>
-      ) : activeVideo === null ? null : (
-        <p className="text-xs leading-5 text-muted-foreground">
-          При замене текущее видео останется в Kinescope, если вы отдельно не подтвердите удаление.
-        </p>
-      )}
       <DeletionStatus
         pendingSave={deletionPendingSave}
         video={deletionVideo}
         onRetry={onRetryDeletion}
       />
-      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-        <label className="grid gap-1.5 text-xs font-medium" htmlFor="provider-video-id">
-          ID существующего видео из Kinescope project «{access === "membership" ? "Для участников" : "Публичный"}»
-          <input
-            className="h-10 min-w-0 rounded-xl border border-input bg-background px-3 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            disabled={disabled}
-            id="provider-video-id"
-            onChange={(event) => { onProviderVideoIdChange(event.currentTarget.value); }}
-            value={providerVideoId}
-          />
-        </label>
-        <Button className="self-end" disabled={disabled || providerVideoId.trim().length === 0 || phase === "processing"} onClick={onAttach} type="button" variant="secondary">
-          {phase === "processing" ? <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" /> : <Link2 aria-hidden="true" />}
-          Привязать
-        </Button>
-      </div>
+      <details>
+        <summary className="cursor-pointer text-xs text-muted-foreground">
+          Выбрать существующее видео Kinescope
+        </summary>
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+          <label
+            className="grid gap-1.5 text-xs font-medium"
+            htmlFor="provider-video-id"
+          >
+            ID видео · проект «
+            {access === "membership" ? "Для участников" : "Публичный"}»
+            <input
+              className="h-10 min-w-0 rounded-xl border border-input bg-background px-3 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={disabled}
+              id="provider-video-id"
+              onChange={(event) => {
+                onProviderVideoIdChange(event.currentTarget.value);
+              }}
+              value={providerVideoId}
+            />
+          </label>
+          <Button
+            className="self-end"
+            disabled={
+              disabled ||
+              providerVideoId.trim().length === 0 ||
+              phase === "processing"
+            }
+            onClick={onAttach}
+            type="button"
+            variant="secondary"
+          >
+            {phase === "processing" ? (
+              <LoaderCircle
+                aria-hidden="true"
+                className="animate-spin motion-reduce:animate-none"
+              />
+            ) : (
+              <Link2 aria-hidden="true" />
+            )}
+            Привязать
+          </Button>
+        </div>
+      </details>
       {activeVideo?.origin === "platform_upload" ? (
         <dialog
           aria-labelledby="video-delete-heading"
@@ -344,15 +527,32 @@ export function MaterialVideoAuthoringView({
           ref={deleteDialog}
         >
           <div className="p-6 sm:p-8">
-            <h2 className="text-balance text-2xl font-semibold tracking-[-0.03em]" id="video-delete-heading">
+            <h2
+              className="text-balance text-2xl font-semibold tracking-[-0.03em]"
+              id="video-delete-heading"
+            >
               Удалить «{activeVideo.title}» из Kinescope?
             </h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              Запрос на удаление будет создан только после успешного Save. Восстановление видео не гарантируется.
+              Видео будет убрано из материала и удалено из Kinescope. Это
+              действие нельзя отменить.
             </p>
             <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <Button onClick={() => deleteDialog.current?.close()} type="button" variant="outline">Оставить видео</Button>
-              <Button onClick={() => { deleteDialog.current?.close(); void onDeleteOwned(); }} type="button" variant="destructive">
+              <Button
+                onClick={() => deleteDialog.current?.close()}
+                type="button"
+                variant="outline"
+              >
+                Оставить видео
+              </Button>
+              <Button
+                onClick={() => {
+                  deleteDialog.current?.close();
+                  void onDeleteOwned();
+                }}
+                type="button"
+                variant="destructive"
+              >
                 Убрать и удалить из Kinescope
               </Button>
             </div>
@@ -374,7 +574,7 @@ function DeletionStatus({
 }) {
   if (video === null) return null;
   const text = pendingSave
-    ? `Удаление «${video.title}» будет запрошено только после Save.`
+    ? `Удаление «${video.title}» сохраняется…`
     : video.state === "deletion_requested"
       ? `Удаление «${video.title}» запрошено.`
       : video.state === "deleting"
@@ -386,37 +586,56 @@ function DeletionStatus({
             : null;
   if (text === null) return null;
   return (
-    <div className="rounded-xl border border-border bg-background px-4 py-3 text-sm leading-6" role="status">
+    <div
+      className="rounded-xl border border-border bg-background px-4 py-3 text-sm leading-6"
+      role="status"
+    >
       <p>{text}</p>
       {video.state === "delete_failed" && !pendingSave ? (
-        <Button className="mt-3" onClick={onRetry} size="sm" type="button" variant="outline">
-          <RefreshCw aria-hidden="true" />Повторить удаление
+        <Button
+          className="mt-3"
+          onClick={onRetry}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <RefreshCw aria-hidden="true" />
+          Повторить удаление
         </Button>
       ) : null}
     </div>
   );
 }
 
-function phaseForVideo(video: MaterialAuthoringVideo | null): MaterialVideoAuthoringPhase {
+function phaseForVideo(
+  video: MaterialAuthoringVideo | null,
+): MaterialVideoAuthoringPhase {
   if (video === null) return "idle";
   if (video.state === "ready") return "ready";
   if (video.state === "failed") return "error";
   return video.state === "uploading" ? "uploading" : "processing";
 }
 
-function phaseLabel(phase: MaterialVideoAuthoringPhase, progress: number): string {
+function phaseLabel(
+  phase: MaterialVideoAuthoringPhase,
+  progress: number,
+): string {
   if (phase === "uploading") return `Загрузка ${String(progress)}%`;
   if (phase === "processing") return "Kinescope обрабатывает видео";
-  if (phase === "upload_not_authorized") return "Kinescope отклонил загрузку. Нужно исправить права доступа к сервису.";
-  if (phase === "upload_outcome_unknown") return "Результат загрузки не подтверждён. Нужна проверка в Kinescope перед повтором.";
+  if (phase === "upload_not_authorized")
+    return "Kinescope отклонил загрузку. Нужно исправить права доступа к сервису.";
+  if (phase === "upload_outcome_unknown")
+    return "Результат загрузки не подтверждён. Нужна проверка в Kinescope перед повтором.";
   if (phase === "error") return "Нужна повторная попытка";
-  if (phase === "ready") return "Готово к Save";
-  return "Видео хранится отдельно от body Material";
+  if (phase === "ready") return "Видео готово";
+  return "Перетащите видео или вставьте из буфера";
 }
 
 function isDeletionState(state: MaterialVideo["state"]): boolean {
-  return state === "deletion_requested" ||
+  return (
+    state === "deletion_requested" ||
     state === "deleting" ||
     state === "deleted" ||
-    state === "delete_failed";
+    state === "delete_failed"
+  );
 }

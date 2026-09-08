@@ -1,11 +1,9 @@
 import { spawn } from "node:child_process";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
-import { createServer } from "node:http";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { wrapSession } from "@logto/node";
-import { exportJWK, generateKeyPair, SignJWT } from "jose";
+import { startFullStackIdentity } from "./full-stack-identity.mjs";
 
 import { signalProcessGroup } from "./process-group-signal.mjs";
 
@@ -27,14 +25,16 @@ const webPort = process.env.FULLSTACK_WEB_PORT ?? "3000";
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
 const mcpPort = process.env.FULLSTACK_MCP_PORT ?? "3002";
 const mcpServerUrl = `http://127.0.0.1:${mcpPort}/mcp`;
-const fullStackAccessTokenTtlSeconds = 300;
 const childEnvironment = { ...process.env };
 childEnvironment.NODE_ENV ??= "development";
 Object.assign(childEnvironment, {
   PLATFORM_RELEASE_VERSION: "v1",
   PLATFORM_SOURCE_SHA: "1".repeat(40),
 });
-const fullStackIdentity = await startFullStackIdentity();
+const fullStackIdentity = await startFullStackIdentity({
+  apiBaseUrl,
+  webBaseUrl,
+});
 Object.assign(childEnvironment, fullStackIdentity.environment);
 const webReleaseIdentityPath = resolve(
   repositoryRoot,
@@ -43,10 +43,14 @@ const webReleaseIdentityPath = resolve(
 if (existsSync(webReleaseIdentityPath)) {
   throw new Error(`Refusing to replace ${webReleaseIdentityPath}`);
 }
-writeFileSync(webReleaseIdentityPath, `${JSON.stringify({
-  release: "v1",
-  sourceSha: "1".repeat(40),
-})}\n`, { mode: 0o444 });
+writeFileSync(
+  webReleaseIdentityPath,
+  `${JSON.stringify({
+    release: "v1",
+    sourceSha: "1".repeat(40),
+  })}\n`,
+  { mode: 0o444 },
+);
 const processes = [];
 const activeProcesses = new Set();
 let cleanupPromise;
@@ -118,9 +122,15 @@ try {
     fullStackIdentity.memberSubject,
   );
   await establishFullStackAccount(memberAccessToken.token);
-  const nonMemberAccessToken = await fullStackIdentity.createAccessToken("fullstack-non-member");
-  const expiredMemberAccessToken = await fullStackIdentity.createAccessToken("fullstack-expired-member");
-  const staleMemberAccessToken = await fullStackIdentity.createAccessToken("fullstack-stale-member");
+  const nonMemberAccessToken = await fullStackIdentity.createAccessToken(
+    "fullstack-non-member",
+  );
+  const expiredMemberAccessToken = await fullStackIdentity.createAccessToken(
+    "fullstack-expired-member",
+  );
+  const staleMemberAccessToken = await fullStackIdentity.createAccessToken(
+    "fullstack-stale-member",
+  );
   await establishFullStackAccount(nonMemberAccessToken.token);
   await establishFullStackAccount(expiredMemberAccessToken.token);
   await establishFullStackAccount(staleMemberAccessToken.token);
@@ -134,8 +144,10 @@ try {
     },
   );
   const browserAccessToken = await fullStackIdentity.createAccessToken();
-  const fullStackSession = await fullStackIdentity.createSession(browserAccessToken);
-  const fullStackMemberSession = await fullStackIdentity.createSession(memberAccessToken);
+  const fullStackSession =
+    await fullStackIdentity.createSession(browserAccessToken);
+  const fullStackMemberSession =
+    await fullStackIdentity.createSession(memberAccessToken);
   await runPnpm(fullStackTestArguments(), {
     ...childEnvironment,
     FULLSTACK_API_BASE_URL: apiBaseUrl,
@@ -143,9 +155,13 @@ try {
       childEnvironment.MEMBERSHIP_ACQUISITION_URL ?? "https://t.me/tribute",
     FULLSTACK_LOGTO_COOKIE_NAME: fullStackIdentity.cookieName,
     FULLSTACK_LOGTO_MEMBER_SESSION: fullStackMemberSession,
-    FULLSTACK_LOGTO_NON_MEMBER_SESSION: await fullStackIdentity.createSession(nonMemberAccessToken),
-    FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION: await fullStackIdentity.createSession(expiredMemberAccessToken),
-    FULLSTACK_LOGTO_STALE_MEMBER_SESSION: await fullStackIdentity.createSession(staleMemberAccessToken),
+    FULLSTACK_LOGTO_NON_MEMBER_SESSION:
+      await fullStackIdentity.createSession(nonMemberAccessToken),
+    FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION:
+      await fullStackIdentity.createSession(expiredMemberAccessToken),
+    FULLSTACK_LOGTO_STALE_MEMBER_SESSION: await fullStackIdentity.createSession(
+      staleMemberAccessToken,
+    ),
     FULLSTACK_LOGTO_SESSION: fullStackSession,
     FULLSTACK_WEB_BASE_URL: webBaseUrl,
   });
@@ -201,7 +217,9 @@ async function runPnpm(arguments_, environment = childEnvironment) {
     entry.child.once("exit", (code) => resolveExit(code));
   });
   if (exitCode !== 0) {
-    throw new Error(`pnpm ${arguments_.join(" ")} failed:\n${entry.output.join("")}`);
+    throw new Error(
+      `pnpm ${arguments_.join(" ")} failed:\n${entry.output.join("")}`,
+    );
   }
 }
 
@@ -241,9 +259,13 @@ async function waitForHttp(url, entries) {
       }
       // A connection failure means the process is still starting.
     }
-    await new Promise((resolveDelay) => globalThis.setTimeout(resolveDelay, 150));
+    await new Promise((resolveDelay) =>
+      globalThis.setTimeout(resolveDelay, 150),
+    );
   }
-  throw new Error(`Timed out waiting for ${url}\n${formatProcessOutput(entries)}`);
+  throw new Error(
+    `Timed out waiting for ${url}\n${formatProcessOutput(entries)}`,
+  );
 }
 
 function assertHealth(value) {
@@ -267,7 +289,9 @@ function assertHealth(value) {
 function assertProcessesRunning(entries) {
   const stopped = entries.find(({ child }) => child.exitCode !== null);
   if (stopped !== undefined) {
-    throw new Error(`${stopped.name} exited early:\n${stopped.output.join("")}`);
+    throw new Error(
+      `${stopped.name} exited early:\n${stopped.output.join("")}`,
+    );
   }
 }
 
@@ -313,86 +337,7 @@ function retainOutput(output, chunk) {
 }
 
 function formatProcessOutput(entries) {
-  return entries.map(({ name, output }) => `${name}:\n${output.join("")}`).join("\n");
-}
-
-async function startFullStackIdentity() {
-  const issuer = "https://identity.fullstack.test/oidc";
-  const subject = "fullstack-owner";
-  const memberSubject = "fullstack-member";
-  const audience = apiBaseUrl;
-  const appId = "inside-web-fullstack";
-  const cookieSecret = "inside-fullstack-cookie-secret-key";
-  const keyPair = await generateKeyPair("ES384");
-  const publicJwk = {
-    ...(await exportJWK(keyPair.publicKey)),
-    alg: "ES384",
-    kid: "fullstack-key-1",
-  };
-  const server = createServer((request, response) => {
-    if (request.url !== "/jwks") {
-      response.writeHead(404).end();
-      return;
-    }
-    response.setHeader("content-type", "application/json");
-    response.end(JSON.stringify({ keys: [publicJwk] }));
-  });
-  await new Promise((resolveListen) =>
-    server.listen(0, "127.0.0.1", resolveListen),
-  );
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Full-stack JWKS server has no TCP port");
-  }
-  return {
-    cookieName: `logto_${appId}`,
-    memberSubject,
-    createAccessToken: async (tokenSubject = subject) => {
-      const now = Math.floor(Date.now() / 1_000);
-      const token = await new SignJWT({
-        inside_verified_email: `${tokenSubject}@inside.test`,
-      })
-        .setProtectedHeader({ alg: "ES384", kid: "fullstack-key-1" })
-        .setIssuer(issuer)
-        .setAudience(audience)
-        .setSubject(tokenSubject)
-        .setIssuedAt(now)
-        .setExpirationTime(now + fullStackAccessTokenTtlSeconds)
-        .sign(keyPair.privateKey);
-      return { token, expiresAt: now + fullStackAccessTokenTtlSeconds };
-    },
-    createSession: async ({ token, expiresAt }) => {
-      return wrapSession(
-        {
-          idToken: "fullstack.id.token",
-          accessToken: JSON.stringify({
-            [`@${audience}`]: {
-              token,
-              scope: "",
-              expiresAt,
-            },
-          }),
-        },
-        cookieSecret,
-      );
-    },
-    environment: {
-      LOGTO_APP_ID: appId,
-      LOGTO_APP_SECRET: "inside-fullstack-app-secret",
-      LOGTO_AUDIENCE: audience,
-      LOGTO_COOKIE_SECRET: cookieSecret,
-      LOGTO_ENDPOINT: "https://identity.fullstack.test",
-      LOGTO_ISSUER: issuer,
-      LOGTO_JWKS_URL: `http://127.0.0.1:${String(address.port)}/jwks`,
-      OWNER_LOGTO_ISSUER: issuer,
-      OWNER_LOGTO_SUBJECT: subject,
-      WEB_BASE_URL: webBaseUrl,
-    },
-    close: () =>
-      new Promise((resolveClose, rejectClose) => {
-        server.close((error) =>
-          error === undefined ? resolveClose() : rejectClose(error),
-        );
-      }),
-  };
+  return entries
+    .map(({ name, output }) => `${name}:\n${output.join("")}`)
+    .join("\n");
 }

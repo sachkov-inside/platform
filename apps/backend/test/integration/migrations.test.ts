@@ -171,6 +171,7 @@ describe("Platform migrations", () => {
           "0034_content_cover_cleanup",
           "0035_domain_material_formats",
           "0036_video_upload_rejections",
+          "0037_platform_admin",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -734,6 +735,7 @@ describe("Platform migrations", () => {
           "0034_content_cover_cleanup",
           "0035_domain_material_formats",
           "0036_video_upload_rejections",
+          "0037_platform_admin",
         ],
       });
 

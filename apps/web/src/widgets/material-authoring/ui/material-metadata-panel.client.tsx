@@ -1,7 +1,6 @@
 "use client";
 
-import { BookOpen, Check } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { materialTaxonomyLabel } from "@/entities/material";
 import { MaterialDeleteDialog } from "@/features/material-lifecycle";
@@ -29,23 +28,23 @@ export function MaterialMetadataPanel({
   presentation,
 }: MaterialMetadataPanelProps) {
   const disabled =
-    presentation.save.kind === "submitting" ||
-    presentation.blocking.kind !== "none" ||
-    presentation.draft.readOnly;
+    presentation.blocking.kind === "not_found" || presentation.draft.readOnly;
 
   return (
     <section
       aria-labelledby="material-parameters-heading"
-      className="min-w-0 border-b border-border pb-7 @min-[68rem]/material-authoring:border-b-0 @min-[68rem]/material-authoring:border-r @min-[68rem]/material-authoring:pb-0 @min-[68rem]/material-authoring:pr-7"
+      className="min-w-0 border-b border-border pb-7"
     >
       <h2 className="text-sm font-semibold" id="material-parameters-heading">
         Параметры материала
       </h2>
-      <div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2 @min-[68rem]/material-authoring:grid-cols-1">
+      <div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2">
         <Field label="Название" targetId="material-title">
           <input
             aria-describedby={
-              hasIssue(presentation, "/title") ? "material-guidance-heading" : undefined
+              hasIssue(presentation, "/title")
+                ? "material-guidance-heading"
+                : undefined
             }
             aria-invalid={hasIssue(presentation, "/title") || undefined}
             autoComplete="off"
@@ -63,7 +62,9 @@ export function MaterialMetadataPanel({
         <Field label="Краткое описание" targetId="material-summary">
           <textarea
             aria-describedby={
-              hasIssue(presentation, "/summary") ? "material-guidance-heading" : undefined
+              hasIssue(presentation, "/summary")
+                ? "material-guidance-heading"
+                : undefined
             }
             aria-invalid={hasIssue(presentation, "/summary") || undefined}
             autoComplete="off"
@@ -96,8 +97,16 @@ export function MaterialMetadataPanel({
           value={presentation.draft.formatId}
           onChange={actions.onFieldChange}
         />
-        <TagSelector actions={actions} disabled={disabled} presentation={presentation} />
-        <SeriesSelector actions={actions} disabled={disabled} presentation={presentation} />
+        <TagSelector
+          actions={actions}
+          disabled={disabled}
+          presentation={presentation}
+        />
+        <SeriesSelector
+          actions={actions}
+          disabled={disabled}
+          presentation={presentation}
+        />
         <Field label="Доступ" targetId="material-access">
           <Select
             disabled={disabled}
@@ -107,14 +116,20 @@ export function MaterialMetadataPanel({
             }}
             value={presentation.draft.access}
           >
-            <SelectTrigger className={authoringSelectTriggerClassName} id="material-access">
+            <SelectTrigger
+              className={authoringSelectTriggerClassName}
+              id="material-access"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem className={authoringSelectItemClassName} value="free">
                 Бесплатный
               </SelectItem>
-              <SelectItem className={authoringSelectItemClassName} value="membership">
+              <SelectItem
+                className={authoringSelectItemClassName}
+                value="membership"
+              >
                 Для участников
               </SelectItem>
             </SelectContent>
@@ -125,13 +140,10 @@ export function MaterialMetadataPanel({
       {presentation.draft.canDelete &&
       presentation.draft.materialId !== null &&
       presentation.draft.contentVersion !== null ? (
-        <section aria-labelledby="material-delete-heading" className="mt-7 border-t border-border pt-6">
-          <h2 className="text-sm font-semibold" id="material-delete-heading">
-            Удаление черновика
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Доступно только пока Материал ни разу не публиковался.
-          </p>
+        <details className="mt-7 border-t border-border pt-4">
+          <summary className="cursor-pointer text-xs text-muted-foreground">
+            Удалить черновик
+          </summary>
           <div className="mt-4">
             <MaterialDeleteDialog
               contentVersion={presentation.draft.contentVersion}
@@ -144,7 +156,7 @@ export function MaterialMetadataPanel({
               title={presentation.draft.title || null}
             />
           </div>
-        </section>
+        </details>
       ) : null}
     </section>
   );
@@ -178,11 +190,17 @@ function TaxonomySelect({
         }}
         value={value}
       >
-        <SelectTrigger className={authoringSelectTriggerClassName} id={targetId}>
+        <SelectTrigger
+          className={authoringSelectTriggerClassName}
+          id={targetId}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem className={authoringSelectItemClassName} value="unassigned">
+          <SelectItem
+            className={authoringSelectItemClassName}
+            value="unassigned"
+          >
             {emptyLabel}
           </SelectItem>
           {options.map((option) => (
@@ -192,7 +210,8 @@ function TaxonomySelect({
               key={option.value}
               value={option.value}
             >
-              {materialTaxonomyLabel(option.label)}{option.archived === true ? " · архив" : ""}
+              {materialTaxonomyLabel(option.label)}
+              {option.archived === true ? " · архив" : ""}
             </SelectItem>
           ))}
         </SelectContent>
@@ -240,62 +259,83 @@ function SeriesSelector({
   disabled,
   presentation,
 }: MaterialMetadataPanelProps & { readonly disabled: boolean }) {
-  if (presentation.availableSeries.length === 0) {
-    return null;
-  }
-
+  const [search, setSearch] = useState("");
+  const [limit, setLimit] = useState(20);
+  const matching = presentation.availableSeries.filter((series) =>
+    series.label
+      .toLocaleLowerCase("ru")
+      .includes(search.trim().toLocaleLowerCase("ru")),
+  );
   return (
-    <fieldset className="min-w-0 sm:col-span-2 @min-[68rem]/material-authoring:col-span-1">
-      <legend className="text-sm font-medium">Серии</legend>
-      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-        Новый материал добавится в конец выбранной серии.
-      </p>
-      <div className="mt-2 grid gap-2">
-        {presentation.availableSeries.map((series) => {
+    <fieldset className="min-w-0">
+      <legend className="mb-2 text-sm font-medium">
+        Серии
+        <span className="ml-1 text-muted-foreground">
+          {presentation.draft.seriesIds.length || ""}
+        </span>
+      </legend>
+      <input
+        aria-label="Поиск серии"
+        type="search"
+        placeholder="Найти серию"
+        className="mb-2 w-full rounded-xl border border-input bg-transparent px-3 py-2 text-sm"
+        value={search}
+        onChange={(event) => {
+          setSearch(event.currentTarget.value);
+          setLimit(20);
+        }}
+      />
+      <div
+        aria-label="Выбор серий"
+        className="max-h-52 overflow-y-auto overscroll-contain rounded-xl border border-border p-1"
+        onScroll={(event) => {
+          const list = event.currentTarget;
+          if (list.scrollHeight - list.scrollTop - list.clientHeight < 80)
+            setLimit((current) => Math.min(current + 20, matching.length));
+        }}
+      >
+        {matching.slice(0, limit).map((series) => {
           const checked = presentation.draft.seriesIds.includes(series.value);
           return (
             <label
-              className={cn(
-                "relative flex min-h-12 min-w-0 cursor-pointer items-center gap-3 rounded-xl border px-3 text-sm font-medium transition-colors motion-reduce:transition-none",
-                "has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/40",
-                checked
-                  ? "border-accent/45 bg-accent/10 text-foreground"
-                  : "border-border bg-card text-foreground hover:bg-secondary",
-                disabled && "cursor-not-allowed opacity-60",
-              )}
+              className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm hover:bg-muted has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
               key={series.value}
             >
               <input
                 checked={checked}
-                className="sr-only"
                 disabled={disabled || (series.archived === true && !checked)}
                 onChange={(event) => {
-                  actions.onSeriesToggle(series.value, event.currentTarget.checked);
+                  actions.onSeriesToggle(
+                    series.value,
+                    event.currentTarget.checked,
+                  );
                 }}
                 type="checkbox"
+                className="size-4 shrink-0 accent-primary"
               />
-              <span
-                className={cn(
-                  "grid size-8 shrink-0 place-items-center rounded-lg",
-                  checked ? "bg-accent text-accent-foreground" : "bg-secondary text-muted-foreground",
-                )}
-              >
-                <BookOpen aria-hidden="true" className="size-4" />
-              </span>
-              <span className="truncate">{series.label}{series.archived === true ? " · архив" : ""}</span>
-              <span
-                className={cn(
-                  "ml-auto grid size-6 shrink-0 place-items-center rounded-full border",
-                  checked
-                    ? "border-accent bg-accent text-accent-foreground"
-                    : "border-border text-transparent",
-                )}
-              >
-                <Check aria-hidden="true" className="size-3.5" />
+              <span className="truncate">
+                {series.label}
+                {series.archived ? " · архив" : ""}
               </span>
             </label>
           );
         })}
+        {matching.length === 0 ? (
+          <p className="p-2 text-xs text-muted-foreground">
+            {search ? "Серии не найдены" : "Пока нет серий"}
+          </p>
+        ) : null}
+        {limit < matching.length ? (
+          <button
+            className="w-full px-2 py-2 text-left text-xs text-muted-foreground"
+            type="button"
+            onClick={() => {
+              setLimit((current) => current + 20);
+            }}
+          >
+            Показать ещё
+          </button>
+        ) : null}
       </div>
     </fieldset>
   );
@@ -307,7 +347,7 @@ function TagSelector({
   presentation,
 }: MaterialMetadataPanelProps & { readonly disabled: boolean }) {
   return (
-    <div className="min-w-0 sm:col-span-2 @min-[68rem]/material-authoring:col-span-1">
+    <div className="min-w-0">
       <p className="mb-2 text-sm font-medium" id="material-tags-label">
         Теги
       </p>
@@ -383,12 +423,15 @@ function hasIssue(
 ): boolean {
   return (
     presentation.validation.kind === "invalid" &&
-    presentation.validation.issues.some((issue) => issue.path.endsWith(pathSuffix))
+    presentation.validation.issues.some((issue) =>
+      issue.path.endsWith(pathSuffix),
+    )
   );
 }
 
 const fieldClassName =
   "min-h-12 w-full rounded-xl border border-input bg-card px-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none sm:min-h-11 sm:text-sm";
 
-const authoringSelectTriggerClassName = "min-h-12 text-base sm:min-h-11 sm:text-sm";
+const authoringSelectTriggerClassName =
+  "min-h-12 text-base sm:min-h-11 sm:text-sm";
 const authoringSelectItemClassName = "min-h-11 sm:min-h-10";
