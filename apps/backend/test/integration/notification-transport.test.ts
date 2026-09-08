@@ -15,6 +15,7 @@ import { createMigratedTestDatabase, type TestDatabase } from './setup/test-data
 import { localNotificationTopology, NOTIFICATION_BROKER_IMAGE } from '../../src/infrastructure/notification-transport/topology.js';
 import { connectNotificationBroker, consumeNotificationLane, publishNotification } from '../../src/infrastructure/notification-transport/rabbitmq.js';
 import { runWorker, WORKER_READINESS_PATH } from '../../src/infrastructure/worker-runtime.js';
+import { migrateRuntimeDatabase } from '../../src/migrations/migrate.js';
 import { OperationalReadiness } from '../../src/infrastructure/operational-readiness.js';
 import { assembleNotificationWorker } from "../../src/infrastructure/notification-transport/worker.js";
 import { assembleNotificationOutbox, stageNotification } from '../../src/infrastructure/notification-transport/outbox.js';
@@ -219,6 +220,7 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     await billingReceiver.stop();
   }, 45_000);
   test('composed worker relays both sources and email/results, drains and reports broker failure', async () => {
+    await migrateRuntimeDatabase(database.url);
     const transport = assembleNotificationTransport(database.prisma, 100);
     const observed: Record<string, unknown>[] = [];
     const worker = assembleNotificationWorker({
@@ -249,7 +251,7 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     });
     void running.catch(() => undefined);
     try {
-      await eventually(async () => { expect(JSON.parse(await readFile(WORKER_READINESS_PATH, 'utf8'))).toMatchObject({ process: 'notifications-worker', status: 'ready' }); });
+      await Promise.race([running, eventually(async () => { expect(JSON.parse(await readFile(WORKER_READINESS_PATH, 'utf8'))).toMatchObject({ process: 'notifications-worker', status: 'ready' }); })]);
       await eventually(async () => {
         for (const messageId of [billing.messageId, material.messageId, email.operationId, result.messageId]) {
           expect(await database.prisma.notificationInbox.count({ where: { messageId, completedAt: null } })).toBe(1);
