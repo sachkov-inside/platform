@@ -209,7 +209,7 @@ function MaterialRow({
       data-material-slug={material.slug}
       data-material-variant="row"
     >
-      <span className={showAccessDetails ? "@max-[13rem]/series-entry:hidden" : undefined}>
+      <span className={cn(compactOnMobile && "w-14 sm:w-22", showAccessDetails && !compactOnMobile && "@max-[13rem]/series-entry:hidden")}>
       <AccessCover compact material={material}>
         <ContentCoverImage
           alt=""

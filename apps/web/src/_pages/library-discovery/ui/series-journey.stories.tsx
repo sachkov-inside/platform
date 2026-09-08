@@ -160,3 +160,20 @@ export const DesktopRouteDetails: Story = {
     for (const topic of route.getAllByRole("link", { name: "Platform" })) await expect(topic).toBeVisible();
   },
 };
+
+
+export const CompactMobileEnlargedText: Story = {
+  ...CompactMobileRoute,
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.ownerDocument.documentElement;
+    const fontSize = root.style.fontSize;
+    try {
+      root.style.fontSize = "200%";
+      await new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve(); }); });
+      await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+      await expect(canvasElement.querySelector('[data-access-cover="locked"]')).toBeVisible();
+      await expect(canvasElement.querySelector("[data-series-duration]")).toBeVisible();
+    } finally { root.style.fontSize = fontSize; }
+  },
+};
