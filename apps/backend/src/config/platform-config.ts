@@ -1,3 +1,4 @@
+import { notificationsConfigSchema, parseNotificationsConfig } from './notifications-config.js';
 import { z } from "zod";
 
 const DEFAULT_DATABASE_URL =
@@ -188,6 +189,7 @@ const kinescopeSchema = z.object({
 }).readonly();
 const platformConfigSchema = z
   .object({
+    notifications: notificationsConfigSchema.optional(),
     mode: platformModeSchema,
     database: z.object({ url: databaseUrlSchema }).readonly(),
     api: z
@@ -241,7 +243,8 @@ export type BackendProcess =
   | "material-assets-worker"
   | "mcp"
   | "profile-avatars-worker"
-  | "video-deletions-worker";
+  | "video-deletions-worker"
+  | "notifications-worker";
 export type PlatformDatabaseConfig = z.infer<
   typeof platformDatabaseConfigSchema
 >;
@@ -303,6 +306,7 @@ const requiredGroupsByProcess = {
   mcp: new Set(["contentAccess", "identity", "kinescope", "objectStorage"]),
   "profile-avatars-worker": new Set(["objectStorage"]),
   "video-deletions-worker": new Set(["kinescope"]),
+  "notifications-worker": new Set<string>(),
 } satisfies Record<BackendProcess, ReadonlySet<string>>;
 
 export function parsePlatformProcessConfig(
@@ -328,6 +332,7 @@ export function parsePlatformConfig(
 ): PlatformConfig {
   const mode = parsePlatformMode(environment.NODE_ENV);
   const config = platformConfigSchema.safeParse({
+    notifications: parseNotificationsConfig(environment),
     mode,
     billingContact: [environment.BILLING_CONTACT_ENCRYPTION_KEY, environment.BILLING_CONTACT_SMTP_HOST,
       environment.BILLING_CONTACT_SMTP_PORT, environment.BILLING_CONTACT_SMTP_USER, environment.BILLING_CONTACT_SMTP_PASSWORD,

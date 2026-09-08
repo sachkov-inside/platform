@@ -1,3 +1,6 @@
+import { name as notificationsTransportName, statement as notificationsTransportStatement } from "../modules/notifications/infrastructure/postgres/migrations/0044-notification-transport.js";
+import { name as materialsTransportName, statement as materialsTransportStatement } from "../modules/materials/infrastructure/postgres/migrations/0043-notification-transport.js";
+import { name as billingTransportName, statement as billingTransportStatement } from "../modules/billing/infrastructure/postgres/migrations/0042-notification-transport.js";
 import { name as billingPricingName, statement as billingPricingStatement } from "../modules/billing/infrastructure/postgres/migrations/0040-billing-pricing.js";
 import { name as telegramLinkRevisionsName, statement as telegramLinkRevisionsStatement } from "../modules/telegram-membership/infrastructure/postgres/migrations/0039-telegram-link-revisions.js";
 import { name as accountAccessName, statement as accountAccessStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0038-account-access.js";
@@ -291,6 +294,9 @@ export const platformMigrations = [
   { name: telegramLinkRevisionsName, statement: telegramLinkRevisionsStatement },
   { name: billingPricingName, statement: billingPricingStatement },
   { name: billingContactName, statement: billingContactStatement },
+  { name: billingTransportName, statement: billingTransportStatement },
+  { name: materialsTransportName, statement: materialsTransportStatement },
+  { name: notificationsTransportName, statement: notificationsTransportStatement },
 ] as const;
 
 export function migrateToLatest(

@@ -1,0 +1,304 @@
+{
+  "vhosts": [
+    {
+      "name": "inside-local"
+    }
+  ],
+  "users": [
+    {
+      "name": "local-billing",
+      "password_hash": "bG9jYTbn3srmlUBybMr044dMGjDdGSQIOgOdZ8Vj8DymVIBJ",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    },
+    {
+      "name": "local-materials",
+      "password_hash": "bG9jYTbn3srmlUBybMr044dMGjDdGSQIOgOdZ8Vj8DymVIBJ",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    },
+    {
+      "name": "local-notifications",
+      "password_hash": "bG9jYTbn3srmlUBybMr044dMGjDdGSQIOgOdZ8Vj8DymVIBJ",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    },
+    {
+      "name": "local-email",
+      "password_hash": "bG9jYTbn3srmlUBybMr044dMGjDdGSQIOgOdZ8Vj8DymVIBJ",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    },
+    {
+      "name": "local-telegram",
+      "password_hash": "bG9jYTbn3srmlUBybMr044dMGjDdGSQIOgOdZ8Vj8DymVIBJ",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    }
+  ],
+  "permissions": [
+    {
+      "user": "local-billing",
+      "vhost": "inside-local",
+      "configure": "^$",
+      "write": "^(?:inside\\.events\\.billing\\.v1)$",
+      "read": "^$"
+    },
+    {
+      "user": "local-materials",
+      "vhost": "inside-local",
+      "configure": "^$",
+      "write": "^(?:inside\\.events\\.materials\\.v1)$",
+      "read": "^$"
+    },
+    {
+      "user": "local-notifications",
+      "vhost": "inside-local",
+      "configure": "^$",
+      "write": "^(?:inside\\.notifications\\.telegram\\.v1|inside\\.notifications\\.email\\.v1)$",
+      "read": "^(?:platform\\.notifications\\.billing\\.v1|platform\\.notifications\\.materials\\.v1|platform\\.notification-results\\.telegram\\.v1|platform\\.notification-results\\.email\\.v1)$"
+    },
+    {
+      "user": "local-email",
+      "vhost": "inside-local",
+      "configure": "^$",
+      "write": "^(?:inside\\.results\\.email\\.v1)$",
+      "read": "^(?:email\\.notifications\\.subscription\\.v1|email\\.notifications\\.material\\.v1)$"
+    },
+    {
+      "user": "local-telegram",
+      "vhost": "inside-local",
+      "configure": "^$",
+      "write": "^(?:inside\\.results\\.telegram\\.v1)$",
+      "read": "^(?:telegram\\.notifications\\.subscription\\.v1|telegram\\.notifications\\.material\\.v1)$"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "inside.events.billing.v1",
+      "vhost": "inside-local",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "inside.events.materials.v1",
+      "vhost": "inside-local",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "inside.notifications.telegram.v1",
+      "vhost": "inside-local",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "inside.notifications.email.v1",
+      "vhost": "inside-local",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "inside.results.telegram.v1",
+      "vhost": "inside-local",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "inside.results.email.v1",
+      "vhost": "inside-local",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "platform.notifications.billing.v1",
+      "vhost": "inside-local",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-max-length": 1000,
+        "x-max-length-bytes": 16384000,
+        "x-overflow": "reject-publish",
+        "x-delivery-limit": -1
+      }
+    },
+    {
+      "name": "platform.notifications.materials.v1",
+      "vhost": "inside-local",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-max-length": 1000,
+        "x-max-length-bytes": 16384000,
+        "x-overflow": "reject-publish",
+        "x-delivery-limit": -1
+      }
+    },
+    {
+      "name": "telegram.notifications.subscription.v1",
+      "vhost": "inside-local",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-max-length": 1000,
+        "x-max-length-bytes": 16384000,
+        "x-overflow": "reject-publish",
+        "x-delivery-limit": -1
+      }
+    },
+    {
+      "name": "telegram.notifications.material.v1",
+      "vhost": "inside-local",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-max-length": 1000,
+        "x-max-length-bytes": 16384000,
+        "x-overflow": "reject-publish",
+        "x-delivery-limit": -1
+      }
+    },
+    {
+      "name": "email.notifications.subscription.v1",
+      "vhost": "inside-local",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-max-length": 1000,
+        "x-max-length-bytes": 16384000,
+        "x-overflow": "reject-publish",
+        "x-delivery-limit": -1
+      }
+    },
+    {
+      "name": "email.notifications.material.v1",
+      "vhost": "inside-local",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-max-length": 1000,
+        "x-max-length-bytes": 16384000,
+        "x-overflow": "reject-publish",
+        "x-delivery-limit": -1
+      }
+    },
+    {
+      "name": "platform.notification-results.telegram.v1",
+      "vhost": "inside-local",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-max-length": 1000,
+        "x-max-length-bytes": 16384000,
+        "x-overflow": "reject-publish",
+        "x-delivery-limit": -1
+      }
+    },
+    {
+      "name": "platform.notification-results.email.v1",
+      "vhost": "inside-local",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-max-length": 1000,
+        "x-max-length-bytes": 16384000,
+        "x-overflow": "reject-publish",
+        "x-delivery-limit": -1
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "source": "inside.events.billing.v1",
+      "vhost": "inside-local",
+      "destination": "platform.notifications.billing.v1",
+      "destination_type": "queue",
+      "routing_key": "billing.notice-ready",
+      "arguments": {}
+    },
+    {
+      "source": "inside.events.materials.v1",
+      "vhost": "inside-local",
+      "destination": "platform.notifications.materials.v1",
+      "destination_type": "queue",
+      "routing_key": "material.published",
+      "arguments": {}
+    },
+    {
+      "source": "inside.notifications.telegram.v1",
+      "vhost": "inside-local",
+      "destination": "telegram.notifications.subscription.v1",
+      "destination_type": "queue",
+      "routing_key": "subscription",
+      "arguments": {}
+    },
+    {
+      "source": "inside.notifications.telegram.v1",
+      "vhost": "inside-local",
+      "destination": "telegram.notifications.material.v1",
+      "destination_type": "queue",
+      "routing_key": "material",
+      "arguments": {}
+    },
+    {
+      "source": "inside.notifications.email.v1",
+      "vhost": "inside-local",
+      "destination": "email.notifications.subscription.v1",
+      "destination_type": "queue",
+      "routing_key": "subscription",
+      "arguments": {}
+    },
+    {
+      "source": "inside.notifications.email.v1",
+      "vhost": "inside-local",
+      "destination": "email.notifications.material.v1",
+      "destination_type": "queue",
+      "routing_key": "material",
+      "arguments": {}
+    },
+    {
+      "source": "inside.results.telegram.v1",
+      "vhost": "inside-local",
+      "destination": "platform.notification-results.telegram.v1",
+      "destination_type": "queue",
+      "routing_key": "delivery.result",
+      "arguments": {}
+    },
+    {
+      "source": "inside.results.email.v1",
+      "vhost": "inside-local",
+      "destination": "platform.notification-results.email.v1",
+      "destination_type": "queue",
+      "routing_key": "delivery.result",
+      "arguments": {}
+    }
+  ]
+}

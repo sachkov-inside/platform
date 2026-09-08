@@ -196,3 +196,4 @@ export { PublicContentTargets, type PublicContentTarget, type PublicContentTarge
 export { PublishedSeriesComposition, type PublishedSeriesCompositionResult } from "./features/read-published-series-composition/read-published-series-composition.js";
 
 export { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
+export { assembleMaterialsNotificationOutbox } from "./facets/notification-outbox/notification-outbox.js";

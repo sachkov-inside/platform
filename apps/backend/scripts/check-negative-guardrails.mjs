@@ -90,6 +90,7 @@ expectFailure(
     "database table references must use statically declared identifiers",
     "application schema references must stay inside the owning Module",
     'accounts.accounts',
+    'src/modules/notifications/infrastructure/foreign-schema.ts: database table references must stay inside the owning Module schema (billing.notification_outbox)',
     'src/modules/reading-activity/infrastructure/postgres/foreign-schema.ts: database table references must stay inside the owning Module schema (materials.published_materials)',
   ],
 );

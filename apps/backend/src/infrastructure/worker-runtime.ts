@@ -1,7 +1,6 @@
 import { rm, writeFile } from "node:fs/promises";
 
 import { Pool, type PoolClient } from "pg";
-import type { PgBoss } from "pg-boss";
 import { z } from "zod";
 
 import type {
@@ -117,7 +116,8 @@ async function removeWorkerReadiness(): Promise<void> {
 export async function runWorker(input: {
   readonly application: { close(): Promise<void> };
   readonly databaseUrl: string;
-  readonly jobs: Pick<PgBoss, "start" | "stop">;
+  readonly jobs: { start(): Promise<unknown>; stop(options: { close: boolean; graceful: boolean; timeout: number }): Promise<unknown> };
+  readonly failed?: Promise<void>;
   readonly process: WorkerProcess;
   readonly readiness: Pick<OperationalReadiness, "check">;
   readonly registerJobs: () => Promise<void>;
@@ -133,7 +133,7 @@ export async function runWorker(input: {
     await input.registerJobs();
     readinessReport = await input.readiness.check(input.process);
     await markWorkerReady(readinessReport);
-    await shutdown.received;
+    await Promise.race([shutdown.received, ...(input.failed ? [input.failed] : [])]);
     await markWorkerDraining(input.process, readinessReport);
   } finally {
     shutdown.dispose();

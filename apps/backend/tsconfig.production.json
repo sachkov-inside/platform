@@ -8,7 +8,8 @@
     "src/entrypoints/video-deletions-worker.ts",
     "src/infrastructure/worker-healthcheck.ts",
     "src/migrations/migrate.ts",
-    "src/release/bootstrap-owner-account.ts"
+    "src/release/bootstrap-owner-account.ts",
+    "src/entrypoints/notifications-worker.ts"
   ],
   "include": []
 }

@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["billing", "accounts", "assets", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
 }
 
 model Account {
@@ -944,4 +944,82 @@ model BillingConsentEvidence {
  @@unique([accountId, operationId, kind])
  @@map("billing_consent_evidence")
  @@schema("accounts")
+}
+
+model BillingNotificationOutbox {
+  scope String
+  messageId String @map("message_id") @db.Uuid
+  lane String
+  payload String
+  digest String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  publishedAt DateTime? @map("published_at") @db.Timestamptz
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
+  attempts Int @default(0)
+  lastFailure String? @map("last_failure")
+  @@id([scope, messageId])
+  @@index([lane, publishedAt, nextAttemptAt])
+  @@map("notification_outbox")
+  @@schema("billing")
+}
+
+model MaterialNotificationOutbox {
+  scope String
+  messageId String @map("message_id") @db.Uuid
+  lane String
+  payload String
+  digest String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  publishedAt DateTime? @map("published_at") @db.Timestamptz
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
+  attempts Int @default(0)
+  lastFailure String? @map("last_failure")
+  @@id([scope, messageId])
+  @@index([lane, publishedAt, nextAttemptAt])
+  @@map("notification_outbox")
+  @@schema("materials")
+}
+
+model NotificationOutbox {
+  scope String
+  messageId String @map("message_id") @db.Uuid
+  lane String
+  payload String
+  digest String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  publishedAt DateTime? @map("published_at") @db.Timestamptz
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
+  attempts Int @default(0)
+  lastFailure String? @map("last_failure")
+  @@id([scope, messageId])
+  @@index([lane, publishedAt, nextAttemptAt])
+  @@map("notification_outbox")
+  @@schema("notifications")
+}
+
+model NotificationInbox {
+  scope String
+  messageId String @map("message_id") @db.Uuid
+  lane String
+  payload String
+  digest String
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz
+  completedAt DateTime? @map("completed_at") @db.Timestamptz
+  checkpoint Json @default("{}")
+  @@id([scope, messageId])
+  @@index([lane, completedAt, receivedAt])
+  @@map("inbox")
+  @@schema("notifications")
+}
+model NotificationQuarantine {
+  key String @id
+  lane String
+  reason String
+  digest String
+  payload String?
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz
+  payloadExpiresAt DateTime @map("payload_expires_at") @db.Timestamptz
+  @@index([payloadExpiresAt])
+  @@map("quarantine")
+  @@schema("notifications")
 }
