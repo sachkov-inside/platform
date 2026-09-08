@@ -60,7 +60,7 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
       page
         .getByRole("navigation", { name: "Фильтр по теме" })
         .getByRole("link", { name: "Platform" }),
-    ).toHaveAttribute("href", "/topics/platform?from=%2F");
+    ).toHaveAttribute("href", "/library?topic=platform");
   }
   if (testInfo.project.name === "mobile-chromium") {
     const [first, second] = await Promise.all([
@@ -80,6 +80,22 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "home");
+  await page.getByRole("navigation", { name: "Фильтр по теме" }).getByRole("link", { name: "Platform", exact: true }).click();
+  await expect(page).toHaveURL(/\/library\?topic=platform$/u);
+  const topicFilters = page.getByRole("group", { name: "Тема материала" });
+  await expect(topicFilters.getByRole("radio", { name: /^Platform/u })).toBeChecked();
+  const material = page.getByRole("region", { name: "Материалы", exact: true }).locator('a[href^="/materials/"]').first();
+  await expect(material).toHaveAttribute("href", /\?from=%2Flibrary%3Ftopic%3Dplatform$/u);
+  await topicFilters.scrollIntoViewIfNeeded();
+  const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-432");
+  await mkdir(evidenceDirectory, { recursive: true });
+  await page.screenshot({ path: resolve(evidenceDirectory, `${testInfo.project.name}-topic-filter.png`), animations: "disabled" });
+  await material.click();
+  await page.getByRole("link", { name: "Назад в Базу знаний", exact: true }).click();
+  await expect(page).toHaveURL(/\/library\?topic=platform$/u);
+  await expect(topicFilters.getByRole("radio", { name: /^Platform/u })).toBeChecked();
+  await topicFilters.getByRole("radio", { name: "Все темы", exact: true }).click();
+  await expect(page).toHaveURL(/\/library$/u);
 });
 
 test("loads the safe PostgreSQL catalog through the client-owned Library query", async ({

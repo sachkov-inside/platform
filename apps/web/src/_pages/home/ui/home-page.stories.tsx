@@ -97,7 +97,7 @@ export const RealDataReady: Story = {
     await expect(canvas.getByRole("heading", { name: "Новые видео" })).toBeVisible();
     await expect(canvas.getByText("12:34")).toBeVisible();
     const topicLink = canvas.getByRole("link", { name: "Platform" });
-    await expect(topicLink).toHaveAttribute("href", "/topics/platform?from=%2F");
+    await expect(topicLink).toHaveAttribute("href", "/library?topic=platform");
     await expect(canvas.queryByRole("complementary", { name: "Подписка Inside" })).not.toBeInTheDocument();
     await expect(canvas.queryByText(/продолжить/iu)).not.toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "Все видео" })).toHaveAttribute(
