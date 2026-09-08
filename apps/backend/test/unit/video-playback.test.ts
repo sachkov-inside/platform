@@ -12,12 +12,12 @@ const videoId = "81000000-0000-4000-8000-000000000003";
 const now = new Date("2026-09-01T12:00:00.000Z");
 
 describe("Video playback authorization", () => {
-  test("issues a short member token, returns account resume, and reauthorizes the provider callback", async () => {
+  test.each([new Date(now.getTime() + 5 * 60_000).toISOString(), null])("issues a bounded member token for validity %s and reauthorizes callbacks", async (validUntil) => {
     const authorize = vi.fn().mockResolvedValue({
       decidedAt: now.toISOString(),
       effect: "allow",
       reason: "active_membership",
-      validUntil: new Date(now.getTime() + 5 * 60_000).toISOString(),
+      validUntil,
     });
     const videos = videoDependencies("membership");
     const playback = assembleVideoPlayback({
@@ -39,6 +39,7 @@ describe("Video playback authorization", () => {
       value: { progressScope: "account", resumeSeconds: 77, videoId },
     });
     if (!session.ok || session.value.drmAuthToken === null) throw new Error("member token missing");
+    expect(decodeJwt(session.value.drmAuthToken).exp).toBe(Math.floor(now.getTime() / 1000) + 60);
     await expect(playback.authorizeProvider({
       providerVideoId: "provider-video",
       token: session.value.drmAuthToken,

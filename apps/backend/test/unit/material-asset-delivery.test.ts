@@ -137,11 +137,11 @@ describe("Material asset delivery", () => {
           },
           size: 3,
         };
-        const protectedDecision = (validUntil: string) =>
+        const protectedDecision = (validUntil: string | null) =>
           accessDecision({
             checkedContentVersion: 2,
             decidedAt: new Date().toISOString(),
-            decisionId: validUntil,
+            decisionId: validUntil ?? "lifetime",
             effect: "allow",
             policyVersion: "content-access-v1",
             reason,
@@ -193,6 +193,8 @@ describe("Material asset delivery", () => {
           }),
         ).resolves.toEqual({ error: { code: "asset_not_found" }, ok: false });
         expect(signGet).toHaveBeenCalledTimes(1);
+        await expect(assembleMaterialAssetDelivery({ ...dependencies, contentAccess: protectedDecision(null) }).deliver({ assetId, contentVersion, materialId, preview: false, subject: { kind: "account", accountId: checkedAccountId("30000000-0000-4000-8000-000000000001") } })).resolves.toMatchObject({ ok: true, value: { kind: "redirect" } });
+        expect(signGet).toHaveBeenLastCalledWith(expect.objectContaining({ ttlSeconds: 60 }));
       } finally {
         vi.useRealTimers();
       }

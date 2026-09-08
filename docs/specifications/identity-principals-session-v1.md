@@ -243,3 +243,10 @@ Disabling blocks start, waiting, proof consumption and callback completion, incl
 Accounts. Ordinary session resolution and email remain unchanged. The local setup and synthetic
 versus real message boundary are documented in
 [`telegram-sign-in-local.md`](../verification/telegram-sign-in-local.md).
+
+### Отдельный billing contact
+
+[Billing contact #406](subscription-billing-v1.md#подтверждённый-контакт-и-согласия--406) проверяет
+адрес для чеков и уведомлений уже вошедшего Account. Он не добавляет email identity в Logto,
+не обновляет login fingerprint и не меняет описанные выше ограничения first email sign-in
+attachment, merge или recovery. Коды контакта проходят через Platform; коды **входа** остаются в Logto.

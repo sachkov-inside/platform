@@ -53,6 +53,7 @@
     "smoke:fullstack": "node scripts/full-stack-smoke.mjs",
     "check:full": "pnpm check && pnpm test:integration && pnpm smoke:fullstack",
     "telegram:local:dev": "node scripts/telegram-sign-in-local.mjs",
+    "smoke:billing-contact": "node scripts/billing-contact-proof.mjs",
     "smoke:communications": "node scripts/communications-browser-smoke.mjs",
     "conformance:communications": "pnpm --filter @inside/backend conformance:communications",
     "editor:local": "node scripts/editor-local-review.mjs"

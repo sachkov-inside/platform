@@ -51,7 +51,7 @@ export type VideosPrismaClient = VideosPrisma & TransactionClient<VideosPrisma>;
 
 export type AccountsPrisma = Pick<
   PlatformPrisma,
-  "$queryRaw" | "account" | "accountAuditEvent" | "accountPermission"
+  "$queryRaw" | "account" | "accountAuditEvent" | "accountPermission" | "billingContact" | "billingContactChallenge" | "billingContactCommand" | "billingConsentEvidence"
 >;
 export type AccountsPrismaClient = AccountsPrisma & TransactionClient<AccountsPrisma>;
 
@@ -68,7 +68,7 @@ export type MemberProfilesPrismaClient = MemberProfilesPrisma &
 
 export type TelegramMembershipPrisma = Pick<
   PlatformPrisma,
-  "$queryRaw" | "telegramLinkTransaction"
+  "$queryRaw" | "telegramLinkTransaction" | "telegramAccountLinkState" | "telegramAccountLinkHistory"
 >;
 export type TelegramMembershipPrismaClient = TelegramMembershipPrisma &
   TransactionClient<TelegramMembershipPrisma>;
@@ -85,3 +85,9 @@ export type ReadingActivityPrisma = Pick<PlatformPrisma,
   "$executeRaw" | "$queryRaw" | "readingMaterialState" | "readingEvent" | "readingCommand" | "readingMaterialVisit"
 >;
 export type ReadingActivityPrismaClient = ReadingActivityPrisma & TransactionClient<ReadingActivityPrisma>;
+
+export type BillingPrisma = Pick<PlatformPrisma,
+  "$executeRaw" | "billingOffer" | "billingPaymentOption" | "billingPromotion" |
+  "billingPricingCommand" | "billingPriceQuote" | "billingPromoReservation"
+>;
+export type BillingPrismaClient = BillingPrisma & TransactionClient<BillingPrisma>;

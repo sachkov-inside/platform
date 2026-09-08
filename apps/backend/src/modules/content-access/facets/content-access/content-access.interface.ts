@@ -106,7 +106,7 @@ export type AccessDecision = DecisionMetadata &
     | Readonly<{
         effect: "allow";
         reason: "active_membership" | "active_workshop";
-        validUntil: string;
+        validUntil: string | null;
         checkedContentVersion: number;
       }>
     | Readonly<{ effect: "deny"; reason: DenyReason }>
