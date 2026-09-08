@@ -404,9 +404,9 @@ export const Desktop: Story = {
     await expect(canvas.getByRole("region", { name: "Таблица в материале" })).toBeInTheDocument();
     const image = canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" }) as HTMLImageElement;
     image.scrollIntoView();
-    await waitFor(() => {
-      expect(image.complete && image.naturalWidth > 0).toBe(true);
-      expect(image).toBeInTheDocument();
+    await waitFor(async () => {
+      await expect(image.complete && image.naturalWidth > 0).toBe(true);
+      await expect(image).toBeInTheDocument();
     });
     canvasElement.ownerDocument.scrollingElement?.scrollTo(0, 0);
     for (const kind of ["table", "image", "file"] as const) {
