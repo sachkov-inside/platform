@@ -241,6 +241,49 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Safari's canvas/overscroll must match the public page, including the first paint. */
+html:has([data-public-shell]),
+body:has([data-public-shell]) {
+  background: #fff;
+  color-scheme: light;
+}
+
+.mobile-navigation-items {
+  transition: grid-template-columns var(--motion-duration-shell) var(--motion-ease-out);
+}
+
+.mobile-navigation-indicator {
+  transition: transform var(--motion-duration-shell) var(--motion-ease-out), opacity var(--motion-duration-fast);
+}
+
+.mobile-navigation-link {
+  transition: color var(--motion-duration-fast), transform var(--motion-duration-fast) var(--motion-ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-navigation-link:active {
+  transform: scale(0.94);
+}
+
+.mobile-navigation-label {
+  grid-template-columns: 0fr;
+  opacity: 0;
+  transition: grid-template-columns var(--motion-duration-shell) var(--motion-ease-out), opacity var(--motion-duration-fast);
+}
+
+.mobile-navigation-link[aria-current="page"] .mobile-navigation-label {
+  grid-template-columns: 1fr;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-navigation * {
+    animation: none !important;
+    transition: none !important;
+  }
+  .mobile-navigation-link:active { transform: none; }
+}
+
 @media (width < 48rem) {
   html,
   body {

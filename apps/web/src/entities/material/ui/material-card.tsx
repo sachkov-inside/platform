@@ -73,8 +73,11 @@ export function MaterialCard({
         <p className="text-sm leading-5">
           <strong>Sachkov Inside</strong>
           <span className="text-muted-foreground"> · {material.topic}</span>
+          {material.publishedAt === undefined ? null : <time className="ml-2 whitespace-nowrap text-xs text-muted-foreground" dateTime={material.publishedAt}>
+            {new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Moscow" }).format(new Date(material.publishedAt))}
+          </time>}
         </p>
-        <Heading className="col-start-2 mt-2 text-lg font-semibold leading-6 tracking-[-0.03em] md:text-xl">
+        <Heading className="col-start-2 mt-2 text-base font-semibold leading-6 tracking-[-0.03em] md:text-lg">
           <Link
             className="no-underline after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring group-hover/card:text-action"
             href={readerHref}
