@@ -269,6 +269,7 @@
               {
                 "properties": {
                   "access": {
+                    "type": "object",
                     "properties": {
                       "kind": {
                         "const": "denied"
@@ -283,6 +284,7 @@
               {
                 "properties": {
                   "access": {
+                    "type": "object",
                     "properties": {
                       "kind": {
                         "type": "string",
@@ -312,6 +314,7 @@
           "then": {
             "properties": {
               "access": {
+                "type": "object",
                 "properties": {
                   "kind": {
                     "const": "finite"
