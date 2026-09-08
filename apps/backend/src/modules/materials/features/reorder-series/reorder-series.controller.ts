@@ -14,13 +14,38 @@ import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-aut
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 
 @MaterialAuthoringEndpoint()
-@Controller("authoring/series")
+@Controller("authoring")
 export class ReorderSeriesController {
   constructor(@Inject(MATERIAL_AUTHORING) private readonly authoring: MaterialAuthoring) {}
 
-  @Put(":seriesId/order")
+  @Put("guides/:guideId/order")
+  @ApiOperation({
+    operationId: "reorderAuthoringGuide",
+    summary: "Replace the Material order for a Guide",
+  })
+  @ApiParam({ name: "guideId", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: toOpenApiSchema(reorderSeriesBodySchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(reorderSeriesReceiptSchema) })
+  @ApiMaterialAuthoringErrors(400, 401, 403, 404, 409, 422, 500, 503)
+  async reorderGuide(
+    @CurrentAccount() account: AuthenticatedAccount,
+    @Param("guideId") seriesId: string,
+    @Body() input: unknown,
+  ) {
+    const body = parseMaterialAuthoringBody(reorderSeriesBodySchema, input);
+    const result = await this.authoring.reorderSeries({
+      actor: account.accountId,
+      seriesId,
+      ...body,
+    });
+    if (!result.ok) throwMaterialAuthoringError(result.error);
+    return result.value;
+  }
+
+  @Put("series/:seriesId/order")
   @ApiOperation({
     operationId: "reorderAuthoringSeries",
+    deprecated: true,
     summary: "Replace the Material order for a Series",
   })
   @ApiParam({ name: "seriesId", schema: { type: "string", format: "uuid" } })

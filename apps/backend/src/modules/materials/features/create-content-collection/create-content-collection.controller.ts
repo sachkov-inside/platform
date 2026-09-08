@@ -27,7 +27,7 @@ export class CreateContentCollectionController {
   @Post()
   @ApiOperation({
     operationId: "createAuthoringContentCollection",
-    summary: "Create a Topic or Series with an immutable slug",
+    summary: "Create a Topic or Guide with an immutable slug",
   })
   @ApiBody({ schema: toOpenApiSchema(createContentCollectionBodySchema) })
   @ApiCreatedResponse({ schema: toOpenApiSchema(contentCollectionSchema) })

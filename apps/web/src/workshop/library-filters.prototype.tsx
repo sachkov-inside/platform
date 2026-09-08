@@ -34,7 +34,7 @@ export function LibraryFilters({
   selectedFormats,
   selectedSeriesIds,
   selectedTopics,
-  seriesLabel = "Серии",
+  seriesLabel = "Руководства",
   seriesOptions,
   setSelectedFormats,
   setSelectedSeriesIds,

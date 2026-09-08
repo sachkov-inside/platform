@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     default: "Главная · Sachkov Inside",
     template: "%s · Sachkov Inside",
   },
-  description: "Материалы, темы и серии Sachkov Inside",
+  description: "Материалы, темы и руководства Sachkov Inside",
 };
 
 export default function RootLayout({

@@ -85,7 +85,7 @@ export function LibrarySearchControl({
                 changeLibraryQuery(query, { q: event.currentTarget.value }),
               );
             }}
-            placeholder="Материал, серия, тема или тег"
+            placeholder="Материал, руководство, тема или тег"
             type="search"
             value={query.q}
           />

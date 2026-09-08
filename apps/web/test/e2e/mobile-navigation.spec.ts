@@ -182,12 +182,12 @@ test("changing account identity clears remembered tabs and the old Profile form"
   await page.route("**/api/library/materials**", (route) => route.fulfill({ json: {
     ...catalog,
     facets: { ...catalog.facets, series: Array.from({ length: 5 }, (_, index) => ({
-      id: `series-${String(index)}`, slug: `series-${String(index)}`, name: `Серия ${String(index)}`, count: 1, summary: "Серия для проверки возврата",
+      id: `series-${String(index)}`, slug: `series-${String(index)}`, name: `Руководство ${String(index)}`, count: 1, summary: "Руководство для проверки возврата",
     })) },
   } }));
   await page.goto("/library?q=навигация");
   await expect(page.getByRole("searchbox")).toHaveValue("навигация");
-  const series = page.getByRole("region", { name: "Серии", exact: true });
+  const series = page.getByRole("region", { name: "Руководства", exact: true });
   await series.getByRole("button", { name: "Показать все" }).click();
   await expect(series.getByRole("link")).toHaveCount(5);
   await navigation(page).getByRole("link", { name: "Профиль" }).click();

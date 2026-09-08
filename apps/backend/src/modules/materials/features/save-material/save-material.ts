@@ -410,11 +410,11 @@ async function replacePublishedProjections(
       })),
     });
   }
-  await transaction.publishedMaterialSeriesMembership.deleteMany({
+  await transaction.publishedMaterialGuideMembership.deleteMany({
     where: { materialId: values.materialId },
   });
   if (values.metadata.seriesMemberships.length > 0) {
-    await transaction.publishedMaterialSeriesMembership.createMany({
+    await transaction.publishedMaterialGuideMembership.createMany({
       data: values.metadata.seriesMemberships.map(({ seriesId, ordinal }) => ({
         materialId: values.materialId,
         seriesId,

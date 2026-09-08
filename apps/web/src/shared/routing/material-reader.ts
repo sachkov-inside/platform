@@ -17,7 +17,7 @@ export interface MaterialReaderReturnTarget {
     | "Назад в Базу знаний"
     | "Назад в профиль"
     | "Назад на Главную"
-    | "Назад к серии"
+    | "Назад к руководству"
     | "Назад к теме";
   readonly seriesSlug?: string;
 }
@@ -37,7 +37,7 @@ export function materialReaderOriginHref(
   slug: string,
 ): Route {
   assertSlug(slug);
-  return internalRoute(`/${kind === "series" ? "series" : "topics"}/${slug}`);
+  return internalRoute(`/${kind === "series" ? "guides" : "topics"}/${slug}`);
 }
 
 export function materialReaderHref(slug: string, returnHref?: Route): Route {
@@ -58,7 +58,7 @@ export function collectionDiscoveryHref(
   returnHref?: Route,
 ): Route {
   assertSlug(slug);
-  const pathname = `/${kind === "series" ? "series" : "topics"}/${slug}`;
+  const pathname = `/${kind === "series" ? "guides" : "topics"}/${slug}`;
   if (returnHref === undefined) return internalRoute(pathname);
   if (readReturnTarget(returnHref) === undefined) {
     throw new TypeError("Expected a supported discovery return route");
@@ -115,7 +115,7 @@ function readReturnTarget(
     };
   }
 
-  const match = /^\/(series|topics)\/([^/]+)$/u.exec(url.pathname);
+  const match = /^\/(guides|series|topics)\/([^/]+)$/u.exec(url.pathname);
   if (match === null || match[2] === undefined || !slugPattern.test(match[2])) {
     return undefined;
   }
@@ -125,7 +125,7 @@ function readReturnTarget(
     const from = singleSearchValue(url.searchParams, "from");
     const page = singleSearchValue(url.searchParams, "page");
     const at = singleSearchValue(url.searchParams, "at");
-    const allowed = routeKind === "series" ? ["from", "page", "at"] : ["from"];
+    const allowed = (routeKind === "series" || routeKind === "guides") ? ["from", "page", "at"] : ["from"];
     if (
       depth >= 3 ||
       [...url.searchParams.keys()].some((key) => !allowed.includes(key) || url.searchParams.getAll(key).length !== 1) ||
@@ -138,11 +138,11 @@ function readReturnTarget(
   }
 
   const href = internalRoute(`${url.pathname}${url.search}`);
-  if (routeKind === "series") {
+  if ((routeKind === "series" || routeKind === "guides")) {
     return {
       href,
       kind: "series",
-      label: "Назад к серии",
+      label: "Назад к руководству",
       seriesSlug: match[2],
     };
   }

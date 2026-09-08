@@ -4,7 +4,7 @@ import {
   type MaterialsPrismaTransaction,
 } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
-import type { SeriesMembership } from "../../domain/material-metadata.js";
+import type { GuideMembership } from "../../domain/material-metadata.js";
 import type { MaterialId } from "../../domain/material-identifiers.js";
 import { refreshPublishedMaterialSearchProjections } from "./published-material-search.js";
 
@@ -28,11 +28,11 @@ export async function loadSeriesOrderSnapshot(
   seriesId: string,
 ): Promise<SeriesOrderSnapshot | undefined> {
   const [series, memberships] = await Promise.all([
-    prisma.series.findUnique({
+    prisma.guide.findUnique({
       where: { id: seriesId },
       select: { archivedAt: true, id: true, name: true },
     }),
-    prisma.seriesMembership.findMany({
+    prisma.guideMembership.findMany({
       where: { seriesId },
       orderBy: [{ ordinal: "asc" }, { materialId: "asc" }],
       select: { materialId: true, ordinal: true, stepGroup: true },
@@ -73,8 +73,8 @@ export async function appendSelectedSeriesMemberships(
   transaction: MaterialsPrismaTransaction,
   materialId: MaterialId,
   selectedSeriesIds: readonly string[],
-): Promise<readonly SeriesMembership[]> {
-  const membershipSeriesIds = await transaction.seriesMembership.findMany({
+): Promise<readonly GuideMembership[]> {
+  const membershipSeriesIds = await transaction.guideMembership.findMany({
     where: { materialId },
     select: { seriesId: true },
   });
@@ -83,7 +83,7 @@ export async function appendSelectedSeriesMemberships(
     [...new Set([...selectedSeriesIds, ...membershipSeriesIds.map(({ seriesId }) => seriesId)])],
   );
 
-  const currentMemberships = await transaction.seriesMembership.findMany({
+  const currentMemberships = await transaction.guideMembership.findMany({
     where: { materialId },
     select: { seriesId: true, ordinal: true },
   });
@@ -96,7 +96,7 @@ export async function appendSelectedSeriesMemberships(
   const maxima =
     newSeriesIds.length === 0
       ? []
-      : await transaction.seriesMembership.groupBy({
+      : await transaction.guideMembership.groupBy({
           by: ["seriesId"],
           where: { seriesId: { in: newSeriesIds } },
           _max: { ordinal: true },
@@ -139,7 +139,7 @@ export async function lockMaterialSeries(
   materialId: MaterialId,
   selectedSeriesIds: readonly string[] = [],
 ): Promise<void> {
-  const memberships = await transaction.seriesMembership.findMany({
+  const memberships = await transaction.guideMembership.findMany({
     where: { materialId },
     select: { seriesId: true },
   });
@@ -160,13 +160,13 @@ export async function replaceSeriesOrder(
   orderedMaterialIds: readonly string[],
   stepGroups: Readonly<Record<string, string>>,
 ): Promise<void> {
-  const previousMemberships = await transaction.seriesMembership.findMany({
+  const previousMemberships = await transaction.guideMembership.findMany({
     where: { seriesId },
     select: { materialId: true },
   });
-  await transaction.seriesMembership.deleteMany({ where: { seriesId } });
+  await transaction.guideMembership.deleteMany({ where: { seriesId } });
   if (orderedMaterialIds.length > 0) {
-    await transaction.seriesMembership.createMany({
+    await transaction.guideMembership.createMany({
       data: orderedMaterialIds.map((materialId, index) => ({
         materialId,
         ordinal: index + 1,
@@ -176,7 +176,7 @@ export async function replaceSeriesOrder(
     });
   }
 
-  await transaction.publishedMaterialSeriesMembership.deleteMany({
+  await transaction.publishedMaterialGuideMembership.deleteMany({
     where: { seriesId },
   });
   const published =
@@ -196,7 +196,7 @@ export async function replaceSeriesOrder(
       : [],
   );
   if (publishedMemberships.length > 0) {
-    await transaction.publishedMaterialSeriesMembership.createMany({
+    await transaction.publishedMaterialGuideMembership.createMany({
       data: publishedMemberships,
     });
   }

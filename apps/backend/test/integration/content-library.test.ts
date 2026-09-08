@@ -736,7 +736,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
   await testDatabase.prisma.topic.create({
     data: { id: careerTopicId, name: "Карьера", slug: "career" },
   });
-  await testDatabase.prisma.series.create({
+  await testDatabase.prisma.guide.create({
     data: {
       id: careerSeriesId,
       name: "Карьерный путь",

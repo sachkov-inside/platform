@@ -674,7 +674,7 @@ async function ensureHomeMaterials(
       }
       primaryVideoId = attached.value.videoId;
     }
-    const progressMembership = metadata.seriesIds.length === 0 ? true : await prisma.seriesMembership.findFirst({ where: { materialId: material.id, seriesId: progressSeriesId }, select: { materialId: true } });
+    const progressMembership = metadata.seriesIds.length === 0 ? true : await prisma.guideMembership.findFirst({ where: { materialId: material.id, seriesId: progressSeriesId }, select: { materialId: true } });
     progressIds.set(materialDefinition.slug, material.id);
     if (
       progressMembership === null ||
@@ -768,7 +768,7 @@ async function ensureMembershipCatalogMaterial(
       publicationState: created.value.publicationState,
     };
   }
-  const selectedSeries = await prisma.seriesMembership.findFirst({
+  const selectedSeries = await prisma.guideMembership.findFirst({
     where: { materialId: material.id, seriesId },
     select: { materialId: true },
   });
@@ -841,7 +841,7 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
     },
     update: {},
   });
-  await prisma.series.upsert({
+  await prisma.guide.upsert({
     where: { id: seriesId },
     create: {
       id: seriesId,
@@ -856,9 +856,9 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
     { id: demoStepsSeriesId, slug: "demo-series-release", name: "Demo · Релиз своего проекта", summary: "Одна серия: видео, заметки и три связанных шага инструкции. Тестовые материалы для проверки интерфейса." },
     { id: demoStepsSharedSeriesId, slug: "demo-series-release-shared", name: "Учебный пример · Подготовка проекта", summary: "Тот же гайд в другой серии без отметки последовательности шагов." },
   ]) {
-    await prisma.series.upsert({ where: { id: data.id }, create: data, update: { name: data.name } });
+    await prisma.guide.upsert({ where: { id: data.id }, create: data, update: { name: data.name } });
   }
-  await prisma.series.upsert({
+  await prisma.guide.upsert({
     where: { id: demoHarnessSeriesId },
     create: {
       id: demoHarnessSeriesId,
@@ -868,7 +868,7 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
     },
     update: {},
   });
-  await prisma.series.upsert({
+  await prisma.guide.upsert({
     where: { id: demoReviewSeriesId },
     create: {
       id: demoReviewSeriesId,

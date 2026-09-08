@@ -107,7 +107,7 @@ function DiscoveryHero({
           >
             {isSeries ? (
               <>
-                Серия ·{" "}
+                Руководство ·{" "}
                 {formatMaterialCount(
                   result.kind === "ready" ? result.items.length : 0,
                 )}
@@ -191,7 +191,7 @@ function TopicMaterials({
         <DiscoverySectionHeading
           count={result.relatedSeries.length}
           id="topic-playlists"
-          title="Серии"
+          title="Руководства"
         />
         {result.relatedSeries.length > 0 ? (
           <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/discovery:grid-cols-2">
@@ -211,7 +211,7 @@ function TopicMaterials({
           </div>
         ) : (
           <p className="mt-4 rounded-2xl bg-muted px-5 py-7 font-semibold sm:px-8">
-            Связанных серий пока нет
+            Связанных руководств пока нет
           </p>
         )}
       </section>
@@ -229,7 +229,7 @@ function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
     <section className="mt-8 max-w-[48rem] rounded-2xl bg-muted px-6 py-7 sm:mt-10 sm:px-8">
       <LibraryBig aria-hidden="true" className="size-6 text-accent" />
       <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em]">
-        {kind === "series" ? "В серии пока нет материалов" : "В теме пока нет материалов"}
+        {kind === "series" ? "В руководстве пока нет материалов" : "В теме пока нет материалов"}
       </h2>
       <Button asChild className="mt-6" size="lg" variant="outline">
         <Link href="/library">Открыть Базу знаний</Link>
@@ -259,7 +259,7 @@ function DiscoveryBreadcrumb({
             {returnTarget.label}
           </Link>
         </li>
-        <li className="sr-only">{kind === "series" ? "Серия" : "Тема"}</li>
+        <li className="sr-only">{kind === "series" ? "Руководство" : "Тема"}</li>
         <li aria-current="page" className="sr-only">{name}</li>
       </ol>
     </nav>
@@ -362,7 +362,7 @@ export function LibraryDiscoveryNotFound() {
         </Button>
       }
       icon={<SearchX aria-hidden="true" />}
-      message="Проверьте адрес или выберите другую тему или серию в Базе знаний."
+      message="Проверьте адрес или выберите другую тему или руководство в Базе знаний."
       state="not-found"
       title="Подборка не найдена"
     />

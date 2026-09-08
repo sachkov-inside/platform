@@ -22,7 +22,7 @@ export async function setReadingState(input: ReadingCommand) {
 export async function getSeriesProgress(seriesId: string) {
   const form = new FormData();
   form.set("seriesId", seriesId);
-  const result = await requestSameOriginMutation("/api/reading-progress/series", "POST", form);
+  const result = await requestSameOriginMutation("/api/reading-progress/guides", "POST", form);
   if (!result.ok) return { kind: result.status === 401 ? "unauthorized" : "unavailable" } as const;
   const parsed = seriesProgressResultSchema.safeParse(result.body);
   return parsed.success ? parsed.data : { kind: "unavailable" } as const;

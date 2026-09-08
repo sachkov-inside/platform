@@ -24,7 +24,7 @@ const commandSchema = z
     actor: accountId,
     collectionId: entityId,
     expectedVersion: z.number().int().positive(),
-    kind: z.enum(["series", "topic"]),
+    kind: z.enum(["guide", "series", "topic"]),
     name: z.string().trim().min(1).max(120),
     summary: z.string().trim().max(500),
   })

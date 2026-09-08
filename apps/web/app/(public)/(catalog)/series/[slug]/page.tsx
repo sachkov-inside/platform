@@ -20,12 +20,12 @@ export async function generateMetadata({
   );
   return result.kind === "ready" || result.kind === "empty"
     ? {
-        title: `${result.reference.name} — серия`,
-        description: `Опубликованные материалы серии «${result.reference.name}» в авторском порядке.`,
+        title: `${result.reference.name} — руководство`,
+        description: `Опубликованные материалы руководства «${result.reference.name}» в авторском порядке.`,
       }
     : {
         title:
-          result.kind === "not-found" ? "Серия не найдена" : "Серия недоступна",
+          result.kind === "not-found" ? "Руководство не найдено" : "Руководство недоступно",
       };
 }
 

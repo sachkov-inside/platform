@@ -71,6 +71,8 @@ describe("MCP Streamable HTTP adapter", () => {
         "content_collection_set_archive",
         "playlist_load_composition",
         "playlist_save_composition",
+        "guide_load_composition",
+        "guide_save_composition",
       ]);
     } finally {
       await client.close();

@@ -76,7 +76,7 @@ describe("ReadingActivity HTTP", () => {
     const topicId = randomUUID(); const formatId = "note"; const actor = randomUUID(); const seriesId = randomUUID();
     await database.prisma.topic.create({ data: { id: topicId, name: "Reading", slug: "reading" } });
 
-    await database.prisma.series.create({ data: { id: seriesId, name: "Series", slug: "series" } });
+    await database.prisma.guide.create({ data: { id: seriesId, name: "Series", slug: "series" } });
     const materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: () => true } });
     const created = await materials.authoring.createDraft({ actor, idempotencyKey: randomUUID(),
       metadata: { title: "Personal progress", summary: "HTTP test", access: "free", topicId, formatId, tagIds: [], seriesIds: [seriesId] },
@@ -114,6 +114,16 @@ describe("ReadingActivity HTTP", () => {
     expect(progress.statusCode).toBe(200);
     expect(progress.headers["cache-control"]).toBe("private, no-store");
     expect(progress.json()).toEqual({ seriesId, read: 0, total: 1, allRead: false });
+    const guideProgress = await server.inject({ method: "GET", url: `/reading-activity/guides/${seriesId}`, headers });
+    expect(guideProgress.statusCode).toBe(200);
+    expect(guideProgress.json()).toEqual(progress.json());
+    expect(guideProgress.headers["cache-control"]).toBe("private, no-store");
+    expect((await server.inject({ method: "GET", url: `/reading-activity/guides/${seriesId}` })).statusCode).toBe(401);
+    const legacyPage = await server.inject({ method: "GET", url: "/library/series/series" });
+    const guidePage = await server.inject({ method: "GET", url: "/library/guides/series" });
+    expect(legacyPage.statusCode).toBe(200);
+    expect(guidePage.statusCode).toBe(200);
+    expect(guidePage.json()).toEqual(legacyPage.json());
     const openPayload = { materialId, contentVersion: published.value.contentVersion, commandId: randomUUID() };
     expect((await server.inject({ method: "GET", url: "/reading-activity/continue" })).statusCode).toBe(401);
     expect((await server.inject({ method: "POST", url: "/reading-activity/opens", payload: openPayload })).statusCode).toBe(401);
@@ -130,7 +140,7 @@ describe("ReadingActivity HTTP", () => {
     expect((await server.inject({ method: "POST", url: "/reading-activity/opens", headers, payload: openPayload })).json()).toMatchObject({ replayed: true });
     const loaded = await materials.authoring.loadMaterial({ actor, materialId });
     if (!loaded.ok) throw new Error(loaded.error.code);
-    for (const endpoint of ["/reading-activity/learning-home", "/reading-activity/series-continuation/series"]) {
+    for (const endpoint of ["/reading-activity/learning-home", "/reading-activity/series-continuation/series", "/reading-activity/guide-continuation/series"]) {
       expect((await server.inject({ method: "GET", url: endpoint })).statusCode).toBe(401);
       const own = await server.inject({ method: "GET", url: endpoint, headers });
       expect(own.statusCode).toBe(200); expect(own.headers["cache-control"]).toBe("private, no-store");

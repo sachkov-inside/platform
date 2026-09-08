@@ -195,7 +195,7 @@ export const Editing: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("group", { name: /^Серии/u }),
+      canvas.getByRole("group", { name: /^Руководства/u }),
     ).toBeInTheDocument();
     await expect(
       canvas.getByRole("checkbox", { name: "Создание Platform Inside" }),
@@ -672,12 +672,12 @@ export const MobileTextZoom: Story = {
 };
 
 export const SearchableSeries: Story = {
-  name: "Серии · поиск и продолжение списка",
+  name: "Руководства · поиск и продолжение списка",
   args: {
     presentation: {
       ...materialAuthoringPresentation,
       availableSeries: Array.from({ length: 45 }, (_, index) => ({
-        label: `Серия ${String(index + 1).padStart(2, "0")}`,
+        label: `Руководство ${String(index + 1).padStart(2, "0")}`,
         value: `94000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`,
       })),
       draft: { ...materialAuthoringPresentation.draft, seriesIds: [] },
@@ -685,17 +685,17 @@ export const SearchableSeries: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const series = within(canvas.getByLabelText("Выбор серий"));
+    const series = within(canvas.getByLabelText("Выбор руководств"));
     await expect(series.getAllByRole("checkbox")).toHaveLength(20);
     const more = series.getByRole("button", { name: "Показать ещё" });
     more.focus();
     await userEvent.keyboard("{Enter}");
     await expect(series.getAllByRole("checkbox").length).toBeGreaterThan(20);
-    await userEvent.type(canvas.getByLabelText("Поиск серии"), "Серия 45");
+    await userEvent.type(canvas.getByLabelText("Поиск руководств"), "Руководство 45");
     await expect(series.getAllByRole("checkbox")).toHaveLength(1);
-    await expect(series.getByRole("checkbox", { name: "Серия 45" })).toBeVisible();
+    await expect(series.getByRole("checkbox", { name: "Руководство 45" })).toBeVisible();
     await expect(canvas.getAllByText("Теги", { exact: true })).toHaveLength(1);
-    await expect(canvas.getAllByText("Серии", { exact: true })).toHaveLength(1);
+    await expect(canvas.getAllByText("Руководства", { exact: true })).toHaveLength(1);
   },
 };
 

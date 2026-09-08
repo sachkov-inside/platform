@@ -53,7 +53,7 @@ export function assembleContentCoverMaintenance(dependencies: {
           const references = await Promise.all([
             transaction.material.count({ where: { coverId: cover.id } }),
             transaction.topic.count({ where: { coverId: cover.id } }),
-            transaction.series.count({ where: { coverId: cover.id } }),
+            transaction.guide.count({ where: { coverId: cover.id } }),
             transaction.publishedMaterial.count({ where: { coverId: cover.id } }),
           ]);
           if (references.some((count) => count > 0) || cover.currentlyReferenced) {

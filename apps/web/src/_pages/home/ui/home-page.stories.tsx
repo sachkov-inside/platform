@@ -121,7 +121,7 @@ export const RealDataReady: Story = {
       "border",
       "bg-card",
     );
-    const seriesHeading = canvas.getByRole("heading", { name: "Серии" });
+    const seriesHeading = canvas.getByRole("heading", { name: "Руководства" });
     const videosHeading = canvas.getByRole("heading", { name: "Новые видео" });
     await expect(
       Boolean(
@@ -142,7 +142,7 @@ export const IllustratedCatalog: Story = {
     const canvas = within(canvasElement);
     const topic = canvas.getByRole("link", { name: "Архитектура" });
     await expect(topic).toBeVisible();
-    const playlist = canvas.getByRole("link", { name: "Открыть серию Создание Platform Inside" });
+    const playlist = canvas.getByRole("link", { name: "Открыть руководство Создание Platform Inside" });
     await expect(playlist.querySelectorAll("[data-content-cover-id]")).toHaveLength(2);
   },
 };

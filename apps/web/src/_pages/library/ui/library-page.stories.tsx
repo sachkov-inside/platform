@@ -306,7 +306,7 @@ export const ExpandableSeries: Story = {
         series: Array.from({ length: 5 }, (_, index) => ({
           ...catalogFacets.series[0],
           id: `series-${String(index + 1)}`,
-          name: `Серия ${String(index + 1)}`,
+          name: `Руководство ${String(index + 1)}`,
           slug: `series-${String(index + 1)}`,
         })),
       },
@@ -319,7 +319,7 @@ export const ExpandableSeries: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const series = within(canvas.getByRole("region", { name: /^Серии$/u }));
+    const series = within(canvas.getByRole("region", { name: /^Руководства$/u }));
     await expect(series.getAllByRole("link")).toHaveLength(3);
     const showAll = series.getByRole("button", { name: "Показать все" });
     await expect(showAll).toHaveAttribute("aria-expanded", "false");
@@ -330,8 +330,8 @@ export const ExpandableSeries: Story = {
     await userEvent.click(collapse);
     await expect(series.getAllByRole("link")).toHaveLength(3);
     await userEvent.click(series.getByRole("button", { name: "Показать все" }));
-    await userEvent.type(canvas.getByRole("searchbox"), "Серия");
-    const searched = within(canvas.getByRole("region", { name: /^Серии$/u }));
+    await userEvent.type(canvas.getByRole("searchbox"), "Руководство");
+    const searched = within(canvas.getByRole("region", { name: /^Руководства$/u }));
     await expect(searched.getAllByRole("link")).toHaveLength(3);
     await expect(searched.getByRole("button", { name: "Показать все" })).toHaveAttribute("aria-expanded", "false");
   },
@@ -374,7 +374,7 @@ export const ReadyDesktop: Story = {
       "/topics/product-engineering?from=%2Flibrary",
     );
     await expect(canvas.queryByText("Бесплатно")).not.toBeInTheDocument();
-    const seriesHeading = canvas.getByRole("heading", { name: "Серии" });
+    const seriesHeading = canvas.getByRole("heading", { name: "Руководства" });
     const materialsHeading = canvas.getByRole("heading", { name: "Материалы" });
     await expect(
       canvas.getByRole("radio", { name: "Все темы" }),
@@ -503,8 +503,8 @@ export const NoSearchResults: Story = {
   name: "Search · no results",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Серии" })).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "Открыть серию Создание Platform Inside" })).toBeVisible();
+    await expect(canvas.getByRole("heading", { name: "Руководства" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Открыть руководство Создание Platform Inside" })).toBeVisible();
     await expect(
       canvas.getAllByRole("button", { name: "Очистить поиск" }),
     ).toHaveLength(2);
