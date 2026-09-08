@@ -154,14 +154,8 @@ test("series picker shows materials before typing and saves composition on the s
     .getByLabel("Адрес", { exact: false })
     .fill(`series-${String(Date.now())}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
-  const row = page.getByRole("article").filter({ hasText: name });
-  await row.getByRole("button", { name: new RegExp(name, "u") }).click();
-  await row
-    .getByRole("button", { name: "Материалы серии", exact: true })
-    .click();
-  await row
-    .getByRole("button", { name: "Добавить материал", exact: true })
-    .click();
+  await expect(page).toHaveURL(/\/authoring\/playlists\/[^/]+$/u);
+  await page.getByRole("button", { name: "Добавить материал", exact: true }).click();
   const picker = page.getByRole("dialog", {
     name: "Добавить материал",
     exact: true,
@@ -176,18 +170,9 @@ test("series picker shows materials before typing and saves composition on the s
   await add.click();
   await picker.getByRole("button", { name: "Закрыть выбор материала" }).click();
   await expect(
-    row.getByText("Порядок сохранён.", { exact: true }),
+    page.getByText("Порядок сохранён.", { exact: true }),
   ).toBeVisible();
-  await expect(page).toHaveURL(/\/authoring\/playlists$/u);
   await page.reload();
-  await page
-    .getByRole("article")
-    .filter({ hasText: name })
-    .getByRole("button", { name: new RegExp(name, "u") })
-    .click();
-  await page
-    .getByRole("button", { name: "Материалы серии", exact: true })
-    .click();
   await expect(
     page.getByRole("list", { name: "Материалы серии" }),
   ).toContainText(title ?? "");

@@ -13,3 +13,5 @@ export { searchSeriesOrderMaterials } from "./api/search-series-order-materials.
 export { SeriesOrderPanel } from "./ui/series-order-panel.client";
 
 export { HomeSeriesPin, HomeSeriesPinView } from "./ui/home-series-pin.client";
+export { HomeSeriesPinButton } from "./ui/home-series-pin-button";
+export { useHomePin } from "./model/use-home-pin.client";
