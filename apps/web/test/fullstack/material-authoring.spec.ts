@@ -432,6 +432,32 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "261");
   await page.evaluate(() => { window.location.hash = "t=600"; });
   await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "261");
+  // A newer hash during the initial asynchronous seek must win when the SDK completes.
+  await page.evaluate(() => {
+    sessionStorage.setItem("test-player-defer-seek", "1");
+  });
+  await page.goto("/library");
+  await page.goto(`/materials/${slug}#t=3`);
+  const playerFrame = page.locator("[data-video-player-mount] iframe");
+  await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "3");
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    window.addEventListener("hashchange", () => { resolve(); }, { once: true });
+    window.location.hash = "t=261";
+  }));
+  await page.evaluate(() => { window.dispatchEvent(new Event("test-player-finish-seek")); });
+  await expect(playerFrame).toHaveAttribute("data-seek-seconds", "261");
+  // Serialize later clicks too, so a slow older seek cannot overwrite the newest moment.
+  await page.evaluate(() => {
+    sessionStorage.setItem("test-player-defer-seek", "1");
+    window.location.hash = "t=0";
+  });
+  await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "0");
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    window.addEventListener("hashchange", () => { resolve(); }, { once: true });
+    window.location.hash = "t=3";
+  }));
+  await page.evaluate(() => { window.dispatchEvent(new Event("test-player-finish-seek")); });
+  await expect(playerFrame).toHaveAttribute("data-seek-seconds", "3");
   await captureVideoEvidence(page, testInfo, "reader-automatic-player");
   // This fixture is a Guide containing Video: the saved completion belongs to the Material.
   await expect(
@@ -1589,6 +1615,17 @@ async function installPlaybackProviderDouble(page: Page): Promise<void> {
               getDuration: () => Promise.resolve(600),
               on: () => undefined,
               seekTo: (seconds: number) => {
+                if (sessionStorage.getItem("test-player-defer-seek") === "1") {
+                  sessionStorage.removeItem("test-player-defer-seek");
+                  iframe.dataset.pendingSeekSeconds = String(seconds);
+                  return new Promise<void>((resolve) => {
+                    window.addEventListener("test-player-finish-seek", () => {
+                      iframe.dataset.seekSeconds = String(seconds);
+                      delete iframe.dataset.pendingSeekSeconds;
+                      resolve();
+                    }, { once: true });
+                  });
+                }
                 iframe.dataset.seekSeconds = String(seconds);
                 return Promise.resolve();
               },

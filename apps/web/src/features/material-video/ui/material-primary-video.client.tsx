@@ -117,8 +117,33 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
         if (!active) return;
         const playbackProgress = resolveVideoPlaybackProgress(savedPositionSeconds, duration);
         const resumeSeconds = resolveVideoStartPosition(savedPositionSeconds, duration, window.location.hash);
+        let currentTime = resumeSeconds ?? 0;
+        let pendingSeek: number | null = null;
+        let seeking = false;
+        const seekToMoment = async (seconds: number) => {
+          pendingSeek = seconds;
+          if (seeking) return;
+          seeking = true;
+          try {
+            while (active && pendingSeek !== null) {
+              const target = pendingSeek;
+              pendingSeek = null;
+              await player.seekTo(target);
+              if (active) currentTime = target;
+            }
+          } finally {
+            seeking = false;
+          }
+        };
+        const seekToFragment = () => {
+          const seconds = readVideoTimeFragment(window.location.hash, duration);
+          if (!active || seconds === null) return;
+          void seekToMoment(seconds).catch(() => { if (active) setPhase("error"); });
+        };
+        window.addEventListener("hashchange", seekToFragment);
+        removeTimeListener = () => { window.removeEventListener("hashchange", seekToFragment); };
         if (resumeSeconds !== null) {
-          await player.seekTo(resumeSeconds);
+          await seekToMoment(resumeSeconds);
         }
         if (!active) return;
         setMeasuredDuration(duration);
@@ -127,8 +152,7 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
           scope: session.progressScope,
         };
         if (!progressInteractionRef.current) setWatchedOverride(playbackProgress.watched);
-        let lastPersisted = resumeSeconds ?? 0;
-        let currentTime = resumeSeconds ?? 0;
+        let lastPersisted = currentTime;
         const persist = (position: number) => {
           if (!active) return;
           const rounded = Math.max(0, Math.min(duration, Math.round(position)));
@@ -148,15 +172,6 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
           currentTime = nextTime;
           if (Math.abs(currentTime - lastPersisted) >= 15) persist(currentTime);
         });
-        const seekToFragment = () => {
-          const seconds = readVideoTimeFragment(window.location.hash, duration);
-          if (!active || seconds === null) return;
-          void player.seekTo(seconds).then(() => {
-            if (active) currentTime = seconds;
-          }).catch(() => { if (active) setPhase("error"); });
-        };
-        window.addEventListener("hashchange", seekToFragment);
-        removeTimeListener = () => { window.removeEventListener("hashchange", seekToFragment); };
         player.on(player.Events.Pause, () => { persist(currentTime); });
         player.on(player.Events.Ended, () => {
           if (!active) return;
@@ -166,6 +181,7 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
         setPhase("playing");
       } catch {
         if (active) {
+          removeTimeListener?.();
           void mountedPlayer?.destroy();
           mountedPlayer = null;
           setPhase("error");
