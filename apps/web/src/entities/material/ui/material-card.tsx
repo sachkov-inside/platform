@@ -26,6 +26,7 @@ export interface MaterialCardProps {
   readonly readingStatus?: React.ReactNode;
   /** Existing video card with a short continuation caption supplied by its page. */
   readonly resumeLabel?: string;
+  readonly showAccessDetails?: boolean;
   readonly variant?: "compact" | "default" | "feed" | "row";
 }
 
@@ -37,6 +38,7 @@ export function MaterialCard({
   rowAnnotation,
   readingStatus = material.materialId === undefined ? undefined : <SavedMaterialReadingStatus materialId={material.materialId} format={material.format} />,
   resumeLabel,
+  showAccessDetails = false,
   variant = "default",
 }: MaterialCardProps) {
   const Heading = headingLevel;
@@ -46,6 +48,7 @@ export function MaterialCard({
     return (
       <MaterialRow
         headingLevel={headingLevel}
+        showAccessDetails={showAccessDetails}
         material={material}
         readerHref={readerHref}
         resumeLabel={resumeLabel}
@@ -179,7 +182,9 @@ function MaterialRow({
   rowAnnotation,
   resumeLabel,
   readingStatus,
+  showAccessDetails,
 }: {
+  readonly showAccessDetails: boolean;
   readonly headingLevel: "h2" | "h3";
   readonly material: MaterialPreview;
   readonly readerHref: Route;
@@ -235,6 +240,10 @@ function MaterialRow({
         ) : null}
         {readingStatus || resumeLabel !== undefined ? <span className="mt-2 flex min-h-6 items-center">
           {resumeLabel === undefined ? readingStatus : <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-action"><Play aria-hidden="true" className="size-3.5 shrink-0 fill-current" />{resumeLabel}</span>}
+        </span> : null}
+        {showAccessDetails ? <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground" data-series-access>
+          {material.availability === "locked" ? <span className="inline-flex items-center gap-1.5 font-medium"><LockKeyhole aria-hidden="true" className="size-3.5" />По подписке</span> : material.availability === "unavailable" ? <span>Не удалось проверить доступ</span> : material.access === "free" ? <span>Бесплатно</span> : null}
+          {materialDuration(material) === undefined ? null : <span className="inline-flex items-center gap-1.5 tabular-nums"><Clock3 aria-hidden="true" className="size-3.5" />{materialDuration(material)}</span>}
         </span> : null}
         {rowAnnotation}
       </span>

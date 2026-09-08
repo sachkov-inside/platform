@@ -123,11 +123,15 @@ function readReturnTarget(
   const routeKind = match[1];
   if (url.search.length > 0) {
     const from = singleSearchValue(url.searchParams, "from");
+    const page = singleSearchValue(url.searchParams, "page");
+    const at = singleSearchValue(url.searchParams, "at");
+    const allowed = routeKind === "series" ? ["from", "page", "at"] : ["from"];
     if (
       depth >= 3 ||
-      from === undefined ||
-      [...url.searchParams.keys()].some((key) => key !== "from") ||
-      readReturnTarget(from, depth + 1) === undefined
+      [...url.searchParams.keys()].some((key) => !allowed.includes(key) || url.searchParams.getAll(key).length !== 1) ||
+      (url.searchParams.has("from") && (from === undefined || readReturnTarget(from, depth + 1) === undefined)) ||
+      (url.searchParams.has("page") && (page === undefined || String(readSeriesPage(page)) !== page)) ||
+      (url.searchParams.has("at") && (at === undefined || !slugPattern.test(at)))
     ) {
       return undefined;
     }
@@ -164,4 +168,19 @@ function assertSlug(slug: string): void {
   if (!slugPattern.test(slug)) {
     throw new TypeError("Expected a canonical slug");
   }
+}
+
+/** Canonical positive page; malformed values fall back to the start of a Series. */
+export function readSeriesPage(value: string | null): number {
+  const page = Number(value);
+  return Number.isSafeInteger(page) && page > 0 && page <= 10_000 ? page : 1;
+}
+
+export function seriesReaderReturnHref(href: Route, page: number, materialSlug?: string): Route {
+  const url = new URL(href, applicationOrigin);
+  url.searchParams.delete("page");
+  url.searchParams.delete("at");
+  if (page > 1) url.searchParams.set("page", String(page));
+  if (materialSlug !== undefined) { assertSlug(materialSlug); url.searchParams.set("at", materialSlug); }
+  return internalRoute(`${url.pathname}${url.search}`);
 }

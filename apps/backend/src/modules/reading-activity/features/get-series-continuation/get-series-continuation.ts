@@ -43,10 +43,14 @@ export async function getSeriesContinuation(dependencies: SeriesContinuationDepe
     const ids = items.map((item) => item.materialId);
     const [states, visited] = await Promise.all([
       dependencies.prisma.readingMaterialState.findMany({ where: { accountId: account, materialId: { in: ids }, isRead: true }, select: { materialId: true } }),
-      dependencies.prisma.readingMaterialVisit.findFirst({ where: { accountId: account, materialId: { in: ids } }, select: { materialId: true } }),
+      dependencies.prisma.readingMaterialVisit.findFirst({ where: { accountId: account, materialId: { in: ids } }, orderBy: [{ lastOpenedAt: "desc" }, { materialId: "asc" }], select: { materialId: true } }),
     ]);
     const read = new Set(states.map((item) => item.materialId));
-    const next = visited === null ? undefined : items.find((item) => !read.has(item.materialId) && item.availability === "available");
+    const lastIndex = items.findIndex((item) => item.materialId === visited?.materialId);
+    const availableUnread = (item: (typeof items)[number]) => !read.has(item.materialId) && item.availability === "available";
+    // Resume the last visited entry; after completion, advance in the current author order.
+    // Wrap only to revisit unfinished entries skipped earlier in the route.
+    const next = visited === null ? undefined : items.slice(lastIndex).find(availableUnread) ?? items.slice(0, lastIndex).find(availableUnread);
     const resumes = await loadMaterialResumes(dependencies, subject, next === undefined ? [] : [next]);
     return { ok: true, value: {
       collection: { ...series.value.reference, count: items.length, previewItems: items.slice(0, 3) },
