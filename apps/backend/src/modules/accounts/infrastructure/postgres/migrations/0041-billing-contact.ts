@@ -1,4 +1,4 @@
-export const name = "0040_billing_contact";
+export const name = "0041_billing_contact";
 export const statement = `
 create table accounts.billing_contacts (
  account_id uuid primary key references accounts.accounts(id),
