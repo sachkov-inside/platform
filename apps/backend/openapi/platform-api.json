@@ -1050,6 +1050,12 @@
         "description": "Dedicated Telegram-to-Platform evidence credential.",
         "scheme": "bearer",
         "type": "http"
+      },
+      "telegram-notifications": {
+        "bearerFormat": "JWT",
+        "description": "Dedicated Telegram notification dispatch credential.",
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -6305,6 +6311,353 @@
         "tags": [
           "Billing"
         ]
+      }
+    },
+    "/accounts/current/notifications/deliveries": {
+      "get": {
+        "operationId": "readOwnNotificationDeliveries",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "channel": {
+                        "enum": [
+                          "email",
+                          "telegram"
+                        ],
+                        "type": "string"
+                      },
+                      "commandRevision": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "id": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "notificationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "reason": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "recoverySkipped": {
+                        "type": "boolean"
+                      },
+                      "resultRevision": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "state": {
+                        "type": "string"
+                      },
+                      "updatedAt": {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "notificationId",
+                      "channel",
+                      "state",
+                      "reason",
+                      "commandRevision",
+                      "resultRevision",
+                      "recoverySkipped",
+                      "updatedAt"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Read own delivery summaries without recipients or provider payloads"
+      }
+    },
+    "/accounts/current/notifications/preferences": {
+      "get": {
+        "operationId": "readNotificationPreferences",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "email": {
+                      "type": "boolean"
+                    },
+                    "revision": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "telegram": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "revision",
+                    "email",
+                    "telegram"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Read own material notification opt-ins"
+      },
+      "post": {
+        "operationId": "changeNotificationPreferences",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "email": {
+                    "type": "boolean"
+                  },
+                  "expectedRevision": {
+                    "maximum": 2147483646,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "operationId": {},
+                  "telegram": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "expectedRevision",
+                  "email",
+                  "telegram"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "enum": [
+                            true
+                          ],
+                          "type": "boolean"
+                        },
+                        "preferences": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "email": {
+                              "type": "boolean"
+                            },
+                            "revision": {
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "telegram": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "revision",
+                            "email",
+                            "telegram"
+                          ],
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "preferences"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid_input",
+                            "revision_conflict",
+                            "operation_conflict"
+                          ],
+                          "type": "string"
+                        },
+                        "ok": {
+                          "enum": [
+                            false
+                          ],
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Change own channel opt-ins with revision and idempotency"
       }
     },
     "/accounts/current/telegram-link": {
@@ -50467,6 +50820,784 @@
         ]
       }
     },
+    "/internal/notifications/dispatch/authorize": {
+      "post": {
+        "operationId": "authorizeNotificationDispatch",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "attemptRef": {},
+                  "commandRevision": {
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "contractVersion": {
+                    "enum": [
+                      "inside.notification-dispatch.v1"
+                    ],
+                    "type": "string"
+                  },
+                  "deliveryOperationId": {},
+                  "deliveryRef": {},
+                  "operationId": {},
+                  "payloadDigest": {
+                    "pattern": "^[a-f0-9]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "contractVersion",
+                  "operationId",
+                  "deliveryOperationId",
+                  "deliveryRef",
+                  "commandRevision",
+                  "payloadDigest",
+                  "attemptRef"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attemptRef": {},
+                        "commandRevision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside.notification-dispatch.v1"
+                          ],
+                          "type": "string"
+                        },
+                        "deliveryOperationId": {},
+                        "deliveryRef": {},
+                        "operationId": {},
+                        "payloadDigest": {
+                          "pattern": "^[a-f0-9]{64}$",
+                          "type": "string"
+                        },
+                        "permitRef": {},
+                        "status": {
+                          "enum": [
+                            "allowed"
+                          ],
+                          "type": "string"
+                        },
+                        "validUntil": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "operationId",
+                        "deliveryOperationId",
+                        "deliveryRef",
+                        "commandRevision",
+                        "payloadDigest",
+                        "attemptRef",
+                        "status",
+                        "permitRef",
+                        "validUntil"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attemptRef": {},
+                        "commandRevision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside.notification-dispatch.v1"
+                          ],
+                          "type": "string"
+                        },
+                        "deliveryOperationId": {},
+                        "deliveryRef": {},
+                        "operationId": {},
+                        "payloadDigest": {
+                          "pattern": "^[a-f0-9]{64}$",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "enum": [
+                            "expired",
+                            "superseded",
+                            "preference_disabled",
+                            "access_denied",
+                            "binding_conflict",
+                            "not_found",
+                            "payload_conflict"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "denied"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "operationId",
+                        "deliveryOperationId",
+                        "deliveryRef",
+                        "commandRevision",
+                        "payloadDigest",
+                        "attemptRef",
+                        "status",
+                        "reason"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attemptRef": {},
+                        "code": {
+                          "enum": [
+                            "malformed",
+                            "unauthorized",
+                            "unsupported_contract",
+                            "operation_conflict",
+                            "unavailable"
+                          ],
+                          "type": "string"
+                        },
+                        "commandRevision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside.notification-dispatch.v1"
+                          ],
+                          "type": "string"
+                        },
+                        "deliveryOperationId": {},
+                        "deliveryRef": {},
+                        "operationId": {},
+                        "payloadDigest": {
+                          "pattern": "^[a-f0-9]{64}$",
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "error"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "operationId",
+                        "deliveryOperationId",
+                        "deliveryRef",
+                        "commandRevision",
+                        "payloadDigest",
+                        "attemptRef",
+                        "status",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "malformed",
+                        "unauthorized"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "malformed",
+                        "unauthorized"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attemptRef": {},
+                        "commandRevision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside.notification-dispatch.v1"
+                          ],
+                          "type": "string"
+                        },
+                        "deliveryOperationId": {},
+                        "deliveryRef": {},
+                        "operationId": {},
+                        "payloadDigest": {
+                          "pattern": "^[a-f0-9]{64}$",
+                          "type": "string"
+                        },
+                        "permitRef": {},
+                        "status": {
+                          "enum": [
+                            "allowed"
+                          ],
+                          "type": "string"
+                        },
+                        "validUntil": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "operationId",
+                        "deliveryOperationId",
+                        "deliveryRef",
+                        "commandRevision",
+                        "payloadDigest",
+                        "attemptRef",
+                        "status",
+                        "permitRef",
+                        "validUntil"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attemptRef": {},
+                        "commandRevision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside.notification-dispatch.v1"
+                          ],
+                          "type": "string"
+                        },
+                        "deliveryOperationId": {},
+                        "deliveryRef": {},
+                        "operationId": {},
+                        "payloadDigest": {
+                          "pattern": "^[a-f0-9]{64}$",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "enum": [
+                            "expired",
+                            "superseded",
+                            "preference_disabled",
+                            "access_denied",
+                            "binding_conflict",
+                            "not_found",
+                            "payload_conflict"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "denied"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "operationId",
+                        "deliveryOperationId",
+                        "deliveryRef",
+                        "commandRevision",
+                        "payloadDigest",
+                        "attemptRef",
+                        "status",
+                        "reason"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attemptRef": {},
+                        "code": {
+                          "enum": [
+                            "malformed",
+                            "unauthorized",
+                            "unsupported_contract",
+                            "operation_conflict",
+                            "unavailable"
+                          ],
+                          "type": "string"
+                        },
+                        "commandRevision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside.notification-dispatch.v1"
+                          ],
+                          "type": "string"
+                        },
+                        "deliveryOperationId": {},
+                        "deliveryRef": {},
+                        "operationId": {},
+                        "payloadDigest": {
+                          "pattern": "^[a-f0-9]{64}$",
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "error"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "operationId",
+                        "deliveryOperationId",
+                        "deliveryRef",
+                        "commandRevision",
+                        "payloadDigest",
+                        "attemptRef",
+                        "status",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attemptRef": {},
+                        "commandRevision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside.notification-dispatch.v1"
+                          ],
+                          "type": "string"
+                        },
+                        "deliveryOperationId": {},
+                        "deliveryRef": {},
+                        "operationId": {},
+                        "payloadDigest": {
+                          "pattern": "^[a-f0-9]{64}$",
+                          "type": "string"
+                        },
+                        "permitRef": {},
+                        "status": {
+                          "enum": [
+                            "allowed"
+                          ],
+                          "type": "string"
+                        },
+                        "validUntil": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "operationId",
+                        "deliveryOperationId",
+                        "deliveryRef",
+                        "commandRevision",
+                        "payloadDigest",
+                        "attemptRef",
+                        "status",
+                        "permitRef",
+                        "validUntil"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attemptRef": {},
+                        "commandRevision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside.notification-dispatch.v1"
+                          ],
+                          "type": "string"
+                        },
+                        "deliveryOperationId": {},
+                        "deliveryRef": {},
+                        "operationId": {},
+                        "payloadDigest": {
+                          "pattern": "^[a-f0-9]{64}$",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "enum": [
+                            "expired",
+                            "superseded",
+                            "preference_disabled",
+                            "access_denied",
+                            "binding_conflict",
+                            "not_found",
+                            "payload_conflict"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "denied"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "operationId",
+                        "deliveryOperationId",
+                        "deliveryRef",
+                        "commandRevision",
+                        "payloadDigest",
+                        "attemptRef",
+                        "status",
+                        "reason"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attemptRef": {},
+                        "code": {
+                          "enum": [
+                            "malformed",
+                            "unauthorized",
+                            "unsupported_contract",
+                            "operation_conflict",
+                            "unavailable"
+                          ],
+                          "type": "string"
+                        },
+                        "commandRevision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside.notification-dispatch.v1"
+                          ],
+                          "type": "string"
+                        },
+                        "deliveryOperationId": {},
+                        "deliveryRef": {},
+                        "operationId": {},
+                        "payloadDigest": {
+                          "pattern": "^[a-f0-9]{64}$",
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "error"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "operationId",
+                        "deliveryOperationId",
+                        "deliveryRef",
+                        "commandRevision",
+                        "payloadDigest",
+                        "attemptRef",
+                        "status",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attemptRef": {},
+                        "commandRevision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside.notification-dispatch.v1"
+                          ],
+                          "type": "string"
+                        },
+                        "deliveryOperationId": {},
+                        "deliveryRef": {},
+                        "operationId": {},
+                        "payloadDigest": {
+                          "pattern": "^[a-f0-9]{64}$",
+                          "type": "string"
+                        },
+                        "permitRef": {},
+                        "status": {
+                          "enum": [
+                            "allowed"
+                          ],
+                          "type": "string"
+                        },
+                        "validUntil": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "operationId",
+                        "deliveryOperationId",
+                        "deliveryRef",
+                        "commandRevision",
+                        "payloadDigest",
+                        "attemptRef",
+                        "status",
+                        "permitRef",
+                        "validUntil"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attemptRef": {},
+                        "commandRevision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside.notification-dispatch.v1"
+                          ],
+                          "type": "string"
+                        },
+                        "deliveryOperationId": {},
+                        "deliveryRef": {},
+                        "operationId": {},
+                        "payloadDigest": {
+                          "pattern": "^[a-f0-9]{64}$",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "enum": [
+                            "expired",
+                            "superseded",
+                            "preference_disabled",
+                            "access_denied",
+                            "binding_conflict",
+                            "not_found",
+                            "payload_conflict"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "denied"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "operationId",
+                        "deliveryOperationId",
+                        "deliveryRef",
+                        "commandRevision",
+                        "payloadDigest",
+                        "attemptRef",
+                        "status",
+                        "reason"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attemptRef": {},
+                        "code": {
+                          "enum": [
+                            "malformed",
+                            "unauthorized",
+                            "unsupported_contract",
+                            "operation_conflict",
+                            "unavailable"
+                          ],
+                          "type": "string"
+                        },
+                        "commandRevision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside.notification-dispatch.v1"
+                          ],
+                          "type": "string"
+                        },
+                        "deliveryOperationId": {},
+                        "deliveryRef": {},
+                        "operationId": {},
+                        "payloadDigest": {
+                          "pattern": "^[a-f0-9]{64}$",
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "error"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "operationId",
+                        "deliveryOperationId",
+                        "deliveryRef",
+                        "commandRevision",
+                        "payloadDigest",
+                        "attemptRef",
+                        "status",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "telegram-notifications": []
+          }
+        ],
+        "summary": "Authorize one correlated Telegram attempt against current source and binding"
+      }
+    },
     "/library/home": {
       "get": {
         "operationId": "readHomeContent",
@@ -58766,6 +59897,292 @@
         "tags": [
           "Member Profiles"
         ]
+      }
+    },
+    "/operations/notifications/accounts/{accountId}/deliveries": {
+      "get": {
+        "operationId": "readOperatorNotificationDeliveries",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "accountId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "channel": {
+                        "enum": [
+                          "email",
+                          "telegram"
+                        ],
+                        "type": "string"
+                      },
+                      "commandRevision": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "id": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "notificationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "reason": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "recoverySkipped": {
+                        "type": "boolean"
+                      },
+                      "resultRevision": {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      "state": {
+                        "type": "string"
+                      },
+                      "updatedAt": {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "notificationId",
+                      "channel",
+                      "state",
+                      "reason",
+                      "commandRevision",
+                      "resultRevision",
+                      "recoverySkipped",
+                      "updatedAt"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Read delivery summaries as current Platform administrator"
+      }
+    },
+    "/operations/notifications/unknown/resolve": {
+      "post": {
+        "operationId": "resolveUnknownNotificationDelivery",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "action": {
+                    "enum": [
+                      "skip"
+                    ],
+                    "type": "string"
+                  },
+                  "deliveryRef": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
+                  "operationId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "deliveryRef",
+                  "action"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Audit an administrator skip, preserving unknown and prohibiting resend"
       }
     },
     "/reading-activity/continue": {

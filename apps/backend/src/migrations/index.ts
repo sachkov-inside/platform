@@ -1,3 +1,4 @@
+import { name as notificationsName, statement as notificationsStatement } from "../modules/notifications/infrastructure/postgres/migrations/0045-notifications.js";
 import { name as notificationsTransportName, statement as notificationsTransportStatement } from "../modules/notifications/infrastructure/postgres/migrations/0044-notification-transport.js";
 import { name as materialsTransportName, statement as materialsTransportStatement } from "../modules/materials/infrastructure/postgres/migrations/0043-notification-transport.js";
 import { name as billingTransportName, statement as billingTransportStatement } from "../modules/billing/infrastructure/postgres/migrations/0042-notification-transport.js";
@@ -297,6 +298,7 @@ export const platformMigrations = [
   { name: billingTransportName, statement: billingTransportStatement },
   { name: materialsTransportName, statement: materialsTransportStatement },
   { name: notificationsTransportName, statement: notificationsTransportStatement },
+  { name: notificationsName, statement: notificationsStatement },
 ] as const;
 
 export function migrateToLatest(

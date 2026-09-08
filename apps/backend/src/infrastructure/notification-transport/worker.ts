@@ -10,6 +10,7 @@ const RELAY_SWEEP_MS = 1_000;
 const OBSERVATION_INTERVAL_MS = 60_000;
 const BACKLOG_ALERT_MS = 5 * 60 * 1_000;
 export function assembleNotificationWorker(input: {
+  processInbox?: () => Promise<void>;
   config: NotificationsConfig; transport: NotificationTransport;
   billing: NotificationOutbox; materials: NotificationOutbox;
   report: (event: Record<string, unknown>) => void;
@@ -50,6 +51,12 @@ export function assembleNotificationWorker(input: {
             void handle.failed.catch(() => fail(new Error('notification_consumer_stopped')));
           }
         }
+        if (input.processInbox) tasks.push((async () => {
+          while (!abort.signal.aborted) {
+            await input.processInbox?.();
+            await delay(RELAY_SWEEP_MS, undefined, { signal: abort.signal }).catch(() => undefined);
+          }
+        })());
         tasks.push((async () => {
           while (!abort.signal.aborted) {
             const observation = await input.transport.observe();
