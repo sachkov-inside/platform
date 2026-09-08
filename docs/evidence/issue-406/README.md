@@ -8,3 +8,5 @@ Nodemailer → loopback SMTP capture → ввод кода → сохранен�
 Identity, почта и legal fixtures синтетические. Скрипт не отправляет сообщения реальным людям,
 не доказывает Logto/SMTP production-доставку, оплату или принятие реальных юридических текстов.
 Final visual integration/owner visual GO формы и checkout остаются в #411.
+
+`storybook-code-*` — та же production-owned форма в Storybook на presentation fixtures; Agentation включён.
