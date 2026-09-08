@@ -122,7 +122,8 @@
 .type-specimen section { border-top: 1px solid var(--border); margin-top: 1.5rem; padding-top: 1rem; }
 .type-specimen small { display: block; margin-bottom: .5rem; font: 500 .75rem/1.5 var(--font-body); color: var(--muted-foreground); }
 .type-specimen [data-type=page] { font: 600 var(--type-page)/1.25 var(--font-body); }
-.type-specimen [data-type=section] { font: 600 var(--type-section)/1.3333 var(--font-body); }
+.type-specimen [data-type=section] { font: 600 var(--type-section)/1.25 var(--font-body); }
+@media (max-width: 700px) { .type-specimen [data-type=section] { line-height: 1.3333; } }
 .type-specimen [data-type=card] { font: 600 var(--type-card)/1.4 var(--font-body); }
 .type-specimen [data-type=body] { font: 400 var(--type-body)/1.5 var(--font-body); }
 .type-specimen [data-type=ui] { font: 500 var(--type-ui)/1.4286 var(--font-body); }
