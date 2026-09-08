@@ -319,7 +319,7 @@ step counts. Web derives the badge ordinal and total from the complete published
 Reader previous/next still follows every published entry in its one existing order.
 
 The Series list connects every overall ordinal with one dashed rail, first marker to last marker.
-All formats use the same numbered marker; a saved reading mark adds a check without removing the ordinal. Pagination and continuation follow [personal-home.md](personal-home.md). The explicit step label appears inside the
+All formats use the existing ordinal marker, replaced by the saved reading check for studied materials. Pagination and continuation follow [personal-home.md](personal-home.md). The explicit step label appears inside the
 existing Material row below its title; video rows render the existing published summary as plain
 text, limited to three visible lines so long descriptions do not dominate the mixed list. The presentation neither invents descriptions nor reads body content for previews.
 

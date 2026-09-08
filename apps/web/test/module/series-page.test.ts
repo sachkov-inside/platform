@@ -13,11 +13,15 @@ describe("Series pagination and return context", () => {
   it("keeps long pagination bounded", () => {
     expect(seriesPage(Array.from({ length: 1200 }), 50).pages).toEqual([1, null, 49, 50, 51, null, 100]);
   });
+  it("keeps the continuation page visible outside the current page window", () => {
+    expect(seriesPage(Array.from({ length: 120 }), 1, 5).pages).toEqual([1, 2, null, 5, null, 10]);
+    expect(seriesPage(items, 1, 99).pages).toEqual([1, 2, 3]);
+  });
   it("retains page, material and navigation origin through a Reader link", () => {
     const href = seriesReaderReturnHref(internalRoute("/series/platform?from=%2F"), 2, "ci");
     expect(parseMaterialReaderReturnTarget(href)).toMatchObject({ kind: "series", seriesSlug: "platform", href });
     expect(materialReaderHref("ci", href)).toContain("page%3D2%26at%3Dci");
-    expect(seriesReaderReturnHref(href, 1)).toBe("/series/platform?from=%2F");
+    expect(seriesReaderReturnHref(href, 1)).toBe("/series/platform?from=%2F&page=1");
   });
   it.each(["page=0", "page=-1", "page=2&page=3", "page=1e2", "at=bad%22slug", "from=https://evil.example", "other=2"])("rejects invalid Series return context: %s", (query) => {
     expect(parseMaterialReaderReturnTarget(`/series/platform?${query}`).kind).toBe("library");

@@ -39,14 +39,16 @@ export const InProgress: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("progressbar", { name: "Прогресс серии" })).toHaveAttribute("value", "8");
     await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(12);
-    await expect(canvasElement.querySelector('[data-series-marker-read="true"]')).toHaveTextContent("1");
-    await userEvent.click(canvas.getByRole("button", { name: "Показать в маршруте" }));
+    await expect(canvas.queryByRole("button", { name: "Показать в маршруте" })).not.toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Страница 2, продолжение" })).toHaveAttribute("aria-current", "page");
     await expect(canvas.getByText("Материалы 13–24 из 24")).toBeVisible();
     await expect(canvasElement.querySelector('[data-series-ordinal="13"]')).toHaveAttribute("aria-current", "step");
     await expect(canvas.getByRole("progressbar")).toHaveAttribute("value", "8");
     await expect(canvas.getAllByRole("link", { name: "Настройка CI" })[0]).toHaveAttribute("href", expect.stringContaining("page%3D2%26at%3Dseries-material-13"));
     await userEvent.click(canvas.getByRole("button", { name: "Страница 1" }));
     await expect(canvas.getByText("Материалы 1–12 из 24")).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Материал 1, изучен" })).toBeVisible();
+    await expect(canvasElement.querySelector('[data-series-marker-read="true"] svg')).toBeInTheDocument();
   },
 };
 export const Mobile: Story = { globals: { viewport: { value: "mobile390", isRotated: false } } };
@@ -70,11 +72,11 @@ export const Loading: Story = { args: { learning: { kind: "loading" } } };
 export const AccessUnavailable: Story = { args: { result: { ...result, items: materials.map((material) => ({ ...material, availability: "unavailable" })) }, learning: { kind: "ready", read: 8, total: 24, continuation: null } } };
 export const ShortSeries: Story = { args: { result: { ...result, items: materials.slice(0, 2) }, learning: { kind: "ready", read: 0, total: 2, continuation: null } }, play: async ({ canvasElement }) => { await expect(within(canvasElement).queryByRole("navigation", { name: "Страницы маршрута" })).not.toBeInTheDocument(); } };
 
-function ProgressResolution() {
+function ProgressResolution({ longTitle = false }: { longTitle?: boolean }) {
   const [ready, setReady] = useState(false);
   return <>
     <button onClick={() => { setReady(true); }} type="button">Получить прогресс (проверка)</button>
-    <LibraryDiscoveryView result={result} learning={ready ? { kind: "ready", read: 8, total: 24, continuation: resume } : { kind: "loading" }} />
+    <LibraryDiscoveryView result={longTitle ? { ...result, items: materials.map((item) => item.slug === resume.materialSlug ? { ...item, title: "Настройка непрерывной интеграции приложения" } : item) } : result} learning={ready ? { kind: "ready", read: 8, total: 24, continuation: resume } : { kind: "loading" }} />
   </>;
 }
 export const LoadingPreservesRoutePosition: Story = {
@@ -89,6 +91,12 @@ export const LoadingPreservesRoutePosition: Story = {
   },
 };
 export const DesktopLoadingPreservesRoutePosition: Story = { ...LoadingPreservesRoutePosition, globals: { viewport: { value: "desktop1440", isRotated: false } } };
+export const TabletLoadingPreservesRoutePosition: Story = {
+  ...LoadingPreservesRoutePosition,
+  render: () => <ProgressResolution longTitle />,
+  parameters: { viewport: { options: { tablet768: { name: "Tablet 768", styles: { width: "768px", height: "1024px" }, type: "tablet" } } } },
+  globals: { viewport: { value: "tablet768", isRotated: false } },
+};
 export const EnlargedText: Story = {
   args: { learning: { kind: "unavailable" } },
   globals: { viewport: { value: "mobile320", isRotated: false } },

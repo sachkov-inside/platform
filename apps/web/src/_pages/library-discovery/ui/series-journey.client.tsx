@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, ArrowRight, Play, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Play, RefreshCw } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -34,13 +34,15 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
   const requestedMaterial = search.get("at");
   const routeRef = useRef<HTMLElement>(null);
   const items = result.kind === "ready" ? result.items : [];
+  const continuation = learning.kind === "ready" ? learning.continuation : null;
+  const resumeIndex = items.findIndex((item) => item.slug === continuation?.materialSlug && item.availability === "available");
+  const resumePage = resumeIndex < 0 ? undefined : Math.floor(resumeIndex / SERIES_PAGE_SIZE) + 1;
   const restoredIndex = items.findIndex((item) => item.slug === requestedMaterial);
-  const restoredPage = restoredIndex < 0 ? requestedPage : Math.floor(restoredIndex / SERIES_PAGE_SIZE) + 1;
+  const restoredPage = restoredIndex >= 0 ? Math.floor(restoredIndex / SERIES_PAGE_SIZE) + 1 : search.has("page") ? requestedPage : resumePage ?? 1;
   const [navigation, setNavigation] = useState({ source: restoredPage, page: restoredPage });
   if (navigation.source !== restoredPage) setNavigation({ source: restoredPage, page: restoredPage });
-  const page = seriesPage(items, navigation.source === restoredPage ? navigation.page : restoredPage);
+  const page = seriesPage(items, navigation.source === restoredPage ? navigation.page : restoredPage, resumePage);
   const steps = seriesSteps(items, result.reference.slug);
-  const continuation = learning.kind === "ready" ? learning.continuation : null;
   const next = items.find((item) => item.slug === continuation?.materialSlug && item.availability === "available");
   const first = items.find((item) => item.availability === "available");
   const complete = learning.kind === "ready" && learning.total > 0 && learning.read === learning.total;
@@ -51,26 +53,30 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
   const targetHref = target === undefined ? undefined : materialReaderHref(target.slug, seriesReaderReturnHref(currentHref, targetPage, target.slug));
 
   useEffect(() => {
+    if (resumePage === undefined || search.has("page") || search.has("at")) return;
+    if (window.location.pathname === new URL(currentHref, window.location.origin).pathname) {
+      window.history.replaceState(null, "", seriesReaderReturnHref(currentHref, page.number));
+    }
+  }, [currentHref, page.number, resumePage, search]);
+
+  useEffect(() => {
     if (requestedMaterial === null || page.number !== restoredPage) return;
     const row = routeRef.current?.querySelector<HTMLElement>(`[data-route-material="${CSS.escape(requestedMaterial)}"]`);
     row?.scrollIntoView({ block: "center" });
   }, [page.number, requestedMaterial, restoredPage]);
 
-  function navigate(number: number, slug?: string) {
+  function navigate(number: number) {
     setNavigation({ source: restoredPage, page: number });
-    const href = seriesReaderReturnHref(currentHref, number, slug);
-    // Embedded views keep their host URL; a collection route owns its history.
+    const href = seriesReaderReturnHref(currentHref, number);
     if (window.location.pathname === new URL(currentHref, window.location.origin).pathname) window.history.pushState(null, "", href);
     requestAnimationFrame(() => {
-      const row = slug === undefined ? undefined : routeRef.current?.querySelector<HTMLElement>(`[data-route-material="${CSS.escape(slug)}"]`);
-      const element = row ?? routeRef.current;
-      element?.focus({ preventScroll: true });
-      element?.scrollIntoView({ block: row === undefined ? "start" : "center" });
+      routeRef.current?.focus({ preventScroll: true });
+      routeRef.current?.scrollIntoView({ block: "start" });
     });
   }
 
   return <>
-    {items.length > 0 ? <section aria-label="Прохождение серии" className="mt-6 grid min-h-80 gap-6 md:min-h-64 lg:min-h-52 rounded-2xl bg-muted/55 p-5 sm:p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:items-center md:gap-10" data-series-learning={learning.kind}>
+    {items.length > 0 ? <section aria-label="Прохождение серии" className="mt-8 grid min-h-52 gap-6 md:min-h-36 xl:min-h-28 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:items-center md:gap-12" data-series-learning={learning.kind}>
       <div className="min-w-0">
         {learning.kind === "guest" ? <>
           <h2 className="text-lg font-semibold">Изучайте в своём темпе</h2>
@@ -80,14 +86,13 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
         {learning.kind === "unavailable" ? <Button className="mt-3 h-auto min-h-11 max-w-full whitespace-normal" onClick={onRetry} variant="outline"><RefreshCw aria-hidden="true" />Повторить загрузку прогресса</Button> : null}
       </div>
       <div className="min-w-0">
-        {target !== undefined && targetHref !== undefined && !complete ? <>
-          <h2 className="text-sm font-medium text-muted-foreground">{next === undefined ? "Первый материал" : "Продолжить изучение"}</h2>
-          <p className="mt-2 line-clamp-2 break-words text-lg font-semibold leading-7">{target.title}</p>
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Button asChild className="h-auto min-h-11 max-w-full whitespace-normal [overflow-wrap:anywhere]" size="lg"><Link href={targetHref}><Play aria-hidden="true" className="size-4" />{next === undefined ? "Начать серию" : continuation?.label === "Продолжить здесь" ? "Продолжить" : continuation?.label}</Link></Button>
-            <Button className="h-auto min-h-11 max-w-full whitespace-normal [overflow-wrap:anywhere]" onClick={() => { navigate(targetPage, target.slug); }} variant="ghost"><ArrowDown aria-hidden="true" />Показать в маршруте</Button>
+        {target !== undefined && targetHref !== undefined && !complete ? <div className="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-3">
+          <div className="min-w-0 max-w-sm">
+            <p className="text-sm text-muted-foreground">{next === undefined ? "Первый материал" : "Продолжить изучение"}</p>
+            <h2 className="mt-1 line-clamp-2 break-words text-lg font-semibold leading-7">{target.title}</h2>
           </div>
-        </> : complete ? <p className="max-w-md leading-7 text-muted-foreground">Можно вернуться к любому материалу в маршруте и повторить нужное.</p> : learning.kind === "loading" ? <p className="text-muted-foreground">Ищем место продолжения…</p> : learning.kind === "unavailable" ? <p className="text-sm leading-6 text-muted-foreground">Материалы можно открыть в маршруте ниже.</p> : <p className="text-sm leading-6 text-muted-foreground">Выберите материал в маршруте. Условия доступа указаны на карточках.</p>}
+          <Button asChild className="h-auto min-h-11 max-w-full whitespace-normal [overflow-wrap:anywhere]" size="lg"><Link href={targetHref}><Play aria-hidden="true" className="size-4" />{next === undefined ? "Начать серию" : continuation?.label === "Продолжить здесь" ? "Продолжить" : continuation?.label}</Link></Button>
+        </div> : complete ? <p className="max-w-md leading-7 text-muted-foreground">Можно вернуться к любому материалу в маршруте и повторить нужное.</p> : learning.kind === "loading" ? <p className="text-muted-foreground">Ищем место продолжения…</p> : learning.kind === "unavailable" ? <p className="text-sm leading-6 text-muted-foreground">Материалы можно открыть в маршруте ниже.</p> : <p className="text-sm leading-6 text-muted-foreground">Выберите материал в маршруте. Условия доступа указаны на карточках.</p>}
       </div>
     </section> : null}
     {result.kind === "ready" ? <section aria-labelledby="series-materials" className="mt-10 scroll-mt-6 focus:outline-none" ref={routeRef} tabIndex={-1}>
@@ -110,7 +115,7 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
       {page.count > 1 ? <nav aria-label="Страницы маршрута" className="mt-7 flex flex-wrap items-center justify-between gap-3">
         <Button className="min-h-11" disabled={page.number === 1} onClick={() => { navigate(page.number - 1); }} variant="outline"><ArrowLeft aria-hidden="true" />Назад</Button>
         <div className="flex flex-wrap items-center gap-1">
-          {page.pages.map((number, index) => number === null ? <span aria-hidden="true" className="px-1 text-muted-foreground" key={`gap-${String(index)}`}>…</span> : <Button aria-current={page.number === number ? "page" : undefined} aria-label={`Страница ${String(number)}`} className="min-h-11 min-w-11 tabular-nums" key={number} onClick={() => { navigate(number); }} variant={page.number === number ? "default" : "ghost"}>{number}</Button>)}
+          {page.pages.map((number, index) => number === null ? <span aria-hidden="true" className="px-1 text-muted-foreground" key={`gap-${String(index)}`}>…</span> : <Button aria-current={page.number === number ? "page" : undefined} aria-label={`Страница ${String(number)}${number === resumePage ? ", продолжение" : ""}`} className="min-h-11 min-w-11 tabular-nums" key={number} onClick={() => { navigate(number); }} variant={page.number === number ? "default" : "ghost"}>{number}{number === resumePage ? <Play aria-hidden="true" className="size-3 fill-current" /> : null}</Button>)}
         </div>
         <Button className="min-h-11" disabled={page.number === page.count} onClick={() => { navigate(page.number + 1); }} variant="outline">Далее<ArrowRight aria-hidden="true" /></Button>
       </nav> : null}

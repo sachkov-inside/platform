@@ -180,7 +180,7 @@ export function seriesReaderReturnHref(href: Route, page: number, materialSlug?:
   const url = new URL(href, applicationOrigin);
   url.searchParams.delete("page");
   url.searchParams.delete("at");
-  if (page > 1) url.searchParams.set("page", String(page));
+  url.searchParams.set("page", String(page));
   if (materialSlug !== undefined) { assertSlug(materialSlug); url.searchParams.set("at", materialSlug); }
   return internalRoute(`${url.pathname}${url.search}`);
 }

@@ -1,11 +1,12 @@
 export const SERIES_PAGE_SIZE = 12;
 
 /** Pagination changes the visible route only; composition and progress remain complete. */
-export function seriesPage<T>(items: readonly T[], requestedPage: number) {
+export function seriesPage<T>(items: readonly T[], requestedPage: number, resumePage?: number) {
   const count = Math.max(1, Math.ceil(items.length / SERIES_PAGE_SIZE));
   const number = Math.min(count, Math.max(1, Math.trunc(requestedPage) || 1));
   const offset = (number - 1) * SERIES_PAGE_SIZE;
   const visible = new Set([1, count, number - 1, number, number + 1]);
+  if (resumePage !== undefined && Number.isInteger(resumePage)) visible.add(resumePage);
   const pages: (number | null)[] = [];
   for (const page of [...visible].filter((value) => value > 0 && value <= count).sort((a, b) => a - b)) {
     const previous = pages.at(-1);
