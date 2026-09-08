@@ -423,6 +423,15 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await expect(
     page.locator("[data-video-player-mount] iframe"),
   ).toHaveAttribute("data-seek-seconds", "37");
+  // Explicit chapter links win over saved resume, including zero and same-page hash changes.
+  await page.goto(`/materials/${slug}#t=3`);
+  await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "3");
+  await page.evaluate(() => { window.location.hash = "t=0"; });
+  await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "0");
+  await page.evaluate(() => { window.location.hash = "t=261"; });
+  await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "261");
+  await page.evaluate(() => { window.location.hash = "t=600"; });
+  await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "261");
   await captureVideoEvidence(page, testInfo, "reader-automatic-player");
   // This fixture is a Guide containing Video: the saved completion belongs to the Material.
   await expect(

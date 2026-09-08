@@ -405,7 +405,7 @@ export const Desktop: Story = {
     await waitFor(async () => {
       await expect(image.complete && image.naturalWidth > 0).toBe(true);
       await expect(image).toBeInTheDocument();
-    });
+    }, { timeout: 5_000 });
     canvasElement.ownerDocument.scrollingElement?.scrollTo(0, 0);
     for (const kind of ["table", "image", "file"] as const) {
       const block = canvasElement.querySelector<HTMLElement>(

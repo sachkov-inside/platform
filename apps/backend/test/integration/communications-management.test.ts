@@ -1,3 +1,4 @@
+import { VIDEOS, type Videos } from "../../src/modules/videos/index.js";
 import { z } from "zod";
 import { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -225,6 +226,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
     mcp = createMcpHttpServer({
       accounts: app.get<Accounts>(ACCOUNTS),
       authoring: app.get<MaterialAuthoring>(MATERIAL_AUTHORING),
+      videos: app.get<Videos>(VIDEOS),
       communications: app.get(Communications),
       tokenVerifier: app.get<LogtoAccessTokenVerifier>(
         LOGTO_ACCESS_TOKEN_VERIFIER,

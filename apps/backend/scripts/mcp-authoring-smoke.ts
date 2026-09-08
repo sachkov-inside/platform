@@ -86,6 +86,9 @@ try {
       "material_save",
       "playlist_load_composition",
       "playlist_save_composition",
+      "video_attach_existing",
+      "video_init_upload",
+      "video_reconcile",
     ],
     "MCP tool surface",
   );
@@ -125,6 +128,7 @@ try {
   );
   const published = successfulValue(
     await callTool("material_save", {
+      primaryVideoId: null,
       idempotencyKey: `full-stack-mcp-publish-from-${String(currentVersion)}`,
       materialId,
       expectedContentVersion: currentVersion,
@@ -154,6 +158,7 @@ try {
 
   const unpublished = successfulValue(
     await callTool("material_save", {
+      primaryVideoId: null,
       idempotencyKey: `full-stack-mcp-unpublish-from-${String(publishedVersion)}`,
       materialId,
       expectedContentVersion: publishedVersion,

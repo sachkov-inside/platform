@@ -49,3 +49,15 @@ export function isVideoWatchedPosition(
 ): boolean {
   return positionSeconds >= Math.max(1, durationSeconds - 5);
 }
+
+/** A material link may select a moment explicitly using #t=<whole seconds>. */
+export function readVideoTimeFragment(fragment: string, durationSeconds: number): number | null {
+  const value = new URLSearchParams(fragment.replace(/^#/u, "")).getAll("t");
+  if (value.length !== 1) return null;
+  const parsed = z.string().regex(/^\d+$/u).transform(Number).pipe(z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)).safeParse(value[0]);
+  return parsed.success && parsed.data < durationSeconds ? parsed.data : null;
+}
+
+export function resolveVideoStartPosition(savedPositionSeconds: number | null, durationSeconds: number, fragment: string): number | null {
+  return readVideoTimeFragment(fragment, durationSeconds) ?? resolveVideoPlaybackProgress(savedPositionSeconds, durationSeconds).resumeSeconds;
+}

@@ -15,6 +15,8 @@ import {
 import {
   isVideoWatchedPosition,
   resolveVideoPlaybackProgress,
+  readVideoTimeFragment,
+  resolveVideoStartPosition,
 } from "../model/video";
 
 interface MaterialPrimaryVideoProps {
@@ -58,6 +60,7 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
     if (video.state !== "ready") return;
     let active = true;
     let mountedPlayer: { destroy(): Promise<void> } | null = null;
+    let removeTimeListener: (() => void) | undefined;
     const loadPlayer = async () => {
       try {
         const session = await createPlaybackSession({ materialId, videoId: video.videoId });
@@ -113,8 +116,8 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
         const duration = Math.max(1, Math.round(await player.getDuration()));
         if (!active) return;
         const playbackProgress = resolveVideoPlaybackProgress(savedPositionSeconds, duration);
-        const resumeSeconds = playbackProgress.resumeSeconds;
-        if (resumeSeconds !== null && resumeSeconds > 5) {
+        const resumeSeconds = resolveVideoStartPosition(savedPositionSeconds, duration, window.location.hash);
+        if (resumeSeconds !== null) {
           await player.seekTo(resumeSeconds);
         }
         if (!active) return;
@@ -145,6 +148,15 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
           currentTime = nextTime;
           if (Math.abs(currentTime - lastPersisted) >= 15) persist(currentTime);
         });
+        const seekToFragment = () => {
+          const seconds = readVideoTimeFragment(window.location.hash, duration);
+          if (!active || seconds === null) return;
+          void player.seekTo(seconds).then(() => {
+            if (active) currentTime = seconds;
+          }).catch(() => { if (active) setPhase("error"); });
+        };
+        window.addEventListener("hashchange", seekToFragment);
+        removeTimeListener = () => { window.removeEventListener("hashchange", seekToFragment); };
         player.on(player.Events.Pause, () => { persist(currentTime); });
         player.on(player.Events.Ended, () => {
           if (!active) return;
@@ -163,6 +175,7 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
     void loadPlayer();
     return () => {
       active = false;
+      removeTimeListener?.();
       void mountedPlayer?.destroy();
     };
   }, [createPlaybackSession, materialId, persistAccountProgress, retryAttempt, video.durationSeconds, video.state, video.title, video.videoId]);

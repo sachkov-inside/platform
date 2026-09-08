@@ -108,12 +108,13 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Material state",
       description:
-        "Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history.",
+        "Pass primaryVideoId from material_load to preserve the video, or explicitly null to detach without deleting its source. Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history.",
       inputSchema: z
         .object({
           idempotencyKey: idempotencyKeyWireSchema,
           materialId: materialIdWireSchema,
           expectedContentVersion: contentVersionWireSchema,
+          primaryVideoId: z.uuid().nullable(),
           publicationState: publicationStateWireSchema,
           metadata: materialMetadataSelectionWireSchema,
           body: materialBodySnapshotWireSchema,
@@ -129,6 +130,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       idempotencyKey: key,
       materialId,
       expectedContentVersion,
+      primaryVideoId,
       publicationState: targetState,
       metadata,
       body,
@@ -139,6 +141,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           idempotencyKey: key,
           materialId,
           expectedContentVersion,
+          primaryVideoId,
           publicationState: targetState,
           metadata,
           body,
